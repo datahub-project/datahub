@@ -1,9 +1,14 @@
-import { Col, Row, Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const SKELETON_MARGIN_BOTTOM_PX = 12;
+const NUM_GRID_BOXES = 12;
+const GRID_BOX_WIDTH_RATIO = 1 / 4;
+const GRID_BOX_WIDTH_PERCENT = GRID_BOX_WIDTH_RATIO * 100;
+const NUM_GRID_ROWS = NUM_GRID_BOXES * GRID_BOX_WIDTH_RATIO;
+
 const Body = styled.div`
     padding-bottom: ${SKELETON_MARGIN_BOTTOM_PX}px;
 `;
@@ -19,7 +24,14 @@ const Container = styled.div`
     position: relative;
 `;
 
-const StyledCol = styled(Col)`
+const GridRow = styled.div`
+    display: flex;
+    flex-flow: row wrap;
+`;
+
+const GridCol = styled.div`
+    flex: 0 0 ${GRID_BOX_WIDTH_PERCENT}%;
+    max-width: ${GRID_BOX_WIDTH_PERCENT}%;
     height: 100%;
     padding: 0;
     margin: 0;
@@ -52,20 +64,18 @@ const LoadingTextContainer = styled.div`
     justify-content: center;
     align-items: center;
 `;
-const LoadingText = styled(Typography.Text)`
+const LoadingText = styled(Text).attrs({ type: 'span' })`
     font-size: 14px;
     color: ${(props) => props.theme.colors.textDisabled};
+    line-height: inherit;
+    word-break: break-word;
 `;
 
-const NUM_GRID_BOXES = 12;
-const ANT_COL_6_SPAN = 6;
-const ANT_COL_6_ITEM_WIDTH_RATIO = 1 / 4;
-const NUM_GRID_ROWS = NUM_GRID_BOXES * ANT_COL_6_ITEM_WIDTH_RATIO;
 const renderGridSkeleton = (height: number, loadingText: string) => {
     const boxes = Array.from({ length: NUM_GRID_BOXES }, (_, index) => (
-        <StyledCol key={index} span={ANT_COL_6_SPAN}>
+        <GridCol key={index}>
             <Box style={{ height: height / NUM_GRID_ROWS }} />
-        </StyledCol>
+        </GridCol>
     ));
 
     return (
@@ -73,7 +83,7 @@ const renderGridSkeleton = (height: number, loadingText: string) => {
             <LoadingTextContainer>
                 <LoadingText>{loadingText}</LoadingText>
             </LoadingTextContainer>
-            <Row gutter={0}>{boxes}</Row>
+            <GridRow>{boxes}</GridRow>
         </Container>
     );
 };

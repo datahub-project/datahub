@@ -1,75 +1,20 @@
-import { Icon } from '@components';
+import { CollapsiblePanel, Icon } from '@components';
 import { Code } from '@phosphor-icons/react/dist/csr/Code';
 import { Info } from '@phosphor-icons/react/dist/csr/Info';
-import { Collapse } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { CodeBlock } from '@components/components/CodeBlock';
+
 import { Assertion, AssertionType } from '@types';
-
-const { Panel } = Collapse;
-
-const StyledCollapse = styled(Collapse)`
-    background: ${(props) => props.theme.colors.bgSurface};
-    border-radius: 8px;
-    margin-bottom: 16px;
-
-    .ant-collapse-header {
-        font-weight: 600;
-        color: ${(props) => props.theme.colors.text};
-    }
-
-    .ant-collapse-content-box {
-        padding: 16px;
-    }
-`;
 
 const SectionTitle = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
-`;
-
-const LogicContainer = styled.div`
-    background: ${(props) => props.theme.colors.bgSurface};
-    border-radius: 6px;
-    padding: 16px;
-    overflow-x: auto;
-    max-height: 400px;
-    overflow-y: auto;
-
-    pre {
-        margin: 0;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-    }
-
-    code {
-        color: ${(props) => props.theme.colors.text};
-        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-        font-size: 12px;
-        line-height: 1.5;
-    }
-`;
-
-const PropertiesContainer = styled.div`
-    background: ${(props) => props.theme.colors.bgSurface};
-    border-radius: 6px;
-    padding: 16px;
-    overflow-x: auto;
-    max-height: 300px;
-    overflow-y: auto;
-
-    pre {
-        margin: 0;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-        font-size: 12px;
-        line-height: 1.5;
-        color: ${(props) => props.theme.colors.text};
-    }
+    font-weight: 600;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 type Props = {
@@ -125,43 +70,39 @@ export const AssertionDetailsSection = ({ assertion }: Props) => {
         return null;
     }
 
-    const defaultActiveKeys: string[] = [];
-    if (logic) defaultActiveKeys.push('logic');
-
     return (
-        <StyledCollapse defaultActiveKey={defaultActiveKeys} expandIconPosition="end">
+        <>
             {logic && (
-                <Panel
+                <CollapsiblePanel
+                    defaultOpen
                     header={
                         <SectionTitle>
                             <Icon icon={Code} size="md" />
                             <span>{t('assertionSummary.detailsLogicTitle')}</span>
                         </SectionTitle>
                     }
-                    key="logic"
                 >
-                    <LogicContainer>
-                        <pre>
-                            <code>{logic}</code>
-                        </pre>
-                    </LogicContainer>
-                </Panel>
+                    <CodeBlock code={logic} wrap maxHeight={400} showFormat={false} />
+                </CollapsiblePanel>
             )}
             {hasCustomProperties && (
-                <Panel
+                <CollapsiblePanel
                     header={
                         <SectionTitle>
                             <Icon icon={Info} size="md" />
                             <span>{t('assertionSummary.detailsCustomPropertiesTitle')}</span>
                         </SectionTitle>
                     }
-                    key="properties"
                 >
-                    <PropertiesContainer>
-                        <pre>{JSON.stringify(customPropertiesObject, null, 2)}</pre>
-                    </PropertiesContainer>
-                </Panel>
+                    <CodeBlock
+                        code={JSON.stringify(customPropertiesObject, null, 2)}
+                        language="json"
+                        wrap
+                        maxHeight={300}
+                        showFormat={false}
+                    />
+                </CollapsiblePanel>
             )}
-        </StyledCollapse>
+        </>
     );
 };

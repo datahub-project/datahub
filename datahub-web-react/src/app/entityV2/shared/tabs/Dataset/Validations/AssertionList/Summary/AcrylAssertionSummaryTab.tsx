@@ -1,5 +1,4 @@
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
-import { Card, Empty } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
@@ -18,7 +17,7 @@ import {
     ASSERTION_TYPE_FILTER_NAME,
     LEGACY_ENTITY_FILTER_NAME,
 } from '@app/searchV2/utils/constants';
-import { Button } from '@src/alchemy-components';
+import { Button, Card, EmptyState, Skeleton } from '@src/alchemy-components';
 import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@src/app/entityV2/shared/siblingUtils';
 import { useSearchAssertionsQuery } from '@src/graphql/assertion.generated';
@@ -34,14 +33,11 @@ const LoadingBody = styled.div`
     overflow: auto;
 `;
 
-const CardSkeleton = styled(Card)`
-    && {
-        padding: 0px 12px 12px 0px;
-        height: 210px;
-        border-radius: 8px;
-        width: 100%;
-    }
-`;
+const CardSkeleton = () => (
+    <Card width="100%" height="210px" padding="24px">
+        <Skeleton title={false} paragraph={{ rows: 4 }} />
+    </Card>
+);
 
 const AcrylAssertionSummaryContainer = styled.div`
     display: grid;
@@ -108,7 +104,7 @@ const AcrylAssertionTypeSummary = ({
     });
 
     if (loading) {
-        return <CardSkeleton loading />;
+        return <CardSkeleton />;
     }
 
     const statusFacet = data?.searchAcrossEntities?.facets?.find(
@@ -164,10 +160,10 @@ export const AcrylAssertionSummaryTab = () => {
     if (entityLoading || assertionDataLoading) {
         return (
             <LoadingBody>
-                <CardSkeleton loading />
-                <CardSkeleton loading />
-                <CardSkeleton loading />
-                <CardSkeleton loading />
+                <CardSkeleton />
+                <CardSkeleton />
+                <CardSkeleton />
+                <CardSkeleton />
             </LoadingBody>
         );
     }
@@ -183,7 +179,7 @@ export const AcrylAssertionSummaryTab = () => {
     if (!assertionData || assertionCount === 0 || !assertionTypeFacets) {
         return (
             <EmptyContainer>
-                <Empty description={t('assertionSummary.noAssertionsCreated')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                <EmptyState title={t('assertionSummary.noAssertionsCreated')} size="sm" />
                 <Button
                     onClick={() =>
                         history.replace(`${basePath}/List?${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}`)

@@ -1,5 +1,5 @@
-import { Popover } from '@components';
-import { Button, Typography } from 'antd';
+import { Button, Popover, Text } from '@components';
+import { Typography } from 'antd';
 import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -20,9 +20,18 @@ import {
     StringMapEntry,
 } from '@types';
 
+// inline-flex keeps the click target to the label, as antd's inline-block Button did
 const ViewLogicButton = styled(Button)`
+    display: inline-flex;
     padding: 0px;
     margin: 0px;
+`;
+
+const BoldText = styled(Text).attrs({ type: 'span', weight: 'semiBold' })`
+    color: ${(props) => props.theme.colors.text};
+    font-size: inherit;
+    line-height: inherit;
+    word-break: break-word;
 `;
 
 const AssertionDetailsContainer = styled.div`
@@ -40,10 +49,13 @@ const TypographyContainer = styled.div`
     word-wrap: break-word;
 `;
 
-const StyledLastRunText = styled(Typography.Text)`
+const StyledLastRunText = styled(Text).attrs({ type: 'span' })`
+    color: ${(props) => props.theme.colors.text};
     font-size: 10px;
+    line-height: inherit;
     display: flex;
     align-items: center;
+    word-break: break-word;
 `;
 
 /**
@@ -101,7 +113,7 @@ type OperatorKey =
     | 'fallback';
 
 // Shared <Trans> components map; `bold` matches the <bold> tags in the description translation keys.
-const boldComponents = { bold: <Typography.Text strong /> };
+const boldComponents = { bold: <BoldText /> };
 
 /**
  * Resolves the aggregation portion of the description key, plus the column value(s) it interpolates.
@@ -264,13 +276,13 @@ export const DatasetAssertionDescription = ({
     return (
         <Popover
             overlayStyle={{ maxWidth: TOOLTIP_MAX_WIDTH }}
-            title={<Typography.Text strong>{tc('details')}</Typography.Text>}
+            title={<BoldText>{tc('details')}</BoldText>}
             content={
                 <>
                     <AssertionDetailsContainer>
                         {lastEvaluation?.lastObservedMillis && (
                             <LastRunSection>
-                                <Typography.Text strong>{t('datasetDescription.popover.reported')}</Typography.Text>
+                                <BoldText>{t('datasetDescription.popover.reported')}</BoldText>
                                 <StyledLastRunText>
                                     {lastEvaluation?.lastObservedMillis &&
                                         toReadableLocalDateTimeString(lastEvaluation.lastObservedMillis)}
@@ -279,12 +291,11 @@ export const DatasetAssertionDescription = ({
                         )}
                         <TypographyContainer>
                             <div>
-                                <Typography.Text strong>{t('datasetDescription.popover.type')}</Typography.Text>:{' '}
-                                {nativeType || tc('na')}
+                                <BoldText>{t('datasetDescription.popover.type')}</BoldText>: {nativeType || tc('na')}
                             </div>
                             {nativeParameters?.map((parameter) => (
                                 <div key={parameter.key}>
-                                    <Typography.Text strong>{parameter.key}</Typography.Text>: {parameter.value}
+                                    <BoldText>{parameter.key}</BoldText>: {parameter.value}
                                 </div>
                             ))}
                         </TypographyContainer>
@@ -295,7 +306,7 @@ export const DatasetAssertionDescription = ({
             <div>{descriptionFragment}</div>
             {logic && (
                 <div>
-                    <ViewLogicButton onClick={() => setIsLogicVisible(true)} type="link">
+                    <ViewLogicButton onClick={() => setIsLogicVisible(true)} variant="link">
                         {t('datasetDescription.popover.viewLogic')}
                     </ViewLogicButton>
                 </div>

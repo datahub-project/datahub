@@ -1,14 +1,13 @@
-import { Tooltip } from '@components';
-import { Tag } from 'antd';
+import { Pill, Tooltip } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-const StyledTag = styled(Tag)`
+// margin-right keeps the spacing antd Tag applied between sample values
+const StyledPill = styled(Pill)`
     cursor: pointer;
     max-width: 250px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    margin-right: 8px;
 
     &&:hover {
         color: ${(props) => props.theme.colors.textHover};
@@ -32,7 +31,7 @@ export default function SampleValueTag({ value }: Props) {
 
     return (
         <Tooltip title={copied ? tf('copied') : tf('clickToCopy')}>
-            <StyledTag onClick={onClick}>{value}</StyledTag>
+            <StyledPill label={value} variant="squareOutline" color="gray" size="sm" clickable onPillClick={onClick} />
         </Tooltip>
     );
 }

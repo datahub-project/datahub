@@ -1,4 +1,4 @@
-import { Divider, Typography } from 'antd';
+import { Divider, Heading } from '@components';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -28,6 +28,12 @@ const StatSection = styled.div`
     border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 20px;
     margin-top: 12px;
+`;
+
+// Matches antd Typography.Title's bottom margin
+const SectionTitleContainer = styled.div`
+    margin-bottom: 8px;
+    word-break: break-word;
 `;
 
 const ColumnStatsHeader = styled.div`
@@ -166,13 +172,21 @@ export default function HistoricalStats({ urn, lookbackWindow }: Props) {
         <>
             {profilesLoading && <Message type="loading" content={tcf('loading')} style={{ marginTop: '10%' }} />}
             <StatSection>
-                <Typography.Title level={5}>{t('historicalStats.profilingRunsTitle')}</Typography.Title>
+                <SectionTitleContainer>
+                    <Heading type="h5" size="lg" weight="semiBold">
+                        {t('historicalStats.profilingRunsTitle')}
+                    </Heading>
+                </SectionTitleContainer>
                 <ProfilingRunsChart profiles={profiles} areAllProfilesPartitioned={areAllProfilesPartitioned} />
             </StatSection>
             <StatSection>
-                <Typography.Title level={5}>
-                    {areAllProfilesPartitioned ? t('historicalStats.partitionStats') : t('historicalStats.tableStats')}
-                </Typography.Title>
+                <SectionTitleContainer>
+                    <Heading type="h5" size="lg" weight="semiBold">
+                        {areAllProfilesPartitioned
+                            ? t('historicalStats.partitionStats')
+                            : t('historicalStats.tableStats')}
+                    </Heading>
+                </SectionTitleContainer>
                 <ChartRow>
                     <StatChart
                         title={t('historicalStats.rowCountOverTime')}
@@ -203,7 +217,11 @@ export default function HistoricalStats({ urn, lookbackWindow }: Props) {
             </StatSection>
             <StatSection>
                 <ColumnStatsHeader>
-                    <Typography.Title level={5}>{t('historicalStats.columnStats')}</Typography.Title>
+                    <SectionTitleContainer>
+                        <Heading type="h5" size="lg" weight="semiBold">
+                            {t('historicalStats.columnStats')}
+                        </Heading>
+                    </SectionTitleContainer>
                     {columnSelectView}
                 </ColumnStatsHeader>
                 <ChartRow>

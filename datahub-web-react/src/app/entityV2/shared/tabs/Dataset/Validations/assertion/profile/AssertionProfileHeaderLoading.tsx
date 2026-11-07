@@ -1,4 +1,4 @@
-import { Skeleton } from 'antd';
+import { Skeleton } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -22,7 +22,7 @@ const CardSkeleton = styled(Skeleton.Input)`
 export const AssertionProfileHeaderLoading = () => {
     return (
         <Container>
-            <CardSkeleton active size="large" />
+            <CardSkeleton size="lg" />
         </Container>
     );
 };

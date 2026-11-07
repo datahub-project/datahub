@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { OverflowText } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -20,13 +20,12 @@ export const SchemaAssertionDescription = ({ assertionInfo, ellipsis }: Props) =
     const { compatibility } = assertionInfo;
     const isExactMatch = compatibility === SchemaAssertionCompatibility.ExactMatch;
     const expectedColumnCount = assertionInfo?.fields?.length || 0;
+    const description = t(isExactMatch ? 'schemaDescription.exactMatch' : 'schemaDescription.include', {
+        count: expectedColumnCount,
+    });
     return (
         <div>
-            <Typography.Text ellipsis={ellipsis ? { tooltip: true } : undefined}>
-                {t(isExactMatch ? 'schemaDescription.exactMatch' : 'schemaDescription.include', {
-                    count: expectedColumnCount,
-                })}
-            </Typography.Text>
+            {ellipsis ? <OverflowText text={description} /> : <span>{description}</span>}
             {showSchemaSummary && !!assertionInfo.schema && (
                 <SchemaSummaryModal schema={assertionInfo.schema} onClose={() => setShowSchemaSummary(false)} />
             )}

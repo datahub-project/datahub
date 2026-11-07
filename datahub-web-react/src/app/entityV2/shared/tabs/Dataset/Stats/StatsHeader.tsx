@@ -1,6 +1,6 @@
+import { Button, Text } from '@components';
 import { ChartLine } from '@phosphor-icons/react/dist/csr/ChartLine';
 import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
-import { Button, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
@@ -38,20 +38,22 @@ export default function StatsHeader({ viewType, setViewType, reportedAt, lookbac
     const theme = useTheme();
     const latestButtonColor = viewType === ViewType.LATEST ? theme.colors.textInformation : theme.colors.textSecondary;
     const latestButton = (
-        <Button type="text" onClick={() => setViewType(ViewType.LATEST)}>
+        <Button variant="text" color="gray" onClick={() => setViewType(ViewType.LATEST)}>
             <ChartLine style={{ color: latestButtonColor }} />
-            <Typography.Text style={{ color: latestButtonColor }}>{t('statsHeader.latestButton')}</Typography.Text>
+            <Text type="span" style={{ color: latestButtonColor }}>
+                {t('statsHeader.latestButton')}
+            </Text>
         </Button>
     );
 
     const historicalButtonColor =
         viewType === ViewType.HISTORICAL ? theme.colors.textInformation : theme.colors.textSecondary;
     const historicalButton = (
-        <Button type="text" onClick={() => setViewType(ViewType.HISTORICAL)}>
+        <Button variant="text" color="gray" onClick={() => setViewType(ViewType.HISTORICAL)}>
             <Clock style={{ color: historicalButtonColor }} />
-            <Typography.Text style={{ color: historicalButtonColor }}>
+            <Text type="span" style={{ color: historicalButtonColor }}>
                 {t('statsHeader.historicalButton')}
-            </Typography.Text>
+            </Text>
         </Button>
     );
 

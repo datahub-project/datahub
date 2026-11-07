@@ -1,4 +1,3 @@
-import { SelectValue } from 'antd/lib/select';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -23,8 +22,8 @@ export const TimeSelect = ({ lookbackWindow, setLookbackWindow }: Props) => {
     /**
      * Invoked when user selects new lookback window (e.g. 1 year)
      */
-    const onChangeLookbackWindow = (value: SelectValue) => {
-        const newLookbackWindow = Object.values(LOOKBACK_WINDOWS).filter((window) => window.text === value?.valueOf());
+    const onChangeLookbackWindow = (value: string) => {
+        const newLookbackWindow = Object.values(LOOKBACK_WINDOWS).filter((window) => window.text === value);
         setLookbackWindow(newLookbackWindow[0]);
     };
 

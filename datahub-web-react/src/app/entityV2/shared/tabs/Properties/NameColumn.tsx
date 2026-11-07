@@ -1,7 +1,5 @@
-import { Tooltip } from '@components';
-import { Typography } from 'antd';
+import { MatchText, Text, Tooltip } from '@components';
 import React from 'react';
-import Highlight from 'react-highlighter';
 import styled, { useTheme } from 'styled-components';
 
 import StructuredPropertyTooltip from '@app/entityV2/shared/tabs/Properties/StructuredPropertyTooltip';
@@ -9,7 +7,7 @@ import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 
 const MIN_CONTENT = 'min-content' as const;
 
-const ParentNameText = styled(Typography.Text)`
+const ParentNameText = styled(Text).attrs({ type: 'span' })`
     color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     font-family: Manrope;
@@ -21,7 +19,8 @@ const ParentNameText = styled(Typography.Text)`
     align-items: center;
 `;
 
-const ChildNameText = styled(Typography.Text)`
+// A plain span rather than alchemy Text: Tooltip children must forward their ref to a DOM node
+const ChildNameText = styled.span`
     align-self: stretch;
     color: ${(props) => props.theme.colors.text};
     font-size: 12px;
@@ -62,7 +61,12 @@ export default function NameColumn({ propertyRow, filterText }: Props) {
             {propertyRow.children ? (
                 <NameLabelWrapper>
                     <ParentNameText>
-                        <Highlight search={filterText}>{propertyRow.displayName}</Highlight>
+                        <MatchText
+                            type="span"
+                            size="inherit"
+                            text={propertyRow.displayName}
+                            highlight={filterText || ''}
+                        />
                     </ParentNameText>
                     {propertyRow.childrenCount ? (
                         <ChildCountText>&nbsp;({propertyRow.childrenCount})</ChildCountText>
@@ -79,7 +83,12 @@ export default function NameColumn({ propertyRow, filterText }: Props) {
                         title={structuredProperty ? <StructuredPropertyTooltip propertyRow={propertyRow} /> : ''}
                     >
                         <ChildNameText>
-                            <Highlight search={filterText}>{propertyRow.displayName}</Highlight>
+                            <MatchText
+                                type="span"
+                                size="inherit"
+                                text={propertyRow.displayName}
+                                highlight={filterText || ''}
+                            />
                         </ChildNameText>
                     </Tooltip>
                 </NameLabelWrapper>

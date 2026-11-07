@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
-import StatChart, { ChartCard } from '@app/entityV2/shared/tabs/Dataset/Stats/historical/charts/StatChart';
+import StatChart from '@app/entityV2/shared/tabs/Dataset/Stats/historical/charts/StatChart';
 import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import { computeChartTickInterval, extractChartValuesFromFieldProfiles } from '@app/entityV2/shared/utils';
 import { getFixedLookbackWindow } from '@app/sharedV2/time/timeUtils';
@@ -27,14 +27,6 @@ const ChartRow = styled.div`
     grid-template-columns: repeat(auto-fill, minmax(${CHART_WIDTH}px, 1fr));
     gap: 12px 0;
     column-gap: 12px;
-    & > ${ChartCard} {
-        box-shadow: none;
-        border-radius: 9px;
-        border: 1px solid ${(props) => props.theme.colors.border};
-        .ant-card-body {
-            padding: 5px;
-        }
-    }
 `;
 
 const NoDataContainer = styled.div`
@@ -124,6 +116,7 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                 <StatChart
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
+                    padding="5px"
                     lineColor={defaultLineColor}
                     title={t('statsSidebar.nullCountOverTime')}
                     tickInterval={graphTickInterval}
@@ -133,6 +126,7 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                 <StatChart
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
+                    padding="5px"
                     lineColor={defaultLineColor}
                     title={t('statsSidebar.nullPercentageOverTime')}
                     tickInterval={graphTickInterval}
@@ -142,6 +136,7 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                 <StatChart
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
+                    padding="5px"
                     lineColor={defaultLineColor}
                     title={t('statsSidebar.distinctCountOverTime')}
                     tickInterval={graphTickInterval}
@@ -151,6 +146,7 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                 <StatChart
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
+                    padding="5px"
                     lineColor={defaultLineColor}
                     title={t('statsSidebar.distinctPercentageOverTime')}
                     tickInterval={graphTickInterval}

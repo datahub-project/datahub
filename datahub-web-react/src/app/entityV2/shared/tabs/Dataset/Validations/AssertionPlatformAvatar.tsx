@@ -1,5 +1,4 @@
-import { Tooltip } from '@components';
-import { Image, Typography } from 'antd';
+import { Avatar, Text, Tooltip } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -11,6 +10,13 @@ import { DataPlatform, EntityType } from '@types';
 
 const PlatformContainer = styled.div<{ noRightMargin?: boolean }>`
     margin-right: ${(props) => (props.noRightMargin ? '0px' : '8px')};
+`;
+
+const PlatformName = styled(Text).attrs({ type: 'span' })`
+    color: ${(props) => props.theme.colors.text};
+    font-size: inherit;
+    line-height: inherit;
+    word-break: break-word;
 `;
 
 type Props = {
@@ -31,17 +37,13 @@ export const AssertionPlatformAvatar = ({ platform, externalUrl, noRightMargin }
             <PlatformContainer noRightMargin={noRightMargin}>
                 <LinkWrapper to={externalUrl} target="_blank" onClick={(e) => e.stopPropagation()}>
                     {(platform.properties?.logoUrl && (
-                        <Image
-                            preview={false}
-                            height={24}
-                            width={24}
-                            src={platform.properties?.logoUrl}
-                            style={{ objectFit: 'fill', borderRadius: 12 }}
+                        <Avatar
+                            name={entityRegistry.getDisplayName(EntityType.DataPlatform, platform)}
+                            imageUrl={platform.properties?.logoUrl}
+                            size="md"
                         />
                     )) || (
-                        <Typography.Text>
-                            {entityRegistry.getDisplayName(EntityType.DataPlatform, platform)}
-                        </Typography.Text>
+                        <PlatformName>{entityRegistry.getDisplayName(EntityType.DataPlatform, platform)}</PlatformName>
                     )}
                 </LinkWrapper>
             </PlatformContainer>

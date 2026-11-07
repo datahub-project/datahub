@@ -1,5 +1,6 @@
-import { Empty } from 'antd';
+import { EmptyState } from '@components';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -11,7 +12,7 @@ import SchemaEditableContext from '@app/sharedV2/SchemaEditableContext';
 
 import { SchemaField } from '@types';
 
-const NoSchema = styled(Empty)`
+const NoSchema = styled(EmptyState)`
     color: ${(props) => props.theme.colors.textDisabled};
     padding-top: 60px;
 `;
@@ -22,6 +23,7 @@ const SchemaTableContainer = styled.div`
 `;
 export const InputFieldsTab = () => {
     const { entityData } = useEntityData();
+    const { t } = useTranslation('alchemy');
     const inputFields = entityData?.inputFields || undefined;
     const ungroupedRows = inputFields?.fields?.map((field) => field?.schemaField) as SchemaField[];
 
@@ -54,7 +56,7 @@ export const InputFieldsTab = () => {
                         </SchemaEditableContext.Provider>
                     </>
                 ) : (
-                    <NoSchema />
+                    <NoSchema title={t('noData')} size="sm" />
                 )}
             </SchemaTableContainer>
         </>

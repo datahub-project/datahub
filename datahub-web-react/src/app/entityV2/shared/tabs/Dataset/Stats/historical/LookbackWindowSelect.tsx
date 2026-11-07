@@ -1,4 +1,3 @@
-import { SelectValue } from 'antd/lib/select';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,8 +12,8 @@ type Props = {
 export default function LookbackWindowSelect({ lookbackWindow, setLookbackWindow }: Props) {
     const { t } = useTranslation('entity.profile.stats');
 
-    const onChangeLookbackWindow = (value: SelectValue) => {
-        const newLookbackWindow = Object.values(LOOKBACK_WINDOWS).filter((window) => window.text === value?.valueOf());
+    const onChangeLookbackWindow = (value: string) => {
+        const newLookbackWindow = Object.values(LOOKBACK_WINDOWS).filter((window) => window.text === value);
         setLookbackWindow(newLookbackWindow[0]);
     };
 

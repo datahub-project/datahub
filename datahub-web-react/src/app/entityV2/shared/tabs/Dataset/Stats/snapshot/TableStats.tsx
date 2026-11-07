@@ -1,5 +1,4 @@
-import { Tooltip } from '@components';
-import { Typography } from 'antd';
+import { Heading, Tooltip } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -24,6 +23,19 @@ type Props = {
 const StatSection = styled.div`
     border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 20px;
+`;
+
+const SectionTitleContainer = styled.div`
+    margin-bottom: 8px;
+    word-break: break-word;
+`;
+
+// A plain span rather than alchemy Text: Tooltip children must forward their ref to a DOM node
+const StatValue = styled.span<{ $fontSize: number }>`
+    color: ${(props) => props.theme.colors.text};
+    font-size: ${(props) => props.$fontSize}px;
+    font-weight: 600;
+    word-break: break-word;
 `;
 
 const StatContainer = styled.div<{ justifyContent }>`
@@ -65,33 +77,31 @@ export default function TableStats({
 
     return (
         <StatSection>
-            <Typography.Title level={5}>
-                {t(isPartitioned ? 'tableStats.partitionStatsForPartition' : 'tableStats.tableStatsTitle', {
-                    partition: partitionSpec?.partition,
-                })}
-            </Typography.Title>
+            <SectionTitleContainer>
+                <Heading type="h5" size="lg" weight="semiBold">
+                    {t(isPartitioned ? 'tableStats.partitionStatsForPartition' : 'tableStats.tableStatsTitle', {
+                        partition: partitionSpec?.partition,
+                    })}
+                </Heading>
+            </SectionTitleContainer>
             <StatContainer justifyContent={justifyContent}>
                 {rowCount && (
                     <InfoItem title={tl('rows')}>
                         <Tooltip title={formatNumberWithoutAbbreviation(rowCount)} placement="right">
-                            <Typography.Text strong style={{ fontSize: 24 }} data-testid="table-stats-rowcount">
+                            <StatValue $fontSize={24} data-testid="table-stats-rowcount">
                                 {countFormatter(rowCount)}
-                            </Typography.Text>
+                            </StatValue>
                         </Tooltip>
                     </InfoItem>
                 )}
                 {columnCount && (
                     <InfoItem title={tl('columns')}>
-                        <Typography.Text strong style={{ fontSize: 24 }}>
-                            {columnCount}
-                        </Typography.Text>
+                        <StatValue $fontSize={24}>{columnCount}</StatValue>
                     </InfoItem>
                 )}
                 {queryCount && (
                     <InfoItem title={t('tableStats.monthlyQueriesLabel')}>
-                        <Typography.Text strong style={{ fontSize: 24 }}>
-                            {queryCount}
-                        </Typography.Text>
+                        <StatValue $fontSize={24}>{queryCount}</StatValue>
                     </InfoItem>
                 )}
                 {sortedUsers && sortedUsers.length > 0 && (
@@ -114,9 +124,7 @@ export default function TableStats({
                 {lastUpdatedTime && (
                     <InfoItem title={t('tableStats.lastUpdatedLabel')} width="220px">
                         <Tooltip title={t('tableStats.lastReportedAt', { time: lastReportedTimeString })}>
-                            <Typography.Text strong style={{ fontSize: 16 }}>
-                                {lastUpdatedTime}
-                            </Typography.Text>
+                            <StatValue $fontSize={16}>{lastUpdatedTime}</StatValue>
                         </Tooltip>
                     </InfoItem>
                 )}

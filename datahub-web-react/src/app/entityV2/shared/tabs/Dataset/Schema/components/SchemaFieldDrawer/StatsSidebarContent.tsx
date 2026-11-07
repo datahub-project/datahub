@@ -1,6 +1,6 @@
+import { EmptyState, Text } from '@components';
 import { TrendDown } from '@phosphor-icons/react/dist/csr/TrendDown';
 import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
-import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -41,13 +41,14 @@ const StatLabel = styled.div`
     }
 `;
 
-const LabelText = styled(Typography.Text)`
+const LabelText = styled(Text).attrs({ type: 'span' })`
     color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 400;
     line-height: 24px;
     width: ${maxLabelWidth}px;
     margin-right: 8px;
+    word-break: break-word;
 `;
 
 const StatValue = styled.div<{ isDecreasing: boolean }>`
@@ -62,24 +63,9 @@ const TrendLines = styled.div`
     margin-top: 4px;
 `;
 
-const NoDataContainer = styled.div`
-    margin: 40px auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-`;
-
-const Section = styled.div`
-    color: ${(props) => props.theme.colors.textSecondary};
-    font-weight: 700;
-    font-size: 12px;
-    line-height: 24px;
-`;
-
 const NoStatsIcon = styled(NoStatsAvailble)`
     width: 80px;
     height: 80px;
-    margin-bottom: 6px;
     color: ${(props) => props.theme.colors.bg};
 `;
 
@@ -124,12 +110,7 @@ export function StatsSidebarContent({ properties }: Props) {
     };
 
     if (!fieldProfile) {
-        return (
-            <NoDataContainer>
-                <NoStatsIcon />
-                <Section>{t('statsSidebar.noColumnStatsFound')}</Section>
-            </NoDataContainer>
-        );
+        return <EmptyState title={t('statsSidebar.noColumnStatsFound')} image={<NoStatsIcon />} size="sm" />;
     }
 
     const statsData = {

@@ -1,5 +1,5 @@
+import { Button, Divider } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import { Divider } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -53,26 +53,6 @@ const FieldText = styled.div`
     font-size: 12px;
     line-height: 24px;
     color: ${(props) => props.theme.colors.textTertiary};
-`;
-
-const CloseIcon = styled.div`
-    font-size: 12px;
-    padding: 0;
-    height: 24px;
-    width: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    &&:hover {
-        cursor: pointer;
-        stroke-width: 10px;
-    }
-
-    svg {
-        height: 16px;
-        width: 16px;
-    }
 `;
 
 const StyledDivider = styled(Divider)`
@@ -139,9 +119,15 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath 
                 <MenuWrapper>
                     <MenuColumn field={expandedField} />
                 </MenuWrapper>
-                <CloseIcon onClick={() => setExpandedDrawerFieldPath(null)}>
-                    <X />
-                </CloseIcon>
+                <Button
+                    variant="text"
+                    color="gray"
+                    size="sm"
+                    isCircle
+                    icon={{ icon: X }}
+                    onClick={() => setExpandedDrawerFieldPath(null)}
+                    aria-label={tc('close')}
+                />
             </RightGroup>
         </FieldHeaderWrapper>
     );

@@ -1,10 +1,9 @@
-import { Tooltip } from '@components';
-import { Typography } from 'antd';
+import { Text, Tooltip } from '@components';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import i18next from 'i18next';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
 import {
     DatasetAssertionDescription,
@@ -59,6 +58,21 @@ import {
 import { cronToString, removeTimePrefix } from '@utils/cronstrue';
 
 import { useGetUserQuery } from '@graphql/user.generated';
+
+// alchemy Text sets its own font-size/line-height; antd Typography.Text inherited them
+const InlineText = styled(Text).attrs({ type: 'span' })`
+    color: ${(props) => props.theme.colors.text};
+    font-size: inherit;
+    line-height: inherit;
+    word-break: break-word;
+`;
+
+// A plain span rather than alchemy Text: Tooltip children must forward their ref to a DOM node
+const SecondaryLabelText = styled.span`
+    color: ${(props) => props.theme.colors.textDisabled};
+    font-size: 12px;
+    word-break: break-word;
+`;
 
 type StructuredDescriptionFields = {
     scope?: GeneratedMaybe<DatasetAssertionScope>;
@@ -199,9 +213,9 @@ export const useBuildAssertionPrimaryLabel = (
     options?: { showColumnTag?: boolean },
 ): JSX.Element => {
     const { t } = useTranslation('entity.profile.validations');
-    let primaryLabel = <Typography.Text>{t('datasetDescription.fallback.noDescription')}</Typography.Text>;
+    let primaryLabel = <InlineText>{t('datasetDescription.fallback.noDescription')}</InlineText>;
     if (assertionInfo?.description && assertionInfo?.type !== AssertionType.Field) {
-        primaryLabel = <Typography.Text>{assertionInfo.description}</Typography.Text>;
+        primaryLabel = <InlineText>{assertionInfo.description}</InlineText>;
     } else {
         switch (assertionInfo?.type) {
             case AssertionType.Dataset:
@@ -271,7 +285,7 @@ export const useBuildAssertionPrimaryLabel = (
                         />
                     );
                 } else if (custom?.type) {
-                    primaryLabel = <Typography.Text>{custom.type}</Typography.Text>;
+                    primaryLabel = <InlineText>{custom.type}</InlineText>;
                 }
                 break;
             }
@@ -289,7 +303,6 @@ export const useBuildAssertionPrimaryLabel = (
  * @returns {JSX.Element} if sufficient data is present
  */
 const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Element | null => {
-    const theme = useTheme();
     const { t } = useTranslation('entity.profile.validations');
     const entityRegistry = useEntityRegistry();
 
@@ -359,9 +372,7 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
                 </>
             }
         >
-            <Typography.Text style={{ color: theme.colors.textDisabled, fontSize: 12 }}>
-                {secondaryLabelMessage}
-            </Typography.Text>
+            <SecondaryLabelText>{secondaryLabelMessage}</SecondaryLabelText>
         </Tooltip>
     ) : null;
 };

@@ -1,4 +1,4 @@
-import { Divider } from 'antd';
+import { Divider } from '@components';
 import styled, { css } from 'styled-components';
 
 export const CARD_WIDTH = '225px';
