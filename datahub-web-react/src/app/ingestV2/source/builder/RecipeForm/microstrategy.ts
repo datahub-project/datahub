@@ -382,7 +382,7 @@ export const MICROSTRATEGY_EXTRACT_DERIVED_METRICS: RecipeField = {
     label: 'Extract Derived Metrics',
     helper: 'Surface visualization-local derived metrics as schema fields',
     tooltip:
-        'Whether to surface visualization-local derived metrics (grid columns marked derived: true, which exist only inside a dossier visualization and not in the metadata catalog) as schema fields on the dataset backing their column group, tagged Derived. Requires Extract Lineage and Extract Visualization Details; adds no API calls.',
+        'Whether to surface derived metrics (grid columns marked derived: true) as schema fields on the dataset backing their column group, tagged Derived. For a report-backed dataset the report definition is read, so report-level derived metrics carry their name and formula; this adds one or two API calls per distinct report-backed dataset. Requires Extract Lineage and Extract Visualization Details.',
     type: FieldType.BOOLEAN,
     fieldPath: extractDerivedMetricsFieldPath,
     rules: null,
@@ -411,6 +411,87 @@ export const MICROSTRATEGY_USE_PREDEFINED_FOLDER_NAMES: RecipeField = {
     fieldPath: usePredefinedFolderNamesFieldPath,
     rules: null,
     getValueFromRecipeOverride: getBooleanValueWithTrueDefault(usePredefinedFolderNamesFieldPath),
+};
+
+export const MICROSTRATEGY_INCLUDE_PERSONAL_FOLDERS: RecipeField = {
+    name: 'include_personal_folders',
+    label: 'Include Personal Folders',
+    helper: "Ingest content in users' personal folders",
+    tooltip:
+        "Whether to ingest each user's personal folders (My Reports, My Objects and similar, under the project's Profiles folder). Excluded by default: dashboards, documents and reports filed there are skipped.",
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.include_personal_folders',
+    rules: null,
+};
+
+const datasetFieldOrderReport = 'report';
+const datasetFieldOrderAlphabetical = 'alphabetical';
+const datasetFieldOrderFieldPath = 'source.config.dataset_field_order';
+export const MICROSTRATEGY_DATASET_FIELD_ORDER: RecipeField = {
+    name: 'dataset_field_order',
+    label: 'Dataset Field Order',
+    helper: 'Order of the schema fields on each dataset',
+    tooltip:
+        "Report order mirrors Strategy's Datasets panel: attributes first, then metrics, each sorted by display name. Alphabetical sorts every field by name, as earlier releases did.",
+    type: FieldType.SELECT,
+    fieldPath: datasetFieldOrderFieldPath,
+    rules: null,
+    options: [
+        { label: 'Report order', value: datasetFieldOrderReport },
+        { label: 'Alphabetical', value: datasetFieldOrderAlphabetical },
+    ],
+    getValueFromRecipeOverride: (recipe: any) => get(recipe, datasetFieldOrderFieldPath) ?? datasetFieldOrderReport,
+};
+
+const emitDocumentDatasetEdgesFieldPath = 'source.config.emit_document_dataset_edges';
+export const MICROSTRATEGY_EMIT_DOCUMENT_DATASET_EDGES: RecipeField = {
+    name: 'emit_document_dataset_edges',
+    label: 'Emit Document Dataset Edges',
+    helper: 'Link Report Services documents to their datasets',
+    tooltip:
+        "Whether to record a Report Services document's datasets as dashboard dataset edges. Documents expose no visualizations through the REST API, so without these edges a document has no lineage. Dossiers are governed by Emit Dashboard Dataset Edges.",
+    type: FieldType.BOOLEAN,
+    fieldPath: emitDocumentDatasetEdgesFieldPath,
+    rules: null,
+    getValueFromRecipeOverride: getBooleanValueWithTrueDefault(emitDocumentDatasetEdgesFieldPath),
+};
+
+const folderPathAllowFieldPath = 'source.config.folder_path_pattern.allow';
+export const MICROSTRATEGY_FOLDER_PATH_ALLOW: FilterRecipeField = {
+    name: 'folder_path_pattern.allow',
+    label: 'Allow Folder Paths',
+    helper: 'Include content filed under specific folder paths',
+    tooltip:
+        'Only include dashboards, documents and reports filed under matching folder paths: the project name, then each folder down to the object, joined with /. Patterns match from the start of the path; end with (/|$) to stop similarly named sibling folders matching.',
+    type: FieldType.LIST,
+    rule: FilterRule.INCLUDE,
+    buttonLabel: 'Add pattern',
+    fieldPath: folderPathAllowFieldPath,
+    rules: null,
+    section: 'Folder Paths',
+    filteringResource: 'Folder Path',
+    placeholder: '^Sales_Project/Shared Reports/Finance(/|$)',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, folderPathAllowFieldPath),
+};
+
+const folderPathDenyFieldPath = 'source.config.folder_path_pattern.deny';
+export const MICROSTRATEGY_FOLDER_PATH_DENY: FilterRecipeField = {
+    name: 'folder_path_pattern.deny',
+    label: 'Deny Folder Paths',
+    helper: 'Exclude content filed under specific folder paths',
+    tooltip:
+        'Exclude dashboards, documents and reports filed under matching folder paths. Unlike folder patterns, a denied path skips the objects themselves, not only their folder containers. Deny patterns always take precedence over Allow patterns.',
+    type: FieldType.LIST,
+    rule: FilterRule.EXCLUDE,
+    buttonLabel: 'Add pattern',
+    fieldPath: folderPathDenyFieldPath,
+    rules: null,
+    section: 'Folder Paths',
+    filteringResource: 'Folder Path',
+    placeholder: '^Sales_Project/Shared Reports/Archive(/|$)',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, folderPathDenyFieldPath),
 };
 
 const extractModelLineageFieldPath = 'source.config.extract_model_lineage';
