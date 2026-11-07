@@ -18,6 +18,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     EntityTypeInfoClass,
+    MetadataAttributionClass,
     PropertyValueClass,
     StructuredPropertiesClass,
     StructuredPropertyDefinitionClass,
@@ -555,6 +556,106 @@ def test_dataset_structured_property_patch(ingest_cleanup_data, graph_client, ca
         graph=graph_client,
     )
     assert actual_property_values == [property_value_other]
+
+
+def test_dataset_structured_property_patch_with_attribution_multiple_properties(
+    ingest_cleanup_data, graph_client
+):
+    existing_property_name = f"attributionExisting{randint(10, 10000)}"
+    new_property_name = f"attributionNew{randint(10, 10000)}"
+    existing_property_urn = (
+        f"urn:li:structuredProperty:{default_namespace}.{existing_property_name}"
+    )
+    new_property_urn = (
+        f"urn:li:structuredProperty:{default_namespace}.{new_property_name}"
+    )
+    action_urn = "urn:li:dataHubAction:smoke-test-sp-attribution"
+    target_urn = dataset_urns[2]
+
+    # Registered before creation so the module fixture's teardown deletes both
+    # definitions even if an assertion below fails.
+    generated_urns.extend([existing_property_urn, new_property_urn])
+    create_property_definition(existing_property_name, graph_client)
+    create_property_definition(new_property_name, graph_client)
+
+    # Only the first property already exists on the entity, unattributed.
+    attach_property_to_entity(
+        target_urn, existing_property_name, "30d", graph=graph_client
+    )
+
+    def make_attributed_assignment(
+        property_urn: str, values: List[Union[str, float]]
+    ) -> StructuredPropertyValueAssignmentClass:
+        return StructuredPropertyValueAssignmentClass(
+            propertyUrn=property_urn,
+            values=values,
+            attribution=MetadataAttributionClass(
+                source=action_urn,
+                time=0,
+                actor="urn:li:corpuser:__datahub_system",
+            ),
+        )
+
+    # Patching both properties with add_structured_property_manual (keyed on
+    # propertyUrn + attribution source) appends a second entry for the existing
+    # property, which the StructuredProperties validator rejects; the whole patch is
+    # rejected atomically, so the new property must not be set either.
+    dataset_patcher = DatasetPatchBuilder(urn=target_urn)
+    dataset_patcher.add_structured_property_manual(
+        make_attributed_assignment(existing_property_urn, ["60d"])
+    )
+    dataset_patcher.add_structured_property_manual(
+        make_attributed_assignment(new_property_urn, ["90d"])
+    )
+    with pytest.raises(OperationalError, match="has multiple entries"):
+        for mcp in dataset_patcher.build():
+            graph_client.emit(mcp)
+    wait_for_writes_to_sync()
+
+    assert (
+        get_property_from_entity(
+            target_urn,
+            f"{default_namespace}.{new_property_name}",
+            graph=graph_client,
+        )
+        is None
+    )
+    assert get_property_from_entity(
+        target_urn,
+        f"{default_namespace}.{existing_property_name}",
+        graph=graph_client,
+    ) == ["30d"]
+
+    # The same two-property patch via upsert_structured_property_manual succeeds,
+    # replacing the existing unattributed entry and adding the new property.
+    dataset_patcher = DatasetPatchBuilder(urn=target_urn)
+    dataset_patcher.upsert_structured_property_manual(
+        make_attributed_assignment(existing_property_urn, ["60d"])
+    )
+    dataset_patcher.upsert_structured_property_manual(
+        make_attributed_assignment(new_property_urn, ["90d"])
+    )
+    for mcp in dataset_patcher.build():
+        graph_client.emit(mcp)
+    wait_for_writes_to_sync()
+
+    structured_properties = graph_client.get_aspect(
+        target_urn, StructuredPropertiesClass
+    )
+    assert structured_properties is not None
+    entries_by_urn = {p.propertyUrn: p for p in structured_properties.properties}
+    existing_entries = [
+        p
+        for p in structured_properties.properties
+        if p.propertyUrn == existing_property_urn
+    ]
+    assert len(existing_entries) == 1
+    assert entries_by_urn[existing_property_urn].values == ["60d"]
+    assert entries_by_urn[new_property_urn].values == ["90d"]
+    for property_urn in (existing_property_urn, new_property_urn):
+        attribution = entries_by_urn[property_urn].attribution
+        assert attribution is not None
+        assert attribution.source == action_urn
 
 
 def test_dataset_structured_property_soft_delete_validation(

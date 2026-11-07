@@ -120,6 +120,27 @@ class HasStructuredPropertiesPatch(MetadataPatchProposal):
         )
         return self
 
+    def upsert_structured_property_manual(
+        self, property: StructuredPropertyValueAssignmentClass
+    ) -> Self:
+        """Add or replace a structured property, keyed on its property urn alone.
+
+        Unlike set_structured_property_manual, the attribution source is not part of
+        the array key, so this replaces any existing entry for the property urn
+        whatever its attribution (e.g. an unattributed, directly-applied value).
+        The StructuredProperties aspect allows one entry per property urn, so
+        set_structured_property_manual with an attribution source is rejected when
+        the entity already holds an entry for the property under another source.
+        """
+        self._add_patch(
+            StructuredPropertiesClass.ASPECT_NAME,
+            "add",
+            path=("properties", property.propertyUrn),
+            array_primary_keys={"properties": ["propertyUrn"]},
+            value=property,
+        )
+        return self
+
     def add_structured_property_manual(
         self, property: StructuredPropertyValueAssignmentClass
     ) -> Self:
