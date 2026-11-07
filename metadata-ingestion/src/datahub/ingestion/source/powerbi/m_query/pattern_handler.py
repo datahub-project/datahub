@@ -942,8 +942,25 @@ class AbstractLineage(ABC):
             downstream_names_are_powerbi_fields=False,
         )
 
-    def create_table_column_lineage(self, urn: str) -> List[ColumnLineageInfo]:
+    def _should_lowercase_upstream_columns(self, server: Optional[str]) -> bool:
+        # Per-server opt-in for sources ingested with convert_column_urns_to_lowercase,
+        # whose schema fields are lowercased and so won't match Power BI's original
+        # column casing unless we lowercase the upstream column path too.
+        if not server:
+            return False
+        platform_detail = self.platform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=self.get_platform_pair(),
+                data_platform_server=server,
+            )
+        )
+        return getattr(platform_detail, "convert_column_urns_to_lowercase", False)
+
+    def create_table_column_lineage(
+        self, urn: str, server: Optional[str] = None
+    ) -> List[ColumnLineageInfo]:
         column_lineage = []
+        lowercase_columns = self._should_lowercase_upstream_columns(server)
 
         if self.table.columns is not None:
             for column in self.table.columns:
@@ -957,12 +974,14 @@ class AbstractLineage(ABC):
                 upstreams = [
                     ColumnRef(
                         table=urn,
-                        # Preserve the source column casing so the upstream
-                        # schemaField URN matches the warehouse's field, which
-                        # stores columns in their original casing. Lowercasing is
-                        # governed for the dataset portion by
-                        # convert_lineage_urns_to_lowercase downstream in powerbi.py.
-                        column=column.name,
+                        # Preserve the source column casing so the upstream schemaField
+                        # URN matches the warehouse's field, which stores columns in
+                        # their original casing — unless this server opts into
+                        # convert_column_urns_to_lowercase to match a source that
+                        # lowercased its columns.
+                        column=column.name.lower()
+                        if lowercase_columns
+                        else column.name,
                     )
                 ]
 
@@ -1107,7 +1126,7 @@ class AmazonAthenaLineage(AbstractLineage):
             qualified_table_name=qualified_table_name,
         )
 
-        column_lineage = self.create_table_column_lineage(urn)
+        column_lineage = self.create_table_column_lineage(urn, server)
 
         return Lineage(
             upstreams=[
@@ -1179,7 +1198,7 @@ class AmazonRedshiftLineage(AbstractLineage):
             qualified_table_name=qualified_table_name,
         )
 
-        column_lineage = self.create_table_column_lineage(urn)
+        column_lineage = self.create_table_column_lineage(urn, server)
 
         return Lineage(
             upstreams=[
@@ -1334,7 +1353,7 @@ class OracleLineage(AbstractLineage):
             platform_detail=platform_detail,
         )
 
-        column_lineage = self.create_table_column_lineage(urn)
+        column_lineage = self.create_table_column_lineage(urn, server)
 
         return Lineage(
             upstreams=[
@@ -1522,7 +1541,9 @@ class DatabricksLineage(AbstractLineage):
                 qualified_table_name=qualified_table_name,
             )
 
-            column_lineage = self.create_table_column_lineage(urn)
+            column_lineage = self.create_table_column_lineage(
+                urn, table_reference.warehouse
+            )
 
             return Lineage(
                 upstreams=[
@@ -1607,7 +1628,7 @@ class TwoStepDataAccessPattern(AbstractLineage, ABC):
             qualified_table_name=qualified_table_name,
         )
 
-        column_lineage = self.create_table_column_lineage(urn)
+        column_lineage = self.create_table_column_lineage(urn, server)
 
         return Lineage(
             upstreams=[
@@ -1668,7 +1689,7 @@ class MySQLLineage(AbstractLineage):
             qualified_table_name=qualified_table_name,
         )
 
-        column_lineage = self.create_table_column_lineage(urn)
+        column_lineage = self.create_table_column_lineage(urn, server)
 
         return Lineage(
             upstreams=[
@@ -1855,7 +1876,7 @@ class MSSqlMultiDatabaseLineage(AbstractLineage):
             qualified_table_name=qualified_table_name,
         )
 
-        column_lineage = self.create_table_column_lineage(urn)
+        column_lineage = self.create_table_column_lineage(urn, server)
 
         return Lineage(
             upstreams=[
@@ -1915,7 +1936,7 @@ class ThreeStepDataAccessPattern(AbstractLineage, ABC):
             qualified_table_name=qualified_table_name,
         )
 
-        column_lineage = self.create_table_column_lineage(urn)
+        column_lineage = self.create_table_column_lineage(urn, server)
 
         return Lineage(
             upstreams=[
@@ -2016,7 +2037,7 @@ class NativeQueryLineage(AbstractLineage):
                 )
             )
 
-            column_lineage = self.create_table_column_lineage(urn)
+            column_lineage = self.create_table_column_lineage(urn, server)
 
         logger.debug(f"Generated dataplatform_tables {dataplatform_tables}")
 
@@ -2510,7 +2531,7 @@ class OdbcLineage(AbstractLineage):
             qualified_table_name=qualified_table_name,
         )
 
-        column_lineage = self.create_table_column_lineage(urn)
+        column_lineage = self.create_table_column_lineage(urn, server_name)
 
         return Lineage(
             upstreams=[
