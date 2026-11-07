@@ -1,4 +1,4 @@
-import type { ItemType } from 'antd/lib/menu/hooks/useItems';
+import type { MenuProps } from 'antd';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -6,6 +6,8 @@ import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
 import { FilterValue, TimeBucketFilterField } from '@app/searchV2/filters/types';
 import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
 import dayjs from '@utils/dayjs';
+
+type ItemType = NonNullable<MenuProps['items']>[number];
 
 const FilterOptionWrapper = styled.div`
     display: flex;

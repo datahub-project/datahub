@@ -7,8 +7,6 @@ import styled from 'styled-components';
 
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
 
-const { TabPane } = Tabs;
-
 interface Props extends TabsProps {
     defaultPath: string;
     tabs: Array<{
@@ -56,19 +54,13 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
                 size="large"
                 onTabClick={(tab: string) => onTabChange && onTabChange(tab)}
                 onChange={(newPath) => history.replace(`${url}/${newPath}`)}
+                items={tabs.map((tab) => ({
+                    key: tab.path.replace('/', ''),
+                    label: tab.customTitle ? tab.customTitle : tab.name,
+                    disabled: !tab.display?.enabled(),
+                }))}
                 {...props}
-            >
-                {tabs.map((tab) => {
-                    return (
-                        <TabPane
-                            tab={tab.customTitle ? tab.customTitle : tab.name}
-                            key={tab.path.replace('/', '')}
-                            disabled={!tab.display?.enabled()}
-                            data-testid={`tab-${tab.path.replace('/', '').toLowerCase()}`}
-                        />
-                    );
-                })}
-            </Tabs>
+            />
             <Switch>
                 <Route exact path={path}>
                     <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${defaultPath}`} />

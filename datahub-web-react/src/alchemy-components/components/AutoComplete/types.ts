@@ -1,12 +1,12 @@
+import type { AutoCompleteProps as AntdAutoCompleteProps } from 'antd';
 import { DefaultOptionType } from 'antd/lib/select';
-import { AlignType } from 'rc-trigger/lib/interface';
 import React from 'react';
 
 type ValueType = string;
 
 export type OptionType = DefaultOptionType;
 
-export type AutocompleteDropdownAlign = AlignType;
+export type AutocompleteDropdownAlign = NonNullable<AntdAutoCompleteProps['dropdownAlign']>;
 
 export interface AutoCompleteProps {
     dataTestId?: string;
@@ -25,7 +25,7 @@ export interface AutoCompleteProps {
 
     onSelect?: (value: ValueType, option: OptionType) => void;
     onSearch?: (value: ValueType) => void;
-    onChange?: (value: ValueType, option: OptionType | OptionType[]) => void;
+    onChange?: (value: ValueType, option?: OptionType | OptionType[]) => void;
     onClear?: () => void;
     onDropdownVisibleChange?: (isOpen: boolean) => void;
 

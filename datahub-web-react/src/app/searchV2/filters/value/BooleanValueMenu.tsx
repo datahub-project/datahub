@@ -4,7 +4,6 @@ import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
 import { mapFilterOption } from '@app/searchV2/filters/mapFilterOption';
 import { FilterField, FilterValue } from '@app/searchV2/filters/types';
 import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 
 // Since we are working with a boolean field, always simply have the base options.
 const OPTIONS = [
@@ -22,8 +21,6 @@ interface Props {
 }
 
 export default function BooleanValueMenu({ field, values, type = 'card', onChangeValues, onApply, className }: Props) {
-    const entityRegistry = useEntityRegistry();
-
     // Ideally we would not have staged values, and filters would update automatically.
     const [searchQuery, setSearchQuery] = useState<string | undefined>(undefined);
 
@@ -35,7 +32,6 @@ export default function BooleanValueMenu({ field, values, type = 'card', onChang
                 count: option.count,
                 entity: option.entity,
             },
-            entityRegistry,
             selectedFilterOptions: values.map((value) => {
                 return { field: field.field, value: value.value };
             }),

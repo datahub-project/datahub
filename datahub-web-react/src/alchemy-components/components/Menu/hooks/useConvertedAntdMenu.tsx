@@ -1,11 +1,12 @@
 import { MenuProps } from 'antd';
-import { ItemType as AntdItemType } from 'antd/lib/menu/hooks/useItems';
 import React, { useMemo } from 'react';
 
 import { RESET_DROPDOWN_MENU_STYLES_CLASSNAME } from '@components/components/Dropdown/constants';
 import GroupItemRenderer from '@components/components/Menu/components/GroupItemRenderer';
 import MenuItemRenderer from '@components/components/Menu/components/MenuItemRenderer';
 import { ItemType } from '@components/components/Menu/types';
+
+type AntdItemType = NonNullable<MenuProps['items']>[number];
 
 function convertItemsToAntdMenu(items: ItemType[]): MenuProps | undefined {
     const traverse = (item: ItemType): AntdItemType => {

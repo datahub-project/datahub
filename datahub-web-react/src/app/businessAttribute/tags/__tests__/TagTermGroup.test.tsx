@@ -1,5 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import React from 'react';
 
 import TagTermGroup from '@app/businessAttribute/tags/TagTermGroup';
@@ -48,7 +48,7 @@ const glossaryTerms = {
 
 describe('TagTermGroup', () => {
     it('renders editable tags', async () => {
-        const { getByText, getByLabelText, queryByText, queryAllByLabelText } = render(
+        const { getByText, getByRole, findByRole, queryByRole, queryByText, queryAllByRole } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <TagTermGroup editableTags={globalTags1 as GlobalTags} canRemove />
@@ -57,20 +57,21 @@ describe('TagTermGroup', () => {
         );
         expect(queryByText('Add Tag')).not.toBeInTheDocument();
         expect(getByText('Legacy')).toBeInTheDocument();
-        expect(queryAllByLabelText('close')).toHaveLength(1);
-        fireEvent.click(getByLabelText('close'));
-        await waitFor(() => expect(getByText('Do you want to remove Legacy tag?')).toBeInTheDocument());
-        expect(getByText('Do you want to remove Legacy tag?')).toBeInTheDocument();
+        // The tag's close icon and the confirm dialog's close button are both labelled "Close"
+        expect(queryAllByRole('img', { name: 'Close' })).toHaveLength(1);
+        fireEvent.click(getByRole('img', { name: 'Close' }));
+        const dialog = await findByRole('dialog');
+        expect(dialog).toHaveTextContent('Do you want to remove Legacy tag?');
 
-        fireEvent.click(getByLabelText('Close'));
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
 
-        await waitFor(() => expect(queryByText('Do you want to remove Legacy tag?')).not.toBeInTheDocument());
+        await waitFor(() => expect(queryByRole('dialog')).not.toBeInTheDocument());
 
         expect(getByText('Legacy')).toBeInTheDocument();
     });
 
     it('renders uneditable tags', () => {
-        const { getByText, queryByLabelText, queryByText } = render(
+        const { getByText, queryByRole, queryByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <TagTermGroup uneditableTags={globalTags2 as GlobalTags} />
@@ -79,11 +80,11 @@ describe('TagTermGroup', () => {
         );
         expect(queryByText('Add Tag')).not.toBeInTheDocument();
         expect(getByText('NeedsOwnership')).toBeInTheDocument();
-        expect(queryByLabelText('close')).not.toBeInTheDocument();
+        expect(queryByRole('img', { name: 'Close' })).not.toBeInTheDocument();
     });
 
     it('renders both together', () => {
-        const { getByText, queryByText, queryAllByLabelText } = render(
+        const { getByText, queryByText, queryAllByRole } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <TagTermGroup
@@ -97,7 +98,7 @@ describe('TagTermGroup', () => {
         expect(queryByText('Add Tag')).not.toBeInTheDocument();
         expect(getByText('Legacy')).toBeInTheDocument();
         expect(getByText('NeedsOwnership')).toBeInTheDocument();
-        expect(queryAllByLabelText('close')).toHaveLength(1);
+        expect(queryAllByRole('img', { name: 'Close' })).toHaveLength(1);
     });
 
     it('renders create tag', () => {

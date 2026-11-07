@@ -1,3 +1,65 @@
+// antd 4's stylesheet set these document-wide base styles; antd 5's reset.css leaves them out
+body {
+    color: rgba(0, 0, 0, 0.85);
+    font-size: 12px;
+    font-family:
+        'Manrope',
+        -apple-system,
+        BlinkMacSystemFont,
+        'Segoe UI',
+        Roboto,
+        'Helvetica Neue',
+        Arial,
+        'Noto Sans',
+        sans-serif,
+        'Apple Color Emoji',
+        'Segoe UI Emoji',
+        'Segoe UI Symbol',
+        'Noto Color Emoji';
+    font-variant: tabular-nums;
+    line-height: 1.5715;
+    background-color: #fff;
+    font-feature-settings: 'tnum';
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: rgba(0, 0, 0, 0.85);
+}
+
+a {
+    color: #533fd1;
+    text-decoration: none;
+    background-color: transparent;
+    outline: none;
+    cursor: pointer;
+    transition: color 0.3s;
+
+    &:hover {
+        color: #7a66de;
+    }
+
+    &:active {
+        color: #382bab;
+    }
+
+    &:active,
+    &:hover,
+    &:focus {
+        text-decoration: none;
+        outline: 0;
+    }
+
+    &[disabled] {
+        color: rgba(0, 0, 0, 0.25);
+        cursor: not-allowed;
+    }
+}
+
 body {
     margin: 0;
     font-weight: 500;
@@ -10,6 +72,15 @@ body {
 }
 .ant-form-item-label {
     font-weight: 600;
+}
+
+// antd 5 has no title-weight token: titles share fontWeightStrong with <strong>, which should stay 600
+h1.ant-typography,
+h2.ant-typography,
+h3.ant-typography,
+h4.ant-typography,
+h5.ant-typography {
+    font-weight: 700;
 }
 
 .ant-btn .anticon {
