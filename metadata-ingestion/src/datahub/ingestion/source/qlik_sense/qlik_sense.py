@@ -414,9 +414,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if guess_entity_type(urn) not in STATEFUL_INGESTION_IGNORED_ENTITY_TYPES:
                 urns[urn] = None
             yield wu
+        if not app.read_complete:
+            # Only reached without a usable last read, and reported as a failure.
+            # Recording the partial entity list as the app's last read would let
+            # a later partial read keep only those entities.
+            return
         if fingerprint is None:
-            # A failed read emits only part of the app, so keep what the last read
-            # produced. No fingerprint never matches, so the next run reads it.
+            # No fingerprint never matches, so the next run reads the app again.
             urns.update(dict.fromkeys(self._keep_previous_urns(app.id)))
         self.app_state.record(
             app.id, AppCheckpoint(fingerprint=fingerprint, urns=list(urns))
