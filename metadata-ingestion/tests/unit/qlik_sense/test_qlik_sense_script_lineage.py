@@ -239,7 +239,15 @@ def test_redact_connection_scrubs_nested_credentials() -> None:
     assert "svc_user" not in redacted
     assert "hunter2" not in redacted
     assert "Data Source=https://db.example.com/x" in redacted
+    assert 'Extended Properties="Encrypt=yes"' in redacted
     assert "Initial Catalog=sales" in redacted
+
+
+def test_redact_connection_drops_property_holding_only_credentials() -> None:
+    assert (
+        redact_connection('Provider=MSOLEDBSQL;Extended Properties="UID=a;PWD=b"')
+        == "Provider=MSOLEDBSQL"
+    )
 
 
 def test_redact_connection_drops_credentials() -> None:
@@ -325,6 +333,18 @@ def test_preceding_load_function_is_not_a_column() -> None:
         table.preceding_loads,
         {"Year": ["year_urn"], "order_date": ["order_date_urn"]},
     ) == {"OrderYear": ["order_date_urn"]}
+
+
+def test_preceding_load_interpretation_function_is_not_a_column() -> None:
+    (table,) = parse_load_script(
+        "Orders:\nLOAD Date#(order_date, 'YYYYMMDD') AS OrderDay;\n"
+        "SQL SELECT Date, order_date FROM dbo.orders;"
+    )
+
+    assert apply_preceding_loads(
+        table.preceding_loads,
+        {"Date": ["date_urn"], "order_date": ["order_date_urn"]},
+    ) == {"OrderDay": ["order_date_urn"]}
 
 
 @pytest.mark.parametrize(
@@ -463,6 +483,11 @@ def test_drop_condition_variables(sql: str, expected: str) -> None:
     [
         pytest.param("=Sum(Year(OrderDate))", ["OrderDate"], id="nested_functions"),
         pytest.param("=Year (OrderDate)", ["OrderDate"], id="space_before_call"),
+        pytest.param(
+            "=Date#(OrderDate, 'YYYYMMDD') + Num# (Amount)",
+            ["OrderDate", "Amount"],
+            id="interpretation_functions",
+        ),
         pytest.param(
             "=[Year] + Year", ["Year", "Year"], id="field_named_like_function"
         ),
