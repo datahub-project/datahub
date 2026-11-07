@@ -239,3 +239,7 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
   used by some dbt / Airflow / Spark paths) is emitted unchanged and counted under
   `num_patch_lineage_skipped` with an end-of-run warning. The BI/dashboard targets emit full aspects
   and are unaffected; broadening this to patches is a tracked follow-up.
+- **Skipped for sources that send lineage as patches.** When a source's `incremental_lineage` setting
+  turns its lineage into patches, the resolver is left out of that run with a warning. A patch only
+  adds, so a re-cased reference would sit next to the old spelling instead of replacing it. dbt is not
+  affected: it sends model lineage as full aspects and patches only its own warehouse-node lineage.
