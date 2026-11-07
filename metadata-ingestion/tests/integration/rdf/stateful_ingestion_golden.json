@@ -93,5 +93,73 @@
         "lastRunId": "no-run-id-provided",
         "pipelineName": "rdf-test-stateful"
     }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:example.org",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1789694559574,
+        "runId": "rdf-test-stateful",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "rdf-test-stateful"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org.glossary.CustomerName",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1789694559575,
+        "runId": "rdf-test-stateful",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "rdf-test-stateful"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org.glossary.AccountIdentifier",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1789694559574,
+        "runId": "rdf-test-stateful",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "rdf-test-stateful"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:example.org.glossary",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1789694559574,
+        "runId": "rdf-test-stateful",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "rdf-test-stateful"
+    }
 }
 ]
