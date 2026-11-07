@@ -183,22 +183,30 @@ def test_infer_data_connection_ignores_the_connection_name() -> None:
     assert infer_data_connection("Snowflake Finance", "folder").platform is None
 
 
+def test_infer_data_connection_reads_mariadb_driver() -> None:
+    connection = "Driver={MariaDB ODBC 3.1 Driver};Server=db.example.com;Database=sales"
+    assert infer_data_connection(connection, connection).platform == "mariadb"
+
+
 def test_infer_data_connection_prefers_the_driver() -> None:
     connection = "Driver={Snowflake};Server=sqlserver_sync.example.com;Database=sales"
     assert infer_data_connection(connection, connection).platform == "snowflake"
 
 
-def test_parse_load_script_restores_connection_after_sub() -> None:
+def test_parse_load_script_skips_uncalled_sub() -> None:
     script = """
 LIB CONNECT TO 'A';
+Orders: SQL SELECT * FROM db.s.orders;
 SUB LoadOther
   LIB CONNECT TO 'B';
   Inside: SQL SELECT * FROM db.s.inside;
 END SUB
+Concatenate SQL SELECT * FROM db.s.more_orders;
 T: SQL SELECT * FROM db.s.t;
 """
     assert [(t.label, t.connection) for t in parse_load_script(script)] == [
-        ("Inside", "B"),
+        ("Orders", "A"),
+        ("Orders", "A"),
         ("T", "A"),
     ]
 
@@ -263,30 +271,76 @@ T: SQL SELECT * FROM $(vSchema).t;
     assert table.sql == "SELECT * FROM $(vSchema).t"
 
 
-@pytest.mark.parametrize(
-    "sub_body, connection",
-    [
-        pytest.param("LIB CONNECT TO 'B';", None, id="sub_sets_connection"),
-        pytest.param("LET vRows = 1;", "A", id="sub_sets_other_variable"),
-    ],
-)
-def test_parse_load_script_call_applies_sub_changes(
-    sub_body: str, connection: Optional[str]
-) -> None:
-    script = f"""
+def test_parse_load_script_call_replays_sub_with_call_site_state() -> None:
+    script = """
+SUB LoadOrders
+  Orders: SQL SELECT * FROM $(vSchema).orders;
+END SUB
 LIB CONNECT TO 'A';
+SET vSchema = 'dbo';
+CALL LoadOrders;
+LIB CONNECT TO 'B';
+SET vSchema = 'archive';
+Call LoadOrders;
+"""
+    assert [(t.connection, t.sql) for t in parse_load_script(script)] == [
+        ("A", "SELECT * FROM dbo.orders"),
+        ("B", "SELECT * FROM archive.orders"),
+    ]
+
+
+def test_parse_load_script_keeps_what_a_called_sub_sets() -> None:
+    script = """
+LIB CONNECT TO 'A';
+SET vSchema = 'dbo';
 SUB Setup
-  {sub_body}
+  LIB CONNECT TO 'B';
+  SET vSchema = 'archive';
 END SUB
 CALL Setup;
-T: SQL SELECT * FROM db.s.t;
+T: SQL SELECT * FROM $(vSchema).t;
 """
-    assert [t.connection for t in parse_load_script(script)] == [connection]
+    (table,) = parse_load_script(script)
+
+    assert table.connection == "B"
+    assert table.sql == "SELECT * FROM archive.t"
 
 
-def test_parse_load_script_call_of_unknown_sub_forgets_connection() -> None:
-    script = "LIB CONNECT TO 'A';\nCALL FromInclude;\nT: SQL SELECT * FROM db.s.t;"
-    assert [t.connection for t in parse_load_script(script)] == [None]
+def test_parse_load_script_sub_calling_itself_is_not_replayed_forever() -> None:
+    script = """
+SUB Loop
+  T: SQL SELECT * FROM db.s.t;
+  CALL Loop;
+END SUB
+LIB CONNECT TO 'A';
+CALL Loop;
+"""
+    assert [t.label for t in parse_load_script(script)] == ["T"]
+
+
+def test_parse_load_script_call_of_unknown_sub_forgets_state() -> None:
+    script = """
+LIB CONNECT TO 'A';
+SET vSchema = 'dbo';
+Orders: SQL SELECT * FROM db.s.orders;
+CALL FromInclude;
+T: SQL SELECT * FROM $(vSchema).t;
+"""
+    _, table = parse_load_script(script)
+
+    assert table.connection is None
+    assert table.sql == "SELECT * FROM $(vSchema).t"
+
+
+def test_parse_load_script_concatenate_after_include_is_skipped() -> None:
+    script = """
+LIB CONNECT TO 'A';
+Orders: SQL SELECT * FROM db.s.orders;
+$(Include=lib://Scripts/more.qvs);
+LIB CONNECT TO 'A';
+Concatenate SQL SELECT * FROM db.s.more;
+"""
+    assert [t.label for t in parse_load_script(script)] == ["Orders"]
 
 
 def test_parse_load_script_concatenate_and_join_add_to_their_target() -> None:
@@ -582,6 +636,11 @@ def test_drop_condition_variables(sql: str, expected: str) -> None:
         ),
         pytest.param("Count({<Year={2024}>} Region)", ["Year", "Region"], id="set"),
         pytest.param(
+            "={$<Year={2024}, [Sales Region]-={'East'}>} Sum(Sales)",
+            ["Year", "Sales Region", "Sales"],
+            id="set_after_leading_equals",
+        ),
+        pytest.param(
             "Count({<Region={'A'}+{\"B*\"}-{$(vSkip)}>} Amount)",
             ["Region", "Amount"],
             id="combined_set_values",
@@ -601,11 +660,11 @@ def test_expression_names_skip_function_calls(
 
 def test_preceding_load_keeps_columns_named_like_chart_qualifiers() -> None:
     (table,) = parse_load_script(
-        "Orders:\nLOAD total AS Total, distinct_id AS Id;\n"
-        "SQL SELECT total, distinct_id FROM dbo.orders;"
+        "Orders:\nLOAD total AS Total, distinct AS Kind;\n"
+        "SQL SELECT total, [distinct] FROM dbo.orders;"
     )
 
     assert apply_preceding_loads(
         table.preceding_loads,
-        {"total": ["total_urn"], "distinct_id": ["id_urn"]},
-    ) == {"Total": ["total_urn"], "Id": ["id_urn"]}
+        {"total": ["total_urn"], "distinct": ["distinct_urn"]},
+    ) == {"Total": ["total_urn"], "Kind": ["distinct_urn"]}

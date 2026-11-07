@@ -7,6 +7,10 @@ import pytest
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.qlik_sense.app_state import (
+    AppCheckpoint,
+    QlikAppStateHandler,
+)
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
@@ -516,3 +520,57 @@ def test_partly_read_app_after_skip_was_off_is_a_failure(
         failure.title for failure in third.reporter.failures
     ]
     assert not _soft_deleted_urns(third_wus)
+
+
+def test_checkpoint_without_entities_is_not_trusted(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    datahub = _DataHub(mock_datahub_graph)
+
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    previous = QlikAppStateHandler.previous
+
+    def without_urns(
+        handler: QlikAppStateHandler, app_id: str
+    ) -> Optional[AppCheckpoint]:
+        checkpoint = previous(handler, app_id)
+        return checkpoint.model_copy(update={"urns": []}) if checkpoint else None
+
+    with patch.object(QlikAppStateHandler, "previous", without_urns):
+        second, _ = _run(mock_datahub_graph, qlik, "run-2")
+
+    assert second.reporter.apps_skipped_unchanged == 0
+    assert qlik.engine_opens == 2
+
+
+def test_unchanged_app_whose_checkpoint_fails_to_reload_is_read_next_run(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    datahub = _DataHub(mock_datahub_graph)
+
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    previous = QlikAppStateHandler.previous
+    calls: List[str] = []
+
+    def fails_after_skip_check(
+        handler: QlikAppStateHandler, app_id: str
+    ) -> Optional[AppCheckpoint]:
+        calls.append(app_id)
+        if len(calls) > 1:
+            raise RuntimeError("checkpoint unavailable")
+        return previous(handler, app_id)
+
+    with patch.object(QlikAppStateHandler, "previous", fails_after_skip_check):
+        second, _ = _run(mock_datahub_graph, qlik, "run-2")
+    third, _ = _run(mock_datahub_graph, qlik, "run-3")
+
+    assert second.reporter.apps_skipped_unchanged == 1
+    assert "Unable to load the last checkpoint of a Qlik app" in [
+        failure.title for failure in second.reporter.failures
+    ]
+    assert third.reporter.apps_skipped_unchanged == 0
+    assert qlik.engine_opens == 2
