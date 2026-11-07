@@ -1083,6 +1083,10 @@ public class GmsGraphQLEngine {
   /**
    * Object types that the interface schema files extend with {@code implements <interfaceName>}.
    * graphql-java does not inherit data fetchers from an interface, so each implementer is wired.
+   *
+   * <p>Only {@code extend type ... implements} in {@code interfaces/*.graphql} is seen, not {@code
+   * type X implements} in other schema files or plugin schemas. EntityIncidentsWiringTest checks
+   * the built schema for any type this misses.
    */
   public static List<String> typesImplementing(@Nonnull final String interfaceName) {
     final SchemaParser parser = new SchemaParser();
@@ -4321,7 +4325,13 @@ public class GmsGraphQLEngine {
                           : null;
                     })));
 
-    for (String entity : typesImplementing(HAS_INCIDENTS_INTERFACE)) {
+    final List<String> incidentEntityTypes = typesImplementing(HAS_INCIDENTS_INTERFACE);
+    if (incidentEntityTypes.isEmpty()) {
+      // An empty classpath scan in a packaged GMS would leave every incidents field null.
+      throw new IllegalStateException(
+          "No GraphQL types implement " + HAS_INCIDENTS_INTERFACE + " in the interface schemas");
+    }
+    for (String entity : incidentEntityTypes) {
       builder.type(
           entity,
           typeWiring ->
