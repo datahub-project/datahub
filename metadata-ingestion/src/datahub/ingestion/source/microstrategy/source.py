@@ -169,6 +169,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             ensure_sql_lineage_dependencies()
         self._metric_model_cache: Dict[str, Dict[str, object]] = {}
         self._model_document_unavailable_projects: Set[str] = set()
+        # The Modeling document of the dashboard in flight, so binding and
+        # document derived metrics share one GET. Dashboards are processed one
+        # at a time, so only the latest is kept.
+        self._model_document_memo: Optional[
+            Tuple[Tuple[str, str], Optional[Dict[str, object]]]
+        ] = None
         self._predefined_folder_cache: Dict[str, PredefinedFolderResolution] = {}
         self._personal_folder_cache: Dict[str, PersonalFolderResolution] = {}
         # (project id, dataset object id) -> object info, or None once a lookup
@@ -983,21 +989,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             return
         if not dashboard.datasets:
             return
-        try:
-            model_document = self.client.get_model_document(project_id, dashboard.id)
-        except MicroStrategyAuthError:
-            raise
-        except Exception as error:
-            self.report.report_document_model_definition_failure()
-            self.report.warning(
-                title="Modeling document definition unavailable",
-                message=(
-                    "GET /api/model/documents/{id} failed, so document-level "
-                    "derived metrics were not read for this dashboard."
-                ),
-                context=f"project_id={project_id}, dashboard_id={dashboard.id}",
-                exc=error,
-            )
+        model_document = self._model_document(project_id, dashboard.id)
+        if model_document is None:
             return
 
         by_dataset = extract_document_derived_metric_definitions(model_document)
@@ -1420,6 +1413,39 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self._enrich_metric_expressions(project_id, dashboard)
         return dashboard
 
+    def _model_document(
+        self, project_id: str, dashboard_id: str
+    ) -> Optional[Dict[str, object]]:
+        """GET /api/model/documents/{id}, read at most once per dashboard. None
+        once it has failed in the project: Modeling access is project-scoped,
+        so the failure is reported once rather than for every dashboard."""
+        key = (project_id, dashboard_id)
+        if self._model_document_memo is not None and self._model_document_memo[0] == key:
+            return self._model_document_memo[1]
+        if project_id in self._model_document_unavailable_projects:
+            return None
+        model_document: Optional[Dict[str, object]] = None
+        try:
+            model_document = self.client.get_model_document(project_id, dashboard_id)
+        except MicroStrategyAuthError:
+            raise
+        except Exception as error:
+            self._model_document_unavailable_projects.add(project_id)
+            self.report.report_document_model_definition_failure()
+            self.report.warning(
+                title="Modeling document API unavailable",
+                message=(
+                    "GET /api/model/documents/{id} failed, so for the rest of "
+                    "this project visualizations are bound to datasets by "
+                    "object and name inference only, and document-level "
+                    "derived metrics are not read."
+                ),
+                context=f"project_id={project_id}, dashboard_id={dashboard_id}",
+                exc=error,
+            )
+        self._model_document_memo = (key, model_document)
+        return model_document
+
     def _resolve_visualization_bindings(
         self,
         project_id: str,
@@ -1435,24 +1461,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         ]
         if len(dashboard.datasets) < 2 or not unbound:
             return
-        if project_id in self._model_document_unavailable_projects:
-            return
-        try:
-            model_document = self.client.get_model_document(project_id, dashboard.id)
-        except MicroStrategyAPIError as error:
-            # Modeling access is optional and project-scoped; remember the failure
-            # instead of re-attempting it for every dashboard.
-            self._model_document_unavailable_projects.add(project_id)
-            self.report.info(
-                title="Modeling document API unavailable",
-                message=(
-                    "Visualization-to-dataset binding via dataset-scoped "
-                    "derived objects is disabled for this project; falling "
-                    "back to object/name inference."
-                ),
-                context=f"project_id={project_id}",
-                exc=error,
-            )
+        model_document = self._model_document(project_id, dashboard.id)
+        if model_document is None:
             return
 
         owner_by_derived_id = unique_derived_object_owners(model_document)

@@ -879,7 +879,30 @@ def test_resolve_visualization_bindings_memoizes_modeling_failure() -> None:
 
     # The project-scoped failure is remembered; no per-dashboard re-attempts.
     assert fake_client.calls == 1
-    assert len(source.report.infos) == 1
+    assert len(source.report.warnings) == 1
+
+
+def test_model_document_is_read_once_per_dashboard() -> None:
+    # Visualization binding and document derived metrics both need it.
+    source = _source()
+
+    class FakeClient:
+        def __init__(self) -> None:
+            self.calls: List[str] = []
+
+        def get_model_document(
+            self, project_id: str, document_id: str
+        ) -> Dict[str, object]:
+            self.calls.append(document_id)
+            return {"id": document_id}
+
+    fake_client = FakeClient()
+    source.client = fake_client  # type: ignore[assignment]
+
+    assert source._model_document("project-1", "dash-1") == {"id": "dash-1"}
+    assert source._model_document("project-1", "dash-1") == {"id": "dash-1"}
+    assert source._model_document("project-1", "dash-2") == {"id": "dash-2"}
+    assert fake_client.calls == ["dash-1", "dash-2"]
 
 
 def test_predefined_folder_labels_resolves_shared_reports() -> None:
