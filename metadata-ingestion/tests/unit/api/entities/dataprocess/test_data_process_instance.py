@@ -209,6 +209,26 @@ class TestDataProcessInstance(unittest.TestCase):
         self.assertEqual(properties_mcp.aspect.customProperties["env"], "prod")
         self.assertEqual(properties_mcp.aspect.externalUrl, "http://test.url")
 
+    def test_generate_mcp_emits_platform_instance_first(self):
+        # Instance-scoped write policies read the stored instance, so it must
+        # land before any other aspect of a new entity.
+        instance = DataProcessInstance.from_datajob(
+            datajob=DataJob(
+                id="test_job",
+                flow_urn=self.mock_flow_urn,
+                platform_instance="my_instance",
+            ),
+            id=self.test_id,
+        )
+
+        mcps = list(instance.generate_mcp(None, materialize_iolets=False))
+
+        assert mcps[0].aspectName == "dataPlatformInstance"
+        # An UPSERT status right after the instance keeps auto-status from
+        # sending a PATCH, which needs EDIT before the instance is stored.
+        assert mcps[1].aspectName == "status"
+        assert mcps[1].changeType == models.ChangeTypeClass.UPSERT
+
 
 if __name__ == "__main__":
     unittest.main()
