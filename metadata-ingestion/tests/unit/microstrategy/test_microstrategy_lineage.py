@@ -458,7 +458,7 @@ def _inference_dashboard(dataset_names: List[str]) -> "DashboardDefinition":
     return DashboardDefinition.model_validate(
         {
             "id": "dash-1",
-            "name": "Salon Sales To Plan",
+            "name": "Store Sales To Plan",
             "datasets": [
                 {
                     "id": f"ds-{index}",
@@ -491,7 +491,7 @@ def test_inference_matching_all_datasets_is_treated_as_unresolved() -> None:
             "Total Sales Yesterday",
         ]
     )
-    visualization = _grid_visualization("Salon Sales Yesterday")
+    visualization = _grid_visualization("Store Sales Yesterday")
 
     inputs = extractor.visualization_inputs("project-1", dashboard, visualization)
 
@@ -508,7 +508,7 @@ def test_inference_matching_both_datasets_of_a_pair_is_kept() -> None:
     dashboard = _inference_dashboard(
         ["Retail Sales Yesterday", "Service Sales Yesterday"]
     )
-    visualization = _grid_visualization("Salon Sales Yesterday")
+    visualization = _grid_visualization("Store Sales Yesterday")
 
     inputs = extractor.visualization_inputs("project-1", dashboard, visualization)
 

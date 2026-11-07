@@ -725,7 +725,7 @@ def test_resolve_visualization_bindings_uses_dataset_scoped_derived_objects() ->
     dashboard = DashboardDefinition.model_validate(
         {
             "id": "dash-1",
-            "name": "Salon Sales To Plan",
+            "name": "Store Sales To Plan",
             "datasets": [
                 {"id": "ds-retail", "name": "Retail WTD"},
                 {"id": "ds-service", "name": "Service WTD"},
@@ -733,7 +733,7 @@ def test_resolve_visualization_bindings_uses_dataset_scoped_derived_objects() ->
             "visualizations": [
                 {
                     "key": "viz-1",
-                    "name": "Salon Sales WTD",
+                    "name": "Store Sales WTD",
                     "metrics": [{"id": derived_id, "type": "metric"}],
                 },
                 # Already explicitly bound: must not be touched.
@@ -1310,7 +1310,7 @@ class _DatasetLookupClient:
                 "subtype": "768",
                 "ancestors": [
                     {"id": "f-1", "name": "Shared Reports"},
-                    {"id": "f-2", "name": "Salon Retail Sales"},
+                    {"id": "f-2", "name": "Store Retail Sales"},
                 ],
             }
         )
@@ -1352,7 +1352,7 @@ def test_dataset_object_info_is_fetched_once_per_dataset_across_dossiers() -> No
     assert client.lookups == ["ds-shared"]
     assert source.report.dataset_object_lookups == 1
     own_folder = source.mapper.folder_key(
-        "project-1", "Shared Reports/Salon Retail Sales"
+        "project-1", "Shared Reports/Store Retail Sales"
     ).as_urn()
     parents = _dataset_container_parents(workunits)
     assert len(parents) == 2
@@ -1429,7 +1429,7 @@ class _ReportDerivedClient(_DatasetLookupClient):
                         "id": "ds-shared",
                         "name": "Retail Sales Yesterday",
                         "availableObjects": {
-                            "metrics": [{"id": "M-NET", "name": "Net Sales Retail Amt"}]
+                            "metrics": [{"id": "M-NET", "name": "Net Sales Amt"}]
                         },
                     }
                 ],
@@ -1458,11 +1458,11 @@ class _ReportDerivedClient(_DatasetLookupClient):
                                                                         {
                                                                             "type": "metric",
                                                                             "id": "M-NET",
-                                                                            "name": "Net Sales Retail Amt",
+                                                                            "name": "Net Sales Amt",
                                                                         },
                                                                         {
                                                                             "type": "metric",
-                                                                            "id": "D-RTL",
+                                                                            "id": "D-SALES",
                                                                             "name": "RTL % PLN",
                                                                             "derived": True,
                                                                         },
@@ -1514,11 +1514,11 @@ class _ReportDerivedClient(_DatasetLookupClient):
                             "type": "metrics",
                             "elements": [
                                 {
-                                    "id": "D-RTL",
+                                    "id": "D-SALES",
                                     "name": "SALES PLAN",
                                     "subType": "derived_metric",
                                     "expression": {
-                                        "text": "([Net Sales Retail Amt]/[Plan])-1"
+                                        "text": "([Net Sales Amt]/[Plan])-1"
                                     },
                                 }
                             ],
@@ -1538,11 +1538,11 @@ class _ReportDerivedClient(_DatasetLookupClient):
                     "metrics": [
                         {
                             "id": "M-NET",
-                            "name": "Net Sales Retail Amt",
+                            "name": "Net Sales Amt",
                             "type": "metric",
                         },
                         {
-                            "id": "D-RTL",
+                            "id": "D-SALES",
                             "name": "SALES PLAN",
                             "type": "metric",
                             "derived": True,
@@ -1580,7 +1580,7 @@ def test_report_derived_metrics_come_from_model_report_definition() -> None:
     assert source.report.report_definition_failures == 0
     rtl = _derived_field(workunits, "SALES PLAN")
     assert rtl is not None
-    assert "([Net Sales Retail Amt]/[Plan])-1" in (rtl.description or "")
+    assert "([Net Sales Amt]/[Plan])-1" in (rtl.description or "")
     assert _derived_field(workunits, "RTL % PLN") is None
 
 
@@ -1695,7 +1695,7 @@ class _ModelWithoutExpressionClient(_ReportDerivedClient):
                             "type": "metrics",
                             "elements": [
                                 {
-                                    "id": "D-RTL",
+                                    "id": "D-SALES",
                                     "name": "SALES PLAN",
                                     "subType": "derived_metric",
                                     "derived": True,
@@ -1818,12 +1818,12 @@ class _ModelEmbeddedClient(_ReportDerivedClient):
                             "elements": [
                                 {
                                     "id": "M-NET",
-                                    "name": "Net Sales Retail Amt",
+                                    "name": "Net Sales Amt",
                                     "subType": "metric",
                                     "evaluationOrder": 0,
                                 },
                                 {
-                                    "id": "D-RTL",
+                                    "id": "D-SALES",
                                     "name": "New Metric",
                                     "subType": "metric",
                                     "evaluationOrder": 1,
@@ -1842,13 +1842,13 @@ class _ModelEmbeddedClient(_ReportDerivedClient):
                                 "elements": [
                                     {
                                         "id": "M-NET",
-                                        "name": "Net Sales Retail Amt",
+                                        "name": "Net Sales Amt",
                                         "subType": "metric",
                                         "isEmbedded": False,
-                                        "alias": "Net Sales Retail Amt",
+                                        "alias": "Net Sales Amt",
                                     },
                                     {
-                                        "id": "D-RTL",
+                                        "id": "D-SALES",
                                         "name": "New Metric",
                                         "subType": "metric",
                                         "isEmbedded": True,
@@ -1870,14 +1870,14 @@ class _ModelEmbeddedClient(_ReportDerivedClient):
         return {
             "information": {"objectId": metric_id, "name": "New Metric"},
             "expression": {
-                "text": "([Net Sales Retail Amt]/[Salon Merch OPR Net Sales Retail Amt])-1",
+                "text": "([Net Sales Amt]/[Store Net Sales Amt])-1",
                 "tokens": [
                     {
                         "type": "object_reference",
-                        "value": "Net Sales Retail Amt",
+                        "value": "Net Sales Amt",
                         "target": {
                             "objectId": "M-NET",
-                            "name": "Net Sales Retail Amt",
+                            "name": "Net Sales Amt",
                             "type": "metric",
                         },
                     },
@@ -1915,13 +1915,13 @@ def test_embedded_report_metric_formula_comes_from_metric_model() -> None:
     assert client.v2_calls == []
     # M-NET is the dataset's catalog metric, enriched as before; the embedded
     # metric is looked up exactly once on top of that.
-    assert client.metric_model_calls == ["M-NET", "D-RTL"]
+    assert client.metric_model_calls == ["M-NET", "D-SALES"]
     assert source.report.report_model_definitions_empty == 0
     assert source.report.report_derived_metric_models_resolved == 1
     assert source.report.metric_expression_api_failures == 0
     rtl = _derived_field(workunits, "SALES PLAN")
     assert rtl is not None
-    assert "([Net Sales Retail Amt]/[Salon Merch OPR Net Sales Retail Amt])-1" in (
+    assert "([Net Sales Amt]/[Store Net Sales Amt])-1" in (
         rtl.description or ""
     )
     props = json.loads(rtl.jsonProps or "{}")
@@ -1942,11 +1942,11 @@ def test_embedded_report_metric_without_model_keeps_name_and_counts_failure() ->
         )
     )
 
-    assert client.metric_model_calls == ["M-NET", "D-RTL"]
+    assert client.metric_model_calls == ["M-NET", "D-SALES"]
     assert source.report.report_derived_metric_models_resolved == 0
     assert source.report.metric_expression_api_failures == 2
     assert any(
-        sample.startswith("D-RTL (HTTP 404)")
+        sample.startswith("D-SALES (HTTP 404)")
         for sample in source.report.failed_metric_model_ids
     )
     rtl = _derived_field(workunits, "SALES PLAN")

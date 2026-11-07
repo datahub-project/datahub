@@ -425,7 +425,7 @@ Requirements:
 
 [#19758](https://github.com/datahub-project/datahub/pull/19758) **(Ingestion / MicroStrategy)** New `max_consecutive_execution_timeouts` (default `3`) stops executing dashboards and reports in a project after that many consecutive instance creations time out. The rest of the project is still ingested, without visualization runtime details or SQL-view lineage. Previously there was no limit. **Action:** set it to `0` to disable the limit.
 
-[#19758](https://github.com/datahub-project/datahub/pull/19758) **(Ingestion / MicroStrategy)** The `microstrategy` extra now installs the SQL parsing dependencies, and ingestion fails at startup with a configuration error if they are missing while SQL lineage is enabled. Previously every SQL view silently failed to parse and lineage was emitted empty.
+[#19758](https://github.com/datahub-project/datahub/pull/19758) **(Ingestion / MicroStrategy)** The `microstrategy` extra now installs the SQL parsing dependencies, and ingestion fails at startup with a configuration error if they are missing while SQL lineage is enabled. Previously every SQL view failed to parse, each with its own warning, and lineage was emitted empty.
 
 ### Environment Variables
 

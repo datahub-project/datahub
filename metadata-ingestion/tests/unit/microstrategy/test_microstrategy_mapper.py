@@ -2194,7 +2194,7 @@ def _salon_grid_definition() -> DashboardDefinition:
             "name": name,
             "availableObjects": {
                 "metrics": [
-                    {"id": "M-NET", "name": "Net Sales Retail Amt"},
+                    {"id": "M-NET", "name": "Net Sales Amt"},
                     {"id": plan_id, "name": plan_name},
                 ],
                 "attributes": [
@@ -2231,7 +2231,7 @@ def _salon_grid_definition() -> DashboardDefinition:
             "name": name,
             "columns": _metrics_column(
                 [
-                    {"type": "metric", "id": "M-NET", "name": "Net Sales Retail Amt"},
+                    {"type": "metric", "id": "M-NET", "name": "Net Sales Amt"},
                     {"type": "metric", "id": plan_id, "name": plan_header},
                     {
                         "type": "metric",
@@ -2245,7 +2245,7 @@ def _salon_grid_definition() -> DashboardDefinition:
 
     return DashboardDefinition.from_api_response(
         object_id="dash-salon",
-        object_name="Salon Sales To Plan",
+        object_name="Store Sales To Plan",
         response={
             "definition": {
                 "datasets": [
@@ -2253,7 +2253,7 @@ def _salon_grid_definition() -> DashboardDefinition:
                         "ds-retail",
                         "RETAIL SALES YESTERDAY",
                         "M-RTL-PLAN",
-                        "Salon RTL % Plan",
+                        "Store Sales % Plan",
                     ),
                     dataset(
                         "ds-service",
@@ -2278,7 +2278,7 @@ def _salon_grid_definition() -> DashboardDefinition:
                                 "visualizations": [
                                     {
                                         "key": "viz-yesterday",
-                                        "name": "Salon Sales Yesterday",
+                                        "name": "Store Sales Yesterday",
                                         "visualizationType": "compound_grid",
                                         "runtimeDefinition": {
                                             "definition": {
@@ -2302,8 +2302,8 @@ def _salon_grid_definition() -> DashboardDefinition:
                                                             "cs-retail",
                                                             "RETAIL",
                                                             "M-RTL-PLAN",
-                                                            "Salon RTL Plan $",
-                                                            "D-RTL",
+                                                            "Store Sales Plan $",
+                                                            "D-SALES",
                                                         ),
                                                         group(
                                                             "cs-service",
@@ -2396,24 +2396,24 @@ def test_grouped_metrics_keep_group_prefix_and_use_grid_header_alias() -> None:
         if field.schemaField
     }
 
-    assert "RETAIL.Net Sales Retail Amt" in by_display
-    assert "SERVICE.Net Sales Retail Amt" in by_display
-    assert "TOTAL SALES.Net Sales Retail Amt" in by_display
-    aliased = by_display["RETAIL.Salon RTL Plan $"]
-    assert "RETAIL.Salon RTL % Plan" not in by_display
+    assert "RETAIL.Net Sales Amt" in by_display
+    assert "SERVICE.Net Sales Amt" in by_display
+    assert "TOTAL SALES.Net Sales Amt" in by_display
+    aliased = by_display["RETAIL.Store Sales Plan $"]
+    assert "RETAIL.Store Sales % Plan" not in by_display
     assert aliased.schemaFieldUrn.endswith(
-        "dash-salon.ds-retail,PROD),Salon RTL % Plan)"
+        "dash-salon.ds-retail,PROD),Store Sales % Plan)"
     )
     assert aliased.schemaField is not None
     assert aliased.schemaField.description is not None
     assert aliased.schemaField.description.startswith(
-        "**RETAIL** - RETAIL SALES YESTERDAY\n\nMicroStrategy object: Salon RTL % Plan"
+        "**RETAIL** - RETAIL SALES YESTERDAY\n\nMicroStrategy object: Store Sales % Plan"
     )
     props = json.loads(aliased.schemaField.jsonProps or "{}")
-    assert props["microstrategyObjectName"] == "Salon RTL % Plan"
+    assert props["microstrategyObjectName"] == "Store Sales % Plan"
     assert props["microstrategyColumnGroup"] == "RETAIL"
     # A header that matches the catalog name carries no alias note.
-    net = by_display["RETAIL.Net Sales Retail Amt"]
+    net = by_display["RETAIL.Net Sales Amt"]
     assert net.schemaField is not None
     assert "MicroStrategy object:" not in (net.schemaField.description or "")
     assert "microstrategyObjectName" not in (net.schemaField.jsonProps or "")
@@ -2432,13 +2432,13 @@ def test_chart_input_fields_follow_grid_order() -> None:
     assert display_names == [
         "Region Number",
         "District Number",
-        "RETAIL.Net Sales Retail Amt",
-        "RETAIL.Salon RTL Plan $",
+        "RETAIL.Net Sales Amt",
+        "RETAIL.Store Sales Plan $",
         "RETAIL.RET % PLN",
-        "SERVICE.Net Sales Retail Amt",
+        "SERVICE.Net Sales Amt",
         "SERVICE.SRVC PLAN $",
         "SERVICE.SER % PLN",
-        "TOTAL SALES.Net Sales Retail Amt",
+        "TOTAL SALES.Net Sales Amt",
         "TOTAL SALES.TOTAL PLAN",
         "TOTAL SALES.TOT % PLN",
     ]
@@ -2465,16 +2465,16 @@ def test_dataset_schema_field_paths_are_unchanged_by_grid_display_names() -> Non
     # Two forms: the suffix is load-bearing and stays.
     assert "District Number.NUMBER" in paths
     assert "District Number.DESC" in paths
-    assert "Salon RTL % Plan" in paths
-    assert "Salon RTL Plan $" not in paths
+    assert "Store Sales % Plan" in paths
+    assert "Store Sales Plan $" not in paths
 
 
 def _report_definitions() -> "list[ReportDerivedMetric]":
     return [
         ReportDerivedMetric(
-            id="D-RTL",
+            id="D-SALES",
             name="SALES PLAN",
-            expression_text="([Net Sales Retail Amt]/[Salon RTL % Plan])-1",
+            expression_text="([Net Sales Amt]/[Store Sales % Plan])-1",
             source="report",
         ),
         ReportDerivedMetric(
@@ -2491,18 +2491,18 @@ def test_report_derived_metrics_upgrade_grid_specs_and_add_missing_ones() -> Non
     dashboard = _salon_grid_definition()
     mapper.attach_derived_metrics(dashboard)
     retail = dashboard.datasets[0]
-    # The grid showed D-RTL under its dossier alias; nothing showed D-QTY-VAR.
-    assert retail.derived_metrics["D-RTL"].name == "RET % PLN"
+    # The grid showed D-SALES under its dossier alias; nothing showed D-QTY-VAR.
+    assert retail.derived_metrics["D-SALES"].name == "RET % PLN"
     assert "D-QTY-VAR" not in retail.derived_metrics
 
     mapper.attach_report_derived_metrics(retail, _report_definitions())
 
     # Same id: upgraded in place (report object name + formula), not duplicated.
-    assert sorted(retail.derived_metrics) == ["D-QTY-VAR", "D-RTL"]
-    upgraded = retail.derived_metrics["D-RTL"]
+    assert sorted(retail.derived_metrics) == ["D-QTY-VAR", "D-SALES"]
+    upgraded = retail.derived_metrics["D-SALES"]
     assert upgraded.name == "SALES PLAN"
     assert upgraded.definition_source == "report"
-    assert upgraded.expression_text == "([Net Sales Retail Amt]/[Salon RTL % Plan])-1"
+    assert upgraded.expression_text == "([Net Sales Amt]/[Store Sales % Plan])-1"
     # Grid provenance survives the upgrade.
     assert upgraded.column_set_name == "RETAIL"
     added = retail.derived_metrics["D-QTY-VAR"]
@@ -2521,8 +2521,8 @@ def test_report_derived_metrics_match_by_name_when_ids_differ() -> None:
         [ReportDerivedMetric(id="OTHER-ID", name="ret % pln", expression_text="1")],
     )
 
-    assert sorted(retail.derived_metrics) == ["D-RTL"]
-    assert retail.derived_metrics["D-RTL"].expression_text == "1"
+    assert sorted(retail.derived_metrics) == ["D-SALES"]
+    assert retail.derived_metrics["D-SALES"].expression_text == "1"
 
 
 def test_report_derived_metrics_never_shadow_catalog_objects() -> None:
@@ -2534,7 +2534,7 @@ def test_report_derived_metrics_never_shadow_catalog_objects() -> None:
         retail,
         [
             ReportDerivedMetric(
-                id="M-NET", name="Net Sales Retail Amt", expression_text="x"
+                id="M-NET", name="Net Sales Amt", expression_text="x"
             )
         ],
     )
@@ -2567,14 +2567,14 @@ def test_report_derived_metric_fields_carry_formula_and_provenance() -> None:
         "Derived metric defined on report 'RETAIL SALES YESTERDAY'."
     )
     assert rtl.description.endswith(
-        "```\n([Net Sales Retail Amt]/[Salon RTL % Plan])-1\n```"
+        "```\n([Net Sales Amt]/[Store Sales % Plan])-1\n```"
     )
     props = json.loads(rtl.jsonProps or "{}")
     assert props["microstrategyObjectType"] == "derivedMetric"
     assert props["microstrategyDerivedMetricSource"] == "report"
     assert (
         props["microstrategyMetricExpressionText"]
-        == "([Net Sales Retail Amt]/[Salon RTL % Plan])-1"
+        == "([Net Sales Amt]/[Store Sales % Plan])-1"
     )
     assert props["microstrategyColumnGroup"] == "RETAIL"
     # A grid-only derived metric on another dataset keeps visualization provenance
@@ -2618,7 +2618,7 @@ def test_report_derived_metric_formulas_join_metric_formula_lineage() -> None:
     }
 
     # [Name] references resolve against the dataset's own fields.
-    assert edges["SALES PLAN)"] == {"Net Sales Retail Amt)", "Salon RTL % Plan)"}
+    assert edges["SALES PLAN)"] == {"Net Sales Amt)", "Store Sales % Plan)"}
     # {Net Sales Qty} is not a field of this dataset: counted, not guessed.
     assert "Qty Var LYS %)" not in edges
     assert mapper.report.metric_formula_refs_unresolved == 1
@@ -3009,10 +3009,10 @@ def test_derived_metrics_sort_in_among_catalog_metrics() -> None:
 
     # Strategy's Datasets panel does not segregate derived metrics - they sit
     # among the catalog ones under the name the report displays. So a derived
-    # "Qty Var LYS %" precedes a catalog "Salon RTL % Plan" and follows a
-    # catalog "Net Sales Retail Amt", rather than trailing both.
-    assert paths.index("Net Sales Retail Amt") < paths.index("Qty Var LYS %")
-    assert paths.index("Qty Var LYS %") < paths.index("Salon RTL % Plan")
+    # "Qty Var LYS %" precedes a catalog "Store Sales % Plan" and follows a
+    # catalog "Net Sales Amt", rather than trailing both.
+    assert paths.index("Net Sales Amt") < paths.index("Qty Var LYS %")
+    assert paths.index("Qty Var LYS %") < paths.index("Store Sales % Plan")
     # Attributes lead, and the single-form one carries no suffix.
     assert paths[:3] == [
         "District Number.DESC",
@@ -3026,12 +3026,12 @@ def test_report_definition_order_outranks_grid_order_for_derived_metrics() -> No
     dashboard = _salon_grid_definition()
     mapper.attach_derived_metrics(dashboard)
     retail = dashboard.datasets[0]
-    # The grid saw D-RTL first; the report lists D-QTY-VAR first.
-    assert list(retail.derived_metrics) == ["D-RTL"]
+    # The grid saw D-SALES first; the report lists D-QTY-VAR first.
+    assert list(retail.derived_metrics) == ["D-SALES"]
 
     mapper.attach_report_derived_metrics(retail, list(reversed(_report_definitions())))
 
-    assert list(retail.derived_metrics) == ["D-QTY-VAR", "D-RTL"]
+    assert list(retail.derived_metrics) == ["D-QTY-VAR", "D-SALES"]
     # The emitted paths agree here, but only incidentally: schema fields are
     # sorted by display name, so this pair would come out the same whatever
     # the definition said. The dict order above is what proves the re-ranking.
