@@ -31,6 +31,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.FilterValue;
 import com.linkedin.metadata.search.FilterValueArray;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3AggregationQueryBuilder;
 import com.linkedin.r2.RemoteInvocationException;
@@ -941,6 +942,156 @@ public class AggregationQueryBuilderTest {
     String expectedEpochMillisKey =
         String.valueOf(OffsetDateTime.parse(dateKey).toEpochSecond() * 1000);
     Assert.assertEquals(aggregations.get(expectedEpochMillisKey), Long.valueOf(5));
+  }
+
+  @Test
+  public void testProcessTermAggregationsMergesEnvIntoOrigin() {
+    // Datasets store their environment as "origin", containers/flows/jobs as "env"; both must
+    // surface as a single Environment facet, whichever aggregation the response returns first.
+    for (List<String> order : List.of(List.of("origin", "env"), List.of("env", "origin"))) {
+      AggregationQueryBuilder builder = environmentAggregationQueryBuilder(true);
+      Map<String, ParsedTerms> terms =
+          Map.of(
+              "origin", mockTerms(Map.of("PROD", 2L, "DEV", 1L)),
+              "env", mockTerms(Map.of("PROD", 1L, "QA", 1L)));
+
+      final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
+      order.forEach(
+          name ->
+              builder.processTermAggregations(
+                  Map.entry(name, terms.get(name)), aggregationMetadataList));
+
+      Assert.assertEquals(aggregationMetadataList.size(), 1, "order " + order);
+      AggregationMetadata environment = aggregationMetadataList.get(0);
+      Assert.assertEquals(environment.getName(), "origin");
+      Assert.assertEquals(environment.getDisplayName(), "Environment");
+      Assert.assertEquals(
+          environment.getAggregations(), Map.of("PROD", 3L, "DEV", 1L, "QA", 1L), "order " + order);
+      Assert.assertEquals(
+          environment.getFilterValues().stream()
+              .collect(Collectors.toMap(FilterValue::getValue, FilterValue::getFacetCount)),
+          Map.of("PROD", 3L, "DEV", 1L, "QA", 1L));
+    }
+  }
+
+  @Test
+  public void testProcessTermAggregationsReportsEnvAsOriginWhenAlone() {
+    // A container-only search has no "origin" field; its environment facet keeps the shared name.
+    AggregationQueryBuilder builder = environmentAggregationQueryBuilder(false);
+
+    final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
+    builder.processTermAggregations(
+        Map.entry("env", mockTerms(Map.of("PROD", 4L))), aggregationMetadataList);
+
+    Assert.assertEquals(aggregationMetadataList.size(), 1);
+    Assert.assertEquals(aggregationMetadataList.get(0).getName(), "origin");
+    Assert.assertEquals(aggregationMetadataList.get(0).getDisplayName(), "Environment");
+    Assert.assertEquals(aggregationMetadataList.get(0).getAggregations(), Map.of("PROD", 4L));
+  }
+
+  @Test
+  public void testEnvFilterIsReportedUnderOriginFacet() {
+    // Saved views and links may still filter on "env"; the selected value belongs in the merged
+    // facet instead of re-creating a separate one.
+    AggregationQueryBuilder builder = environmentAggregationQueryBuilder(true);
+    final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
+    builder.processTermAggregations(
+        Map.entry("origin", mockTerms(Map.of("PROD", 2L))), aggregationMetadataList);
+
+    builder.addCriterionFiltersToAggregationMetadata(
+        new Criterion().setField("env").setValues(new StringArray("QA")),
+        aggregationMetadataList,
+        null,
+        null);
+
+    Assert.assertEquals(aggregationMetadataList.size(), 1);
+    Assert.assertEquals(
+        aggregationMetadataList.get(0).getAggregations(), Map.of("PROD", 2L, "QA", 0L));
+  }
+
+  @Test
+  public void testV3KeepsEnvAndOriginFacetsSeparate() {
+    // Search V3 resolves "origin" as a search label and skips the origin/env filter expansion, so
+    // a merged facet would count containers that selecting it cannot return.
+    EntitySpec container = mock(EntitySpec.class);
+    when(container.getName()).thenReturn("container");
+    EntitySpec dataset = mock(EntitySpec.class);
+    when(dataset.getName()).thenReturn("dataset");
+    AggregationQueryBuilder builder =
+        new V3AggregationQueryBuilder(
+            TEST_OS_SEARCH_CONFIG.getSearch(),
+            ImmutableMap.of(
+                container, ImmutableList.of(environmentAnnotation("env")),
+                dataset, ImmutableList.of(environmentAnnotation("origin"))),
+            mock(SearchFieldResolver.class));
+
+    final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
+    builder.processTermAggregations(
+        Map.entry("origin", mockTerms(Map.of("PROD", 2L))), aggregationMetadataList);
+    builder.processTermAggregations(
+        Map.entry("env", mockTerms(Map.of("PROD", 5L))), aggregationMetadataList);
+
+    Assert.assertEquals(
+        aggregationMetadataList.stream()
+            .collect(
+                Collectors.toMap(
+                    AggregationMetadata::getName, AggregationMetadata::getAggregations)),
+        Map.of("origin", Map.of("PROD", 2L), "env", Map.of("PROD", 5L)));
+  }
+
+  private static AggregationQueryBuilder environmentAggregationQueryBuilder(
+      boolean includeDataset) {
+    EntitySpec container = mock(EntitySpec.class);
+    when(container.getName()).thenReturn("container");
+    EntitySpec dataset = mock(EntitySpec.class);
+    when(dataset.getName()).thenReturn("dataset");
+    Map<EntitySpec, List<SearchableAnnotation>> annotations =
+        includeDataset
+            ? ImmutableMap.of(
+                container, ImmutableList.of(environmentAnnotation("env")),
+                dataset, ImmutableList.of(environmentAnnotation("origin")))
+            : ImmutableMap.of(container, ImmutableList.of(environmentAnnotation("env")));
+    return new AggregationQueryBuilder(TEST_OS_SEARCH_CONFIG.getSearch(), annotations);
+  }
+
+  private static SearchableAnnotation environmentAnnotation(String fieldName) {
+    return new SearchableAnnotation(
+        fieldName,
+        SearchableAnnotation.FieldType.KEYWORD,
+        false,
+        false,
+        true,
+        false,
+        Optional.of("Environment"),
+        Optional.empty(),
+        1.0,
+        Optional.empty(),
+        Optional.empty(),
+        Collections.<Object, Double>emptyMap(),
+        Collections.<String>emptyList(),
+        false,
+        false,
+        Optional.<String>empty(),
+        Optional.<String>empty(),
+        Optional.<Boolean>empty(),
+        Optional.<String>empty(),
+        Optional.empty(),
+        false);
+  }
+
+  private static ParsedTerms mockTerms(Map<String, Long> counts) {
+    List<Terms.Bucket> buckets = new ArrayList<>();
+    counts.forEach(
+        (key, count) -> {
+          Terms.Bucket bucket = mock(Terms.Bucket.class);
+          when(bucket.getKeyAsString()).thenReturn(key);
+          when(bucket.getDocCount()).thenReturn(count);
+          when(bucket.getAggregations()).thenReturn(null);
+          buckets.add(bucket);
+        });
+    ParsedTerms terms = mock(ParsedTerms.class);
+    Mockito.doReturn(buckets).when(terms).getBuckets();
+    return terms;
   }
 
   @Test
