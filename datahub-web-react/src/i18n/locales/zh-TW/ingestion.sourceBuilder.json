@@ -104,7 +104,7 @@
     "microstrategy.includePersonalFolders.tooltip": "是否擷取每位使用者的個人資料夾（專案 Profiles 資料夾下的 My Reports、My Objects 等）。預設排除：其中的儀表板、文件和報表會被略過。",
     "microstrategy.usePredefinedFolderNames.helper": "依 Strategy Web 的方式命名 Shared Reports 資料夾",
     "microstrategy.usePredefinedFolderNames.label": "使用預先定義的資料夾名稱",
-    "microstrategy.usePredefinedFolderNames.tooltip": "解析 MicroStrategy 的預先定義資料夾，並依 Strategy Web 的顯示方式組織資料夾階層：'Reports' 資料夾使用其標籤 'Shared Reports'，專案根資料夾與 'Public Objects' 會被隱藏，其內容上移一層。對於已以原始名稱擷取過內容的資料夾，這會改變其容器 URN。若查詢失敗，將略過該專案的儀表板和報表。若要保留原始階層，或伺服器沒有預先定義資料夾 API，請停用此選項。",
+    "microstrategy.usePredefinedFolderNames.tooltip": "解析 MicroStrategy 的預先定義資料夾，並依 Strategy Web 的顯示方式組織資料夾階層：'Reports' 資料夾使用其標籤 'Shared Reports'，專案根資料夾與 'Public Objects' 會被隱藏，其內容上移一層。對於已以原始名稱擷取過內容的資料夾，這會改變其容器 URN。若查詢失敗，將略過該專案的儀表板和報表。若要保留原始階層，或伺服器不支援預先定義資料夾 API，請停用此選項。",
     "multiStep.builder.actorsPlaceholder": "搜尋使用者或群組",
     "multiStep.builder.breadcrumbCreateSource": "建立來源",
     "multiStep.builder.breadcrumbManageDataSources": "管理資料來源",

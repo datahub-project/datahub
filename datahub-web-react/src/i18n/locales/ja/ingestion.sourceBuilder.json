@@ -104,7 +104,7 @@
     "microstrategy.includePersonalFolders.tooltip": "各ユーザーの個人用フォルダー（プロジェクトの Profiles フォルダー配下の My Reports、My Objects など）を取り込むかどうか。既定では除外され、そこに保存されたダッシュボード、ドキュメント、レポートはスキップされます。",
     "microstrategy.usePredefinedFolderNames.helper": "Shared Reports フォルダーを Strategy Web と同じ名前にする",
     "microstrategy.usePredefinedFolderNames.label": "定義済みフォルダー名を使用",
-    "microstrategy.usePredefinedFolderNames.tooltip": "MicroStrategy の定義済みフォルダーを解決し、Strategy Web と同じフォルダー階層にします。'Reports' フォルダーには 'Shared Reports' というラベルが付き、プロジェクトのルートフォルダーと 'Public Objects' は非表示になり、その中身は 1 階層上に移動します。元の名前で取り込み済みのコンテンツがあるフォルダーでは、コンテナー URN が変わります。解決に失敗した場合、そのプロジェクトのダッシュボードとレポートはスキップされます。元の階層を維持する場合や、定義済みフォルダー API がないサーバーでは無効にしてください。",
+    "microstrategy.usePredefinedFolderNames.tooltip": "MicroStrategy の定義済みフォルダーを解決し、Strategy Web と同じフォルダー階層にします。'Reports' フォルダーには 'Shared Reports' というラベルが付き、プロジェクトのルートフォルダーと 'Public Objects' は非表示になり、その中身は 1 階層上に移動します。元の名前で取り込み済みのコンテンツがあるフォルダーでは、コンテナー URN が変わります。解決に失敗した場合、そのプロジェクトのダッシュボードとレポートはスキップされます。元の階層を維持する場合や、サーバーが定義済みフォルダー API をサポートしていない場合は無効にしてください。",
     "multiStep.builder.actorsPlaceholder": "ユーザーまたはグループを検索",
     "multiStep.builder.breadcrumbCreateSource": "ソースを作成",
     "multiStep.builder.breadcrumbManageDataSources": "データソースを管理",
