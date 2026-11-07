@@ -3,8 +3,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { AvatarsGroup } from '@app/sharedV2/avatar';
-import { safeUrl } from '@app/sharedV2/urlUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { safeUrl } from '@utils/urlUtils';
 
 type Props = {
     definition: string;
