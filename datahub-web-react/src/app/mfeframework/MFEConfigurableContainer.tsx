@@ -8,6 +8,7 @@ import {
     __federation_method_unwrapDefault as unwrapModule,
 } from 'virtual:__federation__';
 
+import analytics, { EventType, MfeLoadOutcome } from '@app/analytics';
 import { ErrorComponent } from '@app/mfeframework/ErrorComponent';
 import { MFEConfig } from '@app/mfeframework/mfeConfigLoader';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
@@ -54,6 +55,19 @@ async function mountMFE({
 }: MountMFEParams): Promise<(() => void) | undefined> {
     const { module, remoteEntry } = config;
     const mountStart = performance.now();
+    let timedOut = false;
+
+    // Reports how the load ended. Called exactly once per mountMFE call, on every return path.
+    const trackLoad = (outcome: MfeLoadOutcome) => {
+        analytics.event({
+            type: EventType.MfeLoadEvent,
+            mfeId: config.id,
+            mfeLabel: config.label,
+            outcome,
+            durationMs: Math.round(performance.now() - mountStart),
+            loadTimeoutMs,
+        });
+    };
 
     if (import.meta.env.DEV) {
         console.log('MFE id: ', config.id, ' Mounting start ');
@@ -84,10 +98,10 @@ async function mountMFE({
         // Create a timeout promise that rejects once the configured load timeout elapses
         let timeoutHandle: number | undefined;
         const timeoutPromise = new Promise((_, reject) => {
-            timeoutHandle = window.setTimeout(
-                () => reject(new Error(`Timeout loading from remote ${remoteName}, module: ${modulePathWithDot}`)),
-                loadTimeoutMs,
-            );
+            timeoutHandle = window.setTimeout(() => {
+                timedOut = true;
+                reject(new Error(`Timeout loading from remote ${remoteName}, module: ${modulePathWithDot}`));
+            }, loadTimeoutMs);
         });
 
         // Race between getRemote and timeout
@@ -121,17 +135,20 @@ async function mountMFE({
 
         if (!aliveRef.current) {
             console.error('[HOST] import/mount has failed due to timeout.');
+            trackLoad('abandoned');
             return undefined;
         }
         if (!config.flags.enabled) {
             console.warn(
                 '[HOST] skipping remote module loading for<config.id> because planning not to show it, enabled=false',
             );
+            trackLoad('disabled');
             return undefined;
         }
 
         if (!containerElement) {
             console.warn('[HOST] ref is null (container div not in DOM');
+            trackLoad('container_missing');
             return undefined;
         }
 
@@ -140,6 +157,7 @@ async function mountMFE({
                 console.warn('MFE id: ', config.id, ' Mounting failed');
                 console.warn('[HOST] mount is not a function; got: ', maybeFn);
             }
+            trackLoad('invalid_mount');
             return undefined;
         }
         const mountFnStart = performance.now();
@@ -154,13 +172,17 @@ async function mountMFE({
         if (import.meta.env.DEV) {
             console.log(`latency for successful MFE id: ${config.id}`, latency, 'ms');
         }
+        trackLoad('success');
         return cleanup;
     } catch (e) {
         if (import.meta.env.DEV) {
             console.log(`latency for unsuccessful MFE id: ${config.id}`, performance.now() - mountStart, 'ms');
             console.error('[HOST] import/mount failed:', e);
         }
-        if (aliveRef.current) {
+        if (!aliveRef.current) {
+            trackLoad('abandoned');
+        } else {
+            trackLoad(timedOut ? 'timeout' : 'load_error');
             onError();
         }
         return undefined;
@@ -187,6 +209,13 @@ export const MFEBaseConfigurablePage = ({
     useEffect(() => {
         aliveRef.current = true;
         let cleanup: (() => void) | undefined;
+
+        analytics.event({
+            type: EventType.MfePageViewEvent,
+            mfeId: config.id,
+            mfeLabel: config.label,
+            mfePath: config.path,
+        });
 
         mountMFE({
             config,

@@ -20,6 +20,7 @@ import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_MAXLENGTH;
 import static com.linkedin.metadata.search.utils.ESUtils.LONG_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.OBJECT_FIELD_TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.RANK_FEATURES_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.keywordIgnoreAboveForMaxBytes;
 
 import com.linkedin.data.schema.DataSchema;
@@ -82,6 +83,8 @@ public class FieldTypeMapper {
         return DATE_FIELD_TYPE;
       case DOUBLE:
         return DOUBLE_FIELD_TYPE;
+      case RANK_FEATURES:
+        return RANK_FEATURES_FIELD_TYPE;
       case URN:
         return KEYWORD_FIELD_TYPE; // URN fields are treated as keyword
       case MAP_ARRAY:
@@ -259,6 +262,8 @@ public class FieldTypeMapper {
         return Map.of("type", DATE_FIELD_TYPE);
       case DOUBLE:
         return Map.of("type", DOUBLE_FIELD_TYPE);
+      case RANK_FEATURES:
+        return Map.of("type", RANK_FEATURES_FIELD_TYPE);
       case BROWSE_PATH:
         return getMappingsForBrowsePath();
       case BROWSE_PATH_V2:
