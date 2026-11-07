@@ -9,7 +9,7 @@ Tables using Iceberg format versions 1, 2, and 3 are ingested, including tables 
 For V3-specific schema features:
 
 - Column defaults (`initial-default` and `write-default`) appear in the field description as `Field default value: <value>`. When both defaults are present and differ, the initial default is additionally noted as `Initial default value: <value>`.
-- Nanosecond-precision timestamps (`timestamp_ns`, `timestamptz_ns`) are mapped to `timestamp-micros`, losing sub-microsecond precision; the original Iceberg type is preserved in the field's native data type.
+- Nanosecond-precision timestamps (`timestamp_ns`, `timestamptz_ns`) are mapped to timestamp fields, with the original Iceberg type preserved in the field's native data type. Profiled minimum and maximum values are rendered with microsecond precision.
 - `unknown` columns are mapped to strings, with the original type preserved in the field's native data type.
 - Collection defaults (lists, maps, and structs) cannot be deserialized by PyIceberg 0.11.x.
 - Geospatial columns (`geometry` and `geography`) require a newer PyIceberg release and are not supported by the current 0.11.x dependency.
@@ -510,7 +510,7 @@ Two matching rules are worth knowing when writing patterns:
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
 - Iceberg views are not ingested; only tables.
-- Nanosecond-precision timestamps degrade to microsecond precision in schema fields (the native data type preserves the original type).
+- Profiled nanosecond timestamp bounds are rendered with microsecond precision.
 - Geospatial (`geometry`/`geography`) columns are unsupported by the current PyIceberg 0.11.x dependency.
 - Profiling statistics exclude delete files but reflect per-file state at write time, so rows later removed by deletes or deletion vectors remain counted in per-field statistics (see [Iceberg table format version 3 (V3)](#iceberg-table-format-version-3-v3)).
 
