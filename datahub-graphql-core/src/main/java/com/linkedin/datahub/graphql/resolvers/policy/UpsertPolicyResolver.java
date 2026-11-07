@@ -18,6 +18,7 @@ import com.linkedin.policy.DataHubPolicyInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -42,8 +43,8 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
     if (PolicyAuthUtils.canManagePolicies(context)) {
 
       final Optional<String> policyUrn = Optional.ofNullable(environment.getArgument("urn"));
-      final PolicyUpdateInput input =
-          bindArgument(environment.getArgument("input"), PolicyUpdateInput.class);
+      final Object rawInput = environment.getArgument("input");
+      final PolicyUpdateInput input = bindArgument(rawInput, PolicyUpdateInput.class);
 
       // Finally, create the MetadataChangeProposal.
       final MetadataChangeProposal proposal;
@@ -58,7 +59,10 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
         final DataHubPolicyInfo existingInfo = getExistingPolicyInfo(context, urn);
         info =
             PolicyUpdateInputInfoMapper.mapToExisting(
-                context, input, existingInfo != null ? existingInfo : new DataHubPolicyInfo());
+                context,
+                input,
+                existingInfo != null ? existingInfo : new DataHubPolicyInfo(),
+                isPrivilegeConstraintsProvided(rawInput));
         info.setLastUpdatedTimestamp(System.currentTimeMillis());
         proposal = buildMetadataChangeProposalWithUrn(urn, POLICY_INFO_ASPECT_NAME, info);
       } else {
@@ -99,6 +103,19 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");
+  }
+
+  /**
+   * Whether the request named {@code resources.privilegeConstraints}, even as null. The bound
+   * {@link PolicyUpdateInput} can't tell an omitted field from an explicit null, so this reads the
+   * raw argument map.
+   */
+  private static boolean isPrivilegeConstraintsProvided(@Nullable final Object rawInput) {
+    if (rawInput instanceof Map<?, ?> inputMap
+        && inputMap.get("resources") instanceof Map<?, ?> resourcesMap) {
+      return resourcesMap.containsKey("privilegeConstraints");
+    }
+    return false;
   }
 
   @Nullable
