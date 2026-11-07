@@ -3350,6 +3350,30 @@ def test_failed_shared_report_is_not_retried_for_the_next_document() -> None:
     assert source.report.report_sql_view_api_failures == 1
 
 
+def test_malformed_report_sql_view_drops_only_the_lineage() -> None:
+    source = _document_source({"extract_document_dataset_sql_lineage": True})
+
+    class MalformedSqlViewClient(_DocumentClient):
+        def get_report_sql_view(
+            self, project_id: str, report_id: str, instance_id: str
+        ) -> SqlView:
+            return SqlView.model_validate({"sqlStatement": ["not", "a", "string"]})
+
+    client = MalformedSqlViewClient(documents={"doc-1": ["rep-1"], "doc-2": ["rep-1"]})
+    source.client = client  # type: ignore[assignment]
+
+    workunits = _run_dashboards(source)
+
+    # Both documents are still emitted; the failure is cached and counted once.
+    dashboard_urns = {
+        wu.get_urn() for wu in workunits if wu.get_urn().startswith("urn:li:dashboard:")
+    }
+    assert len(dashboard_urns) == 2
+    assert client.report_instances_created == ["rep-1"]
+    assert client.report_instances_deleted == ["inst-rep-1"]
+    assert source.report.report_sql_view_api_failures == 1
+
+
 def test_report_sql_lineage_reuses_sql_read_for_a_document_dataset() -> None:
     source = _document_source(
         {

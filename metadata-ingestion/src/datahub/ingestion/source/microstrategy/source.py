@@ -2077,7 +2077,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 report_id=report_id,
                 instance_id=instance_id,
             )
-        except MicroStrategyAPIError as error:
+        except (MicroStrategyAPIError, ValidationError) as error:
+            # ValidationError: a response body that does not fit SqlView.
             self.report.report_report_sql_view_api_failure()
             self.report.warning(
                 title="Failed to Fetch Report SQL View",
