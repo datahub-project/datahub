@@ -11,6 +11,7 @@
                 "env": "PROD",
                 "workspace_id": "ws-123"
             },
+            "externalUrl": "https://app.fabric.microsoft.com/groups/ws-123/list",
             "name": "Test Workspace",
             "qualifiedName": "ws-123",
             "env": "PROD"

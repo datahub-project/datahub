@@ -5,6 +5,7 @@ import NodeContents from '@app/lineageV3/LineageEntityNode/NodeContents';
 import useDisplayedColumns from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
 import LineageVisualizationContext from '@app/lineageV3/LineageVisualizationContext';
 import {
+    ENTITY_LEVEL_FIELD,
     LineageDisplayContext,
     LineageEntity,
     LineageNodesContext,
@@ -41,6 +42,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
         displayedMenuNode,
         setDisplayedMenuNode,
         lineageFilters,
+        highlightedColumns,
     } = useContext(LineageDisplayContext);
     const { searchQuery, searchedEntity } = useContext(LineageVisualizationContext);
 
@@ -74,6 +76,8 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
 
     const [selectedColumnUrn] = selectedColumn ? parseColumnRef(selectedColumn) : [null];
     const [hoveredColumnUrn] = hoveredColumn ? parseColumnRef(hoveredColumn) : [null];
+    // The entity itself reads or is read by the highlighted column, e.g. a metric reading a column
+    const highlighted = !!highlightedColumns.get(urn)?.has(ENTITY_LEVEL_FIELD);
 
     const hasParentDataJob = parentDataJob ? true : undefined;
     // Data flow lineage: members count only the neighbors outside their own data job
@@ -156,6 +160,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
                 numDownstreams,
                 entity?.numDownstreamChildren,
             )}
+            highlighted={highlighted}
         />
     );
 }

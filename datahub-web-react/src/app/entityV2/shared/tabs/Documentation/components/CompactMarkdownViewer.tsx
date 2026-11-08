@@ -2,7 +2,10 @@ import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { Button, Editor, Tooltip } from '@src/alchemy-components';
+import { Editor } from '@components/components/Editor';
+
+import OptionalTooltip from '@app/sharedV2/OptionalTooltip';
+import { Button } from '@src/alchemy-components';
 
 const LINE_HEIGHT = 1.5;
 const ELLIPSIS = '...';
@@ -26,6 +29,7 @@ const MarkdownContainer = styled.div<{ lineLimit?: number | null }>`
         align-items: center;
         gap: 4px;
     `}
+    min-width: 0;
 `;
 
 const MarkdownViewContainer = styled.div<{ scrollableY: boolean }>`
@@ -45,7 +49,9 @@ const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React
     .remirror-theme {
         max-width: 100%;
     }
-    .remirror-editor.ProseMirror {
+
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         ${({ limit }) => limit && `max-height: ${limit * LINE_HEIGHT}em;`}
         h1 {
             font-size: 1.4em;
@@ -73,12 +79,13 @@ const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React
             margin-bottom: 0;
         }
 
-        padding: 0;
+        padding: 0 !important;
     }
 `;
 
 const FixedLineHeightEditor = styled(CompactEditor)<{ customStyle?: React.CSSProperties }>`
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         * {
             line-height: ${LINE_HEIGHT};
             font-size: 1em !important;
@@ -103,6 +110,7 @@ type Props = {
     scrollableY?: boolean; // Whether the viewer is vertically scrollable.
     handleShowMore?: () => void;
     hideShowMore?: boolean;
+    hideTooltip?: boolean;
 };
 
 export default function CompactMarkdownViewer({
@@ -113,6 +121,7 @@ export default function CompactMarkdownViewer({
     scrollableY = true,
     handleShowMore,
     hideShowMore,
+    hideTooltip,
 }: Props) {
     const { t: tc } = useTranslation('common.actions');
     const [isShowingMore, setIsShowingMore] = useState(false);
@@ -121,7 +130,7 @@ export default function CompactMarkdownViewer({
     const measuredRef = useCallback((node: HTMLDivElement | null) => {
         if (node !== null) {
             const resizeObserver = new ResizeObserver(() => {
-                setIsTruncated(node.scrollHeight > node.clientHeight + 1);
+                setIsTruncated(node.scrollHeight > node.clientHeight + 2);
             });
             resizeObserver.observe(node);
         }
@@ -140,9 +149,9 @@ export default function CompactMarkdownViewer({
                 />
             </MarkdownViewContainer>
             {hideShowMore && isTruncated && (
-                <Tooltip title={content}>
+                <OptionalTooltip title={content} enabled={!hideTooltip}>
                     <MoreIndicator>{ELLIPSIS}</MoreIndicator>
-                </Tooltip>
+                </OptionalTooltip>
             )}
 
             {!hideShowMore &&

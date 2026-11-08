@@ -12,9 +12,11 @@ import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.ListUsersInput;
 import com.linkedin.datahub.graphql.generated.ListUsersResult;
+import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
@@ -46,13 +48,14 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
   public CompletableFuture<ListUsersResult> get(final DataFetchingEnvironment environment)
       throws Exception {
 
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
 
     final ListUsersInput input =
         bindArgument(environment.getArgument("input"), ListUsersInput.class);
     final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
+    List<SortCriterion> sortCriteria = SearchUtils.getSortCriteria(input.getSortInput());
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -73,7 +76,7 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
                     CORP_USER_ENTITY_NAME,
                     query,
                     buildFilter(filters, Collections.emptyList()),
-                    Collections.emptyList(), // No sort criteria
+                    sortCriteria,
                     start,
                     count);
 

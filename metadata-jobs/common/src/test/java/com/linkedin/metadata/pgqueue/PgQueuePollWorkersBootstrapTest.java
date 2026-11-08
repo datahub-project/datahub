@@ -67,6 +67,7 @@ public class PgQueuePollWorkersBootstrapTest {
             10,
             10,
             10,
+            10,
             (topic, msgs, ctx) -> {});
 
     PgQueuePollerSource source = () -> Stream.of(reg);
@@ -97,6 +98,7 @@ public class PgQueuePollWorkersBootstrapTest {
             List.of("topic-sharded"),
             10,
             "worker-sharded",
+            10,
             10,
             10,
             10,

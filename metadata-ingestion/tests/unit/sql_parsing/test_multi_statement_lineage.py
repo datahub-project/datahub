@@ -884,3 +884,56 @@ class TestIsTempTablePredicate:
         assert not any(name.startswith("my_instance") for name in seen)
         assert _table_short_names(result.in_tables) == {"source"}
         assert _table_short_names(result.out_tables) == {"target"}
+
+
+class TestTsqlProcedureCallsAreNotDatasets:
+    """A called procedure is not an upstream table.
+
+    `EXEC dbo.p` parses to an `exp.Execute` whose callee is an `exp.Table`, so
+    table-level lineage would report the procedure as an upstream dataset. This is a
+    pre-existing bug, not one this change introduced: a lone `EXEC` already resolved
+    that way. Making EXEC a statement boundary is what turns it from rare into common,
+    because calls inside a multi-statement body now reach the parser on their own.
+    Procedure-call lineage is built from the parsed call elsewhere, so nothing is lost
+    by rejecting them.
+    """
+
+    _TSQL = dict(
+        default_db="my_db",
+        platform="mssql",
+        platform_instance=None,
+        env="PROD",
+        default_schema="dbo",
+    )
+
+    def _in_out(self, queries: List[str]) -> tuple:
+        result = create_lineage_from_sql_statements(queries=queries, **self._TSQL)  # type: ignore[arg-type]
+        name = lambda urn: str(urn).split(",")[1]  # noqa: E731
+        return (
+            sorted(name(u) for u in (result.in_tables or [])),
+            sorted(name(u) for u in (result.out_tables or [])),
+        )
+
+    def test_session_setup_calls_produce_no_lineage(self):
+        # The common Tableau Initial SQL shape: back-to-back session-setup calls.
+        assert self._in_out(["EXEC dbo.set_ctx @u", "EXEC dbo.other_ctx @v"]) == (
+            [],
+            [],
+        )
+
+    def test_a_call_does_not_pollute_real_lineage_beside_it(self):
+        assert self._in_out(
+            [
+                "EXEC dbo.set_ctx @u",
+                "SET NOCOUNT ON",
+                "SELECT a INTO my_db.dbo.staged FROM my_db.dbo.real_src",
+            ]
+        ) == (["my_db.dbo.real_src"], ["my_db.dbo.staged"])
+
+    def test_insert_exec_does_not_invent_the_callee_as_a_source(self):
+        # INSERT ... EXEC splits into an INSERT and a call; the call must not become
+        # the INSERT's upstream.
+        assert self._in_out(["INSERT INTO my_db.dbo.target EXEC dbo.src_proc @a"]) == (
+            [],
+            ["my_db.dbo.target"],
+        )

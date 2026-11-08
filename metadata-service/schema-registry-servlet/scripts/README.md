@@ -14,7 +14,6 @@ chmod +x extract_kafka_messages.sh
 
 1. **Extracts messages** from these topics:
 
-   - `DataHubUpgradeHistory_v1`
    - `FailedMetadataChangeProposal_v1`
    - `MetadataChangeLog_Timeseries_v1`
    - `MetadataChangeLog_Versioned_v1`

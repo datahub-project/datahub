@@ -10,12 +10,10 @@ import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 import usePlatformModuleUtils from '@app/homeV3/modules/platforms/usePlatformsModuleUtils';
-import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { formatNumber, formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { DataHubPageModuleType, Entity } from '@types';
-
-const NUMBER_OF_PLATFORMS = 15;
 
 const PlatformsModule = (props: ModuleProps) => {
     const { t } = useTranslation('modules');
@@ -28,23 +26,17 @@ const PlatformsModule = (props: ModuleProps) => {
         return isIngestionEnabled && platformPrivileges?.manageIngestion;
     }, [config?.managedIngestionConfig?.enabled, platformPrivileges?.manageIngestion]);
 
-    const { platforms: allPlatforms, loading } = useGetPlatforms();
-    const platforms = useMemo(() => allPlatforms.slice(0, NUMBER_OF_PLATFORMS), [allPlatforms]);
+    // Show every platform the backend returns (the card is fixed-height and scrollable) rather
+    // than a fixed top-N slice, so low-volume platforms stay discoverable here instead of being
+    // silently dropped below the fold.
+    const { platforms, loading } = useGetPlatforms();
     const { navigateToDataSources, handleEntityClick } = usePlatformModuleUtils();
 
     const renderAssetCount = (entity: Entity) => {
         const platformEntity = platforms.find((platform) => platform.platform.urn === entity.urn);
         const assetCount = platformEntity?.count || 0;
 
-        return (
-            <>
-                {assetCount > 0 && (
-                    <Text size="sm" color="gray">
-                        {formatNumber(assetCount)}
-                    </Text>
-                )}
-            </>
-        );
+        return <>{assetCount > 0 && <Text size="sm">{formatNumber(assetCount)}</Text>}</>;
     };
 
     const renderCustomTooltip = (entity: Entity, children: React.ReactNode) => {

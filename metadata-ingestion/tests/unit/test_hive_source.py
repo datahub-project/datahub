@@ -1,15 +1,13 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import deepdiff
 import pytest
-from sqlalchemy import types as sqlalchemy_types
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.sql.hive.hive_source import (
     HiveConfig,
     HiveSource,
-    dbapi_get_columns_patched,  # type: ignore[attr-defined]
 )
 from datahub.ingestion.source.sql.hive.storage_lineage import (
     HiveStorageLineageConfigMixin,
@@ -343,78 +341,19 @@ def test_hive_source_get_db_schema():
     assert default_schema == "my_schema"
 
 
-def test_dbapi_get_columns_patched_logic():
-    """Test the dbapi_get_columns_patched function logic"""
-    # Create a mock connection and dialect
-    mock_connection = MagicMock()
-    mock_dialect = MagicMock()
-
-    # Simulate _get_table_columns returning rows with various scenarios
-    mock_dialect._get_table_columns.return_value = [
-        ["col1", "string", "comment1"],
-        ["col2  ", " int ", "comment2"],  # Test whitespace stripping
-        ["", "", ""],  # Empty row to be filtered
-        ["# col_name", "type", "comment"],  # Header to be filtered
-        ["col3", "map<int,int>", "comment3"],  # Complex type
-        ["col4", "decimal(10,2)", "comment4"],  # Parameterized type
-        ["# Partition Information", "string", ""],  # Partition header
-        [
-            "part_col",
-            "string",
-            "part_comment",
-        ],  # Should be ignored after partition header
-    ]
-
-    # Test the patched function logic
-    result = dbapi_get_columns_patched(
-        mock_dialect, mock_connection, "test_table", "test_schema"
-    )
-
-    # Verify results
-    assert len(result) == 4  # Only 4 valid columns before partition header
-    assert result[0]["name"] == "col1"
-    assert result[0]["full_type"] == "string"
-    assert result[0]["comment"] == "comment1"
-
-    # Verify whitespace was stripped
-    assert result[1]["name"] == "col2"
-    assert result[1]["full_type"] == "int"
-
-    # Verify complex types are handled
-    assert result[2]["name"] == "col3"
-    assert result[2]["full_type"] == "map<int,int>"
-
-    # Verify parameterized types are handled
-    assert result[3]["name"] == "col4"
-    assert result[3]["full_type"] == "decimal(10,2)"
-
-
-def test_dbapi_get_columns_patched_unknown_type():
-    """Test dbapi_get_columns_patched handles unknown column types"""
-    # Create a mock connection and dialect
-    mock_connection = MagicMock()
-    mock_dialect = MagicMock()
-
-    # Simulate a column with unknown type
-    mock_dialect._get_table_columns.return_value = [
-        ["col1", "unknown_type_xyz", "comment1"],
-    ]
-
-    # Should handle unknown type gracefully
-    with patch("sqlalchemy.util.warn") as mock_warn:
-        result = dbapi_get_columns_patched(
-            mock_dialect, mock_connection, "test_table", "test_schema"
-        )
-
-        # Verify warning was called
-        mock_warn.assert_called_once()
-        assert "unknown_type_xyz" in str(mock_warn.call_args)
-        assert "col1" in str(mock_warn.call_args)
-
-        # Should still return result with NullType
-        assert len(result) == 1
-        assert result[0]["name"] == "col1"
-        assert result[0]["type"] == sqlalchemy_types.NullType
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"host_port": "localhost:443", "scheme": "databricks+pyhive"},
+        {
+            "host_port": "localhost:443",
+            "sqlalchemy_uri": "databricks+pyhive://localhost:443/default",
+        },
+    ],
+)
+def test_hive_config_rejects_removed_databricks_scheme(config):
+    with pytest.raises(ValueError, match="unity-catalog"):
+        HiveConfig.model_validate(config)
 
 
 def test_hive_source_combined_lineage_config():

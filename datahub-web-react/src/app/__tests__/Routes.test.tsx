@@ -3,11 +3,16 @@ import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import { Routes } from '@app/Routes';
+import { EmbeddedProfile, SidebarEntityHeader } from '@app/entityV2/shared/profileChunks';
 import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 test('renders embed page properly', async () => {
-    const { getByText } = render(
+    // The dataset name is rendered inside these React.lazy chunks. Load them before render
+    // so findByText only has to wait for the GraphQL mock to resolve.
+    await Promise.all([EmbeddedProfile.preload(), SidebarEntityHeader.preload()]);
+
+    const { findByText } = render(
         <MockedProvider mocks={mocks} addTypename={false}>
             <TestPageContainer initialEntries={['/embed/dataset/urn:li:dataset:3']}>
                 <Routes />
@@ -15,7 +20,9 @@ test('renders embed page properly', async () => {
         </MockedProvider>,
     );
 
-    await waitFor(() => expect(getByText('Yet Another Dataset')).toBeInTheDocument());
+    // AuthenticatedApp and EmbedRoutes are route-level React.lazy boundaries, so the profile
+    // renders after findByText's 1s default on a loaded CI runner.
+    expect(await findByText('Yet Another Dataset', {}, { timeout: 20_000 })).toBeInTheDocument();
 }, 30_000);
 
 test('shows 404 for missing mfe route when some mfes are active', async () => {
@@ -49,7 +56,10 @@ microFrontends:
         </MockedProvider>,
     );
 
-    await waitFor(() => expect(getByText(/not found/)).toBeInTheDocument());
+    // Reaching the 404 resolves a chain of route-level React.lazy boundaries
+    // (Routes -> AuthenticatedApp -> ProtectedRoutes -> SearchRoutes -> MFERoutes), so the
+    // Suspense fallback outlives waitFor's 1s default on a loaded CI runner.
+    await waitFor(() => expect(getByText(/not found/)).toBeInTheDocument(), { timeout: 30_000 });
 
     vi.restoreAllMocks();
 });

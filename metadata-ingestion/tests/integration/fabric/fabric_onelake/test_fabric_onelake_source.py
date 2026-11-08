@@ -14,6 +14,7 @@ import pytest
 import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.fabric.common.models import FabricWorkspace
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricColumn,
@@ -22,7 +23,6 @@ from datahub.ingestion.source.fabric.onelake.models import (
     FabricTable,
     FabricView,
     FabricWarehouse,
-    FabricWorkspace,
 )
 from datahub.ingestion.source.fabric.onelake.source import FabricOneLakeSource
 from datahub.testing import mce_helpers

@@ -12,6 +12,8 @@ const AssetsSection = styled.div`
     display: flex;
     flex-direction: column;
     gap: 8px;
+    flex: 1 1 auto;
+    min-height: 0;
 `;
 
 type Props = {
@@ -62,7 +64,7 @@ const SelectAssetsSection = ({
 
     return (
         <AssetsSection>
-            <ButtonTabs tabs={tabs} onTabClick={onTabChanged} defaultKey={selectAssetType} />
+            <ButtonTabs tabs={tabs} onTabClick={onTabChanged} defaultKey={selectAssetType} fillHeight />
         </AssetsSection>
     );
 };

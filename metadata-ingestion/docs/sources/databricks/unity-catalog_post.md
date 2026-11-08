@@ -1,5 +1,47 @@
 ### Capabilities
 
+#### Genie Agents
+
+Set `include_genie_spaces: true` to ingest Genie Agents as external AI agents.
+Use `genie_space_pattern` to filter by space ID. The ingestion identity needs
+at least **CAN EDIT** on each selected space to export its configuration through
+the [Genie management API](https://databricks-sdk-py.readthedocs.io/en/latest/workspace/dashboards/genie.html).
+
+The connector extracts names, descriptions, text instructions, and Databricks
+platform associations. Agent identity uses the workspace URL, space ID, and
+environment, so renaming a space does not change its URN. Keep the workspace URL
+stable between runs.
+
+Tables and metric views listed in the exported configuration become upstream
+datasets, using the same dataset URNs as ordinary Unity Catalog ingestion.
+These edges describe configured dependencies, not observed query activity.
+Set `include_table_lineage: false` to disable their emission.
+
+Genie discovery is workspace-wide and independent of catalog, schema, and table
+filters. Dependencies can reference datasets excluded by those filters. Spaces
+returned by the API are ingested independently; dashboard companion spaces are
+not folded into dashboards. Workspace folder containers, SQL function tools,
+benchmarks, and runtime access history are not extracted.
+
+A space that cannot be exported, an incomplete or invalid export, an unsupported
+export version, or an oversized metadata payload is reported as a warning. The
+warning names the space ID and, when relevant, the bad identifier or the aspect
+that exceeded the payload limit. If that agent was ingested on a previous run,
+it is kept so stateful stale-entity deletion does not remove it, and deletion
+continues for the rest of the run. A failure while listing spaces is also
+reported as a warning. Because the full set of spaces is unknown, every
+previously ingested agent is kept for that run; stale-entity deletion still runs
+for tables, views, notebooks, and other Unity Catalog entities. An unexpected
+error is reported as an ingestion failure, which skips stale-entity deletion for
+the whole run. Export versions 1 and 2 are supported.
+Oversized metadata is rejected before any aspects for that space are emitted;
+instructions and declared dependencies are not silently truncated.
+A valid empty source list emits empty lineage to remove obsolete dependencies
+when `incremental_lineage` is disabled (the default). With `incremental_lineage`
+enabled, new dependencies are added and previously reported dependencies remain.
+
+The server must include the `aiAgent` entity (DataHub v1.7.0 or later).
+
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
 #### Metric Views
@@ -104,6 +146,33 @@ The upstream lineage edge only resolves if the external source is **also ingeste
 
 The `emit_siblings` option described under _Delta Lake External Tables_ above is unrelated: it governs only the Delta Lake (S3 external table) sibling path, not Lakehouse Federation.
 
+#### Probe support
+
+`datahub recipe probe` checks a recipe against the live workspace before a run. It uses the recipe's own credentials and reads metadata only, through the same Unity Catalog REST API as ingestion.
+
+| Command              | Parameters                   | Returns                                                                                                         |
+| -------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `catalogs`           | `limit`                      | The catalogs the recipe reads: the pinned `catalogs` list when set, otherwise every catalog the credential sees |
+| `schemas`            | `catalog`, `limit`           | The schemas in one catalog                                                                                      |
+| `tables`             | `catalog`, `schema`, `limit` | The tables in one schema                                                                                        |
+| `views`              | `catalog`, `schema`, `limit` | The views and materialized views in one schema                                                                  |
+| `metric_views`       | `catalog`, `schema`, `limit` | The metric views in one schema                                                                                  |
+| `columns`            | `catalog`, `schema`, `table` | Each column's name, type, nullability, comment and partition index                                              |
+| `notebooks`          | `limit`                      | Notebook paths under `/Shared/`, and any other path the recipe would ingest                                     |
+| `service_principals` | `limit`                      | Display names of the service principals the credential can list, which ingestion uses to show owners by name    |
+| `sql`                | `query`, `limit`             | The result of one `SELECT` over `information_schema`, run on the warehouse named by `warehouse_id`              |
+
+`probe filter` gives the verdict ingestion makes. Keep these rules in mind when you read it:
+
+- `table_pattern` is matched against `catalog.schema.table`, and applies to views and metric views before `view_pattern` or `metric_view_pattern`. `metric_view_pattern` applies only while `include_metric_views` is on.
+- `catalog_pattern` and `schema_pattern` are matched against the full id, `catalog` or `catalog.schema`, prefixed with the metastore name when `include_metastore` is on. Pass the containing names with `--parent`, the metastore first; the catalog, schema and table listings name it in a warning. When no metastore is assigned to the workspace, they warn that ingestion would abort and suggest `include_metastore: false`.
+- With `catalogs` set, a catalog missing from that list is excluded.
+- Notebooks are matched by path against `notebook_pattern`, and are all excluded while `include_notebooks` is off.
+
+A notebook path outside `/Shared/` that the recipe would not ingest is left out of `notebooks` and only counted in a warning, because user folders and personal repos are named after people. `sql` fails without `warehouse_id`, and running it can start a stopped warehouse, which costs money; no other command touches the warehouse. With `include_hive_metastore` on, ingestion reads `hive_metastore` through the warehouse, so the probe lists nothing inside it and says so in a warning.
+
+An object the credential lacks a Unity Catalog privilege on comes back empty, with a warning. Any other refusal fails the command: an invalid or revoked token, a principal without workspace access, an IP access list block, or a `workspace_url` with no metastore behind it.
+
 #### Advanced
 
 ##### Multiple Databricks Workspaces
@@ -147,3 +216,18 @@ Similarly, `include_table_constraints: true` adds one `tables.get()` call per no
 
 - On the system-tables path, queries without rows in `system.access.table_lineage` are parsed with sqlglot unless `skip_sqlglot_when_system_table_lineage_missing: true`.
 - With `push_down_database_pattern_access_history: true`, only statements with lineage in the time window are fetched. Disable pushdown or relax `catalog_pattern` if usage looks incomplete.
+- If the ingestion report contains **Databricks query text is redacted**, Databricks returned `<REDACTED>` instead of SQL text. Behavior depends on the configured usage path:
+
+  - On the default system-tables path (`usage_data_source: AUTO` with `warehouse_id` set, or `SYSTEM_TABLES`) with `include_column_usage_stats: false`: table-level usage statistics (`totalSqlQueries`, `uniqueUserCount`, `userCounts`) are preserved because upstream tables come from `system.access.table_lineage`. `Query` entities are not emitted for redacted queries, so column-level usage statistics (`fieldCounts`), operational statistics, per-query usage counts, and the top-SQL sample are absent for them. The top-SQL sample on affected tables may show a single `<REDACTED>` entry indicating how many queries were masked in the bucket.
+  - On the REST API path (`usage_data_source: API`) or when `include_column_usage_stats: true`: redacted queries are dropped entirely and contribute nothing to usage — those paths require parsing SQL text.
+  - Create the account-level group `databricks_pii_access` and add the ingestion principal to it, while retaining its existing system-table or Query History API permissions. You can verify access by running the following query as the ingestion principal:
+
+  ```sql
+  SELECT statement_text
+  FROM system.query.history
+  WHERE execution_status = 'FINISHED'
+  ORDER BY start_time DESC
+  LIMIT 5;
+  ```
+
+  The result should contain SQL text rather than `<REDACTED>`.

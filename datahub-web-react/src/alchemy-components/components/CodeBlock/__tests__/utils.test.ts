@@ -1,15 +1,25 @@
 import { describe, expect, it } from 'vitest';
 
+import { CODE_BLOCK_EDITOR_DEFAULT_MAX_HEIGHT } from '@components/components/CodeBlock/defaults';
 import {
     getCodeBlockTestId,
     getLanguageControlMode,
+    insertTextAtSelection,
+    isCodeBlockEditable,
+    isCodeBlockHeightCapped,
+    isCodeFormatShortcut,
     isLineHighlighted,
     mapLanguageOptionsToTabItems,
     mergeHighlightedLineProps,
+    resolveCodeBlockBodyMaxHeight,
+    resolveCodeBlockStatusDisplay,
     resolveLanguageLabel,
     resolveStaticLanguageLabel,
     shouldShowCodeBlockHeader,
+    shouldShowFormatButton,
     shouldShowLineNumbers,
+    shouldShowValidateButton,
+    syncCodeBlockHighlightScroll,
 } from '@components/components/CodeBlock/utils';
 
 describe('CodeBlock utils', () => {
@@ -48,6 +58,55 @@ describe('CodeBlock utils', () => {
                     showCopy: false,
                 }),
             ).toBe(false);
+            expect(
+                shouldShowCodeBlockHeader({
+                    showHeader: false,
+                    showCopy: false,
+                    showFormat: true,
+                }),
+            ).toBe(true);
+        });
+    });
+
+    describe('isCodeBlockEditable', () => {
+        it('should enable the editor when onChange is provided', () => {
+            expect(isCodeBlockEditable({ onChange: () => undefined })).toBe(true);
+            expect(isCodeBlockEditable({ onChange: () => undefined, isReadOnly: true })).toBe(false);
+            expect(isCodeBlockEditable({})).toBe(false);
+        });
+    });
+
+    describe('shouldShowFormatButton', () => {
+        it('should show format only while editable unless overridden', () => {
+            expect(shouldShowFormatButton({ isEditable: true })).toBe(true);
+            expect(shouldShowFormatButton({ isEditable: true, showFormat: false })).toBe(false);
+            expect(shouldShowFormatButton({ isEditable: false, showFormat: true })).toBe(false);
+        });
+    });
+
+    describe('shouldShowValidateButton', () => {
+        it('should only show when validateSyntax is enabled on an editable editor', () => {
+            expect(shouldShowValidateButton({ isEditable: true, validateSyntax: true })).toBe(true);
+            expect(shouldShowValidateButton({ isEditable: true, validateSyntax: false })).toBe(false);
+            expect(shouldShowValidateButton({ isEditable: false, validateSyntax: true })).toBe(false);
+        });
+    });
+
+    describe('isCodeFormatShortcut', () => {
+        it('should match Shift+Alt+F without meta or ctrl', () => {
+            expect(
+                isCodeFormatShortcut({ key: 'f', shiftKey: true, altKey: true, metaKey: false, ctrlKey: false }),
+            ).toBe(true);
+            expect(
+                isCodeFormatShortcut({ key: 'f', shiftKey: true, altKey: true, metaKey: true, ctrlKey: false }),
+            ).toBe(false);
+        });
+    });
+
+    describe('insertTextAtSelection', () => {
+        it('should insert at the caret and advance it', () => {
+            expect(insertTextAtSelection('ab', 1, 1, '  ')).toEqual({ value: 'a  b', caret: 3 });
+            expect(insertTextAtSelection('abcd', 1, 3, '  ')).toEqual({ value: 'a  d', caret: 3 });
         });
     });
 
@@ -182,6 +241,113 @@ describe('CodeBlock utils', () => {
         it('prefixes when a root test id exists', () => {
             expect(getCodeBlockTestId('sql', 'copy', 'code-block-copy')).toBe('sql-copy');
             expect(getCodeBlockTestId(undefined, 'copy', 'code-block-copy')).toBe('code-block-copy');
+        });
+    });
+
+    describe('resolveCodeBlockStatusDisplay', () => {
+        const msgs = {
+            syntaxErrorMessage: 'syntax error',
+            syntaxWarningMessage: 'sql warning',
+        };
+
+        it('should prefer parent error over syntax findings', () => {
+            expect(
+                resolveCodeBlockStatusDisplay({
+                    error: 'Required',
+                    syntaxSeverity: 'warning',
+                    ...msgs,
+                }),
+            ).toEqual({
+                displayError: 'Required',
+                displayWarning: '',
+                statusDetails: [],
+                isInvalid: true,
+                hasWarning: false,
+            });
+        });
+
+        it('should surface syntax warnings as soft chrome', () => {
+            expect(
+                resolveCodeBlockStatusDisplay({
+                    syntaxSeverity: 'warning',
+                    syntaxDetails: ['near line 1, column 13 — unexpected "o"'],
+                    ...msgs,
+                }),
+            ).toEqual({
+                displayError: '',
+                displayWarning: 'sql warning near line 1, column 13 — unexpected "o".',
+                statusDetails: [],
+                isInvalid: false,
+                hasWarning: true,
+            });
+        });
+
+        it('should list multiple syntax details under the base warning', () => {
+            expect(
+                resolveCodeBlockStatusDisplay({
+                    syntaxSeverity: 'warning',
+                    syntaxDetails: ['SELECT is missing columns', 'FROM is missing a table name'],
+                    ...msgs,
+                }),
+            ).toEqual({
+                displayError: '',
+                displayWarning: 'sql warning',
+                statusDetails: ['SELECT is missing columns', 'FROM is missing a table name'],
+                isInvalid: false,
+                hasWarning: true,
+            });
+        });
+
+        it('should surface syntax errors as hard chrome', () => {
+            expect(
+                resolveCodeBlockStatusDisplay({
+                    syntaxSeverity: 'error',
+                    syntaxDetails: ['Expected property name'],
+                    ...msgs,
+                }),
+            ).toEqual({
+                displayError: 'syntax error Expected property name.',
+                displayWarning: '',
+                statusDetails: [],
+                isInvalid: true,
+                hasWarning: false,
+            });
+        });
+    });
+
+    describe('resolveCodeBlockBodyMaxHeight', () => {
+        it('should cap writable editors at 400px by default', () => {
+            expect(resolveCodeBlockBodyMaxHeight({ isEditable: true })).toBe(CODE_BLOCK_EDITOR_DEFAULT_MAX_HEIGHT);
+            expect(resolveCodeBlockBodyMaxHeight({ isEditable: false })).toBeUndefined();
+        });
+
+        it('should honor an explicit max height, including none', () => {
+            expect(resolveCodeBlockBodyMaxHeight({ isEditable: true, maxHeight: 240 })).toBe(240);
+            expect(resolveCodeBlockBodyMaxHeight({ isEditable: false, maxHeight: '50vh' })).toBe('50vh');
+            expect(resolveCodeBlockBodyMaxHeight({ isEditable: true, maxHeight: 'none' })).toBe('none');
+        });
+    });
+
+    describe('isCodeBlockHeightCapped', () => {
+        it('should treat none and missing as uncapped', () => {
+            expect(isCodeBlockHeightCapped(undefined)).toBe(false);
+            expect(isCodeBlockHeightCapped('none')).toBe(false);
+            expect(isCodeBlockHeightCapped(400)).toBe(true);
+            expect(isCodeBlockHeightCapped('50vh')).toBe(true);
+        });
+    });
+
+    describe('syncCodeBlockHighlightScroll', () => {
+        it('should copy scroll offsets onto the overlay', () => {
+            const textarea = { scrollTop: 40, scrollLeft: 12 } as HTMLTextAreaElement;
+            const highlight = { scrollTop: 0, scrollLeft: 0 } as HTMLElement;
+            syncCodeBlockHighlightScroll(textarea, highlight);
+            expect(highlight.scrollTop).toBe(40);
+            expect(highlight.scrollLeft).toBe(12);
+        });
+
+        it('should no-op when a node is missing', () => {
+            expect(() => syncCodeBlockHighlightScroll(null, null)).not.toThrow();
         });
     });
 });

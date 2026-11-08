@@ -56,7 +56,7 @@ from datahub.metadata.schema_classes import (
 
 @platform_name("SnapLogic")
 @config_class(SnaplogicConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.ALPHA)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
     "SnapLogic does not support platform instances",

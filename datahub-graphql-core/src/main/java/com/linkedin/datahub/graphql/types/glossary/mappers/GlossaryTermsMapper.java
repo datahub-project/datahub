@@ -27,14 +27,14 @@ public class GlossaryTermsMapper {
   public static GlossaryTerms map(
       @Nullable final QueryContext context,
       @Nonnull final com.linkedin.common.GlossaryTerms glossaryTerms,
-      @Nonnull final Urn entityUrn) {
+      final Urn entityUrn) {
     return INSTANCE.apply(context, glossaryTerms, entityUrn);
   }
 
   public GlossaryTerms apply(
       @Nullable final QueryContext context,
       @Nonnull final com.linkedin.common.GlossaryTerms glossaryTerms,
-      @Nonnull final Urn entityUrn) {
+      final Urn entityUrn) {
     com.linkedin.datahub.graphql.generated.GlossaryTerms result =
         new com.linkedin.datahub.graphql.generated.GlossaryTerms();
     result.setTerms(

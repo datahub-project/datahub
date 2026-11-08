@@ -1,5 +1,7 @@
 package com.linkedin.metadata.timeseries.elastic.query;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -15,6 +17,8 @@ import com.linkedin.metadata.models.TimeseriesFieldSpec;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchOperation;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.timeseries.AggregationSpec;
@@ -383,6 +387,12 @@ public class ESAggregatedStatsDAO {
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String aspectName) {
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
     AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
+    if (aspectSpec == null && handling().toleratesUnknownEntityAspect()) {
+      // An aspect only a newer version knows (e.g. after a rollback) is a bad request (400), not
+      // a failure further down.
+      throw new IllegalArgumentException(
+          String.format("Unrecognized aspect name %s for entity %s", aspectName, entityName));
+    }
     if (aspectSpec == null) {
       new IllegalArgumentException(
           String.format("Unrecognized aspect name {} for entity {}", aspectName, entityName));
@@ -443,11 +453,14 @@ public class ESAggregatedStatsDAO {
             .getTimeseriesAspectIndexName(opContext, entityName, aspectName);
     searchRequest.indices(indexName);
 
-    log.debug("Search request is: " + searchRequest);
+    log.debug("Search request is: {}", searchRequest);
 
     try {
       final SearchResponse searchResponse =
-          searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.TIMESERIES,
+              () -> searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT));
       return generateResponseFromElastic(
           searchResponse, groupingBuckets, aggregationSpecs, aspectSpec);
     } catch (Exception e) {
@@ -727,7 +740,11 @@ public class ESAggregatedStatsDAO {
 
     final SearchResponse searchResponse;
     try {
-      searchResponse = searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
+      searchResponse =
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.TIMESERIES,
+              () -> searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT));
     } catch (Exception e) {
       log.error("Batch aggregated stats query failed: {}", e.getMessage());
       throw new ESQueryException("Batch aggregated stats query failed:", e);

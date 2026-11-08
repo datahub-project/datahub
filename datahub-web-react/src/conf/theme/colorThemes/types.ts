@@ -55,6 +55,7 @@ export default interface ColorTheme {
     avatarBorderBrand: string;
     avatarBorderInformation: string;
     border: string;
+    lineageBackgroundDot: string;
     borderBrand: string;
     borderBrandFocused: string;
     borderBrandInverse: string;
@@ -121,6 +122,10 @@ export default interface ColorTheme {
     bgHighlight: string;
     // Tooltip
     bgTooltip: string;
+    // Surface for floating overlays (menus, dropdowns, popovers, tooltips). Tracks `bg` in
+    // both themes — elevation comes from the theme-aware shadow, not a lighter fill.
+    // Not the same as `bgTooltip`, which is an inverted surface in light mode.
+    bgOverlay: string;
     // Brand gradients
     brandGradient: string;
     brandGradientSelected: string;
@@ -155,6 +160,10 @@ export default interface ColorTheme {
     chartsGreenMedium: string;
     chartsGreenLow: string;
     chartsGreenBase: string;
+    chartsYellowHigh: string;
+    chartsYellowMedium: string;
+    chartsYellowLow: string;
+    chartsYellowBase: string;
     chartsBrandContrast: string;
     chartsBrandHigh: string;
     chartsBrandMedium: string;

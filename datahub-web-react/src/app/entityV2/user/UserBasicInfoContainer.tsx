@@ -1,5 +1,6 @@
-import { PhoneOutlined, SlackOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
+import { Icon, Tooltip } from '@components';
+import { Phone } from '@phosphor-icons/react/dist/csr/Phone';
+import { SlackLogo } from '@phosphor-icons/react/dist/csr/SlackLogo';
 import { Divider } from 'antd';
 import React from 'react';
 import { useTheme } from 'styled-components';
@@ -47,11 +48,11 @@ export const UserBasicInfoContainer = ({ name, dataHubRoleName, email, role, sla
                         <Tooltip title={email}>{email || <EmptyValue />}</Tooltip>
                     </SocialDetails>
                     <SocialDetails>
-                        <SlackOutlined />
+                        <Icon icon={SlackLogo} size="sm" color="inherit" />
                         <Tooltip title={slack}>{slack || <EmptyValue />}</Tooltip>
                     </SocialDetails>
                     <SocialDetails>
-                        <PhoneOutlined />
+                        <Icon icon={Phone} size="sm" color="inherit" />
                         <Tooltip title={phone}>{phone || <EmptyValue />}</Tooltip>
                     </SocialDetails>
                 </SocialInfo>

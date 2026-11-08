@@ -89,7 +89,9 @@ class TestSetupMemoryLimit:
 class TestWrapperStdinContent:
     """Tests for what the wrapper pipes to `datahub ingest -c -` stdin.
 
-    The wrapper always resolves ${VAR} in memory and pipes plain YAML.
+    A venv CLI new enough to parse the JSON secrets envelope gets it forwarded
+    verbatim, so the CLI registers the secrets for its own masking. Older CLIs
+    get ${VAR} resolved in memory and plain YAML piped instead.
     """
 
     def test_resolves_secrets_in_yaml(self) -> None:
@@ -156,10 +158,16 @@ class TestWrapperStdinContent:
 
         assert order == ["handler", "popen"]
 
-    def test_ingestion_wrapper_pipes_resolved_yaml_to_subprocess(
-        self, tmp_path: Path
-    ) -> None:
-        """End-to-end: ingestion wrapper resolves secrets and pipes plain YAML to Popen."""
+    @staticmethod
+    def _run_ingestion_wrapper(
+        tmp_path: Path,
+        envelope_support: bool,
+        run_options: dict[str, Any] | None = None,
+    ) -> tuple[str, list[str]]:
+        """Drive run_ingest.main() end-to-end.
+
+        Returns what it piped to the child's stdin, and the command it spawned.
+        """
         recipe = {"source": {"type": "test", "config": {"pw": "${SECRET}"}}}
         envelope = json.dumps(
             {
@@ -167,6 +175,7 @@ class TestWrapperStdinContent:
                 "__secrets__": {"SECRET": "hidden"},
                 "__report_out_file__": str(tmp_path / "report.json"),
                 "__debug_mode__": "false",
+                **({"__run_options__": run_options} if run_options else {}),
             }
         )
 
@@ -185,6 +194,9 @@ class TestWrapperStdinContent:
             patch.object(sys, "stdin", io.StringIO(envelope)),
             patch.object(run_ingest, "check_cli_flag_support", return_value=True),
             patch.object(run_ingest, "register_secrets_for_masking"),
+            patch.object(
+                run_ingest, "supports_stdin_envelope", return_value=envelope_support
+            ),
             patch(
                 "datahub.executor.execution.wrapper_common.subprocess.Popen",
                 return_value=mock_process,
@@ -193,14 +205,91 @@ class TestWrapperStdinContent:
         ):
             run_ingest.main()
 
-        # Wrapper pipes plain resolved YAML, not JSON envelope
-        written = mock_process.stdin.write.call_args[0][0]
+        written: str = mock_process.stdin.write.call_args[0][0]
+        cmd: list[str] = mock_popen.call_args[0][0]
+        return written, cmd
+
+    def test_forwards_the_raw_envelope_when_the_cli_supports_it(
+        self, tmp_path: Path
+    ) -> None:
+        """The CLI needs the envelope to learn the secret values, so that what it
+        writes itself -- the --report-to file, its own log masking -- is redacted
+        too. Pre-substituting leaves its registry empty."""
+        written, _cmd = self._run_ingestion_wrapper(tmp_path, envelope_support=True)
+
+        forwarded = json.loads(written)
+        assert forwarded["__secrets__"] == {"SECRET": "hidden"}
+        assert "${SECRET}" in forwarded["__recipe_yaml__"]
+
+    def test_pre_substitutes_yaml_for_a_cli_that_predates_the_envelope(
+        self, tmp_path: Path
+    ) -> None:
+        """An older CLI parses the envelope as a recipe, so the wrapper resolves
+        ${VAR} in memory and pipes plain YAML instead."""
+        written, _cmd = self._run_ingestion_wrapper(tmp_path, envelope_support=False)
+
         parsed = yaml.safe_load(written)
         assert parsed["source"]["config"]["pw"] == "hidden"
         assert "${SECRET}" not in written
 
-        # Venv isolation, asserted on the command actually spawned rather than by
-        # grepping the wrapper's source: the CLI must come from the target venv, not
-        # from whatever `datahub` happens to be on PATH.
-        cmd = mock_popen.call_args[0][0]
-        assert cmd[0] == str(venv_dir / "datahub")
+    def test_cli_comes_from_the_target_venv(self, tmp_path: Path) -> None:
+        """Venv isolation, asserted on the command actually spawned rather than by
+        grepping the wrapper's source: the CLI must come from the target venv, not
+        from whatever `datahub` happens to be on PATH."""
+        _written, cmd = self._run_ingestion_wrapper(tmp_path, envelope_support=True)
+
+        assert cmd[0] == str(tmp_path / "venv" / "bin" / "datahub")
+
+    def test_run_options_reach_the_spawned_command(self, tmp_path: Path) -> None:
+        """A requested dry run must end up on the command line: dropped, the run
+        writes to DataHub."""
+        _written, cmd = self._run_ingestion_wrapper(
+            tmp_path,
+            envelope_support=True,
+            run_options={"dry_run": True, "preview": True, "preview_workunits": 3},
+        )
+
+        run_args = cmd[cmd.index("ingest") :]
+        assert run_args[:4] == ["ingest", "run", "-c", "-"]
+        assert "--dry-run" in run_args
+        assert run_args[run_args.index("--preview-workunits") + 1] == "3"
+        assert "--preview" in run_args
+
+
+class TestRunOptionFlags:
+    def test_no_options_add_no_flags(self, tmp_path: Path) -> None:
+        assert run_ingest.run_option_flags({}, tmp_path / "datahub") == []
+
+    def test_dry_run_and_preview_become_cli_flags(self, tmp_path: Path) -> None:
+        with patch.object(run_ingest, "check_cli_flag_support", return_value=True):
+            flags = run_ingest.run_option_flags(
+                {"dry_run": True, "preview": True, "preview_workunits": 5},
+                tmp_path / "datahub",
+            )
+        assert flags == ["--dry-run", "--preview", "--preview-workunits", "5"]
+
+    def test_every_requested_flag_is_checked(self, tmp_path: Path) -> None:
+        # A CLI that knows --preview-workunits but not --preview must still
+        # fail: each flag that would be passed is checked on its own.
+        with (
+            patch.object(
+                run_ingest,
+                "check_cli_flag_support",
+                side_effect=lambda _binary, flag: flag != "preview",
+            ) as check,
+            pytest.raises(SystemExit),
+        ):
+            run_ingest.run_option_flags(
+                {"preview": True, "preview_workunits": 5}, tmp_path / "datahub"
+            )
+        assert [c.args[1] for c in check.call_args_list] == ["preview"]
+
+    def test_a_cli_without_the_flag_fails_instead_of_running_for_real(
+        self, tmp_path: Path
+    ) -> None:
+        with (
+            patch.object(run_ingest, "check_cli_flag_support", return_value=False),
+            pytest.raises(SystemExit) as exit_info,
+        ):
+            run_ingest.run_option_flags({"dry_run": True}, tmp_path / "datahub")
+        assert exit_info.value.code == 1

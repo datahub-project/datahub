@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import CreatePostForm, { PostFormData } from '@app/settingsV2/posts/CreatePostForm';
 import { PostEntry } from '@app/settingsV2/posts/PostsListColumns';
-import handleGraphQLError from '@app/shared/handleGraphQLError';
+import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
 import { Modal, toast } from '@src/alchemy-components';
 
 import { useCreatePostMutation, useUpdatePostMutation } from '@graphql/mutations.generated';

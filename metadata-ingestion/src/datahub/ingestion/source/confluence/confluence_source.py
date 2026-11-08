@@ -16,7 +16,6 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -32,6 +31,9 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
+from datahub.ingestion.source.common.subtypes import DocumentSubTypes
 from datahub.ingestion.source.confluence.confluence_config import ConfluenceSourceConfig
 from datahub.ingestion.source.confluence.confluence_hierarchy import (
     ConfluenceHierarchyExtractor,
@@ -47,10 +49,8 @@ from datahub.ingestion.source.unstructured.document_builder import (
     DocumentEntityBuilder,
 )
 from datahub.metadata.schema_classes import (
-    DataPlatformInfoClass,
     DataPlatformInstanceClass,
     DocumentStateClass,
-    PlatformTypeClass,
 )
 from datahub.sdk.document import Document
 
@@ -61,14 +61,10 @@ logger = logging.getLogger(__name__)
 # all pages on the next run regardless of whether the raw Confluence body changed.
 EXTRACTION_ALGO_VERSION = "2"
 
-# Subtype applied to documents that represent Confluence folders, matching the
-# value DataHub uses for natively-created folders.
-FOLDER_SUBTYPE = "Folder"
-
 
 @platform_name("Confluence")
 @config_class(ConfluenceSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @capability(SourceCapability.DELETION_DETECTION, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
@@ -408,28 +404,6 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                 token=self.config.personal_access_token.get_secret_value(),
                 cloud=False,
             )
-
-    def _is_space_allowed(self, space_key: str) -> bool:
-        """
-        Check if space is allowed by spaces.allow/spaces.deny lists.
-
-        Args:
-            space_key: Confluence space key
-
-        Returns:
-            True if space should be ingested, False otherwise
-        """
-        # If spaces.allow is specified, space must be in the list
-        if self.config._parsed_space_allow is not None:
-            if space_key not in self.config._parsed_space_allow:
-                return False
-
-        # If spaces.deny is specified, space must NOT be in the list
-        if self.config._parsed_space_deny is not None:
-            if space_key in self.config._parsed_space_deny:
-                return False
-
-        return True
 
     def _is_page_denied(self, page_id: str) -> bool:
         """
@@ -868,7 +842,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                 title=folder.title,
                 text="",
                 status=DocumentStateClass.PUBLISHED,
-                subtype=FOLDER_SUBTYPE,
+                subtype=DocumentSubTypes.FOLDER,
                 custom_properties=custom_properties,
                 parent_document=parent_urn,
             )
@@ -887,7 +861,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                 external_id=folder.id,
                 text="",
                 status=DocumentStateClass.PUBLISHED,
-                subtype=FOLDER_SUBTYPE,
+                subtype=DocumentSubTypes.FOLDER,
                 custom_properties=custom_properties,
                 parent_document=parent_urn,
             )
@@ -1085,23 +1059,36 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         # Get document URN for chunking/embedding
         document_urn = f"urn:li:document:{doc_id}"
 
+        from datahub.ingestion.source.unstructured.chunking_source import (
+            SkipMarkerReadError,
+            compute_source_text_sha256,
+        )
+
         try:
             yield from self.chunking_source.process_elements_inline(
-                document_urn=document_urn, elements=elements
+                document_urn=document_urn,
+                elements=elements,
+                # Hash the exact text placed on DocumentInfo above, so the embeddings'
+                # sourceTextSha256 byte-matches the server-stamped resolvedTextSha256.
+                source_text_sha256=compute_source_text_sha256(text),
             )
-        except RuntimeError as e:
-            if self.chunking_source.report.num_documents_limit_reached:
-                self.report.num_documents_limit_reached = True
+        except SkipMarkerReadError as e:
+            # Do not record this page as processed: the skip marker was not written and
+            # must be retried next run rather than swallowed like an embed failure.
+            logger.warning(f"Skip marker deferred for {document_urn}: {e}")
+            return
+        except Exception as e:
+            if (
+                isinstance(e, ServerEmbeddingRunError)
+                or self.chunking_source.report.num_documents_limit_reached
+            ):
+                self.report.num_documents_limit_reached = (
+                    self.chunking_source.report.num_documents_limit_reached
+                )
                 raise
             logger.warning(
                 f"Failed to generate embeddings for {document_urn}: {e}. "
-                f"Document will be ingested without embeddings.",
-                exc_info=True,
-            )
-        except Exception as e:
-            logger.warning(
-                f"Failed to generate embeddings for {document_urn}: {e}. "
-                f"Document will be ingested without embeddings.",
+                "Document will be ingested without embeddings.",
                 exc_info=True,
             )
 
@@ -1117,20 +1104,6 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         Yields:
             MetadataWorkUnit for all entities
         """
-        # Emit platform metadata with Confluence logo
-        platform_urn = make_data_platform_urn(self.platform)
-        platform_info = DataPlatformInfoClass(
-            name=self.platform,
-            type=PlatformTypeClass.OTHERS,
-            datasetNameDelimiter=".",
-            displayName="Confluence",
-            logoUrl="https://cdn.worldvectorlogo.com/logos/confluence-1.svg",
-        )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=platform_urn,
-            aspect=platform_info,
-        ).as_workunit()
-
         # Track all page IDs being ingested for parent validation
         all_pages: List[Dict[str, Any]] = []
 
@@ -1238,6 +1211,8 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                     page, ingested_page_ids, parent_page_ids
                 )
 
+            except ServerEmbeddingRunError:
+                raise
             except Exception as e:
                 page_id = str(page.get("id", "unknown"))
                 space_key = (
@@ -1255,6 +1230,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
     @staticmethod
     def _test_semantic_search_capability(
         config: ConfluenceSourceConfig,
+        graph: Optional[DataHubGraph] = None,
     ) -> CapabilityReport:
         """Test semantic search capability using the same logic as ingestion.
 
@@ -1270,44 +1246,13 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         Returns:
             CapabilityReport for semantic search capability
         """
-        from datahub.ingestion.graph.client import DataHubGraph
-        from datahub.ingestion.graph.config import DatahubClientConfig
         from datahub.ingestion.source.unstructured.chunking_source import (
             DocumentChunkingSource,
         )
 
-        try:
-            # Create graph connection to query server (if datahub config provided)
-            graph = None
-            if hasattr(config, "datahub") and config.datahub and config.datahub.server:
-                graph_config = DatahubClientConfig(
-                    server=config.datahub.server,
-                    token=config.datahub.token,
-                )
-                graph = DataHubGraph(config=graph_config)
-
-            # Use shared resolution logic (server → defaults)
-            resolved_config = DocumentChunkingSource.resolve_embedding_config(
-                config.embedding, graph
-            )
-
-            # Test the resolved configuration
-            return DocumentChunkingSource.test_embedding_capability(resolved_config)
-
-        except ValueError as e:
-            # Config validation failed (e.g., semantic search not enabled on server)
-            return CapabilityReport(
-                capable=False,
-                failure_reason=str(e),
-                mitigation_message="Fix the embedding configuration or enable semantic search on DataHub server.",
-            )
-        except Exception as e:
-            # Unexpected error during config resolution
-            return CapabilityReport(
-                capable=False,
-                failure_reason=f"Failed to resolve embedding configuration: {e}",
-                mitigation_message="Check DataHub server connection and embedding configuration.",
-            )
+        return DocumentChunkingSource.test_semantic_search_capability(
+            config.embedding, datahub=config.datahub, graph=graph
+        )
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:  # noqa: C901
@@ -1545,4 +1490,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
     def close(self) -> None:
         """Clean up resources."""
-        super().close()
+        try:
+            self.chunking_source.close()
+        finally:
+            super().close()

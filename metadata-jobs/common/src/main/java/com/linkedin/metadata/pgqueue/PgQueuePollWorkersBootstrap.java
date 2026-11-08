@@ -17,6 +17,8 @@ import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Conditional;
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 /**
@@ -90,6 +92,12 @@ public class PgQueuePollWorkersBootstrap implements DisposableBean {
             });
       }
     }
+  }
+
+  @EventListener(ContextClosedEvent.class)
+  public void onContextClosed(ContextClosedEvent event) {
+    // stop() only sets the poll flag. join() would block this thread and delay Jetty.
+    workers.forEach(PgQueuePollWorker::stop);
   }
 
   @Override

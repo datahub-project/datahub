@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.assertion;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionStdAggregation;
 import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionStdParameter;
@@ -32,6 +33,7 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.ReadPreference;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -67,8 +69,18 @@ public class UpsertCustomAssertionResolver implements DataFetcher<CompletableFut
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          // Check whether the current user is allowed to update the assertion.
-          if (AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, entityUrn)) {
+          // Check whether the current user is allowed to update the assertion. An existing
+          // assertion is also checked against the entity it is currently attached to, so the
+          // caller cannot overwrite or re-target an assertion they could not otherwise edit.
+          // Read from primary: a lagging replica would make an existing assertion look new.
+          final AssertionInfo existingInfo =
+              maybeAssertionUrn == null
+                  ? null
+                  : _assertionService.getAssertionInfo(
+                      context.getOperationContext().withReadPreference(ReadPreference.PRIMARY),
+                      assertionUrn);
+          if (AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, entityUrn)
+              && (existingInfo == null || isAuthorizedOnExistingAssertee(context, existingInfo))) {
             _assertionService.upsertCustomAssertion(
                 context.getOperationContext(),
                 assertionUrn,
@@ -88,6 +100,14 @@ public class UpsertCustomAssertionResolver implements DataFetcher<CompletableFut
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  // An existing assertion whose assertee cannot be derived is denied rather than treated as new.
+  private static boolean isAuthorizedOnExistingAssertee(
+      @Nonnull QueryContext context, @Nonnull AssertionInfo existingInfo) {
+    final Urn existingAsserteeUrn = AssertionService.getAsserteeUrn(existingInfo);
+    return existingAsserteeUrn != null
+        && AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, existingAsserteeUrn);
   }
 
   @SneakyThrows

@@ -1,15 +1,16 @@
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Tabs as AntTabs, TabsProps } from 'antd';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { Icon } from '@components/components/Icon';
+import { Menu } from '@components/components/Menu';
+import { ItemType } from '@components/components/Menu/types';
 import { OverflowText } from '@components/components/OverflowText';
 import { Pill } from '@components/components/Pills';
 import { Tooltip } from '@components/components/Tooltip';
 
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
-import { colors } from '@src/alchemy-components/theme';
 import { removeRuntimePath } from '@utils/runtimeBasePath';
 
 const ScrollableTabsContainer = styled.div<{ $maxHeight?: string }>`
@@ -45,7 +46,7 @@ const StyledTabsPrimary = styled(AntTabs)<{
     .ant-tabs-tab {
         padding: 8px 0;
         font-size: 14px;
-        color: ${colors.gray[600]};
+        color: ${(props) => props.theme.colors.textSecondary};
         ${({ $tabBorderRadius }) => $tabBorderRadius && `border-radius: ${$tabBorderRadius};`};
     }
 
@@ -138,7 +139,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
         padding: 8px 8px;
         border-radius: ${({ $tabBorderRadius }) => $tabBorderRadius || '4px'};
         font-size: 14px;
-        color: ${colors.gray[600]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 
     ${({ $addPaddingLeft }) =>
@@ -192,17 +193,17 @@ const StyledTabsSecondary = styled(AntTabs)<{
         }
     }
 
-    ${({ $stickyHeader }) =>
+    ${({ $stickyHeader, theme }) =>
         $stickyHeader &&
         `
             .ant-tabs-nav::before {
                 display: none;
             }
-            
+    
             .ant-tabs-nav-wrap::before {
                 display: none;
             }
-            
+
             .ant-tabs-nav-list::after {
                 content: '';
                 position: absolute;
@@ -210,7 +211,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
                 left: 0;
                 right: 0;
                 height: 1px;
-                background-color: ${colors.gray[200]};
+                background-color: ${theme.colors.border};
             }
         `}
 
@@ -236,7 +237,7 @@ const TabViewWrapper = styled.div<{ $disabled?: boolean; $width?: string; $maxWi
     display: flex;
     align-items: center;
     gap: 4px;
-    ${({ $disabled }) => $disabled && `color: ${colors.gray[1800]};`}
+    ${({ $disabled, theme }) => $disabled && `color: ${theme.colors.textDisabled};`}
     ${({ $width }) => $width && `width: ${$width};`}
     ${({ $maxWidth }) => $maxWidth && `max-width: ${$maxWidth};`}
     ${({ $minWidth }) => $minWidth && `min-width: ${$minWidth};`}
@@ -257,6 +258,11 @@ const CloseButtonAbsoluteContainer = styled.div`
     ${TabViewWrapper}:hover & {
         opacity: 1;
     }
+`;
+
+// display: contents keeps the tab label's layout identical to an unwrapped one.
+const ContextMenuWrapper = styled.div`
+    display: contents;
 `;
 
 const StyledOverflowText = styled(OverflowText)<{ $minWidth?: string }>`
@@ -309,20 +315,50 @@ interface TabViewProps {
 }
 
 function TabView({ tab, width, maxWidth, minTabWidth, onClose }: TabViewProps) {
+    // Mounted only while open so that tabs nobody right-clicks never render a dropdown.
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const hasContextMenu = !!tab.contextMenuItems?.length;
+
+    const onContextMenu = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsMenuOpen(true);
+    }, []);
+
+    // The menu overlay is a React portal, so its clicks bubble up to the tab and would
+    // otherwise select it. Clicks on the tab itself land inside the wrapper and pass through.
+    const onMenuClick = useCallback((e: React.MouseEvent) => {
+        if (!e.currentTarget.contains(e.target as Node)) e.stopPropagation();
+    }, []);
+
+    const content = (
+        <TabViewWrapper
+            id={tab.id}
+            $disabled={tab.disabled}
+            $width={width}
+            $maxWidth={maxWidth}
+            $minWidth={minTabWidth}
+            data-testid={tab.dataTestId}
+            onContextMenu={hasContextMenu ? onContextMenu : undefined}
+        >
+            {tab.closable ? <StyledOverflowText text={tab.name} $minWidth={minTabWidth} /> : tab.name}
+            {!!tab.count && <Pill label={`${tab.count}`} size="xs" color="primary" />}
+            {!!tab.pillLabel && <Pill label={tab.pillLabel} size="xs" clickable={false} />}
+            {tab.closable && <CloseButton onClose={onClose} />}
+        </TabViewWrapper>
+    );
+
     return (
         <Tooltip title={tab.tooltip}>
-            <TabViewWrapper
-                id={tab.id}
-                $disabled={tab.disabled}
-                $width={width}
-                $maxWidth={maxWidth}
-                $minWidth={minTabWidth}
-                data-testid={tab.dataTestId}
-            >
-                {tab.closable ? <StyledOverflowText text={tab.name} $minWidth={minTabWidth} /> : tab.name}
-                {!!tab.count && <Pill label={`${tab.count}`} size="xs" color="primary" />}
-                {tab.closable && <CloseButton onClose={onClose} />}
-            </TabViewWrapper>
+            {/* Must nest inside the tooltip: a contextMenu dropdown wrapping it would swallow its hover handlers. */}
+            {isMenuOpen ? (
+                <ContextMenuWrapper onClick={onMenuClick}>
+                    <Menu items={tab.contextMenuItems} trigger={['contextMenu']} open onOpenChange={setIsMenuOpen}>
+                        {content}
+                    </Menu>
+                </ContextMenuWrapper>
+            ) : (
+                content
+            )}
         </Tooltip>
     );
 }
@@ -332,12 +368,17 @@ export interface Tab {
     key: string;
     component: JSX.Element;
     count?: number;
+    /** Short status label shown as a pill after the name, e.g. "BETA". */
+    pillLabel?: string;
     onSelectTab?: () => void;
     tooltip?: string;
     id?: string;
     dataTestId?: string;
     disabled?: boolean;
     closable?: boolean;
+    contextMenuItems?: ItemType[];
+    /** Included in the tab error boundary reset keys so a new value clears a stuck fallback. */
+    errorResetKey?: string;
 }
 
 export interface Props extends Pick<TabsProps, 'tabBarExtraContent'> {
@@ -441,7 +482,7 @@ export function Tabs({
         ),
         disabled: tab.disabled,
         children: (
-            <ErrorBoundary resetKeys={[tab.key]} variant="tab">
+            <ErrorBoundary resetKeys={[tab.key, tab.errorResetKey ?? '']} variant="tab">
                 {tab.component}
             </ErrorBoundary>
         ),

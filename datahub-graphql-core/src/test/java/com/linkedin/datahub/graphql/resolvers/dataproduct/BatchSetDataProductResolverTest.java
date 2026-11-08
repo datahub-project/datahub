@@ -133,17 +133,40 @@ public class BatchSetDataProductResolverTest {
   }
 
   @Test
-  public void testGetFailureUnauthorizedProductSideMembershipChange() throws Exception {
+  public void testGetSuccessEmptyDomainsUsesOrphanFallback() throws Exception {
     DataProductService mockService = Mockito.mock(DataProductService.class);
     mockExistingUrns(mockService, UrnUtils.getUrn(TEST_RESOURCE_URN_1));
     Mockito.when(mockService.verifyEntityExists(any(), eq(UrnUtils.getUrn(TEST_DATA_PRODUCT_URN))))
         .thenReturn(true);
-    // No domains associated with the data product, so no domain grants MANAGE_DATA_PRODUCTS.
+    // Empty domains → orphan path (EDIT_ENTITY / MANAGE_DOMAINS), not domain-scoped manage.
     Mockito.when(mockService.getDataProductDomains(any(), any())).thenReturn(new Domains());
 
     BatchSetDataProductResolver resolver = new BatchSetDataProductResolver(mockService);
 
     QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    BatchSetDataProductInput input =
+        new BatchSetDataProductInput(TEST_DATA_PRODUCT_URN, List.of(TEST_RESOURCE_URN_1));
+
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertTrue(resolver.get(mockEnv).get());
+    Mockito.verify(mockService, Mockito.times(1))
+        .batchSetDataProduct(any(), eq(UrnUtils.getUrn(TEST_DATA_PRODUCT_URN)), anyList());
+  }
+
+  @Test
+  public void testGetFailureUnauthorizedProductSideMembershipChange() throws Exception {
+    DataProductService mockService = Mockito.mock(DataProductService.class);
+    mockExistingUrns(mockService, UrnUtils.getUrn(TEST_RESOURCE_URN_1));
+    Mockito.when(mockService.verifyEntityExists(any(), eq(UrnUtils.getUrn(TEST_DATA_PRODUCT_URN))))
+        .thenReturn(true);
+    Mockito.when(mockService.getDataProductDomains(any(), any())).thenReturn(new Domains());
+
+    BatchSetDataProductResolver resolver = new BatchSetDataProductResolver(mockService);
+
+    QueryContext mockContext = getMockDenyContextWithOperationContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     BatchSetDataProductInput input =
         new BatchSetDataProductInput(TEST_DATA_PRODUCT_URN, List.of(TEST_RESOURCE_URN_1));

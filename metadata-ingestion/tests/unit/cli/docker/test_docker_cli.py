@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import click
 import pytest
+from click.testing import CliRunner
 from docker import DockerClient
 
 from datahub.cli.docker_check import DockerComposeVersionError
@@ -14,6 +15,7 @@ from datahub.cli.docker_cli import (
     check,
     download_compose_files,
     get_github_file_url,
+    ingest_sample_data,
 )
 
 
@@ -471,3 +473,28 @@ def test_resolve_secrets_generated_values_are_unique(tmp_path: Path) -> None:
 
     assert results[0][0] != results[1][0]
     assert results[0][1] != results[1][1]
+
+
+@patch("datahub.cli.docker_cli.Pipeline.create")
+@patch("datahub.cli.docker_cli.check_docker_quickstart")
+@patch("datahub.upgrade.upgrade.check_upgrade_post")
+def test_ingest_sample_data_puts_server_and_token_on_source(
+    mock_upgrade: MagicMock,
+    mock_check: MagicMock,
+    mock_pipeline_create: MagicMock,
+) -> None:
+    status = MagicMock()
+    status.is_ok.return_value = True
+    mock_check.return_value = status
+    pipeline = MagicMock()
+    pipeline.pretty_print_summary.return_value = 0
+    mock_pipeline_create.return_value = pipeline
+
+    result = CliRunner().invoke(ingest_sample_data, ["--token", "sample-token"])
+
+    assert result.exit_code == 0, result.output
+    recipe = mock_pipeline_create.call_args.args[0]
+    assert recipe["source"]["config"]["server"] == "http://localhost:8080"
+    assert recipe["source"]["config"]["token"] == "sample-token"
+    assert recipe["sink"]["config"]["server"] == "http://localhost:8080"
+    assert recipe["sink"]["config"]["token"] == "sample-token"

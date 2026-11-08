@@ -33,6 +33,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../../fixtures/base-test';
 import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 // ── Entity URNs ───────────────────────────────────────────────────────────────
 
@@ -175,19 +176,23 @@ test.describe('clock button in version picker popover', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 test.describe('opening the Change History sidebar', () => {
-  test('clicking the clock button opens the Change History sidebar', async ({ page }) => {
-    await gotoDataset(page, VERSIONED_URN);
-    await dismissModals(page);
+  test(
+    'clicking the clock button opens the Change History sidebar',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ page }) => {
+      await gotoDataset(page, VERSIONED_URN);
+      await dismissModals(page);
 
-    // Open the popover and click the clock button
-    await versionPillLocator(page).hover();
-    await expect(versionPopoverLocator(page)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-    await clockButtonLocator(page).click();
+      // Open the popover and click the clock button
+      await versionPillLocator(page).hover();
+      await expect(versionPopoverLocator(page)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+      await clockButtonLocator(page).click();
 
-    // The drawer should appear
-    const sidebar = historySidebarLocator(page);
-    await expect(sidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
-  });
+      // The drawer should appear
+      const sidebar = historySidebarLocator(page);
+      await expect(sidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
+    },
+  );
 
   test('sidebar opened via clock button shows "Change History" heading', async ({ page }) => {
     await gotoDataset(page, VERSIONED_URN);
@@ -266,7 +271,7 @@ test.describe('All Versions mode — timeline content', () => {
     expect(hasEntries.length).toBeGreaterThan(0);
   });
 
-  test('timeline shows a "Version created" milestone', async ({ page }) => {
+  test('timeline shows a "Version created" milestone', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebarInAllVersionsMode(page);
     // VersionMilestoneView renders "Version created" text from i18n
     await expect(sidebar.getByText('Version created').first()).toBeVisible({ timeout: TIMEOUTS.EXTRA_LONG });
