@@ -275,7 +275,7 @@ class LookerViewId:
             name=dataset_name,
             platform_instance=(
                 project_instance.platform_instance
-                if project_instance
+                if project_instance and project_instance.platform_instance is not None
                 else config.platform_instance
             ),
             env=(project_instance.env if project_instance else None) or config.env,
