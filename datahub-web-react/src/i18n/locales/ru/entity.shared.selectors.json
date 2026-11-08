@@ -1,0 +1,14 @@
+{
+    "actorsSearch.placeholder": "Поиск пользователей или групп",
+    "domainSelector.label": "Домены",
+    "domainSelector.placeholder": "Выберите домены",
+    "domainSelector.searchPlaceholder": "Поиск по всем доменам...",
+    "entitySearch.noEntitiesFound": "Объекты не найдены",
+    "entitySearch.placeholder": "Поиск объектов...",
+    "customOwnershipType": "Пользовательский тип владения",
+    "ingestionSource": "Источник данных",
+    "groupBy.displayValue": "Группировать {{label}}",
+    "groupBy.group": "Группировать",
+    "domainSelector.singleLabel": "Домен",
+    "domainSelector.singlePlaceholder": "Выберите домен"
+}

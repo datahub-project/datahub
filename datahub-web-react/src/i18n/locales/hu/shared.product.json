@@ -1,4 +1,6 @@
 {
+    "updates.defaultTitle": "DataHub-frissítések: {{month}}",
+    "updates.defaultCtaText": "A DataHub Cloud {{version}} felfedezése",
     "updates.moreInThisRelease": "További újdonságok ebben a kiadásban",
     "upload.failedTitle": "A feltöltés sikertelen"
 }

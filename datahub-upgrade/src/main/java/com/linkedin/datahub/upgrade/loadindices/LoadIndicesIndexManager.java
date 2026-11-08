@@ -1,6 +1,9 @@
 package com.linkedin.datahub.upgrade.loadindices;
 
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
@@ -14,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.client.RequestOptions;
@@ -28,36 +32,52 @@ import org.opensearch.client.indices.GetIndexRequest;
 public class LoadIndicesIndexManager {
 
   private static final String DISABLED_REFRESH_INTERVAL = "-1";
+  private static final List<SearchComponent> MANAGED_COMPONENTS =
+      List.of(
+          SearchComponent.SEARCH_V2,
+          SearchComponent.SEARCH_V3,
+          SearchComponent.SEMANTIC,
+          SearchComponent.GRAPH,
+          SearchComponent.SYSTEM_METADATA);
 
   private final SearchClientShim<?> searchClient;
   private final IndexConvention indexConvention;
   private final ESIndexBuilder indexBuilder;
+  @Nullable private final SearchClusterRegistry searchClusterRegistry;
   private List<ReindexConfig> managedIndexConfigs;
 
   /** -- GETTER -- Returns true if index settings are currently optimized for bulk operations. */
   @Getter private boolean settingsOptimized = false;
 
-  // Resolved index prefix the current managedIndexConfigs were discovered for. Keyed by the prefix
-  // (the actual routing value) rather than the search-context id, so an operation resolving a
-  // different prefix re-discovers instead of reusing a prior operation's indices.
-  private String discoveredForPrefix = null;
+  // Effective prefixes the current managedIndexConfigs were discovered for. Keyed by actual naming
+  // values rather than the search-context id, so any family changing prefix forces rediscovery.
+  private List<String> discoveredForPrefixes = null;
 
   public LoadIndicesIndexManager(
       SearchClientShim<?> searchClient,
       IndexConvention indexConvention,
       ESIndexBuilder indexBuilder) {
+    this(searchClient, indexConvention, indexBuilder, null);
+  }
+
+  public LoadIndicesIndexManager(
+      SearchClientShim<?> searchClient,
+      IndexConvention indexConvention,
+      ESIndexBuilder indexBuilder,
+      @Nullable SearchClusterRegistry searchClusterRegistry) {
     this.searchClient = searchClient;
     this.indexConvention = indexConvention;
     this.indexBuilder = indexBuilder;
+    this.searchClusterRegistry = searchClusterRegistry;
     // Delay index discovery until first use
     this.managedIndexConfigs = new ArrayList<>();
   }
 
   /**
    * Discovers all DataHub indices that should have settings managed during bulk operations. This
-   * includes entity indices, graph service indices, and system metadata indices since these are all
-   * stored in SQL and will be modified by load indices operations. Timeseries indices are excluded
-   * since they are not stored in SQL.
+   * includes entity indices (V2/V3 and semantic), graph service indices, and system metadata
+   * indices since these are all stored in SQL and will be modified by load indices operations.
+   * Timeseries indices are excluded since they are not stored in SQL.
    *
    * @param opContext the operation context
    * @return List of ReindexConfig objects for managed indices
@@ -74,14 +94,16 @@ public class LoadIndicesIndexManager {
     for (String entityPattern : entityPatterns) {
       GetIndexRequest entityRequest = new GetIndexRequest(entityPattern);
       GetIndexResponse entityResponse =
-          searchClient.getIndex(opContext, entityRequest, RequestOptions.DEFAULT);
+          clientFor(opContext, entityPattern)
+              .getIndex(opContext, entityRequest, RequestOptions.DEFAULT);
       String[] entityIndices = entityResponse.getIndices();
 
       for (String indexName : entityIndices) {
         try {
           ReindexConfig config =
-              indexBuilder.buildReindexState(
-                  opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
+              builderFor(opContext, indexName)
+                  .buildReindexState(
+                      opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
           configs.add(config);
           log.debug("Added entity index config: {}", indexName);
         } catch (IOException e) {
@@ -93,18 +115,21 @@ public class LoadIndicesIndexManager {
 
     // Get graph service index
     String graphIndexName =
-        indexConvention.getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME);
+        indexConvention.getIndexName(
+            opContext, SearchComponent.GRAPH, ElasticSearchGraphService.INDEX_NAME);
     log.debug("Querying graph service index: {}", graphIndexName);
     GetIndexRequest graphRequest = new GetIndexRequest(graphIndexName);
     try {
       GetIndexResponse graphResponse =
-          searchClient.getIndex(opContext, graphRequest, RequestOptions.DEFAULT);
+          clientFor(opContext, graphIndexName)
+              .getIndex(opContext, graphRequest, RequestOptions.DEFAULT);
       String[] graphIndices = graphResponse.getIndices();
       for (String indexName : graphIndices) {
         try {
           ReindexConfig config =
-              indexBuilder.buildReindexState(
-                  opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
+              builderFor(opContext, indexName)
+                  .buildReindexState(
+                      opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
           configs.add(config);
           log.debug("Added graph service index config: {}", indexName);
         } catch (IOException e) {
@@ -121,18 +146,23 @@ public class LoadIndicesIndexManager {
 
     // Get system metadata index
     String systemMetadataIndexName =
-        indexConvention.getIndexName(opContext, ElasticSearchSystemMetadataService.INDEX_NAME);
+        indexConvention.getIndexName(
+            opContext,
+            SearchComponent.SYSTEM_METADATA,
+            ElasticSearchSystemMetadataService.INDEX_NAME);
     log.debug("Querying system metadata index: {}", systemMetadataIndexName);
     GetIndexRequest systemMetadataRequest = new GetIndexRequest(systemMetadataIndexName);
     try {
       GetIndexResponse systemMetadataResponse =
-          searchClient.getIndex(opContext, systemMetadataRequest, RequestOptions.DEFAULT);
+          clientFor(opContext, systemMetadataIndexName)
+              .getIndex(opContext, systemMetadataRequest, RequestOptions.DEFAULT);
       String[] systemMetadataIndices = systemMetadataResponse.getIndices();
       for (String indexName : systemMetadataIndices) {
         try {
           ReindexConfig config =
-              indexBuilder.buildReindexState(
-                  opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
+              builderFor(opContext, indexName)
+                  .buildReindexState(
+                      opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
           configs.add(config);
           log.debug("Added system metadata index config: {}", indexName);
         } catch (IOException e) {
@@ -146,6 +176,38 @@ public class LoadIndicesIndexManager {
       log.debug(
           "System metadata index {} does not exist or is not accessible: {}",
           systemMetadataIndexName,
+          e.getMessage());
+    }
+
+    // Semantic entity indices use *index_v2_semantic and live on the SEMANTIC client. They are
+    // not covered by getAllEntityIndicesPatterns (*index_v2 / *index_v3).
+    String semanticPattern = indexConvention.getAllSemanticEntityIndicesPattern(opContext);
+    log.debug("Querying semantic entity indices: {}", semanticPattern);
+    GetIndexRequest semanticRequest = new GetIndexRequest(semanticPattern);
+    try {
+      GetIndexResponse semanticResponse =
+          clientFor(opContext, semanticPattern)
+              .getIndex(opContext, semanticRequest, RequestOptions.DEFAULT);
+      String[] semanticIndices = semanticResponse.getIndices();
+      for (String indexName : semanticIndices) {
+        try {
+          ReindexConfig config =
+              builderFor(opContext, indexName)
+                  .buildReindexState(
+                      opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
+          configs.add(config);
+          log.debug("Added semantic entity index config: {}", indexName);
+        } catch (IOException e) {
+          log.warn(
+              "Failed to build reindex config for semantic index {}: {}",
+              indexName,
+              e.getMessage());
+        }
+      }
+    } catch (Exception e) {
+      log.debug(
+          "Semantic entity indices {} do not exist or are not accessible: {}",
+          semanticPattern,
           e.getMessage());
     }
 
@@ -164,21 +226,23 @@ public class LoadIndicesIndexManager {
     // Discover indices lazily on first use (after BuildIndicesStep has run), re-discovering when
     // the
     // resolved index prefix changes so a prior operation's discovery is never reused for another.
-    final String currentPrefix = indexConvention.getPrefix(opContext).orElse("");
-    if (!Objects.equals(currentPrefix, discoveredForPrefix)) {
+    final List<String> currentPrefixes =
+        MANAGED_COMPONENTS.stream()
+            .map(component -> indexConvention.getPrefix(opContext, component).orElse(""))
+            .toList();
+    if (!Objects.equals(currentPrefixes, discoveredForPrefixes)) {
       log.info("Discovering DataHub indices for settings optimization...");
       this.managedIndexConfigs = discoverDataHubIndexConfigs(opContext);
-      this.discoveredForPrefix = currentPrefix;
+      this.discoveredForPrefixes = currentPrefixes;
     }
 
     log.info("Optimizing settings for bulk operations on {} indices", managedIndexConfigs.size());
 
     for (ReindexConfig config : managedIndexConfigs) {
       try {
-        // Disable refresh interval for bulk operations
-        indexBuilder.setIndexRefreshInterval(opContext, config.name(), DISABLED_REFRESH_INTERVAL);
-
-        indexBuilder.tweakReplicas(opContext, config, false);
+        ESIndexBuilder builder = builderFor(opContext, config.name());
+        builder.setIndexRefreshInterval(opContext, config.name(), DISABLED_REFRESH_INTERVAL);
+        builder.tweakReplicas(opContext, config, false);
 
         log.debug("Optimized settings for index: {}", config.name());
       } catch (IOException e) {
@@ -211,10 +275,9 @@ public class LoadIndicesIndexManager {
         Integer targetReplicaCount = (Integer) indexSettings.get(ESIndexBuilder.NUMBER_OF_REPLICAS);
 
         // Restore refresh interval to target value (includes per-index overrides)
-        indexBuilder.setIndexRefreshInterval(opContext, config.name(), targetRefreshInterval);
-
-        // Restore replica count to target value (includes per-index overrides)
-        indexBuilder.setIndexReplicaCount(opContext, config.name(), targetReplicaCount);
+        ESIndexBuilder builder = builderFor(opContext, config.name());
+        builder.setIndexRefreshInterval(opContext, config.name(), targetRefreshInterval);
+        builder.setIndexReplicaCount(opContext, config.name(), targetReplicaCount);
 
         log.debug(
             "Restored settings for index: {} to refresh: {}, replicas: {}",
@@ -229,5 +292,25 @@ public class LoadIndicesIndexManager {
 
     settingsOptimized = false;
     log.info("Successfully restored settings to configured values for all managed indices");
+  }
+
+  @Nonnull
+  private SearchClientShim<?> clientFor(
+      @Nonnull OperationContext opContext, @Nonnull String indexOrPattern) {
+    if (searchClusterRegistry == null) {
+      return searchClient;
+    }
+    return builderFor(opContext, indexOrPattern).getSearchClient();
+  }
+
+  @Nonnull
+  private ESIndexBuilder builderFor(
+      @Nonnull OperationContext opContext, @Nonnull String indexOrPattern) {
+    if (searchClusterRegistry == null) {
+      return indexBuilder;
+    }
+    SearchComponent component =
+        SearchClients.componentForManagedIndex(opContext, indexConvention, indexOrPattern);
+    return searchClusterRegistry.indexBuilderFor(component);
   }
 }

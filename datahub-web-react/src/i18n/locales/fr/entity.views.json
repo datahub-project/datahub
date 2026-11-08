@@ -110,6 +110,8 @@
     "viewSelect.searchPlaceholder": "Rechercher des Vues...",
     "viewSelect.searchPlaceholderLegacy": "Rechercher",
     "viewSelect.selectYourView": "Sélectionnez votre Vue",
+    "viewSelect.buttonLabel": "Vues",
+    "viewSelect.clearView": "Réinitialiser la vue",
     "viewType.privateDescription": "<bold>Privée</bold> - visible uniquement par vous.",
     "viewType.publicDescription": "<bold>Publique</bold> - visible par tous."
 }

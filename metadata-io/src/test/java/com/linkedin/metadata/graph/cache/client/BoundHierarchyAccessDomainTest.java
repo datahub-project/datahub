@@ -36,6 +36,7 @@ import com.linkedin.metadata.graph.cache.ReadMissReason;
 import com.linkedin.metadata.graph.cache.ReadMode;
 import com.linkedin.metadata.graph.cache.TraversalDirection;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -235,7 +236,7 @@ public class BoundHierarchyAccessDomainTest {
 
     when(graphRetriever.scrollRelatedEntities(
             eq(Set.of("domain")),
-            isNull(),
+            eq(QueryUtils.EMPTY_FILTER),
             eq(Set.of("domain")),
             any(),
             eq(Set.of("IsPartOf")),
@@ -487,7 +488,7 @@ public class BoundHierarchyAccessDomainTest {
     GraphRetriever graphRetriever = mock(GraphRetriever.class);
     when(graphRetriever.scrollRelatedEntities(
             eq(Set.of("domain")),
-            isNull(),
+            eq(QueryUtils.EMPTY_FILTER),
             eq(Set.of("domain")),
             any(),
             eq(Set.of("IsPartOf")),

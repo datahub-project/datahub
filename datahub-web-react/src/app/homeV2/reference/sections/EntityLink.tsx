@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled, { CSSObject } from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import GlossaryEntityIcon from '@app/glossaryV2/GlossaryEntityIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -11,7 +11,7 @@ import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/Depr
 import PlatformHeaderIcons from '@src/app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
 import { getEntityPlatforms } from '@src/app/entityV2/shared/containers/profile/header/utils';
 import HealthIcon from '@src/app/previewV2/HealthIcon';
-import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
+import { useEmbeddedProfileLinkProps } from '@src/app/sharedV2/useEmbeddedProfileLinkProps';
 
 import { Entity, EntityType, GlossaryNode, GlossaryTerm } from '@types';
 

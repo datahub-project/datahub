@@ -11,7 +11,8 @@ import com.linkedin.common.Urn
 record DataProcessInstanceRelationships {
 
   /**
-   * The parent entity whose run instance it is
+   * The parent entity whose run instance it is.
+   * The /* path does not resolve on a single URN, so Search reads the top-level v3 flag.
    */
   @Relationship = {
       "name": "InstanceOf",
@@ -22,6 +23,9 @@ record DataProcessInstanceRelationships {
       "fieldName": "parentTemplate",
       "fieldType": "URN",
       "queryByDefault": false
+    },
+    "v3": {
+      "queryByDefault": true
     }
   }
   parentTemplate: optional Urn
@@ -29,7 +33,8 @@ record DataProcessInstanceRelationships {
   /**
    * The parent DataProcessInstance where it belongs to.
    * If it is a Airflow Task then it should belong to an Airflow Dag run as well
-   * which will be another DataProcessInstance
+   * which will be another DataProcessInstance.
+   * The /* path does not resolve on a single URN, so Search reads the top-level v3 flag.
    */
   @Relationship = {
       "name": "ChildOf",
@@ -40,6 +45,9 @@ record DataProcessInstanceRelationships {
       "fieldName": "parentInstance",
       "fieldType": "URN",
       "queryByDefault": false
+    },
+    "v3": {
+      "queryByDefault": true
     }
   }
   parentInstance: optional Urn

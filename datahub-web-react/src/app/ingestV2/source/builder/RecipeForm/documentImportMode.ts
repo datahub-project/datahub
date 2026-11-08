@@ -1,4 +1,4 @@
-import { get } from 'lodash';
+import get from 'lodash/get';
 
 import { FieldType, RecipeField, setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
 
@@ -16,7 +16,7 @@ const DOCUMENT_IMPORT_MODE_OPTIONS = [
     { label: 'External (read-only, links to source)', value: 'EXTERNAL' },
 ];
 
-export function createDocumentImportModeField(defaultMode: DocumentImportModeValue): RecipeField {
+function createDocumentImportModeField(defaultMode: DocumentImportModeValue): RecipeField {
     return {
         name: 'document_import_mode',
         label: 'Document import mode',
@@ -35,6 +35,3 @@ export function createDocumentImportModeField(defaultMode: DocumentImportModeVal
 export const GITHUB_DOCUMENTS_IMPORT_MODE = createDocumentImportModeField('NATIVE');
 export const NOTION_DOCUMENTS_IMPORT_MODE = createDocumentImportModeField('EXTERNAL');
 export const CONFLUENCE_DOCUMENTS_IMPORT_MODE = createDocumentImportModeField('EXTERNAL');
-
-/** @deprecated Use source-specific import mode fields instead. */
-export const DOCUMENT_IMPORT_MODE = GITHUB_DOCUMENTS_IMPORT_MODE;

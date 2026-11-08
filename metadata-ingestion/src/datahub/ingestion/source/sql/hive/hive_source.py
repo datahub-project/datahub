@@ -1,14 +1,11 @@
 import json
 import logging
 import re
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+import urllib.parse
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
-
-# This import verifies that the dependencies are available.
-from pyhive import hive  # noqa: F401
-from pyhive.sqlalchemy_hive import HiveDate, HiveDecimal, HiveDialect, HiveTimestamp
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.configuration.common import HiddenFromDocs
@@ -24,11 +21,17 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sql.hive.exceptions import InvalidDatasetIdentifierError
+from datahub.ingestion.source.sql.hive.hive_dialect import (
+    HiveDate,
+    HiveDecimal,
+    HiveTimestamp,
+)
 from datahub.ingestion.source.sql.hive.storage_lineage import (
     HiveStorageLineage,
     HiveStorageLineageConfigMixin,
@@ -59,86 +62,13 @@ register_custom_type(HiveDate, DateTypeClass)
 register_custom_type(HiveTimestamp, TimeTypeClass)
 register_custom_type(HiveDecimal, NumberTypeClass)
 
-
-try:
-    from databricks_dbapi.sqlalchemy_dialects.hive import DatabricksPyhiveDialect
-    from pyhive.sqlalchemy_hive import _type_map
-    from sqlalchemy import types, util
-    from sqlalchemy.engine import reflection
-
-    @reflection.cache  # type: ignore
-    def dbapi_get_columns_patched(self, connection, table_name, schema=None, **kw):
-        """Patches the get_columns method from dbapi (databricks_dbapi.sqlalchemy_dialects.base) to pass the native type through"""
-        rows = self._get_table_columns(connection, table_name, schema)
-        # Strip whitespace
-        rows = [[col.strip() if col else None for col in row] for row in rows]
-        # Filter out empty rows and comment
-        rows = [row for row in rows if row[0] and row[0] != "# col_name"]
-        result = []
-        for col_name, col_type, _comment in rows:
-            # Handle both oss hive and Databricks' hive partition header, respectively
-            if col_name in ("# Partition Information", "# Partitioning"):
-                break
-            # Take out the more detailed type information
-            # e.g. 'map<int,int>' -> 'map'
-            #      'decimal(10,1)' -> decimal
-            orig_col_type = col_type  # keep a copy
-            col_type = re.search(r"^\w+", col_type).group(0)  # type: ignore
-            try:
-                coltype = _type_map[col_type]
-            except KeyError:
-                util.warn(
-                    "Did not recognize type '{}' of column '{}'".format(
-                        col_type, col_name
-                    )
-                )
-                coltype = types.NullType  # type: ignore
-            result.append(
-                {
-                    "name": col_name,
-                    "type": coltype,
-                    "nullable": True,
-                    "default": None,
-                    "full_type": orig_col_type,  # pass it through
-                    "comment": _comment,
-                }
-            )
-        return result
-
-    DatabricksPyhiveDialect.get_columns = dbapi_get_columns_patched
-except ModuleNotFoundError:
-    pass
-except Exception as exp:
-    logger.warning(f"Failed to patch method due to {exp}")
-
-
-@reflection.cache  # type: ignore
-def get_view_names_patched(self, connection, schema=None, **kw):
-    query = "SHOW VIEWS"
-    if schema:
-        query += " IN " + self.identifier_preparer.quote_identifier(schema)
-    return [row[0] for row in connection.execute(query)]
-
-
-@reflection.cache  # type: ignore
-def get_view_definition_patched(self, connection, view_name, schema=None, **kw):
-    full_table = self.identifier_preparer.quote_identifier(view_name)
-    if schema:
-        full_table = "{}.{}".format(
-            self.identifier_preparer.quote_identifier(schema),
-            self.identifier_preparer.quote_identifier(view_name),
-        )
-    # Hive responds to the SHOW CREATE TABLE with the full view DDL,
-    # including the view definition. However, for multiline view definitions,
-    # it returns multiple rows (of one column each), each with a part of the definition.
-    # Any whitespace at the beginning/end of each view definition line is lost.
-    rows = connection.execute(f"SHOW CREATE TABLE {full_table}").fetchall()
-    parts = [row[0] for row in rows]
-    return "\n".join(parts)
-
-
-HiveDialect.get_view_names = get_view_names_patched
-HiveDialect.get_view_definition = get_view_definition_patched
+_REMOVED_SCHEMES = {
+    "databricks+pyhive": (
+        "The databricks+pyhive scheme is no longer supported by the hive source. "
+        "Use the unity-catalog source (with include_hive_metastore for legacy "
+        "hive_metastore tables) to ingest Databricks."
+    ),
+}
 
 
 class HiveConfig(TwoTierSQLAlchemyConfig, HiveStorageLineageConfigMixin):
@@ -153,10 +83,23 @@ class HiveConfig(TwoTierSQLAlchemyConfig, HiveStorageLineageConfigMixin):
     def clean_host_port(cls, v: str) -> str:
         return config_clean.remove_protocol(v)
 
+    @model_validator(mode="after")
+    def reject_removed_scheme(self) -> "HiveConfig":
+        # sqlalchemy_uri takes precedence over scheme, so check the scheme it names.
+        uri_scheme = (
+            urllib.parse.urlsplit(self.sqlalchemy_uri).scheme
+            if self.sqlalchemy_uri
+            else None
+        )
+        for scheme in (self.scheme, uri_scheme):
+            if scheme in _REMOVED_SCHEMES:
+                raise ValueError(_REMOVED_SCHEMES[scheme])
+        return self
+
 
 @platform_name("Hive")
 @config_class(HiveConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(
@@ -174,6 +117,10 @@ class HiveConfig(TwoTierSQLAlchemyConfig, HiveStorageLineageConfigMixin):
         SourceCapabilityModifier.TABLE,
         SourceCapabilityModifier.VIEW,
     ],
+)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
 )
 class HiveSource(TwoTierSQLAlchemySource):
     """
@@ -200,50 +147,67 @@ class HiveSource(TwoTierSQLAlchemySource):
         config = HiveConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        """Generate workunits for tables and their storage lineage."""
-        for wu in super().get_workunits_internal():
+    def _process_table(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+        sql_config: SQLCommonConfig,
+        data_reader: Optional[DataReader],
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        # Storage lineage needs DatasetProperties (Location) and SchemaMetadata (columns);
+        # collect them by aspect type, since they may arrive in different work units.
+        dataset_urn: Optional[str] = None
+        dataset_props: Optional[DatasetPropertiesClass] = None
+        schema_metadata: Optional[SchemaMetadataClass] = None
+        lineage_emitted = False
+        for wu in super()._process_table(
+            dataset_name, inspector, schema, table, sql_config, data_reader
+        ):
             yield wu
-
-            if not isinstance(wu, MetadataWorkUnit):
+            if lineage_emitted:
                 continue
-
-            # Get dataset URN and required aspects using workunit methods
-            try:
-                dataset_urn = wu.get_urn()
-            except (AttributeError, KeyError) as e:
-                logger.debug(f"Workunit {wu.id} does not have a URN: {e}")
-                continue
-
-            try:
+            if dataset_props is None:
                 dataset_props = wu.get_aspect_of_type(DatasetPropertiesClass)
+                dataset_urn = wu.get_urn()
+            if schema_metadata is None:
                 schema_metadata = wu.get_aspect_of_type(SchemaMetadataClass)
-            except (AttributeError, KeyError) as e:
-                logger.debug(f"Could not extract aspects from workunit {wu.id}: {e}")
-                continue
-
-            # Only proceed if we have the necessary properties for storage lineage
-            if not dataset_props or not dataset_props.customProperties:
-                continue
-
-            location = dataset_props.customProperties.get("Location")
-            if not location:
-                continue
-
-            table = {"StorageDescriptor": {"Location": location}}
-
-            try:
-                yield from self.storage_lineage.get_lineage_mcp(
-                    dataset_urn=dataset_urn,
-                    table=table,
-                    dataset_schema=schema_metadata,
+            if dataset_props is not None and schema_metadata is not None:
+                lineage_emitted = True
+                yield from self._gen_storage_lineage_workunits(
+                    wu.get_urn(), dataset_props, schema_metadata
                 )
-            except (ValueError, TypeError, KeyError) as e:
-                self.report.warning(
-                    message="Failed to generate storage lineage",
-                    context=dataset_urn,
-                    exc=e,
-                )
+        # Without a schema, storage lineage still goes out, only without column lineage.
+        if not lineage_emitted and dataset_urn and dataset_props is not None:
+            yield from self._gen_storage_lineage_workunits(
+                dataset_urn, dataset_props, None
+            )
+
+    def _gen_storage_lineage_workunits(
+        self,
+        dataset_urn: str,
+        dataset_props: DatasetPropertiesClass,
+        schema_metadata: Optional[SchemaMetadataClass],
+    ) -> Iterable[MetadataWorkUnit]:
+        location = dataset_props.customProperties.get("Location")
+        if not location:
+            return
+
+        # An error stops storage lineage where it failed (storage dataset aspects may
+        # already be out); the table's other aspects still follow.
+        try:
+            yield from self.storage_lineage.get_lineage_mcp(
+                dataset_urn=dataset_urn,
+                table={"StorageDescriptor": {"Location": location}},
+                dataset_schema=schema_metadata,
+            )
+        except Exception as e:
+            self.report.warning(
+                message="Failed to generate storage lineage",
+                context=dataset_urn,
+                exc=e,
+            )
 
     def get_schema_names(self, inspector):
         if not isinstance(self.config, HiveConfig):
@@ -257,9 +221,9 @@ class HiveSource(TwoTierSQLAlchemySource):
     def get_schema_fields_for_column(
         self,
         dataset_name: str,
-        column: Dict[Any, Any],
+        column: Mapping[str, Any],
         inspector: Inspector,
-        pk_constraints: Optional[Dict[Any, Any]] = None,
+        pk_constraints: Optional[Mapping[str, Any]] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaFieldClass]:
@@ -298,8 +262,7 @@ class HiveSource(TwoTierSQLAlchemySource):
 
         return fields
 
-    # Hive SQLAlchemy connector returns views as tables in get_table_names.
-    # See https://github.com/dropbox/PyHive/blob/b21c507a24ed2f2b0cf15b0b6abb1c43f31d3ee0/pyhive/sqlalchemy_hive.py#L270-L273.
+    # Hive's SHOW TABLES also lists views, so views come through get_table_names too.
     # This override makes sure that we ingest view definitions for views
     def _process_view(
         self,
@@ -357,7 +320,7 @@ class HiveSource(TwoTierSQLAlchemySource):
     def get_partitions(
         self, inspector: Inspector, schema: str, table: str
     ) -> Optional[List[str]]:
-        partition_columns: List[dict] = inspector.get_indexes(
+        partition_columns: Sequence[Mapping[str, Any]] = inspector.get_indexes(
             table_name=table, schema=schema
         )
         for partition_column in partition_columns:

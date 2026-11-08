@@ -1,4 +1,4 @@
-import { MoreOutlined } from '@ant-design/icons';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Table } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -52,7 +52,7 @@ export const SchemaSummary = ({ schema }: Props) => {
             render: (field) => <>{field.nativeDataType}</>,
         },
         {
-            title: () => <MoreOutlined />,
+            title: () => <DotsThreeVertical />,
             render: (_) => undefined,
         },
     ];

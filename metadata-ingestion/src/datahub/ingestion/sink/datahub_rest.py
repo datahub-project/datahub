@@ -22,13 +22,13 @@ from datahub.configuration.common import (
     OperationalError,
 )
 from datahub.configuration.env_vars import (
+    get_emit_mode,
     get_rest_sink_default_max_threads,
     get_rest_sink_default_mode,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.emitter.rest_emitter import (
-    _DEFAULT_EMIT_MODE,
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
     DEFAULT_REST_EMITTER_ENDPOINT,
     DataHubRestEmitter,
@@ -142,6 +142,17 @@ def _get_partition_key(record_envelope: RecordEnvelope) -> str:
     return str(uuid.uuid4())
 
 
+def _configured_gms_emit_mode() -> EmitMode:
+    """DATAHUB_EMIT_MODE as it is now, not as it was when rest_emitter was imported.
+
+    Callers such as the datapack loader set the variable per pipeline run, after
+    the module-level default has already been computed.
+    """
+    return pydantic.TypeAdapter(EmitMode).validate_python(
+        get_emit_mode() or EmitMode.SYNC_PRIMARY
+    )
+
+
 def _resolve_gms_emit_mode(
     rest_sink_mode: RestSinkMode, configured_gms_emit_mode: EmitMode
 ) -> EmitMode:
@@ -181,7 +192,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         self._resolved_auth = DatahubRestSink._resolve_auth(self.config)
         self._emitter_thread_local = threading.local()
         self._gms_emit_mode = _resolve_gms_emit_mode(
-            self.config.mode, _DEFAULT_EMIT_MODE
+            self.config.mode, _configured_gms_emit_mode()
         )
 
         try:

@@ -17,4 +17,9 @@ record SearchResultMetadata {
    */
   suggestions: array[SearchSuggestion] = []
 
+  /**
+   * Templates visited while choosing this result. Set when the caller asks for an explanation.
+   */
+  routeChain: optional array[string]
+
 }

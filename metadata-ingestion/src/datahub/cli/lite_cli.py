@@ -15,32 +15,35 @@ from datahub.cli.config_utils import (
     get_raw_client_config,
     persist_raw_datahub_config,
 )
+from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
-from datahub.lite.duckdb_lite_config import DuckDBLiteConfig
 from datahub.lite.lite_local import (
+    AspectVersion,
     AutoComplete,
     DataHubLiteLocal,
     PathNotFoundException,
     SearchFlavor,
 )
+from datahub.lite.lite_registry import lite_registry
 from datahub.lite.lite_util import LiteLocalConfig, get_datahub_lite
+from datahub.lite.sqlite_lite_config import SqliteLiteConfig
 from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_LITE_IMPL = "duckdb"
+DEFAULT_LITE_IMPL = "sqlite"
 
 
-class DuckDBLiteConfigWrapper(DuckDBLiteConfig):
-    file: str = os.path.expanduser(f"{DATAHUB_ROOT_FOLDER}/lite/datahub.duckdb")
+class SqliteLiteConfigWrapper(SqliteLiteConfig):
+    file: str = os.path.expanduser(f"{DATAHUB_ROOT_FOLDER}/lite/datahub.db")
 
 
 class LiteCliConfig(DatahubConfig):
     lite: LiteLocalConfig = LiteLocalConfig(
-        type="duckdb", config=DuckDBLiteConfigWrapper().model_dump()
+        type=DEFAULT_LITE_IMPL, config=SqliteLiteConfigWrapper().model_dump()
     )
 
 
@@ -52,13 +55,12 @@ def get_lite_config() -> LiteLocalConfig:
 
 def _get_datahub_lite(read_only: bool = False) -> DataHubLiteLocal:
     lite_config = get_lite_config()
-    if lite_config.type == "duckdb":
+    lite_class = lite_registry.get_optional(lite_config.type)
+    if lite_class and "read_only" in lite_class.get_config_class().model_fields:
         lite_config.config["read_only"] = read_only
 
-    duckdb_lite = get_datahub_lite(
-        config_dict=lite_config.model_dump(), read_only=read_only
-    )
-    return duckdb_lite
+    # An unknown or uninstallable type is reported by get_datahub_lite.
+    return get_datahub_lite(config_dict=lite_config.model_dump(), read_only=read_only)
 
 
 @click.group(cls=DefaultGroup, default="ls")
@@ -113,6 +115,7 @@ class CompleteablePath(click.ParamType):
 )
 @click.option("-a", "--aspect", required=False, multiple=True, type=str)
 @click.option("--asof", required=False, type=click.DateTime(formats=["%Y-%m-%d"]))
+@click.option("--version", type=click.IntRange(min=1), help="Read one aspect version")
 @click.option("--verbose", required=False, is_flag=True, default=False)
 @click.pass_context
 @telemetry.with_telemetry()
@@ -122,6 +125,7 @@ def get(
     path: Optional[str],
     aspect: List[str],
     asof: Optional[datetime],
+    version: Optional[int],
     verbose: bool,
 ) -> None:
     """Get one or more metadata elements"""
@@ -138,6 +142,23 @@ def get(
         else:
             path = ctx.args[0]
             logger.debug(f"Using path {path} from arguments")
+
+    if version is not None:
+        if not urn or path or len(aspect) != 1:
+            raise click.UsageError(
+                "--version requires one URN and exactly one --aspect"
+            )
+        if asof is not None:
+            raise click.UsageError("--version and --asof cannot be used together")
+        catalog = _get_datahub_lite(read_only=True)
+        try:
+            snapshot = catalog.get_aspect(urn, aspect[0], version)
+            click.echo(
+                json.dumps(_version_json(snapshot) if snapshot else None, indent=2)
+            )
+        finally:
+            catalog.close()
+        return
 
     asof_millis = int(asof.timestamp() * 1000) if asof else None
 
@@ -179,6 +200,36 @@ def get(
         )
     end_time = time.time()
     logger.debug(f"Time taken: {int((end_time - start_time) * 1000.0)} millis")
+
+
+def _version_json(snapshot: AspectVersion) -> dict[str, object]:
+    return {
+        "version": snapshot.version,
+        "value": pre_json_transform(snapshot.value.to_obj()),
+        "systemMetadata": snapshot.system_metadata.to_obj(),
+        "createdon": snapshot.createdon,
+    }
+
+
+@lite.command()
+@click.option("--urn", required=True, type=str)
+@click.option("--aspect", required=True, type=str)
+@telemetry.with_telemetry()
+def history(urn: str, aspect: str) -> None:
+    """Read an aspect's numbered snapshots, oldest first."""
+    catalog = _get_datahub_lite(read_only=True)
+    try:
+        click.echo(
+            json.dumps(
+                [
+                    _version_json(snapshot)
+                    for snapshot in catalog.list_versions(urn, aspect)
+                ],
+                indent=2,
+            )
+        )
+    finally:
+        catalog.close()
 
 
 @lite.command()
@@ -328,11 +379,21 @@ def write_lite_config(lite_config: LiteLocalConfig) -> None:
 
 
 @lite.command(context_settings=dict(allow_extra_args=True))
-@click.option("--type", required=False, default=DEFAULT_LITE_IMPL)
+@click.option(
+    "--type",
+    required=False,
+    default=DEFAULT_LITE_IMPL,
+    help="Storage engine to use. Built-in values are 'sqlite' (no extra dependencies) and 'duckdb'.",
+)
 @click.option("--file", required=False)
 @click.pass_context
 @telemetry.with_telemetry()
 def init(ctx: click.Context, type: Optional[str], file: Optional[str]) -> None:
+    if type not in lite_registry.mapping:
+        raise click.UsageError(
+            f"Failed to find a registered lite implementation for {type}. "
+            f"Valid values are {sorted(lite_registry.mapping)}"
+        )
     lite_config = get_lite_config()
     new_lite_config_dict = lite_config.model_dump()
     # Update the type and config sections only
@@ -362,9 +423,19 @@ def import_cmd(ctx: click.Context, file: Optional[str]) -> None:
             )
         file = ctx.args[0]
 
+    # Import into the instance this CLI is pointed at. Left to its own defaults
+    # the sink would write to the default engine and path instead, which after
+    # the sqlite default landed means `lite import` and `lite ls` can disagree
+    # about both the file and the engine. Only the engine and its config carry
+    # over -- `forward_to` is deliberately dropped, since an import is a local
+    # restore and forwarding would replay the whole file to the remote sink.
+    lite_config = get_lite_config()
     config_dict = {
         "source": {"type": "file", "config": {"path": file}},
-        "sink": {"type": "datahub-lite", "config": {}},
+        "sink": {
+            "type": "datahub-lite",
+            "config": {"type": lite_config.type, "config": lite_config.config},
+        },
     }
     Pipeline.create(config_dict).run()
 

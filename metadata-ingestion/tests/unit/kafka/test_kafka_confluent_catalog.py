@@ -179,7 +179,7 @@ class TestCatalogCredentialMasking:
         from datahub.masking.secret_registry import SecretRegistry
 
         SecretRegistry.reset_instance()
-        initialize_secret_masking(force=True)
+        initialize_secret_masking()
 
     def teardown_method(self) -> None:
         from datahub.masking.bootstrap import shutdown_secret_masking
@@ -576,3 +576,12 @@ class TestCatalogLineage:
 
         assert not aspects_of(workunits, "upstreamLineage")
         assert source.report.catalog_mirror_lineage_edges == 0
+
+
+def test_catalog_close_releases_the_client() -> None:
+    catalog = make_catalog([], KafkaSourceReport())
+
+    catalog.close()
+
+    assert isinstance(catalog.client, Mock)
+    catalog.client.close.assert_called_once()

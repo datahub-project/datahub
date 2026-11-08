@@ -1,4 +1,3 @@
-import { Icon, Tooltip } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { TrendDown } from '@phosphor-icons/react/dist/csr/TrendDown';
@@ -11,13 +10,16 @@ import {
     CollapsibleBody,
     ExpandButton,
     Header,
+    HeaderAction,
     SubTitle,
     SubTitleContainer,
     Title,
     TitleContainer,
 } from '@components/components/Card/components';
 import { CardProps } from '@components/components/Card/types';
+import { Icon } from '@components/components/Icon';
 import { Pill } from '@components/components/Pills';
+import { Tooltip } from '@components/components/Tooltip';
 
 export const cardDefaults: CardProps = {
     iconAlignment: 'horizontal',
@@ -40,6 +42,8 @@ export const Card = ({
     width,
     maxWidth,
     height,
+    padding,
+    gap,
     isEmpty,
     style,
     isCardClickable = cardDefaults.isCardClickable,
@@ -127,7 +131,15 @@ export const Card = ({
     return (
         <>
             {isEmpty ? (
-                <CardContainer maxWidth={maxWidth} height={height} width={width} $size={size} data-testid={dataTestId}>
+                <CardContainer
+                    maxWidth={maxWidth}
+                    height={height}
+                    width={width}
+                    $size={size}
+                    data-testid={dataTestId}
+                    padding={padding}
+                    gap={gap}
+                >
                     <TitleContainer data-testid="no-data">
                         <Title $isEmpty={isEmpty} $size={size}>
                             {t('noData')}
@@ -143,6 +155,8 @@ export const Card = ({
                     height={height}
                     width={width}
                     $size={size}
+                    padding={padding}
+                    gap={gap}
                     style={style}
                     data-testid={dataTestId}
                 >
@@ -153,14 +167,14 @@ export const Card = ({
                             $collapsible={collapsible}
                             onClick={handleHeaderClick}
                         >
-                            {icon && <div style={iconStyles}>{icon}</div>}
+                            {icon ? <div style={iconStyles}>{icon}</div> : null}
 
                             <TitleContainer>
                                 {titleRow}
                                 {!collapsible && subtitleBlock}
                             </TitleContainer>
 
-                            {button}
+                            {button ? <HeaderAction>{button}</HeaderAction> : null}
                             {collapsible && (
                                 <ExpandButton
                                     type="button"

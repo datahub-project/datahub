@@ -1,0 +1,23 @@
+"""
+An entity that can have sub types
+"""
+interface HasSubTypes {
+  """
+  Sub types of the entity
+  """
+  subTypes: SubTypes
+}
+
+extend type Api implements HasSubTypes
+extend type Chart implements HasSubTypes
+extend type Container implements HasSubTypes
+extend type Dashboard implements HasSubTypes
+extend type DataFlow implements HasSubTypes
+extend type DataJob implements HasSubTypes
+extend type DataProcessInstance implements HasSubTypes
+extend type Dataset implements HasSubTypes
+extend type Metric implements HasSubTypes
+extend type Notebook implements HasSubTypes
+extend type Repository implements HasSubTypes
+extend type SemanticModel implements HasSubTypes
+extend type VersionedDataset implements HasSubTypes

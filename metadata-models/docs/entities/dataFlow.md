@@ -156,7 +156,7 @@ DataFlows can be queried using the standard DataHub REST APIs:
 
 ```bash
 # Get a complete DataFlow snapshot
-curl 'http://localhost:8080/entities/urn%3Ali%3AdataFlow%3A(airflow,daily_sales_pipeline,prod)'
+curl 'http://localhost:8080/entitiesV2/urn%3Ali%3AdataFlow%3A(airflow,daily_sales_pipeline,prod)'
 ```
 
 Response includes all aspects:

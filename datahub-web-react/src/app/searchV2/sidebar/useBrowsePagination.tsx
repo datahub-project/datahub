@@ -3,7 +3,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useBrowsePath, useEntityType } from '@app/searchV2/sidebar/BrowseContext';
 import { BROWSE_LOAD_MORE_MARGIN, BROWSE_PAGE_SIZE } from '@app/searchV2/sidebar/constants';
 import { useSidebarFilters } from '@app/searchV2/sidebar/useSidebarFilters';
-import useIntersect from '@app/shared/useIntersect';
+import useIntersect from '@app/sharedV2/useIntersect';
 
 import { GetBrowseResultsV2Query, useGetBrowseResultsV2Query } from '@graphql/browseV2.generated';
 

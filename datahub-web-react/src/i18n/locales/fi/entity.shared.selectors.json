@@ -2,9 +2,13 @@
     "actorsSearch.placeholder": "Hae käyttäjiä tai ryhmiä",
     "domainSelector.label": "Toimialueet",
     "domainSelector.placeholder": "Valitse toimialueet",
+    "domainSelector.singleLabel": "Toimialue",
+    "domainSelector.singlePlaceholder": "Valitse toimialue",
     "domainSelector.searchPlaceholder": "Hae kaikista toimialueista...",
     "entitySearch.noEntitiesFound": "Entiteettejä ei löytynyt",
     "entitySearch.placeholder": "Hae entiteettejä...",
+    "customOwnershipType": "Mukautettu omistajuustyyppi",
+    "ingestionSource": "Sisäänlukulähde",
     "groupBy.displayValue": "Ryhmittele: {{label}}",
     "groupBy.group": "Ryhmittele"
 }

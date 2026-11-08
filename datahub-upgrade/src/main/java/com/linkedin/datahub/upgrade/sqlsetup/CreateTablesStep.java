@@ -10,6 +10,7 @@ import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.List;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
@@ -76,32 +77,51 @@ public class CreateTablesStep implements UpgradeStep {
       dbOps.selectDatabase(args.getDatabaseName(), connection);
     }
 
+    List<String> createTableStatements =
+        dbOps.createTableSqlStatements(args.createSchemaVersionIndex());
+
     if (args.getDbType() == DatabaseType.POSTGRES && args.getPostgresMetadataSchema() != null) {
+      // search_path is session-scoped: CREATE SCHEMA / SET search_path and CREATE TABLE must share
+      // one connection, otherwise unqualified DDL lands in public while CDC grants target the
+      // custom schema. Enable auto-commit so DDL is durable before this connection closes (pool
+      // default may be EBEAN_DATASOURCE_AUTOCOMMIT=false).
       try (Connection connection = server.dataSource().getConnection()) {
-        PostgresSqlSetupSession.ensureSchemaAndSearchPath(
-            connection, args.getPostgresMetadataSchema());
+        boolean previousAutoCommit = connection.getAutoCommit();
+        connection.setAutoCommit(true);
+        try {
+          PostgresSqlSetupSession.ensureSchemaAndSearchPath(
+              connection, args.getPostgresMetadataSchema(), args.isCreateSchema());
+          for (String sql : createTableStatements) {
+            try (Statement st = connection.createStatement()) {
+              st.execute(sql);
+            }
+          }
+        } finally {
+          connection.setAutoCommit(previousAutoCommit);
+        }
+      }
+    } else {
+      for (String sql : createTableStatements) {
+        server.sqlUpdate(sql).execute();
       }
     }
 
-    // Create metadata_aspect_v2 table (and inline indexes for engines that define them in DDL)
-    List<String> createTableStatements =
-        dbOps.createTableSqlStatements(args.createSchemaVersionIndex());
-    for (String sql : createTableStatements) {
-      server.sqlUpdate(sql).execute();
-    }
-
     try (Connection connection = server.dataSource().getConnection()) {
+      preparePostgresMetadataSession(args, connection);
       dbOps.dropLegacyAspectTableIndexes(connection);
     }
     try (Connection connection = server.dataSource().getConnection()) {
+      preparePostgresMetadataSession(args, connection);
       dbOps.ensureAspectIndexes(connection);
     }
     try (Connection connection = server.dataSource().getConnection()) {
+      preparePostgresMetadataSession(args, connection);
       dbOps.ensureAspectTableCollation(connection);
     }
 
     if (args.createSchemaVersionIndex()) {
       try (Connection connection = server.dataSource().getConnection()) {
+        preparePostgresMetadataSession(args, connection);
         dbOps.postSetup(connection);
       }
     }
@@ -109,6 +129,18 @@ public class CreateTablesStep implements UpgradeStep {
 
     result.setExecutionTimeMs(System.currentTimeMillis() - startTime);
     return result;
+  }
+
+  /**
+   * Sets {@code search_path} on a new pool connection so unqualified index/table DDL targets {@code
+   * postgres.schema}. Does not create the schema (that happens once with the CREATE TABLE
+   * connection).
+   */
+  private static void preparePostgresMetadataSession(SqlSetupArgs args, Connection connection)
+      throws SQLException {
+    if (args.getDbType() == DatabaseType.POSTGRES && args.getPostgresMetadataSchema() != null) {
+      PostgresSqlSetupSession.setSearchPath(connection, args.getPostgresMetadataSchema());
+    }
   }
 
   public boolean containsKey(

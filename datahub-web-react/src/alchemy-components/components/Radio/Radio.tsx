@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { v4 as uuidv4 } from 'uuid';
 
 import {
     Checkmark,
@@ -36,19 +37,19 @@ export const Radio = ({
     const { t } = useTranslation('alchemy');
     const resolvedLabel = label ?? t('radio.label');
     const [checked, setChecked] = useState(isChecked || false);
+    const [generatedId] = useState(() => `radio-${uuidv4()}`);
 
     useEffect(() => {
         setChecked(isChecked || false);
     }, [isChecked]);
 
-    const id = props.id || `checkbox-${resolvedLabel}`;
+    const id = props.id || generatedId;
 
     return (
-        <RadioWrapper disabled={isDisabled} error={error}>
-            <RadioBase>
+        <RadioWrapper disabled={isDisabled}>
+            <RadioBase disabled={isDisabled} error={error}>
                 <HiddenInput
                     type="radio"
-                    id={resolvedLabel}
                     value={resolvedLabel}
                     checked={checked}
                     disabled={isDisabled}
@@ -57,15 +58,15 @@ export const Radio = ({
                         setIsChecked?.(true);
                     }}
                     aria-label={resolvedLabel}
-                    aria-labelledby={id}
                     aria-checked={checked}
                     {...props}
+                    id={id}
                 />
                 <Checkmark checked={checked} disabled={isDisabled} error={error} />
             </RadioBase>
             {resolvedLabel && (
                 <RadioLabel>
-                    <Label onClick={() => setChecked(true)}>
+                    <Label htmlFor={id}>
                         {resolvedLabel} {isRequired && <Required>*</Required>}
                     </Label>
                 </RadioLabel>
@@ -74,21 +75,33 @@ export const Radio = ({
     );
 };
 
-export const RadioGroup = ({ isVertical, radios }: RadioGroupProps) => {
+export const RadioGroup = ({ isVertical, radios, name, ariaLabel }: RadioGroupProps) => {
+    const [generatedName] = useState(() => `radio-group-${uuidv4()}`);
+    const groupName = name || generatedName;
+    // The group owns the selection: each Radio keeps local checked state, so without this
+    // a previously clicked radio would stay checked after a sibling is selected.
+    const [selectedIndex, setSelectedIndex] = useState(() => radios.findIndex((radio) => radio.isChecked));
+
     if (!radios.length) {
         return <></>;
     }
 
     return (
-        <RadioGroupContainer isVertical={isVertical}>
-            {radios.map((checkbox) => {
-                const props = { ...checkbox };
-                return (
-                    <React.Fragment key={checkbox.label}>
-                        <Radio {...props} />
-                    </React.Fragment>
-                );
-            })}
+        <RadioGroupContainer isVertical={isVertical} role="radiogroup" aria-label={ariaLabel}>
+            {radios.map((radio, index) => (
+                // eslint-disable-next-line react/no-array-index-key -- labels can be missing or repeated
+                <React.Fragment key={index}>
+                    <Radio
+                        {...radio}
+                        name={groupName}
+                        isChecked={index === selectedIndex}
+                        setIsChecked={(value) => {
+                            setSelectedIndex(index);
+                            radio.setIsChecked?.(value);
+                        }}
+                    />
+                </React.Fragment>
+            ))}
         </RadioGroupContainer>
     );
 };

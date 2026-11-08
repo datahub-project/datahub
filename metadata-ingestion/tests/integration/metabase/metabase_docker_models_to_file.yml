@@ -1,0 +1,18 @@
+source:
+  type: metabase
+  config:
+    # Coordinates
+    connect_uri: http://localhost:3001
+    
+    # Credentials
+    username: admin@test.com
+    password: Admin123!
+    
+    # Feature flags
+    extract_models: true
+    extract_collections_as_tags: false
+
+sink:
+  type: file
+  config:
+    filename: "./metabase_docker_models_mcps.json"

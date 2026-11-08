@@ -2,7 +2,7 @@ import re
 from abc import ABC, abstractmethod
 
 # Add imports for source customization
-from typing import Any, Callable, Dict, Optional, Type, TypeVar
+from typing import Any, Callable, Dict, Optional, Protocol, Type, TypeVar
 from urllib.parse import unquote
 
 # Don't import TableData at the module level to avoid circular imports
@@ -396,6 +396,29 @@ def get_object_key(uri: str) -> str:
     raise ValueError(f"Unsupported URI format: {uri}")
 
 
+class _TablePaths(Protocol):
+    # Structural type for the S3/GCS TableData; importing it from s3.source would
+    # create an import cycle.
+    @property
+    def table_path(self) -> str: ...
+
+    @property
+    def full_path(self) -> str: ...
+
+
+def _is_folder_dataset(table_data: _TablePaths) -> bool:
+    """A folder table's ``table_path`` is the folder and ``full_path`` a sample
+    object inside it; for a single object the two are equal."""
+    return table_data.full_path != table_data.table_path
+
+
+def _with_trailing_slash(key: str) -> str:
+    # The bucket root keeps an empty key: "prefix=" / "browser/<bucket>/".
+    if not key or key.endswith("/"):
+        return key
+    return f"{key}/"
+
+
 class ObjectStoreSourceAdapter:
     """
     Adapter for customizing object store source implementations.
@@ -452,7 +475,7 @@ class ObjectStoreSourceAdapter:
 
     @staticmethod
     def get_s3_external_url(
-        table_data: Any, region: Optional[str] = None
+        table_data: _TablePaths, region: Optional[str] = None
     ) -> Optional[str]:
         """
         Get the AWS S3 console URL for the given table.
@@ -474,10 +497,15 @@ class ObjectStoreSourceAdapter:
         # Use the provided region or default to us-east-1
         aws_region = region or "us-east-1"
 
-        return f"https://{aws_region}.console.aws.amazon.com/s3/buckets/{bucket_name}?prefix={key}"
+        if _is_folder_dataset(table_data):
+            key = _with_trailing_slash(key)
+
+        # The region-agnostic console host requires the region query param to locate
+        # the bucket; without it the console shows a blank page.
+        return f"https://s3.console.aws.amazon.com/s3/buckets/{bucket_name}?region={aws_region}&prefix={key}"
 
     @staticmethod
-    def get_gcs_external_url(table_data: Any) -> Optional[str]:
+    def get_gcs_external_url(table_data: _TablePaths) -> Optional[str]:
         """
         Get the GCS console URL for the given table.
 
@@ -494,8 +522,11 @@ class ObjectStoreSourceAdapter:
         bucket_name = get_object_store_bucket_name(table_data.table_path)
         key = get_object_key(table_data.table_path)
 
-        # Return the basic GCS console URL
-        return f"https://console.cloud.google.com/storage/browser/{bucket_name}/{key}"
+        if not _is_folder_dataset(table_data):
+            return f"https://console.cloud.google.com/storage/browser/_details/{bucket_name}/{key}"
+
+        # The browser only opens a prefix as a folder when it ends with "/".
+        return f"https://console.cloud.google.com/storage/browser/{bucket_name}/{_with_trailing_slash(key)}"
 
     @staticmethod
     def get_abs_external_url(table_data: Any) -> Optional[str]:

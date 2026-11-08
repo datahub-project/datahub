@@ -1,24 +1,44 @@
-import { EmptyState } from '@components';
+import { EmptyState, Tooltip } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { matchPath, useLocation } from 'react-router-dom';
+import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
-import { SimpleSelect } from '@components/components/Select/SimpleSelect';
-
+import { useUserContext } from '@app/context/useUserContext';
 import { DataProductChildRow } from '@app/marketplace/DataProductChildRow';
 import MarketplaceSearch from '@app/marketplace/MarketplaceSearch';
+import MarketplaceSidebarSearchFilters from '@app/marketplace/MarketplaceSidebarSearchFilters';
+import MarketplaceSidebarSearchResults from '@app/marketplace/MarketplaceSidebarSearchResults';
+import MarketplaceSidebarSecondaryFilters from '@app/marketplace/MarketplaceSidebarSecondaryFilters';
 import { useMarketplaceEntityContext } from '@app/marketplace/context/MarketplaceEntityContext';
+import useMarketplaceSidebarFacetOptions from '@app/marketplace/hooks/useMarketplaceSidebarFacetOptions';
+import useMarketplaceSidebarSearch from '@app/marketplace/hooks/useMarketplaceSidebarSearch';
 import { DataProductEntity } from '@app/marketplace/marketplaceTypes';
 import useDataProductRoots from '@app/marketplace/useDataProductRoots';
+import { isRootDataProduct, mergeDataProductEntities } from '@app/marketplace/utils/marketplaceDataProductEntity';
+import {
+    mergeMarketplaceVisibleRootProducts,
+    resolveMarketplaceFallbackRootUrn,
+} from '@app/marketplace/utils/marketplaceSidebarBrowse';
+import {
+    SECONDARY_BROWSE_FILTERS,
+    SecondaryBrowseFilter,
+    buildMarketplaceSearchModeState,
+    isSecondaryBrowseFilter,
+    nextPromotedBrowseFilters,
+} from '@app/marketplace/utils/marketplaceSidebarMode';
 import HierarchicalBrowseSidebar from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar';
+import { SidebarCreateButton } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
+import SidebarAddFilter from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarAddFilter';
 import SidebarHomeNavLink from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarHomeNavLink';
 import { TreeSectionHeader } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/TreeSectionHeader';
 import { PageRoutes } from '@conf/Global';
 
 import { useScrollDataProductsQuery } from '@graphql/marketplaceBrowse.generated';
-import { EntityType } from '@types';
+import { EntityType, FilterOperator } from '@types';
 
 const EmptyStateWrapper = styled.div`
     flex: 1;
@@ -28,23 +48,29 @@ const EmptyStateWrapper = styled.div`
     padding: 24px 12px;
 `;
 
-const ALL_OPTION = '__all__';
-
 type Props = {
     isCollapsed: boolean;
     onToggleCollapsed: () => void;
     onExpandSidebar: () => void;
 };
 
-function productHasApplication(product: DataProductEntity, applicationUrn: string): boolean {
-    return (product.applications ?? []).some((assoc) => assoc.application?.urn === applicationUrn);
-}
-
 export default function MarketplaceSidebar({ isCollapsed, onToggleCollapsed, onExpandSidebar }: Props) {
     const { t } = useTranslation('misc');
     const location = useLocation();
-    const [sidebarFilter, setSidebarFilter] = useState(ALL_OPTION);
+    const [searchInput, setSearchInput] = useState('');
+    const [debouncedQuery, setDebouncedQuery] = useState('');
     const [isProductsExpanded, setIsProductsExpanded] = useState(true);
+    const [selectedDomainUrns, setSelectedDomainUrns] = useState<string[]>([]);
+    const [selectedTagUrns, setSelectedTagUrns] = useState<string[]>([]);
+    const [selectedTermUrns, setSelectedTermUrns] = useState<string[]>([]);
+    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
+    const [selectedApplicationUrns, setSelectedApplicationUrns] = useState<string[]>([]);
+    const [promotedBrowseFilters, setPromotedBrowseFilters] = useState<Set<SecondaryBrowseFilter>>(new Set());
+    const [filterToAutoOpen, setFilterToAutoOpen] = useState<SecondaryBrowseFilter | null>(null);
+    const [autoOpenNonce, setAutoOpenNonce] = useState(0);
+
+    const userContext = useUserContext();
+    const viewUrn = userContext.localState?.selectedViewUrn;
 
     const {
         expandedDataProductUrns,
@@ -54,29 +80,163 @@ export default function MarketplaceSidebar({ isCollapsed, onToggleCollapsed, onE
         collapseAllExpanded,
         refetchKey,
         entityData,
+        optimisticDataProducts,
+        openCreateModal,
+        syncOptimisticWithIndexed,
     } = useMarketplaceEntityContext();
 
     const isHomeSelected = !!matchPath(location.pathname, { path: PageRoutes.MARKETPLACE, exact: true });
 
-    const { data: rootProducts, scrollRef: rootScrollRef, refetch: refetchProducts } = useDataProductRoots();
+    useDebounce(() => setDebouncedQuery(searchInput), 300, [searchInput]);
 
-    // Prefer the outermost ancestor when viewing a nested product; otherwise the product itself
-    // if it isn't already among the loaded roots.
-    const fallbackRootUrn = useMemo(() => {
-        if (entityData?.entityType !== EntityType.DataProduct) return null;
-        const ancestors = entityData.parentDataProducts ?? [];
-        if (ancestors.length > 0) {
-            const rootAncestorUrn = ancestors[ancestors.length - 1]?.urn;
-            if (rootAncestorUrn && !rootProducts.some((p) => p.urn === rootAncestorUrn)) {
-                return rootAncestorUrn;
-            }
-            return null;
-        }
-        if (!rootProducts.some((p) => p.urn === entityData.urn)) {
-            return entityData.urn;
-        }
-        return null;
-    }, [entityData, rootProducts]);
+    const searchModeInput = useMemo(
+        () => ({
+            domainUrns: selectedDomainUrns,
+            tagUrns: selectedTagUrns,
+            termUrns: selectedTermUrns,
+            ownerUrns: selectedOwnerUrns,
+            applicationUrns: selectedApplicationUrns,
+        }),
+        [selectedDomainUrns, selectedTagUrns, selectedTermUrns, selectedOwnerUrns, selectedApplicationUrns],
+    );
+
+    const { isSearchActive, shouldFetchSearch } = useMemo(
+        () =>
+            buildMarketplaceSearchModeState({
+                searchInput,
+                debouncedSearchInput: debouncedQuery,
+                filters: searchModeInput,
+            }),
+        [searchInput, debouncedQuery, searchModeInput],
+    );
+
+    useEffect(() => {
+        setPromotedBrowseFilters((prev) =>
+            nextPromotedBrowseFilters(prev, {
+                termUrns: selectedTermUrns,
+                applicationUrns: selectedApplicationUrns,
+            }),
+        );
+    }, [selectedTermUrns, selectedApplicationUrns]);
+
+    const demoteBrowseFilter = useCallback((key: SecondaryBrowseFilter) => {
+        setPromotedBrowseFilters((prev) => {
+            if (!prev.has(key)) return prev;
+            const next = new Set(prev);
+            next.delete(key);
+            return next;
+        });
+    }, []);
+
+    const promoteBrowseFilter = useCallback((key: SecondaryBrowseFilter) => {
+        setPromotedBrowseFilters((prev) => {
+            if (prev.has(key)) return prev;
+            const next = new Set(prev);
+            next.add(key);
+            return next;
+        });
+    }, []);
+
+    const handleAddBrowseFilter = useCallback(
+        (value: string) => {
+            if (!isSecondaryBrowseFilter(value)) return;
+            promoteBrowseFilter(value);
+            setFilterToAutoOpen(value);
+            setAutoOpenNonce((n) => n + 1);
+        },
+        [promoteBrowseFilter],
+    );
+
+    const handleTermsChange = useCallback(
+        (urns: string[]) => {
+            setSelectedTermUrns(urns);
+            setFilterToAutoOpen(null);
+            if (urns.length === 0) demoteBrowseFilter('term');
+        },
+        [demoteBrowseFilter],
+    );
+
+    const handleApplicationsChange = useCallback(
+        (urns: string[]) => {
+            setSelectedApplicationUrns(urns);
+            setFilterToAutoOpen(null);
+            if (urns.length === 0) demoteBrowseFilter('application');
+        },
+        [demoteBrowseFilter],
+    );
+
+    const handleClearSearch = useCallback(() => {
+        setSearchInput('');
+        setDebouncedQuery('');
+        setSelectedDomainUrns([]);
+        setSelectedTagUrns([]);
+        setSelectedTermUrns([]);
+        setSelectedOwnerUrns([]);
+        setSelectedApplicationUrns([]);
+        setPromotedBrowseFilters(new Set());
+        setFilterToAutoOpen(null);
+    }, []);
+
+    const { domainOptions, tagOptions, termOptions, ownerOptions, applicationOptions } =
+        useMarketplaceSidebarFacetOptions({
+            searchQuery: debouncedQuery,
+            domainUrns: selectedDomainUrns,
+            tagUrns: selectedTagUrns,
+            termUrns: selectedTermUrns,
+            ownerUrns: selectedOwnerUrns,
+            applicationUrns: selectedApplicationUrns,
+            viewUrn,
+            includeTermFacets: promotedBrowseFilters.has('term') || selectedTermUrns.length > 0,
+            includeApplicationFacets: promotedBrowseFilters.has('application') || selectedApplicationUrns.length > 0,
+        });
+
+    const {
+        dataProducts: searchResults,
+        total: searchTotal,
+        loading: searchLoading,
+        isRefreshing: searchRefreshing,
+        scrollRef: searchScrollRef,
+    } = useMarketplaceSidebarSearch({
+        searchQuery: debouncedQuery,
+        ...searchModeInput,
+        viewUrn,
+        skip: !shouldFetchSearch,
+    });
+
+    const searchResultsLoading =
+        (isSearchActive && !shouldFetchSearch) || (searchLoading && searchResults.length === 0);
+
+    const {
+        data: rootProducts,
+        scrollRef: rootScrollRef,
+        refetch: refetchProducts,
+    } = useDataProductRoots(isSearchActive);
+
+    const optimisticRootProducts = useMemo(
+        () => optimisticDataProducts.filter(isRootDataProduct),
+        [optimisticDataProducts],
+    );
+
+    const mergedRootProducts = useMemo(
+        () => mergeDataProductEntities(rootProducts, optimisticRootProducts),
+        [optimisticRootProducts, rootProducts],
+    );
+
+    const addFilterOptions = useMemo(() => {
+        const labels: Record<SecondaryBrowseFilter, string> = {
+            term: t('context.termFilter.label'),
+            application: t('marketplace.filterApplication'),
+        };
+        return SECONDARY_BROWSE_FILTERS.filter((key) => !promotedBrowseFilters.has(key)).map((key) => ({
+            value: key,
+            label: labels[key],
+        }));
+    }, [promotedBrowseFilters, t]);
+
+    const fallbackRootUrn = useMemo(
+        () => resolveMarketplaceFallbackRootUrn(entityData, mergedRootProducts, isSearchActive),
+        [entityData, mergedRootProducts, isSearchActive],
+    );
 
     const { data: fallbackData } = useScrollDataProductsQuery({
         skip: !fallbackRootUrn,
@@ -85,69 +245,47 @@ export default function MarketplaceSidebar({ isCollapsed, onToggleCollapsed, onE
                 query: '*',
                 types: [EntityType.DataProduct],
                 count: 1,
-                orFilters: [{ and: [{ field: 'urn', condition: 'EQUAL' as any, values: [fallbackRootUrn ?? ''] }] }],
+                orFilters: [
+                    {
+                        and: [
+                            {
+                                field: 'urn',
+                                condition: FilterOperator.Equal,
+                                values: [fallbackRootUrn ?? ''],
+                            },
+                        ],
+                    },
+                ],
             },
         },
     });
 
-    const allProducts: DataProductEntity[] = useMemo(() => {
-        if (!fallbackRootUrn) return rootProducts;
+    const visibleProducts: DataProductEntity[] = useMemo(() => {
+        if (!fallbackRootUrn) return mergedRootProducts;
         const fallbackProducts = (fallbackData?.scrollAcrossEntities?.searchResults ?? [])
             .map((r) => r.entity)
             .filter((e): e is DataProductEntity => e?.__typename === 'DataProduct');
-        if (fallbackProducts.length === 0) return rootProducts;
-        const existingUrns = new Set(rootProducts.map((p) => p.urn));
-        const newProducts = fallbackProducts.filter((p) => !existingUrns.has(p.urn));
-        return newProducts.length > 0 ? [...newProducts, ...rootProducts] : rootProducts;
-    }, [rootProducts, fallbackData, fallbackRootUrn]);
+        return mergeMarketplaceVisibleRootProducts(mergedRootProducts, fallbackProducts);
+    }, [mergedRootProducts, fallbackData, fallbackRootUrn]);
+
+    // Only pass fetched/indexed URNs — visibleProducts includes optimistic rows and would prune them early.
+    useEffect(() => {
+        const fallbackIndexedUrns = (fallbackData?.scrollAcrossEntities?.searchResults ?? [])
+            .map((r) => r.entity?.urn)
+            .filter((urn): urn is string => !!urn);
+        syncOptimisticWithIndexed([
+            ...searchResults.map((product) => product.urn),
+            ...rootProducts.map((product) => product.urn),
+            ...fallbackIndexedUrns,
+        ]);
+    }, [searchResults, rootProducts, fallbackData, syncOptimisticWithIndexed]);
 
     useEffect(() => {
-        if (refetchKey > 0) {
+        if (refetchKey > 0 && !isSearchActive) {
             refetchProducts();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [refetchKey]);
-
-    const applicationOptions = useMemo(() => {
-        const seen = new Map<string, string>();
-        allProducts.forEach((product) => {
-            (product.applications ?? []).forEach((assoc) => {
-                const urn = assoc.application?.urn;
-                const label = assoc.application?.properties?.name;
-                if (urn && label && !seen.has(urn)) seen.set(urn, label);
-            });
-        });
-        return Array.from(seen.entries()).map(([urn, label]) => ({ value: urn, label }));
-    }, [allProducts]);
-
-    // Prefer Applications when products are linked to any; otherwise fall back to Domain so the
-    // sidebar still has a useful filter (demo data often has domains but no applications).
-    const useApplicationFilter = applicationOptions.length > 0;
-
-    const domainOptions = useMemo(() => {
-        if (useApplicationFilter) return [];
-        const seen = new Map<string, string>();
-        allProducts.forEach((product) => {
-            const urn = product.domain?.domain?.urn;
-            const label = product.domain?.domain?.properties?.name;
-            if (urn && label && !seen.has(urn)) seen.set(urn, label);
-        });
-        return Array.from(seen.entries()).map(([urn, label]) => ({ value: urn, label }));
-    }, [allProducts, useApplicationFilter]);
-
-    const filterOptions = useApplicationFilter ? applicationOptions : domainOptions;
-
-    useEffect(() => {
-        setSidebarFilter(ALL_OPTION);
-    }, [useApplicationFilter]);
-
-    const visibleProducts = useMemo(() => {
-        if (sidebarFilter === ALL_OPTION) return allProducts;
-        if (useApplicationFilter) {
-            return allProducts.filter((p) => productHasApplication(p, sidebarFilter));
-        }
-        return allProducts.filter((p) => p.domain?.domain?.urn === sidebarFilter);
-    }, [allProducts, sidebarFilter, useApplicationFilter]);
+    }, [refetchKey, isSearchActive]);
 
     const isSectionExpanded = expandedDataProductUrns.size > 0;
     const handleToggleExpandAll = useCallback(() => {
@@ -160,44 +298,60 @@ export default function MarketplaceSidebar({ isCollapsed, onToggleCollapsed, onE
         expandAllDataProducts(expandable);
     }, [isSectionExpanded, visibleProducts, collapseAllExpanded, expandAllDataProducts]);
 
-    const filterControl =
-        filterOptions.length > 0 ? (
-            <SimpleSelect
-                size="sm"
-                width="full"
-                showClear={false}
-                selectLabelProps={{
-                    variant: 'labeled',
-                    label: useApplicationFilter ? t('marketplace.filterApplication') : t('marketplace.filterDomain'),
-                }}
-                options={[{ value: ALL_OPTION, label: t('marketplace.filterAll') }, ...filterOptions]}
-                values={[sidebarFilter]}
-                onUpdate={(vals) => setSidebarFilter(vals[0] ?? ALL_OPTION)}
-                dataTestId={
-                    useApplicationFilter
-                        ? 'marketplace-sidebar-application-filter'
-                        : 'marketplace-sidebar-domain-filter'
-                }
+    const headerActions = (
+        <Tooltip title={t('marketplace.createTooltip')} placement="bottom" showArrow={false}>
+            <SidebarCreateButton
+                variant="filled"
+                color="primary"
+                isCircle
+                icon={{ icon: Plus }}
+                onClick={openCreateModal}
+                data-testid="create-marketplace-data-product-button"
             />
-        ) : null;
+        </Tooltip>
+    );
 
-    const emptyState =
-        visibleProducts.length === 0 ? (
-            <EmptyStateWrapper>
-                <EmptyState
-                    icon={Storefront}
-                    title={
-                        allProducts.length === 0 ? t('marketplace.emptyTreeTitle') : t('marketplace.emptyFilterTitle')
-                    }
-                    description={
-                        allProducts.length === 0
-                            ? t('marketplace.emptyTreeDescription')
-                            : t('marketplace.emptyFilterDescription')
-                    }
-                    size="sm"
-                />
-            </EmptyStateWrapper>
-        ) : null;
+    const hasVisibleFilters =
+        domainOptions.length > 0 ||
+        selectedDomainUrns.length > 0 ||
+        ownerOptions.length > 0 ||
+        selectedOwnerUrns.length > 0 ||
+        tagOptions.length > 0 ||
+        selectedTagUrns.length > 0 ||
+        promotedBrowseFilters.size > 0 ||
+        addFilterOptions.length > 0;
+
+    const filters = hasVisibleFilters ? (
+        <>
+            <MarketplaceSidebarSearchFilters
+                selectedDomainUrns={selectedDomainUrns}
+                selectedOwnerUrns={selectedOwnerUrns}
+                selectedTagUrns={selectedTagUrns}
+                domainOptions={domainOptions}
+                ownerOptions={ownerOptions}
+                tagOptions={tagOptions}
+                onDomainsChange={setSelectedDomainUrns}
+                onOwnersChange={setSelectedOwnerUrns}
+                onTagsChange={setSelectedTagUrns}
+            />
+            <MarketplaceSidebarSecondaryFilters
+                promotedBrowseFilters={promotedBrowseFilters}
+                filterToAutoOpen={filterToAutoOpen}
+                autoOpenNonce={autoOpenNonce}
+                selectedTermUrns={selectedTermUrns}
+                selectedApplicationUrns={selectedApplicationUrns}
+                termOptions={termOptions}
+                applicationOptions={applicationOptions}
+                onTermsChange={handleTermsChange}
+                onApplicationsChange={handleApplicationsChange}
+            />
+            <SidebarAddFilter
+                options={addFilterOptions}
+                onAdd={handleAddBrowseFilter}
+                dataTestId="marketplace-sidebar-add-filter"
+            />
+        </>
+    ) : null;
 
     return (
         <HierarchicalBrowseSidebar
@@ -205,53 +359,75 @@ export default function MarketplaceSidebar({ isCollapsed, onToggleCollapsed, onE
             isCollapsed={isCollapsed}
             onToggleCollapsed={onToggleCollapsed}
             onExpandSidebar={onExpandSidebar}
+            headerActions={headerActions}
             dataTestId="marketplace-sidebar"
             collapseButtonTestId="marketplace-sidebar-collapse-button"
             collapsedSearchAriaLabel={t('marketplace.searchAriaLabel')}
             collapsedSearchTestId="marketplace-sidebar-search-icon"
-            search={<MarketplaceSearch />}
-            filters={filterControl}
+            search={<MarketplaceSearch value={searchInput} onChange={setSearchInput} />}
+            filters={filters}
             homeNav={
                 <SidebarHomeNavLink
                     to={PageRoutes.MARKETPLACE}
                     isSelected={isHomeSelected}
-                    label={t('marketplace.allDataProducts')}
+                    label={t('marketplace.home')}
                     data-testid="marketplace-sidebar-home"
                 />
             }
         >
-            <div data-testid="marketplace-sidebar-tree">
-                <TreeSectionHeader
-                    level={0}
-                    label={t('marketplace.dataProductsSection')}
-                    isExpanded={isProductsExpanded}
-                    onToggle={() => setIsProductsExpanded((v) => !v)}
-                    onToggleExpandAll={handleToggleExpandAll}
-                    isAllExpanded={isSectionExpanded}
-                    expandAllLabel={t('marketplace.expandAll')}
-                    collapseAllLabel={t('marketplace.collapseAll')}
-                    testId="marketplace-sidebar-products-section"
+            {isSearchActive ? (
+                <MarketplaceSidebarSearchResults
+                    dataProducts={searchResults}
+                    total={searchTotal}
+                    loading={searchResultsLoading}
+                    isRefreshing={searchRefreshing}
+                    selectedUrn={selectedUrn}
+                    scrollRef={searchScrollRef}
+                    onClear={handleClearSearch}
                 />
-                {isProductsExpanded && (
-                    <>
-                        {emptyState}
-                        {visibleProducts.map((product) => (
-                            <DataProductChildRow
-                                key={product.urn}
-                                level={0}
-                                dataProduct={product}
-                                isExpanded={expandedDataProductUrns.has(product.urn)}
-                                isSelected={selectedUrn === product.urn}
-                                expandedDataProductUrns={expandedDataProductUrns}
-                                selectedUrn={selectedUrn}
-                                onToggle={() => toggleDataProduct(product.urn)}
-                                onToggleDataProduct={toggleDataProduct}
-                            />
-                        ))}
-                        <div ref={rootScrollRef} style={{ height: 1 }} />
-                    </>
-                )}
-            </div>
+            ) : (
+                <div data-testid="marketplace-sidebar-tree">
+                    <TreeSectionHeader
+                        level={0}
+                        label={t('marketplace.dataProductsSection')}
+                        isExpanded={isProductsExpanded}
+                        onToggle={() => setIsProductsExpanded((v) => !v)}
+                        onToggleExpandAll={handleToggleExpandAll}
+                        isAllExpanded={isSectionExpanded}
+                        expandAllLabel={t('marketplace.expandAll')}
+                        collapseAllLabel={t('marketplace.collapseAll')}
+                        testId="marketplace-sidebar-products-section"
+                    />
+                    {isProductsExpanded && (
+                        <>
+                            {visibleProducts.length === 0 && (
+                                <EmptyStateWrapper>
+                                    <EmptyState
+                                        icon={Storefront}
+                                        title={t('marketplace.emptyTreeTitle')}
+                                        description={t('marketplace.emptyTreeDescription')}
+                                        size="sm"
+                                    />
+                                </EmptyStateWrapper>
+                            )}
+                            {visibleProducts.map((product) => (
+                                <DataProductChildRow
+                                    key={product.urn}
+                                    level={0}
+                                    dataProduct={product}
+                                    isExpanded={expandedDataProductUrns.has(product.urn)}
+                                    isSelected={selectedUrn === product.urn}
+                                    expandedDataProductUrns={expandedDataProductUrns}
+                                    selectedUrn={selectedUrn}
+                                    onToggle={() => toggleDataProduct(product.urn)}
+                                    onToggleDataProduct={toggleDataProduct}
+                                />
+                            ))}
+                            <div ref={rootScrollRef} style={{ height: 1 }} />
+                        </>
+                    )}
+                </div>
+            )}
         </HierarchicalBrowseSidebar>
     );
 }

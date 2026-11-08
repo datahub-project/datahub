@@ -54,6 +54,7 @@
     "properties.save.error": "Jäsenneltyä ominaisuutta ei voitu tallentaa. Jokin meni pieleen.",
     "properties.search.placeholder": "Hae...",
     "properties.searchInProperties.placeholder": "Hae ominaisuuksista...",
+    "properties.showCountMoreValues": "näytä {{count}} lisää ({{total, number}} arvoa yhteensä)",
     "properties.structuredProperty.title": "Jäsennelty ominaisuus",
     "properties.updated.success": "Jäsennelty ominaisuus päivitetty onnistuneesti!"
 }

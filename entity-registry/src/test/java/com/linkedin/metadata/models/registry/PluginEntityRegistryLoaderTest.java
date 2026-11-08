@@ -126,7 +126,7 @@ public class PluginEntityRegistryLoaderTest {
   private EntityRegistry getBaseEntityRegistry(boolean useOptimizedEntityLoading) {
     final AspectSpec keyAspectSpec =
         new AspectSpec(
-            new AspectAnnotation("datasetKey", false, false, null, 1L),
+            new AspectAnnotation("datasetKey", false, false, null, 1L, false),
             Collections.emptyList(),
             Collections.emptyList(),
             Collections.emptyList(),

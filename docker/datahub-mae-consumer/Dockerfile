@@ -22,24 +22,26 @@ RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
 
 COPY docker/snippets/wait_for_deps.sh /usr/local/lib/datahub/wait_for_deps.sh
 
+RUN addgroup -S datahub && adduser -S datahub -G datahub && chmod g-s /home/datahub
+
 FROM base AS prod-install
 COPY metadata-jobs/mae-consumer-job/build/libs/mae-consumer-job.jar /datahub/datahub-mae-consumer/bin/
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mae-consumer/resources/entity-registry.yml
-COPY docker/datahub-mae-consumer/start.sh /datahub/datahub-mae-consumer/scripts/
+COPY --chmod=755 docker/datahub-mae-consumer/start.sh /datahub/datahub-mae-consumer/scripts/
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mae-consumer/scripts/prometheus-config.yaml
-RUN chmod +x /datahub/datahub-mae-consumer/scripts/start.sh
 
 FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134
 
 FROM ${APP_ENV}-install AS final
-
-RUN addgroup -S datahub && adduser -S datahub -G datahub && chmod g-s /home/datahub
 USER datahub
 
 ENV JMX_OPTS=""
 ENV JAVA_OPTS=""
+# application-mae.yaml holds the port, health checks, entity client, and cache defaults.
+# An explicit SPRING_PROFILES_ACTIVE still overrides this image default.
+ENV SPRING_PROFILES_ACTIVE=mae
 ENV OTEL_EXPORTER_OTLP_MAX_PAYLOAD_SIZE=4194304 \
     OTEL_EXPORTER_OTLP_HTTP_HTTP2_MAX_FRAME_SIZE=16777215 \
     OTEL_EXPORTER_OTLP_HTTP_COMPRESSION=gzip \
