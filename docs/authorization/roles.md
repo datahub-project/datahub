@@ -27,7 +27,7 @@ The out-of-the-box Roles represent the most common types of DataHub users. Curre
 | Reader    | Can read all metadata. Cannot edit anything by default, or take administrative actions. |
 
 :::note
-To manage roles, including viewing roles, or editing a user's role, you must either be an **Admin**, or have the **Manage Policies** privilege.
+To manage roles, including viewing roles, or editing a user's role, you must either be an **Admin**, or have the **Manage Policies** privilege. An invite link that assigns a role requires both **Manage User Credentials** and **Manage Policies**. Inviting a user with no role requires **Manage User Credentials** only.
 :::
 
 ## Using Roles
@@ -97,13 +97,14 @@ These privileges are common to both DataHub Core and DataHub Cloud.
 | Manage Tags                               | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create and remove Tags.                                                                                                                                                    |
 | Manage Business Attribute                 | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create, update, delete Business Attribute                                                                                                                                  |
 | Manage Documentation Forms                | :heavy_check_mark: | :heavy_check_mark: | :x:    | Manage forms assigned to assets to assist in documentation efforts.                                                                                                        |
+| Manage Documents                          | :heavy_check_mark: | :x:                | :x:    | View, create, edit, move, delete, and import any document. Editors can still create and edit documents, and owners can delete their own.                                   |
 | Manage Policies                           | :heavy_check_mark: | :x:                | :x:    | Create and remove access control policies. Be careful - Actors with this privilege are effectively super users.                                                            |
 | Manage Metadata Ingestion                 | :heavy_check_mark: | :x:                | :x:    | Create, remove, and update Metadata Ingestion sources. Recipes run as Python on the ingestion executor — grant only to trusted operators.                                  |
 | Manage Secrets                            | :heavy_check_mark: | :x:                | :x:    | Create & remove Secrets stored inside DataHub.                                                                                                                             |
 | Manage Users & Groups                     | :heavy_check_mark: | :x:                | :x:    | Create, remove, and update users and groups on DataHub.                                                                                                                    |
 | View Analytics                            | :heavy_check_mark: | :x:                | :x:    | View the DataHub analytics dashboard.                                                                                                                                      |
 | Manage All Access Tokens                  | :heavy_check_mark: | :x:                | :x:    | Create, list and revoke access tokens on behalf of users in DataHub. Be careful - Actors with this privilege are effectively super users that can impersonate other users. |
-| Manage User Credentials                   | :heavy_check_mark: | :x:                | :x:    | Manage credentials for native DataHub users, including inviting new users and resetting passwords                                                                          |
+| Manage User Credentials                   | :heavy_check_mark: | :x:                | :x:    | Manage credentials for native DataHub users, including inviting new users and resetting passwords. Attaching a role to an invite link also requires Manage Policies.       |
 | Manage Public Views                       | :heavy_check_mark: | :x:                | :x:    | Create, update, and delete any Public (shared) Views.                                                                                                                      |
 | Manage Ownership Types                    | :heavy_check_mark: | :x:                | :x:    | Create, update and delete Ownership Types.                                                                                                                                 |
 | Create Business Attribute                 | :heavy_check_mark: | :x:                | :x:    | Create new Business Attribute.                                                                                                                                             |

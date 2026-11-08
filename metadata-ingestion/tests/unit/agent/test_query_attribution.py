@@ -10,16 +10,45 @@ it.
 import re
 from typing import Any, Dict, List
 
+import pytest
+
 from datahub.ingestion.agent.sql_passthrough import PROBE_QUERY_LABEL, QueryBudget
+from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.snowflake.snowflake_probe import SnowflakeMetadataProbe
-from datahub.ingestion.source.sql.sql_probe import engine_options
+from datahub.ingestion.source.sql.cockroachdb import CockroachDBConfig
+from datahub.ingestion.source.sql.doris.doris_source import DorisConfig
+from datahub.ingestion.source.sql.mysql import MySQLConfig
+from datahub.ingestion.source.sql.postgres import PostgresConfig
+from datahub.ingestion.source.sql.protocol_probe_settings import probe_url
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_generic import SQLAlchemyGenericConfig
+from datahub.ingestion.source.sql.sqlalchemy_probe import probe_engine_options
+from tests.unit.agent._driver_capture import driver_connect_kwargs
+
+_CONFIG_FOR_DIALECT = {
+    "postgresql": PostgresConfig,
+    "cockroachdb": CockroachDBConfig,
+    "redshift": RedshiftConfig,
+    "mysql": MySQLConfig,
+    # MariaDB's source is declared with MySQLConfig.
+    "mariadb": MySQLConfig,
+    "doris": DorisConfig,
+}
 
 
 def _options_for(url: str, **config_attrs: Any) -> Dict[str, Any]:
-    config = type(
-        "_Config", (), {"get_sql_alchemy_url": lambda self: url, **config_attrs}
+    """The engine options the probe builds for the connector config whose
+    recipe connects to `url`; a dialect with no connector of its own goes
+    through the generic source."""
+    config_cls = _CONFIG_FOR_DIALECT.get(url.split("://", 1)[0].split("+", 1)[0])
+    config: SQLCommonConfig = (
+        config_cls(host_port="h:1", sqlalchemy_uri=url, **config_attrs)
+        if config_cls is not None
+        else SQLAlchemyGenericConfig(platform="exotic", connect_uri=url, **config_attrs)
     )
-    return engine_options(config(), budget=QueryBudget(timeout_seconds=30))
+    return probe_engine_options(
+        config, config.probe_engine_settings(QueryBudget(timeout_seconds=30))
+    )
 
 
 def test_the_label_stays_inside_the_charset_every_dialect_accepts():
@@ -74,6 +103,33 @@ def test_a_recipe_that_names_its_own_connection_keeps_that_name():
     )
     assert options["connect_args"]["application_name"] == "my_own_name"
     assert "statement_timeout" in options["connect_args"]["options"]
+
+
+@pytest.mark.parametrize(
+    "url, kwarg",
+    [
+        (
+            "postgresql+psycopg2://u:p@h:5432/db?application_name=recipe_app",
+            "application_name",
+        ),
+        ("mysql+pymysql://u:p@h:3306/db?program_name=recipe_app", "program_name"),
+    ],
+)
+def test_a_client_name_in_the_recipes_url_reaches_the_driver_unreplaced(
+    url: str, kwarg: str
+) -> None:
+    """connect_args override the URL's query in create_engine, so a label in
+    the probe's connect_args would replace the name the recipe chose there."""
+    config = _CONFIG_FOR_DIALECT[url.split("+", 1)[0]](
+        host_port="h:1", sqlalchemy_uri=url
+    )
+    options = probe_engine_options(
+        config, config.probe_engine_settings(QueryBudget(timeout_seconds=30))
+    )
+    ingestion = driver_connect_kwargs(config.get_sql_alchemy_url(), config.options)
+    probe = driver_connect_kwargs(probe_url(config), options)
+    assert ingestion[kwarg] == "recipe_app"
+    assert probe[kwarg] == "recipe_app"
 
 
 class _StubConnection:

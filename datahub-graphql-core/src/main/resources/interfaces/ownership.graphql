@@ -1,0 +1,40 @@
+"""
+An entity that can have owners
+"""
+interface HasOwnership {
+  """
+  Ownership metadata of the entity
+  """
+  ownership: Ownership
+}
+
+extend type Api implements HasOwnership
+extend type Application implements HasOwnership
+extend type Assertion implements HasOwnership
+extend type BusinessAttribute implements HasOwnership
+extend type Chart implements HasOwnership
+extend type Container implements HasOwnership
+extend type CorpGroup implements HasOwnership
+extend type Dashboard implements HasOwnership
+extend type DataFlow implements HasOwnership
+extend type DataJob implements HasOwnership
+extend type DataPlatformInstance implements HasOwnership
+extend type DataProduct implements HasOwnership
+extend type Dataset implements HasOwnership
+extend type Document implements HasOwnership
+extend type Domain implements HasOwnership
+extend type ERModelRelationship implements HasOwnership
+extend type Form implements HasOwnership
+extend type GlossaryNode implements HasOwnership
+extend type GlossaryTerm implements HasOwnership
+extend type MLFeature implements HasOwnership
+extend type MLFeatureTable implements HasOwnership
+extend type MLModel implements HasOwnership
+extend type MLModelGroup implements HasOwnership
+extend type MLPrimaryKey implements HasOwnership
+extend type Metric implements HasOwnership
+extend type Notebook implements HasOwnership
+extend type Repository implements HasOwnership
+extend type SemanticModel implements HasOwnership
+extend type Tag implements HasOwnership
+extend type VersionedDataset implements HasOwnership

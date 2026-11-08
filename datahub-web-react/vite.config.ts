@@ -7,10 +7,15 @@ import * as path from 'path';
 import { PluginOption, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import svgr from 'vite-plugin-svgr';
+import { configDefaults } from 'vitest/config';
 
 // Vite config is evaluated by Node before `@src` aliases exist.
-// eslint-disable-next-line import-alias/import-alias
+/* eslint-disable import-alias/import-alias */
+import { authShellPreloadPlugin } from './vite-plugins/authShellPreloadPlugin';
 import { i18nLocaleBundlesPlugin } from './vite-plugins/i18nLocaleBundlesPlugin';
+import { precompressAssetsPlugin } from './vite-plugins/precompressAssetsPlugin';
+
+/* eslint-enable import-alias/import-alias */
 
 const injectMeticulous = () => {
     if (!process.env.REACT_APP_METICULOUS_PROJECT_TOKEN) {
@@ -41,6 +46,63 @@ export function stripDotSlashFromAssets() {
         name: 'strip-dot-slash',
         transformIndexHtml(html) {
             return html.replace(/src="\.\//g, 'src="').replace(/href="\.\//g, 'href="');
+        },
+    };
+}
+
+// Records which JS files index.html loads before the app runs, and how many
+// catalog modules each of those files contains. A named vendor chunk is eager
+// as soon as the shell imports one module from it, so the file list — not a
+// filename glob — is the budget.
+export function eagerBudgetReport() {
+    const eagerFiles: string[] = [];
+    const moduleCounts = new Map<string, { phosphorModules: number; muiIconModules: number }>();
+    return {
+        name: 'eager-budget-report',
+        apply: 'build' as const,
+        // vite:build-html injects <script> tags inside its own generateBundle, and that
+        // hook runs after user plugins. Counting here and writing in closeBundle sees both.
+        generateBundle(
+            _options: unknown,
+            bundle: Record<string, { type: string; fileName: string; modules?: Record<string, unknown> }>,
+        ) {
+            Object.values(bundle).forEach((item) => {
+                if (item.type !== 'chunk') {
+                    return;
+                }
+                const moduleIds = Object.keys(item.modules || {});
+                moduleCounts.set(item.fileName, {
+                    phosphorModules: moduleIds.filter((id) => id.includes('phosphor-icons')).length,
+                    muiIconModules: moduleIds.filter((id) => id.includes('icons-material')).length,
+                });
+            });
+        },
+        transformIndexHtml: {
+            order: 'post' as const,
+            handler(html: string, ctx: { filename?: string; path?: string }) {
+                const filename = ctx.filename || ctx.path || '';
+                if (path.basename(filename) !== 'index.html') {
+                    return html;
+                }
+                const srcs = new Set<string>();
+                const add = (src: string) => srcs.add(src.replace(/^\.\//, '').replace(/^\//, ''));
+                Array.from(html.matchAll(/<script[^>]*\ssrc="([^"]+\.js)"/g)).forEach((match) => add(match[1]));
+                Array.from(html.matchAll(/<link[^>]*rel="modulepreload"[^>]*>/g)).forEach((match) => {
+                    const href = match[0].match(/href="([^"]+\.js)"/);
+                    if (href) add(href[1]);
+                });
+                eagerFiles.splice(0, eagerFiles.length, ...srcs);
+                return html;
+            },
+        },
+        closeBundle() {
+            const chunks = eagerFiles.map((file) => ({
+                file,
+                ...(moduleCounts.get(file) || { phosphorModules: 0, muiIconModules: 0 }),
+            }));
+            const outFile = path.resolve(__dirname, 'dist', 'eager-budget-report.json');
+            fs.mkdirSync(path.dirname(outFile), { recursive: true });
+            fs.writeFileSync(outFile, `${JSON.stringify({ chunks }, null, 2)}\n`);
         },
     };
 }
@@ -161,7 +223,10 @@ export default defineConfig(async ({ mode }) => {
             macrosPlugin(),
             viteStaticCopy({
                 targets: [
-                    // Self-host images by copying them to the build directory
+                    // Self-host images by copying them to the build directory.
+                    // Keep these in a subdirectory of assets/. ContentHashedAssetCacheFilter treats a
+                    // single filename directly under /assets/ as a Vite content hash and caches it for
+                    // a year. These URLs are stable and must stay revalidatable.
                     { src: path.resolve(__dirname, 'src/images/*'), dest: 'assets/platforms' },
                     // Also keep the theme json files in the build directory
                     { src: path.resolve(__dirname, 'src/conf/theme/*.json'), dest: 'assets/conf/theme' },
@@ -203,6 +268,10 @@ export default defineConfig(async ({ mode }) => {
                 gitService: 'github',
             }),
             stripDotSlashFromAssets(),
+            eagerBudgetReport(),
+            authShellPreloadPlugin(),
+            // closeBundle order: 'post' — runs after vite-plugin-static-copy writes Monaco etc.
+            precompressAssetsPlugin(),
         ],
         // optimizeDeps: {
         //     include: ['@ant-design/colors', '@ant-design/icons', 'lodash-es', '@ant-design/icons/es/icons'],
@@ -225,21 +294,24 @@ export default defineConfig(async ({ mode }) => {
             rollupOptions: {
                 output: {
                     // Emit source maps without inlined sourcesContent. The original source text is
-                    // ~70% of each map's bytes and pushes the largest 'source' map over Cloudflare
+                    // ~70% of each map's bytes and used to push the largest app map over Cloudflare
                     // Pages' 25 MiB (26,214,400 byte) per-file limit, which breaks the preview
                     // deploy Meticulous records against. The mappings + source paths that remain are
                     // what Meticulous needs to attribute coverage to source files; it fetches the
-                    // original files from the served build rather than reading inlined text. Keeps
-                    // every map well under the limit without splitting app code (static app-code
-                    // splits cut import cycles and cause "cannot access X before initialization"
-                    // TDZ crashes at load).
+                    // original files from the served build rather than reading inlined text.
+                    // Route-level React.lazy() splits app code into async chunks, which
+                    // also keeps individual maps smaller. Do not add static manualChunks splits of
+                    // src/ — those cut import cycles and cause "cannot access X before
+                    // initialization" TDZ crashes at load (OSS hit this and backed out).
                     sourcemapExcludeSources: true,
-                    // Locale splitting is handled by i18nLocaleBundlesPlugin's virtual dynamic
-                    // imports, so nothing is assigned here. The hook is kept as an extension
-                    // point for builds that layer on their own chunk assignments.
-                    manualChunks() {
-                        return undefined;
-                    },
+                    // No manualChunks. A named chunk is eager as soon as the shell
+                    // statically imports one module from it. The old vendor catch-all
+                    // pulled import()-only dependencies onto index.html. Naming the
+                    // MUI icon catalog did the same once shared React and MUI packages
+                    // landed in that chunk. Rollup's default splitting keeps those
+                    // graphs async. authShellPreloadPlugin modulepreloads the logged-in
+                    // provider graph when the actor cookie is set, so /login does not
+                    // download it.
                 },
             },
         },
@@ -261,6 +333,9 @@ export default defineConfig(async ({ mode }) => {
             },
         },
         test: {
+            // scripts/*.test.mjs uses node:test and is run from the frontend-build job.
+            // Vitest would otherwise collect it and fail with "No test suite found".
+            exclude: [...configDefaults.exclude, 'scripts/**'],
             globals: true,
             environment: 'jsdom',
             setupFiles: './src/setupTests.ts',

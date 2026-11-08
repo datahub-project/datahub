@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.util;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -24,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -99,13 +101,27 @@ public class IndexUtils {
       List<ElasticSearchIndexed> elasticSearchIndexedList,
       Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties)
       throws IOException {
+    return getAllReindexConfigs(opContext, elasticSearchIndexedList, () -> structuredProperties);
+  }
+
+  /**
+   * As {@link #getAllReindexConfigs(OperationContext, List, Collection)}, reading the structured
+   * property definitions only when no earlier step has cached the configs. On Cassandra each read
+   * is a filtering scan of the aspect table, and cached configs were already built from them.
+   */
+  public static List<ReindexConfig> getAllReindexConfigs(
+      OperationContext opContext,
+      List<ElasticSearchIndexed> elasticSearchIndexedList,
+      Supplier<? extends Collection<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties)
+      throws IOException {
     // Avoid locking & reprocessing
     List<ReindexConfig> reindexConfigs = new ArrayList<>(_reindexConfigs);
     if (reindexConfigs.isEmpty()) {
+      Collection<Pair<Urn, StructuredPropertyDefinition>> definitions = structuredProperties.get();
       Map<String, ESIndexBuilder> builders = new HashMap<>();
       for (ElasticSearchIndexed elasticSearchIndexed : elasticSearchIndexedList) {
         List<ReindexConfig> serviceConfigs =
-            elasticSearchIndexed.buildReindexConfigs(opContext, structuredProperties);
+            elasticSearchIndexed.buildReindexConfigs(opContext, definitions);
         reindexConfigs.addAll(serviceConfigs);
         for (ReindexConfig config : serviceConfigs) {
           builders.put(config.name(), elasticSearchIndexed.getIndexBuilder(config.name()));
@@ -240,10 +256,29 @@ public class IndexUtils {
   }
 
   /**
+   * Test-only override of the retry wait duration. Null in production, so {@link #retryWithBackoff}
+   * uses the caller-supplied delay unchanged. Tests that exercise retry paths (e.g.
+   * retry-exhaustion cases that would otherwise sleep {@code maxAttempts * delay}, several seconds
+   * each) set this to a tiny value so the real code runs without the real wait. Reset to null in
+   * test teardown so it does not leak across test classes sharing a JVM fork.
+   */
+  private static volatile Duration retryWaitOverride = null;
+
+  @VisibleForTesting
+  public static void setRetryWaitOverrideForTesting(Duration override) {
+    retryWaitOverride = override;
+  }
+
+  @VisibleForTesting
+  public static void clearRetryWaitOverrideForTesting() {
+    retryWaitOverride = null;
+  }
+
+  /**
    * Executes a function with retry logic using Resilience4j RetryConfig.
    *
-   * <p>This method uses Resilience4j's retry mechanism with exponential backoff. It retries the
-   * provided operation up to the configured number of attempts.
+   * <p>This method uses Resilience4j's retry mechanism with a fixed wait between attempts. It
+   * retries the provided operation up to the configured number of attempts.
    *
    * @param maxAttempts the maximum number of attempts
    * @param initialDelayMs the initial delay in milliseconds (used for custom config)
@@ -257,7 +292,8 @@ public class IndexUtils {
     RetryConfig customConfig =
         RetryConfig.custom()
             .maxAttempts(maxAttempts)
-            .waitDuration(Duration.ofMillis(initialDelayMs))
+            .waitDuration(
+                retryWaitOverride != null ? retryWaitOverride : Duration.ofMillis(initialDelayMs))
             .retryOnException(e -> true) // Retry on any exception
             .failAfterMaxAttempts(false) // Return false instead of throwing
             .build();

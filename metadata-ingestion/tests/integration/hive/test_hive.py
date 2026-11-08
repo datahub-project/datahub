@@ -75,15 +75,13 @@ def test_hive_ingest(loaded_hive, pytestconfig, test_resources_dir, tmp_path):
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
+        fail_on_output_mces=True,
         output_path=events_file,
-        golden_path=test_resources_dir / "hive_mces_golden.json",
+        golden_path=test_resources_dir / "hive_golden.json",
         ignore_paths=[
-            r"root\[\d+\]\['proposedSnapshot'\]\['com\.linkedin\.pegasus2avro\.metadata\.snapshot\.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com\.linkedin\.pegasus2avro\.dataset\.DatasetProperties'\]\['customProperties'\]\['.*Time.*'\]",
-            r"root\[6\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.schema.SchemaMetadata'\]\['fields'\]\[\d+\]\['nativeDataType'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['.*Time.*'\]",
         ],
     )
-
-    # Limitation - native data types for union does not show up as expected
 
 
 @time_machine.travel(FROZEN_TIME_DT, tick=False)
@@ -101,15 +99,13 @@ def test_hive_ingest_all_db(loaded_hive, pytestconfig, test_resources_dir, tmp_p
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
+        fail_on_output_mces=True,
         output_path=events_file,
-        golden_path=test_resources_dir / "hive_mces_all_db_golden.json",
+        golden_path=test_resources_dir / "hive_all_db_golden.json",
         ignore_paths=[
-            r"root\[\d+\]\['proposedSnapshot'\]\['com\.linkedin\.pegasus2avro\.metadata\.snapshot\.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com\.linkedin\.pegasus2avro\.dataset\.DatasetProperties'\]\['customProperties'\]\['.*Time.*'\]",
-            r"root\[6\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.schema.SchemaMetadata'\]\['fields'\]\[\d+\]\['nativeDataType'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['.*Time.*'\]",
         ],
     )
-
-    # Limitation - native data types for union does not show up as expected
 
 
 @time_machine.travel(FROZEN_TIME_DT, tick=False)

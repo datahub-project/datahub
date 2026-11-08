@@ -5,6 +5,9 @@ fragment globalTagsFields on GlobalTags {
             type
             name
             description
+            status {
+                removed
+            }
             properties {
                 name
                 colorHex
@@ -142,23 +145,21 @@ fragment glossaryNode on GlossaryNode {
         relationships {
             type
             entity {
-                ... on GlossaryTerm {
-                    urn
-                    name
-                    type
-                    hierarchicalName
+                ... on HasProperties {
                     properties {
                         name
                         description
                     }
                 }
+                ... on GlossaryTerm {
+                    urn
+                    name
+                    type
+                    hierarchicalName
+                }
                 ... on GlossaryNode {
                     urn
                     type
-                    properties {
-                        name
-                        description
-                    }
                     displayProperties {
                         ...displayPropertiesFields
                     }
@@ -173,6 +174,9 @@ fragment glossaryTerm on GlossaryTerm {
     name
     type
     hierarchicalName
+    status {
+        removed
+    }
     properties {
         name
         description
@@ -268,89 +272,93 @@ fragment parentDomainsFields on ParentDomainsResult {
     }
 }
 
-fragment ownershipFields on Ownership {
-    owners {
-        owner {
-            ... on CorpUser {
-                urn
-                type
-                username
-                info {
-                    active
-                    displayName
-                    title
-                    email
-                    firstName
-                    lastName
-                    fullName
-                }
-                properties {
-                    active
-                    displayName
-                    title
-                    email
-                    firstName
-                    lastName
-                    fullName
-                }
-                editableProperties {
-                    displayName
-                    title
-                    pictureLink
-                    email
-                }
+fragment owner on Owner {
+    owner {
+        ... on CorpUser {
+            urn
+            type
+            username
+            info {
+                active
+                displayName
+                title
+                email
+                firstName
+                lastName
+                fullName
             }
-            ... on CorpGroup {
-                urn
-                type
-                name
-                properties {
-                    displayName
-                    email
-                }
-                info {
-                    displayName
-                    email
-                    admins {
-                        urn
-                        username
-                        info {
-                            active
-                            displayName
-                            title
-                            email
-                            firstName
-                            lastName
-                            fullName
-                        }
-                        editableInfo {
-                            pictureLink
-                            teams
-                            skills
-                        }
-                    }
-                    members {
-                        urn
-                        username
-                        info {
-                            active
-                            displayName
-                            title
-                            email
-                            firstName
-                            lastName
-                            fullName
-                        }
-                        editableInfo {
-                            pictureLink
-                            teams
-                            skills
-                        }
-                    }
-                    groups
-                }
+            properties {
+                active
+                displayName
+                title
+                email
+                firstName
+                lastName
+                fullName
+            }
+            editableProperties {
+                displayName
+                title
+                pictureLink
+                email
             }
         }
+        ... on CorpGroup {
+            urn
+            type
+            name
+            properties {
+                displayName
+                email
+            }
+            info {
+                displayName
+                email
+                admins {
+                    urn
+                    username
+                    info {
+                        active
+                        displayName
+                        title
+                        email
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableInfo {
+                        pictureLink
+                        teams
+                        skills
+                    }
+                }
+                members {
+                    urn
+                    username
+                    info {
+                        active
+                        displayName
+                        title
+                        email
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableInfo {
+                        pictureLink
+                        teams
+                        skills
+                    }
+                }
+                groups
+            }
+        }
+    }
+}
+
+fragment ownershipFields on Ownership {
+    owners {
+        ...owner
         type
         ownershipType {
             urn
@@ -456,6 +464,7 @@ fragment nonRecursiveDatasetFields on Dataset {
             value
         }
         externalUrl
+        created
         lastModified {
             time
             actor
@@ -486,7 +495,7 @@ fragment nonRecursiveDatasetFields on Dataset {
         typeNames
     }
     domain {
-        ...entityDomain
+        ...entityDomainWithoutCounts
     }
     applications {
         ...entityApplication
@@ -531,7 +540,7 @@ fragment nonRecursiveDataFlowFields on DataFlow {
         ...platformFields
     }
     domain {
-        ...entityDomain
+        ...entityDomainWithoutCounts
     }
     applications {
         ...entityApplication
@@ -622,6 +631,11 @@ fragment dataJobFields on DataJob {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     dataPlatformInstance {
         ...dataPlatformInstanceFields
@@ -706,6 +720,11 @@ fragment dashboardFields on Dashboard {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     embed {
         ...embedFields
@@ -788,12 +807,17 @@ fragment nonRecursiveMLFeature on MLFeature {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     glossaryTerms {
         ...glossaryTerms
     }
     domain {
-        ...entityDomain
+        ...entityDomainWithoutCounts
     }
     applications {
         ...entityApplication
@@ -869,12 +893,17 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     glossaryTerms {
         ...glossaryTerms
     }
     domain {
-        ...entityDomain
+        ...entityDomainWithoutCounts
     }
     ...entityDataProduct
     tags {
@@ -942,12 +971,17 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     glossaryTerms {
         ...glossaryTerms
     }
     domain {
-        ...entityDomain
+        ...entityDomainWithoutCounts
     }
     applications {
         ...entityApplication
@@ -1146,6 +1180,11 @@ fragment nonRecursiveMLModel on MLModel {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     glossaryTerms {
         ...glossaryTerms
@@ -1193,6 +1232,11 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     status {
         removed
+        lifecycleStage {
+            urn
+            name
+            description
+        }
     }
     glossaryTerms {
         ...glossaryTerms
@@ -1318,7 +1362,13 @@ fragment parentContainerFields on Container {
 }
 
 fragment domainEntitiesFields on Domain {
-    entities(input: { start: 0, count: 0 }) {
+    entities(
+        input: {
+            start: 0
+            count: 0
+            filters: [{ field: "_entityType", negated: true, values: ["DATA_PRODUCT", "DOMAIN"] }]
+        }
+    ) {
         total
     }
     dataProducts: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", values: "DATA_PRODUCT" }] }) {
@@ -1359,6 +1409,31 @@ fragment entityDomain on DomainAssociation {
     }
 }
 
+# Same selection as entityDomain without the per-domain asset/child counts
+fragment entityDomainWithoutCounts on DomainAssociation {
+    domain {
+        urn
+        type
+        properties {
+            name
+            description
+        }
+        parentDomains {
+            ...parentDomainsFields
+        }
+        displayProperties {
+            ...displayPropertiesFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    associatedUrn
+    attribution {
+        ...attributionFields
+    }
+}
+
 fragment entityApplication on ApplicationAssociation {
     application {
         urn
@@ -1378,7 +1453,7 @@ fragment entityApplication on ApplicationAssociation {
             ...glossaryTerms
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         children: relationships(input: { types: ["AssociatedWith"], direction: INCOMING, start: 0, count: 0 }) {
             total
@@ -1439,8 +1514,10 @@ fragment browsePathV2Fields on BrowsePathV2 {
 fragment entityDisplayNameFields on Entity {
     urn
     type
-    ... on Dataset {
+    ... on HasName {
         name
+    }
+    ... on Dataset {
         properties {
             name
             qualifiedName
@@ -1448,6 +1525,10 @@ fragment entityDisplayNameFields on Entity {
     }
     ... on CorpUser {
         username
+        editableProperties {
+            displayName
+            email
+        }
         properties {
             displayName
             title
@@ -1467,7 +1548,6 @@ fragment entityDisplayNameFields on Entity {
         }
     }
     ... on CorpGroup {
-        name
         info {
             displayName
         }
@@ -1518,21 +1598,6 @@ fragment entityDisplayNameFields on Entity {
             name
         }
     }
-    ... on MLFeatureTable {
-        name
-    }
-    ... on MLFeature {
-        name
-    }
-    ... on MLPrimaryKey {
-        name
-    }
-    ... on MLModel {
-        name
-    }
-    ... on MLModelGroup {
-        name
-    }
     ... on Tag {
         name
         properties {
@@ -1549,6 +1614,16 @@ fragment entityDisplayNameFields on Entity {
         }
     }
     ... on Application {
+        properties {
+            name
+        }
+    }
+    ... on Repository {
+        properties {
+            name
+        }
+    }
+    ... on Api {
         properties {
             name
         }
@@ -1870,12 +1945,14 @@ fragment entityPrivileges on EntityPrivileges {
     canEditQueries
     canEditEmbed
     canManageEntity
+    canDeleteEntity
     canManageChildren
     canEditProperties
     canViewDatasetUsage
     canViewDatasetProfile
     canViewDatasetOperations
     canManageAssetSummary
+    canEditLifecycleStage
 }
 
 fragment businessAttribute on BusinessAttributeAssociation {
@@ -1899,6 +1976,9 @@ fragment businessAttribute on BusinessAttributeAssociation {
                 tags {
                     tag {
                         urn
+                        status {
+                            removed
+                        }
                         name
                         properties {
                             name
@@ -1911,6 +1991,9 @@ fragment businessAttribute on BusinessAttributeAssociation {
                 terms {
                     term {
                         urn
+                        status {
+                            removed
+                        }
                         type
                         properties {
                             name

@@ -18,13 +18,13 @@ env:
       {
         "key": "ING",
         "team_id": "b1c9a278-522e-47cb-81af-8b860ead0c76",
-        "assignee_id": "bb4daa2b-1748-4830-af1f-60198ebd9a63",
+        "assignee_id": "bc8e2a72-2aaa-44df-a54d-2bcbe44fbf20",
         "description": "Python ingestion framework, connectors, sources, and CLI tools for extracting metadata from external data sources. Any PR touching metadata-ingestion/ or metadata-ingestion-modules/ belongs to this team."
       },
       {
         "key": "CAT",
         "team_id": "56af88f4-c7c2-40f6-9858-dcba33a5f55e",
-        "assignee_id": "bb4daa2b-1748-4830-af1f-60198ebd9a63",
+        "assignee_id": "11af987f-3b7c-4a84-bcff-a76659fdfe70",
         "description": "DataHub frontend (React/TypeScript, datahub-web-react), GraphQL API layer (datahub-graphql-core), and application-layer GMS services including auth, search API, entity services, and REST/OpenAPI endpoints"
       },
       {
@@ -199,9 +199,12 @@ jobs:
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "anthropic-version: 2023-06-01" \
             -H "content-type: application/json" \
-            -d "{\"model\": \"claude-haiku-4-5-20251001\", \"max_tokens\": 10, \"messages\": [{\"role\": \"user\", \"content\": $PROMPT_JSON}]}")
+            -d "{\"model\": \"claude-haiku-5-5\", \"max_tokens\": 1024, \"output_config\": {\"effort\": \"low\"}, \"messages\": [{\"role\": \"user\", \"content\": $PROMPT_JSON}]}")
 
-          TEAM_KEY=$(echo "$CLAUDE_RESPONSE" | jq -r '.content[0].text' 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+          TEAM_KEY=$(echo "$CLAUDE_RESPONSE" | jq -r '[.content[] | select(.type == "text")][0].text' 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+          if [ "$(echo "$CLAUDE_RESPONSE" | jq -r '.type // empty' 2>/dev/null)" = "error" ]; then
+            echo "::warning::Routing LLM call failed: $(echo "$CLAUDE_RESPONSE" | jq -r '.error.message' 2>/dev/null)"
+          fi
 
           if [ -z "$TEAM_KEY" ] || [ "$TEAM_KEY" = "NONE" ] || [ "$TEAM_KEY" = "NULL" ]; then
             echo "⚠️  No matching engineering team for PR #$PR_NUMBER — falling back to OSS (DevRel triage)"
@@ -299,7 +302,7 @@ jobs:
             exit 0
           fi
 
-          if [ "$TEAM_KEY" = "PFP" ] || [ "$TEAM_KEY" = "OBS" ] || [ "$TEAM_KEY" = "OSS" ]; then
+          if [ "$TEAM_KEY" = "PFP" ] || [ "$TEAM_KEY" = "OBS" ] || [ "$TEAM_KEY" = "OSS" ] || [ "$TEAM_KEY" = "CAT" ]; then
             RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
               -H "Authorization: $LINEAR_API_KEY" \
               -H "Content-Type: application/json" \
@@ -437,9 +440,12 @@ jobs:
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "anthropic-version: 2023-06-01" \
             -H "content-type: application/json" \
-            -d "{\"model\": \"claude-haiku-4-5-20251001\", \"max_tokens\": 10, \"messages\": [{\"role\": \"user\", \"content\": $PROMPT_JSON}]}")
+            -d "{\"model\": \"claude-haiku-5-5\", \"max_tokens\": 1024, \"output_config\": {\"effort\": \"low\"}, \"messages\": [{\"role\": \"user\", \"content\": $PROMPT_JSON}]}")
 
-          TEAM_KEY=$(echo "$CLAUDE_RESPONSE" | jq -r '.content[0].text' 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+          TEAM_KEY=$(echo "$CLAUDE_RESPONSE" | jq -r '[.content[] | select(.type == "text")][0].text' 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+          if [ "$(echo "$CLAUDE_RESPONSE" | jq -r '.type // empty' 2>/dev/null)" = "error" ]; then
+            echo "::warning::Routing LLM call failed: $(echo "$CLAUDE_RESPONSE" | jq -r '.error.message' 2>/dev/null)"
+          fi
 
           if [ -z "$TEAM_KEY" ] || [ "$TEAM_KEY" = "NONE" ] || [ "$TEAM_KEY" = "NULL" ]; then
             echo "⚠️  No matching engineering team for issue #$ISSUE_NUMBER — falling back to OSS (DevRel triage)"
@@ -516,7 +522,7 @@ jobs:
             exit 0
           fi
 
-          if [ "$TEAM_KEY" = "PFP" ] || [ "$TEAM_KEY" = "OBS" ] || [ "$TEAM_KEY" = "OSS" ]; then
+          if [ "$TEAM_KEY" = "PFP" ] || [ "$TEAM_KEY" = "OBS" ] || [ "$TEAM_KEY" = "OSS" ] || [ "$TEAM_KEY" = "CAT" ]; then
             RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
               -H "Authorization: $LINEAR_API_KEY" \
               -H "Content-Type: application/json" \

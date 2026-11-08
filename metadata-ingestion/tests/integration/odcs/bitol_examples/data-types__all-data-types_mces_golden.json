@@ -17,7 +17,7 @@
                 "odcs.dataProduct": "my_quantum"
             },
             "name": "my_table \u2014 transactions_tbl",
-            "description": "Provides core payment metrics",
+            "description": "Provides core payment metrics\n\n**Grain:** Aggregation on names txn_ref_dt, pmt_txn_id",
             "tags": []
         }
     },

@@ -6,13 +6,8 @@ from datahub.ingestion.source.sql.presto import PrestoDialect
 
 
 def test_presto_get_schema_names_uses_text_clause():
-    """PrestoDialect.get_schema_names must wrap SHOW SCHEMAS in text() for SA 2.0.
-
-    pyhive's upstream implementation passes a raw string to connection.execute(),
-    which SQLAlchemy 2.0 rejects with ObjectNotExecutableError, so a standalone
-    Presto pipeline broke at schema enumeration. The patch lives in
-    _pyhive_compat.py, which presto.py imports. Trino uses a separate
-    SA-2.0-native dialect and never exercised this path.
+    """PrestoDialect.get_schema_names must wrap SHOW SCHEMAS in text() for SA 2.0,
+    which rejects raw strings in connection.execute() with ObjectNotExecutableError.
     """
     executed = []
 

@@ -87,6 +87,25 @@ def api() -> None:
     type=str,
     help="Opaque input/output schema (typically JSON Schema).",
 )
+@click.option(
+    "--input-dataset",
+    "input_datasets",
+    multiple=True,
+    type=str,
+    metavar="DATASET_URN",
+    help=(
+        "A Dataset whose schema defines the API's input, by reference "
+        "(repeatable), e.g. a protobuf request message ingested as a dataset."
+    ),
+)
+@click.option(
+    "--output-dataset",
+    "output_datasets",
+    multiple=True,
+    type=str,
+    metavar="DATASET_URN",
+    help="A Dataset whose schema defines the API's output, by reference (repeatable).",
+)
 @click.option("--external-url", required=False, type=str)
 @upgrade.check_upgrade
 def register(
@@ -97,6 +116,8 @@ def register(
     params: tuple,
     returns: tuple,
     schema_definition: Optional[str],
+    input_datasets: tuple,
+    output_datasets: tuple,
     external_url: Optional[str],
 ) -> None:
     """Register an API in DataHub from command-line flags."""
@@ -115,6 +136,8 @@ def register(
         parameters=parameters,
         returns=output_fields,
         schema_definition=schema_definition,
+        input_datasets=list(input_datasets) if input_datasets else None,
+        output_datasets=list(output_datasets) if output_datasets else None,
         external_url=external_url,
     )
     with get_default_graph(ClientMode.CLI) as graph:

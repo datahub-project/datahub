@@ -61,6 +61,9 @@ public class PatchEntityResolverTest {
     when(_context.getOperationContext()).thenReturn(_operationContext);
     when(_operationContext.getObjectMapper()).thenReturn(_objectMapper);
     when(_authentication.getActor()).thenReturn(new Actor(ActorType.USER, "test-user"));
+    // Existing tests authorize an update of an entity that is already there.
+    when(_entityService.exists(any(), any(com.linkedin.common.urn.Urn.class), eq(true)))
+        .thenReturn(true);
   }
 
   @Test
@@ -209,6 +212,109 @@ public class PatchEntityResolverTest {
     when(_environment.getArgument("input")).thenReturn(input);
     setupRegistryMock("dataHubPolicy", "dataHubPolicyInfo");
     grantOnly(Set.of("EDIT_ENTITY"));
+    when(_entityService.ingestProposal(any(), any(), any(), eq(false)))
+        .thenReturn(mock(IngestResult.class));
+
+    PatchEntityResult result = _resolver.get(_environment).get();
+
+    assertTrue(result.getSuccess(), "error=" + result.getError());
+  }
+
+  /** Creating an entity that does not exist is authorized as CREATE, not UPDATE. */
+  @Test
+  public void testPatchMissingEntityAllowedWithCreatePrivilege() throws Exception {
+    PatchEntityInput input = new PatchEntityInput();
+    input.setUrn("urn:li:glossaryTerm:new-term");
+    input.setAspectName("glossaryTermInfo");
+    input.setPatch(List.of(createPatchOperation(PatchOperationType.ADD, "/name", "\"New Term\"")));
+    when(_environment.getArgument("input")).thenReturn(input);
+    setupRegistryMock("glossaryTerm", "glossaryTermInfo");
+    when(_entityService.exists(any(), any(com.linkedin.common.urn.Urn.class), eq(true)))
+        .thenReturn(false);
+    grantOnly(Set.of("CREATE_ENTITY"));
+    when(_entityService.ingestProposal(any(), any(), any(), eq(false)))
+        .thenReturn(mock(IngestResult.class));
+
+    PatchEntityResult result = _resolver.get(_environment).get();
+
+    assertTrue(result.getSuccess(), "error=" + result.getError());
+  }
+
+  /** Create Entity is not an update privilege, so it cannot patch an entity that already exists. */
+  @Test
+  public void testPatchExistingEntityDeniedWithCreatePrivilegeOnly() throws Exception {
+    PatchEntityInput input = new PatchEntityInput();
+    input.setUrn("urn:li:glossaryTerm:existing-term");
+    input.setAspectName("glossaryTermInfo");
+    input.setPatch(
+        List.of(createPatchOperation(PatchOperationType.REPLACE, "/name", "\"Updated\"")));
+    when(_environment.getArgument("input")).thenReturn(input);
+    when(_entityService.exists(any(), any(com.linkedin.common.urn.Urn.class), eq(true)))
+        .thenReturn(true);
+    grantOnly(Set.of("CREATE_ENTITY"));
+
+    PatchEntityResult result = _resolver.get(_environment).get();
+
+    assertFalse(result.getSuccess());
+    verify(_entityService, never()).ingestProposal(any(), any(), any(), eq(false));
+  }
+
+  /**
+   * A failed existence lookup is not a missing URN. CREATE_ENTITY must not be allowed to patch
+   * while the store cannot say whether the entity is already there.
+   */
+  @Test
+  public void testPatchDeniedWhenExistenceCheckFails() throws Exception {
+    PatchEntityInput input = new PatchEntityInput();
+    input.setUrn("urn:li:glossaryTerm:existing-term");
+    input.setAspectName("glossaryTermInfo");
+    input.setPatch(
+        List.of(createPatchOperation(PatchOperationType.REPLACE, "/name", "\"Updated\"")));
+    when(_environment.getArgument("input")).thenReturn(input);
+    when(_entityService.exists(any(), any(com.linkedin.common.urn.Urn.class), eq(true)))
+        .thenThrow(new RuntimeException("metadata store unavailable"));
+    grantOnly(Set.of("CREATE_ENTITY"));
+
+    PatchEntityResult result = _resolver.get(_environment).get();
+
+    assertFalse(result.getSuccess());
+    verify(_entityService, never()).ingestProposal(any(), any(), any(), eq(false));
+  }
+
+  /**
+   * Update Users and Groups is an update-only privilege. It cannot create a user that does not
+   * exist.
+   */
+  @Test
+  public void testPatchMissingUserDeniedWithUpdateOnlyPrivilege() throws Exception {
+    PatchEntityInput input = new PatchEntityInput();
+    input.setUrn("urn:li:corpuser:new-user");
+    input.setAspectName("corpUserInfo");
+    input.setPatch(
+        List.of(createPatchOperation(PatchOperationType.ADD, "/displayName", "\"New\"")));
+    when(_environment.getArgument("input")).thenReturn(input);
+    when(_entityService.exists(any(), any(com.linkedin.common.urn.Urn.class), eq(true)))
+        .thenReturn(false);
+    grantOnly(Set.of("UPDATE_USERS_AND_GROUPS"));
+
+    PatchEntityResult result = _resolver.get(_environment).get();
+
+    assertFalse(result.getSuccess());
+    verify(_entityService, never()).ingestProposal(any(), any(), any(), eq(false));
+  }
+
+  @Test
+  public void testPatchExistingUserAllowedWithUpdateOnlyPrivilege() throws Exception {
+    PatchEntityInput input = new PatchEntityInput();
+    input.setUrn("urn:li:corpuser:existing-user");
+    input.setAspectName("corpUserInfo");
+    input.setPatch(
+        List.of(createPatchOperation(PatchOperationType.REPLACE, "/displayName", "\"Updated\"")));
+    when(_environment.getArgument("input")).thenReturn(input);
+    setupRegistryMock("corpuser", "corpUserInfo");
+    when(_entityService.exists(any(), any(com.linkedin.common.urn.Urn.class), eq(true)))
+        .thenReturn(true);
+    grantOnly(Set.of("UPDATE_USERS_AND_GROUPS"));
     when(_entityService.ingestProposal(any(), any(), any(), eq(false)))
         .thenReturn(mock(IngestResult.class));
 

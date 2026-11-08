@@ -66,8 +66,11 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.iceberg.iceberg_common import (
+    FILE_IO_FAILURE,
     IcebergSourceConfig,
     IcebergSourceReport,
+    partition_spec_json,
+    table_custom_properties,
 )
 from datahub.ingestion.source.iceberg.iceberg_profiler import IcebergProfiler
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -145,6 +148,10 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 )
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
 )
 class IcebergSource(StatefulIngestionSourceBase):
     """
@@ -326,7 +333,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                     exc=e,
                 )
             except ValueError as e:
-                if "Could not initialize FileIO" not in str(e):
+                if FILE_IO_FAILURE not in str(e):
                     raise
                 self.report.warning(
                     title="Could not initialize FileIO",
@@ -521,23 +528,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             str: JSON representation of the partition spec of the provided table (empty array if table is not partitioned) or `None` if an error occured.
         """
         try:
-            return json.dumps(
-                [
-                    {
-                        "name": partition.name,
-                        "transform": str(partition.transform),
-                        "source": str(
-                            table.schema().find_column_name(partition.source_id)
-                        ),
-                        "source-id": partition.source_id,
-                        "source-type": str(
-                            table.schema().find_type(partition.source_id)
-                        ),
-                        "field-id": partition.field_id,
-                    }
-                    for partition in table.spec().fields
-                ]
-            )
+            return partition_spec_json(table)
         except Exception as e:
             self.report.warning(
                 title="Failed to extract partition information",
@@ -551,14 +542,11 @@ class IcebergSource(StatefulIngestionSourceBase):
         self, dataset_name: str, table: Table
     ) -> DatasetPropertiesClass:
         created: Optional[TimeStampClass] = None
-        custom_properties = table.metadata.properties.copy()
-        custom_properties["location"] = table.metadata.location
-        custom_properties["format-version"] = str(table.metadata.format_version)
-        custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
+        custom_properties = table_custom_properties(
+            table, self._get_partition_aspect(table)
+        )
         last_modified: Optional[int] = table.metadata.last_updated_ms
         if current_snapshot := table.current_snapshot():
-            custom_properties["snapshot-id"] = str(current_snapshot.snapshot_id)
-            custom_properties["manifest-list"] = current_snapshot.manifest_list
             if not last_modified:
                 last_modified = int(current_snapshot.timestamp_ms)
         if "created-at" in custom_properties:

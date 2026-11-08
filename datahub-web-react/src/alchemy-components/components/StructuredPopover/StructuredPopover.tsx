@@ -1,6 +1,6 @@
-import { Popover, PopoverProps } from '@components';
 import * as React from 'react';
 
+import { Popover, type PopoverProps } from '@components/components/Popover';
 import {
     Container,
     Content,

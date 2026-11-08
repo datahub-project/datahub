@@ -7,6 +7,7 @@
     "empty.title": "詞彙表是空的",
     "list.error": "無法載入詞彙表！發生非預期的錯誤。",
     "list.loading": "正在載入詞彙表...",
+    "page.contactAdmin": "請聯絡你的 DataHub 管理員以設定詞彙表。",
     "page.createGlossary": "建立詞彙表",
     "page.subtitle": "使用資料字典為你的資料資產與欄位分類",
     "page.title": "商業詞彙表",

@@ -333,9 +333,15 @@ type EntityPrivileges {
   canManageChildren: Boolean
 
   """
-  Whether or not a user can delete or move this entity.
+  Whether or not a user can manage this entity. For documents, this controls moving;
+  deletion is reported by canDeleteEntity.
   """
   canManageEntity: Boolean
+
+  """
+  Whether or not a user can delete this entity.
+  """
+  canDeleteEntity: Boolean
 
   """
   Whether or not a user can create or delete lineage edges for an entity.
@@ -453,6 +459,11 @@ type EntityPrivileges {
   Whether the user can manage asset summary
   """
   canManageAssetSummary: Boolean
+
+  """
+  Whether the user can set this entity's lifecycle stage directly, without a proposal.
+  """
+  canEditLifecycleStage: Boolean
 }
 
 """

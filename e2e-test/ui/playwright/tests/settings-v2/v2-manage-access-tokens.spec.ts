@@ -4,6 +4,7 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { AccessTokensPage } from '../../pages/settings/access-tokens.page';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 const testId = Math.floor(Math.random() * 100000);
 
@@ -16,7 +17,7 @@ test.describe('manage access tokens', () => {
     await tokensPage.navigate();
   });
 
-  test('create and revoke access token', async () => {
+  test('create and revoke access token', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     await tokensPage.createPersonalToken(`Token Name${testId}`, `Token Description${testId}`);
 
     const tokenValue = await tokensPage.getTokenValue();

@@ -126,4 +126,18 @@ public class ChangeEventMapperTest {
     assertNull(result.getOperation());
     assertEquals(result.getDescription(), "legacy event");
   }
+
+  @Test
+  public void testMapsDeprecationCategory() {
+    ChangeEvent backendEvent =
+        ChangeEvent.builder()
+            .entityUrn("urn:li:dataset:test")
+            .category(ChangeCategory.DEPRECATION)
+            .operation(ChangeOperation.MODIFY)
+            .semVerChange(SemanticChangeType.MINOR)
+            .parameters(ImmutableMap.of("status", "DEPRECATED"))
+            .build();
+
+    assertEquals(ChangeEventMapper.map(backendEvent).getCategory(), ChangeCategoryType.DEPRECATION);
+  }
 }

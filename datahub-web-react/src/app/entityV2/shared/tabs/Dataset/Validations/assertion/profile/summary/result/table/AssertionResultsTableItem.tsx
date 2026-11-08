@@ -10,8 +10,8 @@ import {
     getFormattedReasonText,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
 import { getResultColor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-import { applyOpacityToHexColor } from '@app/shared/styleUtils';
-import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { applyOpacityToHexColor } from '@app/sharedV2/styleUtils';
+import { toLocalDateTimeString, toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 
 import { Assertion, AssertionRunEvent } from '@types';
 

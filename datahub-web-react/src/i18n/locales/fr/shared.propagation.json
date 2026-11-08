@@ -1,9 +1,12 @@
 {
     "autoPropagatedDescription": "Cette description a été propagée automatiquement depuis une colonne en amont. <learnMore>En savoir plus</learnMore>",
+    "ingested": "Ingéré",
+    "ingestedFrom": "Ingéré depuis {{origin}}",
     "origin": "origine",
     "originLabel": "Origine",
     "propagated": "Propagé",
     "propagatedDescriptionTitle": "Description propagée",
+    "sourceLabel": "Source",
     "via": "via",
     "viaLabel": "Via"
 }
