@@ -30,12 +30,17 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.view.DataHubViewDefinition;
+import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.dataloader.DataLoader;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -48,6 +53,7 @@ public class DomainEntitiesResolverTest {
   public void testGetSuccess() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    ViewService mockViewService = Mockito.mock(ViewService.class);
 
     final String childUrn = "urn:li:dataset:(test,test,test)";
     final String domainUrn = "urn:li:domain:test-domain";
@@ -81,13 +87,14 @@ public class DomainEntitiesResolverTest {
                 .setMetadata(
                     new SearchResultMetadata().setAggregations(new AggregationMetadataArray())));
 
-    DomainEntitiesResolver resolver = new DomainEntitiesResolver(mockClient);
+    DomainEntitiesResolver resolver = new DomainEntitiesResolver(mockClient, mockViewService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockEnv.getVariables()).thenReturn(Collections.emptyMap());
 
     Domain parentDomain = new Domain();
     parentDomain.setUrn(domainUrn);
@@ -106,7 +113,8 @@ public class DomainEntitiesResolverTest {
   public void testCountOnlyServedFromBatchedLoader() throws Exception {
     final String domainUrn = "urn:li:domain:test-domain";
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    final DomainEntitiesResolver resolver = new DomainEntitiesResolver(mockClient);
+    final DomainEntitiesResolver resolver =
+        new DomainEntitiesResolver(mockClient, Mockito.mock(ViewService.class));
 
     // count == 0, no filters, no query → the count-only fast path with a no-constraint key.
     final DomainEntitiesInput input = new DomainEntitiesInput(null, 0, 0, Collections.emptyList());
@@ -125,7 +133,8 @@ public class DomainEntitiesResolverTest {
   public void testCountOnlyWithNegatedEntityTypeFilterFromLoader() throws Exception {
     final String domainUrn = "urn:li:domain:test-domain";
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    final DomainEntitiesResolver resolver = new DomainEntitiesResolver(mockClient);
+    final DomainEntitiesResolver resolver =
+        new DomainEntitiesResolver(mockClient, Mockito.mock(ViewService.class));
 
     // The "entities" alias shape: count 0, single negated _entityType filter.
     final FacetFilterInput entityTypeFilter = new FacetFilterInput();
@@ -163,7 +172,8 @@ public class DomainEntitiesResolverTest {
                 .setEntities(new SearchEntityArray())
                 .setMetadata(
                     new SearchResultMetadata().setAggregations(new AggregationMetadataArray())));
-    final DomainEntitiesResolver resolver = new DomainEntitiesResolver(mockClient);
+    final DomainEntitiesResolver resolver =
+        new DomainEntitiesResolver(mockClient, Mockito.mock(ViewService.class));
 
     // count 0 but a non-_entityType filter is not derivable from the breakdown → direct search.
     final FacetFilterInput platformFilter = new FacetFilterInput();
@@ -176,6 +186,7 @@ public class DomainEntitiesResolverTest {
     final DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockEnv.getVariables()).thenReturn(Collections.emptyMap());
     final Domain parentDomain = new Domain();
     parentDomain.setUrn(domainUrn);
     Mockito.when(mockEnv.getSource()).thenReturn(parentDomain);
@@ -198,6 +209,73 @@ public class DomainEntitiesResolverTest {
     assertFallsBackToDirectSearch(new DomainEntitiesInput(null, 0, 0, List.of(noValues)));
   }
 
+  @Test
+  public void testCountOnlyUnderRecommendationsViewUsesDirectSearchWithViewFilter()
+      throws Exception {
+    final String domainUrn = "urn:li:domain:test-domain";
+    final String viewUrn = "urn:li:dataHubView:test";
+    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), Mockito.anyInt(), any(), any()))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(0)
+                .setNumEntities(3)
+                .setEntities(new SearchEntityArray())
+                .setMetadata(
+                    new SearchResultMetadata().setAggregations(new AggregationMetadataArray())));
+    final ViewService mockViewService = Mockito.mock(ViewService.class);
+    Mockito.when(mockViewService.getViewInfo(any(), Mockito.eq(Urn.createFromString(viewUrn))))
+        .thenReturn(
+            new DataHubViewInfo()
+                .setDefinition(
+                    new DataHubViewDefinition()
+                        .setEntityTypes(new com.linkedin.data.template.StringArray())
+                        .setFilter(
+                            new Filter()
+                                .setOr(
+                                    new ConjunctiveCriterionArray(
+                                        new ConjunctiveCriterion()
+                                            .setAnd(
+                                                new CriterionArray(
+                                                    buildCriterion(
+                                                        "platform",
+                                                        Condition.EQUAL,
+                                                        "urn:li:dataPlatform:snowflake"))))))));
+    final DomainEntitiesResolver resolver = new DomainEntitiesResolver(mockClient, mockViewService);
+
+    // A count-only selection would take the batched loader, which ignores views.
+    final DomainEntitiesInput input = new DomainEntitiesInput(null, 0, 0, Collections.emptyList());
+    final DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    final QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    // The parent listRecommendations call carries the selected view.
+    Mockito.when(mockEnv.getVariables())
+        .thenReturn(Map.of("input", Map.of("userUrn", "urn:li:corpuser:test", "viewUrn", viewUrn)));
+    final Domain parentDomain = new Domain();
+    parentDomain.setUrn(domainUrn);
+    Mockito.when(mockEnv.getSource()).thenReturn(parentDomain);
+
+    assertEquals((int) resolver.get(mockEnv).get().getTotal(), 3);
+
+    final ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    Mockito.verify(mockClient, Mockito.times(1))
+        .searchAcrossEntities(
+            any(), any(), any(), filterCaptor.capture(), Mockito.anyInt(), any(), any());
+    Mockito.verify(mockEnv, Mockito.never()).getDataLoader(any());
+    for (ConjunctiveCriterion and : filterCaptor.getValue().getOr()) {
+      final List<String> fields =
+          and.getAnd().stream()
+              .map(Criterion::getField)
+              .collect(java.util.stream.Collectors.toList());
+      assertTrue(fields.contains("domains.keyword"), fields.toString());
+      assertTrue(fields.contains("platform"), fields.toString());
+    }
+  }
+
   /** Runs the resolver and asserts it took the direct search path, never the batched loader. */
   private static void assertFallsBackToDirectSearch(final DomainEntitiesInput input)
       throws Exception {
@@ -213,12 +291,14 @@ public class DomainEntitiesResolverTest {
                 .setEntities(new SearchEntityArray())
                 .setMetadata(
                     new SearchResultMetadata().setAggregations(new AggregationMetadataArray())));
-    final DomainEntitiesResolver resolver = new DomainEntitiesResolver(mockClient);
+    final DomainEntitiesResolver resolver =
+        new DomainEntitiesResolver(mockClient, Mockito.mock(ViewService.class));
 
     final QueryContext mockContext = getMockAllowContext();
     final DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockEnv.getVariables()).thenReturn(Collections.emptyMap());
     final Domain parentDomain = new Domain();
     parentDomain.setUrn("urn:li:domain:test-domain");
     Mockito.when(mockEnv.getSource()).thenReturn(parentDomain);
@@ -248,6 +328,7 @@ public class DomainEntitiesResolverTest {
     final DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockEnv.getVariables()).thenReturn(Collections.emptyMap());
     Mockito.when(
             mockEnv.<DomainCountKey, Long>getDataLoader(DomainEntityCountsBatchLoader.LOADER_NAME))
         .thenReturn(mockLoader);

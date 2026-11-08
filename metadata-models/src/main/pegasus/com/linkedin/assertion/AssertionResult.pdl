@@ -8,7 +8,11 @@ record AssertionResult {
   *  The final result, e.g. either SUCCESS, FAILURE, or ERROR.
   */
   @TimeseriesField = {}
-  @Searchable = {}
+  @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    }
+  }
   type: AssertionResultType
 
   /**

@@ -81,11 +81,15 @@ CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
 
 @platform_name("Fivetran")
 @config_class(FivetranSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Enabled by default, can be disabled via configuration `include_column_lineage`",
+)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
 )
 class FivetranSource(StatefulIngestionSourceBase):
     """

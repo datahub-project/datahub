@@ -35,7 +35,6 @@ const meta = {
                 type: {
                     summary: 'Array<{ name: string; imageUrl: string }>',
                 },
-                defaultValue: { summary: '[]' },
             },
         },
     },

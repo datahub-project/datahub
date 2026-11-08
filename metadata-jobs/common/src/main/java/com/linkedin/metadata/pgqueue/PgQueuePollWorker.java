@@ -79,6 +79,7 @@ public final class PgQueuePollWorker implements Runnable {
   /** Original poll loop: each poll result is dispatched immediately to the handler. */
   private void runImmediateMode() {
     String lockOwner = registration.consumerGroupId() + ":" + UUID.randomUUID();
+    PgQueueEmptyPollBackoff emptyPollBackoff = registration.emptyPollBackoff();
     while (!stopped && !Thread.currentThread().isInterrupted()) {
       try {
         boolean anyTopicCataloged =
@@ -136,7 +137,9 @@ public final class PgQueuePollWorker implements Runnable {
         }
 
         if (!anyMessages) {
-          Thread.sleep(registration.emptyPollSleepMillis());
+          Thread.sleep(emptyPollBackoff.nextSleepMillis());
+        } else {
+          emptyPollBackoff.reset();
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
@@ -162,6 +165,7 @@ public final class PgQueuePollWorker implements Runnable {
     PgQueueBatchFlushHandler flushHandler = registration.flushHandler();
     String lockOwner = registration.consumerGroupId() + ":" + UUID.randomUUID();
     Map<String, PgQueueBatchAccumulator> accumulators = new HashMap<>();
+    PgQueueEmptyPollBackoff emptyPollBackoff = registration.emptyPollBackoff();
 
     while (!stopped && !Thread.currentThread().isInterrupted()) {
       try {
@@ -178,6 +182,7 @@ public final class PgQueuePollWorker implements Runnable {
                 store, registration.consumerGroupId(), visibility, avroDeserializer);
 
         boolean anyMessages = false;
+        boolean flushedBatch = false;
         for (String logicalTopic : registration.topicNames()) {
           Optional<QueueTopicMetadata> meta = store.fetchTopic(logicalTopic);
           if (meta.isEmpty()) {
@@ -221,11 +226,13 @@ public final class PgQueuePollWorker implements Runnable {
 
           if (accumulator.shouldFlush()) {
             flushAccumulator(logicalTopic, accumulator, flushHandler, ctx);
+            flushedBatch = true;
           }
         }
 
         // On empty poll, check for expired accumulators (linger timeout)
         if (!anyMessages) {
+          boolean flushedLinger = flushedBatch;
           for (Map.Entry<String, PgQueueBatchAccumulator> entry : accumulators.entrySet()) {
             if (entry.getValue().isExpired()) {
               Duration vis = visibilityTimeout();
@@ -233,9 +240,27 @@ public final class PgQueuePollWorker implements Runnable {
                   new PgQueuePollContext(
                       store, registration.consumerGroupId(), vis, avroDeserializer);
               flushAccumulator(entry.getKey(), entry.getValue(), flushHandler, flushCtx);
+              flushedLinger = true;
             }
           }
-          Thread.sleep(registration.emptyPollSleepMillis());
+          if (flushedLinger) {
+            emptyPollBackoff.reset();
+            continue;
+          }
+          long proposed = emptyPollBackoff.peekSleepMillis();
+          long lingerCap = Long.MAX_VALUE;
+          for (PgQueueBatchAccumulator accumulator : accumulators.values()) {
+            lingerCap = Math.min(lingerCap, accumulator.millisUntilExpire());
+          }
+          long sleepMs;
+          if (lingerCap < proposed) {
+            sleepMs = Math.max(1L, lingerCap);
+          } else {
+            sleepMs = emptyPollBackoff.nextSleepMillis();
+          }
+          Thread.sleep(sleepMs);
+        } else {
+          emptyPollBackoff.reset();
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();

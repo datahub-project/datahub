@@ -1,6 +1,7 @@
-import { Tooltip } from '@components';
 import React from 'react';
 import styled, { useTheme } from 'styled-components/macro';
+
+import { Tooltip } from '@components/components/Tooltip';
 
 import AutoCompleteEntity from '@app/searchV2/autoComplete/AutoCompleteEntity';
 import AutoCompleteTag from '@app/searchV2/autoComplete/AutoCompleteTag';

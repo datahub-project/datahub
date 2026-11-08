@@ -4,10 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { LinkAttributes } from '@app/entityV2/shared/externalUrl/types';
 import { sendClickExternalLinkAnalytics } from '@app/entityV2/shared/externalUrl/utils';
 import { getSiblings } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { getExternalUrlDisplayName } from '@app/entityV2/shared/utils';
 import { ExternalLinkType } from '@src/app/analytics';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { useAppConfig } from '@src/app/useAppConfig';
 
 const MAX_VISIBILE_ACTIONS = 2;
@@ -40,7 +40,10 @@ export default function usePlatrofmLinks(
         if (!genericEntityData) return [];
 
         const externalUrl = genericEntityData?.properties?.externalUrl;
-        const parentPlatformName = getExternalUrlDisplayName(genericEntityData) + (suffix ?? '');
+        // Only append the suffix when there is a real platform name; otherwise concatenating onto
+        // `undefined` yields the literal string "undefined" (e.g. entities with no data platform).
+        const platformDisplayName = getExternalUrlDisplayName(genericEntityData);
+        const parentPlatformName = platformDisplayName ? platformDisplayName + (suffix ?? '') : undefined;
         const defaultAction = externalUrl
             ? [{ displayName: parentPlatformName || t('externalUrl.sourceFallback'), url: externalUrl }]
             : [];

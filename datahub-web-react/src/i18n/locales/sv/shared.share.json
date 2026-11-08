@@ -1,9 +1,14 @@
 {
+    "copyLink.success": "Länk kopierad",
     "copyLink.tooltip": "Kopiera en delbar länk till den här entiteten.",
     "copyName.label": "Kopiera namn",
+    "copyName.success": "Namn kopierat",
     "copyName.tooltip": "Kopiera det fullständiga namnet på {{type}}",
     "copyUrn.label": "Kopiera URN",
+    "copyUrn.success": "URN kopierad",
     "copyUrn.tooltip": "Kopiera URN för den här {{type}}. En URN identifierar en entitet i DataHub unikt.",
+    "email.body": "Ta en titt på {{displayType}} i DataHub: {{linkText}}. URN: {{urn}}",
     "email.label": "E-post",
+    "email.subject": "{{displayName}} | {{displayType}}",
     "email.tooltip": "Dela den här {{type}} via e-post"
 }

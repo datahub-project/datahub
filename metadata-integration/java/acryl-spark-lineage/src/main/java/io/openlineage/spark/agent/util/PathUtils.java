@@ -7,12 +7,10 @@ package io.openlineage.spark.agent.util;
 
 import io.openlineage.client.utils.DatasetIdentifier;
 import io.openlineage.client.utils.filesystem.FilesystemDatasetUtils;
-import java.io.File;
 import java.net.URI;
 import java.util.Optional;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkConf;
@@ -96,9 +94,11 @@ public class PathUtils {
       String tableName = nameFromTableIdentifier(identifier);
       symlinkDataset = Optional.of(FilesystemDatasetUtils.fromLocationAndName(hiveUri, tableName));
     } else if (DatabricksUtils.isDatabricksUnityCatalogEnabled(sparkConf)) {
-      String tableName = nameFromTableIdentifier(identifier);
-      String namespace = StringUtils.substringBeforeLast(location.toString(), File.separator);
-      symlinkDataset = Optional.of(new DatasetIdentifier(tableName, namespace));
+      symlinkDataset =
+          Optional.of(
+              new DatasetIdentifier(
+                  DatabricksUtils.qualifiedUnityCatalogTableName(identifier),
+                  DatabricksUtils.UNITY_CATALOG_SYMLINK_NAMESPACE));
     } else {
       Optional<URI> warehouseLocation =
           getWarehouseLocation(sparkConf, hadoopConf)
@@ -184,7 +184,11 @@ public class PathUtils {
     return warehouseLocation.map(URI::create);
   }
 
-  private static URI getLocationUri(CatalogTable catalogTable, SparkSession sparkSession) {
+  /**
+   * Returns the physical storage location of a table: its explicit {@code storage().locationUri()}
+   * if defined, otherwise the catalog's default table path.
+   */
+  public static URI getLocationUri(CatalogTable catalogTable, SparkSession sparkSession) {
     URI locationUri;
     if (catalogTable.storage() != null && catalogTable.storage().locationUri().isDefined()) {
       locationUri = catalogTable.storage().locationUri().get();

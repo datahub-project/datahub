@@ -49,7 +49,7 @@ env:
 
 jobs:
   setup:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' || github.event_name != 'pull_request' }}
       ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' }}
@@ -112,19 +112,15 @@ jobs:
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.10"
-      # Restore-only: this job barely populates the uv cache (~20MB observed), and its
-      # save used to race the dependency-heavy jobs for the shared key and poison it.
-      # GitHub-hosted master copies are written by documentation.yml /
-      # check-datahub-jars.yml; metadata-ingestion.yml also saves this key on master,
-      # but usually to the Depot cache backend (it runs on Depot runners there).
-      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+      # Restore-only: ci-cache-warmup.yml warm-metadata-ingestion-uv-cache writes this
+      # key on both cache backends from every default-branch push.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt') }}
           restore-keys: |
             ${{ runner.os }}-uv-
       - name: Configure fast APT mirror
@@ -132,12 +128,6 @@ jobs:
         uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Set up JDK 25
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
       - name: Gradle build (and test) for NOT metadata ingestion
         # datahub-schematron:cli excluded due to dependency on metadata-ingestion
         # --max-workers=$(nproc): gradle.properties caps workers at 2 (an 8GB-laptop-safe
@@ -225,7 +215,7 @@ jobs:
         uses: ./.github/actions/ensure-codegen-updated
       - name: Upload backend coverage to Codecov
         if: ${{ github.event_name != 'release' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ env.BACKEND_FILES }}
@@ -237,7 +227,7 @@ jobs:
           verbose: true
       - name: Upload backend coverage to Codecov on release
         if: ${{ github.event_name == 'release' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ env.BACKEND_FILES }}
@@ -250,13 +240,13 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
         if: ${{ !cancelled() && github.event_name != 'release' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
       - name: Upload test results to Codecov on release
         if: ${{ !cancelled() && github.event_name == 'release' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
@@ -272,25 +262,24 @@ jobs:
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.10"
-      # Restore-only: this job barely populates the uv cache (~20MB observed), and its
-      # save used to race the dependency-heavy jobs for the shared key and poison it.
-      # GitHub-hosted master copies are written by documentation.yml /
-      # check-datahub-jars.yml; metadata-ingestion.yml also saves this key on master,
-      # but usually to the Depot cache backend (it runs on Depot runners there).
-      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+      # Restore-only: ci-cache-warmup.yml warm-metadata-ingestion-uv-cache writes this
+      # key on both cache backends from every default-branch push.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt') }}
           restore-keys: |
             ${{ runner.os }}-uv-
       # yarn's global download cache (safe to cache; node_modules itself is not — see
-      # datahub-web-react/build.gradle). frontend-build is the writer; frontend-test restores
-      # read-only. Turns yarnInstall from a cold ~100s download into a link-only step.
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      # datahub-web-react/build.gradle). Restore-only: ci-cache-warmup.yml
+      # warm-web-yarn-cache is the writer. Depot Cache has no branch scoping, so a
+      # save from a PR job would claim the shared key first with a prefix-hit union
+      # that nothing prunes. Turns yarnInstall from a cold ~100s download into a
+      # link-only step.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cache/yarn
@@ -302,16 +291,13 @@ jobs:
         uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Set up JDK 25
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
       - name: Gradle build and test for frontend (no JS tests)
         run: |
           ./gradlew :datahub-frontend:build :datahub-web-react:build --max-workers="$(nproc)" \
             -x :datahub-web-react:yarnTest
+          node --test datahub-web-react/scripts/eager-budget.test.mjs datahub-web-react/scripts/page-bundle-size.test.mjs
+          node datahub-web-react/scripts/eager-budget.mjs
+          node datahub-web-react/scripts/page-bundle-size.mjs --dist datahub-web-react/dist --check
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Ensure codegen is updated
@@ -347,34 +333,27 @@ jobs:
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          python-version: "3.10"
+          # Matrix legs read the cache only; the primary build job (build-except-metadata-ingestion)
+          # is the writer. Prevents the 6 shard legs from racing to write the same Gradle cache.
+          gradle-cache-read-only: true
       # No python deps here: :datahub-web-react:yarnTest depends only on yarnInstall/yarnGenerate/
       # generateLazyIconStubs (no :metadata-ingestion:connectorRegistry, which is frontend-build's
       # concern). install_deps.sh + the ~/.cache/uv cache were dead weight — removed. setup-python
       # stays for the PostHog failure-reporting step below.
-      # Restore yarn's download cache (written by frontend-build) so each matrix leg's yarnInstall
-      # links from cache instead of a cold ~100s download. Same key across legs (content-hashed on
-      # yarn.lock), so the redundant post-save from parallel legs is a no-op — matches the matrix
-      # build-cache restore in backend-test-shard.
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      # Restore yarn's download cache (written by ci-cache-warmup.yml warm-web-yarn-cache)
+      # so each matrix leg's yarnInstall links from cache instead of a cold ~100s download.
+      # Restore-only: six legs saving the same key from a PR would race, and on Depot
+      # Cache the winner's entry is visible to every branch.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
-      - name: Set up JDK 25
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
-        with:
-          # Matrix legs read the cache only; the primary build job (build-except-metadata-ingestion)
-          # is the writer. Prevents the 6 shard legs from racing to write the same Gradle cache.
-          cache-read-only: true
       - name: Download frontend build artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -438,7 +417,7 @@ jobs:
           rm -rf "$TEMP_DIR"
       - name: Upload frontend coverage to Codecov
         if: ${{ github.event_name != 'release' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ env.FRONTEND_FILES }}
@@ -450,7 +429,7 @@ jobs:
           verbose: true
       - name: Upload frontend coverage to Codecov on Release
         if: ${{ github.event_name == 'release' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ env.FRONTEND_FILES }}
@@ -463,13 +442,13 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
         if: ${{ !cancelled() && github.event_name != 'release' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
       - name: Upload test results to Codecov on release
         if: ${{ !cancelled() && github.event_name == 'release' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
@@ -492,9 +471,8 @@ jobs:
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.10"
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
       - name: Guard — shard discovery is non-empty
         # Fail loudly if the globs/excludes discover far too few backend test modules, instead
         # of silently sharding a near-empty suite (green CI that tested nothing). Keep the
@@ -520,16 +498,6 @@ jobs:
         uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Set up JDK 25
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
-        with:
-          # setup-gradle handles deps/wrapper; the local build cache is managed explicitly
-          # below with a run-scoped key so shards deterministically restore the seed's output.
-          gradle-home-cache-excludes: caches/build-cache-1
       # Deliberately no restore-keys. This entry exists to hand the seed job's
       # build cache to the parallel jobs in the SAME run, which match on the exact
       # run-scoped key. A prefix restore-key here instead made it a ratchet: each
@@ -541,7 +509,7 @@ jobs:
       # and every run restored the same frozen blob. Cross-run reuse belongs to
       # the remote build cache; this entry is intra-run handoff only.
       - name: Cache Gradle build cache (seed writes; run-scoped key)
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-backend-build-cache-${{ github.run_id }}
@@ -600,30 +568,22 @@ jobs:
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          python-version: "3.10"
+          # Shards read the seed's cache; only the seed writes. Avoids matrix write races.
+          gradle-cache-read-only: true
       - name: Configure fast APT mirror
         if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
         uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Set up JDK 25
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
-        with:
-          # Shards read the seed's cache; only the seed writes. Avoids matrix write races.
-          cache-read-only: true
-          gradle-home-cache-excludes: caches/build-cache-1
       - name: Restore Gradle build cache (exact key from seed this run)
         # cache/restore, not cache: these jobs consume the seed's output and
         # must never write. With the full action they also saved at post-step,
         # and the prefix restore-key let them pull a previous run's cache and
         # re-save the union -- the same ratchet the seed job had.
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-backend-build-cache-${{ github.run_id }}
@@ -712,7 +672,7 @@ jobs:
             **/build/jacoco/*.exec
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
@@ -732,28 +692,22 @@ jobs:
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          python-version: "3.10"
+          # Shards read the seed's cache; only the seed writes. Avoids matrix write races.
+          gradle-cache-read-only: true
       - name: Configure fast APT mirror
         if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
         uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
-        with:
-          cache-read-only: true
-          gradle-home-cache-excludes: caches/build-cache-1
       - name: Restore Gradle build cache (exact key from seed this run)
         # cache/restore, not cache: these jobs consume the seed's output and
         # must never write. With the full action they also saved at post-step,
         # and the prefix restore-key let them pull a previous run's cache and
         # re-save the union -- the same ratchet the seed job had.
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-backend-build-cache-${{ github.run_id }}
@@ -782,7 +736,7 @@ jobs:
       # PRs. (The merge above still runs best-effort so the report exists for debugging.)
       - name: Upload backend coverage to Codecov
         if: ${{ needs.backend-test-shard.result == 'success' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ env.BACKEND_FILES }}
@@ -796,7 +750,7 @@ jobs:
           override_branch: ${{ github.event_name == 'release' && (github.head_ref || github.ref_name) || '' }}
 
   event-file:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Upload
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0

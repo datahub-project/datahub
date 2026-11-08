@@ -1,16 +1,17 @@
 import logging
 import threading
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Optional, Union
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Optional, Union
 
-from confluent_kafka import KafkaError, Message
 from pydantic import Field
 
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.kafka_emitter import (
     DatahubKafkaEmitter,
     KafkaEmitterConfig,
+    KafkaOnDelivery,
     MessageTooLargeError,
+    _AggregatingKafkaCallback,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
@@ -89,9 +90,7 @@ class _KafkaCallback:
     # thread, so a threading.Event (thread-safe) is used.
     failure_signal: Optional[threading.Event] = None
 
-    def kafka_callback(
-        self, err: Optional[Union[KafkaError, Exception]], msg: Optional[Message]
-    ) -> None:
+    def kafka_callback(self, err: Any, msg: Any) -> None:
         """
         Kafka delivery callback invoked by confluent-kafka producer.
 
@@ -138,44 +137,6 @@ class _KafkaCallback:
 
 
 @dataclass
-class _AggregatingKafkaCallback:
-    """Aggregates N Kafka delivery callbacks into a single success/failure signal.
-
-    When an MCE is unpacked into N MCPs, each MCP gets its own Kafka delivery
-    callback. This class ensures that the upstream WriteCallback fires exactly
-    once: on_success after all N deliveries succeed, or on_failure on the first
-    failure. This preserves the 1-record-in = 1-callback-out contract that the
-    pipeline expects from write_record_async.
-
-    Thread-safe because Kafka delivery callbacks are invoked from librdkafka's
-    background thread. Without the lock, concurrent callbacks could both read
-    the same _remaining value, causing the inner callback to fire twice or
-    never -- unlikely under CPython's GIL, but possible (and reproducible) on
-    free-threaded builds (PEP 703) or alternative runtimes.
-    """
-
-    total: int
-    inner: _KafkaCallback
-    _remaining: int = field(init=False)
-    _failed: bool = field(init=False, default=False)
-    _lock: threading.Lock = field(init=False, default_factory=threading.Lock)
-
-    def __post_init__(self) -> None:
-        self._remaining = self.total
-
-    def kafka_callback(
-        self, err: Optional[Union[KafkaError, Exception]], msg: Optional[Message]
-    ) -> None:
-        with self._lock:
-            self._remaining -= 1
-            if err is not None and not self._failed:
-                self._failed = True
-                self.inner.kafka_callback(err, msg)
-            elif self._remaining == 0 and not self._failed:
-                self.inner.kafka_callback(None, msg)
-
-
-@dataclass
 class KafkaSinkReport(SinkReport):
     # Backpressure is the sink throttling the source to Kafka's sustainable
     # rate; without these it's invisible in the run report (only warns after
@@ -215,9 +176,7 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, KafkaSinkReport]):
     def _emit_mcp_via_rest_fallback(
         self,
         record: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
-        delivery_callback: Callable[
-            [Optional[Union[KafkaError, Exception]], Optional[Message]], None
-        ],
+        delivery_callback: KafkaOnDelivery,
     ) -> None:
         """Degrade an oversize MCP (MessageTooLargeError) to the REST fallback.
 
@@ -393,38 +352,49 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, KafkaSinkReport]):
                     return
 
                 agg_callback = _AggregatingKafkaCallback(
-                    total=len(mcps), inner=kafka_callback
+                    total=len(mcps), inner=kafka_callback.kafka_callback
                 )
-                for mcp in mcps:
-                    try:
-                        self.emitter.emit(
-                            mcp,
-                            callback=agg_callback.kafka_callback,
-                        )
-                    except MessageTooLargeError:
-                        # Oversize aspect: degrade to REST fallback for parity with
-                        # the REST sink (~16 MiB cap vs Kafka's ~5 MiB). Tick the
-                        # aggregating callback as if this MCP delivered, so the
-                        # N-callbacks = 1-write_callback invariant still holds.
-                        if self.config.rest_fallback is None:
-                            # Tick the agg as a failure rather than raise: raise
-                            # would hit the outer except and fire on_failure now,
-                            # while earlier-produced MCPs' async delivery callbacks
-                            # tick the agg later -> double write_callback. Ticking
-                            # marks the agg failed so later real deliveries are
-                            # ignored and on_failure fires exactly once.
-                            agg_callback.kafka_callback(
-                                Exception(
-                                    f"Oversize MCP for {mcp.entityUrn} exceeds "
-                                    "Kafka message.max.bytes and no rest_fallback "
-                                    "is configured."
-                                ),
-                                None,
+                try:
+                    for mcp in mcps:
+                        try:
+                            self.emitter.emit(
+                                mcp,
+                                callback=agg_callback.kafka_callback,
                             )
-                            return
-                        self._emit_mcp_via_rest_fallback(
-                            mcp, agg_callback.kafka_callback
+                        except MessageTooLargeError:
+                            # Oversize aspect: degrade to REST fallback for parity with
+                            # the REST sink (~16 MiB cap vs Kafka's ~5 MiB). Tick the
+                            # aggregating callback as if this MCP delivered, so the
+                            # N-callbacks = 1-write_callback invariant still holds.
+                            if self.config.rest_fallback is None:
+                                # Tick the agg as a failure rather than raise: raise
+                                # would hit the outer except and fire on_failure now,
+                                # while earlier-produced MCPs' async delivery callbacks
+                                # tick the agg later -> double write_callback. Ticking
+                                # marks the agg failed so later real deliveries are
+                                # ignored and on_failure fires exactly once.
+                                agg_callback.kafka_callback(
+                                    Exception(
+                                        f"Oversize MCP for {mcp.entityUrn} exceeds "
+                                        "Kafka message.max.bytes and no rest_fallback "
+                                        "is configured."
+                                    ),
+                                    None,
+                                )
+                                return
+                            self._emit_mcp_via_rest_fallback(
+                                mcp, agg_callback.kafka_callback
+                            )
+                except Exception as e:
+                    # Report the record once: skip the outer except if an earlier
+                    # aspect's error already failed it, and keep already-queued
+                    # aspects' later deliveries from reporting it again.
+                    if agg_callback.suppress():
+                        logger.error(
+                            f"Emit failed for already-failed MCE {record.proposedSnapshot.urn}: {e}"
                         )
+                        return
+                    raise
             else:
                 try:
                     self.emitter.emit(

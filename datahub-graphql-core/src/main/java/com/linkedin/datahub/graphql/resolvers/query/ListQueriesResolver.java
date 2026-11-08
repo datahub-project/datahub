@@ -8,6 +8,8 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -15,16 +17,22 @@ import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.ListQueriesInput;
 import com.linkedin.datahub.graphql.generated.ListQueriesResult;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
-import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -33,11 +41,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@RequiredArgsConstructor
 public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQueriesResult>> {
 
   // Visible for Testing
@@ -47,8 +53,44 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
   static final String CREATED_AT_FIELD = "createdAt";
   static final String QUERY_SOURCE_FIELD = "source";
   static final String QUERY_ENTITIES_FIELD = "entities";
+  static final String URN_SORT_FIELD = "urn";
+
+  /** Batch size for each page scanned while authorizing the requested page. */
+  static final int AUTHORIZATION_SCROLL_BATCH_SIZE = 100;
+
+  static final String AUTHORIZATION_SCROLL_KEEP_ALIVE = "1m";
+
+  /**
+   * Upper bound on raw search candidates a single request will fetch while overfetching past the
+   * requested page to authorize it exactly. Protects an unscoped call (no dataset/source filter)
+   * from scrolling the entire Query index one batch at a time. Real callers today always scope this
+   * call to one dataset, so this should never trigger in practice; if it does, the request is
+   * rejected outright rather than returning a partial page or an inexact total.
+   */
+  static final int MAX_QUERY_OVERFETCH_CANDIDATES = 10_000;
+
+  /**
+   * Wall-clock budget for that same overfetch, independent of the candidate cap above: bounds
+   * against slow individual batches (a degraded search cluster, an unusually large policy set) that
+   * a fixed candidate count can't anticipate. Comfortably under {@code
+   * DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS} (55s default) so this fails with a clear, specific error
+   * before the servlet's own request timeout would.
+   */
+  static final long MAX_QUERY_OVERFETCH_MILLIS = 30_000L;
 
   private final EntityClient _entityClient;
+  @Nullable private final EntityIndexConfiguration _entityIndexConfiguration;
+
+  public ListQueriesResolver(@Nonnull final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public ListQueriesResolver(
+      @Nonnull final EntityClient entityClient,
+      @Nullable final EntityIndexConfiguration entityIndexConfiguration) {
+    _entityClient = entityClient;
+    _entityIndexConfiguration = entityIndexConfiguration;
+  }
 
   @Override
   public CompletableFuture<ListQueriesResult> get(final DataFetchingEnvironment environment)
@@ -66,7 +108,7 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
             : null;
     final Filter finalFilter =
         inputFilter != null
-            ? SearchUtils.combineFilters(inputFilter, buildFilters(input))
+            ? FilterUtils.combineFilters(inputFilter, buildFilters(input))
             : buildFilters(input);
 
     return GraphQLConcurrencyUtils.supplyAsync(
@@ -75,56 +117,29 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
             List<SortCriterion> sortCriteria =
                 input.getSortInput() != null
                     ? Collections.singletonList(
-                        mapSortCriterion(input.getSortInput().getSortCriterion()))
+                        remapCreatedAtSort(
+                            context.getOperationContext(), input.getSortInput().getSortCriterion()))
                     : Collections.singletonList(
                         new SortCriterion()
-                            .setField(CREATED_AT_FIELD)
+                            .setField(createdAtSortField(context.getOperationContext()))
                             .setOrder(SortOrder.DESCENDING));
 
-            // First, get all Query Urns.
-            final SearchResult gmsResult =
-                _entityClient.search(
-                    context
-                        .getOperationContext()
-                        .withSearchFlags(
-                            flags -> flags.setFulltext(true).setSkipHighlighting(true)),
-                    QUERY_ENTITY_NAME,
-                    query,
-                    finalFilter,
-                    sortCriteria,
-                    start,
-                    count);
+            // Per-query authorization is skippable when it's disabled, the caller is system-auth,
+            // or the caller already holds VIEW_ALL_QUERIES (which makes every match visible
+            // regardless of subjects) — in all three cases, the raw search page is exactly the
+            // authorized page.
+            final boolean needsPerQueryAuthorization =
+                EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(
+                        context.getOperationContext())
+                    && !context.getOperationContext().isSystemAuth()
+                    && !EntityAspectAuthorizationUtils.hasViewAllQueriesPrivilege(
+                        context.getOperationContext());
 
-            final List<Urn> queryUrns =
-                gmsResult.getEntities().stream()
-                    .map(SearchEntity::getEntity)
-                    .collect(Collectors.toList());
-
-            List<Urn> authorizedQueryUrns = queryUrns;
-            if (context
-                    .getOperationContext()
-                    .getOperationContextConfig()
-                    .getViewAuthorizationConfiguration()
-                    .isEnabled()
-                && !context.getOperationContext().isSystemAuth()) {
-              final Set<Urn> viewableQueryUrns =
-                  EntityAspectAuthorizationUtils.filterViewableQueryEntities(
-                      context.getOperationContext(),
-                      context.getOperationContext(),
-                      context.getOperationContext().getAspectRetriever(),
-                      queryUrns);
-              authorizedQueryUrns =
-                  queryUrns.stream()
-                      .filter(viewableQueryUrns::contains)
-                      .collect(Collectors.toList());
+            if (!needsPerQueryAuthorization) {
+              return searchWithoutAuthorization(
+                  context, query, finalFilter, sortCriteria, start, count);
             }
-
-            final ListQueriesResult result = new ListQueriesResult();
-            result.setStart(gmsResult.getFrom());
-            result.setCount(authorizedQueryUrns.size());
-            result.setTotal(gmsResult.getNumEntities());
-            result.setQueries(mapUnresolvedQueries(authorizedQueryUrns));
-            return result;
+            return searchAuthorized(context, query, finalFilter, sortCriteria, start, count);
           } catch (Exception e) {
             throw new RuntimeException("Failed to list Queries", e);
           }
@@ -132,6 +147,158 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
         this.getClass().getSimpleName(),
         "get");
   }
+
+  private ListQueriesResult searchWithoutAuthorization(
+      QueryContext context,
+      String query,
+      Filter finalFilter,
+      List<SortCriterion> sortCriteria,
+      Integer start,
+      Integer count)
+      throws Exception {
+    final SearchResult gmsResult =
+        _entityClient.search(
+            context
+                .getOperationContext()
+                .withSearchFlags(flags -> flags.setFulltext(true).setSkipHighlighting(true)),
+            QUERY_ENTITY_NAME,
+            query,
+            finalFilter,
+            sortCriteria,
+            start,
+            count);
+
+    final List<Urn> queryUrns =
+        gmsResult.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
+
+    final ListQueriesResult result = new ListQueriesResult();
+    result.setStart(gmsResult.getFrom());
+    result.setCount(queryUrns.size());
+    result.setTotal(gmsResult.getNumEntities());
+    result.setQueries(mapUnresolvedQueries(queryUrns));
+    return result;
+  }
+
+  /**
+   * Applies the requested query/filters/sort to obtain one stable ordered stream via {@link
+   * EntityClient#scrollAcrossEntities}, authorizes it batch by batch in that same order, and only
+   * then applies start/count to the authorized stream — so start, count, and total all describe the
+   * actor's authorized view rather than the raw search result. Pagination has to happen after
+   * authorization, not before: filtering an already-paginated raw page (as a single search call
+   * would) leaks the existence/count of denied queries through a shifting total and can strand
+   * authorized queries behind a raw-page boundary.
+   */
+  private ListQueriesResult searchAuthorized(
+      QueryContext context,
+      String query,
+      Filter finalFilter,
+      List<SortCriterion> sortCriteria,
+      Integer start,
+      Integer count)
+      throws Exception {
+    List<SortCriterion> stableSort = new ArrayList<>(sortCriteria);
+    stableSort.add(new SortCriterion().setField(URN_SORT_FIELD).setOrder(SortOrder.ASCENDING));
+
+    AuthorizedQueryPage page =
+        scanAuthorizedPage(context, query, finalFilter, stableSort, start, count);
+
+    final ListQueriesResult result = new ListQueriesResult();
+    result.setStart(start);
+    result.setCount(page.urns().size());
+    result.setTotal(page.total());
+    result.setQueries(mapUnresolvedQueries(page.urns()));
+    return result;
+  }
+
+  private AuthorizedQueryPage scanAuthorizedPage(
+      QueryContext context,
+      String query,
+      Filter finalFilter,
+      List<SortCriterion> stableSort,
+      int start,
+      int count)
+      throws Exception {
+    final long deadline = System.currentTimeMillis() + MAX_QUERY_OVERFETCH_MILLIS;
+    int authorizedSeen = 0;
+    int candidatesScanned = 0;
+    List<Urn> page = new ArrayList<>();
+    String scrollId = null;
+
+    do {
+      if (System.currentTimeMillis() > deadline) {
+        log.warn(
+            "listQueries overfetch timed out ({} candidates scanned) for actor {}; rejecting"
+                + " request. Narrow the query with a dataset or source filter.",
+            candidatesScanned,
+            context.getOperationContext().getActorContext().getActorUrn());
+        throw new DataHubGraphQLException(
+            "Timed out authorizing listQueries results; narrow the query with a dataset or"
+                + " source filter and try again.",
+            DataHubGraphQLErrorCode.BAD_REQUEST);
+      }
+
+      final ScrollResult scrollResult =
+          _entityClient.scrollAcrossEntities(
+              context
+                  .getOperationContext()
+                  .withSearchFlags(flags -> flags.setFulltext(true).setSkipHighlighting(true)),
+              ImmutableList.of(QUERY_ENTITY_NAME),
+              query,
+              finalFilter,
+              scrollId,
+              AUTHORIZATION_SCROLL_KEEP_ALIVE,
+              stableSort,
+              AUTHORIZATION_SCROLL_BATCH_SIZE);
+
+      final List<Urn> orderedUrns =
+          scrollResult.getEntities().stream()
+              .map(SearchEntity::getEntity)
+              .collect(Collectors.toList());
+
+      if (orderedUrns.isEmpty()) {
+        break;
+      }
+
+      candidatesScanned += orderedUrns.size();
+      if (candidatesScanned > MAX_QUERY_OVERFETCH_CANDIDATES) {
+        log.warn(
+            "listQueries overfetch cap reached ({} candidates scanned) for actor {}; rejecting"
+                + " request. Narrow the query with a dataset or source filter.",
+            candidatesScanned,
+            context.getOperationContext().getActorContext().getActorUrn());
+        throw new DataHubGraphQLException(
+            "listQueries matched too many candidates to authorize exactly; narrow the query with"
+                + " a dataset or source filter and try again.",
+            DataHubGraphQLErrorCode.BAD_REQUEST);
+      }
+
+      final Set<Urn> allowed =
+          EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+              context.getOperationContext(),
+              context.getOperationContext(),
+              context.getOperationContext().getAspectRetriever(),
+              orderedUrns,
+              EntityAspectAuthorizationUtils.requireAllQuerySubjects(
+                  context.getOperationContext()));
+
+      for (Urn urn : orderedUrns) {
+        if (!allowed.contains(urn)) {
+          continue;
+        }
+        if (authorizedSeen >= start && page.size() < count) {
+          page.add(urn);
+        }
+        authorizedSeen++;
+      }
+
+      scrollId = scrollResult.getScrollId();
+    } while (scrollId != null);
+
+    return new AuthorizedQueryPage(page, authorizedSeen);
+  }
+
+  /** One page of authorized Query urns plus the exact authorized total across the full scan. */
+  private record AuthorizedQueryPage(List<Urn> urns, int total) {}
 
   // This method maps urns returned from the list endpoint into Partial Query objects which will be
   // resolved be a separate Batch resolver.
@@ -144,6 +311,29 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
       results.add(unresolvedQuery);
     }
     return results;
+  }
+
+  /**
+   * The created-time sort reads the V3 system field when keyword read is on. Other fields pass
+   * through, since only the audit stamp moves under Search V3.
+   */
+  private SortCriterion remapCreatedAtSort(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final com.linkedin.datahub.graphql.generated.SortCriterion sortCriterion) {
+    SortCriterion mapped = mapSortCriterion(sortCriterion);
+    if (CREATED_AT_FIELD.equals(mapped.getField())) {
+      mapped.setField(createdAtSortField(opContext));
+    }
+    return mapped;
+  }
+
+  private String createdAtSortField(@Nonnull final OperationContext opContext) {
+    return EntitySearchIndexResolver.indexedField(
+        _entityIndexConfiguration,
+        opContext,
+        CREATED_AT_FIELD,
+        MappingConstants.SYSTEM_CREATED_TIME_FIELD,
+        Intent.SORT);
   }
 
   @Nullable

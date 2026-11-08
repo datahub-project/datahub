@@ -1,21 +1,15 @@
 import { renderHook } from '@testing-library/react-hooks';
 
+import { buildEditableSchemaFieldInfoMaps } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useEditableSchemaFieldInfoMaps';
 import useExtractFieldDescriptionInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldDescriptionInfo';
 
 import { EditableSchemaMetadata, EntityType, SchemaField, SchemaFieldDataType } from '@types';
 
 // Mock dependencies using vi.hoisted
-const {
-    mockGetFieldDescriptionDetails,
-    mockSanitizeRichText,
-    mockPathMatchesExact,
-    mockUseIsDocumentationInferenceEnabled,
-} = vi.hoisted(() => {
+const { mockGetFieldDescriptionDetails, mockSanitizeRichText } = vi.hoisted(() => {
     return {
         mockGetFieldDescriptionDetails: vi.fn(),
         mockSanitizeRichText: vi.fn(),
-        mockPathMatchesExact: vi.fn(),
-        mockUseIsDocumentationInferenceEnabled: vi.fn(),
     };
 });
 
@@ -25,14 +19,6 @@ vi.mock('../getFieldDescriptionDetails', () => ({
 
 vi.mock('@components/components/Editor/utils', () => ({
     sanitizeRichText: mockSanitizeRichText,
-}));
-
-vi.mock('@src/app/entityV2/dataset/profile/schema/utils/utils', () => ({
-    pathMatchesExact: mockPathMatchesExact,
-}));
-
-vi.mock('@src/app/entityV2/shared/components/inferredDocs/utils', () => ({
-    useIsDocumentationInferenceEnabled: mockUseIsDocumentationInferenceEnabled,
 }));
 
 describe('useExtractFieldDescriptionInfo', () => {
@@ -82,8 +68,6 @@ describe('useExtractFieldDescriptionInfo', () => {
         vi.clearAllMocks();
 
         // Set up default mock implementations
-        mockUseIsDocumentationInferenceEnabled.mockReturnValue(true);
-        mockPathMatchesExact.mockReturnValue(false);
         mockGetFieldDescriptionDetails.mockReturnValue(mockFieldDescriptionDetails);
         mockSanitizeRichText.mockImplementation((text) => `sanitized: ${text}`);
     });
@@ -96,8 +80,6 @@ describe('useExtractFieldDescriptionInfo', () => {
         });
 
         it('should call getFieldDescriptionDetails with correct parameters', () => {
-            mockPathMatchesExact.mockReturnValue(true);
-
             const { result } = renderHook(() => useExtractFieldDescriptionInfo(mockEditableSchemaMetadata));
 
             result.current(mockSchemaFieldWithEntity, 'Parameter description');
@@ -135,13 +117,10 @@ describe('useExtractFieldDescriptionInfo', () => {
 
     describe('path matching logic', () => {
         it('should find matching editableFieldInfo when paths match exactly', () => {
-            mockPathMatchesExact.mockImplementation((pathA, pathB) => pathA === pathB);
-
             const { result } = renderHook(() => useExtractFieldDescriptionInfo(mockEditableSchemaMetadata));
 
             result.current(mockSchemaField);
 
-            expect(mockPathMatchesExact).toHaveBeenCalledWith('testField', 'testField');
             expect(mockGetFieldDescriptionDetails).toHaveBeenCalledWith(
                 expect.objectContaining({
                     editableFieldInfo: mockEditableSchemaMetadata.editableSchemaFieldInfo![0],
@@ -150,9 +129,11 @@ describe('useExtractFieldDescriptionInfo', () => {
         });
 
         it('should not find editableFieldInfo when no paths match', () => {
-            mockPathMatchesExact.mockReturnValue(false);
+            const noMatchMetadata: EditableSchemaMetadata = {
+                editableSchemaFieldInfo: [{ fieldPath: 'differentField', description: 'Other' }],
+            };
 
-            const { result } = renderHook(() => useExtractFieldDescriptionInfo(mockEditableSchemaMetadata));
+            const { result } = renderHook(() => useExtractFieldDescriptionInfo(noMatchMetadata));
 
             result.current(mockSchemaField);
 
@@ -171,8 +152,6 @@ describe('useExtractFieldDescriptionInfo', () => {
                 ],
             };
 
-            mockPathMatchesExact.mockReturnValue(true);
-
             const { result } = renderHook(() => useExtractFieldDescriptionInfo(editableSchemaWithDuplicates));
 
             result.current(mockSchemaField);
@@ -180,6 +159,24 @@ describe('useExtractFieldDescriptionInfo', () => {
             expect(mockGetFieldDescriptionDetails).toHaveBeenCalledWith(
                 expect.objectContaining({
                     editableFieldInfo: editableSchemaWithDuplicates.editableSchemaFieldInfo![0],
+                }),
+            );
+        });
+
+        it('uses caller-supplied fieldInfoMaps instead of building from metadata', () => {
+            const unusedMetadata: EditableSchemaMetadata = {
+                editableSchemaFieldInfo: [{ fieldPath: 'testField', description: 'from metadata' }],
+            };
+            const suppliedMaps = buildEditableSchemaFieldInfoMaps({
+                editableSchemaFieldInfo: [{ fieldPath: 'testField', description: 'from maps' }],
+            });
+
+            const { result } = renderHook(() => useExtractFieldDescriptionInfo(unusedMetadata, suppliedMaps));
+            result.current(mockSchemaField);
+
+            expect(mockGetFieldDescriptionDetails).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    editableFieldInfo: suppliedMaps.exactMap.get('testField'),
                 }),
             );
         });
@@ -304,6 +301,13 @@ describe('useExtractFieldDescriptionInfo', () => {
             );
         });
 
+        it('does not throw when the schema field has no fieldPath', () => {
+            const { result } = renderHook(() => useExtractFieldDescriptionInfo(mockEditableSchemaMetadata));
+            const schemaField = { ...mockSchemaField, fieldPath: undefined as unknown as string };
+
+            expect(() => result.current(schemaField)).not.toThrow();
+        });
+
         it('should handle schema field without schemaFieldEntity', () => {
             const schemaFieldWithoutEntity = { ...mockSchemaField };
             delete schemaFieldWithoutEntity.schemaFieldEntity;
@@ -400,7 +404,6 @@ describe('useExtractFieldDescriptionInfo', () => {
 
             mockGetFieldDescriptionDetails.mockReturnValue(complexFieldDescriptionDetails);
             mockSanitizeRichText.mockReturnValue('Complex description with formatting');
-            mockPathMatchesExact.mockReturnValue(true);
 
             const { result } = renderHook(() => useExtractFieldDescriptionInfo(mockEditableSchemaMetadata));
 

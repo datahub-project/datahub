@@ -3,17 +3,17 @@ import styled from 'styled-components';
 
 import { FontColorLevelOptions, FontColorOptions } from '@components/theme/config';
 
-import { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
 import { isChart } from '@app/entityV2/chart/utils';
 import { isDashboard } from '@app/entityV2/dashboard/utils';
-import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import { matchedInputFieldParams } from '@app/search/matches/matchedInputFieldRenderer';
 import { getDescriptionSlice, isDescriptionField, isHighlightableEntityField } from '@app/searchV2/matches/utils';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { stripMarkdown } from '@app/sharedV2/stripMarkdown';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { MatchText, Text } from '@src/alchemy-components';
 import { MatchesGroupedByFieldName } from '@src/app/search/matches/constants';
 import { getMatchedFieldLabel } from '@src/app/search/matches/utils';
-import { capitalizeFirstLetterOnly } from '@src/app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@src/app/sharedV2/textUtil';
 import { Entity, EntityType } from '@src/types.generated';
 
 const TextWrapper = styled.span`
@@ -32,7 +32,7 @@ interface Props {
 }
 
 export default function Match({ query, entityType, entity, match, color, colorLevel }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const label = useMemo(
         () => capitalizeFirstLetterOnly(getMatchedFieldLabel(entityType, match.fieldName)),
@@ -49,7 +49,7 @@ export default function Match({ query, entityType, entity, match, color, colorLe
         if (field.value === '') return undefined;
 
         if (isDescriptionField(field) && query) {
-            const cleanedValue: string = removeMarkdown(field.value);
+            const cleanedValue: string = stripMarkdown(field.value);
 
             // do not show the description if it doesn't include query
             if (!cleanedValue.toLowerCase().includes(query.toLocaleLowerCase())) return undefined;

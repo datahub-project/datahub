@@ -80,7 +80,7 @@ _DLT_LOAD_STATUS_MAP: Dict[DltLoadStatus, InstanceRunResult] = {
 
 @platform_name("dlt")
 @config_class(DltSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_COARSE,

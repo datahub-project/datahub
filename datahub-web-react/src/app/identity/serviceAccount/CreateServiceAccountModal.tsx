@@ -1,11 +1,11 @@
 import { useApolloClient } from '@apollo/client';
-import { message } from 'antd';
+import { toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { addServiceAccountToListCache } from '@app/identity/serviceAccount/cacheUtils';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { Input, Modal, Text, TextArea } from '@src/alchemy-components';
 
 import { useCreateServiceAccountMutation } from '@graphql/auth.generated';
@@ -97,7 +97,7 @@ export default function CreateServiceAccountModal({ visible, onClose, onCreateSe
                 if (!errors && data?.createServiceAccount) {
                     addServiceAccountToListCache(apolloClient, data.createServiceAccount);
 
-                    message.success(t('serviceAccounts.createSuccess'));
+                    toast.success(t('serviceAccounts.createSuccess'));
                     const createdAccount = data.createServiceAccount;
                     onCreateServiceAccount(
                         createdAccount.urn,
@@ -109,11 +109,8 @@ export default function CreateServiceAccountModal({ visible, onClose, onCreateSe
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: t('serviceAccounts.createError', { error: e.message || '' }),
-                    duration: 3,
-                });
+                toast.destroy();
+                toast.error(t('serviceAccounts.createError', { error: e.message || '' }), { duration: 3 });
             })
             .finally(() => {
                 setIsSubmitting(false);

@@ -104,7 +104,7 @@ def test_hive_thrift_ingest(
     - Configuration options (catalog IDs, simplified paths, PascalCase)
     - Golden file comparison
     """
-    events_file = tmp_path / f"hive_thrift_mces{test_suffix}.json"
+    events_file = tmp_path / f"hive_thrift{test_suffix}.json"
 
     config = {
         "run_id": "hive-thrift-test",
@@ -140,8 +140,9 @@ def test_hive_thrift_ingest(
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=events_file,
-        golden_path=test_resources_dir / f"hive_thrift_mces_golden{test_suffix}.json",
+        golden_path=test_resources_dir / f"hive_thrift_golden{test_suffix}.json",
         ignore_paths_v2=ignore_paths_v2,
+        fail_on_output_mces=True,
     )
 
 
@@ -163,7 +164,7 @@ def test_hive_thrift_instance_ingest(
     """
     instance = "production_warehouse"
     platform = "hive"
-    events_file = tmp_path / "hive_thrift_instance_mces.json"
+    events_file = tmp_path / "hive_thrift_instance.json"
 
     config = {
         "run_id": "hive-thrift-instance-test",

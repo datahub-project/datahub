@@ -5,6 +5,9 @@ namespace com.datahub.test.invalid
 }
 record MissingSearchableFieldType {
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldName": "textField"
   }
   textField: string

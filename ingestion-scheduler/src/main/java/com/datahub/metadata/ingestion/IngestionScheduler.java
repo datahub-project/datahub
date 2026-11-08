@@ -258,9 +258,7 @@ public class IngestionScheduler {
         while (start < total) {
           try {
             log.debug(
-                String.format(
-                    "Batch fetching ingestion source schedules. start: %s, count: %s ",
-                    start, count));
+                "Batch fetching ingestion source schedules. start: {}, count: {} ", start, count);
 
             // 1. List all ingestion source urns.
             final ListResult ingestionSourceUrns =

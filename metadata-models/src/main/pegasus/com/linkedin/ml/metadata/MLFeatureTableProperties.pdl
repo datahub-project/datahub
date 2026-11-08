@@ -16,7 +16,16 @@ record MLFeatureTableProperties includes CustomProperties {
    */
   @Searchable = {
     "fieldType": "TEXT",
-    "hasValuesFieldName": "hasDescription"
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 
@@ -32,7 +41,10 @@ record MLFeatureTableProperties includes CustomProperties {
   @Searchable = {
     "/*": {
       "fieldName": "features",
-      "fieldType": "URN"
+      "fieldType": "URN",
+      "v3": {
+        "copyToOther": true
+      }
     }
   }
   mlFeatures: optional array[Urn]
@@ -49,7 +61,10 @@ record MLFeatureTableProperties includes CustomProperties {
   @Searchable = {
     "/*": {
       "fieldName": "primaryKeys",
-      "fieldType": "URN"
+      "fieldType": "URN",
+      "v3": {
+        "copyToOther": true
+      }
     }
   }
   mlPrimaryKeys: optional array[Urn]
