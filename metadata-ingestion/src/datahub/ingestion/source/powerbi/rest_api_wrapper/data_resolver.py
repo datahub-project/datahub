@@ -16,6 +16,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     App,
     Column,
     Dashboard,
+    DatasetRefresh,
     Measure,
     MeasureProfile,
     Page,
@@ -39,6 +40,8 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.query import DaxQuery
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+REFRESH_HISTORY_DEPTH = 5
 
 
 def is_permission_error(e: Exception) -> bool:
@@ -147,6 +150,12 @@ class DataResolverBase(ABC):
     @classmethod
     def my_org_url_for(cls, environment: PowerBiEnvironment) -> str:
         return cls.urls_for(environment)["MY_ORG_URL"]
+
+    @property
+    def msal_client(self) -> msal.ConfidentialClientApplication:
+        # Shared with FabricDefinitionResolver so the Fabric token is minted
+        # from the same service principal without a second MSAL app.
+        return self._msal_client
 
     @property
     def request_session(self) -> requests.Session:
@@ -399,7 +408,85 @@ class RegularAPIResolver(DataResolverBase):
         Constant.REPORT_DATASOURCES: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}/datasources",
         Constant.DATASET_EXECUTE_QUERIES: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/executeQueries",
         Constant.GET_WORKSPACE_APP: "{MY_ORG_URL}/apps/{APP_ID}",
+        Constant.DATASET_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets",
+        Constant.DATASET_REFRESHES: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/refreshes",
+        Constant.WORKSPACE_USERS: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/users",
     }
+
+    def get_datasets(self, workspace: Workspace) -> List[Dict[str, Any]]:
+        """Raw dataset rows of GET /groups/{id}/datasets.
+
+        Fields beyond id/name (configuredBy, description, webUrl) are only
+        returned when the principal has write access to the dataset, which in
+        practice means the Contributor role on the workspace.
+        """
+        endpoint = self.API_ENDPOINTS[Constant.DATASET_LIST].format(
+            POWERBI_BASE_URL=self._base_url, WORKSPACE_ID=workspace.id
+        )
+        logger.debug(f"Request to datasets URL={endpoint}")
+        response = self._request_session.get(
+            endpoint, headers=self.get_authorization_header()
+        )
+        response.raise_for_status()
+        return response.json().get(Constant.VALUE, [])
+
+    def get_workspace_users(self, workspace_id: str) -> List[User]:
+        """Principals with a role on the workspace (GET /groups/{id}/users);
+        the per-item user endpoints are admin-only."""
+        endpoint = self.API_ENDPOINTS[Constant.WORKSPACE_USERS].format(
+            POWERBI_BASE_URL=self._base_url, WORKSPACE_ID=workspace_id
+        )
+        logger.debug(f"Request to workspace users URL={endpoint}")
+        response = self._request_session.get(
+            endpoint, headers=self.get_authorization_header()
+        )
+        response.raise_for_status()
+        users: List[User] = []
+        for raw in response.json().get(Constant.VALUE, []):
+            # Groups and service principals in the workspace role list carry no
+            # graphId; their identifier is the same directory object id.
+            if not raw.get(Constant.GRAPH_ID) and raw.get(Constant.IDENTIFIER):
+                raw[Constant.GRAPH_ID] = raw[Constant.IDENTIFIER]
+            user = new_powerbi_user(raw)
+            if user is not None:
+                users.append(user)
+        return users
+
+    def get_latest_dataset_refresh(
+        self, workspace_id: str, dataset_id: str
+    ) -> Optional[DatasetRefresh]:
+        endpoint = self.API_ENDPOINTS[Constant.DATASET_REFRESHES].format(
+            POWERBI_BASE_URL=self._base_url,
+            WORKSPACE_ID=workspace_id,
+            DATASET_ID=dataset_id,
+        )
+        logger.debug(f"Request to refresh history URL={endpoint}")
+        # A handful of recent entries so a trailing Failed/Disabled refresh
+        # does not hide the last successful one; newest first.
+        response = self._request_session.get(
+            endpoint,
+            headers=self.get_authorization_header(),
+            params={Constant.TOP: REFRESH_HISTORY_DEPTH},
+        )
+        response.raise_for_status()
+        rows: List[Dict[str, Any]] = response.json().get(Constant.VALUE, [])
+        if not rows:
+            return None
+        raw = next(
+            (
+                row
+                for row in rows
+                if row.get(Constant.STATUS) == Constant.REFRESH_STATUS_COMPLETED
+            ),
+            rows[0],
+        )
+        return DatasetRefresh(
+            request_id=raw.get(Constant.REQUEST_ID),
+            refresh_type=raw.get(Constant.REFRESH_TYPE),
+            status=raw.get(Constant.STATUS),
+            start_time=raw.get(Constant.START_TIME),
+            end_time=raw.get(Constant.END_TIME),
+        )
 
     def get_dataset_parameters(
         self, workspace_id: str, dataset_id: str
