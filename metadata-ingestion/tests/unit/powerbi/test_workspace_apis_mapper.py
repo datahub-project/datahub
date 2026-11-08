@@ -295,6 +295,20 @@ def test_directlake_lineage_withheld_when_onelake_source_unresolved() -> None:
     assert mapper._Mapper__reporter.directlake_lineage_withheld == 1  # type: ignore[attr-defined]
 
 
+def test_directlake_lineage_withheld_when_sql_endpoint_unknown() -> None:
+    """The model's SQL endpoint could not be read (expressions part failed),
+    so the dataset has no artifact id; the stored OneLake edge still stays."""
+    mapper = _mapper()
+    _, kpis = _directlake_tables()
+    assert kpis.dataset is not None
+    kpis.dataset.dependent_on_artifact_id = None
+
+    mcps = mapper.extract_lineage(kpis, _urn(mapper, kpis), _workspace())
+
+    assert _lineage_aspect(mcps) is None
+    assert mapper._Mapper__reporter.directlake_lineage_withheld == 1  # type: ignore[attr-defined]
+
+
 def test_directlake_lineage_merges_onelake_and_model_internal_edges() -> None:
     mapper = _mapper()
     policies, kpis = _directlake_tables()

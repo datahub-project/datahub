@@ -565,18 +565,12 @@ class Mapper:
         )
         cll_lineage: List[FineGrainedLineage] = []
         self._add_model_internal_lineage(table, ds_urn, upstreams, cll_lineage)
-        dataset = table.dataset
-        if (
-            existing is None
-            and upstreams
-            and dataset is not None
-            and dataset.dependent_on_artifact_id
-            and table.source_expression
-        ):
-            # The table reads OneLake but that edge could not be resolved this
-            # run (Fabric item listing or SQL-endpoint lookup failed). An
-            # aspect with only the model-internal edges would replace the
-            # OneLake edge emitted by earlier runs, so keep the stored lineage.
+        if existing is None and upstreams and table.source_expression:
+            # A DirectLake table always reads a Fabric item, so a missing
+            # OneLake edge means a lookup failed this run (model expressions,
+            # Fabric item listing or SQL endpoint). An aspect with only the
+            # model-internal edges would replace the OneLake edge emitted by
+            # earlier runs, so keep the stored lineage.
             self.__reporter.directlake_lineage_withheld += 1
             self.__reporter.warning(
                 title="DirectLake Lineage Not Updated",
