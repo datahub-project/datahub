@@ -138,8 +138,9 @@ source:
 ```
 
 The upstream URN uses this recipe's `env`, so the recipe that ingests the source cluster must use
-the same `env`. `include_lineage` needs `cluster_id_to_platform_instance` (or `cluster_id`);
-without either, the recipe is rejected.
+the same `env`. When `confluent_catalog.enabled` is true, `include_lineage` needs
+`cluster_id_to_platform_instance` (or `cluster_id`); without either, the recipe is rejected.
+With the catalog disabled, `include_lineage` only produces a configuration warning.
 
 Mirror topics are skipped, with a warning, when:
 
