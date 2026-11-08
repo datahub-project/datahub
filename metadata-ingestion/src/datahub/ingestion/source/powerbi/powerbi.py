@@ -6,7 +6,7 @@
 import functools
 import logging
 from datetime import datetime
-from typing import Iterable, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import more_itertools
 from dateutil import parser as date_parser
@@ -565,6 +565,25 @@ class Mapper:
         )
         cll_lineage: List[FineGrainedLineage] = []
         self._add_model_internal_lineage(table, ds_urn, upstreams, cll_lineage)
+        dataset = table.dataset
+        if (
+            existing is None
+            and upstreams
+            and dataset is not None
+            and dataset.dependent_on_artifact_id
+            and table.source_expression
+        ):
+            # The table reads OneLake but that edge could not be resolved this
+            # run (Fabric item listing or SQL-endpoint lookup failed). An
+            # aspect with only the model-internal edges would replace the
+            # OneLake edge emitted by earlier runs, so keep the stored lineage.
+            self.__reporter.directlake_lineage_withheld += 1
+            self.__reporter.warning(
+                title="DirectLake Lineage Not Updated",
+                message="The OneLake source of a DirectLake table could not be resolved, so its lineage was left unchanged.",
+                context=f"table={table.full_name}",
+            )
+            return mcps
         if existing is not None:
             existing.fineGrainedLineages = cll_lineage or None
         elif upstreams:
@@ -592,12 +611,13 @@ class Mapper:
         dataset = table.dataset
         if dataset is None:
             return
-        tables_by_name = {t.name: t for t in dataset.tables}
+        # DAX identifiers are case-insensitive.
+        tables_by_name = {t.name.casefold(): t for t in dataset.tables}
         known_upstreams = {u.dataset for u in upstream}
 
         def add_table_upstream(table_name: str) -> Optional[str]:
-            other = tables_by_name.get(table_name)
-            if other is None or other.name == table.name:
+            other = tables_by_name.get(table_name.casefold())
+            if other is None or other is table:
                 return None
             other_urn = self.make_dataset_urn_for_table(other)
             if other_urn not in known_upstreams:
@@ -616,28 +636,36 @@ class Mapper:
         for measure in table.measures:
             upstream_fields: List[str] = []
             for reference in measure.references:
-                if reference.table is None or reference.table == table.name:
+                if (
+                    reference.table is None
+                    or reference.table.casefold() == table.name.casefold()
+                ):
                     # Bare [Measure] references are carried by that measure's
                     # own edges, and a same-table column reference would be a
                     # self-edge on this dataset; the DAX is already in the
                     # measure's field description.
                     continue
-                referenced_table = tables_by_name.get(reference.table)
-                if referenced_table is None:
-                    continue
-                exposed_fields = {c.name for c in referenced_table.columns or []} | {
-                    m.name for m in referenced_table.measures or []
-                }
-                if reference.field not in exposed_fields:
-                    # No edge to a field the referenced table does not expose
-                    # (renamed column, or a false match inside a DAX literal).
+                referenced_table = tables_by_name.get(reference.table.casefold())
+                exposed_fields: Dict[str, str] = (
+                    {
+                        name.casefold(): name
+                        for name in [c.name for c in referenced_table.columns or []]
+                        + [m.name for m in referenced_table.measures or []]
+                    }
+                    if referenced_table is not None
+                    else {}
+                )
+                field_name = exposed_fields.get(reference.field.casefold())
+                if referenced_table is None or field_name is None:
+                    # No edge to a table or field the model does not expose
+                    # (renamed object, or a false match inside a DAX literal).
                     self.__reporter.measure_references_unresolved += 1
                     continue
-                referenced_urn = add_table_upstream(reference.table)
+                referenced_urn = add_table_upstream(referenced_table.name)
                 if referenced_urn is None:
                     continue
                 upstream_fields.append(
-                    builder.make_schema_field_urn(referenced_urn, reference.field)
+                    builder.make_schema_field_urn(referenced_urn, field_name)
                 )
             if upstream_fields:
                 cll_lineage.append(

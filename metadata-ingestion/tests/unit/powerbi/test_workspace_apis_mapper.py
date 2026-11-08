@@ -4,6 +4,7 @@ from typing import Any, List, Optional
 from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.source.powerbi.config import (
+    Constant,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
     SupportedDataPlatform,
@@ -19,6 +20,7 @@ from datahub.ingestion.source.powerbi.powerbi import Mapper
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,
     DatasetRefresh,
+    FabricArtifact,
     Measure,
     MeasureReference,
     Page,
@@ -216,6 +218,104 @@ def test_measure_references_become_cross_table_fine_grained_lineage() -> None:
     ]
     assert edge.upstreams == [f"urn:li:schemaField:({_urn(mapper, policies)},Premium)"]
     assert mapper._Mapper__reporter.measure_references_unresolved == 1  # type: ignore[attr-defined]
+
+
+def test_measure_references_match_model_names_case_insensitively() -> None:
+    mapper = _mapper()
+    policies = Table(
+        name="Policies", full_name="Model.Policies", columns=[_column("Premium")]
+    )
+    kpis = Table(
+        name="KPIs",
+        full_name="Model.KPIs",
+        measures=[
+            Measure(
+                name="Total Premium",
+                expression="SUM('policies'[premium])",
+                isHidden=False,
+                references=[MeasureReference("policies", "premium")],
+            ),
+            Measure(
+                name="Missing Table",
+                expression="SUM('Claims'[Amount])",
+                isHidden=False,
+                references=[MeasureReference("Claims", "Amount")],
+            ),
+        ],
+    )
+    _dataset([policies, kpis])
+    with patch(
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
+        return_value=[],
+    ):
+        aspect = _lineage_aspect(
+            mapper.extract_lineage(kpis, _urn(mapper, kpis), _workspace())
+        )
+
+    assert aspect is not None
+    assert aspect.fineGrainedLineages is not None
+    # Edges carry the model's own casing, so they land on the emitted fields.
+    assert [e.upstreams for e in aspect.fineGrainedLineages] == [
+        [f"urn:li:schemaField:({_urn(mapper, policies)},Premium)"]
+    ]
+    assert mapper._Mapper__reporter.measure_references_unresolved == 1  # type: ignore[attr-defined]
+
+
+def _directlake_tables() -> List[Table]:
+    policies = Table(
+        name="Policies", full_name="Model.Policies", columns=[_column("Premium")]
+    )
+    kpis = Table(
+        name="KPIs",
+        full_name="Model.KPIs",
+        storage_mode=Constant.DIRECT_LAKE,
+        source_expression="kpis",
+        measures=[
+            Measure(
+                name="Total Premium",
+                expression="SUM('Policies'[Premium])",
+                isHidden=False,
+                references=[MeasureReference("Policies", "Premium")],
+            )
+        ],
+    )
+    _dataset([policies, kpis], dependent_on_artifact_id="lh-1")
+    return [policies, kpis]
+
+
+def test_directlake_lineage_withheld_when_onelake_source_unresolved() -> None:
+    """Without the OneLake edge, an aspect holding only model-internal edges
+    would replace the OneLake lineage written by earlier runs."""
+    mapper = _mapper()
+    _, kpis = _directlake_tables()
+
+    mcps = mapper.extract_lineage(kpis, _urn(mapper, kpis), _workspace())
+
+    assert _lineage_aspect(mcps) is None
+    assert mapper._Mapper__reporter.directlake_lineage_withheld == 1  # type: ignore[attr-defined]
+
+
+def test_directlake_lineage_merges_onelake_and_model_internal_edges() -> None:
+    mapper = _mapper()
+    policies, kpis = _directlake_tables()
+    workspace = _workspace()
+    workspace.fabric_artifacts = {
+        "lh-1": FabricArtifact(
+            id="lh-1", name="Lake", artifact_type="Lakehouse", workspace_id="ws-1"
+        )
+    }
+
+    aspect = _lineage_aspect(
+        mapper.extract_lineage(kpis, _urn(mapper, kpis), workspace)
+    )
+
+    assert aspect is not None
+    upstreams = [u.dataset for u in aspect.upstreams]
+    assert len(upstreams) == 2
+    assert "fabric-onelake" in upstreams[0]
+    assert upstreams[1] == _urn(mapper, policies)
+    assert aspect.fineGrainedLineages is not None
+    assert mapper._Mapper__reporter.directlake_lineage_withheld == 0  # type: ignore[attr-defined]
 
 
 def test_calculated_table_depends_on_referenced_model_tables() -> None:
