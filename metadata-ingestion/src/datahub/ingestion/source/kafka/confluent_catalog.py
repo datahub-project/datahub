@@ -20,18 +20,10 @@ class CatalogMirrorSourceTopic(CatalogModel):
 
 class CatalogKafkaTopic(CatalogEntity):
     cluster_id: Optional[str] = Field(default=None, alias="logical_cluster_id")
-    # Replication/cluster-link source: the topic this one mirrors from. `source_topic` is the
-    # populated relationship; `externalSourceTopicName` is the scalar fallback used when the
-    # upstream lives in a cluster that is not in this catalog.
+    # Cluster-link source of a mirror topic. A source outside this catalog's environment
+    # only appears as `externalSourceTopicName`, with no cluster id to place it, so it is
+    # not read.
     source_topic: Optional[CatalogMirrorSourceTopic] = None
-    external_source_topic_name: Optional[str] = Field(
-        default=None, alias="externalSourceTopicName"
-    )
-
-    def upstream_topic_name(self) -> Optional[str]:
-        if self.source_topic and self.source_topic.name:
-            return self.source_topic.name
-        return self.external_source_topic_name or None
 
 
 class KafkaTopicCatalog(CatalogIndex[CatalogKafkaTopic, KafkaSourceReport]):

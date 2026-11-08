@@ -1391,25 +1391,56 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.catalog_topics_with_business_metadata += 1
 
     def _build_catalog_lineage(self, topic: str) -> Optional[UpstreamLineageClass]:
-        if self.topic_catalog is None:
-            return None
-        if not self.source_config.confluent_catalog.include_lineage:
+        catalog_config = self.source_config.confluent_catalog
+        if self.topic_catalog is None or not catalog_config.include_lineage:
             return None
 
         catalog_topic = self.topic_catalog.get_topic(topic)
-        if catalog_topic is None:
+        if catalog_topic is None or catalog_topic.source_topic is None:
+            return None
+        source = catalog_topic.source_topic
+        if not source.name:
             return None
 
-        upstream_name = catalog_topic.upstream_topic_name()
-        if not upstream_name:
+        if source.cluster_id and source.cluster_id == catalog_config.cluster_id:
+            upstream_instance = self.source_config.platform_instance
+        elif source.cluster_id in catalog_config.cluster_id_to_platform_instance:
+            upstream_instance = catalog_config.cluster_id_to_platform_instance[
+                source.cluster_id
+            ]
+        else:
+            self._skip_mirror_lineage(
+                topic,
+                "Skipping mirror-topic lineage because the source topic's cluster is not "
+                "mapped. Add it to `confluent_catalog.cluster_id_to_platform_instance`.",
+                f"topic={topic}, source_topic={source.name}, "
+                f"source_cluster_id={source.cluster_id}",
+            )
             return None
 
         upstream_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
-            name=upstream_name,
+            name=source.name,
+            platform_instance=upstream_instance,
+            env=self.source_config.env,
+        )
+        own_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=topic,
             platform_instance=self.source_config.platform_instance,
             env=self.source_config.env,
         )
+        if upstream_urn == own_urn:
+            # Mirror topics keep the source name unless the link sets a prefix, so two
+            # clusters ingested without distinct platform instances collide here.
+            self._skip_mirror_lineage(
+                topic,
+                "Skipping mirror-topic lineage that would point a topic at itself. Give "
+                "each cluster its own platform_instance.",
+                f"topic={topic}, source_cluster_id={source.cluster_id}",
+            )
+            return None
+
         self.report.catalog_mirror_lineage_edges += 1
         return UpstreamLineageClass(
             upstreams=[
@@ -1418,6 +1449,14 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     type=DatasetLineageTypeClass.COPY,
                 )
             ]
+        )
+
+    def _skip_mirror_lineage(
+        self, topic: str, message: LiteralString, context: str
+    ) -> None:
+        self.report.catalog_mirror_lineage_skipped.append(topic)
+        self.report.warning(
+            title="Mirror-topic lineage skipped", message=message, context=context
         )
 
     def build_custom_properties(
