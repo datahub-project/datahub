@@ -343,7 +343,8 @@ class KafkaConnectionTest:
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Optionally emits column-level lineage from Confluent Cloud Flink SQL statements "
-    "(`stream_processing_lineage.flink.enabled`, with `include_column_lineage`).",
+    "(`stream_processing_lineage.flink.enabled`, with "
+    "`stream_processing_lineage.include_column_lineage`).",
     supported=True,
 )
 @capability(

@@ -22,7 +22,10 @@ from datahub.ingestion.source.kafka.kafka_config import (
     KafkaSourceConfig,
 )
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
-from datahub.ingestion.source.kafka.stream_processing import flink as flink_module
+from datahub.ingestion.source.kafka.stream_processing import (
+    builder as builder_module,
+    flink as flink_module,
+)
 from datahub.ingestion.source.kafka.stream_processing.builder import (
     build_flink_workunits,
 )
@@ -117,9 +120,10 @@ def _job(
     input_topics: List[str],
     output_topics: List[str],
     parse_query: Optional[str] = None,
+    name: str = "stmt",
 ) -> FlinkJob:
     return FlinkJob(
-        name="stmt",
+        name=name,
         input_topics=input_topics,
         output_topics=output_topics,
         query=parse_query or "INSERT INTO ...",
@@ -133,6 +137,7 @@ def _build(
     platform_instance: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
     topic_allowed: Callable[[str], bool] = lambda _topic: True,
+    include_column_lineage: bool = True,
 ) -> List[MetadataWorkUnit]:
     return list(
         build_flink_workunits(
@@ -144,7 +149,7 @@ def _build(
             report=report,
             topic_allowed=topic_allowed,
             graph=graph,
-            include_column_lineage=True,
+            include_column_lineage=include_column_lineage,
         )
     )
 
@@ -683,3 +688,113 @@ def test_kafka_source_reports_a_failed_flink_listing_as_a_failure(
     assert source.report.failures
     assert not [wu for wu in workunits if "dataJob" in wu.get_urn()]
     client.close.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "ddl",
+    [
+        "CREATE TABLE t (price INT, qty INT, total AS (price * qty), ts TIMESTAMP(3), "
+        "WATERMARK FOR ts AS (ts - INTERVAL '5' SECOND)) "
+        "DISTRIBUTED BY (price) INTO 4 BUCKETS",
+        "CREATE TABLE t (price INT, total AS (price * 2)) "
+        "WITH ('changelog.mode' = 'append')",
+    ],
+)
+def test_flink_ddl_with_computed_columns_is_not_a_failure(ddl: str) -> None:
+    jobs, report = _extract([_statement(ddl)])
+
+    assert jobs == []
+    assert not report.failures
+
+
+def test_flink_named_statement_without_sql_is_a_failure() -> None:
+    jobs, report = _extract([{"name": "stmt", "status": {"phase": "RUNNING"}}, {}])
+
+    assert jobs == []
+    assert list(report.flink_statements_skipped) == ["stmt"]
+    assert len(report.failures) == 1
+
+
+def test_column_spelling_ignores_table_names() -> None:
+    workunits = _build(
+        [_job(["foo"], ["sink"], "INSERT INTO sink SELECT Foo FROM foo")],
+        KafkaSourceReport(),
+    )
+
+    assert _field_edges(workunits) == [
+        (
+            make_schema_field_urn(_topic("foo"), "Foo"),
+            make_schema_field_urn(_topic("sink"), "Foo"),
+        )
+    ]
+
+
+def test_column_lineage_with_a_dotted_topic_under_a_platform_instance() -> None:
+    # Topic URNs carry the platform instance as a name prefix (`pi.pi.orders`), so
+    # stripping it once gives back the topic `pi.orders`.
+    workunits = _build(
+        [_job(["pi.orders"], ["out"], "INSERT INTO out SELECT id FROM `pi.orders`")],
+        KafkaSourceReport(),
+        platform_instance="pi",
+    )
+
+    assert _field_edges(workunits) == [
+        (
+            make_schema_field_urn(_topic("pi.orders", "pi"), "id"),
+            make_schema_field_urn(_topic("out", "pi"), "id"),
+        )
+    ]
+
+
+def test_one_job_failing_to_build_does_not_stop_the_others() -> None:
+    real_properties = builder_module._job_properties
+
+    def properties(job: FlinkJob) -> Dict[str, str]:
+        if job.name == "bad":
+            raise RuntimeError("boom")
+        return real_properties(job)
+
+    report = KafkaSourceReport()
+    with patch.object(builder_module, "_job_properties", side_effect=properties):
+        workunits = _build(
+            [
+                _job(["a"], ["b"], name="ok-1"),
+                _job(["a"], ["b"], name="bad"),
+                _job(["a"], ["b"], name="ok-2"),
+            ],
+            report,
+        )
+
+    job_urns = {wu.get_urn() for wu in workunits if "dataJob" in wu.get_urn()}
+    flow_urn = make_data_flow_urn("flink", ENV_ID, ENV)
+    assert job_urns == {
+        make_data_job_urn_with_flow(flow_urn, "ok-1"),
+        make_data_job_urn_with_flow(flow_urn, "ok-2"),
+    }
+    assert report.failures
+
+
+def test_column_lineage_error_keeps_the_job_and_warns() -> None:
+    report = KafkaSourceReport()
+    with patch.object(
+        builder_module, "column_lineage_fine_grained", side_effect=RuntimeError("boom")
+    ):
+        workunits = _build(
+            [_job(["a"], ["b"], "INSERT INTO b SELECT id FROM a")], report
+        )
+
+    assert _io(workunits).outputDatasets == [_topic("b")]
+    assert report.warnings and not report.failures
+
+
+def test_no_schema_resolver_without_column_lineage() -> None:
+    graph = MagicMock(spec=DataHubGraph)
+
+    _build(
+        [_job(["a"], ["b"], "INSERT INTO b SELECT id FROM a")],
+        KafkaSourceReport(),
+        graph=graph,
+        include_column_lineage=False,
+    )
+
+    graph._make_schema_resolver.assert_not_called()
