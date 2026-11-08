@@ -613,8 +613,12 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     ).extract()
                 )
             except Exception as e:
-                self.report.warning(
-                    message="Failed to extract Flink stream-processing lineage",
+                # A failure, not a warning: with no jobs this run, stale-entity removal
+                # would otherwise soft-delete every Flink job emitted before.
+                self.report.failure(
+                    title="Flink lineage extraction failed",
+                    message="Failed to list Confluent Cloud Flink statements; no Flink "
+                    "lineage was emitted this run",
                     context="flink-lineage",
                     exc=e,
                 )

@@ -163,6 +163,14 @@ source:
   config:
     connection:
       bootstrap: "pkc-xxxxx.us-east-1.aws.confluent.cloud:9092"
+      consumer_config:
+        security.protocol: "SASL_SSL"
+        sasl.mechanism: "PLAIN"
+        sasl.username: "${CLUSTER_API_KEY_ID}"
+        sasl.password: "${CLUSTER_API_KEY_SECRET}"
+      schema_registry_url: "https://psrc-xxxxx.us-east-1.aws.confluent.cloud"
+      schema_registry_config:
+        basic.auth.user.info: "${REGISTRY_API_KEY_ID}:${REGISTRY_API_KEY_SECRET}"
     stream_processing_lineage:
       flink:
         enabled: true

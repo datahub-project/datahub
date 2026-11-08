@@ -1,5 +1,5 @@
 import re
-from typing import Final, List, Optional
+from typing import Final, List, Optional, Tuple
 
 import sqlglot
 from pydantic import BaseModel
@@ -54,7 +54,7 @@ def parse_flink_statement(sql: str) -> List[FlinkDmlStatement]:
     """
     statement_set = _STATEMENT_SET_RE.match(sql)
     body = statement_set.group("body") if statement_set else sql
-    body = _unwrap_window_tvfs(body)
+    body = _unwrap_window_tvfs(_blank_comments(body))
     try:
         expressions = sqlglot.parse(body, read=FLINK_SQL_DIALECT)
     except sqlglot.errors.SqlglotError as e:
@@ -131,9 +131,29 @@ def _unwrap_window_tvfs(sql: str) -> str:
     return "".join(out)
 
 
+def _blank_comments(sql: str) -> str:
+    # Comments can sit anywhere, e.g. between `TUMBLE(` and its `TABLE` argument;
+    # spaces keep the window-function matching simple and change nothing sqlglot reads.
+    chars = list(sql)
+    for start, end in _non_code_spans(sql):
+        if sql.startswith("--", start) or sql.startswith("/*", start):
+            for i in range(start, end):
+                if chars[i] != "\n":
+                    chars[i] = " "
+    return "".join(chars)
+
+
 def _code_mask(sql: str) -> List[bool]:
-    # True for characters outside string literals, quoted identifiers and comments.
     mask = [True] * len(sql)
+    for start, end in _non_code_spans(sql):
+        for i in range(start, end):
+            mask[i] = False
+    return mask
+
+
+def _non_code_spans(sql: str) -> List[Tuple[int, int]]:
+    # Spans of string literals, quoted identifiers and comments.
+    spans: List[Tuple[int, int]] = []
     i = 0
     while i < len(sql):
         if sql.startswith("--", i):
@@ -156,10 +176,9 @@ def _code_mask(sql: str) -> List[bool]:
         else:
             i += 1
             continue
-        for j in range(i, end):
-            mask[j] = False
+        spans.append((i, end))
         i = end
-    return mask
+    return spans
 
 
 def _matching_paren(sql: str, code: List[bool], open_paren: int) -> Optional[int]:
