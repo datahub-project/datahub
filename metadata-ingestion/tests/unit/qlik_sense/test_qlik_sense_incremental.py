@@ -186,6 +186,17 @@ def _run(
     return source, workunits
 
 
+_previous_checkpoint = QlikAppStateHandler.previous
+
+
+def _checkpoint_without_urns(
+    handler: QlikAppStateHandler, app_id: str
+) -> Optional[AppCheckpoint]:
+    """The stored checkpoint with its entity URNs removed."""
+    checkpoint = _previous_checkpoint(handler, app_id)
+    return checkpoint.model_copy(update={"urns": []}) if checkpoint else None
+
+
 def _stale_urns(source: QlikSenseSource) -> List[str]:
     assert source.stale_entity_removal_handler is not None
     checkpoint = source.state_provider.get_current_checkpoint(
@@ -531,15 +542,7 @@ def test_checkpoint_without_entities_is_not_trusted(
 
     _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
     datahub.write(first_wus)
-    previous = QlikAppStateHandler.previous
-
-    def without_urns(
-        handler: QlikAppStateHandler, app_id: str
-    ) -> Optional[AppCheckpoint]:
-        checkpoint = previous(handler, app_id)
-        return checkpoint.model_copy(update={"urns": []}) if checkpoint else None
-
-    with patch.object(QlikAppStateHandler, "previous", without_urns):
+    with patch.object(QlikAppStateHandler, "previous", _checkpoint_without_urns):
         second, _ = _run(mock_datahub_graph, qlik, "run-2")
 
     assert second.reporter.apps_skipped_unchanged == 0
@@ -644,16 +647,8 @@ def test_partial_read_with_checkpoint_without_entities_is_a_failure(
 
     _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
     datahub.write(first_wus)
-    previous = QlikAppStateHandler.previous
-
-    def without_urns(
-        handler: QlikAppStateHandler, app_id: str
-    ) -> Optional[AppCheckpoint]:
-        checkpoint = previous(handler, app_id)
-        return checkpoint.model_copy(update={"urns": []}) if checkpoint else None
-
     qlik.engine_fails = True
-    with patch.object(QlikAppStateHandler, "previous", without_urns):
+    with patch.object(QlikAppStateHandler, "previous", _checkpoint_without_urns):
         second, second_wus = _run(mock_datahub_graph, qlik, "run-2")
 
     assert "Unable to fully read Qlik app" in [
