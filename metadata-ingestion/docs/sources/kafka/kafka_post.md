@@ -164,7 +164,9 @@ On Confluent Cloud, set `stream_processing_lineage.flink.enabled: true` to emit
 topic-to-topic lineage from Flink SQL `INSERT INTO ... SELECT` and
 `CREATE TABLE ... AS SELECT` statements, including those inside `EXECUTE STATEMENT SET`.
 Each statement is a DataJob on the `flink` platform, under one `flink` DataFlow per
-environment; the topics stay `kafka` datasets. Column-level lineage is on by default
+environment and Kafka cluster; the topics stay `kafka` datasets. A statement set that writes
+to several clusters therefore shows up once under each cluster's DataFlow, with that
+cluster's topics. Column-level lineage is on by default
 (`include_column_lineage: true`).
 
 Requires a **Flink API key** for the environment's cloud region (a Cloud

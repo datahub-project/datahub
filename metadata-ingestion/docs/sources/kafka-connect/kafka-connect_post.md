@@ -202,7 +202,8 @@ transforms.RegexRouter.replacement: "events.$1"
 
 **Cloud PostgreSQL Source** (`PostgresSource`): topics are `<topic.prefix><table>`, then any
 `RegexRouter` / `TopicRegexRouter` transform. Each `table.include.list` entry must be a literal
-`schema.table` (for example `public.orders`) to get lineage. Lineage is skipped, with a warning, for:
+`schema.table` (for example `public.orders`) to get lineage. Tables matched by `table.exclude.list`
+are left out, as the connector does. Lineage is skipped, with a warning, for:
 
 - regular-expression entries;
 - entries without a schema;

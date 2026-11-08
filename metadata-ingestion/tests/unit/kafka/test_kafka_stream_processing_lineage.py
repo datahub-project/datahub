@@ -49,6 +49,7 @@ PLATFORM = "kafka"
 ENV = "PROD"
 ENV_ID = "env-1"
 CLUSTER_ID = "lkc-1"
+FLOW_ID = f"{ENV_ID}.{CLUSTER_ID}"
 STATEMENTS_URL = (
     "https://flink.us-east-1.aws.confluent.cloud/sql/v1/organizations/org-1/"
     "environments/env-1/statements"
@@ -138,11 +139,13 @@ def _build(
     graph: Optional[DataHubGraph] = None,
     topic_allowed: Callable[[str], bool] = lambda _topic: True,
     include_column_lineage: bool = True,
+    kafka_cluster_id: str = CLUSTER_ID,
 ) -> List[MetadataWorkUnit]:
     return list(
         build_flink_workunits(
             jobs=jobs,
             environment_id=ENV_ID,
+            kafka_cluster_id=kafka_cluster_id,
             topic_platform=PLATFORM,
             platform_instance=platform_instance,
             env=ENV,
@@ -385,7 +388,7 @@ def test_build_emits_jobs_on_the_flink_platform_scoped_by_platform_instance() ->
         topic_allowed=lambda topic: topic != "denied",
     )
 
-    flow_urn = make_data_flow_urn("flink", ENV_ID, ENV, platform_instance="pi")
+    flow_urn = make_data_flow_urn("flink", FLOW_ID, ENV, platform_instance="pi")
     job_urn = make_data_job_urn_with_flow(flow_urn, "stmt")
     assert {wu.get_urn() for wu in workunits} == {flow_urn, job_urn}
     io = _io(workunits)
@@ -661,7 +664,7 @@ def test_kafka_source_emits_flink_jobs(mock_consumer: MagicMock, _: MagicMock) -
         source = _kafka_source_with_flink()
         urns = {wu.get_urn() for wu in source.get_workunits()}
 
-    flow_urn = make_data_flow_urn("flink", ENV_ID, ENV)
+    flow_urn = make_data_flow_urn("flink", FLOW_ID, ENV)
     assert make_data_job_urn_with_flow(flow_urn, "stmt") in urns
     assert not source.report.failures
 
@@ -766,7 +769,7 @@ def test_one_job_failing_to_build_does_not_stop_the_others() -> None:
         )
 
     job_urns = {wu.get_urn() for wu in workunits if "dataJob" in wu.get_urn()}
-    flow_urn = make_data_flow_urn("flink", ENV_ID, ENV)
+    flow_urn = make_data_flow_urn("flink", FLOW_ID, ENV)
     assert job_urns == {
         make_data_job_urn_with_flow(flow_urn, "ok-1"),
         make_data_job_urn_with_flow(flow_urn, "ok-2"),
@@ -798,3 +801,82 @@ def test_no_schema_resolver_without_column_lineage() -> None:
     )
 
     graph._make_schema_resolver.assert_not_called()
+
+
+def test_statement_set_jobs_are_scoped_to_each_cluster() -> None:
+    # The same statement writes topics in two clusters; each recipe emits its own job.
+    urns = {
+        wu.get_urn()
+        for cluster in ("lkc-1", "lkc-2")
+        for wu in _build(
+            [_job(["a"], ["b"], name="set")],
+            KafkaSourceReport(),
+            kafka_cluster_id=cluster,
+        )
+        if "dataJob" in wu.get_urn()
+    }
+
+    assert urns == {
+        make_data_job_urn_with_flow(
+            make_data_flow_urn("flink", f"{ENV_ID}.{cluster}", ENV), "set"
+        )
+        for cluster in ("lkc-1", "lkc-2")
+    }
+
+
+def test_report_counts_a_job_only_after_it_is_yielded() -> None:
+    report = KafkaSourceReport()
+    workunits = build_flink_workunits(
+        jobs=[_job(["a"], ["b"])],
+        environment_id=ENV_ID,
+        kafka_cluster_id=CLUSTER_ID,
+        topic_platform=PLATFORM,
+        platform_instance=None,
+        env=ENV,
+        report=report,
+        topic_allowed=lambda _topic: True,
+        graph=None,
+        include_column_lineage=False,
+    )
+
+    next(iter(workunits))  # the DataFlow
+    assert report.flink_jobs_emitted == 0
+    list(workunits)
+    assert report.flink_jobs_emitted == 1
+    assert report.flink_topic_lineage_edges == 2
+
+
+@pytest.mark.parametrize(
+    "ddl",
+    [
+        "CREATE FUNCTION my_udf AS 'com.example.MyUdf' "
+        "USING JAR 'confluent-artifact://cfa-1'",
+        "CREATE VIEW v AS SELECT * FROM orders",
+        "CREATE TEMPORARY VIEW v AS SELECT * FROM orders",
+    ],
+)
+def test_flink_functions_and_views_move_no_data(ddl: str) -> None:
+    jobs, report = _extract([_statement(ddl)])
+
+    assert jobs == []
+    assert not report.failures
+
+
+def test_flink_unquoted_mixed_case_names_keep_their_case() -> None:
+    jobs, _ = _extract(
+        [
+            _statement(
+                "INSERT INTO OrdersOut SELECT * FROM Prod.MainCluster.OrdersIn",
+                properties={
+                    "sql.current-catalog": "Prod",
+                    "sql.current-database": "MainCluster",
+                },
+            )
+        ],
+        environment_name="Prod",
+        kafka_cluster_name="MainCluster",
+    )
+
+    assert [(job.input_topics, job.output_topics) for job in jobs] == [
+        (["OrdersIn"], ["OrdersOut"])
+    ]

@@ -598,7 +598,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
     def _emit_stream_processing_lineage(self) -> Iterable[MetadataWorkUnit]:
         config = self.source_config.stream_processing_lineage
-        if not config.flink.enabled or not config.flink.environment_id:
+        if (
+            not config.flink.enabled
+            or not config.flink.environment_id
+            or not config.flink.kafka_cluster_id
+        ):
             return
 
         jobs: List[FlinkJob] = []
@@ -630,6 +634,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         yield from build_flink_workunits(
             jobs=jobs,
             environment_id=config.flink.environment_id,
+            kafka_cluster_id=config.flink.kafka_cluster_id,
             topic_platform=self.platform,
             platform_instance=self.source_config.platform_instance,
             env=self.source_config.env,
