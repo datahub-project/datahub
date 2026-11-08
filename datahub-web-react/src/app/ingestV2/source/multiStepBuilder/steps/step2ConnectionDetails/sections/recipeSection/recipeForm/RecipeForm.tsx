@@ -13,7 +13,10 @@ import { MAX_FORM_WIDTH } from '@app/ingestV2/source/multiStepBuilder/steps/step
 import { FormHeader } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FormHeader';
 import TestConnectionModal from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/TestConnection/TestConnectionModal';
 import { FormField } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/FormField';
-import { resolveDynamicOptions } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/utils';
+import {
+    resolveDynamicOptions,
+    writeShownFieldValues,
+} from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/utils';
 import { getValuesFromRecipe } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/utils';
 import { SettingsSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/SettingsSection';
 import { FiltersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/filtersSection/FiltersSection';
@@ -134,6 +137,9 @@ function RecipeForm({
                     updatedValues = setFieldValueOnRecipe(updatedValues, null, recipeField.fieldPath);
                 }
             });
+            // `allFields` reflects visibility before this change, so fields it shows
+            // again were just cleared above; restore them from the form.
+            updatedValues = writeShownFieldValues(updatedValues, allFields, changedValues, allValues);
 
             const stagedRecipe = jsonToYaml(JSON.stringify(updatedValues));
             setStagedRecipe(stagedRecipe);
