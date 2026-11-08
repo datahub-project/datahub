@@ -2025,7 +2025,7 @@ def test_stopping_concept_clears_only_okf_metadata(
     aspects: Dict[Type[_Aspect], _Aspect] = {
         OkfPropertiesClass: stored,
         SubTypesClass: SubTypesClass(
-            typeNames=["Custom" if edited_subtype else "Guide"]
+            typeNames=["Custom", "Guide"] if edited_subtype else ["Guide"]
         ),
         OwnershipClass: _association_aspect(
             "owners",
@@ -2075,16 +2075,22 @@ def test_stopping_concept_clears_only_okf_metadata(
     ]
     assert len(neutral) == 1 and neutral[0] is not None
     assert neutral[0].to_obj() == {}
+    # The marker goes last, so a failed removal is retried on the next run.
+    okf_units = [
+        wu
+        for wu in workunits
+        if wu.get_aspect_of_type(OkfPropertiesClass) is not None
+        or "-okf-cleanup-" in wu.id
+    ]
+    assert okf_units[-1].get_aspect_of_type(OkfPropertiesClass) is not None
     subtypes = [
         wu.get_aspect_of_type(SubTypesClass)
         for wu in workunits
         if wu.get_aspect_of_type(SubTypesClass) is not None
     ]
-    if edited_subtype:
-        assert subtypes == []
-    else:
-        assert len(subtypes) == 1 and subtypes[0] is not None
-        assert subtypes[0].typeNames == []
+    # Only the OKF type is removed; a subtype added in DataHub stays.
+    assert len(subtypes) == 1 and subtypes[0] is not None
+    assert subtypes[0].typeNames == (["Custom"] if edited_subtype else [])
     for aspect_name in ["ownership", "globalTags", "glossaryTerms"]:
         operations = _okf_patch_operations(workunits, aspect_name)
         assert len(operations) == 1 and operations[0]["op"] == "remove"
@@ -2160,12 +2166,48 @@ def test_okf_declared_value_takes_over_datahub_edit(
     assert attribution["source"] == "urn:li:dataHubIngestionSource:managed"
 
 
+def test_unreadable_index_skips_its_files_without_clearing_okf(
+    okf_source: GitHubDocumentsSource,
+) -> None:
+    okf_source.config.okf_bundle_roots = []
+    _mock_github_client(
+        okf_source,
+        files=[
+            GitHubFileInfo(path="docs/context/mau.md", size=100),
+            GitHubFileInfo(path="docs/other.md", size=100),
+        ],
+    )
+    okf_source.client._index_file_paths = {"docs/context/index.md"}
+    fetch = okf_source.client.fetch_file_content
+    assert isinstance(fetch, MagicMock)
+    fetch.side_effect = lambda repo, path, ref: (
+        None if path == "docs/context/index.md" else "---\ntype: Guide\n---\nBody"
+    )
+    graph = MagicMock()
+    graph.get_urns_by_filter.return_value = []
+    graph.get_aspect.return_value = None
+    okf_source.ctx.graph = graph
+    workunits = list(okf_source.get_workunits())
+    infos = _document_infos_by_source_id(workunits)
+    # The bundle is unknown, so its concept keeps its previous import.
+    assert (
+        make_file_source_id("example-org/analytics", "docs/context/mau.md") not in infos
+    )
+    assert make_file_source_id("example-org/analytics", "docs/other.md") in infos
+    assert not any(
+        wu.get_aspect_of_type(OkfPropertiesClass) is not None for wu in workunits
+    )
+    assert okf_source.report.files_skipped == 1
+
+
 @pytest.mark.parametrize(
     "owner_type,type_urn,handed_over",
     [
         ("TECHNICAL_OWNER", None, True),
         ("TECHNICAL_OWNER", "urn:li:ownershipType:__system__technical_owner", True),
         ("BUSINESS_OWNER", None, False),
+        ("NONE", "urn:li:ownershipType:__system__technical_owner", True),
+        ("NONE", "urn:li:ownershipType:__system__business_owner", False),
         ("CUSTOM", "urn:li:ownershipType:steward", False),
     ],
 )

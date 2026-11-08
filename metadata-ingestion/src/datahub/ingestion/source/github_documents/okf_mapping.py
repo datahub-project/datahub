@@ -102,16 +102,15 @@ def _resolve_reference(
         if EMAIL_PATTERN.fullmatch(value):
             return urn
         if value not in cache.owners:
-            cache.owners[value] = False
-            if ctx.graph:
-                cache.owners[value] = ctx.graph.exists(urn)
+            exists = bool(ctx.graph and ctx.graph.exists(urn))
+            cache.owners[value] = exists
         return urn if cache.owners[value] else None
     if key == "tags":
         # Tags are keyed by name and need not exist first, as in other sources.
         return make_tag_urn(value)
     if value not in cache.terms:
-        cache.terms[value] = None
-        cache.terms[value] = _resolve_term_name(value, ctx)
+        term = _resolve_term_name(value, ctx)
+        cache.terms[value] = term
     return cache.terms[value]
 
 
@@ -131,11 +130,12 @@ def map_okf(
     values = frontmatter.values
     concept = concept_id(file_path, bundle)
 
-    def unresolved(key: str) -> None:
+    def unresolved(key: str, message: Optional[str] = None) -> None:
         report.okf_unresolved_values += 1
         report.warning(
             title="Unresolved OKF value",
-            message=(
+            message=message
+            or (
                 "A frontmatter value could not be mapped; it remains in "
                 "okfProperties.raw."
             ),
@@ -144,7 +144,11 @@ def map_okf(
 
     concept_type = _optional_string(values, "type")
     if not concept_type or not concept_type.strip():
-        unresolved("type")
+        unresolved(
+            "type",
+            "The file has no usable type, so it is imported as a plain "
+            "document, not an OKF concept.",
+        )
         return None
 
     aspects: List[_Aspect] = [

@@ -67,7 +67,10 @@ def discover_bundles(
         if content is None:
             report.warning(
                 title="Could not read OKF bundle index",
-                message="Bundle discovery could not inspect this index.md.",
+                message=(
+                    "Bundle discovery could not inspect this index.md; files "
+                    "under its directory are skipped this run."
+                ),
                 context=f"path={path}",
             )
             continue

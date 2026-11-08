@@ -117,6 +117,12 @@ def test_verified_list_and_stamps_without_times() -> None:
     assert report.okf_invalid_values == 0
 
 
+def test_verified_without_valid_entries_is_omitted() -> None:
+    report = GitHubDocumentsSourceReport()
+    properties = _properties("verified: [{at: 2026-06-25T09:00:00Z}]\n", report)
+    assert properties.verified is None
+
+
 @pytest.mark.parametrize("value", ["not-a-date", "2026-09-23", "2026-09-23T00:00:00"])
 def test_invalid_or_offsetless_stale_after_warns_and_preserves_value(
     value: str,

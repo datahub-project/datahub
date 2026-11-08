@@ -39,16 +39,14 @@ def clear_okf_metadata(
     if not isinstance(stored, OkfPropertiesClass) or stored.raw is None:
         return
 
-    yield MetadataChangeProposalWrapper(
-        entityUrn=document_urn,
-        aspect=OkfPropertiesClass(),
-    ).as_workunit()
     try:
         subtypes = ctx.graph.get_aspect(document_urn, SubTypesClass)
-        if stored.type is not None and subtypes and subtypes.typeNames == [stored.type]:
+        if stored.type is not None and subtypes and stored.type in subtypes.typeNames:
             yield MetadataChangeProposalWrapper(
                 entityUrn=document_urn,
-                aspect=SubTypesClass(typeNames=[]),
+                aspect=SubTypesClass(
+                    typeNames=[t for t in subtypes.typeNames if t != stored.type]
+                ),
             ).as_workunit()
     except Exception as exc:
         report.warning(
@@ -79,3 +77,9 @@ def clear_okf_metadata(
         yield MetadataWorkUnit(
             id=f"{document_urn}-okf-cleanup-{patch.aspectName}-{index}", mcp_raw=patch
         )
+    # Clear the marker last: if a removal above fails, the next run still sees
+    # the stored aspect and retries the cleanup.
+    yield MetadataChangeProposalWrapper(
+        entityUrn=document_urn,
+        aspect=OkfPropertiesClass(),
+    ).as_workunit()

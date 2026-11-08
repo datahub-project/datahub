@@ -187,6 +187,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         self._soft_deleted_cache: Optional[Set[str]] = None
         self._okf_bundles: Dict[str, OkfBundleClass] = {}
         self._okf_index_contents: Dict[str, Optional[str]] = {}
+        self._okf_unread_index_dirs: Set[PurePosixPath] = set()
         self._okf_lookup_cache = OkfLookupCache()
         self._okf_server_unsupported = False
 
@@ -254,12 +255,18 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         self._okf_index_contents.clear()
+        self._okf_unread_index_dirs.clear()
         self._okf_bundles = {}
         if self._okf_enabled:
 
             def fetch_index(path: str) -> Optional[str]:
                 content = self.client.fetch_file_content(owner_repo, path, commit_sha)
-                self._okf_index_contents[path] = content
+                if content is None:
+                    # The tree lists this index, so a missing read is a failure,
+                    # not a confirmed non-bundle. The normal file fetch retries it.
+                    self._okf_unread_index_dirs.add(PurePosixPath(path).parent)
+                else:
+                    self._okf_index_contents[path] = content
                 return content
 
             self._okf_bundles = discover_bundles(
@@ -414,6 +421,12 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             source_id, owner_repo, file_path
         )
         bundle = enclosing_bundle(file_path, self._okf_bundles)
+        if self._under_unread_okf_index(file_path):
+            # Without its index the file's bundle is unknown. Importing it as
+            # plain text would clear its OKF state, so keep the previous import.
+            self.report.files_skipped += 1
+            self._register_document_for_stale_removal(document_urn)
+            return
         source_hash = compute_source_hash(
             content, enable_okf=self._okf_enabled, bundle=bundle
         )
@@ -592,6 +605,13 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             )
             return f"urn:li:dataHubIngestionSource:cli-{datahub_guid(key)}"
         return None
+
+    def _under_unread_okf_index(self, file_path: str) -> bool:
+        path = PurePosixPath(file_path)
+        return any(
+            directory == PurePosixPath(".") or path.is_relative_to(directory)
+            for directory in self._okf_unread_index_dirs
+        )
 
     def _should_skip_unchanged_file(
         self,

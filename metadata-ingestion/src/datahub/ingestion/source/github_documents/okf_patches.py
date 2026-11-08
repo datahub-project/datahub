@@ -57,13 +57,15 @@ def _current_associations(
     return terms.terms if terms else []
 
 
+_SYSTEM_OWNERSHIP_TYPE = "urn:li:ownershipType:__system__"
+
+
 def _owner_role(owner: OwnerClass) -> str:
-    # A system type URN names the same role as the type enum it mirrors.
-    if owner.typeUrn and not owner.typeUrn.startswith(
-        "urn:li:ownershipType:__system__"
-    ):
-        return owner.typeUrn
-    return str(owner.type or "")
+    # The UI stores a system role only as a type URN (type NONE), e.g.
+    # __system__technical_owner for TECHNICAL_OWNER.
+    if owner.typeUrn and owner.typeUrn.startswith(_SYSTEM_OWNERSHIP_TYPE):
+        return owner.typeUrn.removeprefix(_SYSTEM_OWNERSHIP_TYPE).upper()
+    return owner.typeUrn or str(owner.type or "")
 
 
 def _is_handover(existing: Association, added: Association) -> bool:

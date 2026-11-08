@@ -78,4 +78,4 @@ def parse_verified(
         stamp = parse_stamp(entry, key="verified", path=path, report=report)
         if stamp is not None:
             stamps.append(stamp)
-    return stamps
+    return stamps or None
