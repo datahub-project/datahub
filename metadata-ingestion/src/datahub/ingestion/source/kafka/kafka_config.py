@@ -1,7 +1,14 @@
 import warnings
 from typing import Dict, Optional
 
-from pydantic import Field, PositiveFloat, PositiveInt, SecretStr, model_validator
+from pydantic import (
+    Field,
+    PositiveFloat,
+    PositiveInt,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 from typing_extensions import Annotated
 
 from datahub.configuration.common import (
@@ -36,8 +43,13 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
 from datahub.masking.secret_registry import SecretRegistry
 from datahub.utilities.global_warning_util import add_global_warning
+from datahub.utilities.str_enum import StrEnum
 
-_FLINK_CLOUDS = frozenset({"aws", "gcp", "azure"})
+
+class ConfluentCloudProvider(StrEnum):
+    AWS = "aws"
+    GCP = "gcp"
+    AZURE = "azure"
 
 
 def _normalize_endpoint(endpoint: str, field: str, *, require_https: bool) -> str:
@@ -116,8 +128,8 @@ class FlinkLineageConfig(ConfigModel):
     enabled: bool = Field(
         default=False,
         description="Emit topic-to-topic lineage from Confluent Cloud Flink SQL statements. Each "
-        "`INSERT INTO sink SELECT ... FROM source` statement is modeled as a DataJob mapping the "
-        "source topics to the sink topic. Requires a Confluent Cloud (resource-management) API key.",
+        "`INSERT INTO sink SELECT ... FROM source` statement is a DataJob on the `flink` "
+        "platform mapping the source topics to the sink topic. Requires a Flink API key.",
     )
     organization_id: Optional[str] = Field(
         default=None, description="Confluent Cloud organization id."
@@ -136,7 +148,8 @@ class FlinkLineageConfig(ConfigModel):
         default=None,
         description="Id of the Kafka cluster this recipe ingests, e.g. `lkc-xxxxx`. Flink "
         "calls a cluster a database. Only tables in this environment and cluster are "
-        "mapped to topics; statements reading or writing other clusters lose those edges.",
+        "mapped to topics; statements reading or writing other clusters lose those edges. "
+        "Defaults to `confluent_catalog.cluster_id`.",
     )
     kafka_cluster_name: Optional[str] = Field(
         default=None,
@@ -153,7 +166,7 @@ class FlinkLineageConfig(ConfigModel):
         description="Confluent Cloud region, e.g. `us-east-1`. Used to build the Flink REST host "
         "`https://flink.<region>.<cloud>.confluent.cloud` unless `endpoint` is set.",
     )
-    cloud: Optional[str] = Field(
+    cloud: Optional[ConfluentCloudProvider] = Field(
         default=None, description="Confluent Cloud provider: `aws`, `gcp`, or `azure`."
     )
     endpoint: Optional[str] = Field(
@@ -166,14 +179,20 @@ class FlinkLineageConfig(ConfigModel):
     )
     api_key: Optional[SecretStr] = Field(
         default=None,
-        description="Confluent Cloud resource-management API key (Basic auth against the Flink REST API).",
+        description="Flink API key for the environment's cloud region (Basic auth against "
+        "the Flink REST API). A Cloud resource-management or Kafka cluster key is rejected.",
     )
     api_secret: Optional[SecretStr] = Field(
-        default=None, description="Confluent Cloud resource-management API secret."
+        default=None, description="Secret of the Flink API key."
     )
     timeout_seconds: PositiveInt = Field(
         default=30, description="Timeout in seconds for each Flink REST request."
     )
+
+    @field_validator("cloud", mode="before")
+    @classmethod
+    def lowercase_cloud(cls, value: object) -> object:
+        return value.lower() if isinstance(value, str) else value
 
     @model_validator(mode="after")
     def validate_flink(self) -> "FlinkLineageConfig":
@@ -190,20 +209,11 @@ class FlinkLineageConfig(ConfigModel):
                 "Configuration error: 'stream_processing_lineage.flink.enabled' is true but the "
                 "Flink REST host cannot be resolved. Set either 'endpoint' or both 'region' and 'cloud'."
             )
-        else:
-            cloud = self.cloud.lower()
-            if cloud not in _FLINK_CLOUDS:
-                raise ValueError(
-                    "Configuration error: 'stream_processing_lineage.flink.cloud' must be one of "
-                    f"{sorted(_FLINK_CLOUDS)}. Got: '{self.cloud}'."
-                )
-            self.cloud = cloud
         missing = [
             name
             for name, value in (
                 ("organization_id", self.organization_id),
                 ("environment_id", self.environment_id),
-                ("kafka_cluster_id", self.kafka_cluster_id),
             )
             if not value
         ]
@@ -223,15 +233,15 @@ class FlinkLineageConfig(ConfigModel):
 
 
 class StreamProcessingLineageConfig(ConfigModel):
-    flink: FlinkLineageConfig = Field(default_factory=FlinkLineageConfig)
+    flink: FlinkLineageConfig = Field(
+        default_factory=FlinkLineageConfig,
+        description="Confluent Cloud Flink SQL statements to read topic lineage from.",
+    )
     include_column_lineage: bool = Field(
         default=True,
         description="Parse Flink SQL to emit best-effort column-level lineage, resolving "
         "topic schemas from DataHub when available.",
     )
-
-    def any_enabled(self) -> bool:
-        return self.flink.enabled
 
 
 class KafkaConfluentCatalogConfig(ConfluentStreamCatalogConfig):
@@ -373,6 +383,30 @@ class KafkaSourceConfig(
         description="Emit topic-to-topic transform lineage from Confluent Cloud Flink SQL "
         "statements, each modeled as a DataJob with input and output topics.",
     )
+
+    @model_validator(mode="after")
+    def resolve_flink_kafka_cluster_id(self) -> "KafkaSourceConfig":
+        flink = self.stream_processing_lineage.flink
+        if not flink.enabled:
+            return self
+        catalog_cluster_id = self.confluent_catalog.cluster_id
+        if (
+            flink.kafka_cluster_id
+            and catalog_cluster_id
+            and flink.kafka_cluster_id != catalog_cluster_id
+        ):
+            raise ValueError(
+                "Configuration error: 'stream_processing_lineage.flink.kafka_cluster_id' "
+                "and 'confluent_catalog.cluster_id' name different Kafka clusters."
+            )
+        flink.kafka_cluster_id = flink.kafka_cluster_id or catalog_cluster_id
+        if not flink.kafka_cluster_id:
+            raise ValueError(
+                "Configuration error: 'stream_processing_lineage.flink.enabled' is true but "
+                "no Kafka cluster id is set. Set 'stream_processing_lineage.flink."
+                "kafka_cluster_id' or 'confluent_catalog.cluster_id'."
+            )
+        return self
 
     @model_validator(mode="after")
     def inherit_catalog_connection_from_schema_registry(self) -> "KafkaSourceConfig":

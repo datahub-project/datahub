@@ -23,6 +23,18 @@ _STATEMENT_SET_RE: Final["re.Pattern[str]"] = re.compile(
     r"^\s*EXECUTE\s+STATEMENT\s+SET\s+BEGIN\b(?P<body>.*)\bEND\s*;?\s*$",
     re.IGNORECASE | re.DOTALL,
 )
+# Flink accepts `EXECUTE INSERT INTO ...` as a synonym for `INSERT INTO ...`.
+_EXECUTE_PREFIX_RE: Final["re.Pattern[str]"] = re.compile(
+    r"^\s*EXECUTE\s+(?=INSERT\b)", re.IGNORECASE
+)
+# Keywords sqlglot only reads as an opaque Command; seeing one means data-moving SQL
+# was not understood, not that the statement moves no data.
+_UNREADABLE_DML_KEYWORDS: Final[frozenset] = frozenset(
+    {"INSERT", "CREATE", "EXECUTE", "BEGIN", "END"}
+)
+
+
+_CTAS_RE: Final["re.Pattern[str]"] = re.compile(r"\bAS\s*(?:\(|SELECT\b|WITH\b)", re.I)
 
 
 class FlinkSqlParseError(Exception):
@@ -41,7 +53,7 @@ class FlinkDmlStatement(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
     expression: exp.Expression
-    outputs: List[exp.Table]
+    output: exp.Table
     inputs: List[exp.Table]
 
 
@@ -52,9 +64,10 @@ def parse_flink_statement(sql: str) -> List[FlinkDmlStatement]:
     Raises FlinkSqlParseError when the SQL cannot be parsed, so the caller can skip
     the statement rather than guess its tables.
     """
+    sql = _blank_comments(sql)
     statement_set = _STATEMENT_SET_RE.match(sql)
     body = statement_set.group("body") if statement_set else sql
-    body = _unwrap_window_tvfs(_blank_comments(body))
+    body = _unwrap_window_tvfs(_EXECUTE_PREFIX_RE.sub("", body))
     try:
         expressions = sqlglot.parse(body, read=FLINK_SQL_DIALECT)
     except sqlglot.errors.SqlglotError as e:
@@ -65,9 +78,12 @@ def parse_flink_statement(sql: str) -> List[FlinkDmlStatement]:
         if not isinstance(expression, exp.Expression):
             continue
         if isinstance(expression, exp.Command):
-            # sqlglot falls back to a Command for syntax it cannot read; only an
-            # INSERT or CREATE could have moved data.
-            if str(expression.this).upper() not in ("INSERT", "CREATE"):
+            # sqlglot falls back to a Command for syntax it cannot read. Plain DDL
+            # (CREATE TABLE without AS SELECT) moves no data, so it is not an error.
+            keyword = str(expression.this).upper()
+            if keyword not in _UNREADABLE_DML_KEYWORDS or (
+                keyword == "CREATE" and not _CTAS_RE.search(str(expression.expression))
+            ):
                 continue
             raise FlinkSqlParseError(
                 f"unsupported syntax: {expression.sql(dialect=FLINK_SQL_DIALECT)[:100]}"
@@ -107,7 +123,7 @@ def _as_dml(expression: exp.Expression) -> Optional[FlinkDmlStatement]:
         and table.name
         and not (table.name in cte_names and not table.db and not table.catalog)
     ]
-    return FlinkDmlStatement(expression=expression, outputs=[output], inputs=inputs)
+    return FlinkDmlStatement(expression=expression, output=output, inputs=inputs)
 
 
 def _unwrap_window_tvfs(sql: str) -> str:

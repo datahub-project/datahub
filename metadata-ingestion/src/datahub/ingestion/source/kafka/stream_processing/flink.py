@@ -1,7 +1,10 @@
 import logging
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
+from urllib.parse import urlsplit
 
 import requests
+from pydantic import ValidationError
+from sqlglot import exp
 from typing_extensions import LiteralString
 
 from datahub.ingestion.source.kafka.kafka_config import FlinkLineageConfig
@@ -9,16 +12,6 @@ from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.stream_processing.constants import (
     FLINK_DEFAULT_PAGE_SIZE,
     FLINK_HOST_TEMPLATE,
-    FLINK_KEY_COMPUTE_POOL,
-    FLINK_KEY_DATA,
-    FLINK_KEY_METADATA,
-    FLINK_KEY_NAME,
-    FLINK_KEY_NEXT,
-    FLINK_KEY_PHASE,
-    FLINK_KEY_PROPERTIES,
-    FLINK_KEY_SPEC,
-    FLINK_KEY_STATEMENT,
-    FLINK_KEY_STATUS,
     FLINK_MAX_PAGES,
     FLINK_PAGE_SIZE_PARAM,
     FLINK_PHASE_RUNNING,
@@ -26,25 +19,34 @@ from datahub.ingestion.source.kafka.stream_processing.constants import (
     FLINK_PROP_CURRENT_DATABASE,
     FLINK_SQL_DIALECT,
     FLINK_STATEMENTS_PATH_TEMPLATE,
+    PROP_COMPUTE_POOL,
     PROP_STATE,
-    StreamProcessingEngine,
 )
 from datahub.ingestion.source.kafka.stream_processing.flink_sql import (
+    FlinkDmlStatement,
     FlinkSqlParseError,
     parse_flink_statement,
     table_ref,
 )
-from datahub.ingestion.source.kafka.stream_processing.models import StreamProcessingJob
+from datahub.ingestion.source.kafka.stream_processing.models import (
+    FlinkJob,
+    FlinkStatement,
+    FlinkStatementsPage,
+)
 from datahub.utilities.dedup_list import deduplicate_list
 
 logger = logging.getLogger(__name__)
+
+
+class FlinkListingError(Exception):
+    pass
 
 
 class FlinkStatementsClient:
     def __init__(
         self,
         statements_url: str,
-        credentials: Optional[Tuple[str, str]],
+        credentials: Tuple[str, str],
         timeout_seconds: int,
         report: KafkaSourceReport,
         page_size: int = FLINK_DEFAULT_PAGE_SIZE,
@@ -56,24 +58,22 @@ class FlinkStatementsClient:
         self.page_size = page_size
         self._owns_session = session is None
         self.session = session or requests.Session()
-        self.session.headers.update(
-            {"Accept": "application/json", "Content-Type": "application/json"}
-        )
-        if credentials is not None:
-            self.session.auth = credentials
+        self.session.headers.update({"Accept": "application/json"})
+        self.session.auth = credentials
+        self._host = urlsplit(statements_url).netloc
 
-    def list_statements(self) -> List[Dict[str, object]]:
-        statements: List[Dict[str, object]] = []
+    def list_statements(self) -> List[object]:
+        statements: List[object] = []
         url: Optional[str] = self.statements_url
         params: Optional[Dict[str, int]] = {FLINK_PAGE_SIZE_PARAM: self.page_size}
         pages = 0
         while url and pages < FLINK_MAX_PAGES:
             page = self._fetch(url, params)
             pages += 1
-            data = page.get(FLINK_KEY_DATA)
-            if isinstance(data, list):
-                statements.extend(item for item in data if isinstance(item, dict))
-            url = _next_link(page)
+            statements.extend(page.data)
+            url = page.metadata.next if page.metadata else None
+            if url:
+                self._check_next_link(url)
             # The next link is a full URL that already carries pagination params.
             params = None
         if url:
@@ -87,18 +87,34 @@ class FlinkStatementsClient:
             )
         return statements
 
-    def _fetch(self, url: str, params: Optional[Dict[str, int]]) -> Dict[str, object]:
-        # Errors propagate: the caller reports them as a failure, which stops
-        # stale-entity removal from treating every Flink job as deleted.
-        response = self.session.get(url, params=params, timeout=self.timeout_seconds)
-        response.raise_for_status()
-        payload = response.json()
-        if not isinstance(payload, dict):
-            raise ValueError(
-                f"Unexpected Confluent Cloud Flink statements payload type: "
-                f"{type(payload).__name__} from {url}"
+    def _check_next_link(self, url: str) -> None:
+        # The session sends the API key with every request, so a next link may only
+        # point back at the same HTTPS host.
+        parts = urlsplit(url)
+        if parts.scheme != "https" or parts.netloc != self._host:
+            raise FlinkListingError(
+                f"Refusing to follow a Flink statements page link to another host or "
+                f"over plain HTTP: {parts.scheme}://{parts.netloc}"
             )
-        return payload
+
+    def _fetch(self, url: str, params: Optional[Dict[str, int]]) -> FlinkStatementsPage:
+        # Errors propagate: the caller reports them as a failure, which stops
+        # stale-entity removal from treating every Flink job as deleted. Redirects
+        # are not followed, so credentials never leave the configured host.
+        response = self.session.get(
+            url, params=params, timeout=self.timeout_seconds, allow_redirects=False
+        )
+        if response.is_redirect:
+            raise FlinkListingError(
+                f"Flink statements request was redirected (HTTP {response.status_code})"
+            )
+        response.raise_for_status()
+        try:
+            return FlinkStatementsPage.model_validate(response.json())
+        except (ValueError, ValidationError) as e:
+            raise FlinkListingError(
+                "Unexpected Confluent Cloud Flink statements response"
+            ) from e
 
     def close(self) -> None:
         if self._owns_session:
@@ -132,188 +148,188 @@ class FlinkLineageExtractor:
             for name in (config.kafka_cluster_id, config.kafka_cluster_name)
             if name
         }
+        self._other_locations: Set[str] = set()
+        self._statements_in_this_cluster = 0
 
-    def extract(self) -> List[StreamProcessingJob]:
-        jobs: List[StreamProcessingJob] = []
-        for statement in self.client.list_statements():
+    def extract(self) -> List[FlinkJob]:
+        jobs: List[FlinkJob] = []
+        for item in self.client.list_statements():
+            self.report.flink_statements_listed += 1
             try:
-                job = self._build_job(statement)
+                job = self._build_job(FlinkStatement.model_validate(item))
             except Exception as e:
                 # The statement may have produced a job last run; a failure keeps
                 # stale-entity removal from soft-deleting it.
+                name = item.get("name") if isinstance(item, dict) else None
                 self.report.failure(
                     title="Flink statement could not be read",
                     message="Unexpected error reading a Flink statement; other "
                     "statements are still emitted",
-                    context=f"statement={statement.get(FLINK_KEY_NAME)}",
+                    context=f"statement={name}",
                     exc=e,
                 )
                 continue
             if job is not None:
                 jobs.append(job)
+        if self._other_locations and not self._statements_in_this_cluster:
+            self.report.warning(
+                title="No Flink statement matched this Kafka cluster",
+                message="Every Flink statement writes to another environment or Kafka "
+                "cluster. If statements name the catalog or database by display name, "
+                "set stream_processing_lineage.flink.environment_name / "
+                "kafka_cluster_name.",
+                context=f"seen={sorted(self._other_locations)}",
+            )
         return jobs
 
-    def _build_job(self, statement: Dict[str, object]) -> Optional[StreamProcessingJob]:
-        spec = statement.get(FLINK_KEY_SPEC)
-        if not isinstance(spec, dict):
+    def _build_job(self, statement: FlinkStatement) -> Optional[FlinkJob]:
+        spec = statement.spec
+        if spec is None or not spec.statement or not statement.name:
             return None
-        if self.config.compute_pool_id:
-            if spec.get(FLINK_KEY_COMPUTE_POOL) != self.config.compute_pool_id:
-                return None
-
-        sql = spec.get(FLINK_KEY_STATEMENT)
-        # sql/v1 puts the statement name at the top level, not under `metadata`.
-        name = statement.get(FLINK_KEY_NAME)
-        if not isinstance(sql, str) or not sql or not isinstance(name, str) or not name:
+        name = statement.name
+        if self.config.compute_pool_id and spec.compute_pool_id != (
+            self.config.compute_pool_id
+        ):
             return None
 
-        phase = _phase(statement)
+        phase = statement.status.phase if statement.status else None
         if (
             phase != FLINK_PHASE_RUNNING
             and not self.config.include_non_running_statements
         ):
-            self.report.stream_processing_statements_not_running.append(name)
+            self.report.flink_statements_not_running.append(name)
             return None
 
         try:
-            dml_statements = parse_flink_statement(sql)
+            dml_statements = parse_flink_statement(spec.statement)
         except FlinkSqlParseError as e:
-            self._skip(
-                name,
-                "Skipping a Flink statement whose SQL could not be parsed",
-                f"statement={name}",
-                e,
-            )
+            self._fail(name, "Flink statement SQL could not be parsed", exc=e)
             return None
         if not dml_statements:
             # SELECT, DDL and SET statements move no data between topics.
             return None
 
-        properties = spec.get(FLINK_KEY_PROPERTIES)
-        properties = properties if isinstance(properties, dict) else {}
-        default_catalog = _str_or_none(properties.get(FLINK_PROP_CURRENT_CATALOG))
-        default_database = _str_or_none(properties.get(FLINK_PROP_CURRENT_DATABASE))
+        resolved = self._resolve_tables(name, dml_statements, spec.properties)
+        if resolved is None:
+            return None
+        inputs, outputs, elsewhere = resolved
+        if not outputs:
+            # Writes to another cluster are that cluster's recipe's to emit.
+            self.report.flink_statements_other_cluster.append(name)
+            self._other_locations.update(elsewhere)
+            return None
+        self._statements_in_this_cluster += 1
+        if elsewhere:
+            self.report.warning(
+                title="Flink lineage outside this cluster dropped",
+                message="Dropping Flink lineage to tables in another environment or "
+                "Kafka cluster; only this recipe's cluster is mapped to topic URNs",
+                context=f"statement={name}, tables={sorted(elsewhere)}",
+            )
 
-        outputs: List[str] = []
+        properties = {PROP_STATE: phase} if phase else {}
+        if spec.compute_pool_id:
+            properties[PROP_COMPUTE_POOL] = spec.compute_pool_id
+        return FlinkJob(
+            name=name,
+            input_topics=inputs,
+            output_topics=outputs,
+            query=spec.statement,
+            parse_query=_column_lineage_query(dml_statements)
+            if not elsewhere
+            else None,
+            custom_properties=properties,
+        )
+
+    def _resolve_tables(
+        self,
+        name: str,
+        dml_statements: List[FlinkDmlStatement],
+        properties: Dict[str, str],
+    ) -> Optional[Tuple[List[str], List[str], Set[str]]]:
+        """Topics this statement reads and writes in this cluster, plus other places.
+
+        None when a table has no catalog or database to place it.
+        """
+        default_catalog = properties.get(FLINK_PROP_CURRENT_CATALOG) or None
+        default_database = properties.get(FLINK_PROP_CURRENT_DATABASE) or None
         inputs: List[str] = []
-        elsewhere: List[str] = []
+        outputs: List[str] = []
+        elsewhere: Set[str] = set()
         for dml in dml_statements:
-            for table, targets in [(t, outputs) for t in dml.outputs] + [
+            for table, targets in [(dml.output, outputs)] + [
                 (t, inputs) for t in dml.inputs
             ]:
                 ref = table_ref(table)
                 catalog = ref.catalog or default_catalog
                 database = ref.database or default_database
                 if catalog is None or database is None:
-                    self._skip(
+                    self._fail(
                         name,
-                        "Skipping a Flink statement with a table whose environment or "
-                        "Kafka cluster is not named and has no sql.current-catalog / "
+                        "Flink statement has a table whose environment or Kafka "
+                        "cluster is not named and has no sql.current-catalog / "
                         "sql.current-database default",
-                        f"statement={name}, table={ref.table}",
+                        detail=f"table={ref.table}",
                     )
                     return None
                 if catalog in self._catalogs and database in self._databases:
                     targets.append(ref.table)
-                    # Unqualified, so the column-lineage parser maps it to the topic URN.
-                    table.set("catalog", None)
-                    table.set("db", None)
                 else:
-                    elsewhere.append(f"{catalog}.{database}.{ref.table}")
+                    elsewhere.add(f"{catalog}.{database}.{ref.table}")
+        return deduplicate_list(inputs), deduplicate_list(outputs), elsewhere
 
-        outputs = _unique(outputs)
-        if not outputs:
-            # Writes to another cluster are that cluster's recipe's to emit.
-            return None
-        if elsewhere:
-            self.report.warning(
-                title="Flink lineage outside this cluster dropped",
-                message="Dropping Flink lineage to tables in another environment or "
-                "Kafka cluster; only this recipe's cluster is mapped to topic URNs",
-                context=f"statement={name}, tables={sorted(set(elsewhere))}",
-            )
-
-        # Column lineage needs one statement whose every table is in this cluster.
-        parse_query: Optional[str] = None
-        if len(dml_statements) == 1 and not elsewhere:
-            parse_query = dml_statements[0].expression.sql(dialect=FLINK_SQL_DIALECT)
-
-        self.report.stream_processing_jobs_scanned += 1
-        return StreamProcessingJob(
-            engine=StreamProcessingEngine.FLINK,
-            job_id=name,
-            name=name,
-            input_topics=_unique(inputs),
-            output_topics=outputs,
-            query=sql,
-            parse_query=parse_query,
-            sql_dialect=FLINK_SQL_DIALECT,
-            custom_properties={PROP_STATE: phase} if phase else {},
-        )
-
-    def _skip(
+    def _fail(
         self,
         name: str,
         message: LiteralString,
-        context: str,
+        detail: Optional[str] = None,
         exc: Optional[BaseException] = None,
     ) -> None:
-        self.report.stream_processing_statements_skipped.append(name)
-        self.report.warning(
-            title="Flink statement skipped", message=message, context=context, exc=exc
+        # A failure, not a warning: the statement may have had a job last run, and
+        # stale-entity removal would otherwise soft-delete it.
+        self.report.flink_statements_skipped.append(name)
+        self.report.failure(
+            title="Flink statement skipped",
+            message=message,
+            context=f"statement={name}, {detail}" if detail else f"statement={name}",
+            exc=exc,
         )
 
 
-def _phase(statement: Dict[str, object]) -> Optional[str]:
-    status = statement.get(FLINK_KEY_STATUS)
-    if isinstance(status, dict):
-        phase = status.get(FLINK_KEY_PHASE)
-        if isinstance(phase, str) and phase:
-            return phase
-    return None
-
-
-def _str_or_none(value: object) -> Optional[str]:
-    return value if isinstance(value, str) and value else None
+def _column_lineage_query(dml_statements: List[FlinkDmlStatement]) -> Optional[str]:
+    # Column lineage needs one statement; its tables are all in this cluster, so they
+    # are written as bare topic names for the parser. The parsed tree is left as is.
+    if len(dml_statements) != 1:
+        return None
+    expression = dml_statements[0].expression.copy()
+    for table in expression.find_all(exp.Table):
+        table.set("catalog", None)
+        table.set("db", None)
+    return expression.sql(dialect=FLINK_SQL_DIALECT)
 
 
 def build_flink_client(
     config: FlinkLineageConfig,
     report: KafkaSourceReport,
     session: Optional[requests.Session] = None,
-) -> Optional[FlinkStatementsClient]:
+) -> FlinkStatementsClient:
     base_url = config.endpoint or FLINK_HOST_TEMPLATE.format(
         region=config.region, cloud=config.cloud
     )
-    if not config.organization_id or not config.environment_id:
-        return None
     path = FLINK_STATEMENTS_PATH_TEMPLATE.format(
         organization_id=config.organization_id,
         environment_id=config.environment_id,
     )
-    credentials: Optional[Tuple[str, str]] = None
-    if config.api_key is not None and config.api_secret is not None:
-        credentials = (
+    if config.api_key is None or config.api_secret is None:
+        # The config validator requires both halves of the key when Flink is enabled.
+        raise ValueError("stream_processing_lineage.flink needs api_key and api_secret")
+    return FlinkStatementsClient(
+        statements_url=f"{base_url.rstrip('/')}{path}",
+        credentials=(
             config.api_key.get_secret_value(),
             config.api_secret.get_secret_value(),
-        )
-    return FlinkStatementsClient(
-        statements_url=f"{base_url}{path}",
-        credentials=credentials,
+        ),
         timeout_seconds=config.timeout_seconds,
         report=report,
         session=session,
     )
-
-
-def _next_link(page: Dict[str, object]) -> Optional[str]:
-    metadata = page.get(FLINK_KEY_METADATA)
-    if isinstance(metadata, dict):
-        nxt = metadata.get(FLINK_KEY_NEXT)
-        if isinstance(nxt, str) and nxt:
-            return nxt
-    return None
-
-
-def _unique(values: Iterable[str]) -> List[str]:
-    return deduplicate_list(value for value in values if value)
