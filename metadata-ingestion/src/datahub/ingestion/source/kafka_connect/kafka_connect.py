@@ -42,10 +42,9 @@ from datahub.ingestion.source.confluent.models import (
     non_colliding_business_metadata,
 )
 from datahub.ingestion.source.kafka_connect.common import (
-    CLOUD_JDBC_SOURCE_CLASSES,
     CONNECTOR_CLASS,
     KAFKA,
-    POSTGRES_SOURCE_CLOUD,
+    MANAGED_JDBC_SOURCE_CLASSES,
     SINK,
     SOURCE,
     ConnectorManifest,
@@ -1132,8 +1131,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             and (
                 "JdbcSourceConnector" in connector_class
                 or connector_class.startswith("io.debezium.connector")
-                or connector_class in CLOUD_JDBC_SOURCE_CLASSES
-                or connector_class == POSTGRES_SOURCE_CLOUD
+                or connector_class in MANAGED_JDBC_SOURCE_CLASSES
             )
             and lineage.source_dataset
             and config.connect_to_platform_map

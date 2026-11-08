@@ -2413,7 +2413,7 @@
       "capabilities": [
         {
           "capability": "LINEAGE_FINE",
-          "description": "Optionally emits column-level lineage from Flink SQL statements when `stream_processing_lineage.include_column_lineage` is enabled.",
+          "description": "Optionally emits column-level lineage from Confluent Cloud Flink SQL statements (`stream_processing_lineage.flink.enabled`, with `include_column_lineage`).",
           "subtype_modifier": null,
           "supported": true
         },

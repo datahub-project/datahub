@@ -1,29 +1,48 @@
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, Field, model_validator
-
-from datahub.ingestion.source.kafka.stream_processing.constants import (
-    StreamProcessingEngine,
-)
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class StreamProcessingJob(BaseModel):
-    engine: StreamProcessingEngine
-    # Stable id used to build the DataJob urn (query id / statement name / application id).
-    job_id: str
+class _FlinkApiModel(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+
+class FlinkStatementSpec(_FlinkApiModel):
+    statement: Optional[str] = None
+    compute_pool_id: Optional[str] = None
+    properties: Dict[str, str] = Field(default_factory=dict)
+
+
+class FlinkStatementStatus(_FlinkApiModel):
+    phase: Optional[str] = None
+
+
+class FlinkStatement(_FlinkApiModel):
+    """A sql/v1 Statement. `name` is top level; `metadata` only holds `self`, `uid`, ..."""
+
+    name: Optional[str] = None
+    spec: Optional[FlinkStatementSpec] = None
+    status: Optional[FlinkStatementStatus] = None
+
+
+class FlinkPageMetadata(_FlinkApiModel):
+    next: Optional[str] = None
+
+
+class FlinkStatementsPage(_FlinkApiModel):
+    # Items stay raw so one malformed statement does not drop the whole page.
+    data: List[object] = Field(default_factory=list)
+    metadata: Optional[FlinkPageMetadata] = None
+
+
+class FlinkJob(BaseModel):
+    """Topic-level lineage of one Flink statement in this recipe's Kafka cluster."""
+
     name: str
     input_topics: List[str] = Field(default_factory=list)
     output_topics: List[str] = Field(default_factory=list)
-    # Human-readable transform SQL, surfaced as a DataJob custom property.
-    query: Optional[str] = None
-    # SQL whose table identifiers are the backing topic names, fed to the SQL parser
-    # for column-level lineage. None when we cannot produce topic-identifier SQL.
+    query: str
+    # The statement rewritten with bare topic names, for column-level lineage. None
+    # when it reads or writes another cluster or holds more than one INSERT.
     parse_query: Optional[str] = None
-    sql_dialect: Optional[str] = None
     custom_properties: Dict[str, str] = Field(default_factory=dict)
-
-    @model_validator(mode="after")
-    def parse_query_requires_dialect(self) -> "StreamProcessingJob":
-        if self.parse_query and not self.sql_dialect:
-            raise ValueError("sql_dialect is required when parse_query is set")
-        return self

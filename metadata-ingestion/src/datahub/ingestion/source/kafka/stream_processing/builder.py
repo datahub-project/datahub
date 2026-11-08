@@ -1,5 +1,4 @@
-import logging
-from typing import Callable, Dict, List, Optional, Set
+from typing import Callable, Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
     make_data_flow_urn,
@@ -12,13 +11,11 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.stream_processing.constants import (
     DATA_JOB_TYPE,
-    ENGINE_FLOW_METADATA,
+    FLINK_PLATFORM,
     MAX_QUERY_PROPERTY_CHARS,
-    PROP_ENGINE,
     PROP_QUERY,
-    StreamProcessingEngine,
 )
-from datahub.ingestion.source.kafka.stream_processing.models import StreamProcessingJob
+from datahub.ingestion.source.kafka.stream_processing.models import FlinkJob
 from datahub.ingestion.source.kafka.stream_processing.sql import (
     column_lineage_fine_grained,
 )
@@ -28,54 +25,72 @@ from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
     FineGrainedLineageClass,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.utilities.dedup_list import deduplicate_list
 
-logger = logging.getLogger(__name__)
 
-
-def build_stream_processing_workunits(
-    jobs: List[StreamProcessingJob],
-    platform: str,
+def build_flink_workunits(
+    jobs: List[FlinkJob],
+    environment_id: str,
+    topic_platform: str,
     platform_instance: Optional[str],
     env: str,
     report: KafkaSourceReport,
     topic_allowed: Callable[[str], bool],
     graph: Optional[DataHubGraph],
     include_column_lineage: bool,
-) -> List[MetadataWorkUnit]:
-    workunits: List[MetadataWorkUnit] = []
-    emitted_flows: Set[StreamProcessingEngine] = set()
+) -> Iterable[MetadataWorkUnit]:
+    """One `flink` DataFlow per Confluent environment and one DataJob per statement.
 
-    for job in jobs:
-        input_datasets = _topic_urns(
-            job.input_topics, platform, platform_instance, env, topic_allowed
-        )
-        output_datasets = _topic_urns(
-            job.output_topics, platform, platform_instance, env, topic_allowed
-        )
-        if not input_datasets and not output_datasets:
-            continue
+    The platform instance and env of this Kafka recipe scope both, so recipes for
+    different clusters of one environment do not overwrite each other's jobs.
+    """
+    if not jobs:
+        return
+    flow_urn = make_data_flow_urn(
+        orchestrator=FLINK_PLATFORM,
+        flow_id=environment_id,
+        cluster=env,
+        platform_instance=platform_instance,
+    )
+    yield MetadataChangeProposalWrapper(
+        entityUrn=flow_urn,
+        aspect=DataFlowInfoClass(
+            name=f"Flink statements ({environment_id})",
+            description="Confluent Cloud Flink SQL statements writing to this Kafka "
+            "cluster.",
+        ),
+    ).as_workunit()
 
-        flow_urn = make_data_flow_urn(
-            orchestrator=platform,
-            flow_id=ENGINE_FLOW_METADATA[job.engine][0],
-            cluster=env,
-            platform_instance=platform_instance,
+    # One resolver for the run: it caches the topic schemas it fetches from DataHub.
+    schema_resolver = (
+        graph._make_schema_resolver(
+            platform=topic_platform, platform_instance=platform_instance, env=env
         )
-        if job.engine not in emitted_flows:
-            _, flow_name, flow_description = ENGINE_FLOW_METADATA[job.engine]
-            workunits.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=flow_urn,
-                    aspect=DataFlowInfoClass(
-                        name=flow_name, description=flow_description
-                    ),
-                ).as_workunit()
-            )
-            emitted_flows.add(job.engine)
+        if graph is not None
+        else SchemaResolver(
+            platform=topic_platform, platform_instance=platform_instance, env=env
+        )
+    )
+    try:
+        for job in jobs:
+            topic_urns = {
+                topic: make_dataset_urn_with_platform_instance(
+                    platform=topic_platform,
+                    name=topic,
+                    platform_instance=platform_instance,
+                    env=env,
+                )
+                for topic in deduplicate_list(job.input_topics + job.output_topics)
+                if topic_allowed(topic)
+            }
+            inputs = [topic_urns[t] for t in job.input_topics if t in topic_urns]
+            outputs = [topic_urns[t] for t in job.output_topics if t in topic_urns]
+            if not outputs:
+                continue
 
-        job_urn = make_data_job_urn_with_flow(flow_urn, job.job_id)
-        workunits.append(
-            MetadataChangeProposalWrapper(
+            job_urn = make_data_job_urn_with_flow(flow_urn, job.name)
+            yield MetadataChangeProposalWrapper(
                 entityUrn=job_urn,
                 aspect=DataJobInfoClass(
                     name=job.name,
@@ -83,72 +98,34 @@ def build_stream_processing_workunits(
                     customProperties=_job_properties(job),
                 ),
             ).as_workunit()
-        )
 
-        fine_grained: List[FineGrainedLineageClass] = []
-        # Skip CLL when any of the job's topics are denied - the parser cannot
-        # tell allowed from denied identifiers, so mixed jobs would leak edges.
-        job_topics_allowed = all(
-            topic_allowed(topic) for topic in job.input_topics + job.output_topics
-        )
-        if include_column_lineage and job.parse_query and job_topics_allowed:
-            fine_grained = column_lineage_fine_grained(
-                query=job.parse_query,
-                platform=platform,
-                platform_instance=platform_instance,
-                env=env,
-                graph=graph,
-                dialect=job.sql_dialect,
-                report=report,
-                job_name=job.name,
-            )
-            report.stream_processing_column_lineage_edges += len(fine_grained)
+            fine_grained: List[FineGrainedLineageClass] = []
+            # Skip column lineage when any of the job's topics is denied: the parser
+            # cannot tell allowed from denied tables, so mixed jobs would leak edges.
+            if include_column_lineage and len(topic_urns) == len(
+                set(job.input_topics + job.output_topics)
+            ):
+                fine_grained = column_lineage_fine_grained(
+                    job, topic_urns, schema_resolver, platform_instance, report
+                )
+                report.flink_column_lineage_edges += len(fine_grained)
 
-        workunits.append(
-            MetadataChangeProposalWrapper(
+            yield MetadataChangeProposalWrapper(
                 entityUrn=job_urn,
                 aspect=DataJobInputOutputClass(
-                    inputDatasets=input_datasets,
-                    outputDatasets=output_datasets,
+                    inputDatasets=inputs,
+                    outputDatasets=outputs,
                     fineGrainedLineages=fine_grained or None,
                 ),
             ).as_workunit()
-        )
-        report.stream_processing_jobs_with_lineage += 1
-        report.stream_processing_lineage_edges += len(input_datasets) + len(
-            output_datasets
-        )
-
-    return workunits
+            report.flink_jobs_emitted += 1
+            report.flink_topic_lineage_edges += len(inputs) + len(outputs)
+    finally:
+        if graph is None:
+            schema_resolver.close()
 
 
-def _topic_urns(
-    topics: List[str],
-    platform: str,
-    platform_instance: Optional[str],
-    env: str,
-    topic_allowed: Callable[[str], bool],
-) -> List[str]:
-    urns: List[str] = []
-    seen: Set[str] = set()
-    for topic in topics:
-        if not topic_allowed(topic) or topic in seen:
-            continue
-        seen.add(topic)
-        urns.append(
-            make_dataset_urn_with_platform_instance(
-                platform=platform,
-                name=topic,
-                platform_instance=platform_instance,
-                env=env,
-            )
-        )
-    return urns
-
-
-def _job_properties(job: StreamProcessingJob) -> Dict[str, str]:
-    properties: Dict[str, str] = dict(job.custom_properties)
-    properties[PROP_ENGINE] = job.engine.value
-    if job.query:
-        properties[PROP_QUERY] = job.query[:MAX_QUERY_PROPERTY_CHARS]
+def _job_properties(job: FlinkJob) -> Dict[str, str]:
+    properties = dict(job.custom_properties)
+    properties[PROP_QUERY] = job.query[:MAX_QUERY_PROPERTY_CHARS]
     return properties

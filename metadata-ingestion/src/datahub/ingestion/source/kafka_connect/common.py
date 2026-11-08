@@ -10,6 +10,7 @@ from typing import (
     ClassVar,
     Dict,
     Final,
+    FrozenSet,
     List,
     Optional,
     Sequence,
@@ -159,6 +160,11 @@ CLOUD_JDBC_SOURCE_CLASSES: Final[List[str]] = [
     MYSQL_CDC_SOURCE_CLOUD,
     MYSQL_CDC_SOURCE_V2_CLOUD,
 ]
+
+# Every Confluent Cloud managed database source, CDC or not.
+MANAGED_JDBC_SOURCE_CLASSES: Final[FrozenSet[str]] = frozenset(
+    [*CLOUD_JDBC_SOURCE_CLASSES, POSTGRES_SOURCE_CLOUD]
+)
 
 # Cloud sink connector classes
 CLOUD_SINK_CLASSES: Final[List[str]] = [

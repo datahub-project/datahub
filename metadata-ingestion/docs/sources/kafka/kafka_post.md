@@ -137,25 +137,39 @@ source:
         lkc-src: src
 ```
 
+The upstream URN uses this recipe's `env`, so the recipe that ingests the source cluster must use
+the same `env`. `include_lineage` needs `cluster_id_to_platform_instance` (or `cluster_id`);
+without either, the recipe is rejected.
+
 Mirror topics are skipped, with a warning, when:
 
 - the source cluster is neither `cluster_id` nor a key of `cluster_id_to_platform_instance`;
 - the edge would point the topic at itself (both clusters ingested without distinct
-  platform instances and the link adds no prefix).
+  platform instances and the link adds no prefix);
+- the catalog was only partially read and `cluster_id` is not set, since the topic found
+  may belong to another cluster of the environment.
 
 A mirror whose source cluster is outside the catalog's environment gets no edge: the
 catalog only gives that source's topic name, not its cluster.
+
+A skipped mirror emits no `upstreamLineage` at all, rather than an empty one, so lineage
+written for the topic by other sources is left alone. As a result, an edge emitted by an
+earlier run stays in DataHub after the mirror link is removed or `include_lineage` is
+turned off; remove it in the UI or with the `datahub` CLI.
 
 #### Stream-processing lineage (Flink SQL)
 
 On Confluent Cloud, set `stream_processing_lineage.flink.enabled: true` to emit
 topic-to-topic lineage from Flink SQL `INSERT INTO ... SELECT` and
 `CREATE TABLE ... AS SELECT` statements, including those inside `EXECUTE STATEMENT SET`.
-Each statement is modeled as a DataJob under a Flink DataFlow. Column-level lineage is on
-by default (`include_column_lineage: true`).
+Each statement is a DataJob on the `flink` platform, under one `flink` DataFlow per
+environment; the topics stay `kafka` datasets. Column-level lineage is on by default
+(`include_column_lineage: true`).
 
-Requires a Confluent Cloud resource-management API key plus `organization_id`,
-`environment_id`, `kafka_cluster_id`, and either `endpoint` or both `region` and `cloud`.
+Requires a **Flink API key** for the environment's cloud region (a Cloud
+resource-management or Kafka cluster key is rejected), plus `organization_id`,
+`environment_id`, and either `endpoint` or both `region` and `cloud`. The Kafka cluster id
+comes from `kafka_cluster_id` or, if that is unset, `confluent_catalog.cluster_id`.
 
 ```yaml
 source:
@@ -181,8 +195,8 @@ source:
         kafka_cluster_name: "orders-cluster" # if statements use the database name
         region: "us-east-1"
         cloud: "aws"
-        api_key: "${CONFLUENT_CLOUD_API_KEY}"
-        api_secret: "${CONFLUENT_CLOUD_API_SECRET}"
+        api_key: "${FLINK_API_KEY}"
+        api_secret: "${FLINK_API_SECRET}"
 ```
 
 In Flink a catalog is an environment and a database is a Kafka cluster. Statements are
@@ -190,13 +204,17 @@ listed for the whole environment, so a table only becomes a topic of this recipe
 catalog and database match the environment and cluster configured above. Unqualified names
 use the statement's `sql.current-catalog` and `sql.current-database` properties.
 
-- Tables in another environment or cluster are dropped with a warning, and a statement
-  that writes to none of this cluster's topics is left to that cluster's recipe.
+- Tables in another environment or cluster are dropped with a warning. A statement that
+  writes to none of this cluster's topics is left to that cluster's recipe; if no statement
+  matches, a warning suggests setting `environment_name` / `kafka_cluster_name`.
 - A statement whose SQL cannot be parsed, or with a table that has no catalog or database,
-  is skipped with a warning.
+  is skipped and reported as a failure, so stale-entity removal keeps its earlier job. A
+  failed or truncated statements listing is a failure for the same reason.
 - Only `RUNNING` statements are read unless `include_non_running_statements: true`.
 - Column-level lineage is only derived for single statements whose tables are all in this
-  cluster, and a parse failure is reported as a warning.
+  cluster. Field names keep their real case: taken from the topic's schema in DataHub
+  when it is there, otherwise from the statement's own spelling (Flink SQL identifiers
+  are case-sensitive). A column the statement spells two ways is dropped.
 
 #### Custom Schema Registry
 

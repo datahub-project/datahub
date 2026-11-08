@@ -200,18 +200,28 @@ transforms.RegexRouter.replacement: "events.$1"
 | **MongoDB Source**<br/>`com.mongodb.kafka.connect.MongoSourceConnector`          | ✅ Full             | 🔧 Config Required      | Runtime API / Manual config | Collection → Topic mapping     |
 | **Generic Connectors**                                                           | 🔧 Config Required  | 🔧 Config Required      | User-defined mapping        | Custom lineage mapping         |
 
-**Cloud PostgreSQL Source** (`PostgresSource`): topics are `<topic.prefix><table>`. Only literal
-`schema.table` entries in `table.include.list` are mapped to topics; regular-expression entries are
-skipped with a warning.
+**Cloud PostgreSQL Source** (`PostgresSource`): topics are `<topic.prefix><table>`, then any
+`RegexRouter` / `TopicRegexRouter` transform. Each `table.include.list` entry must be a literal
+`schema.table` (for example `public.orders`) to get lineage. Lineage is skipped, with a warning, for:
+
+- regular-expression entries;
+- entries without a schema;
+- tables with the same name in two schemas, which write the same topic;
+- connectors that use a custom `query`;
+- connectors with topic-routing transforms that cannot be predicted.
 
 **S3 Source**: lineage needs the S3 folder behind each topic.
 
 - `RESTORE_BACKUP` mode (the self-hosted default) reads back what the S3 sink wrote, so each
-  topic the connector reports maps to `<bucket>/<topics.dir>/<topic>`.
+  topic the connector reports maps to `<bucket>/<topics.dir>/<topic>`. With a topic-routing
+  transform the folder no longer names the topic, so no lineage is emitted.
 - `GENERIC` mode, and the managed `S3Source`, route objects whose full key matches a
   `topic.regex.list` regex. Only a regex pinned to a folder, such as `orders:raw/orders/.*`,
   gives an edge (`<bucket>/raw/orders` to `orders`). Patterns such as `.*\.json` can match
   objects anywhere in the bucket, so they are skipped with a warning.
+
+For both connectors, only connector properties known not to hold credentials are shown on the
+DataHub pipeline.
 
 #### Supported Sink Connectors
 

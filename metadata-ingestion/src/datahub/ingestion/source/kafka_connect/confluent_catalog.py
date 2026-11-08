@@ -26,7 +26,9 @@ class CatalogConnector(CatalogEntity):
         return list(dict.fromkeys(topic.name for topic in self.topics if topic.name))
 
 
-class ConnectorCatalog(CatalogIndex[CatalogConnector, KafkaConnectSourceReport]):
+class ConnectorCatalog(
+    CatalogIndex[CatalogConnector, KafkaConnectSourceReport, ConfluentCatalogConfig]
+):
     def __init__(
         self,
         config: ConfluentCatalogConfig,
@@ -48,13 +50,6 @@ class ConnectorCatalog(CatalogIndex[CatalogConnector, KafkaConnectSourceReport])
 
     def get_connector(self, connector_name: str) -> Optional[CatalogConnector]:
         return self._get(connector_name)
-
-    def _warn_ambiguous(self, name: str, candidates: List[CatalogConnector]) -> None:
-        self.report.warning(
-            message="Skipping Stream Catalog metadata for a connector name that the "
-            "catalog reports more than once in this environment.",
-            context=f"connector={name}",
-        )
 
     def _record_indexed(self, count: int) -> None:
         self.report.catalog_connectors_indexed = count

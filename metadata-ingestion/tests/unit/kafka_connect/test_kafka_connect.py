@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Any, Dict, List, Optional, Tuple, cast
 from unittest.mock import Mock, patch
 
@@ -30,6 +31,8 @@ from datahub.ingestion.source.kafka_connect.source_connectors import (
     MongoSourceConnector,
 )
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
+    RegexRouterPlugin,
+    TransformConfig,
     get_transform_pipeline,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolverInterface
@@ -1300,6 +1303,73 @@ class TestConfluentCloudConnectors:
 
             assert connector.extract_lineages() == []
             assert report.warnings
+
+    def test_cloud_managed_postgres_source_needs_a_schema_and_one_table_per_topic(
+        self,
+    ) -> None:
+        # `orders` has no schema, and `users` exists in two schemas that would both
+        # write `pg-users`; none of them can be placed.
+        connector, report = self._managed_postgres_source(
+            {"table.include.list": "orders,public.users,audit.users,sales.items"},
+            ["pg-orders", "pg-users", "pg-items"],
+        )
+
+        assert [
+            (lineage.source_dataset, lineage.target_dataset)
+            for lineage in connector.extract_lineages()
+        ] == [("testdb.sales.items", "pg-items")]
+        assert len(report.warnings) == 2
+
+    @staticmethod
+    def _python_regex_router(
+        topics: List[str], transform: TransformConfig
+    ) -> List[str]:
+        regex = transform.config["regex"]
+        replacement = transform.config["replacement"].replace("$", "\\")
+        return [re.sub(f"^{regex}$", replacement, topic) for topic in topics]
+
+    def test_cloud_managed_postgres_source_pairs_routed_topics_by_name(
+        self,
+    ) -> None:
+        routed = {
+            "transforms": "route",
+            "transforms.route.type": "io.confluent.connect.cloud.transforms.TopicRegexRouter",
+            "transforms.route.regex": "pg-(.*)",
+            "transforms.route.replacement": "cdc.$1",
+        }
+        with patch.object(
+            RegexRouterPlugin, "apply_forward", side_effect=self._python_regex_router
+        ):
+            connector, _ = self._managed_postgres_source(
+                {"table.include.list": "public.users,sales.orders", **routed},
+                ["cdc.orders", "pg-users", "cdc.users"],
+            )
+            lineages = connector.extract_lineages()
+
+            missing, report = self._managed_postgres_source(
+                {"table.include.list": "public.users", **routed}, ["pg-users"]
+            )
+            assert missing.extract_lineages() == []
+            assert report.warnings
+
+        assert {
+            lineage.target_dataset: lineage.source_dataset for lineage in lineages
+        } == {"cdc.users": "testdb.public.users", "cdc.orders": "testdb.sales.orders"}
+
+    def test_cloud_managed_postgres_source_flow_properties_are_allow_listed(
+        self,
+    ) -> None:
+        connector, _ = self._managed_postgres_source(
+            {"table.include.list": "public.users", "kafka.api.secret": "s"},
+            [],
+        )
+
+        bag = connector.extract_flow_property_bag()
+
+        assert "kafka.api.secret" not in bag
+        assert "connection.password" not in bag
+        assert "connection.user" not in bag
+        assert bag["db.name"] == "testdb"
 
     def test_cloud_managed_postgres_source_missing_connection_fields(
         self,

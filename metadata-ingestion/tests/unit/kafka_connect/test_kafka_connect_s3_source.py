@@ -3,6 +3,8 @@
 from typing import Dict, List, Optional, Set, Tuple
 from unittest.mock import Mock
 
+import pytest
+
 from datahub.ingestion.source.kafka_connect.common import (
     SOURCE,
     ConnectorManifest,
@@ -103,25 +105,78 @@ def test_missing_bucket_warns_and_returns_empty() -> None:
     connector.report.warning.assert_called_once()  # type: ignore[attr-defined]
 
 
-def test_flow_property_bag_masks_credentials() -> None:
+def test_flow_property_bag_only_shows_known_non_secret_properties() -> None:
     connector = _connector(
         {
             "s3.bucket.name": "my-bucket",
-            "aws.access.key.id": "AKIA",
+            "topic.regex.list": "orders:raw/orders/.*",
             "aws.secret.access.key": "secret",
-            "aws.session.token": "session",
-            "s3.sse.customer.key": "sse-key",
-            "s3.sse.customer.key.md5": "md5",
-            "s3.proxy.password": "proxy-pw",
+            "kafka.api.secret": "secret",
+            "some.vendor.token": "secret",
         }
     )
 
-    bag = connector.extract_flow_property_bag()
+    assert connector.extract_flow_property_bag() == {
+        "connector.class": "S3Source",
+        "s3.bucket.name": "my-bucket",
+        "topic.regex.list": "orders:raw/orders/.*",
+    }
 
-    assert "aws.access.key.id" not in bag
-    assert "aws.secret.access.key" not in bag
-    assert "aws.session.token" not in bag
-    assert "s3.sse.customer.key" not in bag
-    assert "s3.sse.customer.key.md5" not in bag
-    assert "s3.proxy.password" not in bag
-    assert bag["s3.bucket.name"] == "my-bucket"
+
+def test_fully_literal_regex_is_one_object_and_skipped() -> None:
+    connector = _connector(
+        {
+            "s3.bucket.name": "my-bucket",
+            "topic.regex.list": "orders:raw/orders/part-0\\.json",
+        }
+    )
+
+    assert _edges(connector) == set()
+    connector.report.warning.assert_called_once()  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        pytest.param({}, id="no topic.regex.list"),
+        pytest.param({"topic.regex.list": "orders,:raw/.*"}, id="malformed pairs"),
+        pytest.param({"mode": "SOMETHING_ELSE"}, id="unknown mode"),
+    ],
+)
+def test_unusable_generic_config_warns_and_emits_nothing(
+    config: Dict[str, str],
+) -> None:
+    connector = _connector({"s3.bucket.name": "my-bucket", **config})
+
+    assert connector.extract_lineages() == []
+    connector.report.warning.assert_called()  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
+    "config,topic_names",
+    [
+        pytest.param(
+            {
+                "transforms": "route",
+                "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "transforms.route.regex": "(.*)",
+                "transforms.route.replacement": "restored-$1",
+            },
+            ["restored-orders"],
+            id="topic-routing transform",
+        ),
+        pytest.param({"topics.dir": " "}, ["orders"], id="blank topics.dir"),
+        pytest.param({}, [], id="no reported topics"),
+    ],
+)
+def test_restore_backup_without_a_known_folder_warns_and_emits_nothing(
+    config: Dict[str, str], topic_names: List[str]
+) -> None:
+    connector = _connector(
+        {"s3.bucket.name": "my-bucket", **config},
+        topic_names=topic_names,
+        connector_class=S3_SOURCE_CONNECTOR_CLASS,
+    )
+
+    assert connector.extract_lineages() == []
+    connector.report.warning.assert_called_once()  # type: ignore[attr-defined]

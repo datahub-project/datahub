@@ -53,6 +53,7 @@ import avro.io
 import avro.schema
 import confluent_kafka
 import confluent_kafka.admin
+import requests
 from confluent_kafka.admin import (
     AdminClient,
     ConfigEntry,
@@ -104,15 +105,13 @@ from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
     SchemaAndFields,
 )
 from datahub.ingestion.source.kafka.stream_processing.builder import (
-    build_stream_processing_workunits,
+    build_flink_workunits,
 )
 from datahub.ingestion.source.kafka.stream_processing.flink import (
     FlinkLineageExtractor,
     build_flink_client,
 )
-from datahub.ingestion.source.kafka.stream_processing.models import (
-    StreamProcessingJob,
-)
+from datahub.ingestion.source.kafka.stream_processing.models import FlinkJob
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -343,8 +342,8 @@ class KafkaConnectionTest:
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Optionally emits column-level lineage from Flink SQL statements when "
-    "`stream_processing_lineage.include_column_lineage` is enabled.",
+    "Optionally emits column-level lineage from Confluent Cloud Flink SQL statements "
+    "(`stream_processing_lineage.flink.enabled`, with `include_column_lineage`).",
     supported=True,
 )
 @capability(
@@ -598,42 +597,54 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
     def _emit_stream_processing_lineage(self) -> Iterable[MetadataWorkUnit]:
         config = self.source_config.stream_processing_lineage
-        if not config.any_enabled():
+        if not config.flink.enabled or not config.flink.environment_id:
             return
 
-        jobs: List[StreamProcessingJob] = []
+        jobs: List[FlinkJob] = []
         flink_client = build_flink_client(config.flink, self.report)
-        if flink_client is not None:
-            try:
-                jobs.extend(
-                    FlinkLineageExtractor(
-                        flink_client,
-                        self.report,
-                        config.flink,
-                    ).extract()
-                )
-            except Exception as e:
-                # A failure, not a warning: with no jobs this run, stale-entity removal
-                # would otherwise soft-delete every Flink job emitted before.
+        try:
+            jobs = FlinkLineageExtractor(
+                flink_client, self.report, config.flink
+            ).extract()
+        except requests.HTTPError as e:
+            # A failure, not a warning: with no jobs this run, stale-entity removal
+            # would otherwise soft-delete every Flink job emitted before.
+            status = e.response.status_code if e.response is not None else None
+            if status in (401, 403):
                 self.report.failure(
-                    title="Flink lineage extraction failed",
-                    message="Failed to list Confluent Cloud Flink statements; no Flink "
-                    "lineage was emitted this run",
-                    context="flink-lineage",
+                    title="Flink API key rejected",
+                    message="Confluent Cloud rejected the Flink API key. The statements "
+                    "API needs a Flink API key for this environment's cloud region, "
+                    "not a Cloud resource-management or cluster key.",
+                    context=f"status={status}",
                     exc=e,
                 )
-            finally:
-                flink_client.close()
+            else:
+                self._report_flink_listing_failure(e)
+        except Exception as e:
+            self._report_flink_listing_failure(e)
+        finally:
+            flink_client.close()
 
-        yield from build_stream_processing_workunits(
+        yield from build_flink_workunits(
             jobs=jobs,
-            platform=self.platform,
+            environment_id=config.flink.environment_id,
+            topic_platform=self.platform,
             platform_instance=self.source_config.platform_instance,
             env=self.source_config.env,
             report=self.report,
             topic_allowed=self.source_config.topic_patterns.allowed,
             graph=self.ctx.graph,
             include_column_lineage=config.include_column_lineage,
+        )
+
+    def _report_flink_listing_failure(self, exc: Exception) -> None:
+        self.report.failure(
+            title="Flink lineage extraction failed",
+            message="Failed to list Confluent Cloud Flink statements; no Flink lineage "
+            "was emitted this run",
+            context="flink-lineage",
+            exc=exc,
         )
 
     def _locked_warning(self, message: LiteralString, context: str) -> None:
@@ -1454,6 +1465,16 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             return None
         source = catalog_topic.source_topic
         if not source.name:
+            return None
+        if not catalog_config.cluster_id and not self.topic_catalog.is_complete():
+            # Without cluster_id, a partial read can miss the same topic name in another
+            # cluster of the environment, so this match may be the wrong cluster's topic.
+            self._skip_mirror_lineage(
+                topic,
+                "Skipping mirror-topic lineage because the Stream Catalog was only "
+                "partially read and confluent_catalog.cluster_id is not set.",
+                f"topic={topic}",
+            )
             return None
 
         if source.cluster_id and source.cluster_id == catalog_config.cluster_id:

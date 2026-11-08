@@ -1,14 +1,16 @@
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+import requests_mock
 from pydantic import ValidationError
 
 from datahub.emitter.mce_builder import (
     make_data_flow_urn,
     make_data_job_urn_with_flow,
     make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -22,44 +24,32 @@ from datahub.ingestion.source.kafka.kafka_config import (
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.stream_processing import flink as flink_module
 from datahub.ingestion.source.kafka.stream_processing.builder import (
-    build_stream_processing_workunits,
-)
-from datahub.ingestion.source.kafka.stream_processing.constants import (
-    ENGINE_FLOW_METADATA,
-    FLINK_SQL_DIALECT,
-    StreamProcessingEngine,
+    build_flink_workunits,
 )
 from datahub.ingestion.source.kafka.stream_processing.flink import (
     FlinkLineageExtractor,
+    FlinkListingError,
     FlinkStatementsClient,
+    build_flink_client,
 )
 from datahub.ingestion.source.kafka.stream_processing.flink_sql import (
     FlinkDmlStatement,
 )
-from datahub.ingestion.source.kafka.stream_processing.models import StreamProcessingJob
+from datahub.ingestion.source.kafka.stream_processing.models import FlinkJob
 from datahub.ingestion.source.kafka.stream_processing.sql import (
     column_lineage_fine_grained,
 )
-from datahub.metadata.schema_classes import (
-    DataFlowInfoClass,
-    DataJobInfoClass,
-    DataJobInputOutputClass,
-)
+from datahub.metadata.schema_classes import DataJobInputOutputClass
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 PLATFORM = "kafka"
 ENV = "PROD"
-
-
-def _aspect_for_urn(
-    workunits: List[MetadataWorkUnit], urn: str, aspect_cls: type
-) -> object:
-    for wu in workunits:
-        mcp = wu.metadata
-        assert isinstance(mcp, MetadataChangeProposalWrapper)
-        if mcp.entityUrn == urn and isinstance(mcp.aspect, aspect_cls):
-            return mcp.aspect
-    raise AssertionError(f"missing {aspect_cls.__name__} for {urn}")
+ENV_ID = "env-1"
+CLUSTER_ID = "lkc-1"
+STATEMENTS_URL = (
+    "https://flink.us-east-1.aws.confluent.cloud/sql/v1/organizations/org-1/"
+    "environments/env-1/statements"
+)
 
 
 class _FakeFlinkClient:
@@ -71,10 +61,6 @@ class _FakeFlinkClient:
 
     def close(self) -> None:
         pass
-
-
-ENV_ID = "env-1"
-CLUSTER_ID = "lkc-1"
 
 
 def _statement(
@@ -117,7 +103,7 @@ def _flink_config(**overrides: object) -> FlinkLineageConfig:
 
 def _extract(
     statements: List[Dict[str, object]], **overrides: object
-) -> Tuple[List[StreamProcessingJob], KafkaSourceReport]:
+) -> Tuple[List[FlinkJob], KafkaSourceReport]:
     report = KafkaSourceReport()
     jobs = FlinkLineageExtractor(
         _FakeFlinkClient(statements),  # type: ignore[arg-type]
@@ -125,6 +111,65 @@ def _extract(
         _flink_config(**overrides),
     ).extract()
     return jobs, report
+
+
+def _job(
+    input_topics: List[str],
+    output_topics: List[str],
+    parse_query: Optional[str] = None,
+) -> FlinkJob:
+    return FlinkJob(
+        name="stmt",
+        input_topics=input_topics,
+        output_topics=output_topics,
+        query=parse_query or "INSERT INTO ...",
+        parse_query=parse_query,
+    )
+
+
+def _build(
+    jobs: List[FlinkJob],
+    report: KafkaSourceReport,
+    platform_instance: Optional[str] = None,
+    graph: Optional[DataHubGraph] = None,
+    topic_allowed: Callable[[str], bool] = lambda _topic: True,
+) -> List[MetadataWorkUnit]:
+    return list(
+        build_flink_workunits(
+            jobs=jobs,
+            environment_id=ENV_ID,
+            topic_platform=PLATFORM,
+            platform_instance=platform_instance,
+            env=ENV,
+            report=report,
+            topic_allowed=topic_allowed,
+            graph=graph,
+            include_column_lineage=True,
+        )
+    )
+
+
+def _io(workunits: List[MetadataWorkUnit]) -> DataJobInputOutputClass:
+    for wu in workunits:
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        if isinstance(wu.metadata.aspect, DataJobInputOutputClass):
+            return wu.metadata.aspect
+    raise AssertionError("no DataJobInputOutput emitted")
+
+
+def _topic(name: str, platform_instance: Optional[str] = None) -> str:
+    return make_dataset_urn_with_platform_instance(
+        platform=PLATFORM, name=name, platform_instance=platform_instance, env=ENV
+    )
+
+
+def _field_edges(workunits: List[MetadataWorkUnit]) -> List[Tuple[str, str]]:
+    return sorted(
+        (upstream, downstream)
+        for edge in _io(workunits).fineGrainedLineages or []
+        for upstream in edge.upstreams or []
+        for downstream in edge.downstreams or []
+    )
 
 
 def test_flink_maps_tables_in_this_cluster_to_topics() -> None:
@@ -139,42 +184,73 @@ def test_flink_maps_tables_in_this_cluster_to_topics() -> None:
         ]
     )
 
-    assert len(jobs) == 1
-    job = jobs[0]
-    assert job.engine == StreamProcessingEngine.FLINK
-    assert job.input_topics == ["src_topic"]
-    assert job.output_topics == ["sink_topic"]
-    assert job.custom_properties.get("state") == "RUNNING"
-    assert job.parse_query is not None
-    assert "`prod`" not in job.parse_query and "`env-1`" not in job.parse_query
+    assert [(job.input_topics, job.output_topics) for job in jobs] == [
+        (["src_topic"], ["sink_topic"])
+    ]
+    assert jobs[0].custom_properties["state"] == "RUNNING"
+    assert jobs[0].parse_query is not None
+    assert "`prod`" not in jobs[0].parse_query
 
 
-def test_flink_does_not_take_topics_from_functions_windows_or_ctes() -> None:
-    jobs, _ = _extract(
-        [
-            _statement(
-                "INSERT INTO hourly SELECT EXTRACT(HOUR FROM ts) AS h, id FROM orders",
-                name="extract",
-            ),
-            _statement(
-                "INSERT INTO agg SELECT window_start, COUNT(*) FROM TABLE(TUMBLE("
-                "TABLE orders, DESCRIPTOR(ts), INTERVAL '1' MINUTES)) "
-                "GROUP BY window_start, window_end",
-                name="tumble",
-            ),
-            _statement(
-                "INSERT INTO out_t WITH big AS (SELECT * FROM orders WHERE amount > 10) "
-                "SELECT * FROM big",
-                name="cte",
-            ),
-        ]
-    )
+@pytest.mark.parametrize(
+    "sql,inputs",
+    [
+        pytest.param(
+            "INSERT INTO hourly SELECT EXTRACT(HOUR FROM ts) AS h, id FROM orders",
+            ["orders"],
+            id="EXTRACT ... FROM",
+        ),
+        pytest.param(
+            "INSERT INTO agg SELECT window_start, COUNT(*) FROM TABLE(TUMBLE("
+            "TABLE orders, DESCRIPTOR(ts), INTERVAL '1' MINUTES)) "
+            "GROUP BY window_start, window_end",
+            ["orders"],
+            id="window TVF",
+        ),
+        pytest.param(
+            "INSERT INTO agg SELECT window_start, COUNT(*) FROM TABLE(TUMBLE( -- in\n"
+            "  /* windowed */ TABLE orders, DESCRIPTOR(ts), INTERVAL '1' MINUTES)) "
+            "GROUP BY window_start",
+            ["orders"],
+            id="window TVF with comments",
+        ),
+        pytest.param(
+            "INSERT INTO out_t WITH big AS (SELECT * FROM orders WHERE amount > 10) "
+            "SELECT * FROM big",
+            ["orders"],
+            id="CTE",
+        ),
+        pytest.param(
+            "EXECUTE INSERT INTO out_t SELECT * FROM orders",
+            ["orders"],
+            id="EXECUTE INSERT",
+        ),
+        pytest.param(
+            "CREATE TABLE out_t AS SELECT * FROM orders", ["orders"], id="CTAS"
+        ),
+    ],
+)
+def test_flink_input_topics(sql: str, inputs: List[str]) -> None:
+    jobs, _ = _extract([_statement(sql)])
 
-    assert {job.name: job.input_topics for job in jobs} == {
-        "extract": ["orders"],
-        "tumble": ["orders"],
-        "cte": ["orders"],
-    }
+    assert jobs[0].input_topics == inputs
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "EXECUTE STATEMENT SET BEGIN INSERT INTO a SELECT * FROM x; "
+        "INSERT INTO b SELECT * FROM y; END;",
+        "-- lead\nEXECUTE STATEMENT SET BEGIN INSERT INTO a SELECT * FROM x;\n"
+        "INSERT INTO b SELECT * FROM y; END; -- trail",
+    ],
+)
+def test_flink_reads_every_insert_in_a_statement_set(sql: str) -> None:
+    jobs, _ = _extract([_statement(sql)])
+
+    assert jobs[0].input_topics == ["x", "y"]
+    assert jobs[0].output_topics == ["a", "b"]
+    assert jobs[0].parse_query is None
 
 
 def test_flink_drops_tables_in_other_clusters_and_reports_them() -> None:
@@ -192,285 +268,70 @@ def test_flink_drops_tables_in_other_clusters_and_reports_them() -> None:
         ]
     )
 
-    assert len(jobs) == 1
-    assert jobs[0].input_topics == ["customers"]
-    assert jobs[0].output_topics == ["sink"]
+    assert [(job.input_topics, job.output_topics) for job in jobs] == [
+        (["customers"], ["sink"])
+    ]
     # Column lineage would resolve the other cluster's table onto this cluster.
     assert jobs[0].parse_query is None
+    assert list(report.flink_statements_other_cluster) == ["writes-elsewhere"]
     assert report.warnings
 
 
-def test_flink_skips_unqualified_tables_without_current_catalog() -> None:
+def test_flink_warns_when_no_statement_matches_this_cluster() -> None:
     jobs, report = _extract(
-        [_statement("INSERT INTO sink SELECT * FROM src", properties={})]
+        [
+            _statement(
+                "INSERT INTO `Prod Env`.`Main Cluster`.`sink` SELECT * FROM src",
+                properties={
+                    "sql.current-catalog": "Prod Env",
+                    "sql.current-database": "Main Cluster",
+                },
+            )
+        ]
     )
 
     assert jobs == []
-    assert list(report.stream_processing_statements_skipped) == ["stmt"]
+    assert any(
+        "Prod Env.Main Cluster.sink" in str(entry.context) for entry in report.warnings
+    )
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        pytest.param(
+            _statement("INSERT INTO sink SELECT * FROM src", properties={}),
+            id="unresolved table",
+        ),
+        pytest.param(_statement("INSERT INTO sink SELECT FROM WHERE"), id="bad SQL"),
+        pytest.param(
+            _statement(
+                "CREATE TABLE t DISTRIBUTED BY (id) INTO 4 BUCKETS AS SELECT * FROM x"
+            ),
+            id="CTAS sqlglot cannot read",
+        ),
+    ],
+)
+def test_flink_unreadable_statements_are_failures(
+    statement: Dict[str, object],
+) -> None:
+    jobs, report = _extract([statement])
+
+    assert jobs == []
+    assert list(report.flink_statements_skipped) == ["stmt"]
+    # A failure keeps stale-entity removal from deleting the statement's old job.
+    assert report.failures
 
 
 def test_flink_skips_statements_that_are_not_running_by_default() -> None:
-    statements = [
-        _statement("INSERT INTO sink SELECT * FROM src", phase="STOPPED"),
-    ]
+    statements = [_statement("INSERT INTO sink SELECT * FROM src", phase="STOPPED")]
 
     jobs, report = _extract(statements)
     assert jobs == []
-    assert list(report.stream_processing_statements_not_running) == ["stmt"]
+    assert list(report.flink_statements_not_running) == ["stmt"]
 
     jobs, _ = _extract(statements, include_non_running_statements=True)
     assert [job.custom_properties["state"] for job in jobs] == ["STOPPED"]
-
-
-def test_flink_reads_every_insert_in_a_statement_set() -> None:
-    jobs, _ = _extract(
-        [
-            _statement(
-                "EXECUTE STATEMENT SET BEGIN INSERT INTO a SELECT * FROM x; "
-                "INSERT INTO b SELECT * FROM y; END;"
-            )
-        ]
-    )
-
-    assert jobs[0].input_topics == ["x", "y"]
-    assert jobs[0].output_topics == ["a", "b"]
-    assert jobs[0].parse_query is None
-
-
-def test_flink_skips_and_reports_unparseable_sql() -> None:
-    jobs, report = _extract([_statement("INSERT INTO sink SELECT FROM WHERE")])
-
-    assert jobs == []
-    assert list(report.stream_processing_statements_skipped) == ["stmt"]
-
-
-def test_flink_parse_query_keeps_string_literals_for_column_lineage() -> None:
-    jobs, _ = _extract(
-        [
-            _statement(
-                "INSERT INTO `orders-paid` SELECT id, name FROM `orders-raw` "
-                "WHERE status = 'PAID'"
-            )
-        ]
-    )
-    parse_query = jobs[0].parse_query
-    assert parse_query is not None
-    assert "'PAID'" in parse_query
-
-    fine_grained = column_lineage_fine_grained(
-        query=parse_query,
-        platform=PLATFORM,
-        platform_instance=None,
-        env=ENV,
-        graph=None,
-        dialect=FLINK_SQL_DIALECT,
-        report=KafkaSourceReport(),
-        job_name="stmt",
-    )
-    downstreams = {urn for edge in fine_grained for urn in edge.downstreams or []}
-    assert {urn.rsplit(",", 1)[1] for urn in downstreams} == {"id)", "name)"}
-
-
-def test_build_workunits_emits_flow_job_io_and_filters_denied_topics() -> None:
-    report = KafkaSourceReport()
-    jobs = [
-        StreamProcessingJob(
-            engine=StreamProcessingEngine.FLINK,
-            job_id="enrich-statement",
-            name="enrich-statement",
-            input_topics=["src_topic", "denied_topic"],
-            output_topics=["sink_topic"],
-            query="INSERT INTO sink_topic SELECT id FROM src_topic",
-        )
-    ]
-
-    workunits = build_stream_processing_workunits(
-        jobs=jobs,
-        platform=PLATFORM,
-        platform_instance=None,
-        env=ENV,
-        report=report,
-        topic_allowed=lambda topic: topic != "denied_topic",
-        graph=None,
-        include_column_lineage=False,
-    )
-
-    flow_urn = make_data_flow_urn(
-        PLATFORM, ENGINE_FLOW_METADATA[StreamProcessingEngine.FLINK][0], ENV
-    )
-    job_urn = make_data_job_urn_with_flow(flow_urn, "enrich-statement")
-    src_urn = make_dataset_urn_with_platform_instance(
-        platform=PLATFORM, name="src_topic", platform_instance=None, env=ENV
-    )
-    sink_urn = make_dataset_urn_with_platform_instance(
-        platform=PLATFORM, name="sink_topic", platform_instance=None, env=ENV
-    )
-
-    aspects_by_urn: Dict[str, List[object]] = {}
-    for wu in workunits:
-        mcp = wu.metadata
-        assert isinstance(mcp, MetadataChangeProposalWrapper)
-        assert mcp.entityUrn is not None
-        aspects_by_urn.setdefault(mcp.entityUrn, []).append(mcp.aspect)
-
-    assert isinstance(aspects_by_urn[flow_urn][0], DataFlowInfoClass)
-    job_info = next(
-        a for a in aspects_by_urn[job_urn] if isinstance(a, DataJobInfoClass)
-    )
-    assert job_info.customProperties["engine"] == "flink"
-    io = next(
-        a for a in aspects_by_urn[job_urn] if isinstance(a, DataJobInputOutputClass)
-    )
-    # Denied topic filtered out of the inputs.
-    assert io.inputDatasets == [src_urn]
-    assert io.outputDatasets == [sink_urn]
-    assert report.stream_processing_jobs_with_lineage == 1
-    assert report.stream_processing_lineage_edges == 2
-
-
-def test_column_lineage_parses_explicit_projection_without_graph() -> None:
-    fine_grained = column_lineage_fine_grained(
-        query="INSERT INTO sink_topic SELECT id FROM src_topic",
-        platform=PLATFORM,
-        platform_instance=None,
-        env=ENV,
-        graph=None,
-        dialect=FLINK_SQL_DIALECT,
-        report=KafkaSourceReport(),
-        job_name="stmt",
-    )
-
-    downstream = make_dataset_urn_with_platform_instance(
-        platform=PLATFORM, name="sink_topic", platform_instance=None, env=ENV
-    )
-    upstream = make_dataset_urn_with_platform_instance(
-        platform=PLATFORM, name="src_topic", platform_instance=None, env=ENV
-    )
-
-    assert len(fine_grained) == 1
-    edge = fine_grained[0]
-    assert edge.downstreams == [f"urn:li:schemaField:({downstream},id)"]
-    assert edge.upstreams == [f"urn:li:schemaField:({upstream},id)"]
-
-
-def test_build_workunits_emits_column_lineage_when_all_topics_allowed() -> None:
-    report = KafkaSourceReport()
-    jobs = [
-        StreamProcessingJob(
-            engine=StreamProcessingEngine.FLINK,
-            job_id="enrich-cll",
-            name="enrich-cll",
-            input_topics=["src_topic"],
-            output_topics=["sink_topic"],
-            parse_query="INSERT INTO sink_topic SELECT id FROM src_topic",
-            sql_dialect=FLINK_SQL_DIALECT,
-        )
-    ]
-
-    workunits = build_stream_processing_workunits(
-        jobs=jobs,
-        platform=PLATFORM,
-        platform_instance=None,
-        env=ENV,
-        report=report,
-        topic_allowed=lambda _topic: True,
-        graph=None,
-        include_column_lineage=True,
-    )
-
-    flow_urn = make_data_flow_urn(
-        PLATFORM, ENGINE_FLOW_METADATA[StreamProcessingEngine.FLINK][0], ENV
-    )
-    job_urn = make_data_job_urn_with_flow(flow_urn, "enrich-cll")
-    io = _aspect_for_urn(workunits, job_urn, DataJobInputOutputClass)
-    assert isinstance(io, DataJobInputOutputClass)
-    assert io.fineGrainedLineages
-    assert report.stream_processing_column_lineage_edges == 1
-
-
-def test_build_workunits_skips_column_lineage_when_any_topic_denied() -> None:
-    report = KafkaSourceReport()
-    jobs = [
-        StreamProcessingJob(
-            engine=StreamProcessingEngine.FLINK,
-            job_id="enrich-mixed",
-            name="enrich-mixed",
-            input_topics=["src_topic", "denied_topic"],
-            output_topics=["sink_topic"],
-            parse_query="INSERT INTO sink_topic SELECT id FROM src_topic",
-            sql_dialect=FLINK_SQL_DIALECT,
-        )
-    ]
-
-    workunits = build_stream_processing_workunits(
-        jobs=jobs,
-        platform=PLATFORM,
-        platform_instance=None,
-        env=ENV,
-        report=report,
-        topic_allowed=lambda topic: topic != "denied_topic",
-        graph=None,
-        include_column_lineage=True,
-    )
-
-    flow_urn = make_data_flow_urn(
-        PLATFORM, ENGINE_FLOW_METADATA[StreamProcessingEngine.FLINK][0], ENV
-    )
-    job_urn = make_data_job_urn_with_flow(flow_urn, "enrich-mixed")
-    io = _aspect_for_urn(workunits, job_urn, DataJobInputOutputClass)
-    assert isinstance(io, DataJobInputOutputClass)
-    assert io.fineGrainedLineages is None
-    assert report.stream_processing_column_lineage_edges == 0
-
-
-def test_flink_requires_credentials_when_enabled() -> None:
-    with pytest.raises(ValueError, match="must both be set"):
-        FlinkLineageConfig(
-            enabled=True,
-            organization_id="org-1",
-            environment_id="env-1",
-            kafka_cluster_id="lkc-1",
-            region="us-east-1",
-            cloud="aws",
-        )
-
-
-def test_flink_rejects_unknown_cloud() -> None:
-    with pytest.raises(ValueError, match="must be one of"):
-        FlinkLineageConfig(
-            enabled=True,
-            organization_id="org-1",
-            environment_id="env-1",
-            kafka_cluster_id="lkc-1",
-            region="us-east-1",
-            cloud="digitalocean",
-            api_key="k",
-            api_secret="s",
-        )
-
-
-def test_flink_normalizes_cloud_case() -> None:
-    config = FlinkLineageConfig(
-        enabled=True,
-        organization_id="org-1",
-        environment_id="env-1",
-        kafka_cluster_id="lkc-1",
-        region="us-east-1",
-        cloud="AWS",
-        api_key="k",
-        api_secret="s",
-    )
-    assert config.cloud == "aws"
-
-
-def test_parse_query_requires_sql_dialect() -> None:
-    with pytest.raises(ValidationError, match="sql_dialect"):
-        StreamProcessingJob(
-            engine=StreamProcessingEngine.FLINK,
-            job_id="j",
-            name="j",
-            parse_query="SELECT 1",
-        )
 
 
 def test_flink_filters_compute_pool_and_malformed_statements() -> None:
@@ -485,97 +346,7 @@ def test_flink_filters_compute_pool_and_malformed_statements() -> None:
         compute_pool_id="pool-1",
     )
 
-    assert [job.job_id for job in jobs] == ["ok"]
-
-
-def _flink_client_with_session(session: MagicMock) -> FlinkStatementsClient:
-    session.headers = {}
-    return FlinkStatementsClient(
-        statements_url="https://flink.example/sql",
-        credentials=None,
-        timeout_seconds=1,
-        report=KafkaSourceReport(),
-        session=session,
-    )
-
-
-def test_flink_list_statements_reraises_http_errors() -> None:
-    session = MagicMock()
-    session.get.side_effect = requests.ConnectionError("boom")
-    client = _flink_client_with_session(session)
-    with pytest.raises(requests.ConnectionError):
-        client.list_statements()
-
-
-def test_flink_list_statements_reraises_non_dict_payload() -> None:
-    session = MagicMock()
-    response = MagicMock()
-    response.json.return_value = ["not", "a", "dict"]
-    session.get.return_value = response
-    client = _flink_client_with_session(session)
-    with pytest.raises(ValueError, match="payload type"):
-        client.list_statements()
-
-
-def test_flink_list_statements_follows_pagination() -> None:
-    session = MagicMock()
-    page1 = MagicMock()
-    page1.json.return_value = {
-        "data": [_statement("INSERT INTO sink SELECT id FROM src", name="s1")],
-        "metadata": {"next": "https://flink.example/sql?page=2"},
-    }
-    page2 = MagicMock()
-    page2.json.return_value = {
-        "data": [_statement("INSERT INTO sink2 SELECT id FROM src2", name="s2")]
-    }
-    session.get.side_effect = [page1, page2]
-    client = _flink_client_with_session(session)
-
-    jobs = FlinkLineageExtractor(client, KafkaSourceReport(), _flink_config()).extract()
-
-    assert [job.job_id for job in jobs] == ["s1", "s2"]
-    assert session.get.call_count == 2
-
-
-def test_flink_close_only_closes_owned_session() -> None:
-    injected = MagicMock()
-    client = _flink_client_with_session(injected)
-    client.close()
-    injected.close.assert_not_called()
-
-    owned_session = MagicMock()
-    owned_session.headers = {}
-    with patch(
-        "datahub.ingestion.source.kafka.stream_processing.flink.requests.Session",
-        return_value=owned_session,
-    ):
-        owned = FlinkStatementsClient(
-            statements_url="https://flink.example/sql",
-            credentials=None,
-            timeout_seconds=1,
-            report=KafkaSourceReport(),
-        )
-    owned.close()
-    owned_session.close.assert_called_once()
-
-
-def test_flink_listing_truncated_at_page_cap_is_a_failure() -> None:
-    session = MagicMock()
-    page = MagicMock()
-    page.json.return_value = {
-        "data": [_statement("INSERT INTO sink SELECT id FROM src", name="s1")],
-        "metadata": {"next": "https://flink.example/sql?page=2"},
-    }
-    session.get.return_value = page
-    client = _flink_client_with_session(session)
-
-    with patch(
-        "datahub.ingestion.source.kafka.stream_processing.flink.FLINK_MAX_PAGES", 1
-    ):
-        statements = client.list_statements()
-
-    assert [statement["name"] for statement in statements] == ["s1"]
-    assert client.report.failures
+    assert [job.name for job in jobs] == ["ok"]
 
 
 def test_flink_error_in_one_statement_keeps_the_others_and_fails_the_run() -> None:
@@ -599,119 +370,278 @@ def test_flink_error_in_one_statement_keeps_the_others_and_fails_the_run() -> No
     assert report.failures
 
 
-def test_flink_tvf_argument_after_a_comment() -> None:
-    jobs, _ = _extract(
-        [
-            _statement(
-                "INSERT INTO agg SELECT window_start, COUNT(*) FROM TABLE(TUMBLE( -- in\n"
-                "  /* windowed */ TABLE orders, DESCRIPTOR(ts), INTERVAL '1' MINUTES)) "
-                "GROUP BY window_start"
-            )
-        ]
+def test_build_emits_jobs_on_the_flink_platform_scoped_by_platform_instance() -> None:
+    report = KafkaSourceReport()
+
+    workunits = _build(
+        [_job(["src_topic", "denied"], ["sink_topic"])],
+        report,
+        platform_instance="pi",
+        topic_allowed=lambda topic: topic != "denied",
     )
 
-    assert jobs[0].input_topics == ["orders"]
+    flow_urn = make_data_flow_urn("flink", ENV_ID, ENV, platform_instance="pi")
+    job_urn = make_data_job_urn_with_flow(flow_urn, "stmt")
+    assert {wu.get_urn() for wu in workunits} == {flow_urn, job_urn}
+    io = _io(workunits)
+    assert io.inputDatasets == [_topic("src_topic", "pi")]
+    assert io.outputDatasets == [_topic("sink_topic", "pi")]
+    assert io.fineGrainedLineages is None
+    assert report.flink_jobs_emitted == 1
+
+
+def test_column_lineage_keeps_the_real_case_of_topics_and_columns() -> None:
+    # The parser lowercases both; Flink SQL is case-sensitive, so the query's own
+    # spelling is the field name.
+    workunits = _build(
+        [
+            _job(
+                ["Orders-In"],
+                ["Orders-Out"],
+                "INSERT INTO `Orders-Out` SELECT order_id, `Amount` FROM `Orders-In`",
+            )
+        ],
+        KafkaSourceReport(),
+    )
+
+    assert _field_edges(workunits) == [
+        (
+            make_schema_field_urn(_topic("Orders-In"), column),
+            make_schema_field_urn(_topic("Orders-Out"), column),
+        )
+        for column in ["Amount", "order_id"]
+    ]
+
+
+def test_column_lineage_drops_columns_spelled_two_ways() -> None:
+    workunits = _build(
+        [
+            _job(
+                ["src"],
+                ["sink"],
+                "INSERT INTO sink SELECT Amount, id FROM src WHERE amount > 0",
+            )
+        ],
+        KafkaSourceReport(),
+    )
+
+    assert [down.rsplit(",", 1)[1] for _, down in _field_edges(workunits)] == ["id)"]
 
 
 def _graph_with_schema(columns: List[str]) -> MagicMock:
     resolver = SchemaResolver(platform=PLATFORM, env=ENV)
     resolver.add_raw_schema_info(
-        make_dataset_urn_with_platform_instance(
-            platform=PLATFORM, name="src_topic", platform_instance=None, env=ENV
-        ),
-        {column: "VARCHAR" for column in columns},
+        _topic("src_topic"), {column: "VARCHAR" for column in columns}
     )
     graph = MagicMock(spec=DataHubGraph)
     graph._make_schema_resolver.return_value = resolver
     return graph
 
 
-def test_column_lineage_expands_select_star_from_graph_schema() -> None:
-    fine_grained = column_lineage_fine_grained(
-        query="INSERT INTO sink_topic SELECT * FROM src_topic",
-        platform=PLATFORM,
-        platform_instance=None,
-        env=ENV,
-        graph=_graph_with_schema(["id", "name"]),
-        dialect=FLINK_SQL_DIALECT,
-        report=KafkaSourceReport(),
-        job_name="stmt",
+def test_column_lineage_uses_schema_case_and_expands_select_star() -> None:
+    workunits = _build(
+        [
+            _job(
+                ["src_topic"],
+                ["sink_topic"],
+                "INSERT INTO sink_topic SELECT * FROM src_topic",
+            )
+        ],
+        KafkaSourceReport(),
+        graph=_graph_with_schema(["OrderId", "name"]),
     )
 
-    downstreams = {urn for edge in fine_grained for urn in edge.downstreams or []}
-    assert {urn.rsplit(",", 1)[1] for urn in downstreams} == {"id)", "name)"}
+    assert [down.rsplit(",", 1)[1] for _, down in _field_edges(workunits)] == [
+        "OrderId)",
+        "name)",
+    ]
 
 
-def test_column_lineage_parse_error_is_reported_and_returns_nothing() -> None:
+def test_column_lineage_parse_error_is_reported_and_topic_edges_survive() -> None:
     report = KafkaSourceReport()
 
-    fine_grained = column_lineage_fine_grained(
-        query="INSERT INTO sink_topic SELEC id FRM src_topic",
-        platform=PLATFORM,
-        platform_instance=None,
-        env=ENV,
-        graph=None,
-        dialect=FLINK_SQL_DIALECT,
-        report=report,
-        job_name="stmt",
+    workunits = _build(
+        [
+            _job(
+                ["src_topic"],
+                ["sink_topic"],
+                "INSERT INTO sink_topic SELEC id FRM src_topic",
+            )
+        ],
+        report,
     )
 
-    assert fine_grained == []
-    assert report.warnings
-
-
-def test_schema_resolver_failure_keeps_topic_edges() -> None:
-    graph = MagicMock(spec=DataHubGraph)
-    graph._make_schema_resolver.side_effect = RuntimeError("graph down")
-    report = KafkaSourceReport()
-    job = StreamProcessingJob(
-        engine=StreamProcessingEngine.FLINK,
-        job_id="stmt",
-        name="stmt",
-        input_topics=["src_topic"],
-        output_topics=["sink_topic"],
-        parse_query="INSERT INTO sink_topic SELECT id FROM src_topic",
-        sql_dialect=FLINK_SQL_DIALECT,
-    )
-
-    workunits = build_stream_processing_workunits(
-        jobs=[job],
-        platform=PLATFORM,
-        platform_instance=None,
-        env=ENV,
-        report=report,
-        topic_allowed=lambda _topic: True,
-        graph=graph,
-        include_column_lineage=True,
-    )
-
-    flow_urn = make_data_flow_urn(
-        PLATFORM, ENGINE_FLOW_METADATA[StreamProcessingEngine.FLINK][0], ENV
-    )
-    io = _aspect_for_urn(
-        workunits,
-        make_data_job_urn_with_flow(flow_urn, "stmt"),
-        DataJobInputOutputClass,
-    )
-    assert isinstance(io, DataJobInputOutputClass)
-    assert len(io.inputDatasets) == 1 and len(io.outputDatasets) == 1
+    io = _io(workunits)
+    assert io.inputDatasets == [_topic("src_topic")]
     assert io.fineGrainedLineages is None
     assert report.warnings
 
 
-def _kafka_source_with_flink() -> KafkaSource:
-    return KafkaSource(
-        KafkaSourceConfig.model_validate(
-            {
-                "connection": {"bootstrap": "localhost:9092"},
-                "stream_processing_lineage": {
-                    "flink": _flink_config().model_dump(mode="json")
-                    | {"api_key": "k", "api_secret": "s"},
-                },
-            }
-        ),
-        PipelineContext(run_id="test"),
+def test_column_lineage_without_a_query_is_empty() -> None:
+    lineage = column_lineage_fine_grained(
+        _job(["a"], ["b"]),
+        {"a": _topic("a"), "b": _topic("b")},
+        SchemaResolver(platform=PLATFORM, env=ENV),
+        None,
+        KafkaSourceReport(),
     )
+
+    assert lineage == []
+
+
+@pytest.mark.parametrize(
+    "config,url",
+    [
+        pytest.param({}, STATEMENTS_URL, id="region and cloud"),
+        pytest.param(
+            {"endpoint": "https://flink.example.com/"},
+            "https://flink.example.com/sql/v1/organizations/org-1/"
+            "environments/env-1/statements",
+            id="endpoint with trailing slash",
+        ),
+    ],
+)
+def test_build_flink_client_url_and_auth(config: Dict[str, str], url: str) -> None:
+    client = build_flink_client(_flink_config(**config), KafkaSourceReport())
+
+    with requests_mock.Mocker() as m:
+        m.get(url, json={"data": [{"name": "s1"}]})
+        statements = client.list_statements()
+
+    assert statements == [{"name": "s1"}]
+    assert m.last_request.headers["Authorization"].startswith("Basic ")
+    assert m.last_request.qs == {"page_size": ["100"]}
+
+
+def _client(
+    m: requests_mock.Mocker, pages: List[Dict[str, object]]
+) -> FlinkStatementsClient:
+    m.get(STATEMENTS_URL, [{"json": page} for page in pages])
+    return build_flink_client(_flink_config(), KafkaSourceReport())
+
+
+def test_flink_list_statements_follows_same_host_pagination() -> None:
+    with requests_mock.Mocker() as m:
+        client = _client(
+            m,
+            [
+                {
+                    "data": [{"name": "s1"}],
+                    "metadata": {"next": f"{STATEMENTS_URL}?page=2"},
+                },
+                {"data": [{"name": "s2"}]},
+            ],
+        )
+        statements = client.list_statements()
+
+    assert statements == [{"name": "s1"}, {"name": "s2"}]
+
+
+@pytest.mark.parametrize(
+    "next_link",
+    [
+        "http://flink.us-east-1.aws.confluent.cloud/sql/v1/next",
+        "https://attacker.example.com/sql/v1/next",
+    ],
+)
+def test_flink_refuses_next_links_off_the_https_host(next_link: str) -> None:
+    with requests_mock.Mocker() as m:
+        client = _client(m, [{"data": [], "metadata": {"next": next_link}}])
+        with pytest.raises(FlinkListingError):
+            client.list_statements()
+
+    assert m.call_count == 1
+
+
+def test_flink_does_not_follow_redirects() -> None:
+    with requests_mock.Mocker() as m:
+        m.get(
+            STATEMENTS_URL,
+            status_code=302,
+            headers={"Location": "http://elsewhere.example.com/"},
+        )
+        client = build_flink_client(_flink_config(), KafkaSourceReport())
+        with pytest.raises(FlinkListingError):
+            client.list_statements()
+
+    assert m.call_count == 1
+
+
+def test_flink_listing_truncated_at_page_cap_is_a_failure() -> None:
+    with requests_mock.Mocker() as m:
+        client = _client(
+            m,
+            [{"data": [{"name": "s1"}], "metadata": {"next": f"{STATEMENTS_URL}?p=2"}}],
+        )
+        with patch.object(flink_module, "FLINK_MAX_PAGES", 1):
+            statements = client.list_statements()
+
+    assert statements == [{"name": "s1"}]
+    assert client.report.failures
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        pytest.param({"endpoint": "http://flink.example.com"}, id="http endpoint"),
+        pytest.param({"region": None}, id="no endpoint or region"),
+        pytest.param({"cloud": "digitalocean"}, id="unknown cloud"),
+        pytest.param({"organization_id": None}, id="missing organization"),
+        pytest.param({"environment_id": None}, id="missing environment"),
+        pytest.param({"api_secret": None}, id="half a key pair"),
+    ],
+)
+def test_flink_config_rejects(overrides: Dict[str, object]) -> None:
+    with pytest.raises(ValidationError):
+        _flink_config(**overrides)
+
+
+def test_flink_cloud_is_case_insensitive() -> None:
+    assert _flink_config(cloud="AWS").cloud == "aws"
+
+
+def _flink_dict(**overrides: object) -> Dict[str, object]:
+    values = _flink_config().model_dump(mode="json")
+    values.update({"api_key": "k", "api_secret": "s", **overrides})
+    return values
+
+
+def _source_config(
+    flink: Dict[str, object], catalog_cluster_id: Optional[str] = None
+) -> KafkaSourceConfig:
+    return KafkaSourceConfig.model_validate(
+        {
+            "connection": {"bootstrap": "localhost:9092"},
+            "confluent_catalog": {"cluster_id": catalog_cluster_id},
+            "stream_processing_lineage": {"flink": flink},
+        }
+    )
+
+
+def test_flink_kafka_cluster_id_defaults_to_the_catalog_one() -> None:
+    config = _source_config(_flink_dict(kafka_cluster_id=None), "lkc-9")
+
+    assert config.stream_processing_lineage.flink.kafka_cluster_id == "lkc-9"
+
+
+@pytest.mark.parametrize(
+    "flink_cluster_id,catalog_cluster_id",
+    [
+        pytest.param("lkc-1", "lkc-2", id="different"),
+        pytest.param(None, None, id="none"),
+    ],
+)
+def test_flink_kafka_cluster_id_conflict_or_missing_is_rejected(
+    flink_cluster_id: Optional[str], catalog_cluster_id: Optional[str]
+) -> None:
+    with pytest.raises(ValidationError):
+        _source_config(
+            _flink_dict(kafka_cluster_id=flink_cluster_id), catalog_cluster_id
+        )
+
+
+def _kafka_source_with_flink() -> KafkaSource:
+    return KafkaSource(_source_config(_flink_dict()), PipelineContext(run_id="test"))
 
 
 @patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True)
@@ -726,21 +656,22 @@ def test_kafka_source_emits_flink_jobs(mock_consumer: MagicMock, _: MagicMock) -
         source = _kafka_source_with_flink()
         urns = {wu.get_urn() for wu in source.get_workunits()}
 
-    flow_urn = make_data_flow_urn(
-        PLATFORM, ENGINE_FLOW_METADATA[StreamProcessingEngine.FLINK][0], ENV
-    )
+    flow_urn = make_data_flow_urn("flink", ENV_ID, ENV)
     assert make_data_job_urn_with_flow(flow_urn, "stmt") in urns
     assert not source.report.failures
 
 
+@pytest.mark.parametrize("status", [401, 503])
 @patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True)
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_reports_a_failed_flink_listing_as_a_failure(
-    mock_consumer: MagicMock, _: MagicMock
+    mock_consumer: MagicMock, _: MagicMock, status: int
 ) -> None:
     mock_consumer.return_value.list_topics.return_value.topics = {}
+    response = requests.Response()
+    response.status_code = status
     client = MagicMock()
-    client.list_statements.side_effect = requests.HTTPError("503")
+    client.list_statements.side_effect = requests.HTTPError(response=response)
 
     with patch(
         "datahub.ingestion.source.kafka.kafka.build_flink_client", return_value=client
