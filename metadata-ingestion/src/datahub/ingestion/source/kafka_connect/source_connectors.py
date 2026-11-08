@@ -649,7 +649,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         topic_tables: Dict[str, TableId] = {}
         ambiguous: Set[str] = set()
         for table, topic in zip(tables, predicted, strict=True):
-            if topic in topic_tables:
+            if topic in topic_tables and topic_tables[topic] != table:
                 ambiguous.add(topic)
             topic_tables.setdefault(topic, table)
         if ambiguous:
@@ -3799,6 +3799,23 @@ class ConfluentS3SourceConnector(BaseConnector):
         if not bucket:
             self._warn("S3 source connector has no s3.bucket.name; no lineage emitted")
             return []
+        routing = [
+            transform.name
+            for transform in get_transform_pipeline().parse_transforms(
+                self.connector_manifest.config
+            )
+            if transform.type in KNOWN_TOPIC_ROUTING_TRANSFORMS
+        ]
+        if routing:
+            # The topic named by the config (topic.regex.list, or the folder the sink
+            # wrote) is renamed after the source produces it, so the edge would point
+            # at a topic that does not exist.
+            self._warn(
+                "S3 source connector routes topics with a transform; no lineage "
+                "emitted",
+                f"transforms={routing}",
+            )
+            return []
         mode = self._mode()
         if mode == S3SourceMode.RESTORE_BACKUP:
             return self._restore_backup_lineages(bucket)
@@ -3808,20 +3825,6 @@ class ConfluentS3SourceConnector(BaseConnector):
 
     def _restore_backup_lineages(self, bucket: str) -> List[KafkaConnectLineage]:
         config = self.connector_manifest.config
-        routing = [
-            transform.name
-            for transform in get_transform_pipeline().parse_transforms(config)
-            if transform.type in KNOWN_TOPIC_ROUTING_TRANSFORMS
-        ]
-        if routing:
-            # Folders are named after the topics the sink read; a routing transform
-            # renames them on the way back, so the folder no longer names the topic.
-            self._warn(
-                "S3 source connector in RESTORE_BACKUP mode routes topics with a "
-                "transform; no lineage emitted",
-                f"transforms={routing}",
-            )
-            return []
         topics_dir = config.get(ConnectorConfigKeys.TOPICS_DIR, "topics").strip("/ ")
         if not topics_dir:
             self._warn(
