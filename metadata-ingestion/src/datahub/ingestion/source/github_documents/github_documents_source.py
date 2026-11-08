@@ -430,20 +430,19 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 content, path=file_path, report=self.report
             )
 
+        concept_type = frontmatter.values.get("type") if frontmatter else None
+        is_okf_concept = isinstance(concept_type, str) and bool(concept_type.strip())
         if self._should_skip_unchanged_file(
             document_urn,
             source_hash,
             compute_file_content_hash(content),
-            is_okf_concept=frontmatter is not None,
+            is_okf_concept=is_okf_concept,
         ):
             logger.info("Skipping unchanged file document: %s", file_path)
             self.report.files_skipped_unchanged += 1
             self._register_document_for_stale_removal(document_urn)
             yield from self._resurrect_unchanged_document(document_urn, owner_repo)
-            concept_type = frontmatter.values.get("type") if frontmatter else None
-            if not self._okf_server_unsupported and (
-                not isinstance(concept_type, str) or not concept_type.strip()
-            ):
+            if not self._okf_server_unsupported and not is_okf_concept:
                 yield from clear_okf_metadata(
                     document_urn, ctx=self.ctx, report=self.report
                 )

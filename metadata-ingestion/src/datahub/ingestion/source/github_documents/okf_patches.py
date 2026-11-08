@@ -57,6 +57,25 @@ def _current_associations(
     return terms.terms if terms else []
 
 
+def _owner_role(owner: OwnerClass) -> str:
+    # A system type URN names the same role as the type enum it mirrors.
+    if owner.typeUrn and not owner.typeUrn.startswith(
+        "urn:li:ownershipType:__system__"
+    ):
+        return owner.typeUrn
+    return str(owner.type or "")
+
+
+def _is_handover(existing: Association, added: Association) -> bool:
+    """An unattributed DataHub edit of the value the file now declares."""
+    if existing.attribution is not None:
+        return False
+    if isinstance(existing, OwnerClass) and isinstance(added, OwnerClass):
+        # A different role (e.g. business owner) is a separate DataHub fact.
+        return _owner_role(existing) == _owner_role(added)
+    return True
+
+
 def _remove_association(
     patcher: DocumentPatchBuilder, association: Association
 ) -> None:
@@ -124,11 +143,11 @@ def reconcile_okf_associations(
 
         # One document identifies one file. Move its OKF value to the current source
         # key even when another unresolved value makes missing-value removal unsafe.
-        # An unattributed value (a DataHub edit, e.g. written to the file by
-        # sync-back) is handed over to the file the same way.
+        # An unattributed value in the same role (a DataHub edit, e.g. written to
+        # the file by sync-back) is handed over to the file the same way.
         for existing in current:
             if (
-                (_from_okf(existing.attribution) or existing.attribution is None)
+                (_from_okf(existing.attribution) or _is_handover(existing, added))
                 and _association_urn(existing) == urn
                 and _association_key(existing) != _association_key(added)
             ):

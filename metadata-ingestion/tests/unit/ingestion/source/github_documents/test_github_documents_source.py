@@ -1592,16 +1592,7 @@ def test_okf_resolves_username_and_executor_attribution(
         if kwargs["entity_types"] == ["glossaryTerm"]
         else []
     )
-    execution = ExecutionRequestInputClass(
-        task="test",
-        executorId="test",
-        args={},
-        requestedAt=0,
-        source=ExecutionRequestSourceClass(
-            type="SCHEDULED_INGESTION_SOURCE",
-            ingestionSource="urn:li:dataHubIngestionSource:example",
-        ),
-    )
+    execution = _scheduled_execution("urn:li:dataHubIngestionSource:example")
     okf_source.ctx.graph.get_aspect.side_effect = lambda urn, cls: (
         execution
         if cls is ExecutionRequestInputClass
@@ -1721,6 +1712,35 @@ def _mock_existing_associations(
     graph.get_urns_by_filter.return_value = []
     graph.exists.return_value = True
     okf_source.ctx.graph = graph
+    return graph
+
+
+def _scheduled_execution(ingestion_source: str) -> ExecutionRequestInputClass:
+    return ExecutionRequestInputClass(
+        task="test",
+        executorId="test",
+        args={},
+        requestedAt=0,
+        source=ExecutionRequestSourceClass(
+            type="SCHEDULED_INGESTION_SOURCE", ingestionSource=ingestion_source
+        ),
+    )
+
+
+def _mock_managed_associations(
+    okf_source: GitHubDocumentsSource, current: _Aspect
+) -> MagicMock:
+    """Existing associations, read by a run of a managed ingestion source."""
+    graph = _mock_existing_associations(okf_source, current)
+    okf_source.ctx.run_id = "urn:li:dataHubExecutionRequest:test-run"
+    execution = _scheduled_execution("urn:li:dataHubIngestionSource:managed")
+    graph.get_aspect.side_effect = lambda entity, cls: (
+        execution
+        if cls is ExecutionRequestInputClass
+        else current
+        if cls is type(current)
+        else None
+    )
     return graph
 
 
@@ -2095,25 +2115,7 @@ def test_okf_source_change_moves_values_without_duplicates(
     old = _existing_okf_attribution(root_path="previous")
     old.source = old_source
     current = _association_aspect(key, [(urn, old)])
-    graph = _mock_existing_associations(okf_source, current)
-    okf_source.ctx.run_id = "urn:li:dataHubExecutionRequest:test-run"
-    execution = ExecutionRequestInputClass(
-        task="test",
-        executorId="test",
-        args={},
-        requestedAt=0,
-        source=ExecutionRequestSourceClass(
-            type="SCHEDULED_INGESTION_SOURCE",
-            ingestionSource="urn:li:dataHubIngestionSource:managed",
-        ),
-    )
-    graph.get_aspect.side_effect = lambda entity, cls: (
-        execution
-        if cls is ExecutionRequestInputClass
-        else current
-        if cls is type(current)
-        else None
-    )
+    _mock_managed_associations(okf_source, current)
     _mock_github_client(
         okf_source,
         files=[GitHubFileInfo(path="docs/mau.md", size=100)],
@@ -2142,25 +2144,7 @@ def test_okf_declared_value_takes_over_datahub_edit(
     urn = f"urn:li:{prefix}:example"
     other_source = _existing_okf_attribution(origin="other")
     current = _association_aspect(key, [(urn, None), (urn, other_source)])
-    graph = _mock_existing_associations(okf_source, current)
-    okf_source.ctx.run_id = "urn:li:dataHubExecutionRequest:test-run"
-    execution = ExecutionRequestInputClass(
-        task="test",
-        executorId="test",
-        args={},
-        requestedAt=0,
-        source=ExecutionRequestSourceClass(
-            type="SCHEDULED_INGESTION_SOURCE",
-            ingestionSource="urn:li:dataHubIngestionSource:managed",
-        ),
-    )
-    graph.get_aspect.side_effect = lambda entity, cls: (
-        execution
-        if cls is ExecutionRequestInputClass
-        else current
-        if cls is type(current)
-        else None
-    )
+    _mock_managed_associations(okf_source, current)
     _mock_github_client(
         okf_source,
         files=[GitHubFileInfo(path="docs/mau.md", size=100)],
@@ -2174,6 +2158,60 @@ def test_okf_declared_value_takes_over_datahub_edit(
     attribution = operations[1]["value"]["attribution"]
     assert isinstance(attribution, dict)
     assert attribution["source"] == "urn:li:dataHubIngestionSource:managed"
+
+
+@pytest.mark.parametrize(
+    "owner_type,type_urn,handed_over",
+    [
+        ("TECHNICAL_OWNER", None, True),
+        ("TECHNICAL_OWNER", "urn:li:ownershipType:__system__technical_owner", True),
+        ("BUSINESS_OWNER", None, False),
+        ("CUSTOM", "urn:li:ownershipType:steward", False),
+    ],
+)
+def test_okf_owner_handover_keeps_other_roles(
+    okf_source: GitHubDocumentsSource,
+    owner_type: str,
+    type_urn: Optional[str],
+    handed_over: bool,
+) -> None:
+    owner = "urn:li:corpuser:bob"
+    current = OwnershipClass(
+        owners=[OwnerClass(owner=owner, type=owner_type, typeUrn=type_urn)]
+    )
+    _mock_managed_associations(okf_source, current)
+    _mock_github_client(
+        okf_source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content=f'---\ntype: Guide\nowners: ["{owner}"]\n---\nBody',
+    )
+    operations = _okf_patch_operations(list(okf_source.get_workunits()), "ownership")
+    expected = ["remove", "add"] if handed_over else ["add"]
+    assert [op["op"] for op in operations] == expected
+
+
+@pytest.mark.parametrize("type_line", ["type:\n", 'type: ""\n', "type: 3\n", ""])
+def test_frontmatter_without_concept_type_keeps_sync_back_skip(
+    okf_source: GitHubDocumentsSource, type_line: str
+) -> None:
+    content = f"---\n{type_line}title: Plain\n---\nBody"
+    info = MagicMock()
+    info.customProperties = {
+        "last_exported_content_hash": compute_file_content_hash(content)
+    }
+    graph = MagicMock()
+    graph.get_urns_by_filter.return_value = []
+    graph.get_aspect.side_effect = lambda urn, cls: (
+        info if cls is DocumentInfoClass else None
+    )
+    okf_source.ctx.graph = graph
+    _mock_github_client(
+        okf_source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content=content,
+    )
+    list(okf_source.get_workunits())
+    assert okf_source.report.files_skipped_unchanged == 1
 
 
 @pytest.mark.parametrize(
