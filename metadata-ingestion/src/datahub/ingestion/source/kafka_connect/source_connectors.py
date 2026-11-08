@@ -717,7 +717,33 @@ class ConfluentJDBCSourceConnector(BaseConnector):
                 "schema.table so the source table can be identified",
                 f"entries={unqualified}",
             )
-        return tables
+        return self._without_excluded_tables(tables)
+
+    def _without_excluded_tables(self, tables: List[TableId]) -> List[TableId]:
+        # table.exclude.list holds regexes over `schema.table`; the connector does not
+        # read a table that matches one, even if table.include.list names it.
+        config = self.connector_manifest.config
+        raw = config.get("table.exclude.list") or config.get("table.blacklist", "")
+        patterns: List["re.Pattern[str]"] = []
+        for entry in parse_comma_separated_list(raw):
+            try:
+                patterns.append(re.compile(entry))
+            except re.error as e:
+                self._warn_postgres(
+                    "Could not read a table.exclude.list pattern, so excluded tables "
+                    "cannot be told apart; no lineage emitted",
+                    f"pattern={entry}",
+                    exc=e,
+                )
+                return []
+        return [
+            table
+            for table in tables
+            if not any(
+                pattern.fullmatch(f"{table.schema}.{table.table}")
+                for pattern in patterns
+            )
+        ]
 
     def _predict_managed_postgres_topics(
         self, tables: List[TableId], parser: JdbcParser
