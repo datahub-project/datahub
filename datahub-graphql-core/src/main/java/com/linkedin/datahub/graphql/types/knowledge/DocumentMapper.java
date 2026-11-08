@@ -2,6 +2,10 @@ package com.linkedin.datahub.graphql.types.knowledge;
 
 import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Documentation;
@@ -41,12 +45,16 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.structured.StructuredProperties;
+import java.io.IOException;
 import javax.annotation.Nullable;
 
 /** Maps GMS EntityResponse representing a Document to a GraphQL Document object. */
 public class DocumentMapper {
 
   private static final String DATAHUB_DATA_PLATFORM_URN = "urn:li:dataPlatform:datahub";
+  private static final ObjectMapper OKF_YAML_MAPPER =
+      new ObjectMapper(new YAMLFactory().enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION));
+  private static final ObjectMapper OKF_JSON_MAPPER = new ObjectMapper();
 
   public static Document map(@Nullable QueryContext context, final EntityResponse entityResponse) {
     final Document result = new Document();
@@ -403,31 +411,39 @@ public class DocumentMapper {
               .map(DocumentMapper::mapOkfStamp)
               .collect(java.util.stream.Collectors.toList()));
     }
-    result.setFrontmatter(properties.getFrontmatter());
-    if (properties.hasRaw()) {
-      result.setRaw(properties.getRaw());
+    result.setRaw(properties.getRaw());
+    result.setFrontmatter(parseOkfFrontmatter(properties.getRaw()));
+    if (properties.hasRevision()) {
+      result.setRevision(mapOkfRevision(properties.getRevision()));
     }
-    if (properties.hasSourceFile()) {
-      result.setSourceFile(mapOkfSourceFile(properties.getSourceFile()));
-    }
-    result.setMappingVersion(properties.getMappingVersion());
     return result;
   }
 
-  private static com.linkedin.datahub.graphql.generated.OkfSourceFile mapOkfSourceFile(
-      final com.linkedin.okf.OkfSourceFile sourceFile) {
-    final com.linkedin.datahub.graphql.generated.OkfSourceFile result =
-        new com.linkedin.datahub.graphql.generated.OkfSourceFile();
-    result.setRepo(sourceFile.getRepo());
-    result.setPath(sourceFile.getPath());
-    if (sourceFile.hasRef()) {
-      result.setRef(sourceFile.getRef());
+  @Nullable
+  private static String parseOkfFrontmatter(final String raw) {
+    try {
+      // Read a tree so YAML dates stay strings instead of becoming Java timestamps.
+      final JsonNode values = OKF_YAML_MAPPER.readTree(raw);
+      return values != null && values.isObject()
+          ? OKF_JSON_MAPPER.writeValueAsString(values)
+          : null;
+    } catch (IOException e) {
+      return null;
     }
-    if (sourceFile.hasCommit()) {
-      result.setCommit(sourceFile.getCommit());
+  }
+
+  private static com.linkedin.datahub.graphql.generated.OkfRevision mapOkfRevision(
+      final com.linkedin.okf.OkfRevision revision) {
+    final com.linkedin.datahub.graphql.generated.OkfRevision result =
+        new com.linkedin.datahub.graphql.generated.OkfRevision();
+    if (revision.hasRef()) {
+      result.setRef(revision.getRef());
     }
-    if (sourceFile.hasBlobSha()) {
-      result.setBlobSha(sourceFile.getBlobSha());
+    if (revision.hasCommit()) {
+      result.setCommit(revision.getCommit());
+    }
+    if (revision.hasBlobSha()) {
+      result.setBlobSha(revision.getBlobSha());
     }
     return result;
   }
@@ -436,7 +452,7 @@ public class DocumentMapper {
       final com.linkedin.okf.OkfBundle bundle) {
     final com.linkedin.datahub.graphql.generated.OkfBundle result =
         new com.linkedin.datahub.graphql.generated.OkfBundle();
-    result.setRepo(bundle.getRepo());
+    result.setLocation(bundle.getLocation());
     result.setRootPath(bundle.getRootPath());
     if (bundle.hasOkfVersion()) {
       result.setOkfVersion(bundle.getOkfVersion());

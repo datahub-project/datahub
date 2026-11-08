@@ -21,10 +21,17 @@ from datahub.ingestion.source.github_documents.github_api import (
 from datahub.ingestion.source.github_documents.github_documents_config import (
     GitHubDocumentsSourceConfig,
 )
+from datahub.ingestion.source.github_documents.github_documents_report import (
+    GitHubDocumentsSourceReport,
+)
 from datahub.ingestion.source.github_documents.github_documents_source import (
     GitHubDocumentsSource,
     compute_file_content_hash,
 )
+from datahub.ingestion.source.github_documents.okf_frontmatter import (
+    parse_okf_frontmatter,
+)
+from datahub.ingestion.source.github_documents.okf_mapping import MAPPING_VERSION
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     BrowsePathsV2Class,
@@ -50,6 +57,14 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     _Aspect,
 )
+
+
+def _raw_frontmatter_values(properties: OkfPropertiesClass) -> Dict[str, object]:
+    parsed = parse_okf_frontmatter(
+        properties.raw, path="mau.md", report=GitHubDocumentsSourceReport()
+    )
+    assert parsed is not None
+    return parsed.values
 
 
 class PatchOperation(TypedDict):
@@ -1397,24 +1412,28 @@ def test_okf_maps_metadata_and_preserves_frontmatter(newline: str) -> None:
     assert info.contents.text == body
     assert info.customProperties is not None
     assert info.customProperties["content_hash"] == compute_file_content_hash(
-        raw + body, bundle=OkfBundleClass(repo="example-org/analytics", rootPath="")
+        raw + body,
+        bundle=OkfBundleClass(
+            location="https://github.com/example-org/analytics", rootPath="."
+        ),
     )
     okf = aspects["okfProperties"]
     assert isinstance(okf, OkfPropertiesClass)
     assert okf.raw == raw
     assert okf.bundle.okfVersion is None
-    assert okf.bundle.rootPath == ""
+    assert okf.bundle.rootPath == "."
     assert okf.conceptId == "mau"
     assert okf.declaredId == "guide:mau"
     assert okf.type == "Guide"
     assert okf.description == "How MAU is defined."
-    assert okf.sourceFile is not None
-    assert okf.sourceFile.repo == "example-org/analytics"
-    assert okf.sourceFile.path == "mau.md"
-    assert okf.sourceFile.ref == "main"
-    assert okf.sourceFile.commit == "abc123"
-    assert okf.sourceFile.blobSha == "blob123"
-    values = json.loads(okf.frontmatter)
+    assert okf.revision is not None
+    assert okf.bundle.location == "https://github.com/example-org/analytics"
+    assert "mappingVersion" not in okf.to_obj()
+    assert okf.revision.ref == "main"
+    assert okf.revision.commit == "abc123"
+    assert okf.revision.blobSha == "blob123"
+    assert "frontmatter" not in okf.to_obj()
+    values = _raw_frontmatter_values(okf)
     assert values["audience"] == "analysts"
     assert values["depends_on"] == ["table:events"]
     assert values["extra"] == {"enabled": True, "count": 3, "empty": None}
@@ -1460,11 +1479,12 @@ def test_okf_maps_metadata_and_preserves_frontmatter(newline: str) -> None:
             assert attribution.actor == "urn:li:corpuser:__datahub_system"
             assert attribution.sourceDetail == {
                 "origin": "okf",
-                "repo": "example-org/analytics",
-                "path": "mau.md",
+                "bundle": "https://github.com/example-org/analytics",
+                "rootPath": ".",
+                "conceptId": "mau",
                 "commit": "abc123",
                 "key": key,
-                "mappingVersion": okf.mappingVersion,
+                "mappingVersion": MAPPING_VERSION,
             }
     assert okf_source.report.okf_files_processed == 1
     assert okf_source.report.okf_unresolved_values == 0
@@ -1479,6 +1499,9 @@ def test_okf_maps_metadata_and_preserves_frontmatter(newline: str) -> None:
         ("---\ntype: Guide\n# No closing delimiter\n", True, True),
         ("---\ntype: Guide\ntitle: Overridden\n---\n# Body\n", False, False),
         ("---\ntype: Guide\ntype: Table\n---\n# Body\n", True, True),
+        ("---\ntype: Guide\n42: value\n---\n# Body\n", True, True),
+        ("---\ntype: Guide\nextra: {42: value}\n---\n# Body\n", True, True),
+        ("---\ntype: Guide\nextra: .nan\n---\n# Body\n", True, True),
     ],
 )
 def test_non_okf_and_invalid_frontmatter_preserve_original(
@@ -1498,6 +1521,40 @@ def test_non_okf_and_invalid_frontmatter_preserve_original(
     assert not any(wu.get_aspect_of_type(OkfPropertiesClass) for wu in workunits)
     assert okf_source.report.okf_parse_errors == int(warning)
     assert bool(okf_source.report.warnings) == warning
+
+
+def test_okf_attribution_omits_unknown_commit(
+    okf_source: GitHubDocumentsSource,
+) -> None:
+    _mock_github_client(
+        okf_source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content="---\ntype: Guide\nowners: [alice@example.com]\n---\nBody",
+    )
+    commit_lookup = okf_source.client.get_latest_commit_sha
+    assert isinstance(commit_lookup, MagicMock)
+    commit_lookup.return_value = "unknown"
+    workunits = list(okf_source.get_workunits())
+    owner = OwnerClass.from_obj(
+        _okf_patch_operations(workunits, "ownership")[0]["value"]
+    )
+    attribution = owner.attribution
+    assert attribution is not None
+    assert attribution.sourceDetail == {
+        "origin": "okf",
+        "bundle": "https://github.com/example-org/analytics",
+        "rootPath": ".",
+        "conceptId": "docs/mau",
+        "key": "owners",
+        "mappingVersion": MAPPING_VERSION,
+    }
+    properties = next(
+        wu.get_aspect_of_type(OkfPropertiesClass)
+        for wu in workunits
+        if wu.get_aspect_of_type(OkfPropertiesClass)
+    )
+    assert properties is not None and properties.revision is not None
+    assert properties.revision.commit is None
 
 
 def test_okf_unresolved_owner_preserves_value(
@@ -1521,7 +1578,7 @@ def test_okf_unresolved_owner_preserves_value(
     )
     assert okf is not None
     assert [owner.owner for owner in owners] == ["urn:li:corpuser:alice@example.com"]
-    assert json.loads(okf.frontmatter)["owners"] == [
+    assert _raw_frontmatter_values(okf)["owners"] == [
         "data-platform",
         "alice@example.com",
     ]
@@ -1631,13 +1688,21 @@ def _association_aspect(
 
 
 def _existing_okf_attribution(
-    path: str = "docs/mau.md", origin: str = "okf", repo: str = "example-org/analytics"
+    concept_id: str = "docs/mau",
+    origin: str = "okf",
+    bundle: str = "https://github.com/example-org/analytics",
+    root_path: str = ".",
 ) -> MetadataAttributionClass:
     return MetadataAttributionClass(
         time=0,
         actor="urn:li:corpuser:example",
         source="urn:li:dataHubIngestionSource:example",
-        sourceDetail={"origin": origin, "repo": repo, "path": path},
+        sourceDetail={
+            "origin": origin,
+            "bundle": bundle,
+            "rootPath": root_path,
+            "conceptId": concept_id,
+        },
     )
 
 
@@ -1683,10 +1748,16 @@ def test_okf_reimport_preserves_datahub_associations(
             (file_urn, _existing_okf_attribution()),
             (manual_urn, None),
             (file_urn, None),
-            (f"urn:li:{prefix}:other-file", _existing_okf_attribution("other.md")),
+            (f"urn:li:{prefix}:other-file", _existing_okf_attribution("docs/other")),
             (
-                f"urn:li:{prefix}:other-repo",
-                _existing_okf_attribution(repo="example-org/other"),
+                f"urn:li:{prefix}:other-bundle",
+                _existing_okf_attribution(
+                    bundle="https://github.com/example-org/other"
+                ),
+            ),
+            (
+                f"urn:li:{prefix}:other-root",
+                _existing_okf_attribution(root_path="docs"),
             ),
             (
                 f"urn:li:{prefix}:other-origin",
@@ -1758,7 +1829,7 @@ def test_okf_unresolved_values_never_remove_existing_associations(
         if wu.get_aspect_of_type(OkfPropertiesClass)
     )
     assert okf is not None
-    assert json.loads(okf.frontmatter)[key] == [value]
+    assert _raw_frontmatter_values(okf)[key] == [value]
     assert okf_source.report.okf_unresolved_values == 1
 
 

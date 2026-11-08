@@ -13,13 +13,16 @@ from datahub.ingestion.source.github_documents.github_documents_report import (
 from datahub.ingestion.source.github_documents.okf_frontmatter import (
     parse_okf_frontmatter,
 )
-from datahub.ingestion.source.github_documents.okf_mapping import map_okf
+from datahub.ingestion.source.github_documents.okf_mapping import (
+    MAPPING_VERSION,
+    map_okf,
+)
 from datahub.metadata.schema_classes import (
     DocumentStateClass,
     GlobalTagsClass,
     OkfBundleClass,
     OkfPropertiesClass,
-    OkfSourceFileClass,
+    OkfRevisionClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -63,10 +66,13 @@ def _import_okf(ctx: PipelineContext, document_urn: str, raw: str) -> None:
     mapping = map_okf(
         parsed,
         document_urn=document_urn,
-        bundle=OkfBundleClass(repo="example-org/analytics", rootPath="", okfVersion="0.2"),
-        source_file=OkfSourceFileClass(
-            repo="example-org/analytics", path="guides/mau.md", ref="main", commit="a" * 40
+        bundle=OkfBundleClass(
+            location="https://github.com/example-org/analytics",
+            rootPath=".",
+            okfVersion="0.2",
         ),
+        file_path="guides/mau.md",
+        revision=OkfRevisionClass(ref="main", commit="a" * 40),
         attribution_source=f"urn:li:dataHubIngestionSource:{ctx.run_id}",
         ctx=ctx,
         report=report,
@@ -117,6 +123,17 @@ def _assert_associations(
                 association.attribution is None
                 or association.attribution.sourceDetail.get("origin") != "okf"
             )
+        else:
+            assert association.attribution is not None
+            assert association.attribution.sourceDetail == {
+                "origin": "okf",
+                "bundle": "https://github.com/example-org/analytics",
+                "rootPath": ".",
+                "conceptId": "guides/mau",
+                "commit": "a" * 40,
+                "key": "owners" if isinstance(association, OwnerClass) else "tags",
+                "mappingVersion": MAPPING_VERSION,
+            }
 
 
 @with_test_retry()
@@ -125,11 +142,13 @@ def _assert_okf_properties(graph: DataHubGraph, document_urn: str, raw: str) -> 
     assert aspect is not None
     assert aspect.declaredId == "guide:mau"
     assert aspect.conceptId == "guides/mau"
-    assert aspect.bundle.repo == "example-org/analytics"
-    assert aspect.bundle.rootPath == ""
+    assert aspect.bundle.location == "https://github.com/example-org/analytics"
+    assert aspect.bundle.rootPath == "."
     assert aspect.bundle.okfVersion == "0.2"
-    assert aspect.sourceFile is not None
-    assert aspect.sourceFile.ref == "main"
+    assert aspect.revision is not None
+    assert aspect.revision.ref == "main"
+    assert aspect.revision.commit == "a" * 40
+    assert "mappingVersion" not in aspect.to_obj()
     assert aspect.type == "Guide"
     assert aspect.raw == raw
 

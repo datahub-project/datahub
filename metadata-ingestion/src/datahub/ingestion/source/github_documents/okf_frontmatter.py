@@ -37,7 +37,6 @@ _FrontmatterLoader.yaml_implicit_resolvers = {
 @dataclass(frozen=True)
 class OkfFrontmatter:
     values: Dict[str, object]
-    json: str
     raw: str
     body: str
 
@@ -70,10 +69,10 @@ def parse_frontmatter(
         if not isinstance(values, dict):
             return None
         _validate_json_keys(values)
-        serialized = json.dumps(values, ensure_ascii=False, allow_nan=False)
+        # Validate JSON compatibility without storing a second copy of the YAML.
+        json.dumps(values, ensure_ascii=False, allow_nan=False)
         return OkfFrontmatter(
             values=values,
-            json=serialized,
             raw="".join(lines[: end + 1]),
             body="".join(lines[end + 1 :]),
         )

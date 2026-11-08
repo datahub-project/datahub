@@ -58,6 +58,7 @@ from datahub.ingestion.source.github_documents.github_hierarchy import (
 )
 from datahub.ingestion.source.github_documents.okf_bundles import (
     RESERVED_FILENAMES,
+    bundle_index_path,
     discover_bundles,
     enclosing_bundle,
 )
@@ -87,7 +88,7 @@ from datahub.metadata.schema_classes import (
     DocumentStateClass,
     ExecutionRequestInputClass,
     OkfBundleClass,
-    OkfSourceFileClass,
+    OkfRevisionClass,
     StatusClass,
 )
 from datahub.metadata.urns import DocumentUrn
@@ -408,12 +409,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         okf_mapping = None
         text = content
         filename = PurePosixPath(file_path).name
-        if (
-            bundle
-            and filename == "index.md"
-            and file_path
-            == (f"{bundle.rootPath}/index.md" if bundle.rootPath else "index.md")
-        ):
+        if bundle and filename == "index.md" and file_path == bundle_index_path(bundle):
             root_index = parse_frontmatter(content, path=file_path, report=self.report)
             if root_index is not None:
                 text = root_index.body
@@ -430,9 +426,8 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                     frontmatter,
                     document_urn=document_urn,
                     bundle=bundle,
-                    source_file=OkfSourceFileClass(
-                        repo=owner_repo,
-                        path=file_path,
+                    file_path=file_path,
+                    revision=OkfRevisionClass(
                         ref=branch,
                         commit=commit_sha if commit_sha != "unknown" else None,
                         blobSha=blob_sha,

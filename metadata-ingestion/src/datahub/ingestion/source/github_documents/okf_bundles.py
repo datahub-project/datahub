@@ -8,6 +8,24 @@ from datahub.ingestion.source.github_documents.okf_frontmatter import parse_fron
 from datahub.metadata.schema_classes import OkfBundleClass
 
 RESERVED_FILENAMES = {"index.md", "log.md"}
+# Stored for a bundle at the location's root: an empty string cannot be filtered on in search.
+ROOT_PATH = "."
+
+
+def _key(root: str) -> str:
+    root = root.strip("/")
+    return "" if root in ("", ROOT_PATH) else root
+
+
+def _bundle(location: str, key: str, version: Optional[str] = None) -> OkfBundleClass:
+    return OkfBundleClass(
+        location=location, rootPath=key or ROOT_PATH, okfVersion=version
+    )
+
+
+def bundle_index_path(bundle: OkfBundleClass) -> str:
+    key = _key(bundle.rootPath)
+    return f"{key}/index.md" if key else "index.md"
 
 
 def enclosing_bundle(
@@ -20,7 +38,7 @@ def enclosing_bundle(
 def concept_id(path: str, bundle: OkfBundleClass) -> str:
     return (
         PurePosixPath(path)
-        .relative_to(bundle.rootPath or ".")
+        .relative_to(_key(bundle.rootPath) or ".")
         .with_suffix("")
         .as_posix()
     )
@@ -35,9 +53,8 @@ def discover_bundles(
     fetch: Callable[[str], Optional[str]],
     report: GitHubDocumentsSourceReport,
 ) -> Dict[str, OkfBundleClass]:
-    bundles = {
-        root: OkfBundleClass(repo=repo, rootPath=root) for root in explicit_roots
-    }
+    location = f"https://github.com/{repo}"
+    bundles = {_key(root): _bundle(location, _key(root)) for root in explicit_roots}
     # Ancestor indexes can sit outside path_prefix or the max_files slice.
     # The recursive tree provides their existence without another tree request.
     candidates = {
@@ -58,12 +75,10 @@ def discover_bundles(
         if frontmatter is None or "okf_version" not in frontmatter.values:
             continue
         parent = PurePosixPath(path).parent
-        root = "" if str(parent) == "." else str(parent)
+        root = _key(str(parent))
         version = frontmatter.values["okf_version"]
-        bundles[root] = OkfBundleClass(
-            repo=repo,
-            rootPath=root,
-            okfVersion=version if isinstance(version, str) else None,
+        bundles[root] = _bundle(
+            location, root, version if isinstance(version, str) else None
         )
         if not isinstance(version, str):
             report.okf_invalid_values += 1

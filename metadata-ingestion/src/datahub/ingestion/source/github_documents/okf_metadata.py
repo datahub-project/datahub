@@ -11,9 +11,7 @@ def _invalid(key: str, path: str, report: GitHubDocumentsSourceReport) -> None:
     report.okf_invalid_values += 1
     report.warning(
         title="Invalid OKF metadata value",
-        message=(
-            "The value remains in frontmatter JSON and raw YAML but could not be typed."
-        ),
+        message=("The value remains in raw YAML but could not be typed."),
         context=f"path={path}, key={key}",
     )
 

@@ -1,5 +1,5 @@
-import json
 from datetime import datetime, timezone
+from typing import Dict
 
 import pytest
 
@@ -14,8 +14,18 @@ from datahub.ingestion.source.github_documents.okf_mapping import map_okf
 from datahub.metadata.schema_classes import (
     OkfBundleClass,
     OkfPropertiesClass,
-    OkfSourceFileClass,
+    OkfRevisionClass,
 )
+
+
+def _raw_frontmatter_values(properties: OkfPropertiesClass) -> Dict[str, object]:
+    parsed = parse_okf_frontmatter(
+        properties.raw,
+        path="context/guides/mau.md",
+        report=GitHubDocumentsSourceReport(),
+    )
+    assert parsed is not None
+    return parsed.values
 
 
 def _properties(fields: str, report: GitHubDocumentsSourceReport) -> OkfPropertiesClass:
@@ -26,11 +36,12 @@ def _properties(fields: str, report: GitHubDocumentsSourceReport) -> OkfProperti
         parsed,
         document_urn="urn:li:document:example",
         bundle=OkfBundleClass(
-            repo="example-org/analytics", rootPath="context", okfVersion="0.2"
+            location="https://github.com/example-org/analytics",
+            rootPath="context",
+            okfVersion="0.2",
         ),
-        source_file=OkfSourceFileClass(
-            repo="example-org/analytics", path="context/guides/mau.md", ref="main"
-        ),
+        file_path="context/guides/mau.md",
+        revision=OkfRevisionClass(ref="main"),
         attribution_source=None,
         ctx=PipelineContext(run_id="test"),
         report=report,
@@ -70,10 +81,12 @@ def test_lifecycle_trust_and_declared_id_are_typed_without_losing_frontmatter() 
     assert properties.verified[0].at == int(
         datetime(2026, 6, 25, 9, tzinfo=timezone.utc).timestamp() * 1000
     )
-    values = json.loads(properties.frontmatter)
+    values = _raw_frontmatter_values(properties)
     assert values["status"] == "experimental"
     assert values["stale_after"] == "2026-09-23T02:00:00+02:00"
-    assert values["generated"]["by"] == "reference_agent/model"
+    generated = values["generated"]
+    assert isinstance(generated, dict)
+    assert generated["by"] == "reference_agent/model"
     assert isinstance(values["verified"], dict)
     assert values["okfVersion"] == "99"
     assert values["okf_version"] == "98"
@@ -109,7 +122,7 @@ def test_invalid_or_offsetless_stale_after_warns_and_preserves_value(
     report = GitHubDocumentsSourceReport()
     properties = _properties(f"stale_after: {value}\n", report)
     assert properties.staleAfter is None
-    assert json.loads(properties.frontmatter)["stale_after"] == value
+    assert _raw_frontmatter_values(properties)["stale_after"] == value
     assert report.okf_invalid_values == 1
     assert report.warnings
 
@@ -126,7 +139,8 @@ def test_invalid_stamp_fields_warn_without_discarding_the_concept() -> None:
     assert properties.generated.at is None
     assert properties.verified is not None
     assert [stamp.by for stamp in properties.verified] == ["process:nightly"]
-    assert len(json.loads(properties.frontmatter)["verified"]) == 2
+    verified = _raw_frontmatter_values(properties)["verified"]
+    assert isinstance(verified, list) and len(verified) == 2
     assert report.okf_invalid_values == 2
 
 
@@ -143,6 +157,6 @@ def test_non_string_status_is_preserved_and_reported() -> None:
     report = GitHubDocumentsSourceReport()
     properties = _properties("status: 42\n", report)
     assert properties.status is None
-    assert json.loads(properties.frontmatter)["status"] == 42
+    assert _raw_frontmatter_values(properties)["status"] == 42
     assert report.okf_invalid_values == 1
     assert report.warnings

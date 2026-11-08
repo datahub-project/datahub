@@ -465,24 +465,19 @@ type OkfProperties {
   verified: [OkfStamp!]
 
   """
-  All frontmatter keys and values as JSON text derived from raw, including unmapped keys
+  The frontmatter keys as a JSON object, parsed from `raw` when read
   """
-  frontmatter: String!
+  frontmatter: String
 
   """
-  Original YAML block, including delimiters and line endings, verbatim. Canonical for write-back.
+  The original YAML frontmatter block, verbatim including delimiters. The only stored copy of the frontmatter: typed fields above are read from it, and write-back edits it in place.
   """
-  raw: String
+  raw: String!
 
   """
-  Git provenance of the imported concept
+  The revision the concept was read at; the merge base for write-back. The file's location is bundle.location + bundle.rootPath + conceptId + .md.
   """
-  sourceFile: OkfSourceFile
-
-  """
-  Version of the rules used to map frontmatter to native metadata
-  """
-  mappingVersion: String!
+  revision: OkfRevision
 }
 
 """
@@ -490,12 +485,12 @@ Identity and declared format version of an OKF knowledge bundle
 """
 type OkfBundle {
   """
-  Repository in owner/name form
+  Canonical URI of the bundle's location, without a branch or trailing slash for GitHub
   """
-  repo: String!
+  location: String!
 
   """
-  Bundle root relative to the repository root. Empty for a repository-root bundle.
+  Bundle root relative to the location's root; "." for a bundle at that root.
   """
   rootPath: String!
 
@@ -521,19 +516,9 @@ type OkfStamp {
 }
 
 """
-Git provenance of an OKF concept
+The revision the concept was read at; the merge base for write-back. The file's location is bundle.location + bundle.rootPath + conceptId + .md.
 """
-type OkfSourceFile {
-  """
-  Repository in owner/name form
-  """
-  repo: String!
-
-  """
-  File path relative to the repository root
-  """
-  path: String!
-
+type OkfRevision {
   """
   Branch or ref used to read the file
   """

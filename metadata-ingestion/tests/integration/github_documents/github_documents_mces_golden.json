@@ -178,7 +178,7 @@
                 "github_file_path": "guides/broken.md",
                 "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "github.example-org.analytics.guides.broken",
-                "content_hash": "536ba0ce0aad36e9c628f3bb279226e7c6397d43afdeb9b76662e9a83ed73fa2",
+                "content_hash": "7ad2d2afe3e8fdeecbae33ede15ec54ae729bb699396f485e55e392847be7ba2",
                 "extraction_algo_version": "2",
                 "github_blob_sha": "2379207268f21baec301446363a89396d7e96d4c"
             },
@@ -289,7 +289,7 @@
                 "github_file_path": "guides/mau.md",
                 "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "github.example-org.analytics.guides.mau",
-                "content_hash": "2bead8662c8f14f18c79966fb772a4ab43d608a984b690b63a582e19ff732a27",
+                "content_hash": "49ee6539d0add848ae1b376dc35abc48b7c231ad60873eaef65fa610cce55d0b",
                 "extraction_algo_version": "2",
                 "github_blob_sha": "ab354c614d205f21b831c77612fa615b2920f689"
             },
@@ -368,8 +368,8 @@
     "aspect": {
         "json": {
             "bundle": {
-                "repo": "example-org/analytics",
-                "rootPath": "",
+                "location": "https://github.com/example-org/analytics",
+                "rootPath": ".",
                 "okfVersion": "0.2"
             },
             "conceptId": "guides/mau",
@@ -388,16 +388,12 @@
                     "at": 1782378000000
                 }
             ],
-            "frontmatter": "{\"id\": \"guide:mau\", \"type\": \"Guide\", \"title\": \"Monthly active users\", \"description\": \"How MAU is defined and which table to use.\", \"status\": \"stable\", \"stale_after\": \"2026-09-23T00:00:00Z\", \"generated\": {\"by\": \"reference_agent/model\", \"at\": \"2026-06-20T22:53:05Z\"}, \"verified\": {\"by\": \"human:alice\", \"at\": \"2026-06-25T09:00:00Z\"}, \"owners\": [\"alice@example.com\", \"urn:li:corpGroup:data-platform\"], \"tags\": [\"metrics\"], \"glossary_terms\": [\"urn:li:glossaryTerm:active-user-id\"], \"audience\": \"analysts\", \"depends_on\": [\"table:events\"]}",
             "raw": "---\nid: guide:mau\ntype: Guide\ntitle: Monthly active users\ndescription: How MAU is defined and which table to use.\nstatus: stable\nstale_after: 2026-09-23T00:00:00Z\ngenerated: {by: reference_agent/model, at: 2026-06-20T22:53:05Z}\nverified: {by: human:alice, at: 2026-06-25T09:00:00Z}\nowners: [alice@example.com, \"urn:li:corpGroup:data-platform\"]\ntags: [metrics]\nglossary_terms: [\"urn:li:glossaryTerm:active-user-id\"]\naudience: analysts\ndepends_on: [\"table:events\"]\n---\n",
-            "sourceFile": {
-                "repo": "example-org/analytics",
-                "path": "guides/mau.md",
+            "revision": {
                 "ref": "main",
                 "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "blobSha": "ab354c614d205f21b831c77612fa615b2920f689"
-            },
-            "mappingVersion": "3"
+            }
         }
     },
     "systemMetadata": {
@@ -454,11 +450,12 @@
                             "source": "urn:li:dataHubIngestionSource:cli-1585131e06f6a1ebcf342373e886dced",
                             "sourceDetail": {
                                 "origin": "okf",
-                                "repo": "example-org/analytics",
-                                "path": "guides/mau.md",
+                                "bundle": "https://github.com/example-org/analytics",
+                                "rootPath": ".",
+                                "conceptId": "guides/mau",
                                 "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                                 "key": "owners",
-                                "mappingVersion": "3"
+                                "mappingVersion": "5"
                             }
                         }
                     }
@@ -475,11 +472,12 @@
                             "source": "urn:li:dataHubIngestionSource:cli-1585131e06f6a1ebcf342373e886dced",
                             "sourceDetail": {
                                 "origin": "okf",
-                                "repo": "example-org/analytics",
-                                "path": "guides/mau.md",
+                                "bundle": "https://github.com/example-org/analytics",
+                                "rootPath": ".",
+                                "conceptId": "guides/mau",
                                 "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                                 "key": "owners",
-                                "mappingVersion": "3"
+                                "mappingVersion": "5"
                             }
                         }
                     }
@@ -519,11 +517,12 @@
                             "source": "urn:li:dataHubIngestionSource:cli-1585131e06f6a1ebcf342373e886dced",
                             "sourceDetail": {
                                 "origin": "okf",
-                                "repo": "example-org/analytics",
-                                "path": "guides/mau.md",
+                                "bundle": "https://github.com/example-org/analytics",
+                                "rootPath": ".",
+                                "conceptId": "guides/mau",
                                 "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                                 "key": "tags",
-                                "mappingVersion": "3"
+                                "mappingVersion": "5"
                             }
                         }
                     }
@@ -563,11 +562,12 @@
                             "source": "urn:li:dataHubIngestionSource:cli-1585131e06f6a1ebcf342373e886dced",
                             "sourceDetail": {
                                 "origin": "okf",
-                                "repo": "example-org/analytics",
-                                "path": "guides/mau.md",
+                                "bundle": "https://github.com/example-org/analytics",
+                                "rootPath": ".",
+                                "conceptId": "guides/mau",
                                 "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                                 "key": "glossary_terms",
-                                "mappingVersion": "3"
+                                "mappingVersion": "5"
                             }
                         }
                     }
@@ -622,7 +622,7 @@
                 "github_file_path": "guides/no-type.md",
                 "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "github.example-org.analytics.guides.no-type",
-                "content_hash": "3b4d991a4912f6aecd2ed8d25cf73dee306f5afeda8173d99457e30d2931a83d",
+                "content_hash": "b5efdd7f1d650a9daefed891c25bd97d81eb943e5dc1933389f5d2598ce6357a",
                 "extraction_algo_version": "2",
                 "github_blob_sha": "a489440ef2f01af8bd3993b3e488f184542f48d7"
             },
@@ -733,7 +733,7 @@
                 "github_file_path": "guides/plain.md",
                 "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "github.example-org.analytics.guides.plain",
-                "content_hash": "f826fabcb7359e3c00c61c6a5d82dd187c9056a75c30469a63d596128cea0a02",
+                "content_hash": "e9cccb8f08b5dbace314601702d650c24d47b4e851f4e481a87bb0cf98e02d99",
                 "extraction_algo_version": "2",
                 "github_blob_sha": "ce2c2b7a82b88acee2e9fdc65370d783af35a260"
             },
@@ -844,7 +844,7 @@
                 "github_file_path": "index.md",
                 "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "github.example-org.analytics.index",
-                "content_hash": "3f5b10dec4da0a8db57d9102524e794655a121211162e4679bb6ba654ccf95da",
+                "content_hash": "c9d403559d74a15811a143f7ba0f9393de36aa36f26cdd5cc5355e4f99ef10c5",
                 "extraction_algo_version": "2",
                 "github_blob_sha": "f45872f0101a221b869987f6b2e63f9c3b89207b"
             },
@@ -946,7 +946,7 @@
                 "github_file_path": "log.md",
                 "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "github.example-org.analytics.log",
-                "content_hash": "6098f321b63a81b33fcf27218b9bbe2b148880734bddce86f38926ee7cbb5769",
+                "content_hash": "bf5e2810ddc766356ad4be389c8e894873f7ec650cd5acfdc4849c9d6d0e8bcb",
                 "extraction_algo_version": "2",
                 "github_blob_sha": "d273b32ed24d7d0b67937f688ac5b32e2b826197"
             },

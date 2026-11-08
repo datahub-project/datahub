@@ -49,7 +49,7 @@ import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.okf.OkfBundle;
 import com.linkedin.okf.OkfProperties;
-import com.linkedin.okf.OkfSourceFile;
+import com.linkedin.okf.OkfRevision;
 import com.linkedin.okf.OkfStamp;
 import com.linkedin.okf.OkfStampArray;
 import com.linkedin.structured.StructuredProperties;
@@ -1363,7 +1363,7 @@ public class DocumentMapperTest {
             + "\"stale_after\":\"2022-01-03T00:00:00Z\","
             + "\"generated\":{\"by\":\"reference_agent/model\",\"at\":\"2022-01-01T00:00:00Z\"},"
             + "\"verified\":[{\"by\":\"human:alice\",\"at\":\"2022-01-02T00:00:00Z\"}],"
-            + "\"audience\":\"analysts\"}";
+            + "\"audience\":\"analysts\",\"reviewed\":\"2026-01-01\"}";
     String raw =
         String.join(
             "\n",
@@ -1376,18 +1376,17 @@ public class DocumentMapperTest {
             "generated: {by: reference_agent/model, at: 2022-01-01T00:00:00Z}",
             "verified: [{by: human:alice, at: 2022-01-02T00:00:00Z}]",
             "audience: analysts",
+            "reviewed: 2026-01-01",
             "---",
             "");
-    OkfSourceFile sourceFile =
-        new OkfSourceFile()
-            .setRepo("example-org/analytics")
-            .setPath("context/guides/mau.md")
+    OkfRevision revision =
+        new OkfRevision()
             .setRef("main")
             .setCommit("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
             .setBlobSha("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
     OkfBundle bundle =
         new OkfBundle()
-            .setRepo("example-org/analytics")
+            .setLocation("https://github.com/example-org/analytics")
             .setRootPath("context")
             .setOkfVersion("0.2");
     OkfStamp generated = new OkfStamp().setBy("reference_agent/model").setAt(TEST_TIMESTAMP);
@@ -1403,17 +1402,15 @@ public class DocumentMapperTest {
             .setStaleAfter(LAST_OBSERVED_TIME)
             .setGenerated(generated)
             .setVerified(new OkfStampArray(java.util.List.of(verified)))
-            .setFrontmatter(frontmatter)
             .setRaw(raw)
-            .setSourceFile(sourceFile)
-            .setMappingVersion("3");
+            .setRevision(revision);
     addAspectToResponse(entityResponse, OKF_PROPERTIES_ASPECT_NAME, properties);
 
     Document result = DocumentMapper.map(null, entityResponse);
 
     assertNotNull(result.getOkfProperties());
     com.linkedin.datahub.graphql.generated.OkfProperties mapped = result.getOkfProperties();
-    assertEquals(mapped.getBundle().getRepo(), "example-org/analytics");
+    assertEquals(mapped.getBundle().getLocation(), "https://github.com/example-org/analytics");
     assertEquals(mapped.getBundle().getRootPath(), "context");
     assertEquals(mapped.getBundle().getOkfVersion(), "0.2");
     assertEquals(mapped.getConceptId(), "guides/mau");
@@ -1429,13 +1426,10 @@ public class DocumentMapperTest {
     assertEquals(mapped.getVerified().get(0).getAt(), INGESTION_TIME);
     assertEquals(mapped.getFrontmatter(), frontmatter);
     assertEquals(mapped.getRaw(), raw);
-    assertEquals(mapped.getMappingVersion(), "3");
-    assertNotNull(mapped.getSourceFile());
-    assertEquals(mapped.getSourceFile().getRepo(), "example-org/analytics");
-    assertEquals(mapped.getSourceFile().getPath(), "context/guides/mau.md");
-    assertEquals(mapped.getSourceFile().getRef(), "main");
-    assertEquals(mapped.getSourceFile().getCommit(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-    assertEquals(mapped.getSourceFile().getBlobSha(), "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+    assertNotNull(mapped.getRevision());
+    assertEquals(mapped.getRevision().getRef(), "main");
+    assertEquals(mapped.getRevision().getCommit(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    assertEquals(mapped.getRevision().getBlobSha(), "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
   }
 
   @Test
@@ -1450,16 +1444,17 @@ public class DocumentMapperTest {
     EntityResponse entityResponse = createBasicEntityResponse();
     OkfProperties properties =
         new OkfProperties()
-            .setBundle(new OkfBundle().setRepo("example-org/analytics").setRootPath(""))
+            .setBundle(
+                new OkfBundle()
+                    .setLocation("https://github.com/example-org/analytics")
+                    .setRootPath("."))
             .setConceptId("guides/mau")
             .setType("Guide")
             .setGenerated(new OkfStamp().setBy("human:alice"))
             .setVerified(
                 new OkfStampArray(java.util.List.of(new OkfStamp().setBy("process:nightly"))))
-            .setSourceFile(
-                new OkfSourceFile().setRepo("example-org/analytics").setPath("guides/mau.md"))
-            .setFrontmatter("{\"type\":\"Guide\"}")
-            .setMappingVersion("3");
+            .setRevision(new OkfRevision())
+            .setRaw("---\ntype: Guide\n---\n");
     addAspectToResponse(entityResponse, OKF_PROPERTIES_ASPECT_NAME, properties);
 
     com.linkedin.datahub.graphql.generated.OkfProperties mapped =
@@ -1472,9 +1467,33 @@ public class DocumentMapperTest {
     assertNull(mapped.getStaleAfter());
     assertNull(mapped.getGenerated().getAt());
     assertNull(mapped.getVerified().get(0).getAt());
-    assertNull(mapped.getSourceFile().getRef());
-    assertNull(mapped.getSourceFile().getCommit());
-    assertNull(mapped.getSourceFile().getBlobSha());
+    assertNull(mapped.getRevision().getRef());
+    assertNull(mapped.getRevision().getCommit());
+    assertNull(mapped.getRevision().getBlobSha());
+  }
+
+  @Test
+  public void testMapDocumentWithInvalidOkfRaw() {
+    EntityResponse entityResponse = createBasicEntityResponse();
+    String raw = "---\ntype: Guide\nowners: [\n---\n";
+    OkfProperties properties =
+        new OkfProperties()
+            .setBundle(
+                new OkfBundle()
+                    .setLocation("https://github.com/example-org/analytics")
+                    .setRootPath("."))
+            .setConceptId("guides/mau")
+            .setType("Guide")
+            .setRaw(raw);
+    addAspectToResponse(entityResponse, OKF_PROPERTIES_ASPECT_NAME, properties);
+
+    com.linkedin.datahub.graphql.generated.OkfProperties mapped =
+        DocumentMapper.map(null, entityResponse).getOkfProperties();
+
+    assertNotNull(mapped);
+    assertEquals(mapped.getRaw(), raw);
+    assertNull(mapped.getFrontmatter());
+    assertNull(mapped.getRevision());
   }
 
   // Helper methods

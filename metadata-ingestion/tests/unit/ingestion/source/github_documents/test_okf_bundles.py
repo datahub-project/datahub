@@ -63,8 +63,12 @@ def _concepts(source: GitHubDocumentsSource) -> Dict[str, OkfPropertiesClass]:
     for wu in source.get_workunits():
         aspect = wu.get_aspect_of_type(OkfPropertiesClass)
         if aspect is not None:
-            assert aspect.sourceFile is not None
-            concepts[aspect.sourceFile.path] = aspect
+            path = "/".join(
+                part
+                for part in [aspect.bundle.rootPath, aspect.conceptId + ".md"]
+                if part != "."
+            )
+            concepts[path] = aspect
     return concepts
 
 
@@ -82,11 +86,11 @@ def test_bundle_relative_identity_and_deepest_root() -> None:
     concepts = _concepts(source)
     assert set(concepts) == {"root.md", "context/guides/mau.md", "context/deep/mau.md"}
     assert concepts["root.md"].conceptId == "root"
-    assert concepts["root.md"].bundle.rootPath == ""
+    assert concepts["root.md"].bundle.rootPath == "."
     assert concepts["root.md"].bundle.okfVersion == "0.2"
     mau = concepts["context/guides/mau.md"]
     assert mau.conceptId == "guides/mau"
-    assert mau.bundle.repo == "example-org/analytics"
+    assert mau.bundle.location == "https://github.com/example-org/analytics"
     assert mau.bundle.rootPath == "context"
     assert mau.bundle.okfVersion == "0.3"
     nested = concepts["context/deep/mau.md"]
@@ -212,11 +216,19 @@ def test_master_switch_disables_discovery_and_preserves_index_frontmatter() -> N
 
 def test_bundle_metadata_participates_in_content_hash() -> None:
     content = "---\ntype: Guide\n---\nBody"
-    bundle = OkfBundleClass(repo="example-org/analytics", rootPath="", okfVersion="0.2")
+    bundle = OkfBundleClass(
+        location="https://github.com/example-org/analytics",
+        rootPath=".",
+        okfVersion="0.2",
+    )
     original = compute_file_content_hash(content, bundle=bundle)
     assert original != compute_file_content_hash(content)
     bundle.okfVersion = "0.3"
     assert original != compute_file_content_hash(content, bundle=bundle)
     bundle.okfVersion = "0.2"
     bundle.rootPath = "context"
+    assert original != compute_file_content_hash(content, bundle=bundle)
+
+    bundle.rootPath = "."
+    bundle.location = "https://github.com/example-org/other"
     assert original != compute_file_content_hash(content, bundle=bundle)

@@ -1,13 +1,7 @@
 namespace com.linkedin.okf
 
-/** Git provenance of an OKF concept. */
-record OkfSourceFile {
-  /** Repository in owner/name form. */
-  repo: string
-
-  /** File path relative to the repository root. */
-  path: string
-
+/** The revision the concept was read at; the merge base for write-back. The file's location is bundle.location + bundle.rootPath + conceptId + .md. */
+record OkfRevision {
   /** Branch or ref used to read the file. */
   ref: optional string
 

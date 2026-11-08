@@ -12,7 +12,16 @@ record OkfProperties {
   @Searchable = {
     "fieldName": "okfConceptId",
     "fieldType": "KEYWORD",
-    "queryByDefault": true
+    "queryByDefault": true,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "okfConceptId",
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" }
+      ]
+    }
   }
   conceptId: string
 
@@ -20,7 +29,16 @@ record OkfProperties {
   @Searchable = {
     "fieldName": "okfDeclaredId",
     "fieldType": "KEYWORD",
-    "queryByDefault": true
+    "queryByDefault": true,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "okfDeclaredId",
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" }
+      ]
+    }
   }
   declaredId: optional string
 
@@ -29,7 +47,8 @@ record OkfProperties {
     "fieldName": "okfType",
     "fieldType": "KEYWORD",
     "addToFilters": true,
-    "queryByDefault": false
+    "queryByDefault": false,
+    "v3": { "queryByDefault": false }
   }
   type: string
 
@@ -41,7 +60,8 @@ record OkfProperties {
     "fieldName": "okfStatus",
     "fieldType": "KEYWORD",
     "addToFilters": true,
-    "queryByDefault": false
+    "queryByDefault": false,
+    "v3": { "queryByDefault": false }
   }
   status: optional string
 
@@ -49,7 +69,8 @@ record OkfProperties {
   @Searchable = {
     "fieldName": "okfStaleAfter",
     "fieldType": "DATETIME",
-    "queryByDefault": false
+    "queryByDefault": false,
+    "v3": { "queryByDefault": false }
   }
   staleAfter: optional long
 
@@ -59,15 +80,9 @@ record OkfProperties {
   /** Independent verification events, normalized to a list. */
   verified: optional array[OkfStamp]
 
-  /** All frontmatter keys and values as JSON derived from raw, including unmapped keys. */
-  frontmatter: string
+  /** The original YAML frontmatter block, verbatim including delimiters. The only stored copy of the frontmatter: typed fields above are read from it, and write-back edits it in place. */
+  raw: string
 
-  /** Original YAML block, including delimiters and line endings, verbatim. Canonical for write-back. */
-  raw: optional string
-
-  /** Git provenance of the imported concept. */
-  sourceFile: optional OkfSourceFile
-
-  /** Version of the rules used to map frontmatter to native metadata. */
-  mappingVersion: string
+  /** The revision the concept was read at; the merge base for write-back. The file's location is bundle.location + bundle.rootPath + conceptId + .md. */
+  revision: optional OkfRevision
 }
