@@ -1311,7 +1311,8 @@ class SqlParsingAggregator(Closeable):
 
     def _process_view_definition(
         self, view_urn: UrnStr, view_definition: ViewDefinition
-    ) -> None:
+    ) -> bool:
+        """Return whether the definition authoritatively has no upstream lineage."""
         # Note that in some cases, the view definition will be a SELECT statement
         # instead of a CREATE VIEW ... AS SELECT statement. In those cases, we can't
         # trust the parsed query type or downstream urn.
@@ -1334,7 +1335,7 @@ class SqlParsingAggregator(Closeable):
                 self._add_table_level_fallback_lineage(
                     view_urn, view_definition.table_level_fallback_upstreams
                 )
-            return  # table_error: only the table-level fallback (if any) is emitted
+            return False  # Only the table-level fallback (if any) is emitted.
         elif isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
             self.report.num_views_column_timeout += 1
         elif parsed.debug_info.column_error:
@@ -1370,7 +1371,7 @@ class SqlParsingAggregator(Closeable):
                 view_definition.table_level_fallback_upstreams,
                 count_self_drop=not self_ref_in_parse,
             )
-            return
+            return False
 
         # Register the query.
         self._add_to_query_map(
@@ -1391,6 +1392,15 @@ class SqlParsingAggregator(Closeable):
 
         # Register the query's lineage.
         self._lineage_map.for_mutation(view_urn, OrderedSet()).add(query_fingerprint)
+
+        # Self-reference removal and parser errors are not evidence of an empty
+        # definition. Only a successful parse without input references can clear
+        # previously emitted lineage.
+        return (
+            not parsed.in_tables
+            and not any(cl.upstreams for cl in parsed.column_lineage or [])
+            and not parsed.debug_info.column_error
+        )
 
     def _add_table_level_fallback_lineage(
         self, view_urn: UrnStr, upstreams: List[UrnStr], count_self_drop: bool = True
@@ -1539,14 +1549,19 @@ class SqlParsingAggregator(Closeable):
         # Process all views and inject them into the lineage map.
         # The parsing of view definitions is deferred until this point
         # to ensure the availability of all schema metadata.
-        for view_urn, view_definition in self._view_definitions.items():
-            self._process_view_definition(view_urn, view_definition)
+        empty_view_definitions = {
+            view_urn
+            for view_urn, view_definition in self._view_definitions.items()
+            if self._process_view_definition(view_urn, view_definition)
+        }
         self._view_definitions.clear()
 
         # Generate lineage and queries.
         for downstream_urn in sorted(self._lineage_map):
             yield from self._gen_lineage_for_downstream(
-                downstream_urn, queries_generated=queries_generated
+                downstream_urn,
+                queries_generated=queries_generated,
+                allow_empty_lineage=downstream_urn in empty_view_definitions,
             )
 
     @classmethod
@@ -1631,7 +1646,10 @@ class SqlParsingAggregator(Closeable):
                 )
 
     def _gen_lineage_for_downstream(
-        self, downstream_urn: str, queries_generated: Set[QueryId]
+        self,
+        downstream_urn: str,
+        queries_generated: Set[QueryId],
+        allow_empty_lineage: bool = False,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         query_ids: OrderedSet[QueryId] = self._lineage_map.get(
             downstream_urn, OrderedSet()
@@ -1774,7 +1792,11 @@ class SqlParsingAggregator(Closeable):
             upstream_aspect.fineGrainedLineages or None
         )
 
-        if not upstream_aspect.upstreams and not upstream_aspect.fineGrainedLineages:
+        if (
+            not upstream_aspect.upstreams
+            and not upstream_aspect.fineGrainedLineages
+            and not allow_empty_lineage
+        ):
             return
 
         yield MetadataChangeProposalWrapper(
