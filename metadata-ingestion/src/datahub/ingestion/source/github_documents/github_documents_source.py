@@ -431,7 +431,10 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         if self._should_skip_unchanged_file(
-            document_urn, source_hash, compute_file_content_hash(content)
+            document_urn,
+            source_hash,
+            compute_file_content_hash(content),
+            is_okf_concept=frontmatter is not None,
         ):
             logger.info("Skipping unchanged file document: %s", file_path)
             self.report.files_skipped_unchanged += 1
@@ -592,7 +595,12 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         return None
 
     def _should_skip_unchanged_file(
-        self, document_urn: str, source_hash: str, file_text_hash: str
+        self,
+        document_urn: str,
+        source_hash: str,
+        file_text_hash: str,
+        *,
+        is_okf_concept: bool = False,
     ) -> bool:
         if not self.ctx.graph:
             return False
@@ -613,7 +621,11 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         props = document_info.customProperties
         stored_hash = props.get("source_content_hash")
         exported_hash = props.get(LAST_EXPORTED_CONTENT_HASH_KEY)
-        return source_hash == stored_hash or file_text_hash == exported_hash
+        if source_hash == stored_hash:
+            return True
+        # A merged sync-back write must be re-imported so the file takes over
+        # attribution of the values DataHub wrote into it.
+        return not is_okf_concept and file_text_hash == exported_hash
 
     def _resolve_document_identity(
         self, source_id: str, owner_repo: str, path: str, *, is_directory: bool = False

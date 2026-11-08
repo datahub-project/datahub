@@ -124,19 +124,21 @@ def reconcile_okf_associations(
 
         # One document identifies one file. Move its OKF value to the current source
         # key even when another unresolved value makes missing-value removal unsafe.
+        # An unattributed value (a DataHub edit, e.g. written to the file by
+        # sync-back) is handed over to the file the same way.
         for existing in current:
             if (
-                _from_okf(existing.attribution)
+                (_from_okf(existing.attribution) or existing.attribution is None)
                 and _association_urn(existing) == urn
                 and _association_key(existing) != _association_key(added)
             ):
                 _remove_association(patcher, existing)
 
-        # Do not claim an existing association that shares the patch key. This
-        # matters especially when no ingestion-source URN is available: both
-        # the file's and a manually added value would then use an empty source.
+        # Do not claim an association another source attributed that shares the
+        # patch key; an unattributed one at the same key is simply overwritten.
         if any(
             _association_key(existing) == _association_key(added)
+            and existing.attribution is not None
             and not _from_okf(existing.attribution)
             for existing in current
         ):

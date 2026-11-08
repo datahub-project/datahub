@@ -1786,6 +1786,21 @@ def test_okf_reimport_preserves_datahub_associations(
         for suffix in ["other-file", "other-bundle", "other-root"]
     }
     expected.add(file_urn)
+    if field_state == "listed":
+        # The file now declares the value, so it takes over the DataHub edit.
+        # Without an ingestion-source URN both share a key: OKF overwrites it.
+        handover = [
+            op for op in operations if "dataHubIngestionSource" not in op["path"]
+        ]
+        assert len(handover) == 1
+        assert handover[0]["op"] == "add"
+        assert file_urn in handover[0]["path"]
+        value = handover[0]["value"]
+        assert isinstance(value, dict)
+        attribution = value["attribution"]
+        assert isinstance(attribution, dict)
+        assert attribution["sourceDetail"]["origin"] == "okf"
+        operations = [op for op in operations if op not in handover]
     assert len(operations) == len(expected)
     for operation in operations:
         assert operation["op"] == "remove"
@@ -2114,6 +2129,54 @@ def test_okf_source_change_moves_values_without_duplicates(
 
 
 @pytest.mark.parametrize(
+    "key,prefix,aspect_name",
+    [
+        ("owners", "corpuser", "ownership"),
+        ("tags", "tag", "globalTags"),
+        ("glossary_terms", "glossaryTerm", "glossaryTerms"),
+    ],
+)
+def test_okf_declared_value_takes_over_datahub_edit(
+    okf_source: GitHubDocumentsSource, key: str, prefix: str, aspect_name: str
+) -> None:
+    urn = f"urn:li:{prefix}:example"
+    other_source = _existing_okf_attribution(origin="other")
+    current = _association_aspect(key, [(urn, None), (urn, other_source)])
+    graph = _mock_existing_associations(okf_source, current)
+    okf_source.ctx.run_id = "urn:li:dataHubExecutionRequest:test-run"
+    execution = ExecutionRequestInputClass(
+        task="test",
+        executorId="test",
+        args={},
+        requestedAt=0,
+        source=ExecutionRequestSourceClass(
+            type="SCHEDULED_INGESTION_SOURCE",
+            ingestionSource="urn:li:dataHubIngestionSource:managed",
+        ),
+    )
+    graph.get_aspect.side_effect = lambda entity, cls: (
+        execution
+        if cls is ExecutionRequestInputClass
+        else current
+        if cls is type(current)
+        else None
+    )
+    _mock_github_client(
+        okf_source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content=f'---\ntype: Guide\n{key}: ["{urn}"]\n---\nBody',
+    )
+    operations = _okf_patch_operations(list(okf_source.get_workunits()), aspect_name)
+    # The unattributed DataHub edit is removed; another source's value is kept.
+    assert [op["op"] for op in operations] == ["remove", "add"]
+    assert urn in operations[0]["path"]
+    assert "dataHubIngestionSource" not in operations[0]["path"]
+    attribution = operations[1]["value"]["attribution"]
+    assert isinstance(attribution, dict)
+    assert attribution["source"] == "urn:li:dataHubIngestionSource:managed"
+
+
+@pytest.mark.parametrize(
     "hash_key", ["source_content_hash", "last_exported_content_hash", "content_hash"]
 )
 def test_hash_skip_contract(okf_source: GitHubDocumentsSource, hash_key: str) -> None:
@@ -2140,10 +2203,12 @@ def test_hash_skip_contract(okf_source: GitHubDocumentsSource, hash_key: str) ->
         file_content=content,
     )
     list(okf_source.get_workunits())
-    assert okf_source.report.files_skipped_unchanged == (
-        0 if hash_key == "content_hash" else 1
-    )
-    assert okf_source.report.files_processed == (1 if hash_key == "content_hash" else 0)
+    # A concept matching only its last sync-back write is re-imported, so the
+    # file takes over the values DataHub wrote into it. Plain documents still
+    # skip on it (test_sync_back_skip_still_clears_stale_okf_state).
+    skipped = hash_key == "source_content_hash"
+    assert okf_source.report.files_skipped_unchanged == (1 if skipped else 0)
+    assert okf_source.report.files_processed == (0 if skipped else 1)
 
 
 def test_reads_one_pinned_snapshot(okf_source: GitHubDocumentsSource) -> None:
