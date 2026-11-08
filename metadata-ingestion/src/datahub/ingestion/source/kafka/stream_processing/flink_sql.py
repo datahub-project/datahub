@@ -34,9 +34,6 @@ _UNREADABLE_DML_KEYWORDS: Final[frozenset] = frozenset(
 )
 
 
-_CTAS_RE: Final["re.Pattern[str]"] = re.compile(r"\bAS\s*(?:\(|SELECT\b|WITH\b)", re.I)
-
-
 class FlinkSqlParseError(Exception):
     pass
 
@@ -71,6 +68,10 @@ def parse_flink_statement(sql: str) -> List[FlinkDmlStatement]:
     try:
         expressions = sqlglot.parse(body, read=FLINK_SQL_DIALECT)
     except sqlglot.errors.SqlglotError as e:
+        # Flink DDL (computed columns, WATERMARK, DISTRIBUTED BY) is often beyond
+        # sqlglot; it moves no data, so only SQL that can is an error.
+        if not _may_move_data(body):
+            return []
         raise FlinkSqlParseError(str(e)) from e
 
     statements: List[FlinkDmlStatement] = []
@@ -80,9 +81,10 @@ def parse_flink_statement(sql: str) -> List[FlinkDmlStatement]:
         if isinstance(expression, exp.Command):
             # sqlglot falls back to a Command for syntax it cannot read. Plain DDL
             # (CREATE TABLE without AS SELECT) moves no data, so it is not an error.
-            keyword = str(expression.this).upper()
-            if keyword not in _UNREADABLE_DML_KEYWORDS or (
-                keyword == "CREATE" and not _CTAS_RE.search(str(expression.expression))
+            if str(
+                expression.this
+            ).upper() not in _UNREADABLE_DML_KEYWORDS or not _may_move_data(
+                expression.sql(dialect=FLINK_SQL_DIALECT)
             ):
                 continue
             raise FlinkSqlParseError(
@@ -124,6 +126,39 @@ def _as_dml(expression: exp.Expression) -> Optional[FlinkDmlStatement]:
         and not (table.name in cte_names and not table.db and not table.catalog)
     ]
     return FlinkDmlStatement(expression=expression, output=output, inputs=inputs)
+
+
+_WORD_RE: Final["re.Pattern[str]"] = re.compile(r"[A-Za-z_]+")
+
+
+def _may_move_data(sql: str) -> bool:
+    """Whether SQL that could not be parsed might be an INSERT or a CTAS.
+
+    Only words outside literals, quoted names and parentheses count, so a computed
+    column (`total AS (price * qty)`) or a WATERMARK inside a CREATE TABLE column list
+    does not look like `CREATE TABLE ... AS SELECT`.
+    """
+    code = _code_mask(sql)
+    depth = 0
+    top_level: List[str] = []
+    for i, char in enumerate(sql):
+        if not code[i]:
+            top_level.append(" ")
+        elif char == "(":
+            depth += 1
+            top_level.append(" " if depth > 1 else "(")
+        elif char == ")":
+            depth -= 1
+            top_level.append(" ")
+        else:
+            top_level.append(char if depth == 0 else " ")
+    words = [word.upper() for word in _WORD_RE.findall("".join(top_level))]
+    for i, word in enumerate(words):
+        if word == "INSERT":
+            return True
+        if word == "AS" and i > 0 and "CREATE" in words[:i]:
+            return True
+    return False
 
 
 def _unwrap_window_tvfs(sql: str) -> str:

@@ -173,20 +173,24 @@ class FlinkLineageExtractor:
                 jobs.append(job)
         if self._other_locations and not self._statements_in_this_cluster:
             self.report.warning(
-                title="No Flink statement matched this Kafka cluster",
-                message="Every Flink statement writes to another environment or Kafka "
-                "cluster. If statements name the catalog or database by display name, "
-                "set stream_processing_lineage.flink.environment_name / "
-                "kafka_cluster_name.",
-                context=f"seen={sorted(self._other_locations)}",
+                title="No Flink statement emitted for this Kafka cluster",
+                message="No Flink statement was emitted for this Kafka cluster, while "
+                "some write to other environments or clusters. If statements name the "
+                "catalog or database by display name, set "
+                "stream_processing_lineage.flink.environment_name / kafka_cluster_name.",
+                context=f"other_locations_seen={sorted(self._other_locations)[:10]}",
             )
         return jobs
 
     def _build_job(self, statement: FlinkStatement) -> Optional[FlinkJob]:
-        spec = statement.spec
-        if spec is None or not spec.statement or not statement.name:
+        if not statement.name:
             return None
         name = statement.name
+        spec = statement.spec
+        if spec is None or not spec.statement:
+            # It may have had a job last run; a failure keeps it from being deleted.
+            self._fail(name, "Flink statement has no SQL text in the API response")
+            return None
         if self.config.compute_pool_id and spec.compute_pool_id != (
             self.config.compute_pool_id
         ):

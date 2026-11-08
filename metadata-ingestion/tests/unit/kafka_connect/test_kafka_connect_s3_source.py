@@ -180,3 +180,19 @@ def test_restore_backup_without_a_known_folder_warns_and_emits_nothing(
 
     assert connector.extract_lineages() == []
     connector.report.warning.assert_called_once()  # type: ignore[attr-defined]
+
+
+def test_generic_mode_with_a_topic_routing_transform_warns_and_emits_nothing() -> None:
+    connector = _connector(
+        {
+            "s3.bucket.name": "my-bucket",
+            "topic.regex.list": "orders:raw/orders/.*",
+            "transforms": "route",
+            "transforms.route.type": "io.confluent.connect.cloud.transforms.TopicRegexRouter",
+            "transforms.route.regex": "(.*)",
+            "transforms.route.replacement": "landing-$1",
+        }
+    )
+
+    assert connector.extract_lineages() == []
+    connector.report.warning.assert_called_once()  # type: ignore[attr-defined]

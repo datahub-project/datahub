@@ -137,11 +137,9 @@ def _topic_name(dataset_urn: str, platform_instance: Optional[str]) -> str:
 
 
 def _written_spellings(query: str) -> Dict[str, str]:
-    # Lowercase name -> the one spelling the query uses for it.
+    # Lowercase name -> the one spelling the query uses for it, over column references
+    # and output aliases only, so a table or alias named like a column does not count.
     parsed = sqlglot.parse_one(query, read=FLINK_SQL_DIALECT)
-    return _unambiguous_lower_names(
-        {
-            identifier.name: identifier.name
-            for identifier in parsed.find_all(exp.Identifier)
-        }
-    )
+    names = [column.name for column in parsed.find_all(exp.Column)]
+    names += [alias.alias for alias in parsed.find_all(exp.Alias)]
+    return _unambiguous_lower_names({name: name for name in names if name})

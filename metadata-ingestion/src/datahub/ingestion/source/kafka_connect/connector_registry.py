@@ -183,6 +183,12 @@ class ConnectorRegistry:
             SnowflakeSourceConnector,
         )
 
+        # Explicit generic_connectors mappings win over class-name auto-detection,
+        # as on the sink path, so operators can override a built-in source.
+        generic = ConnectorRegistry._generic_source_connector(manifest, config, report)
+        if generic is not None:
+            return generic
+
         # Traditional JDBC source connector, plus Confluent Cloud managed
         # PostgresSource (non-CDC). Managed JDBC topics are {topic.prefix}{table};
         # the Debezium path would emit {server}.{schema}.{table} instead.
@@ -194,14 +200,9 @@ class ConnectorRegistry:
         # Snowflake Source connector (Confluent Cloud managed)
         elif connector_class_value == SNOWFLAKE_SOURCE_CLOUD:
             return SnowflakeSourceConnector(manifest, config, report)
-        # S3 source connectors (self-hosted and Confluent Cloud managed).
-        # Explicit generic_connectors mappings win over class-name auto-detection,
-        # matching the sink path.
+        # S3 source connectors (self-hosted and Confluent Cloud managed)
         elif connector_class_value in (S3_SOURCE_CONNECTOR_CLASS, S3_SOURCE_CLOUD):
-            generic = ConnectorRegistry._generic_source_connector(
-                manifest, config, report
-            )
-            return generic or ConfluentS3SourceConnector(manifest, config, report)
+            return ConfluentS3SourceConnector(manifest, config, report)
         # Cloud CDC source connectors (use Debezium-style naming)
         elif (
             connector_class_value in CLOUD_JDBC_SOURCE_CLASSES
@@ -210,8 +211,7 @@ class ConnectorRegistry:
             return DebeziumSourceConnector(manifest, config, report)
         elif connector_class_value == MONGO_SOURCE_CONNECTOR_CLASS:
             return MongoSourceConnector(manifest, config, report)
-
-        return ConnectorRegistry._generic_source_connector(manifest, config, report)
+        return None
 
     @staticmethod
     def _generic_source_connector(

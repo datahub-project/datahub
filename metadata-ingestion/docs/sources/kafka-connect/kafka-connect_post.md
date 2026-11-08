@@ -13,7 +13,7 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 :::warning Considerations
 
-For connectors not listed in the supported connector table above, use the `generic_connectors` configuration to provide explicit lineage mappings.
+For connectors not listed in the supported connector table above, use the `generic_connectors` configuration to provide explicit lineage mappings. A `generic_connectors` entry also overrides the built-in handling of a supported source or sink connector with the same name.
 Some advanced connector-specific features may not be fully supported
 :::
 
@@ -208,17 +208,19 @@ transforms.RegexRouter.replacement: "events.$1"
 - entries without a schema;
 - tables with the same name in two schemas, which write the same topic;
 - connectors that use a custom `query`;
-- connectors with topic-routing transforms that cannot be predicted.
+- connectors with topic-routing transforms that cannot be predicted, such as Debezium's
+  `EventRouter`.
 
 **S3 Source**: lineage needs the S3 folder behind each topic.
 
 - `RESTORE_BACKUP` mode (the self-hosted default) reads back what the S3 sink wrote, so each
-  topic the connector reports maps to `<bucket>/<topics.dir>/<topic>`. With a topic-routing
-  transform the folder no longer names the topic, so no lineage is emitted.
+  topic the connector reports maps to `<bucket>/<topics.dir>/<topic>`.
 - `GENERIC` mode, and the managed `S3Source`, route objects whose full key matches a
   `topic.regex.list` regex. Only a regex pinned to a folder, such as `orders:raw/orders/.*`,
   gives an edge (`<bucket>/raw/orders` to `orders`). Patterns such as `.*\.json` can match
   objects anywhere in the bucket, so they are skipped with a warning.
+- With a topic-routing transform (`RegexRouter`, `TopicRegexRouter`, `EventRouter`) the topic
+  is renamed after the connector produces it, so no lineage is emitted in either mode.
 
 For both connectors, only connector properties known not to hold credentials are shown on the
 DataHub pipeline.

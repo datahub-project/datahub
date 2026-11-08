@@ -1,5 +1,6 @@
 """Tests for connector_registry module."""
 
+from typing import Dict
 from unittest.mock import Mock
 
 import pytest
@@ -124,25 +125,59 @@ class TestConnectorRegistrySourceConnectors:
         assert connector.get_platform() == "postgres"
 
     @pytest.mark.parametrize(
-        "connector_class,expected_type",
+        "connector_class,extra_config,expected_type,expected_platform",
         [
             # Managed JDBC source: topics are {topic.prefix}{table}, not Debezium's
             # {server}.{schema}.{table}.
-            (POSTGRES_SOURCE_CLOUD, ConfluentJDBCSourceConnector),
-            (S3_SOURCE_CLOUD, ConfluentS3SourceConnector),
-            (S3_SOURCE_CONNECTOR_CLASS, ConfluentS3SourceConnector),
+            (
+                POSTGRES_SOURCE_CLOUD,
+                {
+                    "connection.host": "db.example",
+                    "connection.port": "5432",
+                    "db.name": "shop",
+                },
+                ConfluentJDBCSourceConnector,
+                "postgres",
+            ),
+            (S3_SOURCE_CLOUD, {}, ConfluentS3SourceConnector, "s3"),
+            (S3_SOURCE_CONNECTOR_CLASS, {}, ConfluentS3SourceConnector, "s3"),
         ],
     )
     def test_new_source_connector_routing(
-        self, connector_class: str, expected_type: type
+        self,
+        connector_class: str,
+        extra_config: Dict[str, str],
+        expected_type: type,
+        expected_platform: str,
     ) -> None:
+        manifest = create_manifest(SOURCE, connector_class)
+        manifest.config.update(extra_config)
+
         connector = ConnectorRegistry.get_connector_for_manifest(
-            create_manifest(SOURCE, connector_class),
-            create_mock_config(),
-            create_mock_report(),
+            manifest, create_mock_config(), create_mock_report()
         )
 
         assert isinstance(connector, expected_type)
+        assert connector is not None and connector.get_platform() == expected_platform
+
+    def test_generic_source_mapping_overrides_a_built_in_source(self) -> None:
+        manifest = create_manifest(
+            SOURCE, JDBC_SOURCE_CONNECTOR_CLASS, name="my-jdbc-source"
+        )
+        generic_config = GenericConnectorConfig(
+            connector_name="my-jdbc-source",
+            source_platform="postgres",
+            source_dataset="shop.public.orders",
+        )
+        config = create_mock_config()
+        config.generic_connectors = [generic_config]
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, create_mock_report()
+        )
+
+        assert isinstance(connector, _GenericConnector)
+        assert connector.generic_config == generic_config
 
     def test_sink_direction_generic_entry_does_not_replace_the_s3_source(
         self,
