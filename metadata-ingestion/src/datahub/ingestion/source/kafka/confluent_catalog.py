@@ -42,23 +42,22 @@ class KafkaTopicCatalog(CatalogIndex[CatalogKafkaTopic, KafkaSourceReport]):
             entity_label="topic",
             client=client,
         )
-        self._cluster_id = config.cluster_id
+        self.topic_config = config
 
     def get_topic(self, topic_name: str) -> Optional[CatalogKafkaTopic]:
         return self._get(topic_name)
 
     def _filter(self, entities: List[CatalogKafkaTopic]) -> List[CatalogKafkaTopic]:
-        if not self._cluster_id:
+        cluster_id = self.topic_config.cluster_id
+        if not cluster_id:
             return entities
-        in_cluster = [
-            topic for topic in entities if topic.cluster_id == self._cluster_id
-        ]
+        in_cluster = [topic for topic in entities if topic.cluster_id == cluster_id]
         if entities and not in_cluster:
             # Wrong / unset logical_cluster_id otherwise looks like "0 topics indexed".
             self.report.warning(
                 message="No Stream Catalog topic carries the configured Kafka cluster id, so no "
                 "catalog metadata will be applied. Check `confluent_catalog.cluster_id`.",
-                context=f"cluster_id={self._cluster_id}, topics_in_catalog={len(entities)}, "
+                context=f"cluster_id={cluster_id}, topics_in_catalog={len(entities)}, "
                 f"cluster_ids_seen={sorted({str(topic.cluster_id) for topic in entities})}",
             )
         return in_cluster

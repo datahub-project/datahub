@@ -187,8 +187,8 @@ transforms.RegexRouter.replacement: "events.$1"
 | **Cloud PostgreSQL CDC**<br/>`PostgresCdcSource`                                 | ✅ Full             | ✅ Full                 | Runtime API / Config-based  | Table → Topic mapping          |
 | **Cloud PostgreSQL CDC V2**<br/>`PostgresCdcSourceV2`                            | ✅ Full             | ✅ Full                 | Runtime API / Config-based  | Table → Topic mapping          |
 | **Cloud MySQL Source**<br/>`MySqlSource`                                         | ✅ Full             | ✅ Full                 | Runtime API / Config-based  | Table → Topic mapping          |
-| **Cloud PostgreSQL Source**<br/>`PostgresSource`                                 | ➖ Cloud only       | ✅ Full                 | Config-based                | Table → Topic mapping          |
-| **S3 Source**<br/>`io.confluent.connect.s3.source.S3SourceConnector`, `S3Source` | 🔧 See below        | 🔧 See below            | Runtime API / Config-based  | S3 folder → Topic mapping      |
+| **Cloud PostgreSQL Source**<br/>`PostgresSource`                                 | ❌ Not supported    | ✅ Partial              | Config-based                | Table → Topic mapping          |
+| **S3 Source**<br/>`io.confluent.connect.s3.source.S3SourceConnector`, `S3Source` | ✅ Partial          | ✅ Partial              | Runtime API / Config-based  | S3 folder → Topic mapping      |
 | **Cloud MySQL CDC**<br/>`MySqlCdcSource`                                         | ✅ Full             | ✅ Full                 | Runtime API / Config-based  | Table → Topic mapping          |
 | **Debezium MySQL**<br/>`io.debezium.connector.mysql.MySqlConnector`              | ✅ Full             | ✅ Partial              | Runtime API / Config-based  | Database → Topic CDC mapping   |
 | **Debezium PostgreSQL**<br/>`io.debezium.connector.postgresql.PostgresConnector` | ✅ Full             | ✅ Partial              | Runtime API / Config-based  | Database → Topic CDC mapping   |
@@ -201,8 +201,8 @@ transforms.RegexRouter.replacement: "events.$1"
 | **Generic Connectors**                                                           | 🔧 Config Required  | 🔧 Config Required      | User-defined mapping        | Custom lineage mapping         |
 
 **Cloud PostgreSQL Source** (`PostgresSource`): topics are `<topic.prefix><table>`. Only literal
-`schema.table` entries in `table.include.list` can be mapped to topics; regular-expression entries
-get no lineage and a warning.
+`schema.table` entries in `table.include.list` are mapped to topics; regular-expression entries are
+skipped with a warning.
 
 **S3 Source**: lineage needs the S3 folder behind each topic.
 
