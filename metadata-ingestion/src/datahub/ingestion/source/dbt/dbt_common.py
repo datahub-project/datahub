@@ -5493,6 +5493,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 skip_sources_in_lineage=self.config.skip_sources_in_lineage,
             )
 
+            # Only an authoritative empty result can replace previously emitted
+            # lineage. Missing manifest nodes and filtered upstreams are unknown.
+            has_authoritative_empty_lineage = (
+                not node.upstream_nodes and not self.config.prefer_sql_parser_lineage
+            )
+
             def _translate_dbt_name_to_upstream_urn(dbt_name: str) -> str:
                 return all_nodes_map[dbt_name].get_urn_for_upstream_lineage(
                     dbt_platform_instance=self._dbt_platform_instance,
@@ -5516,6 +5522,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 if sql_parsing_result and not sql_parsing_result.debug_info.table_error:
                     # If we have some table lineage from SQL parsing, use that.
                     upstream_urns = sql_parsing_result.in_tables
+                    has_authoritative_empty_lineage = not upstream_urns
 
                     cll = []
                     for column_lineage in sql_parsing_result.column_lineage or []:
@@ -5610,7 +5617,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             filtered_cll.append(entry)
                     cll = filtered_cll
 
-            if not upstream_urns:
+            if not upstream_urns and not has_authoritative_empty_lineage:
                 return None
 
             # Same as COPY lineage: dbt has no per-edge event time, so omit
