@@ -1675,6 +1675,22 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00-7etkjv",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
@@ -1855,6 +1871,22 @@
     "systemMetadata": {
         "lastObserved": 1643871600000,
         "runId": "dbt-2022_02_03-07_00_00-xkps96",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00-7etkjv",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2065,6 +2097,22 @@
     "systemMetadata": {
         "lastObserved": 1643871600000,
         "runId": "dbt-2022_02_03-07_00_00-xkps96",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00-7etkjv",
         "lastRunId": "no-run-id-provided"
     }
 },

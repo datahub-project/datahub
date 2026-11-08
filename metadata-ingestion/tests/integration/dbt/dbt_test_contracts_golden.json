@@ -141,6 +141,22 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.dim_pairs,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.dim_pairs,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
         "json": {
