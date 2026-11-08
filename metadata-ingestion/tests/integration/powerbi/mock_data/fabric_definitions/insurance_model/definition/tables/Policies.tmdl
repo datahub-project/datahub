@@ -29,6 +29,7 @@ table Policies
 	column WrittenPremium
 		dataType: double
 		formatString: $#,##0.00
+		displayFolder: Premium
 		lineageTag: 00000007-1111-4222-8333-000000000007
 		summarizeBy: sum
 		sourceColumn: WRITTEN_PREMIUM

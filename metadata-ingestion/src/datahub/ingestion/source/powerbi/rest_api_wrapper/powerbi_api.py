@@ -11,6 +11,7 @@ from typing import (
     Set,
     Type,
     TypeVar,
+    Union,
     cast,
 )
 
@@ -40,6 +41,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     PowerBIDataset,
     Report,
     ReportType,
+    RlsTableFilter,
     Table,
     User,
     Workspace,
@@ -73,7 +75,14 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.tmdl_parser import (
     PARTITION_KIND_CALCULATED,
     PARTITION_KIND_ENTITY,
     PARTITION_KIND_M,
+    PARTITION_MODE_DIRECT_LAKE,
+    PARTITION_MODE_DIRECT_QUERY,
+    PARTITION_MODE_DUAL,
+    PARTITION_MODE_IMPORT,
+    PARTITION_MODE_PUSH,
     TMDL_TABLES_PREFIX,
+    ParsedColumn,
+    ParsedMeasure,
     ParsedModel,
     ParsedTable,
     parse_semantic_model,
@@ -85,6 +94,28 @@ from datahub.utilities.file_backed_collections import (
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+
+# TMDL partition modes are camelCase; the scan API's `storageMode` uses the
+# TOM enum casing, which Table.storage_mode keeps. `directLake` is deliberately
+# absent: DirectLake is recognised by the `entity` partition kind alone, so a
+# stray `mode: directLake` on an M / calculated / query partition never routes
+# the table into the DirectLake lineage branch. Unknown modes pass through.
+PARTITION_MODE_TO_STORAGE_MODE: Dict[str, str] = {
+    PARTITION_MODE_IMPORT: Constant.STORAGE_MODE_IMPORT,
+    PARTITION_MODE_DIRECT_QUERY: Constant.STORAGE_MODE_DIRECT_QUERY,
+    PARTITION_MODE_DUAL: Constant.STORAGE_MODE_DUAL,
+    PARTITION_MODE_PUSH: Constant.STORAGE_MODE_PUSH,
+}
+
+
+def _field_has_properties(
+    field: Union[ParsedColumn, ParsedMeasure],
+) -> bool:
+    return (
+        field.model_properties is not None
+        and field.model_properties.has_non_default_properties(field.is_hidden)
+    )
 
 
 def form_full_table_name(
@@ -1183,42 +1214,23 @@ class PowerBiAPI:
             elif partition.kind == PARTITION_KIND_CALCULATED:
                 calculated_expression = partition.source
             elif partition.kind == PARTITION_KIND_ENTITY:
-                storage_mode = Constant.DIRECT_LAKE
                 source_schema = partition.schema_name
                 source_expression = partition.entity_name
             # `query` partitions hold native SQL, which the M parser cannot
             # consume; the table is emitted without an expression or lineage.
+            if partition.kind == PARTITION_KIND_ENTITY:
+                storage_mode = Constant.DIRECT_LAKE
+            elif (
+                partition.mode is not None
+                and partition.mode != PARTITION_MODE_DIRECT_LAKE
+            ):
+                storage_mode = PARTITION_MODE_TO_STORAGE_MODE.get(
+                    partition.mode, partition.mode
+                )
 
-        columns = [
-            Column(
-                name=column.name,
-                dataType=column.data_type or Constant.NULL_DATA_TYPE,
-                isHidden=column.is_hidden,
-                datahubDataType=FIELD_TYPE_MAPPING.get(
-                    column.data_type or Constant.NULL_DATA_TYPE,
-                    FIELD_TYPE_MAPPING[Constant.NULL_DATA_TYPE],
-                ),
-                columnType=Constant.COLUMN_TYPE_CALCULATED
-                if column.is_calculated
-                else Constant.COLUMN_TYPE_DATA,
-                expression=column.expression,
-                description=column.description,
-                source_column=column.source_column,
-                references=column.references,
-                has_row_context_iterators=column.has_row_context_iterators,
-            )
-            for column in parsed_table.columns
-        ]
+        columns = [self._column_from_parsed(column) for column in parsed_table.columns]
         measures = [
-            Measure(
-                name=measure.name,
-                expression=measure.expression,
-                isHidden=measure.is_hidden,
-                description=measure.description,
-                references=measure.references,
-                has_row_context_iterators=measure.has_row_context_iterators,
-            )
-            for measure in parsed_table.measures
+            self._measure_from_parsed(measure) for measure in parsed_table.measures
         ]
         return Table(
             name=parsed_table.name,
@@ -1239,7 +1251,81 @@ class PowerBiAPI:
             source_expression=source_expression,
             calculated_expression=calculated_expression,
             description=parsed_table.description,
+            partition_count=parsed_table.partition_count,
+            refresh_policy=parsed_table.refresh_policy,
         )
+
+    @staticmethod
+    def _column_from_parsed(column: ParsedColumn) -> Column:
+        data_type = column.data_type or Constant.NULL_DATA_TYPE
+        return Column(
+            name=column.name,
+            dataType=data_type,
+            isHidden=column.is_hidden,
+            datahubDataType=FIELD_TYPE_MAPPING.get(
+                data_type, FIELD_TYPE_MAPPING[Constant.NULL_DATA_TYPE]
+            ),
+            columnType=Constant.COLUMN_TYPE_CALCULATED
+            if column.is_calculated
+            else Constant.COLUMN_TYPE_DATA,
+            expression=column.expression,
+            description=column.description,
+            source_column=column.source_column,
+            references=column.references,
+            has_row_context_iterators=column.has_row_context_iterators,
+            model_properties=column.model_properties,
+        )
+
+    @staticmethod
+    def _measure_from_parsed(measure: ParsedMeasure) -> Measure:
+        return Measure(
+            name=measure.name,
+            expression=measure.expression,
+            isHidden=measure.is_hidden,
+            description=measure.description,
+            references=measure.references,
+            has_row_context_iterators=measure.has_row_context_iterators,
+            model_properties=measure.model_properties,
+        )
+
+    def _apply_model_properties(
+        self, parsed_model: ParsedModel, dataset: PowerBIDataset, context: str
+    ) -> None:
+        """extract_model_properties: attach RLS filters to the tables they
+        apply to and count what the mapper will emit. Role members are never
+        read from the definition."""
+        tables_by_name = {table.name: table for table in dataset.tables}
+        for role in parsed_model.roles:
+            for table_name, dax_filter in role.table_permissions.items():
+                table = tables_by_name.get(table_name)
+                if table is None:
+                    self.reporter.rls_filters_unresolved += 1
+                    self.reporter.warning(
+                        title=Constant.RLS_FILTER_TABLE_NOT_FOUND,
+                        message="A row-level-security role filters a table that is not in the parsed model; that filter is not emitted.",
+                        context=f"{context}, role={role.name}, table={table_name}",
+                    )
+                    continue
+                table.rls_filters.append(
+                    RlsTableFilter(role=role.name, filter=dax_filter)
+                )
+        self.reporter.rls_roles_parsed += len(parsed_model.roles)
+        if parsed_model.failed_roles:
+            self.reporter.tmdl_roles_failed += len(parsed_model.failed_roles)
+            self.reporter.warning(
+                title=Constant.TMDL_ROLE_NOT_PARSED,
+                message="Some role parts of the semantic-model definition could not be parsed; row-level-security roles from them are not emitted.",
+                context=f"{context}, parts={parsed_model.failed_roles}",
+            )
+        self.reporter.dataset_parameters_emitted += len(dataset.parameters)
+        for parsed_table in parsed_model.tables:
+            fields: List[Union[ParsedColumn, ParsedMeasure]] = [
+                *parsed_table.columns,
+                *parsed_table.measures,
+            ]
+            self.reporter.model_fields_with_properties += sum(
+                1 for field in fields if _field_has_properties(field)
+            )
 
     @staticmethod
     def _directlake_sql_endpoint_id(parsed_model: ParsedModel) -> Optional[str]:
@@ -1320,6 +1406,8 @@ class PowerBiAPI:
                 )
             dataset.tables.append(table)
             self.reporter.tmdl_tables_parsed += 1
+        if self.__config.extract_model_properties:
+            self._apply_model_properties(parsed_model, dataset, context)
         if self.__config.extract_model_relationships:
             dataset.relationships = parsed_model.relationships
             self.reporter.relationships_parsed += len(dataset.relationships)
