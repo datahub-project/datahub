@@ -151,7 +151,7 @@ S3_SOURCE_CLOUD: Final[str] = "S3Source"
 
 # Cloud CDC source classes routed to DebeziumSourceConnector.
 # PostgresSource is a managed JDBC source (topic.prefix + table), not CDC, so it
-# is not listed here — see ConnectorRegistry._get_source_connector.
+# is not listed here - see ConnectorRegistry._get_source_connector.
 CLOUD_JDBC_SOURCE_CLASSES: Final[List[str]] = [
     POSTGRES_CDC_SOURCE_CLOUD,
     POSTGRES_CDC_SOURCE_V2_CLOUD,

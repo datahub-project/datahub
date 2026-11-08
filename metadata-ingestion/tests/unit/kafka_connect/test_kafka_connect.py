@@ -1205,12 +1205,20 @@ class TestConfluentCloudConnectors:
         # Check for TableId with schema='public' and table='orders'
         assert any(t.schema == "public" and t.table == "orders" for t in table_names)
 
-    def test_cloud_managed_postgres_source_uses_cluster_topics(self) -> None:
+    @staticmethod
+    def _managed_postgres_source(
+        extra: Dict[str, str], cluster_topics: List[str]
+    ) -> Tuple[ConfluentJDBCSourceConnector, KafkaConnectSourceReport]:
+        # Shape of a real Confluent Cloud PostgresSource config: no connection.url.
         connector_config: Dict[str, str] = {
             "connector.class": "PostgresSource",
-            "connection.url": "jdbc:postgresql://db.example:5432/testdb",
-            "table.whitelist": "users",
+            "connection.host": "db.example",
+            "connection.port": "5432",
+            "connection.user": "reader",
+            "connection.password": "secret",
+            "db.name": "testdb",
             "topic.prefix": "pg-",
+            **extra,
         }
         manifest = ConnectorManifest(
             name="pg-src",
@@ -1219,14 +1227,57 @@ class TestConfluentCloudConnectors:
             tasks=[],
             topic_names=[],
         )
-        config: Mock = create_mock_kafka_connect_config()
-        report: Mock = Mock(spec=KafkaConnectSourceReport)
-        connector = ConfluentJDBCSourceConnector(manifest, config, report)
-        connector.all_cluster_topics = ["pg-users", "unrelated"]
+        report = KafkaConnectSourceReport()
+        connector = ConfluentJDBCSourceConnector(
+            manifest, create_mock_kafka_connect_config(), report
+        )
+        connector.all_cluster_topics = cluster_topics
+        return connector, report
+
+    def test_cloud_managed_postgres_source_maps_literal_tables_to_prefixed_topics(
+        self,
+    ) -> None:
+        connector, report = self._managed_postgres_source(
+            {"table.include.list": "public.users,sales.orders"},
+            ["pg-users", "pg-orders", "unrelated"],
+        )
 
         lineages = connector.extract_lineages()
 
-        assert [lineage.target_dataset for lineage in lineages] == ["pg-users"]
+        assert {
+            (lineage.source_dataset, lineage.target_dataset) for lineage in lineages
+        } == {
+            ("testdb.public.users", "pg-users"),
+            ("testdb.sales.orders", "pg-orders"),
+        }
+        assert all(lineage.source_platform == "postgres" for lineage in lineages)
+        bag = connector.extract_flow_property_bag()
+        assert "connection.password" not in bag
+        assert not report.warnings
+
+    def test_cloud_managed_postgres_source_never_claims_cluster_topics(
+        self,
+    ) -> None:
+        # A regex table list or a table whose topic is not on the cluster gives no
+        # config-derived topic, and the cluster's topics belong to other connectors.
+        for table_include_list in (".*users.*", "public.missing"):
+            connector, report = self._managed_postgres_source(
+                {"table.include.list": table_include_list},
+                ["pg-users", "unrelated"],
+            )
+
+            assert connector.extract_lineages() == []
+            assert report.warnings
+
+    def test_cloud_managed_postgres_source_missing_connection_fields(
+        self,
+    ) -> None:
+        connector, report = self._managed_postgres_source(
+            {"table.include.list": "public.users", "db.name": ""}, ["pg-users"]
+        )
+
+        assert connector.extract_lineages() == []
+        assert report.warnings
 
     def test_get_job_id_prefixes_managed_postgres_source(self) -> None:
         lineage = KafkaConnectLineage(

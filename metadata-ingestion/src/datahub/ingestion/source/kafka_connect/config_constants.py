@@ -6,7 +6,9 @@ modules (common.py, transform_plugins.py, etc.) without creating circular depend
 """
 
 import logging
-from typing import Dict, Final, FrozenSet, List
+from typing import Dict, Final, FrozenSet, List, Optional
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +131,55 @@ def parse_comma_separated_list(value: str) -> List[str]:
             items.append(cleaned_item)
 
     return items
+
+
+class TopicRegexMapping(BaseModel):
+    topic: str
+    regex: str
+
+
+def parse_topic_regex_list(value: str) -> List[TopicRegexMapping]:
+    """Parse an S3 source `topic.regex.list` (`<topic>:<regex>,<topic>:<regex>`).
+
+    Topic names cannot contain `:`, so the first `:` splits topic from regex.
+    """
+    mappings: List[TopicRegexMapping] = []
+    for pair in parse_comma_separated_list(value):
+        topic, sep, regex = pair.partition(":")
+        if sep and topic.strip() and regex.strip():
+            mappings.append(TopicRegexMapping(topic=topic.strip(), regex=regex.strip()))
+    return mappings
+
+
+_REGEX_METACHARACTERS: Final[FrozenSet[str]] = frozenset(".^$*+?{}[]|()")
+
+
+def literal_directory_prefix(regex: str) -> Optional[str]:
+    """Return the folder a path regex is pinned to, or None.
+
+    Only a regex whose literal start ends in `/` (e.g. `topics/orders/.*`) names a
+    folder; `.*\\.json` or `topics/orders.*` could match objects anywhere / in sibling
+    folders, so they return None.
+    """
+    literal: List[str] = []
+    i = 1 if regex.startswith("^") else 0
+    while i < len(regex):
+        char = regex[i]
+        if char == "\\" and i + 1 < len(regex) and not regex[i + 1].isalnum():
+            literal.append(regex[i + 1])
+            i += 2
+            continue
+        if char in _REGEX_METACHARACTERS or char == "\\":
+            break
+        literal.append(char)
+        i += 1
+    prefix = "".join(literal)
+    if i == len(regex):
+        # A fully literal regex is a single object key, not a folder.
+        return None
+    if not prefix.endswith("/") or not prefix.strip("/"):
+        return None
+    return prefix.strip("/")
 
 
 def parse_topic_to_table_map(mappings: List[str]) -> Dict[str, str]:

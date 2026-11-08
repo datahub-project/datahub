@@ -1,6 +1,6 @@
 """Tests for the S3 source connector (S3 objects -> Kafka topics)."""
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set, Tuple
 from unittest.mock import Mock
 
 from datahub.ingestion.source.kafka_connect.common import (
@@ -10,6 +10,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectSourceReport,
 )
 from datahub.ingestion.source.kafka_connect.source_connectors import (
+    S3_SOURCE_CONNECTOR_CLASS,
     ConfluentS3SourceConnector,
 )
 
@@ -17,11 +18,12 @@ from datahub.ingestion.source.kafka_connect.source_connectors import (
 def _connector(
     config: Dict[str, str],
     topic_names: Optional[List[str]] = None,
+    connector_class: str = "S3Source",
 ) -> ConfluentS3SourceConnector:
     manifest = ConnectorManifest(
         name="s3-source",
         type=SOURCE,
-        config={"connector.class": "S3Source", **config},
+        config={"connector.class": connector_class, **config},
         tasks=[],
         topic_names=topic_names or [],
     )
@@ -32,71 +34,70 @@ def _connector(
     )
 
 
-def test_lineage_from_topic_regex_list() -> None:
-    connector = _connector(
-        {
-            "s3.bucket.name": "my-bucket",
-            "topic.regex.list": "orders:.*orders.*,payments:.*payments.*",
-        }
-    )
-
-    lineages = connector.extract_lineages()
-
-    edges = {(lineage.source_dataset, lineage.target_dataset) for lineage in lineages}
-    assert edges == {
-        ("my-bucket/topics/orders", "orders"),
-        ("my-bucket/topics/payments", "payments"),
+def _edges(connector: ConfluentS3SourceConnector) -> Set[Tuple[str, str]]:
+    return {
+        (str(lineage.source_dataset), lineage.target_dataset)
+        for lineage in connector.extract_lineages()
     }
-    assert all(lineage.source_platform == "s3" for lineage in lineages)
-    assert all(lineage.target_platform == "kafka" for lineage in lineages)
 
 
-def test_topics_dir_override() -> None:
+def test_regex_pinned_to_a_folder_maps_that_folder_to_the_topic() -> None:
     connector = _connector(
         {
             "s3.bucket.name": "my-bucket",
-            "topics.dir": "exports",
-            "topic.regex.list": "orders:.*",
+            "topic.regex.list": r"orders:raw/orders/.*\.json,payments:^raw/pay\-ments/.*",
         }
     )
 
-    lineages = connector.extract_lineages()
-
-    assert len(lineages) == 1
-    assert lineages[0].source_dataset == "my-bucket/exports/orders"
-
-
-def test_single_topic_field() -> None:
-    connector = _connector({"s3.bucket.name": "my-bucket", "topic": "events"})
-
-    topics = connector.get_topics_from_config()
-
-    assert topics == ["events"]
+    assert _edges(connector) == {
+        ("my-bucket/raw/orders", "orders"),
+        ("my-bucket/raw/pay-ments", "payments"),
+    }
 
 
-def test_falls_back_to_reported_topics_not_cluster() -> None:
-    # No topic config -> use the connector's own reported topics only, so a
-    # source can't fabricate lineage for unrelated cluster topics.
+def test_regex_not_pinned_to_a_folder_is_skipped_and_reported() -> None:
+    # `.*orders.*` can match objects anywhere in the bucket and `raw/orders.*` also
+    # matches the sibling folder raw/orders_v2/, so neither names an S3 dataset.
     connector = _connector(
-        {"s3.bucket.name": "my-bucket"}, topic_names=["produced-topic"]
+        {
+            "s3.bucket.name": "my-bucket",
+            "topic.regex.list": "orders:.*orders.*,archive:raw/orders.*,ok:raw/ok/.*",
+        }
     )
 
-    lineages = connector.extract_lineages()
-
-    assert len(lineages) == 1
-    assert lineages[0].source_dataset == "my-bucket/topics/produced-topic"
-    assert lineages[0].target_dataset == "produced-topic"
-
-
-def test_missing_bucket_warns_and_returns_empty() -> None:
-    connector = _connector({"topic.regex.list": "orders:.*"})
-
-    assert connector.extract_lineages() == []
+    assert _edges(connector) == {("my-bucket/raw/ok", "ok")}
     connector.report.warning.assert_called_once()  # type: ignore[attr-defined]
 
 
-def test_no_topics_warns_and_returns_empty() -> None:
-    connector = _connector({"s3.bucket.name": "my-bucket"})
+def test_restore_backup_mode_uses_the_sink_layout_for_reported_topics() -> None:
+    connector = _connector(
+        {"s3.bucket.name": "my-bucket", "topics.dir": "exports"},
+        topic_names=["orders"],
+        connector_class=S3_SOURCE_CONNECTOR_CLASS,
+    )
+
+    assert _edges(connector) == {("my-bucket/exports/orders", "orders")}
+
+
+def test_generic_mode_on_self_hosted_ignores_reported_topics() -> None:
+    connector = _connector(
+        {"s3.bucket.name": "my-bucket", "mode": "GENERIC"},
+        topic_names=["orders"],
+        connector_class=S3_SOURCE_CONNECTOR_CLASS,
+    )
+
+    assert _edges(connector) == set()
+    connector.report.warning.assert_called_once()  # type: ignore[attr-defined]
+
+
+def test_topics_from_config_come_from_topic_regex_list() -> None:
+    connector = _connector({"topic.regex.list": "orders:a/.*,orders:b/.*,pay:c/.*"})
+
+    assert connector.get_topics_from_config() == ["orders", "pay"]
+
+
+def test_missing_bucket_warns_and_returns_empty() -> None:
+    connector = _connector({"topic.regex.list": "orders:raw/orders/.*"})
 
     assert connector.extract_lineages() == []
     connector.report.warning.assert_called_once()  # type: ignore[attr-defined]
