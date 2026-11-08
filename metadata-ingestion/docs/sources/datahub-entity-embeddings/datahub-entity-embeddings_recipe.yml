@@ -18,8 +18,8 @@ source:
     # committed; the next run continues where this one stopped.
     time_budget_seconds: 3000
 
-    # Optional: entities embedded per minute (default 300), to stay under the
-    # embedding provider's quota.
+    # Optional: entities embedded per minute (default 300), to stay under an
+    # external provider's quota. In-process providers are not rate limited.
     # embedding:
     #   documents_per_minute: 300
 

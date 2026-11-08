@@ -205,7 +205,7 @@ To make datasets, glossary terms, dashboards and other catalog entities findable
 
    Its token needs the **Manage System Operations** privilege to read the entity registry.
 
-The source reads the types from `ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES` and their searchable fields from the entity registry, so adding a type later only needs steps 1 and 2. Document entities stay with `datahub-documents`.
+At the start of each run, the source reads the enabled types from the GMS semantic search configuration (set by `ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES` on GMS, not on the ingestion host) and their searchable fields from the entity registry, so adding a type later only needs steps 1 and 2. Document entities stay with `datahub-documents`.
 
 ## Search V3
 
