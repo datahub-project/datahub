@@ -479,6 +479,16 @@ def test_preceding_load_interpretation_function_is_not_a_column() -> None:
     [
         pytest.param("$(vOrderFields)", {"order_id": ["order_id_urn"]}, id="variable"),
         pytest.param(
+            "$(vList(Orders))",
+            {"order_id": ["order_id_urn"]},
+            id="parameterized_variable",
+        ),
+        pytest.param(
+            "$(=Concat(Field, ',')) AS Fields",
+            {"order_id": ["order_id_urn"], "Fields": []},
+            id="expression_expansion_in_alias",
+        ),
+        pytest.param(
             "order_id AS OrderKey, $(vMoreFields)",
             {"order_id": ["order_id_urn"], "OrderKey": ["order_id_urn"]},
             id="variable_with_fields",

@@ -120,8 +120,6 @@ EXPRESSION_OPERATORS = {
 # Aggregation qualifiers only exist in chart expressions, so in a LOAD they
 # are column names.
 EXPRESSION_KEYWORDS = EXPRESSION_OPERATORS | {"all", "distinct", "nodistinct", "total"}
-# A field list item that is only a variable, as in LOAD $(vFields).
-WHOLE_VARIABLE_RE = re.compile(r"^\s*\$\([^()]*\)\s*$")
 # A field named by a variable, as in amount AS $(vName), which LOAD_ALIAS_RE
 # does not read as a name.
 VARIABLE_ALIAS_RE = re.compile(r"\s+AS\s+\$\(", re.IGNORECASE)
@@ -689,7 +687,7 @@ def _parse_load_fields(statement: str) -> PrecedingLoad:
         # any of the columns below. One inside an expression only changes that
         # field's value.
         if (
-            WHOLE_VARIABLE_RE.match(alias.group("expr") if alias else item)
+            _is_whole_expansion(alias.group("expr") if alias else item)
             or (name is not None and "$(" in name)
             or (name is None and VARIABLE_ALIAS_RE.search(item))
         ):
@@ -710,6 +708,13 @@ def _parse_load_fields(statement: str) -> PrecedingLoad:
         elif field and name is not None:
             load.fields.append(LoadField(name=name, sources=[name]))
     return load
+
+
+def _is_whole_expansion(text: str) -> bool:
+    """Whether a field list item is only a $(...) expansion, as in LOAD
+    $(vFields) or $(=Concat(Field, ',')), whose fields are unknown."""
+    text = text.strip()
+    return text.startswith("$(") and _block_end(text, 2, "(", ")") == len(text)
 
 
 def apply_preceding_loads(
