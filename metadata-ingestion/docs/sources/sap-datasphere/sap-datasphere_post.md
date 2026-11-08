@@ -1,5 +1,80 @@
 ### Capabilities
 
+#### Platform routing
+
+The connector emits assets on **two platforms**, depending on whether an asset
+is managed (lives in Datasphere) or federated (lives in an external system that
+Datasphere accesses via a Remote Table).
+
+##### Managed assets → `sap-datasphere` platform
+
+Views, Analytical Models, and Local Tables — the objects you create _inside_
+Datasphere — emit on the `sap-datasphere` platform. Their URN shape:
+
+```text
+urn:li:dataset:(urn:li:dataPlatform:sap-datasphere, <space>.<asset>, ENV)
+```
+
+(prefixed with `<platform_instance>.` if you set the connector's top-level
+`platform_instance`).
+
+Datasphere-specific subtypes (`Local Table`, `View`, `Analytic Model`),
+CDS-annotation tags, and Space hierarchy are all emitted on top of these URNs.
+
+##### Federated Remote Tables → storage platform
+
+A Datasphere Remote Table that federates from e.g. Snowflake emits on the
+_Snowflake_ platform — its URN matches what DataHub's native Snowflake
+connector emits for the same physical table. Lineage joins automatically:
+a downstream Datasphere View's `UpstreamLineage` points at the same
+`snowflake:` URN that the Snowflake connector ingests, with no Siblings
+configuration needed.
+
+Federated routing is driven by `connection_to_platform_map` (per connection
+name) and `platform_type_defaults` (per typeId fallback). See the recipe for
+examples.
+
+Two per-connection knobs matter for URN stitching with the native connector:
+
+- **`convert_urns_to_lowercase`** (per connection; defaults to `true`) — set it
+  to `false` when the sibling native connector preserves source case, so the
+  URNs match. Needed for BigQuery (`project.dataset.MyTable`) and for a HANA
+  connector left at its uppercase default. This is independent of the
+  connector's top-level `convert_urns_to_lowercase`, which governs managed
+  `sap-datasphere` assets.
+- **`database`** (per connection) — a leading name segment prepended ahead of
+  the schema/dataset the flow reports. Chiefly the **BigQuery GCP project**,
+  which the Datasphere API never exposes: with `database: my-gcp-project`, a
+  replication-flow target in dataset `staging` becomes
+  `my-gcp-project.staging.<table>`. Set it on the per-connection entry (keyed by
+  connection name), not on `platform_type_defaults`, since different connections
+  of the same type can point at different projects.
+
+typeId matching in `platform_type_defaults` is **case-insensitive** (`BIGQUERY`,
+`BigQuery`, and `bigquery` all match the same entry).
+
+##### Built-in typeId routing
+
+The following SAP Datasphere connection typeIds ship with built-in platform
+defaults (verified against a live tenant). You can override any of them in
+your recipe under `platform_type_defaults`.
+
+| Datasphere typeId    | DataHub platform | Common usage                                                          |
+| -------------------- | ---------------- | --------------------------------------------------------------------- |
+| `HANA`               | `hana`           | HANA on-prem / external HANA Cloud federated as a Remote Table source |
+| `MSSQL`              | `mssql`          | SQL Server federation                                                 |
+| `S3`                 | `s3`             | S3 buckets federated as remote tables                                 |
+| `GCS`                | `gcs`            | Google Cloud Storage federation                                       |
+| `ABAP`               | `abap`           | SAP ABAP system extraction                                            |
+| `SAPS4HANACLOUD`     | `s4hana`         | SAP S/4HANA Cloud federation                                          |
+| `SAPBWMODELTRANSFER` | `bw`             | SAP BW analytical model transfer (matches the SAC connector's `bw`)   |
+| `BIGQUERY`           | `bigquery`       | Google BigQuery replication-flow target / federated remote tables     |
+
+Other typeIds (Snowflake, Kafka, Salesforce, ...) default to
+`enabled: false` with a warning — opt in by adding them to
+`platform_type_defaults` in your recipe. The connector reports each
+unmapped-typeId asset once via `report.assets_skipped_unknown_typeid`.
+
 #### Lineage extraction
 
 When `include_lineage: true` is set on the recipe, the connector emits both
@@ -41,6 +116,50 @@ Lineage extraction adds one HTTP call per asset (the per-object-type CSN
 fetch). At 1M assets with `max_workers_assets=10`, this adds ~3 hours to the
 total run time. The column-level walker itself is essentially free (in-memory
 tree walk over an already-fetched JSON document).
+
+#### Non-consumption Views and Analytic Models
+
+SAP's Catalog API
+(`/api/v1/datasphere/consumption/catalog/...`) is documented to list
+spaces and assets **exposed for consumption** — not the full Data Builder
+inventory. For Views that means the **Expose for Consumption** switch must
+be on; Analytic Models are exposed automatically when deployed. Intermediate
+modelling Views that lineage edges typically point at are therefore missing
+from the catalog alone, and their downstream edges would render as dangling
+nodes.
+
+By default (`discover_unexposed_views: true`), the connector ALSO discovers
+Views and Analytic Models via the design-time listing under
+`/dwaas-core/api/v1/spaces/X/{views,analyticmodels}` — the same object
+surface the official `datasphere` CLI exposes as
+`datasphere objects views list` /
+`datasphere objects analytic-models list` (see
+[Accessing SAP Datasphere via the Command Line](https://help.sap.com/docs/SAP_DATASPHERE/d0ecd6f297ac40249072a44df0549c1a/f7d5eddf20a34a1aa48d8e2c684e9d33.html)).
+Names already returned by the catalog are not re-emitted (the catalog path
+keeps EDMX schema and labels). Design-time-only assets get schema and
+lineage from their CSN. Set `discover_unexposed_views: false` for
+catalog-only discovery. No-op when `expose_for_consumption_only: true`.
+
+Each discovered asset is routed by its own CSN, like a catalog asset: one
+whose `@remote.source` connection is mapped emits on that platform even
+when `_managed` is disabled, and unmapped ones land in the usual
+`assets_skipped_*` report lists. If a space's catalog listing fails, discovery
+is skipped for that space, since exposure can't be determined.
+
+Cost: one list call per type per space, plus one CSN fetch per newly
+discovered asset (parallelized by `max_workers_assets`). Reported under
+`report.non_consumption_views_emitted`.
+
+#### Local Tables (base tables)
+
+Set `include_local_tables: true` to ALSO discover Datasphere Local Tables
+(base tables) via `/dwaas-core/api/v1/spaces/X/localtables` — the same
+surface as `datasphere objects local-tables list`. These tables typically
+appear only as upstream lineage targets of views. Emitting them closes
+phantom-lineage gaps. Column schema is read from the per-table CSN when
+available; otherwise they are emitted as schema-less stubs. Each Local
+Table has subtype `Local Table` and parents directly to its Space
+container.
 
 #### Flow and Remote Table lineage (ETL)
 
@@ -120,14 +239,24 @@ suffixes. Set `emit_sap_semantics_as_tags: false` to suppress tag emission entir
 
 #### API support
 
-All endpoints called by this connector are SAP-supported public APIs:
+All endpoints called by this connector are SAP-supported public APIs. The
+dwaas-core object paths match the official `@sap/datasphere-cli` modeling
+commands (`datasphere objects <type> list|read`):
 
-- `/api/v1/datasphere/consumption/catalog/...` — asset discovery (Catalog API)
+- `/api/v1/datasphere/consumption/catalog/...` — Catalog API ("List Spaces and
+  Assets Exposed for Consumption" in SAP Help; not a full space inventory)
 - `/api/v1/datasphere/consumption/relational/.../$metadata` — EDMX schema
 - `/api/v1/datasphere/spaces/X/connections` — Connections API
+- `/dwaas-core/api/v1/spaces/X/{views,analyticmodels,localtables,remotetables}` —
+  per-type design-time listing (bare JSON array of `{technicalName}`). `views`
+  and `analyticmodels` are listed when `discover_unexposed_views` is on (and
+  `expose_for_consumption_only` is off); `localtables` / `remotetables` when
+  `include_local_tables` / `include_remote_tables` is set. The `localtables` list shape was
+  verified against a live tenant; `views` / `analyticmodels` listing follows
+  the same CLI object-type contract (`datasphere objects views list`,
+  `datasphere objects analytic-models list`).
 - `/dwaas-core/api/v1/spaces/X/{views,analyticmodels,localtables,remotetables}/{name}` —
-  per-object-type CSN read (with `Accept: application/vnd.sap.datasphere.object.content+json`),
-  the same surface the official `datasphere` CLI uses
+  per-object-type CSN read (with `Accept: application/vnd.sap.datasphere.object.content+json`)
 - `/dwaas-core/api/v1/spaces/X/{dataflows,replicationflows,transformationflows,taskchains}/{name}` —
   per-flow design-time definitions (only called when the matching `include_*` flag is set)
 
@@ -156,9 +285,10 @@ Levers to reduce cost and scope:
 - **`space_pattern` / `asset_pattern`** — filtering is applied **before** the
   per-asset HTTP calls, so filtered-out assets are nearly free. Scope the run to
   the spaces / assets you actually need.
-- **`expose_for_consumption_only: true`** — skip assets that have no consumption
-  exposure URL. By default the connector catalogs all assets in each Space
-  regardless of whether they are exposed for OData consumption.
+- **`expose_for_consumption_only: true`** — skip catalog assets that have no
+  consumption exposure URL (also disables `discover_unexposed_views`).
+- **`discover_unexposed_views: false`** — skip the design-time dwaas-core
+  Views / Analytic Models listing (on by default).
 - **`include_view_definitions: false` AND `include_lineage: false`** — together
   these skip the per-asset CSN fetch, roughly **halving** the HTTP calls for
   users who only need catalog + schema (no lineage / view definitions).
@@ -226,6 +356,16 @@ These follow from what the supported consumption surface exposes:
   `sap_variables` custom property), but it does not yet emit the individual
   **input-parameter** definitions of a view as schema/metadata.
 
+#### Design-time list pagination
+
+The official CLI paginates object lists with `--top` / `--skip` (default 25,
+max 200). This connector's dwaas-core list helper issues a single GET and
+expects a bare JSON array — the shape verified live for `localtables`. Spaces
+with very large design-time inventories should be checked against
+`report.non_consumption_views_emitted` / `report.local_tables_emitted`; if
+counts look truncated, please share a live list response so paging can be
+added to match the CLI.
+
 #### Lineage limitations
 
 - Scalar subqueries in column expressions ARE supported (resolved against the
@@ -270,6 +410,17 @@ to, while the ingestion principal only sees the spaces _it_ belongs to. If a
 space is missing from DataHub, check the `report` warnings for the
 _"Not a member of SAP Datasphere space"_ message and add the principal to that
 space (see **Prerequisites → Space membership**).
+
+A second, common cause is **Expose for Consumption**: the Catalog API only
+lists assets exposed for consumption. Views need that switch enabled;
+Analytic Models are exposed automatically when deployed. With
+`discover_unexposed_views: true` (default), the connector also lists
+design-time Views / Analytic Models via dwaas-core so unexposed intermediate
+modelling views appear as real nodes. If you set
+`discover_unexposed_views: false` (or `expose_for_consumption_only: true`),
+that design-time pass is skipped and lineage edges to unexposed views can
+again render as _"This entity does not exist"_. `include_local_tables`
+covers base tables only — it does not surface unexposed Views.
 
 #### HTTP 429 throttling
 

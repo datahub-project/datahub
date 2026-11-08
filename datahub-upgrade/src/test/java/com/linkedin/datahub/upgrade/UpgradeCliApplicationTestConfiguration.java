@@ -4,11 +4,15 @@ import com.hazelcast.config.Config;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.search.SearchClientShims;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.gms.factory.search.SemanticSearchServiceFactory;
 import com.linkedin.gms.factory.search.semantic.EmbeddingProviderFactory;
 import com.linkedin.gms.factory.search.semantic.SemanticEntitySearchServiceFactory;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.EventSchemaData;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -16,6 +20,9 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.registry.SchemaRegistryService;
 import com.linkedin.metadata.registry.SchemaRegistryServiceImpl;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.mxe.TopicConventionImpl;
 import io.datahubproject.metadata.context.OperationContext;
@@ -24,6 +31,8 @@ import io.ebean.Database;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.annotation.Nonnull;
+import java.io.IOException;
+import java.util.Map;
 import java.util.UUID;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.producer.Producer;
@@ -77,6 +86,39 @@ public class UpgradeCliApplicationTestConfiguration {
     SearchClientShim<?> shim = Mockito.mock(SearchClientShim.class);
     Mockito.when(shim.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
     return shim;
+  }
+
+  /**
+   * Keep {@link SearchClusterRegistryFactory} from building a live {@code searchClientShims} bean
+   * against localhost:9200. Tests already stub {@code searchClientShim}; wrap that mock as the only
+   * cluster.
+   */
+  @Bean(name = "searchClientShims")
+  @Primary
+  public SearchClientShims searchClientShims(SearchClientShim<?> searchClientShim) {
+    return new SearchClientShims(
+        Map.of(ElasticSearchConfiguration.PRIMARY_CLUSTER, searchClientShim));
+  }
+
+  @Bean(name = "searchClusterRegistry")
+  @Primary
+  public SearchClusterRegistry searchClusterRegistry(
+      ConfigurationProvider configurationProvider, SearchClientShim<?> searchClientShim) {
+    ESIndexBuilder indexBuilder = Mockito.mock(ESIndexBuilder.class);
+    ReindexConfig reindexConfig = Mockito.mock(ReindexConfig.class);
+    try {
+      Mockito.when(
+              indexBuilder.buildReindexState(
+                  Mockito.any(), Mockito.any(), Mockito.anyMap(), Mockito.anyMap()))
+          .thenReturn(reindexConfig);
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+    return SearchClusterRegistry.singleCluster(
+        configurationProvider.getElasticSearch(),
+        searchClientShim,
+        Mockito.mock(ESBulkProcessor.class),
+        indexBuilder);
   }
 
   /** Use real EntityRegistry from TestOperationContexts for proper annotation-based validation. */
@@ -135,16 +177,34 @@ public class UpgradeCliApplicationTestConfiguration {
    * Provide an in-memory HazelcastInstance for tests so that Hazelcast Spring integration
    * (HazelcastObjectExtractionConfiguration in hazelcast-spring 5.6+) can create its
    * hzInternalBeanExposer bean. Network is disabled so no cluster join is attempted.
+   *
+   * <p>The instance is a JVM-wide singleton shared across every Spring context in this test fork.
+   * Each distinct {@code @SpringBootTest} configuration (upgrade mode / properties) boots its own
+   * application context, and starting a fresh HazelcastInstance per context costs ~5s of the boot.
+   * Because networking is fully disabled the instance is a self-contained single-member cluster
+   * with no cross-context state the upgrade tests depend on, so one shared instance is safe and
+   * pays the startup cost once per fork instead of once per context. {@code destroyMethod = ""}
+   * stops Spring from shutting it down when a context closes, so later (cache-missed) contexts can
+   * reuse it; the JVM exit reclaims it.
    */
-  @Bean(name = "hazelcastInstance")
+  private static volatile HazelcastInstance sharedHazelcast;
+
+  private static synchronized HazelcastInstance sharedHazelcastInstance() {
+    if (sharedHazelcast == null || !sharedHazelcast.getLifecycleService().isRunning()) {
+      Config config = new Config();
+      config.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
+      config.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled(false);
+      config.getNetworkConfig().getJoin().getKubernetesConfig().setEnabled(false);
+      config.setClusterName("datahub-upgrade-test-shared");
+      sharedHazelcast = Hazelcast.newHazelcastInstance(config);
+    }
+    return sharedHazelcast;
+  }
+
+  @Bean(name = "hazelcastInstance", destroyMethod = "")
   @Primary
   public HazelcastInstance hazelcastInstance() {
-    Config config = new Config();
-    config.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
-    config.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled(false);
-    config.getNetworkConfig().getJoin().getKubernetesConfig().setEnabled(false);
-    config.setClusterName("datahub-upgrade-test-" + UUID.randomUUID());
-    return Hazelcast.newHazelcastInstance(config);
+    return sharedHazelcastInstance();
   }
 
   /**

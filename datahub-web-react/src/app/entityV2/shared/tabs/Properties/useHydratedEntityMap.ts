@@ -3,6 +3,12 @@ import { useMemo } from 'react';
 import { useGetEntities } from '@src/app/sharedV2/useGetEntities';
 import { Entity } from '@src/types.generated';
 
+/**
+ * Hydrate the entities behind URN-valued structured property values so they render with a name and
+ * icon. Only pass the URNs that are actually on screen: a single property can hold thousands of
+ * values, and each one here becomes a full entity in one `getEntities` round trip. Lineage counts
+ * and siblings are never needed for a name chip, so they are skipped.
+ */
 export function useHydratedEntityMap(urns?: (string | undefined | null)[]) {
     // Get unique URNs
     const uniqueEntityUrns = useMemo(
@@ -11,7 +17,10 @@ export function useHydratedEntityMap(urns?: (string | undefined | null)[]) {
     );
 
     // Fetch entities
-    const { entities: hydratedEntities } = useGetEntities(uniqueEntityUrns);
+    const { entities: hydratedEntities } = useGetEntities(uniqueEntityUrns, undefined, {
+        skipLineage: true,
+        skipSiblingsSearch: true,
+    });
 
     // Create entity map
     const hydratedEntityMap = useMemo(

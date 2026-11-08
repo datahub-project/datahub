@@ -2,15 +2,15 @@ import { act, renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 
-import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { useDescriptionUtils } from '@app/entityV2/summary/documentation/useDescriptionUtils';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
 
 // Mocks for the hooks and functions
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: vi.fn(),
     useMutationUrn: vi.fn(),
     useRefetch: vi.fn(),
@@ -20,7 +20,7 @@ vi.mock('@app/entityV2/shared/tabs/Documentation/utils', () => ({
     getAssetDescriptionDetails: vi.fn(),
 }));
 vi.mock('@app/useEntityRegistry', () => ({
-    useEntityRegistryV2: vi.fn(),
+    useEntityRegistry: vi.fn(),
 }));
 vi.mock('@graphql/mutations.generated', () => ({
     useUpdateDescriptionMutation: vi.fn(),
@@ -50,7 +50,7 @@ describe('useDescriptionUtils', () => {
         (getAssetDescriptionDetails as Mock).mockReturnValue({
             displayedDescription: description,
         });
-        (useEntityRegistryV2 as Mock).mockReturnValue({
+        (useEntityRegistry as Mock).mockReturnValue({
             getEntityName: () => entityName,
         });
         (useUpdateDescriptionMutation as Mock).mockReturnValue([updateDescriptionMutationMock]);
@@ -119,7 +119,7 @@ describe('useDescriptionUtils', () => {
     });
 
     it('should return correct emptyDescriptionText placeholder', () => {
-        (useEntityRegistryV2 as Mock).mockReturnValue({
+        (useEntityRegistry as Mock).mockReturnValue({
             getEntityName: () => 'Document',
         });
 

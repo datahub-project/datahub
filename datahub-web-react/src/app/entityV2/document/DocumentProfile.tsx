@@ -1,4 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
 
@@ -52,7 +52,7 @@ export const DocumentProfile = ({ urn }: { urn: string }): JSX.Element => {
     if (loading || !document) {
         return (
             <LoadingWrapper>
-                <LoadingOutlined style={{ fontSize: 36 }} />
+                <Loader size="lg" />
             </LoadingWrapper>
         );
     }

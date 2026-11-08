@@ -1,4 +1,4 @@
-import { downgradeV2FieldPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 
 describe('downgradeV2FieldPath', () => {
     it('should handle simple field paths without modification', () => {

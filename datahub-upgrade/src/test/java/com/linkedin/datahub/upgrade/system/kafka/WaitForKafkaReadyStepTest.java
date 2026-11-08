@@ -54,6 +54,9 @@ public class WaitForKafkaReadyStepTest {
     // Create real KafkaProperties with test data
     kafkaProperties = new KafkaProperties();
     kafkaProperties.setBootstrapServers(Arrays.asList("localhost:9092"));
+    // testCreateAdminClientMethod builds a real AdminClient; short timeouts stop its network
+    // thread from retrying the absent broker (see KafkaTestTimeouts).
+    KafkaTestTimeouts.applyShort(kafkaProperties);
 
     mockAdminClient = mock(AdminClient.class);
     mockDescribeClusterResult = mock(DescribeClusterResult.class);

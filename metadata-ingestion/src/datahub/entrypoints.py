@@ -30,6 +30,7 @@ from datahub.cli.ingest_cli import ingest
 from datahub.cli.lineage_cli import lineage
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
+from datahub.cli.recipe_cli import recipe
 from datahub.cli.recording_cli import recording
 from datahub.cli.search_cli import search
 from datahub.cli.specific.agent_skill_cli import agent_skill
@@ -57,9 +58,10 @@ _logging_configured: Optional[ContextManager] = None
 
 MAX_CONTENT_WIDTH = 120
 
-if sys.version_info >= (3, 12):
+# Keep in sync with the Python matrix in .github/workflows/metadata-ingestion.yml.
+if sys.version_info >= (3, 14):
     click.secho(
-        "Python versions above 3.11 are not actively tested with yet. Please use Python 3.11 for now.",
+        "Python versions above 3.13 are not actively tested with yet. Please use Python 3.11 to 3.13 for now.",
         fg="red",
         err=True,
     )
@@ -598,6 +600,7 @@ datahub.add_command(recording)
 datahub.add_command(datapack)
 datahub.add_command(api)
 datahub.add_command(agent_skill)
+datahub.add_command(recipe)
 
 try:
     from datahub.cli.iceberg_cli import iceberg

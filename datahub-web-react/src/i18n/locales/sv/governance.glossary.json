@@ -9,6 +9,7 @@
     "empty.title": "Tom ordlista",
     "list.error": "Kunde inte läsa in ordlistan! Ett oväntat fel uppstod.",
     "list.loading": "Läser in ordlistan...",
+    "page.contactAdmin": "Kontakta din DataHub-administratör för att konfigurera ordlistan.",
     "page.createGlossary": "Skapa ordlista",
     "page.subtitle": "Klassificera dina datatillgångar och kolumner med hjälp av dataordböcker",
     "page.title": "Ordlista",
@@ -17,5 +18,11 @@
     "sidebar.collapse": "Fäll ihop ordlistan",
     "sidebar.expand": "Fäll ut ordlistan",
     "sidebar.home": "Ordlistans startsida",
-    "sidebar.section.allTerms": "Alla termer"
+    "sidebar.ownerFilter.label": "Ägare",
+    "sidebar.ownerFilter.placeholder": "Filtrera på ägare",
+    "sidebar.domainFilter.label": "Domäner",
+    "sidebar.domainFilter.placeholder": "Filtrera på domän",
+    "sidebar.section.allTerms": "Alla termer",
+    "sidebar.tagFilter.label": "Taggar",
+    "sidebar.tagFilter.placeholder": "Filtrera på tagg"
 }

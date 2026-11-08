@@ -2,7 +2,7 @@ import { SimpleSelect } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { getSupportedTimezones } from '@app/shared/time/timeUtils';
+import { getSupportedTimezones } from '@app/sharedV2/time/timeUtils';
 
 const SelectContainer = styled.div`
     max-width: 300px;
@@ -10,10 +10,12 @@ const SelectContainer = styled.div`
 
 type Props = {
     value: string;
-    onChange: (newTimezone: any) => void;
+    onChange: (newTimezone: string) => void;
+    disabled?: boolean;
+    label?: string;
 };
 
-export const TimezoneSelect = ({ value, onChange }: Props) => {
+export const TimezoneSelect = ({ value, onChange, disabled, label }: Props) => {
     const timezones = getSupportedTimezones();
     const options = timezones.map((timezone) => {
         return {
@@ -28,9 +30,11 @@ export const TimezoneSelect = ({ value, onChange }: Props) => {
                 options={options}
                 showSearch
                 onUpdate={(values) => onChange(values[0])}
-                initialValues={[value]}
+                values={[value]}
+                isDisabled={disabled}
                 showClear={false}
                 width="full"
+                label={label}
             />
         </SelectContainer>
     );

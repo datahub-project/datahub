@@ -19,12 +19,27 @@ const StyledHighlight = styled(Highlight).attrs((props) => ({
     matchStyle: { background: props.theme.colors.bgHighlight },
 }))``;
 
+// Quotes around a term are query syntax. An apostrophe inside a word is not.
+function highlightQuery(query: string | undefined): string | undefined {
+    if (!query) {
+        return undefined;
+    }
+    let normalized = query.trim().toLowerCase();
+    let previous = '';
+    while (normalized !== previous) {
+        previous = normalized;
+        normalized = normalized.replace(/(^|\s)['"]+|['"]+(\s|$)/g, '$1$2');
+    }
+    normalized = normalized.replace(/\s+/g, ' ').trim();
+    return normalized || undefined;
+}
+
 const SearchTextHighlighter = ({ field, text, enableFullHighlight = false }: Props) => {
     const appConfig = useAppConfig();
     const enableNameHighlight = appConfig.config.visualConfig.searchResult?.enableNameHighlight;
     const matchedFields = useMatchedFieldsByGroup(field);
     const hasMatchedField = !!matchedFields?.length;
-    const normalizedSearchQuery = useSearchQuery()?.trim()?.toLowerCase();
+    const normalizedSearchQuery = highlightQuery(useSearchQuery());
     const normalizedText = text.trim().toLowerCase();
     const hasSubstring = hasMatchedField && !!normalizedSearchQuery && normalizedText.includes(normalizedSearchQuery);
     const pattern = enableFullHighlight ? HIGHLIGHT_ALL_PATTERN : undefined;

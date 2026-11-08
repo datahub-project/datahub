@@ -1,8 +1,8 @@
-import { Tooltip } from '@components';
+import { StructuredPopover, Text } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { useMutationUrn, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { ExpandedOwner } from '@app/entityV2/shared/components/styled/ExpandedOwner/ExpandedOwner';
 import { getOwnershipTypeDescription } from '@app/entityV2/shared/components/styled/ExpandedOwner/OwnerUtils';
 import { getOwnershipTypeName } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
@@ -45,9 +45,19 @@ export const OwnershipTypeSection = ({ ownershipType, owners, readOnly }: Props)
 
     return (
         <OwnershipTypeContainer>
-            <Tooltip title={ownershipTypeDescription}>
+            <StructuredPopover
+                placement="topLeft"
+                sections={
+                    ownershipTypeDescription && [
+                        {
+                            title: ownershipTypeName,
+                            content: <Text>{ownershipTypeDescription}</Text>,
+                        },
+                    ]
+                }
+            >
                 <OwnershipTypeNameText>{ownershipTypeName}</OwnershipTypeNameText>
-            </Tooltip>
+            </StructuredPopover>
             <OwnersContainer>
                 {owners.map((owner) => (
                     <ExpandedOwner

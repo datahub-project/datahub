@@ -51,4 +51,25 @@ describe('useUpdateUserLocaleSettings', () => {
 
         expect(mockUpdateLocaleSettings).toHaveBeenCalledWith({ variables: { input: { language: null } } });
     });
+
+    it('resolves when the mutation succeeds but refetching the user fails', async () => {
+        mockRefetchUser.mockRejectedValueOnce(new Error('network'));
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const { result } = renderHook(() => useUpdateUserLocaleSettings());
+
+        await act(async () => {
+            await expect(result.current('de')).resolves.toBeUndefined();
+        });
+    });
+
+    it('rejects when the mutation fails', async () => {
+        mockUpdateLocaleSettings.mockRejectedValueOnce(new Error('save failed'));
+        const { result } = renderHook(() => useUpdateUserLocaleSettings());
+
+        await act(async () => {
+            await expect(result.current('de')).rejects.toThrow();
+        });
+
+        expect(mockRefetchUser).not.toHaveBeenCalled();
+    });
 });

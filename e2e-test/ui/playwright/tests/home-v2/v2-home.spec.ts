@@ -18,13 +18,14 @@
 import { test } from '../../fixtures/base-test';
 import { HomeV2Page } from '../../pages/home-v2.page';
 import { NavbarPage } from '../../pages/navbar.page';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
 
 test.describe('home page v2', () => {
   let homePage: HomeV2Page;
   let navbarPage: NavbarPage;
 
   test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
-    await apiMock.setFeatureFlags({ showHomePageRedesign: false });
+    await apiMock.setFeatureFlags({ ...GLOBAL_FEATURE_FLAGS, showHomePageRedesign: false });
     homePage = new HomeV2Page(page, logger, logDir);
     navbarPage = new NavbarPage(page, logger, logDir);
     await homePage.skipIntroducePage();

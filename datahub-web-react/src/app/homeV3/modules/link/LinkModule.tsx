@@ -8,7 +8,7 @@ import SmallModule from '@app/homeV3/module/components/SmallModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 import ImageOrIcon from '@app/homeV3/modules/link/ImageOrIcon';
 import { DescriptionContainer, NameContainer } from '@app/homeV3/styledComponents';
-import { safeUrl } from '@app/shared/urlUtils';
+import { safeUrl } from '@app/sharedV2/urlUtils';
 
 const Container = styled.div`
     display: flex;
@@ -84,7 +84,7 @@ export default function LinkModule(props: ModuleProps) {
                 </LeftSection>
                 <RightSection>
                     <a href={safeUrl(linkParams?.linkUrl)} target="_blank" rel="noopener noreferrer">
-                        <Icon icon={ArrowUpRight} size="lg" />
+                        <Icon icon={ArrowUpRight} size="lg" color="icon" />
                     </a>
                 </RightSection>
             </Container>

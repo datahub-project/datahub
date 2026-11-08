@@ -11,6 +11,9 @@ record VersionSetProperties includes CustomProperties {
    * The latest versioned entity linked to in this version set
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "queryByDefault": "false"
   }
   latest: Urn

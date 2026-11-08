@@ -54,6 +54,7 @@
     "properties.save.error": "A strukturált tulajdonság nem menthető. Valami hiba történt.",
     "properties.search.placeholder": "Keresés...",
     "properties.searchInProperties.placeholder": "Keresés a tulajdonságok között...",
+    "properties.showCountMoreValues": "további {{count}} megjelenítése a(z) {{total, number}} értékből",
     "properties.structuredProperty.title": "Strukturált tulajdonság",
     "properties.updated.success": "A strukturált tulajdonság sikeresen frissítve!"
 }

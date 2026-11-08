@@ -44,6 +44,7 @@ import { loggerFixture } from './logger.fixture';
 import { mockingFixture } from './mocking.fixture';
 import { loginFixture } from './login.fixture';
 import { seedingFixture } from './seeding.fixture';
+import { domainFixture } from './domain.fixture';
 import { readGmsToken } from './login';
 import { RestFeatureDataLoader, type FeatureDataLoader } from '../utils/test-data';
 import { ApiScopedCleanup, type ScopedCleanup } from '../utils/cleanup';
@@ -51,7 +52,7 @@ import { gmsUrl } from '../utils/constants';
 
 // ── Compose the four core capability fixtures ─────────────────────────────────
 
-const composedTest = mergeTests(loggerFixture, mockingFixture, loginFixture, seedingFixture);
+const composedTest = mergeTests(loggerFixture, mockingFixture, loginFixture, seedingFixture, domainFixture);
 
 // ── Additional fixtures built on top of the composition ───────────────────────
 

@@ -57,6 +57,23 @@ class EventSource(Closeable, metaclass=ABCMeta):
         Acknowledges the processing of an individual event by the Actions Framework
         """
 
+    def request_stop(self) -> None:
+        """Ask ``events()`` to finish without closing resources the worker still holds.
+
+        The flag stays set. Sources that assign ``running = True`` at the start of
+        ``events()`` must leave it false when :meth:`stop_requested` is set, or a stop
+        that lands during startup is lost and ``join()`` waits forever.
+
+        ``close()`` runs only after the worker has left ``events()``, so it can commit
+        and release clients.
+        """
+        self._stop_requested = True
+        if hasattr(self, "running"):
+            self.running = False
+
+    def stop_requested(self) -> bool:
+        return getattr(self, "_stop_requested", False)
+
     def set_filters(self, filters: List["Filter"]) -> None:
         """
         Called by the pipeline after filters are built. Sources may override this

@@ -1,4 +1,4 @@
-import { RightOutlined } from '@ant-design/icons';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Typography } from 'antd';
 import React, { useRef } from 'react';
 import styled, { useTheme } from 'styled-components';
@@ -24,7 +24,7 @@ const StyledValueSelector = styled(ValueSelector)<{ width: number; height: numbe
     ${(props) => (props.isElementOutsideWindow ? 'right' : 'left')}: ${(props) => props.width}px;
 `;
 
-const StyledRightOutlined = styled(RightOutlined)`
+const StyledRightOutlined = styled(CaretRight)`
     font-size: 12px;
     height: 12px;
 `;

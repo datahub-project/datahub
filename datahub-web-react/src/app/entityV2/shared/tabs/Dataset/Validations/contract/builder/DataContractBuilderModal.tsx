@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { DataContractBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/DataContractBuilder';
 import { DataContractBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
-import ClickOutside from '@app/shared/ClickOutside';
+import ClickOutside from '@app/sharedV2/ClickOutside';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { DataContract } from '@types';
@@ -48,7 +48,7 @@ export const DataContractBuilderModal = ({ entityUrn, initialState, onSubmit, on
                 title={titleText}
                 style={modalStyle}
                 bodyStyle={modalBodyStyle}
-                onCancel={() => onCancel?.()}
+                onCancel={() => setShowConfirmationModal(true)}
             >
                 <DataContractBuilder
                     entityUrn={entityUrn}

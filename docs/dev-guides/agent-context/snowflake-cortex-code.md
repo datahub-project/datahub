@@ -12,7 +12,7 @@ Give [Cortex Code](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-c
 Register DataHub as an [MCP server](../../features/feature-guides/mcp.md):
 
 ```bash
-cortex mcp add datahub https://<tenant>.acryl.io/integrations/ai/mcp \
+cortex mcp add datahub https://<tenant>.acryl.io/mcp \
   --transport=http \
   --header "Authorization: Bearer <token>"
 ```
@@ -33,7 +33,7 @@ Start Cortex Code (`cortex`) and ask questions — it calls DataHub tools automa
 ## Troubleshooting
 
 - **DataHub tools not used?** Run `cortex mcp list` to verify the server is registered. Check that the URL and token are correct.
-- **Connection errors?** Confirm the MCP endpoint is reachable: `https://<tenant>.acryl.io/integrations/ai/mcp`. Token should start with `eyJ`.
+- **Connection errors?** Confirm the MCP endpoint is reachable: `https://<tenant>.acryl.io/mcp`. Token should start with `eyJ`.
 - **Empty results?** Verify the token has correct permissions and that entities exist in the DataHub UI.
 
 **Links:** [Cortex Code Docs](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-cli) · [Agent Context Kit](./agent-context.md) · [MCP Server Guide](../../features/feature-guides/mcp.md)

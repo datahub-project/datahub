@@ -1,24 +1,42 @@
 import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useUserContext } from '@app/context/useUserContext';
 import { useGetDomains } from '@app/homeV2/content/tabs/discovery/sections/domains/useGetDomains';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps } from '@app/homeV3/module/types';
+import { MODULE_LIST_MAX_ITEMS } from '@app/homeV3/modules/constants';
 import useGetDomainUtils from '@app/homeV3/modules/domains/useDomainModuleUtils';
 
 import { DataHubPageModuleType } from '@types';
 
 const TopDomainsModule = (props: ModuleProps) => {
     const { t } = useTranslation('modules');
-    const { user } = useUserContext();
-    const { isReloading } = useModuleContext();
+    const { isReloading, onReloadingFinished } = useModuleContext();
 
-    const { domains, loading } = useGetDomains(user, isReloading ? 'cache-and-network' : 'cache-first');
+    const { domains, loading, refetch } = useGetDomains(MODULE_LIST_MAX_ITEMS);
+    const wasReloading = useRef(false);
+
+    useEffect(() => {
+        const reloadWasRequested = isReloading && !wasReloading.current;
+        wasReloading.current = isReloading;
+
+        if (!isReloading) {
+            return;
+        }
+
+        if (!reloadWasRequested) {
+            return;
+        }
+
+        // Treat mount-time isReloading as a requested reload. A mutation on another page can
+        // mark the module stale before this component mounts; skipping that left cache-first
+        // data on screen. A failed best-effort refresh should not block a later reload.
+        refetch().then(onReloadingFinished, onReloadingFinished);
+    }, [isReloading, refetch, onReloadingFinished]);
 
     const { renderDomainCounts, navigateToDomains } = useGetDomainUtils({ domains });
 
