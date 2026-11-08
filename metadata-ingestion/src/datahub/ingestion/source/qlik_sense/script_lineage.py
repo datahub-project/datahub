@@ -120,14 +120,15 @@ EXPRESSION_OPERATORS = {
 # Aggregation qualifiers only exist in chart expressions, so in a LOAD they
 # are column names.
 EXPRESSION_KEYWORDS = EXPRESSION_OPERATORS | {"all", "distinct", "nodistinct", "total"}
-# A field list item that is only a variable, as in LOAD $(vFields).
-WHOLE_VARIABLE_RE = re.compile(r"^\s*\$\([^()]*\)\s*$")
 # A field named by a variable, as in amount AS $(vName), which LOAD_ALIAS_RE
 # does not read as a name.
 VARIABLE_ALIAS_RE = re.compile(r"\s+AS\s+\$\(", re.IGNORECASE)
 # Single-quoted text is a string literal in a chart expression, not a field.
+# A quoted field can carry a derived-field suffix, as in [Date].autoCalendar.Year.
 EXPRESSION_NAME_RE = re.compile(
-    rf"\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|'[^']*'|(?P<bare>{_BARE_FIELD_NAME})"
+    rf"\[(?P<bracket>[^\]]+)\](?P<bracket_suffix>(?:\.\w+)*)"
+    rf"|\"(?P<double>[^\"]+)\"(?P<double_suffix>(?:\.\w+)*)"
+    rf"|'[^']*'|(?P<bare>{_BARE_FIELD_NAME})"
 )
 # A driver or provider names the engine, whatever the rest of the string says.
 DRIVER_RE = re.compile(
@@ -609,10 +610,19 @@ def parse_load_script(script: str) -> List[ScriptTable]:
 
 def _block_end(text: str, position: int, opening: str, closing: str) -> int:
     """Index just past the closing delimiter of a block opened right before
-    position, counting nested blocks."""
+    position, counting nested blocks. Delimiters inside quotes, such as the
+    search string in {<Name={"A)"}>}, do not count."""
     depth = 1
+    quote_closing: Optional[str] = None
     while position < len(text) and depth:
-        depth += {opening: 1, closing: -1}.get(text[position], 0)
+        char = text[position]
+        if quote_closing:
+            if char == quote_closing:
+                quote_closing = None
+        elif char in QUOTE_PAIRS:
+            quote_closing = QUOTE_PAIRS[char]
+        else:
+            depth += {opening: 1, closing: -1}.get(char, 0)
         position += 1
     return position
 
@@ -677,7 +687,7 @@ def _parse_load_fields(statement: str) -> PrecedingLoad:
         # any of the columns below. One inside an expression only changes that
         # field's value.
         if (
-            WHOLE_VARIABLE_RE.match(alias.group("expr") if alias else item)
+            _is_whole_expansion(alias.group("expr") if alias else item)
             or (name is not None and "$(" in name)
             or (name is None and VARIABLE_ALIAS_RE.search(item))
         ):
@@ -698,6 +708,13 @@ def _parse_load_fields(statement: str) -> PrecedingLoad:
         elif field and name is not None:
             load.fields.append(LoadField(name=name, sources=[name]))
     return load
+
+
+def _is_whole_expansion(text: str) -> bool:
+    """Whether a field list item is only a $(...) expansion, as in LOAD
+    $(vFields) or $(=Concat(Field, ',')), whose fields are unknown."""
+    text = text.strip()
+    return text.startswith("$(") and _block_end(text, 2, "(", ")") == len(text)
 
 
 def apply_preceding_loads(
@@ -764,7 +781,12 @@ def expression_names(
             or FUNCTION_CALL_RE.match(expression, match.end())
         ):
             continue
-        name = match.group("bracket") or match.group("double") or bare
+        if match.group("bracket"):
+            name = match.group("bracket") + match.group("bracket_suffix")
+        elif match.group("double"):
+            name = match.group("double") + match.group("double_suffix")
+        else:
+            name = bare
         if name:
             names.append(name)
     return names
