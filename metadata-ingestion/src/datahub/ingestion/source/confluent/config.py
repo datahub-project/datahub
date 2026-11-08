@@ -43,12 +43,15 @@ class ConfluentStreamCatalogConfig(ConfigModel):
     )
     include_tags: bool = Field(
         default=True,
-        description="Emit Confluent Cloud tags from the Stream Catalog as DataHub tags.",
+        description="Emit Confluent Cloud tags from the Stream Catalog as DataHub tags on "
+        "the entities this source ingests (topics for kafka, connectors for "
+        "kafka-connect).",
     )
     include_business_metadata: bool = Field(
         default=True,
         description="Emit Confluent Cloud business metadata attributes from the Stream "
-        "Catalog as DataHub custom properties.",
+        "Catalog as DataHub custom properties on the entities this source ingests "
+        "(topics for kafka, connectors for kafka-connect).",
     )
 
     @model_validator(mode="after")
