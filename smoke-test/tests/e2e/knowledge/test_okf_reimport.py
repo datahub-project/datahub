@@ -142,6 +142,7 @@ def _assert_okf_properties(graph: DataHubGraph, document_urn: str, raw: str) -> 
     assert aspect is not None
     assert aspect.declaredId == "guide:mau"
     assert aspect.conceptId == "guides/mau"
+    assert aspect.bundle is not None
     assert aspect.bundle.location == "https://github.com/example-org/analytics"
     assert aspect.bundle.rootPath == "."
     assert aspect.bundle.okfVersion == "0.2"

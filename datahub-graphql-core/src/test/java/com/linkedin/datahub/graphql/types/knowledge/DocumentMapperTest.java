@@ -1440,6 +1440,16 @@ public class DocumentMapperTest {
   }
 
   @Test
+  public void testMapDocumentWithNeutralOkfProperties() {
+    EntityResponse entityResponse = createBasicEntityResponse();
+    addAspectToResponse(entityResponse, OKF_PROPERTIES_ASPECT_NAME, new OkfProperties());
+
+    Document result = DocumentMapper.map(null, entityResponse);
+
+    assertNull(result.getOkfProperties());
+  }
+
+  @Test
   public void testMapDocumentWithOptionalOkfFieldsUnset() {
     EntityResponse entityResponse = createBasicEntityResponse();
     OkfProperties properties =

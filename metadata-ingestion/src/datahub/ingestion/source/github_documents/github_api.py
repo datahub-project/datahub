@@ -140,6 +140,8 @@ class GitHubApiClient:
         path_prefix: str,
         extensions: List[str],
     ) -> Tuple[List[GitHubFileInfo], bool]:
+        # The source passes a resolved commit SHA; branch names remain supported
+        # for connection checks and direct client callers.
         tree_url = (
             f"{GITHUB_API_BASE}/repos/{owner_repo}/git/trees/{quote(branch, safe='')}"
             "?recursive=true"

@@ -58,16 +58,16 @@ from datahub.ingestion.source.github_documents.github_hierarchy import (
 )
 from datahub.ingestion.source.github_documents.okf_bundles import (
     RESERVED_FILENAMES,
-    bundle_index_path,
     discover_bundles,
     enclosing_bundle,
 )
+from datahub.ingestion.source.github_documents.okf_cleanup import clear_okf_metadata
 from datahub.ingestion.source.github_documents.okf_frontmatter import (
-    parse_frontmatter,
     parse_okf_frontmatter,
 )
 from datahub.ingestion.source.github_documents.okf_mapping import (
     MAPPING_VERSION,
+    OkfLookupCache,
     map_okf,
 )
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
@@ -104,20 +104,37 @@ PROP_GITHUB_DIRECTORY_PATH = "github_directory_path"
 _DOCUMENT_URN_PREFIX = "urn:li:document:"
 
 
-def compute_file_content_hash(
-    content: str, *, enable_okf: bool = True, bundle: Optional[OkfBundleClass] = None
+def compute_file_content_hash(content: str) -> str:
+    """Hash document text plus the extraction version for the sync-back contract.
+
+    content_hash must equal this hash of documentInfo.contents.text. Cloud sync-back
+    uses this function from a released OSS package; source interpretation metadata
+    belongs in source_content_hash, never in this hash.
+    """
+    return hashlib.sha256(
+        json.dumps(
+            {"body": content, "algo_version": EXTRACTION_ALGO_VERSION}, sort_keys=True
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def compute_source_hash(
+    content: str, *, bundle: Optional[OkfBundleClass], enable_okf: bool
 ) -> str:
-    """Hash raw content and bundle metadata so interpretation changes trigger ingestion."""
-    hash_input = json.dumps(
-        {
-            "body": content,
-            "algo_version": EXTRACTION_ALGO_VERSION,
-            "okf_mapping_version": MAPPING_VERSION if enable_okf else None,
-            "okf_bundle": bundle.to_obj() if enable_okf and bundle else None,
-        },
-        sort_keys=True,
-    )
-    return hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
+    """Hash the complete source file and its applicable OKF interpretation."""
+    if not enable_okf or bundle is None:
+        return compute_file_content_hash(content)
+    return hashlib.sha256(
+        json.dumps(
+            {
+                "body": content,
+                "algo_version": EXTRACTION_ALGO_VERSION,
+                "okf_mapping_version": MAPPING_VERSION,
+                "okf_bundle": bundle.to_obj(),
+            },
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest()
 
 
 @platform_name("GitHub")
@@ -170,6 +187,8 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         self._soft_deleted_cache: Optional[Set[str]] = None
         self._okf_bundles: Dict[str, OkfBundleClass] = {}
         self._okf_index_contents: Dict[str, Optional[str]] = {}
+        self._okf_lookup_cache = OkfLookupCache()
+        self._okf_server_unsupported = False
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "GitHubDocumentsSource":
@@ -187,13 +206,23 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        self.__dict__.pop("_okf_enabled", None)
+        self._okf_server_unsupported = False
+        self.report.okf_disabled_reason = None
         owner_repo = self.config.repository
         branch = self.config.branch
         path_prefix = self.config.path_prefix.strip("/")
         extensions = self.config.file_extensions
 
+        commit_sha = self.client.get_latest_commit_sha(owner_repo, branch)
+        if not commit_sha or commit_sha == "unknown":
+            raise RuntimeError(
+                f"Could not resolve branch {branch!r} in {owner_repo} "
+                "to a commit snapshot"
+            )
+        self._okf_lookup_cache = OkfLookupCache()
         files, tree_truncated = self.client.list_matching_files(
-            owner_repo, branch, path_prefix, extensions
+            owner_repo, commit_sha, path_prefix, extensions
         )
         if tree_truncated:
             self.report.tree_truncated = True
@@ -224,13 +253,12 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 f"total_matches={total_matches}, max_files={self.config.max_files}",
             )
 
-        commit_sha = self.client.get_latest_commit_sha(owner_repo, branch)
         self._okf_index_contents.clear()
         self._okf_bundles = {}
-        if self.config.enable_okf:
+        if self._okf_enabled:
 
             def fetch_index(path: str) -> Optional[str]:
-                content = self.client.fetch_file_content(owner_repo, path, branch)
+                content = self.client.fetch_file_content(owner_repo, path, commit_sha)
                 self._okf_index_contents[path] = content
                 return content
 
@@ -375,7 +403,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         content = (
             self._okf_index_contents[file_path]
             if file_path in self._okf_index_contents
-            else self.client.fetch_file_content(owner_repo, file_path, branch)
+            else self.client.fetch_file_content(owner_repo, file_path, commit_sha)
         )
         if content is None:
             self.report.files_skipped += 1
@@ -386,15 +414,36 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             source_id, owner_repo, file_path
         )
         bundle = enclosing_bundle(file_path, self._okf_bundles)
-        content_hash = compute_file_content_hash(
-            content, enable_okf=self.config.enable_okf, bundle=bundle
+        source_hash = compute_source_hash(
+            content, enable_okf=self._okf_enabled, bundle=bundle
         )
 
-        if self._should_skip_unchanged_file(document_urn, content_hash):
+        filename = PurePosixPath(file_path).name
+        frontmatter = None
+        if (
+            self._okf_enabled
+            and bundle
+            and filename not in RESERVED_FILENAMES
+            and PurePosixPath(file_path).suffix.lower() == ".md"
+        ):
+            frontmatter = parse_okf_frontmatter(
+                content, path=file_path, report=self.report
+            )
+
+        if self._should_skip_unchanged_file(
+            document_urn, source_hash, compute_file_content_hash(content)
+        ):
             logger.info("Skipping unchanged file document: %s", file_path)
             self.report.files_skipped_unchanged += 1
             self._register_document_for_stale_removal(document_urn)
             yield from self._resurrect_unchanged_document(document_urn, owner_repo)
+            concept_type = frontmatter.values.get("type") if frontmatter else None
+            if not self._okf_server_unsupported and (
+                not isinstance(concept_type, str) or not concept_type.strip()
+            ):
+                yield from clear_okf_metadata(
+                    document_urn, ctx=self.ctx, report=self.report
+                )
             return
 
         parent_source_id = resolve_parent_dir_source_id(
@@ -408,38 +457,26 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         title = os.path.basename(file_path)
         okf_mapping = None
         text = content
-        filename = PurePosixPath(file_path).name
-        if bundle and filename == "index.md" and file_path == bundle_index_path(bundle):
-            root_index = parse_frontmatter(content, path=file_path, report=self.report)
-            if root_index is not None:
-                text = root_index.body
-        elif (
-            bundle
-            and filename not in RESERVED_FILENAMES
-            and PurePosixPath(file_path).suffix.lower() == ".md"
-        ):
-            frontmatter = parse_okf_frontmatter(
-                content, path=file_path, report=self.report
+        if frontmatter is not None and bundle is not None:
+            okf_mapping = map_okf(
+                frontmatter,
+                document_urn=document_urn,
+                bundle=bundle,
+                file_path=file_path,
+                revision=OkfRevisionClass(
+                    ref=branch,
+                    commit=commit_sha if commit_sha != "unknown" else None,
+                    blobSha=blob_sha,
+                ),
+                attribution_source=self._okf_attribution_source,
+                ctx=self.ctx,
+                report=self.report,
+                lookup_cache=self._okf_lookup_cache,
             )
-            if frontmatter is not None:
-                okf_mapping = map_okf(
-                    frontmatter,
-                    document_urn=document_urn,
-                    bundle=bundle,
-                    file_path=file_path,
-                    revision=OkfRevisionClass(
-                        ref=branch,
-                        commit=commit_sha if commit_sha != "unknown" else None,
-                        blobSha=blob_sha,
-                    ),
-                    attribution_source=self._okf_attribution_source,
-                    ctx=self.ctx,
-                    report=self.report,
-                )
-                if okf_mapping is not None:
-                    text = frontmatter.body
-                    title = okf_mapping.title or title
-                    self.report.okf_files_processed += 1
+            if okf_mapping is not None:
+                text = frontmatter.body
+                title = okf_mapping.title or title
+                self.report.okf_files_processed += 1
         custom_properties = {
             "import_source": "github",
             "github_repo": owner_repo,
@@ -447,7 +484,8 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             "github_file_path": file_path,
             "github_commit_sha": commit_sha,
             PROP_IMPORT_SOURCE_ID: source_id,
-            "content_hash": content_hash,
+            "content_hash": compute_file_content_hash(text),
+            "source_content_hash": source_hash,
             "extraction_algo_version": EXTRACTION_ALGO_VERSION,
         }
         if blob_sha:
@@ -482,6 +520,55 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                     id=f"{document_urn}-okf-{patch.aspectName}-{index}",
                     mcp_raw=patch,
                 )
+        elif not self._okf_server_unsupported:
+            yield from clear_okf_metadata(
+                document_urn, ctx=self.ctx, report=self.report
+            )
+
+    @cached_property
+    def _okf_enabled(self) -> bool:
+        if self.ctx.graph is None:
+            logger.debug(
+                "No graph connection; server support for okfProperties was not checked."
+            )
+            return self.config.enable_okf
+
+        try:
+            specs = self.ctx.graph.get_entity_aspect_specs()
+        except Exception:
+            logger.debug(
+                "Could not read the server entity/aspect registry", exc_info=True
+            )
+            specs = None
+        if specs is None:
+            self.report.warning(
+                title="Could not confirm OKF server support",
+                message=(
+                    "Server support for okfProperties could not be confirmed; writes "
+                    "may be rejected by an older server. Set enable_okf: false to "
+                    "import plain text."
+                ),
+            )
+            return self.config.enable_okf
+
+        try:
+            supported = specs.supports("document", "okfProperties")
+        except ValueError:
+            # A registry without the document entity cannot support its OKF aspect.
+            supported = False
+        if not supported:
+            self._okf_server_unsupported = True
+            self.report.okf_disabled_reason = "unsupported_aspect"
+            self.report.warning(
+                title="OKF handling disabled",
+                message=(
+                    "This DataHub server does not support the okfProperties aspect; "
+                    "OKF handling is disabled for this run. Upgrade DataHub to import "
+                    "OKF bundles."
+                ),
+            )
+            return False
+        return self.config.enable_okf
 
     @cached_property
     def _okf_attribution_source(self) -> Optional[str]:
@@ -504,7 +591,9 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             return f"urn:li:dataHubIngestionSource:cli-{datahub_guid(key)}"
         return None
 
-    def _should_skip_unchanged_file(self, document_urn: str, content_hash: str) -> bool:
+    def _should_skip_unchanged_file(
+        self, document_urn: str, source_hash: str, file_text_hash: str
+    ) -> bool:
         if not self.ctx.graph:
             return False
 
@@ -522,9 +611,9 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             return False
 
         props = document_info.customProperties
-        stored_hash = props.get("content_hash")
+        stored_hash = props.get("source_content_hash")
         exported_hash = props.get(LAST_EXPORTED_CONTENT_HASH_KEY)
-        return content_hash in (stored_hash, exported_hash)
+        return source_hash == stored_hash or file_text_hash == exported_hash
 
     def _resolve_document_identity(
         self, source_id: str, owner_repo: str, path: str, *, is_directory: bool = False

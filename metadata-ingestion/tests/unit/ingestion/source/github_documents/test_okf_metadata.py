@@ -19,6 +19,7 @@ from datahub.metadata.schema_classes import (
 
 
 def _raw_frontmatter_values(properties: OkfPropertiesClass) -> Dict[str, object]:
+    assert properties.raw is not None
     parsed = parse_okf_frontmatter(
         properties.raw,
         path="context/guides/mau.md",
@@ -66,6 +67,7 @@ def test_lifecycle_trust_and_declared_id_are_typed_without_losing_frontmatter() 
     properties = _properties(fields, report)
     assert properties.conceptId == "guides/mau"
     assert properties.declaredId == "producer:mau"
+    assert properties.bundle is not None
     assert properties.bundle.okfVersion == "0.2"
     assert properties.status == "experimental"
     assert properties.staleAfter == int(

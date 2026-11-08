@@ -178,7 +178,8 @@
                 "github_file_path": "guides/broken.md",
                 "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "github.example-org.analytics.guides.broken",
-                "content_hash": "7ad2d2afe3e8fdeecbae33ede15ec54ae729bb699396f485e55e392847be7ba2",
+                "content_hash": "db536c4b7cc9f8c57987f6b3462e7304ab8d03ebac9d373f3f4f54376adb1d82",
+                "source_content_hash": "f865e4e22734769e1ea8e4d3671c755f13313f84a6d9a909ec3138f4e75dfd76",
                 "extraction_algo_version": "2",
                 "github_blob_sha": "2379207268f21baec301446363a89396d7e96d4c"
             },
@@ -289,7 +290,8 @@
                 "github_file_path": "guides/mau.md",
                 "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "github.example-org.analytics.guides.mau",
-                "content_hash": "49ee6539d0add848ae1b376dc35abc48b7c231ad60873eaef65fa610cce55d0b",
+                "content_hash": "618b6ce523a5ca19616f00ba07bffe5916fc222e1cfb1266f95b63c66fffeb01",
+                "source_content_hash": "9eb59c7a38cde479bd3ab26d56ea814498aeb5cbfa5b82aef8860131124aa6b7",
                 "extraction_algo_version": "2",
                 "github_blob_sha": "ab354c614d205f21b831c77612fa615b2920f689"
             },
@@ -455,7 +457,7 @@
                                 "conceptId": "guides/mau",
                                 "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                                 "key": "owners",
-                                "mappingVersion": "5"
+                                "mappingVersion": "6"
                             }
                         }
                     }
@@ -477,7 +479,7 @@
                                 "conceptId": "guides/mau",
                                 "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                                 "key": "owners",
-                                "mappingVersion": "5"
+                                "mappingVersion": "6"
                             }
                         }
                     }
@@ -522,7 +524,7 @@
                                 "conceptId": "guides/mau",
                                 "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                                 "key": "tags",
-                                "mappingVersion": "5"
+                                "mappingVersion": "6"
                             }
                         }
                     }
@@ -567,7 +569,7 @@
                                 "conceptId": "guides/mau",
                                 "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                                 "key": "glossary_terms",
-                                "mappingVersion": "5"
+                                "mappingVersion": "6"
                             }
                         }
                     }
@@ -622,7 +624,8 @@
                 "github_file_path": "guides/no-type.md",
                 "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "github.example-org.analytics.guides.no-type",
-                "content_hash": "b5efdd7f1d650a9daefed891c25bd97d81eb943e5dc1933389f5d2598ce6357a",
+                "content_hash": "f6fc372a2f0454bccaa5d889a01835f59de10ee0b9fd6f289c56f73abe305dc0",
+                "source_content_hash": "54d4b321aa3c78175eb767694e052e47272e9a0483e92b6f65b5da84bbf1393c",
                 "extraction_algo_version": "2",
                 "github_blob_sha": "a489440ef2f01af8bd3993b3e488f184542f48d7"
             },
@@ -733,7 +736,8 @@
                 "github_file_path": "guides/plain.md",
                 "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "github.example-org.analytics.guides.plain",
-                "content_hash": "e9cccb8f08b5dbace314601702d650c24d47b4e851f4e481a87bb0cf98e02d99",
+                "content_hash": "15d93d955bfa541350a4fd53e30fe3e5da7b6918ef1c985ad5697e030f0063ed",
+                "source_content_hash": "a2046a410e8b91feedd335d7fd83557bac959dce77fd37d958f739cc0d96c64e",
                 "extraction_algo_version": "2",
                 "github_blob_sha": "ce2c2b7a82b88acee2e9fdc65370d783af35a260"
             },
@@ -844,7 +848,8 @@
                 "github_file_path": "index.md",
                 "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "github.example-org.analytics.index",
-                "content_hash": "c9d403559d74a15811a143f7ba0f9393de36aa36f26cdd5cc5355e4f99ef10c5",
+                "content_hash": "f508de285142d8aff109d44cd1c90b1520235e1c254f30a74561f1c1dd89ba4b",
+                "source_content_hash": "d24e1eda7b902c65e6c79b531474938321706b1f74032b24f459914afdc655e9",
                 "extraction_algo_version": "2",
                 "github_blob_sha": "f45872f0101a221b869987f6b2e63f9c3b89207b"
             },
@@ -858,7 +863,7 @@
                 "state": "PUBLISHED"
             },
             "contents": {
-                "text": "# Analytics knowledge bundle\n\n- [Monthly active users](guides/mau.md)\n"
+                "text": "---\nokf_version: \"0.2\"\n---\n# Analytics knowledge bundle\n\n- [Monthly active users](guides/mau.md)\n"
             },
             "created": {
                 "time": 1767225600000,
@@ -946,7 +951,8 @@
                 "github_file_path": "log.md",
                 "github_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "import_source_id": "github.example-org.analytics.log",
-                "content_hash": "bf5e2810ddc766356ad4be389c8e894873f7ec650cd5acfdc4849c9d6d0e8bcb",
+                "content_hash": "560b9e4ebfa0f3c17386a5cb3a2b3cacf0a239a185e92aeb2e7d5827ed8b4d50",
+                "source_content_hash": "0288e1b6668d486e0b0638541186b70200f3bb435c3e7cce2c121e09458fc909",
                 "extraction_algo_version": "2",
                 "github_blob_sha": "d273b32ed24d7d0b67937f688ac5b32e2b826197"
             },

@@ -72,7 +72,18 @@ def discover_bundles(
             )
             continue
         frontmatter = parse_frontmatter(content, path=path, report=report)
-        if frontmatter is None or "okf_version" not in frontmatter.values:
+        if frontmatter is None:
+            continue
+        if "okf_version" not in frontmatter.values:
+            report.okf_unversioned_index_files += 1
+            report.info(
+                title="Unversioned OKF bundle candidate",
+                message=(
+                    "This index.md has frontmatter without okf_version. "
+                    "Declare its directory in okf_bundle_roots to import it as a bundle."
+                ),
+                context=f"path={path}",
+            )
             continue
         parent = PurePosixPath(path).parent
         root = _key(str(parent))

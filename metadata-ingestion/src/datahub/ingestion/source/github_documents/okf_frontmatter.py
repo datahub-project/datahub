@@ -9,6 +9,7 @@ from datahub.ingestion.source.github_documents.github_documents_report import (
 )
 
 FRONTMATTER_DELIMITER = "---"
+MAX_FRONTMATTER_BYTES = 64 * 1024
 
 
 class _FrontmatterLoader(yaml.SafeLoader):
@@ -60,12 +61,21 @@ def parse_frontmatter(
         return None
 
     try:
-        end = next(
-            index
-            for index in range(1, len(lines))
-            if lines[index].rstrip("\r\n") == FRONTMATTER_DELIMITER
-        )
-        values: object = yaml.load("".join(lines[1:end]), Loader=_FrontmatterLoader)
+        block_size = len(lines[0].encode("utf-8"))
+        for end in range(1, len(lines)):
+            block_size += len(lines[end].encode("utf-8"))
+            if block_size > MAX_FRONTMATTER_BYTES:
+                raise ValueError("Frontmatter exceeds 64 KiB")
+            if lines[end].rstrip("\r\n") == FRONTMATTER_DELIMITER:
+                break
+        else:
+            raise ValueError("Frontmatter has no closing delimiter")
+        yaml_text = "".join(lines[1:end])
+        # Reject references before construction can expand or traverse an alias graph.
+        for event in yaml.parse(yaml_text, Loader=_FrontmatterLoader):
+            if isinstance(event, yaml.AliasEvent) or getattr(event, "anchor", None):
+                raise ValueError("Frontmatter anchors and aliases are not supported")
+        values: object = yaml.load(yaml_text, Loader=_FrontmatterLoader)
         if not isinstance(values, dict):
             return None
         _validate_json_keys(values)
@@ -88,7 +98,8 @@ def parse_frontmatter(
             title="Invalid OKF frontmatter",
             message=(
                 "Imported the original file because its frontmatter could not "
-                "be parsed losslessly as JSON."
+                "be parsed safely as JSON-compatible YAML (64 KiB maximum; "
+                "anchors and aliases are not supported)."
             ),
             context=f"path={path}",
             exc=exc,

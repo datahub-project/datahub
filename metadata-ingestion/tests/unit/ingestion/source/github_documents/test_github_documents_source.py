@@ -1,14 +1,17 @@
 """Unit tests for GitHubDocumentsSource."""
 
 import json
+import logging
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Type, TypedDict, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import SecretStr
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 from datahub.ingestion.graph.filters import RemovedStatusFilter
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.github_documents.github_api import (
@@ -27,6 +30,7 @@ from datahub.ingestion.source.github_documents.github_documents_report import (
 from datahub.ingestion.source.github_documents.github_documents_source import (
     GitHubDocumentsSource,
     compute_file_content_hash,
+    compute_source_hash,
 )
 from datahub.ingestion.source.github_documents.okf_frontmatter import (
     parse_okf_frontmatter,
@@ -60,6 +64,7 @@ from datahub.metadata.schema_classes import (
 
 
 def _raw_frontmatter_values(properties: OkfPropertiesClass) -> Dict[str, object]:
+    assert properties.raw is not None
     parsed = parse_okf_frontmatter(
         properties.raw, path="mau.md", report=GitHubDocumentsSourceReport()
     )
@@ -386,9 +391,7 @@ def test_skipped_file_increments_files_skipped(source: GitHubDocumentsSource) ->
 
 
 def test_no_matching_files_returns_early(source: GitHubDocumentsSource) -> None:
-    source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
-        return_value=([], False)
-    )
+    _mock_github_client(source, files=[])
 
     workunits = list(source.get_workunits())
     assert workunits == []
@@ -717,6 +720,9 @@ def test_file_document_includes_content_hash_and_blob_sha(
 
     assert props is not None
     assert props.get("content_hash") == compute_file_content_hash(content)
+    assert props.get("source_content_hash") == compute_source_hash(
+        content, bundle=None, enable_okf=True
+    )
     assert props.get("extraction_algo_version") == "2"
     assert props.get("github_blob_sha") == "blobabc"
 
@@ -765,7 +771,7 @@ def test_skips_unchanged_file_when_graph_hash_matches(
     )
     source.ctx.graph = MagicMock()
     mock_info = MagicMock()
-    mock_info.customProperties = {"content_hash": content_hash}
+    mock_info.customProperties = {"source_content_hash": content_hash}
     source.ctx.graph.get_aspect.return_value = mock_info
 
     list(source.get_workunits())
@@ -786,7 +792,7 @@ def test_skipping_unchanged_file_registers_entity_for_stale_removal(
     source.ctx.graph = MagicMock()
     source.ctx.graph.get_urns_by_filter.return_value = []
     mock_info = MagicMock()
-    mock_info.customProperties = {"content_hash": content_hash}
+    mock_info.customProperties = {"source_content_hash": content_hash}
     source.ctx.graph.get_aspect.return_value = mock_info
     source.stale_entity_removal_handler.add_entity_to_state = MagicMock()  # type: ignore[method-assign]
 
@@ -897,7 +903,7 @@ def test_skip_unchanged_uses_resolved_existing_urn(
     source.ctx.graph.get_urns_by_filter.return_value = [existing_urn]
     mock_info = MagicMock()
     mock_info.customProperties = {
-        "content_hash": content_hash,
+        "source_content_hash": content_hash,
         "import_source_id": source_id,
     }
 
@@ -1127,7 +1133,9 @@ def test_unchanged_file_resurrects_soft_deleted_document(
     )
     source.ctx.graph = MagicMock()
     existing = MagicMock()
-    existing.customProperties = {"content_hash": compute_file_content_hash(content)}
+    existing.customProperties = {
+        "source_content_hash": compute_file_content_hash(content)
+    }
     source.ctx.graph.get_aspect.return_value = existing
 
     def urns_by_filter(**kwargs):
@@ -1161,7 +1169,9 @@ def test_unchanged_file_not_soft_deleted_emits_nothing(
     )
     source.ctx.graph = MagicMock()
     existing = MagicMock()
-    existing.customProperties = {"content_hash": compute_file_content_hash(content)}
+    existing.customProperties = {
+        "source_content_hash": compute_file_content_hash(content)
+    }
     source.ctx.graph.get_aspect.return_value = existing
     source.ctx.graph.get_urns_by_filter.return_value = []
 
@@ -1411,15 +1421,18 @@ def test_okf_maps_metadata_and_preserves_frontmatter(newline: str) -> None:
     assert info.title == "Monthly active users"
     assert info.contents.text == body
     assert info.customProperties is not None
-    assert info.customProperties["content_hash"] == compute_file_content_hash(
+    assert info.customProperties["content_hash"] == compute_file_content_hash(body)
+    assert info.customProperties["source_content_hash"] == compute_source_hash(
         raw + body,
         bundle=OkfBundleClass(
             location="https://github.com/example-org/analytics", rootPath="."
         ),
+        enable_okf=True,
     )
     okf = aspects["okfProperties"]
     assert isinstance(okf, OkfPropertiesClass)
     assert okf.raw == raw
+    assert okf.bundle is not None
     assert okf.bundle.okfVersion is None
     assert okf.bundle.rootPath == "."
     assert okf.conceptId == "mau"
@@ -1524,38 +1537,20 @@ def test_non_okf_and_invalid_frontmatter_preserve_original(
     assert bool(okf_source.report.warnings) == warning
 
 
-def test_okf_attribution_omits_unknown_commit(
-    okf_source: GitHubDocumentsSource,
-) -> None:
+def test_import_requires_a_resolved_commit(okf_source: GitHubDocumentsSource) -> None:
     _mock_github_client(
         okf_source,
         files=[GitHubFileInfo(path="docs/mau.md", size=100)],
-        file_content="---\ntype: Guide\nowners: [alice@example.com]\n---\nBody",
     )
     commit_lookup = okf_source.client.get_latest_commit_sha
     assert isinstance(commit_lookup, MagicMock)
     commit_lookup.return_value = "unknown"
-    workunits = list(okf_source.get_workunits())
-    owner = OwnerClass.from_obj(
-        _okf_patch_operations(workunits, "ownership")[0]["value"]
-    )
-    attribution = owner.attribution
-    assert attribution is not None
-    assert attribution.sourceDetail == {
-        "origin": "okf",
-        "bundle": "https://github.com/example-org/analytics",
-        "rootPath": ".",
-        "conceptId": "docs/mau",
-        "key": "owners",
-        "mappingVersion": MAPPING_VERSION,
-    }
-    properties = next(
-        wu.get_aspect_of_type(OkfPropertiesClass)
-        for wu in workunits
-        if wu.get_aspect_of_type(OkfPropertiesClass)
-    )
-    assert properties is not None and properties.revision is not None
-    assert properties.revision.commit is None
+    with pytest.raises(RuntimeError, match="commit snapshot"):
+        list(okf_source.get_workunits_internal())
+    assert isinstance(okf_source.client.list_matching_files, MagicMock)
+    assert isinstance(okf_source.client.fetch_file_content, MagicMock)
+    okf_source.client.list_matching_files.assert_not_called()
+    okf_source.client.fetch_file_content.assert_not_called()
 
 
 def test_okf_unresolved_owner_preserves_value(
@@ -1644,18 +1639,22 @@ def test_okf_resolves_username_and_executor_attribution(
 
 def test_okf_hash_detects_frontmatter_and_mapping_changes() -> None:
     content = "---\ntype: Guide\ntitle: Original\n---\nBody"
-    assert compute_file_content_hash(content) != compute_file_content_hash(
-        content.replace("Original", "Updated")
+    bundle = OkfBundleClass(
+        location="https://github.com/example-org/analytics", rootPath="."
     )
-    assert compute_file_content_hash(content) != compute_file_content_hash(
-        content, enable_okf=False
+    original = compute_source_hash(content, bundle=bundle, enable_okf=True)
+    outside = compute_source_hash(content, bundle=None, enable_okf=True)
+    assert original != compute_source_hash(
+        content.replace("Original", "Updated"), bundle=bundle, enable_okf=True
     )
+    assert original != compute_source_hash(content, bundle=bundle, enable_okf=False)
     with patch(
         "datahub.ingestion.source.github_documents.github_documents_source.MAPPING_VERSION",
         "next",
     ):
-        new_hash = compute_file_content_hash(content)
-    assert new_hash != compute_file_content_hash(content)
+        assert original != compute_source_hash(content, bundle=bundle, enable_okf=True)
+        assert outside == compute_source_hash(content, bundle=None, enable_okf=True)
+        assert outside == compute_file_content_hash(content)
 
 
 def _association_aspect(
@@ -1733,7 +1732,7 @@ def _mock_existing_associations(
         ("glossary_terms", "glossaryTerm", "glossaryTerms"),
     ],
 )
-@pytest.mark.parametrize("field_state", ["listed", "absent", "empty"])
+@pytest.mark.parametrize("field_state", ["listed", "absent", "empty", "null", "blank"])
 def test_okf_reimport_preserves_datahub_associations(
     okf_source: GitHubDocumentsSource,
     key: str,
@@ -1772,6 +1771,8 @@ def test_okf_reimport_preserves_datahub_associations(
         "listed": f'{key}: ["{file_urn}"]\n',
         "absent": "",
         "empty": f"{key}: []\n",
+        "null": f"{key}:\n",
+        "blank": f'{key}: ""\n',
     }[field_state]
     _mock_github_client(
         okf_source,
@@ -1780,19 +1781,19 @@ def test_okf_reimport_preserves_datahub_associations(
     )
     workunits = list(okf_source.get_workunits())
     operations = _okf_patch_operations(workunits, aspect_name)
-    if field_state != "listed":
-        assert len(operations) == 1
-        removal = operations[0]
-        assert removal["op"] == "remove"
-        assert file_urn in removal["path"]
-        assert "urn:li:dataHubIngestionSource:example" in removal["path"]
-        assert "*" not in removal["path"]
+    expected = {
+        f"urn:li:{prefix}:{suffix}"
+        for suffix in ["other-file", "other-bundle", "other-root"]
+    }
+    expected.add(file_urn)
+    assert len(operations) == len(expected)
+    for operation in operations:
+        assert operation["op"] == "remove"
+        assert any(urn in operation["path"] for urn in expected)
+        assert "urn:li:dataHubIngestionSource:example" in operation["path"]
+        assert "*" not in operation["path"]
         if key == "owners":
-            assert "/TECHNICAL_OWNER/" in removal["path"]
-    else:
-        # The unattributed copy has the same patch key as our source-less add.
-        # Do not claim it, since a later file edit must preserve it as well.
-        assert operations == []
+            assert "/TECHNICAL_OWNER/" in operation["path"]
     assert okf_source.report.okf_unresolved_values == 0
 
 
@@ -1800,6 +1801,7 @@ def test_okf_reimport_preserves_datahub_associations(
     "key,prefix,aspect_name,value",
     [
         ("owners", "corpuser", "ownership", "unresolved-owner"),
+        ("owners", "corpuser", "ownership", "urn:li:tag:not-an-owner"),
         ("tags", "tag", "globalTags", "urn:li:corpuser:not-a-tag"),
         ("glossary_terms", "glossaryTerm", "glossaryTerms", "Missing Term"),
     ],
@@ -1956,3 +1958,697 @@ def test_okf_term_resolution_without_graph(
         assert operations[0]["op"] == "add"
         assert operations[0]["value"]["urn"] == value
     assert okf_source.report.okf_unresolved_values == int(not resolved)
+
+
+@pytest.mark.parametrize(
+    "reason", ["malformed", "no-type", "disabled", "index-removed", "reserved"]
+)
+@pytest.mark.parametrize("edited_subtype", [False, True])
+def test_stopping_concept_clears_only_okf_metadata(
+    okf_source: GitHubDocumentsSource, reason: str, edited_subtype: bool
+) -> None:
+    original = "---\ntype: Guide\nowners: [alice@example.com]\n---\nBody"
+    okf_source.config.okf_bundle_roots = []
+    _mock_github_client(
+        okf_source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content=original,
+    )
+    okf_source.client._index_file_paths = {"index.md"}
+    fetch = okf_source.client.fetch_file_content
+    assert isinstance(fetch, MagicMock)
+    fetch.side_effect = lambda repo, path, ref: (
+        '---\nokf_version: "0.2"\n---\nListing' if path == "index.md" else original
+    )
+    first = list(okf_source.get_workunits())
+    stored = next(
+        wu.get_aspect_of_type(OkfPropertiesClass)
+        for wu in first
+        if wu.get_aspect_of_type(OkfPropertiesClass)
+    )
+    assert stored is not None
+    aspects: Dict[Type[_Aspect], _Aspect] = {
+        OkfPropertiesClass: stored,
+        SubTypesClass: SubTypesClass(
+            typeNames=["Custom" if edited_subtype else "Guide"]
+        ),
+        OwnershipClass: _association_aspect(
+            "owners",
+            [
+                ("urn:li:corpuser:alice@example.com", _existing_okf_attribution()),
+                ("urn:li:corpuser:carol", None),
+            ],
+        ),
+        GlobalTagsClass: _association_aspect(
+            "tags", [("urn:li:tag:metrics", _existing_okf_attribution())]
+        ),
+        GlossaryTermsClass: _association_aspect(
+            "glossary_terms",
+            [("urn:li:glossaryTerm:active-user", _existing_okf_attribution())],
+        ),
+    }
+    graph = MagicMock()
+    graph.get_urns_by_filter.return_value = []
+    graph.get_aspect.side_effect = lambda urn, cls: aspects.get(cls)
+    okf_source.ctx.graph = graph
+    content = {
+        "malformed": "---\ntype: Guide\nowners: [\n---\nBody",
+        "no-type": "---\ntitle: Plain\n---\nBody",
+    }.get(reason, original)
+    if reason == "disabled":
+        okf_source.config.enable_okf = False
+    if reason == "index-removed":
+        okf_source.client._index_file_paths = set()
+    path = "docs/log.md" if reason == "reserved" else "docs/mau.md"
+    _mock_github_client(
+        okf_source, files=[GitHubFileInfo(path=path, size=100)], file_content=content
+    )
+    fetch = okf_source.client.fetch_file_content
+    assert isinstance(fetch, MagicMock)
+    fetch.side_effect = lambda repo, path, ref: (
+        '---\nokf_version: "0.2"\n---\nListing' if path == "index.md" else content
+    )
+    workunits = list(okf_source.get_workunits())
+    assert all(
+        getattr(wu.metadata, "changeType", None) != ChangeTypeClass.DELETE
+        for wu in workunits
+    )
+    neutral = [
+        wu.get_aspect_of_type(OkfPropertiesClass)
+        for wu in workunits
+        if wu.get_aspect_of_type(OkfPropertiesClass) is not None
+    ]
+    assert len(neutral) == 1 and neutral[0] is not None
+    assert neutral[0].to_obj() == {}
+    subtypes = [
+        wu.get_aspect_of_type(SubTypesClass)
+        for wu in workunits
+        if wu.get_aspect_of_type(SubTypesClass) is not None
+    ]
+    if edited_subtype:
+        assert subtypes == []
+    else:
+        assert len(subtypes) == 1 and subtypes[0] is not None
+        assert subtypes[0].typeNames == []
+    for aspect_name in ["ownership", "globalTags", "glossaryTerms"]:
+        operations = _okf_patch_operations(workunits, aspect_name)
+        assert len(operations) == 1 and operations[0]["op"] == "remove"
+        assert "carol" not in operations[0]["path"]
+    info = _document_infos_by_source_id(workunits)[
+        make_file_source_id("example-org/analytics", path)
+    ]
+    assert info.contents.text == content
+
+
+@pytest.mark.parametrize(
+    "key,prefix,aspect_name",
+    [
+        ("owners", "corpuser", "ownership"),
+        ("tags", "tag", "globalTags"),
+        ("glossary_terms", "glossaryTerm", "glossaryTerms"),
+    ],
+)
+@pytest.mark.parametrize("old_source", [None, "urn:li:dataHubIngestionSource:cli"])
+def test_okf_source_change_moves_values_without_duplicates(
+    okf_source: GitHubDocumentsSource,
+    key: str,
+    prefix: str,
+    aspect_name: str,
+    old_source: Optional[str],
+) -> None:
+    urn = f"urn:li:{prefix}:example"
+    old = _existing_okf_attribution(root_path="previous")
+    old.source = old_source
+    current = _association_aspect(key, [(urn, old)])
+    graph = _mock_existing_associations(okf_source, current)
+    okf_source.ctx.run_id = "urn:li:dataHubExecutionRequest:test-run"
+    execution = ExecutionRequestInputClass(
+        task="test",
+        executorId="test",
+        args={},
+        requestedAt=0,
+        source=ExecutionRequestSourceClass(
+            type="SCHEDULED_INGESTION_SOURCE",
+            ingestionSource="urn:li:dataHubIngestionSource:managed",
+        ),
+    )
+    graph.get_aspect.side_effect = lambda entity, cls: (
+        execution
+        if cls is ExecutionRequestInputClass
+        else current
+        if cls is type(current)
+        else None
+    )
+    _mock_github_client(
+        okf_source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content=f'---\ntype: Guide\n{key}: ["{urn}"]\n---\nBody',
+    )
+    operations = _okf_patch_operations(list(okf_source.get_workunits()), aspect_name)
+    assert [op["op"] for op in operations] == ["remove", "add"]
+    assert (old_source or "") in operations[0]["path"]
+    assert urn in operations[0]["path"]
+    attribution = operations[1]["value"]["attribution"]
+    assert isinstance(attribution, dict)
+    assert attribution["source"] == "urn:li:dataHubIngestionSource:managed"
+
+
+@pytest.mark.parametrize(
+    "hash_key", ["source_content_hash", "last_exported_content_hash", "content_hash"]
+)
+def test_hash_skip_contract(okf_source: GitHubDocumentsSource, hash_key: str) -> None:
+    content = "---\ntype: Guide\n---\nBody"
+    bundle = OkfBundleClass(
+        location="https://github.com/example-org/analytics", rootPath="."
+    )
+    stored_hash = (
+        compute_source_hash(content, bundle=bundle, enable_okf=True)
+        if hash_key == "source_content_hash"
+        else compute_file_content_hash(content)
+    )
+    graph = MagicMock()
+    graph.get_urns_by_filter.return_value = []
+    info = MagicMock()
+    info.customProperties = {hash_key: stored_hash}
+    graph.get_aspect.side_effect = lambda urn, cls: (
+        info if cls is DocumentInfoClass else None
+    )
+    okf_source.ctx.graph = graph
+    _mock_github_client(
+        okf_source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content=content,
+    )
+    list(okf_source.get_workunits())
+    assert okf_source.report.files_skipped_unchanged == (
+        0 if hash_key == "content_hash" else 1
+    )
+    assert okf_source.report.files_processed == (1 if hash_key == "content_hash" else 0)
+
+
+def test_reads_one_pinned_snapshot(okf_source: GitHubDocumentsSource) -> None:
+    calls: List[str] = []
+    commit = "a" * 40
+
+    def head(repo: str, branch: str) -> str:
+        assert branch == "feature/docs"
+        calls.append("head")
+        return commit
+
+    def tree(
+        repo: str, ref: str, prefix: str, extensions: List[str]
+    ) -> Tuple[List[GitHubFileInfo], bool]:
+        assert calls == ["head"] and ref == commit
+        calls.append("tree")
+        return [GitHubFileInfo(path="docs/mau.md", size=100, sha="blob-at-head")], False
+
+    def fetch(repo: str, path: str, ref: str) -> str:
+        assert ref == commit
+        calls.append(path)
+        return (
+            '---\nokf_version: "0.2"\n---\nListing'
+            if path == "index.md"
+            else "---\ntype: Guide\n---\nSnapshot body"
+        )
+
+    okf_source.config.branch = "feature/docs"
+    okf_source.client.get_latest_commit_sha = MagicMock(  # type: ignore[method-assign]
+        side_effect=head
+    )
+    okf_source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
+        side_effect=tree
+    )
+    okf_source.client.fetch_file_content = MagicMock(  # type: ignore[method-assign]
+        side_effect=fetch
+    )
+    okf_source.client._index_file_paths = {"index.md"}
+    workunits = list(okf_source.get_workunits())
+    properties = next(
+        wu.get_aspect_of_type(OkfPropertiesClass)
+        for wu in workunits
+        if wu.get_aspect_of_type(OkfPropertiesClass)
+    )
+    assert properties is not None and properties.revision is not None
+    assert properties.revision.commit == commit
+    assert properties.revision.blobSha == "blob-at-head"
+    assert properties.revision.ref == "feature/docs"
+    info = _document_infos_by_source_id(workunits)[
+        make_file_source_id("example-org/analytics", "docs/mau.md")
+    ]
+    assert info.contents.text == "Snapshot body"
+    assert info.source is not None and info.source.externalUrl is not None
+    assert "/feature/docs/" in info.source.externalUrl
+
+
+def test_lookup_caches_are_shared_by_files_and_reset_each_run(
+    okf_source: GitHubDocumentsSource,
+) -> None:
+    graph = MagicMock()
+    graph.exists.side_effect = lambda urn: urn == "urn:li:corpuser:alice"
+
+    def candidates(**kwargs: object) -> List[str]:
+        if kwargs["entity_types"] != ["glossaryTerm"]:
+            return []
+        if kwargs["extraFilters"] == [
+            {"field": "name", "condition": "EQUAL", "values": ["Active User"]}
+        ]:
+            return ["urn:li:glossaryTerm:missing-info", "urn:li:glossaryTerm:active"]
+        return []
+
+    graph.get_urns_by_filter.side_effect = candidates
+    graph.get_aspect.side_effect = lambda urn, cls: (
+        GlossaryTermInfoClass(name="Active User", definition="", termSource="INTERNAL")
+        if cls is GlossaryTermInfoClass and urn == "urn:li:glossaryTerm:active"
+        else None
+    )
+    okf_source.ctx.graph = graph
+    _mock_github_client(
+        okf_source,
+        files=[GitHubFileInfo(path=f"docs/{name}.md", size=100) for name in ["a", "b"]],
+        file_content=(
+            "---\ntype: Guide\nowners: [alice, missing-user]\n"
+            "glossary_terms: [Active User, Missing Term]\n---\nBody"
+        ),
+    )
+    for run in [1, 2]:
+        workunits = list(okf_source.get_workunits())
+        assert len(_okf_patch_operations(workunits, "glossaryTerms")) == 2
+        assert graph.exists.call_count == 2 * run
+        term_searches = [
+            c
+            for c in graph.get_urns_by_filter.call_args_list
+            if c.kwargs["entity_types"] == ["glossaryTerm"]
+        ]
+        assert len(term_searches) == 2 * run
+
+
+def test_new_nested_bundle_removes_old_okf_values(
+    okf_source: GitHubDocumentsSource,
+) -> None:
+    _mock_github_client(
+        okf_source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content=(
+            "---\ntype: Guide\nowners: [alice@example.com, bob@example.com]\n---\nBody"
+        ),
+    )
+    first = list(okf_source.get_workunits())
+    owners = [
+        OwnerClass.from_obj(op["value"])
+        for op in _okf_patch_operations(first, "ownership")
+    ]
+    _mock_existing_associations(okf_source, OwnershipClass(owners=owners))
+    okf_source.client._index_file_paths = {"docs/index.md"}
+    fetch = okf_source.client.fetch_file_content
+    assert isinstance(fetch, MagicMock)
+    fetch.side_effect = lambda repo, path, ref: (
+        '---\nokf_version: "0.2"\n---\nListing'
+        if path == "docs/index.md"
+        else "---\ntype: Guide\nowners: [alice@example.com]\n---\nBody"
+    )
+    second = list(okf_source.get_workunits())
+    operations = _okf_patch_operations(second, "ownership")
+    assert [op["op"] for op in operations] == ["remove", "add"]
+    assert "bob@example.com" in operations[0]["path"]
+    owner = OwnerClass.from_obj(operations[1]["value"])
+    assert owner.owner == "urn:li:corpuser:alice@example.com"
+    assert owner.attribution is not None
+    assert owner.attribution.sourceDetail["rootPath"] == "docs"
+    assert owner.attribution.sourceDetail["conceptId"] == "mau"
+
+
+def test_text_hash_stays_compatible_with_released_sync_back() -> None:
+    assert compute_file_content_hash("# Hello") == (
+        "bfb7d199fab898b4feab6d37fb8723adc1567544053ac085212ed6caa6b149f1"
+    )
+
+
+def test_mapping_bump_reimports_only_bundle_files(
+    okf_source: GitHubDocumentsSource,
+) -> None:
+    content = "---\ntype: Guide\n---\nBody"
+    okf_source.config.path_prefix = ""
+    okf_source.config.okf_bundle_roots = ["docs"]
+    bundle = OkfBundleClass(
+        location="https://github.com/example-org/analytics", rootPath="docs"
+    )
+    infos: Dict[str, object] = {}
+    for path, applicable_bundle in [("docs/mau.md", bundle), ("outside.md", None)]:
+        info = MagicMock()
+        info.customProperties = {
+            "source_content_hash": compute_source_hash(
+                content, bundle=applicable_bundle, enable_okf=True
+            )
+        }
+        source_id = make_file_source_id("example-org/analytics", path)
+        infos[f"urn:li:document:{normalize_document_id(source_id)}"] = info
+    graph = MagicMock()
+    graph.get_urns_by_filter.return_value = []
+    graph.get_aspect.side_effect = lambda urn, cls: (
+        infos.get(urn) if cls is DocumentInfoClass else None
+    )
+    okf_source.ctx.graph = graph
+    _mock_github_client(
+        okf_source,
+        files=[
+            GitHubFileInfo(path=path, size=100)
+            for path in ["docs/mau.md", "outside.md"]
+        ],
+        file_content=content,
+    )
+    with patch(
+        "datahub.ingestion.source.github_documents.github_documents_source.MAPPING_VERSION",
+        "next",
+    ):
+        workunits = list(okf_source.get_workunits())
+    assert okf_source.report.files_processed == 1
+    assert okf_source.report.files_skipped_unchanged == 1
+    infos_emitted = _document_infos_by_source_id(workunits)
+    assert make_file_source_id("example-org/analytics", "docs/mau.md") in infos_emitted
+    assert (
+        make_file_source_id("example-org/analytics", "outside.md") not in infos_emitted
+    )
+
+
+def test_sync_back_skip_still_clears_stale_okf_state(
+    okf_source: GitHubDocumentsSource,
+) -> None:
+    content = "Plain document exported from DataHub"
+    okf_source.config.enable_okf = False
+    stored = OkfPropertiesClass(
+        bundle=OkfBundleClass(
+            location="https://github.com/example-org/analytics", rootPath="."
+        ),
+        conceptId="docs/mau",
+        type="Guide",
+        raw="---\ntype: Guide\n---\n",
+    )
+    info = MagicMock()
+    info.customProperties = {
+        "last_exported_content_hash": compute_file_content_hash(content)
+    }
+    graph = MagicMock()
+    graph.get_urns_by_filter.return_value = []
+    graph.get_aspect.side_effect = lambda urn, cls: (
+        stored
+        if cls is OkfPropertiesClass
+        else info
+        if cls is DocumentInfoClass
+        else None
+    )
+    okf_source.ctx.graph = graph
+    _mock_github_client(
+        okf_source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content=content,
+    )
+    workunits = list(okf_source.get_workunits())
+    assert okf_source.report.files_skipped_unchanged == 1
+    neutral = [
+        wu.get_aspect_of_type(OkfPropertiesClass)
+        for wu in workunits
+        if wu.get_aspect_of_type(OkfPropertiesClass) is not None
+    ]
+    assert len(neutral) == 1 and neutral[0] is not None
+    assert neutral[0].to_obj() == {}
+    assert all(
+        getattr(wu.metadata, "changeType", None) != ChangeTypeClass.DELETE
+        for wu in workunits
+    )
+
+
+@pytest.mark.parametrize(
+    "server", ["no-graph", "supported", "unsupported", "unreadable"]
+)
+@pytest.mark.parametrize("enabled", [True, False])
+def test_okf_server_compatibility(
+    okf_source: GitHubDocumentsSource,
+    server: str,
+    enabled: bool,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    content = (
+        "---\ntype: Guide\nowners: [alice@example.com]\ntags: [metrics]\n"
+        "glossary_terms: [urn:li:glossaryTerm:active-user]\n---\nBody"
+    )
+    okf_source.config.enable_okf = enabled
+    _mock_github_client(
+        okf_source,
+        files=[GitHubFileInfo(path=f"docs/{name}.md", size=100) for name in ["a", "b"]],
+        file_content=content,
+    )
+    bundle = OkfBundleClass(
+        location="https://github.com/example-org/analytics", rootPath="."
+    )
+    graph = MagicMock()
+    graph.get_entity_aspect_specs.return_value = (
+        None
+        if server == "unreadable"
+        else EntityAspectSpecs(
+            entity_aspects={
+                "document": {"documentInfo", "okfProperties"}
+                if server == "supported"
+                else {"documentInfo"},
+                "dataset": {"okfProperties"},
+            }
+        )
+    )
+    graph.get_urns_by_filter.return_value = []
+    stored = OkfPropertiesClass(
+        bundle=bundle, conceptId="previous", type="Guide", raw="---\ntype: Guide\n---\n"
+    )
+    graph.get_aspect.side_effect = lambda urn, cls: (
+        stored if cls is OkfPropertiesClass else None
+    )
+    if server != "no-graph":
+        okf_source.ctx.graph = graph
+    with caplog.at_level(
+        logging.DEBUG,
+        logger="datahub.ingestion.source.github_documents.github_documents_source",
+    ):
+        workunits = list(okf_source.get_workunits())
+    effective = enabled and server != "unsupported"
+    properties = [wu.get_aspect_of_type(OkfPropertiesClass) for wu in workunits]
+    concepts = [
+        aspect for aspect in properties if aspect is not None and aspect.raw is not None
+    ]
+    assert len(concepts) == (2 if effective else 0)
+    infos = _document_infos_by_source_id(workunits)
+    for name in ["a", "b"]:
+        info = infos[make_file_source_id("example-org/analytics", f"docs/{name}.md")]
+        assert info.contents.text == ("Body" if effective else content)
+        assert info.customProperties is not None
+        assert info.customProperties["source_content_hash"] == compute_source_hash(
+            content, bundle=bundle if effective else None, enable_okf=effective
+        )
+        assert info.customProperties["content_hash"] == compute_file_content_hash(
+            info.contents.text
+        )
+    for aspect_name in ["ownership", "globalTags", "glossaryTerms"]:
+        assert len(_okf_patch_operations(workunits, aspect_name)) == (
+            2 if effective else 0
+        )
+    assert sum(bool(wu.get_aspect_of_type(SubTypesClass)) for wu in workunits) == (
+        2 if effective else 0
+    )
+    assert okf_source.config.enable_okf == enabled
+    assert okf_source.report.okf_disabled_reason == (
+        "unsupported_aspect" if server == "unsupported" else None
+    )
+    assert len(okf_source.report.warnings) == (
+        1 if server in {"unsupported", "unreadable"} else 0
+    )
+    if server == "unsupported":
+        assert all(aspect is None for aspect in properties)
+        assert not any(
+            getattr(wu.metadata, "changeType", None) == ChangeTypeClass.DELETE
+            for wu in workunits
+        )
+        assert not any(
+            call.args[1] is OkfPropertiesClass
+            for call in graph.get_aspect.call_args_list
+        )
+    if server == "no-graph":
+        graph.get_entity_aspect_specs.assert_not_called()
+        assert (
+            sum(
+                "server support for okfProperties was not checked" in record.message
+                for record in caplog.records
+            )
+            == 1
+        )
+    else:
+        graph.get_entity_aspect_specs.assert_called_once_with()
+
+
+def test_okf_capability_check_is_lazy(okf_source: GitHubDocumentsSource) -> None:
+    graph = MagicMock()
+    okf_source.ctx.graph = graph
+    _mock_github_client(okf_source, files=[])
+    assert list(okf_source.get_workunits_internal()) == []
+    graph.get_entity_aspect_specs.assert_not_called()
+    assert not okf_source.report.warnings
+
+
+def test_server_upgrade_rechecks_support_and_reimports_plain_files(
+    okf_source: GitHubDocumentsSource,
+) -> None:
+    content = "---\ntype: Guide\nowners: [alice@example.com]\n---\nBody"
+    _mock_github_client(
+        okf_source,
+        files=[GitHubFileInfo(path=f"docs/{name}.md", size=100) for name in ["a", "b"]],
+        file_content=content,
+    )
+    graph = MagicMock()
+    graph.get_entity_aspect_specs.side_effect = [
+        EntityAspectSpecs(entity_aspects={"document": {"documentInfo"}}),
+        EntityAspectSpecs(
+            entity_aspects={"document": {"documentInfo", "okfProperties"}}
+        ),
+    ]
+    graph.get_urns_by_filter.return_value = []
+    existing: Dict[str, DocumentInfoClass] = {}
+    graph.get_aspect.side_effect = lambda urn, cls: (
+        existing.get(urn) if cls is DocumentInfoClass else None
+    )
+    okf_source.ctx.graph = graph
+    first = list(okf_source.get_workunits())
+    graph.get_entity_aspect_specs.assert_called_once_with()
+    for wu in first:
+        info = wu.get_aspect_of_type(DocumentInfoClass)
+        if info is not None:
+            existing[wu.get_urn()] = info
+    second = list(okf_source.get_workunits())
+    assert graph.get_entity_aspect_specs.call_count == 2
+    assert okf_source.report.okf_disabled_reason is None
+    assert sum(bool(wu.get_aspect_of_type(OkfPropertiesClass)) for wu in second) == 2
+    infos = _document_infos_by_source_id(second)
+    for name in ["a", "b"]:
+        info = infos[make_file_source_id("example-org/analytics", f"docs/{name}.md")]
+        assert info.contents.text == "Body"
+
+
+def test_registry_fetch_error_keeps_okf_enabled(
+    okf_source: GitHubDocumentsSource,
+) -> None:
+    graph = MagicMock()
+    graph.get_entity_aspect_specs.side_effect = RuntimeError("Registry unavailable")
+    graph.get_aspect.return_value = None
+    graph.get_urns_by_filter.return_value = []
+    okf_source.ctx.graph = graph
+    _mock_github_client(
+        okf_source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content="---\ntype: Guide\n---\nBody",
+    )
+    workunits = list(okf_source.get_workunits())
+    assert any(wu.get_aspect_of_type(OkfPropertiesClass) for wu in workunits)
+    graph.get_entity_aspect_specs.assert_called_once_with()
+    assert len(okf_source.report.warnings) == 1
+
+
+@pytest.mark.parametrize(
+    "scenario",
+    ["concept", "plain", "malformed", "no-type", "disabled", "outside", "reserved"],
+)
+def test_source_never_emits_delete_workunits(
+    okf_source: GitHubDocumentsSource, scenario: str
+) -> None:
+    content = {
+        "plain": "# Plain document",
+        "malformed": "---\ntype: Guide\nowners: [\n---\nBody",
+        "no-type": "---\ntitle: Plain document\n---\nBody",
+    }.get(scenario, "---\ntype: Guide\nowners: [alice@example.com]\n---\nBody")
+    if scenario == "disabled":
+        okf_source.config.enable_okf = False
+    if scenario == "outside":
+        okf_source.config.okf_bundle_roots = []
+    path = "docs/log.md" if scenario == "reserved" else "docs/mau.md"
+    _mock_github_client(
+        okf_source,
+        files=[GitHubFileInfo(path=path, size=100)],
+        file_content=content,
+    )
+    stored = OkfPropertiesClass(
+        bundle=OkfBundleClass(
+            location="https://github.com/example-org/analytics", rootPath="."
+        ),
+        conceptId="docs/mau",
+        type="Guide",
+        raw="---\ntype: Guide\n---\n",
+    )
+    aspects: Dict[Type[_Aspect], _Aspect] = {
+        OkfPropertiesClass: stored,
+        SubTypesClass: SubTypesClass(typeNames=["Guide"]),
+        OwnershipClass: _association_aspect(
+            "owners",
+            [("urn:li:corpuser:alice@example.com", _existing_okf_attribution())],
+        ),
+    }
+    graph = MagicMock()
+    graph.get_entity_aspect_specs.return_value = EntityAspectSpecs(
+        entity_aspects={"document": {"okfProperties"}}
+    )
+    graph.get_urns_by_filter.return_value = []
+    graph.get_aspect.side_effect = lambda urn, cls: aspects.get(cls)
+    okf_source.ctx.graph = graph
+    workunits = list(okf_source.get_workunits())
+    assert workunits
+    assert all(
+        getattr(wu.metadata, "changeType", None) != ChangeTypeClass.DELETE
+        for wu in workunits
+    )
+    for wu in workunits:
+        metadata = wu.metadata
+        mcp = (
+            metadata.make_mcp()
+            if isinstance(metadata, MetadataChangeProposalWrapper)
+            else metadata
+        )
+        assert isinstance(mcp, MetadataChangeProposalClass)
+        assert mcp.aspect is not None
+        properties = wu.get_aspect_of_type(OkfPropertiesClass)
+        if properties is not None:
+            assert getattr(wu.metadata, "changeType", None) == ChangeTypeClass.UPSERT
+            assert (properties.raw is not None) == (scenario == "concept")
+            if properties.raw is None:
+                assert json.loads(mcp.aspect.value) == {}
+
+
+@pytest.mark.parametrize("unchanged", [False, True])
+def test_already_neutral_okf_state_is_not_cleaned_again(
+    okf_source: GitHubDocumentsSource, unchanged: bool
+) -> None:
+    content = "# Plain document"
+    info = MagicMock()
+    info.customProperties = (
+        {"source_content_hash": compute_file_content_hash(content)} if unchanged else {}
+    )
+    neutral = OkfPropertiesClass()
+    graph = MagicMock()
+    graph.get_entity_aspect_specs.return_value = EntityAspectSpecs(
+        entity_aspects={"document": {"okfProperties"}}
+    )
+    graph.get_urns_by_filter.return_value = []
+    graph.get_aspect.side_effect = lambda urn, cls: (
+        neutral
+        if cls is OkfPropertiesClass
+        else info
+        if cls is DocumentInfoClass
+        else None
+    )
+    okf_source.ctx.graph = graph
+    _mock_github_client(
+        okf_source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content=content,
+    )
+    workunits = list(okf_source.get_workunits())
+    assert not any(wu.get_aspect_of_type(OkfPropertiesClass) for wu in workunits)
+    assert not any(wu.get_aspect_of_type(SubTypesClass) for wu in workunits)
+    for aspect_name in ["ownership", "globalTags", "glossaryTerms"]:
+        assert _okf_patch_operations(workunits, aspect_name) == []
+    assert all(
+        getattr(wu.metadata, "changeType", None) != ChangeTypeClass.DELETE
+        for wu in workunits
+    )

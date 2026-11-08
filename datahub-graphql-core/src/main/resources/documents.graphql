@@ -416,18 +416,18 @@ type DocumentSettings {
 }
 
 """
-OKF concept metadata imported from a document's frontmatter
+An okfProperties without `raw` means the document is not (or no longer) an OKF concept; readers treat it like an absent aspect. When `raw` is present, `bundle`, `conceptId` and `type` are always set.
 """
 type OkfProperties {
   """
   Bundle identity and format version. Concept identifiers are scoped to this bundle.
   """
-  bundle: OkfBundle!
+  bundle: OkfBundle
 
   """
   Bundle-relative file path without the .md suffix, as defined by OKF
   """
-  conceptId: String!
+  conceptId: String
 
   """
   The producer's own `id` key, unique only within its bundle. Resolve it scoped to the bundle.
@@ -437,7 +437,7 @@ type OkfProperties {
   """
   Concept type, such as Guide, Table, Policy, or Runbook
   """
-  type: String!
+  type: String
 
   """
   Description declared in frontmatter
@@ -472,7 +472,7 @@ type OkfProperties {
   """
   The original YAML frontmatter block, verbatim including delimiters. The only stored copy of the frontmatter: typed fields above are read from it, and write-back edits it in place.
   """
-  raw: String!
+  raw: String
 
   """
   The revision the concept was read at; the merge base for write-back. The file's location is bundle.location + bundle.rootPath + conceptId + .md.

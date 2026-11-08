@@ -383,16 +383,26 @@ public class DocumentMapper {
     return result;
   }
 
+  @Nullable
   private static com.linkedin.datahub.graphql.generated.OkfProperties mapOkfProperties(
       final com.linkedin.okf.OkfProperties properties) {
+    if (!properties.hasRaw()) {
+      return null;
+    }
     final com.linkedin.datahub.graphql.generated.OkfProperties result =
         new com.linkedin.datahub.graphql.generated.OkfProperties();
-    result.setBundle(mapOkfBundle(properties.getBundle()));
-    result.setConceptId(properties.getConceptId());
+    if (properties.hasBundle()) {
+      result.setBundle(mapOkfBundle(properties.getBundle()));
+    }
+    if (properties.hasConceptId()) {
+      result.setConceptId(properties.getConceptId());
+    }
     if (properties.hasDeclaredId()) {
       result.setDeclaredId(properties.getDeclaredId());
     }
-    result.setType(properties.getType());
+    if (properties.hasType()) {
+      result.setType(properties.getType());
+    }
     if (properties.hasDescription()) {
       result.setDescription(properties.getDescription());
     }

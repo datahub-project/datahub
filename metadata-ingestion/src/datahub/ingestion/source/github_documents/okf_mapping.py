@@ -1,5 +1,5 @@
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 
 from datahub.emitter.mce_builder import (
@@ -38,7 +38,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import Urn
 from datahub.specific.document import DocumentPatchBuilder
 
-MAPPING_VERSION = "5"
+MAPPING_VERSION = "6"
 NATIVE_MAPPINGS: Dict[str, str] = {
     "title": "documentInfo.title",
     "type": "subTypes",
@@ -47,6 +47,12 @@ NATIVE_MAPPINGS: Dict[str, str] = {
     "glossary_terms": "glossaryTerms",
 }
 EMAIL_PATTERN = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
+
+
+@dataclass
+class OkfLookupCache:
+    owners: Dict[str, bool] = field(default_factory=dict)
+    terms: Dict[str, Optional[str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -72,7 +78,7 @@ def _resolve_term_name(name: str, ctx: PipelineContext) -> Optional[str]:
     for urn in candidates:
         info = ctx.graph.get_aspect(urn, GlossaryTermInfoClass)
         if info is None:
-            return None
+            continue
         if info.name == name:
             matches.add(urn)
             if len(matches) > 1:
@@ -80,24 +86,33 @@ def _resolve_term_name(name: str, ctx: PipelineContext) -> Optional[str]:
     return next(iter(matches)) if matches else None
 
 
-def _resolve_reference(value: str, key: str, ctx: PipelineContext) -> Optional[str]:
+def _resolve_reference(
+    value: str, key: str, ctx: PipelineContext, cache: OkfLookupCache
+) -> Optional[str]:
     if value.startswith("urn:"):
         parsed = Urn.from_string(value)
         if key == "owners":
-            return value
+            return value if parsed.entity_type in {"corpuser", "corpGroup"} else None
         expected = {"tags": "tag", "glossary_terms": "glossaryTerm"}
         return value if parsed.entity_type == expected[key] else None
     if key == "owners":
         urn = make_user_urn(value)
         # An unqualified owner could be either a user or a team. Only map it
         # when the catalog confirms that it identifies a user.
-        if EMAIL_PATTERN.fullmatch(value) or (ctx.graph and ctx.graph.exists(urn)):
+        if EMAIL_PATTERN.fullmatch(value):
             return urn
-        return None
+        if value not in cache.owners:
+            cache.owners[value] = False
+            if ctx.graph:
+                cache.owners[value] = ctx.graph.exists(urn)
+        return urn if cache.owners[value] else None
     if key == "tags":
         # Tags are keyed by name and need not exist first, as in other sources.
         return make_tag_urn(value)
-    return _resolve_term_name(value, ctx)
+    if value not in cache.terms:
+        cache.terms[value] = None
+        cache.terms[value] = _resolve_term_name(value, ctx)
+    return cache.terms[value]
 
 
 def map_okf(
@@ -110,7 +125,9 @@ def map_okf(
     attribution_source: Optional[str],
     ctx: PipelineContext,
     report: GitHubDocumentsSourceReport,
+    lookup_cache: Optional[OkfLookupCache] = None,
 ) -> Optional[OkfMapping]:
+    cache = lookup_cache if lookup_cache is not None else OkfLookupCache()
     values = frontmatter.values
     concept = concept_id(file_path, bundle)
 
@@ -178,14 +195,20 @@ def map_okf(
             aspects.append(SubTypesClass(typeNames=[concept_type]))
             continue
         value = values.get(key, [])
-        entries = value if isinstance(value, list) else [value]
+        entries: List[object]
+        if value is None or (isinstance(value, str) and not value.strip()):
+            entries = []
+        elif isinstance(value, list):
+            entries = value
+        else:
+            entries = [value]
         resolved: List[str] = []
         allow_removals = True
         for entry in entries:
             urn = None
             if isinstance(entry, str) and entry.strip():
                 try:
-                    urn = _resolve_reference(entry.strip(), key, ctx)
+                    urn = _resolve_reference(entry.strip(), key, ctx, cache)
                 except Exception:
                     # A failed catalog lookup or invalid URN must not discard
                     # the concept, including its original unresolved value.

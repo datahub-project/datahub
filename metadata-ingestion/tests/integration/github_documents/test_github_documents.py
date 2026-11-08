@@ -34,7 +34,7 @@ def test_github_documents_ingest(pytestconfig: pytest.Config, tmp_path: Path) ->
 
     def fetch_file(repository: str, file_path: str, branch: str) -> str:
         assert repository == "example-org/analytics"
-        assert branch == "main"
+        assert branch == "a" * 40
         return (fixtures / file_path).read_text()
 
     output = tmp_path / "github_documents_mces.json"

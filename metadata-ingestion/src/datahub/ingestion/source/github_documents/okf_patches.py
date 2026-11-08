@@ -19,19 +19,8 @@ from datahub.specific.document import DocumentPatchBuilder
 Association = Union[OwnerClass, TagAssociationClass, GlossaryTermAssociationClass]
 
 
-def _from_concept(
-    attribution: Optional[MetadataAttributionClass],
-    bundle: str,
-    root_path: str,
-    concept_id: str,
-) -> bool:
-    return bool(
-        attribution
-        and attribution.sourceDetail.get("origin") == "okf"
-        and attribution.sourceDetail.get("bundle") == bundle
-        and attribution.sourceDetail.get("rootPath") == root_path
-        and attribution.sourceDetail.get("conceptId") == concept_id
-    )
+def _from_okf(attribution: Optional[MetadataAttributionClass]) -> bool:
+    return bool(attribution and attribution.sourceDetail.get("origin") == "okf")
 
 
 def _association_urn(association: Association) -> str:
@@ -98,9 +87,6 @@ def reconcile_okf_associations(
     report: GitHubDocumentsSourceReport,
 ) -> None:
     current: Sequence[Association] = []
-    bundle = attribution.sourceDetail["bundle"]
-    root_path = attribution.sourceDetail["rootPath"]
-    concept_id = attribution.sourceDetail["conceptId"]
     if ctx.graph:
         try:
             current = _current_associations(patcher.urn, aspect_name, ctx)
@@ -109,10 +95,7 @@ def reconcile_okf_associations(
             report.warning(
                 title="Could not read existing OKF associations",
                 message="Only additions will be emitted for this aspect.",
-                context=(
-                    f"bundle={bundle}, rootPath={root_path}, "
-                    f"conceptId={concept_id}, aspect={aspect_name}"
-                ),
+                context=f"document={patcher.urn}, aspect={aspect_name}",
                 exc=exc,
             )
     else:
@@ -121,7 +104,7 @@ def reconcile_okf_associations(
     if allow_removals:
         for association in current:
             if (
-                _from_concept(association.attribution, bundle, root_path, concept_id)
+                _from_okf(association.attribution)
                 and _association_urn(association) not in urns
             ):
                 _remove_association(patcher, association)
@@ -139,12 +122,22 @@ def reconcile_okf_associations(
         else:
             added = GlossaryTermAssociationClass(urn=urn, attribution=attribution)
 
+        # One document identifies one file. Move its OKF value to the current source
+        # key even when another unresolved value makes missing-value removal unsafe.
+        for existing in current:
+            if (
+                _from_okf(existing.attribution)
+                and _association_urn(existing) == urn
+                and _association_key(existing) != _association_key(added)
+            ):
+                _remove_association(patcher, existing)
+
         # Do not claim an existing association that shares the patch key. This
         # matters especially when no ingestion-source URN is available: both
         # the file's and a manually added value would then use an empty source.
         if any(
             _association_key(existing) == _association_key(added)
-            and not _from_concept(existing.attribution, bundle, root_path, concept_id)
+            and not _from_okf(existing.attribution)
             for existing in current
         ):
             continue

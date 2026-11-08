@@ -1,12 +1,12 @@
 namespace com.linkedin.okf
 
-/** OKF concept metadata imported from a document's frontmatter. */
+/** An okfProperties without `raw` means the document is not (or no longer) an OKF concept; readers treat it like an absent aspect. When `raw` is present, `bundle`, `conceptId` and `type` are always set. */
 @Aspect = {
   "name": "okfProperties"
 }
 record OkfProperties {
   /** Bundle identity and format version. Concept identifiers are scoped to this bundle. */
-  bundle: OkfBundle
+  bundle: optional OkfBundle
 
   /** Bundle-relative file path without the .md suffix, as defined by OKF. */
   @Searchable = {
@@ -23,7 +23,7 @@ record OkfProperties {
       ]
     }
   }
-  conceptId: string
+  conceptId: optional string
 
   /** The producer's own `id` key, unique only within its bundle; resolve it scoped to the bundle. */
   @Searchable = {
@@ -50,7 +50,7 @@ record OkfProperties {
     "queryByDefault": false,
     "v3": { "queryByDefault": false }
   }
-  type: string
+  type: optional string
 
   /** Description declared in frontmatter. */
   description: optional string
@@ -81,7 +81,7 @@ record OkfProperties {
   verified: optional array[OkfStamp]
 
   /** The original YAML frontmatter block, verbatim including delimiters. The only stored copy of the frontmatter: typed fields above are read from it, and write-back edits it in place. */
-  raw: string
+  raw: optional string
 
   /** The revision the concept was read at; the merge base for write-back. The file's location is bundle.location + bundle.rootPath + conceptId + .md. */
   revision: optional OkfRevision
