@@ -1308,9 +1308,14 @@ class TestConfluentCloudConnectors:
         self,
     ) -> None:
         # `orders` has no schema, and `users` exists in two schemas that would both
-        # write `pg-users`; none of them can be placed.
+        # write `pg-users`; none of them can be placed. Listing `sales.items` twice is
+        # not a collision.
         connector, report = self._managed_postgres_source(
-            {"table.include.list": "orders,public.users,audit.users,sales.items"},
+            {
+                "table.include.list": (
+                    "orders,public.users,audit.users,sales.items,sales.items"
+                )
+            },
             ["pg-orders", "pg-users", "pg-items"],
         )
 
