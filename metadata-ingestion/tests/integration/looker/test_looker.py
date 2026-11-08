@@ -194,6 +194,49 @@ def test_looker_ingest_external_project_view(pytestconfig, tmp_path, mock_time):
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
+def test_looker_imported_project_view_uses_its_platform_instance(tmp_path, mock_time):
+    # The imported project's views are ingested by its own lookml recipe under
+    # another platform instance; the explore must reference those URNs.
+    mocked_client = mock.MagicMock()
+    with mock.patch("looker_sdk.init40") as mock_sdk:
+        mock_sdk.return_value = mocked_client
+        setup_mock_dashboard(mocked_client)
+        setup_mock_external_project_view_explore(mocked_client)
+
+        output_path = tmp_path / "looker_mces.json"
+        pipeline = Pipeline.create(
+            {
+                "run_id": "looker-test",
+                "source": {
+                    "type": "looker",
+                    "config": {
+                        "base_url": "https://looker.company.com",
+                        "client_id": "foo",
+                        "client_secret": "bar",
+                        "extract_usage_history": False,
+                        "project_to_platform_instance": {
+                            "datahub-demo": {"platform_instance": "demo_lookml"}
+                        },
+                    },
+                },
+                "sink": {"type": "file", "config": {"filename": str(output_path)}},
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    output = output_path.read_text()
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:looker,demo_lookml.datahub-demo.view.faa_flights,PROD)"
+        in output
+    )
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:looker,datahub-demo.view.faa_flights,PROD)"
+        not in output
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_looker_ingest_joins(pytestconfig, tmp_path, mock_time):
     mocked_client = mock.MagicMock()
     with mock.patch("looker_sdk.init40") as mock_sdk:
@@ -1414,6 +1457,7 @@ def test_upstream_cll(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         config.platform_name = "snowflake"
         config.platform_instance = "sales"
         config.env = "DEV"
+        config.project_to_platform_instance = {}
 
         looker_explore: Optional[LookerExplore] = looker_common.LookerExplore.from_api(
             model="fake",

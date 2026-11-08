@@ -135,6 +135,26 @@ class LookerViewNamingPattern(NamingPattern):
 
 
 # TODO: deprecate browse_pattern configs
+class LookMLProjectPlatformInstance(ConfigModel):
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="Platform instance of the LookML recipe that ingests this "
+        "project's views.",
+    )
+    env: Optional[str] = Field(
+        default=None,
+        description="Environment of that recipe. Leave empty to use the top-level "
+        "`env`.",
+    )
+
+    @field_validator("env", mode="after")
+    @classmethod
+    def env_must_be_one_of(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            return EnvConfigMixin.env_must_be_one_of(v)
+        return v
+
+
 class LookerCommonConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
     explore_naming_pattern: LookerNamingPattern = pydantic.Field(
         description=f"Pattern for providing dataset names to explores. {LookerNamingPattern.allowed_docstring()}",
@@ -171,6 +191,16 @@ class LookerCommonConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
     extract_column_level_lineage: bool = Field(
         True,
         description="When enabled, extracts column-level lineage from Views and Explores",
+    )
+    project_to_platform_instance: Dict[str, LookMLProjectPlatformInstance] = Field(
+        default_factory=dict,
+        description="Platform instance (and optionally env) of the views of each "
+        "LookML project, keyed by project name. Use this when LookML projects "
+        "are ingested by separate `lookml` recipes with different "
+        "`platform_instance` values, so the view URNs this recipe references "
+        "match the ones those recipes emit. A view from an imported project is "
+        "keyed by the imported project's name. Projects not listed use the "
+        "top-level `platform_instance` and `env`.",
     )
 
 
