@@ -28,7 +28,8 @@ from datahub.ingestion.source.kafka_connect.common import (
     parse_comma_separated_list,
 )
 from datahub.ingestion.source.kafka_connect.config_constants import (
-    parse_topic_regex_list,
+    ConnectorConfigKeys,
+    topics_from_regex_list,
 )
 from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 
@@ -197,25 +198,10 @@ class ConnectorRegistry:
         # Explicit generic_connectors mappings win over class-name auto-detection,
         # matching the sink path.
         elif connector_class_value in (S3_SOURCE_CONNECTOR_CLASS, S3_SOURCE_CLOUD):
-            generic = ConnectorRegistry._generic_connector_for_name(
+            generic = ConnectorRegistry._generic_source_connector(
                 manifest, config, report
             )
-            if generic is not None:
-                if (
-                    generic.generic_config.target_dataset
-                    or generic.generic_config.target_platform
-                ):
-                    report.warning(
-                        message=(
-                            "generic_connectors entry includes target_dataset/"
-                            "target_platform, which is sink-direction; ignoring it "
-                            "for this source so lineage is not inverted"
-                        ),
-                        context=manifest.name,
-                    )
-                else:
-                    return generic
-            return ConfluentS3SourceConnector(manifest, config, report)
+            return generic or ConfluentS3SourceConnector(manifest, config, report)
         # Cloud CDC source connectors (use Debezium-style naming)
         elif (
             connector_class_value in CLOUD_JDBC_SOURCE_CLASSES
@@ -225,6 +211,15 @@ class ConnectorRegistry:
         elif connector_class_value == MONGO_SOURCE_CONNECTOR_CLASS:
             return MongoSourceConnector(manifest, config, report)
 
+        return ConnectorRegistry._generic_source_connector(manifest, config, report)
+
+    @staticmethod
+    def _generic_source_connector(
+        manifest: ConnectorManifest,
+        config: KafkaConnectSourceConfig,
+        report: KafkaConnectSourceReport,
+    ) -> Optional["_GenericConnector"]:
+        """The `generic_connectors` entry for a source connector, if it is usable."""
         generic = ConnectorRegistry._generic_connector_for_name(
             manifest, config, report
         )
@@ -431,13 +426,8 @@ class _GenericConnector(BaseConnector):
             return [topic.strip()]
 
         # S3 source: `<topic>:<regex>` pairs name the produced topics.
-        return list(
-            dict.fromkeys(
-                mapping.topic
-                for mapping in parse_topic_regex_list(
-                    config.get("topic.regex.list", "")
-                )
-            )
+        return topics_from_regex_list(
+            config.get(ConnectorConfigKeys.TOPIC_REGEX_LIST, "")
         )
 
     @staticmethod
