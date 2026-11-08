@@ -1376,6 +1376,28 @@ class TestConfluentCloudConnectors:
         assert "connection.user" not in bag
         assert bag["db.name"] == "testdb"
 
+    def test_cloud_managed_postgres_source_applies_the_exclude_list(self) -> None:
+        connector, _ = self._managed_postgres_source(
+            {
+                "table.include.list": "public.users,sales.orders",
+                "table.exclude.list": "sales\\..*",
+            },
+            ["pg-users", "pg-orders"],
+        )
+
+        assert [lineage.target_dataset for lineage in connector.extract_lineages()] == [
+            "pg-users"
+        ]
+
+    def test_cloud_managed_postgres_source_unreadable_exclude_list(self) -> None:
+        connector, report = self._managed_postgres_source(
+            {"table.include.list": "public.users", "table.exclude.list": "sales(["},
+            ["pg-users"],
+        )
+
+        assert connector.extract_lineages() == []
+        assert report.warnings
+
     def test_cloud_managed_postgres_source_missing_connection_fields(
         self,
     ) -> None:
