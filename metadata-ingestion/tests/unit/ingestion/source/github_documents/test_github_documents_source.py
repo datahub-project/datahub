@@ -2166,22 +2166,33 @@ def test_okf_declared_value_takes_over_datahub_edit(
     assert attribution["source"] == "urn:li:dataHubIngestionSource:managed"
 
 
-def test_unreadable_index_skips_its_files_without_clearing_okf(
-    okf_source: GitHubDocumentsSource,
+@pytest.mark.parametrize("index_dir", ["", "docs/context/"])
+@pytest.mark.parametrize("request_failed", [True, False])
+def test_unreadable_index_skips_only_its_concepts(
+    okf_source: GitHubDocumentsSource, index_dir: str, request_failed: bool
 ) -> None:
     okf_source.config.okf_bundle_roots = []
+    concept = "docs/context/mau.md"
+    plain = "docs/context/notes.md"
+    index = f"{index_dir}index.md"
     _mock_github_client(
         okf_source,
         files=[
-            GitHubFileInfo(path="docs/context/mau.md", size=100),
-            GitHubFileInfo(path="docs/other.md", size=100),
+            GitHubFileInfo(path=concept, size=100),
+            GitHubFileInfo(path=plain, size=100),
         ],
     )
-    okf_source.client._index_file_paths = {"docs/context/index.md"}
+    okf_source.client._index_file_paths = {index}
+    # A failed request leaves an API error; an oversized file does not.
+    okf_source.client._last_api_error = "HTTP 502" if request_failed else None
     fetch = okf_source.client.fetch_file_content
     assert isinstance(fetch, MagicMock)
     fetch.side_effect = lambda repo, path, ref: (
-        None if path == "docs/context/index.md" else "---\ntype: Guide\n---\nBody"
+        None
+        if path == index
+        else "---\ntype: Guide\n---\nBody"
+        if path == concept
+        else "Plain notes"
     )
     graph = MagicMock()
     graph.get_urns_by_filter.return_value = []
@@ -2189,15 +2200,14 @@ def test_unreadable_index_skips_its_files_without_clearing_okf(
     okf_source.ctx.graph = graph
     workunits = list(okf_source.get_workunits())
     infos = _document_infos_by_source_id(workunits)
-    # The bundle is unknown, so its concept keeps its previous import.
-    assert (
-        make_file_source_id("example-org/analytics", "docs/context/mau.md") not in infos
-    )
-    assert make_file_source_id("example-org/analytics", "docs/other.md") in infos
+    # Plain files import either way. A concept under an index that could not be
+    # read keeps its previous import; an oversized index means no bundle.
+    assert make_file_source_id("example-org/analytics", plain) in infos
+    concept_id = make_file_source_id("example-org/analytics", concept)
+    assert (concept_id in infos) is not request_failed
     assert not any(
         wu.get_aspect_of_type(OkfPropertiesClass) is not None for wu in workunits
     )
-    assert okf_source.report.files_skipped == 1
 
 
 @pytest.mark.parametrize(

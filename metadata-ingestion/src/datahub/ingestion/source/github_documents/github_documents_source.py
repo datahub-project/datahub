@@ -137,6 +137,18 @@ def compute_source_hash(
     ).hexdigest()
 
 
+def _looks_like_concept(file_path: str, content: str) -> bool:
+    path = PurePosixPath(file_path)
+    if path.suffix.lower() != ".md" or path.name in RESERVED_FILENAMES:
+        return False
+    # A throwaway report: the real parse, with its warnings, happens on import.
+    frontmatter = parse_okf_frontmatter(
+        content, path=file_path, report=GitHubDocumentsSourceReport()
+    )
+    concept_type = frontmatter.values.get("type") if frontmatter else None
+    return isinstance(concept_type, str) and bool(concept_type.strip())
+
+
 @platform_name("GitHub")
 @config_class(GitHubDocumentsSourceConfig)
 @support_status(SupportStatus.ALPHA)
@@ -261,11 +273,12 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
 
             def fetch_index(path: str) -> Optional[str]:
                 content = self.client.fetch_file_content(owner_repo, path, commit_sha)
-                if content is None:
-                    # The tree lists this index, so a missing read is a failure,
-                    # not a confirmed non-bundle. The normal file fetch retries it.
+                if content is None and self.client.last_api_error:
+                    # The tree lists this index, so a failed request is not a
+                    # confirmed non-bundle. (An oversized index is permanent and
+                    # is treated as no bundle.) The normal file fetch retries it.
                     self._okf_unread_index_dirs.add(PurePosixPath(path).parent)
-                else:
+                elif content is not None:
                     self._okf_index_contents[path] = content
                 return content
 
@@ -421,9 +434,11 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             source_id, owner_repo, file_path
         )
         bundle = enclosing_bundle(file_path, self._okf_bundles)
-        if self._under_unread_okf_index(file_path):
-            # Without its index the file's bundle is unknown. Importing it as
-            # plain text would clear its OKF state, so keep the previous import.
+        if self._under_unread_okf_index(file_path) and _looks_like_concept(
+            file_path, content
+        ):
+            # Without its index the file's bundle is unknown. Importing a concept
+            # as plain text would clear its OKF state, so keep the previous import.
             self.report.files_skipped += 1
             self._register_document_for_stale_removal(document_urn)
             return

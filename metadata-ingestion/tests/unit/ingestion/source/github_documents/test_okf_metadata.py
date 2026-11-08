@@ -121,6 +121,8 @@ def test_verified_without_valid_entries_is_omitted() -> None:
     report = GitHubDocumentsSourceReport()
     properties = _properties("verified: [{at: 2026-06-25T09:00:00Z}]\n", report)
     assert properties.verified is None
+    assert report.okf_invalid_values == 1
+    assert report.warnings
 
 
 @pytest.mark.parametrize("value", ["not-a-date", "2026-09-23", "2026-09-23T00:00:00"])
