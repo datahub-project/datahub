@@ -26,7 +26,9 @@ class CatalogKafkaTopic(CatalogEntity):
     source_topic: Optional[CatalogMirrorSourceTopic] = None
 
 
-class KafkaTopicCatalog(CatalogIndex[CatalogKafkaTopic, KafkaSourceReport]):
+class KafkaTopicCatalog(
+    CatalogIndex[CatalogKafkaTopic, KafkaSourceReport, KafkaConfluentCatalogConfig]
+):
     def __init__(
         self,
         config: KafkaConfluentCatalogConfig,
@@ -42,13 +44,12 @@ class KafkaTopicCatalog(CatalogIndex[CatalogKafkaTopic, KafkaSourceReport]):
             entity_label="topic",
             client=client,
         )
-        self.topic_config = config
 
     def get_topic(self, topic_name: str) -> Optional[CatalogKafkaTopic]:
         return self._get(topic_name)
 
     def _filter(self, entities: List[CatalogKafkaTopic]) -> List[CatalogKafkaTopic]:
-        cluster_id = self.topic_config.cluster_id
+        cluster_id = self.config.cluster_id
         if not cluster_id:
             return entities
         in_cluster = [topic for topic in entities if topic.cluster_id == cluster_id]

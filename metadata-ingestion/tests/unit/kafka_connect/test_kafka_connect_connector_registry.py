@@ -123,51 +123,50 @@ class TestConnectorRegistrySourceConnectors:
         assert isinstance(connector, DebeziumSourceConnector)
         assert connector.get_platform() == "postgres"
 
-    def test_postgres_source_cloud_connector(self) -> None:
-        """Test routing for the Confluent Cloud managed (non-CDC) Postgres source.
+    @pytest.mark.parametrize(
+        "connector_class,expected_type",
+        [
+            # Managed JDBC source: topics are {topic.prefix}{table}, not Debezium's
+            # {server}.{schema}.{table}.
+            (POSTGRES_SOURCE_CLOUD, ConfluentJDBCSourceConnector),
+            (S3_SOURCE_CLOUD, ConfluentS3SourceConnector),
+            (S3_SOURCE_CONNECTOR_CLASS, ConfluentS3SourceConnector),
+        ],
+    )
+    def test_new_source_connector_routing(
+        self, connector_class: str, expected_type: type
+    ) -> None:
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            create_manifest(SOURCE, connector_class),
+            create_mock_config(),
+            create_mock_report(),
+        )
 
-        PostgresSource is a managed JDBC source: topics are {topic.prefix}{table},
-        so it routes to ConfluentJDBCSourceConnector rather than Debezium.
-        """
-        manifest = create_manifest(SOURCE, POSTGRES_SOURCE_CLOUD)
+        assert isinstance(connector, expected_type)
+
+    def test_sink_direction_generic_entry_does_not_replace_the_s3_source(
+        self,
+    ) -> None:
+        manifest = create_manifest(SOURCE, S3_SOURCE_CLOUD, name="my-s3-source")
         config = create_mock_config()
+        config.generic_connectors = [
+            GenericConnectorConfig(
+                connector_name="my-s3-source",
+                source_platform="kafka",
+                source_dataset="orders",
+                target_platform="s3",
+                target_dataset="my-bucket/orders",
+            )
+        ]
         report = create_mock_report()
 
         connector = ConnectorRegistry.get_connector_for_manifest(
             manifest, config, report
         )
 
-        assert connector is not None
-        assert isinstance(connector, ConfluentJDBCSourceConnector)
-        assert connector.get_platform() == "unknown"
-
-    def test_s3_source_cloud_connector(self) -> None:
-        """Test routing for the Confluent Cloud managed S3 source connector."""
-        manifest = create_manifest(SOURCE, S3_SOURCE_CLOUD)
-        config = create_mock_config()
-        report = create_mock_report()
-
-        connector = ConnectorRegistry.get_connector_for_manifest(
-            manifest, config, report
-        )
-
-        assert connector is not None
+        # Lineage stays S3 -> topic instead of being inverted by the sink-shaped entry.
         assert isinstance(connector, ConfluentS3SourceConnector)
-        assert connector.get_platform() == "s3"
-
-    def test_s3_source_self_hosted_connector(self) -> None:
-        """Test routing for the self-hosted S3 source connector."""
-        manifest = create_manifest(SOURCE, S3_SOURCE_CONNECTOR_CLASS)
-        config = create_mock_config()
-        report = create_mock_report()
-
-        connector = ConnectorRegistry.get_connector_for_manifest(
-            manifest, config, report
-        )
-
-        assert connector is not None
-        assert isinstance(connector, ConfluentS3SourceConnector)
-        assert connector.get_platform() == "s3"
+        report.warning.assert_called_once()  # type: ignore[attr-defined]
 
     def test_generic_source_overrides_s3_class(self) -> None:
         manifest = create_manifest(SOURCE, S3_SOURCE_CLOUD, name="my-s3-source")

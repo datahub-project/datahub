@@ -1,9 +1,15 @@
+import warnings
 from typing import Dict, Optional
 
 from pydantic import Field, PositiveFloat, PositiveInt, SecretStr, model_validator
 from typing_extensions import Annotated
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    ConfigurationWarning,
+    Filters,
+)
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
@@ -29,6 +35,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
 from datahub.masking.secret_registry import SecretRegistry
+from datahub.utilities.global_warning_util import add_global_warning
 
 _FLINK_CLOUDS = frozenset({"aws", "gcp", "azure"})
 
@@ -257,8 +264,29 @@ class KafkaConfluentCatalogConfig(ConfluentStreamCatalogConfig):
         "`platform_instance` that the recipe ingesting that cluster uses. Mirror topics "
         "live in a different cluster from their source, so the upstream topic URN needs "
         "the source cluster's platform instance (an empty string if that recipe sets "
-        "none); without a mapping no edge is emitted.",
+        "none); without a mapping no edge is emitted. The upstream URN uses this "
+        "recipe's `env`, so both recipes must use the same `env`.",
     )
+
+    @model_validator(mode="after")
+    def validate_mirror_lineage(self) -> "KafkaConfluentCatalogConfig":
+        if not self.include_lineage:
+            return self
+        if not self.enabled:
+            message = (
+                "confluent_catalog.include_lineage is set but confluent_catalog.enabled "
+                "is false, so no mirror-topic lineage is emitted."
+            )
+            add_global_warning(message)
+            warnings.warn(message, ConfigurationWarning, stacklevel=2)
+            return self
+        if not self.cluster_id and not self.cluster_id_to_platform_instance:
+            raise ValueError(
+                "confluent_catalog.include_lineage needs "
+                "confluent_catalog.cluster_id_to_platform_instance (or cluster_id): "
+                "without them no mirror topic's source cluster can be placed."
+            )
+        return self
 
 
 class KafkaSourceConfig(

@@ -10,6 +10,9 @@ from typing import Dict, Final, FrozenSet, List, Optional
 
 from pydantic import BaseModel
 
+from datahub.utilities.dedup_list import deduplicate_list
+from datahub.utilities.str_enum import StrEnum
+
 logger = logging.getLogger(__name__)
 
 
@@ -69,6 +72,9 @@ class ConnectorConfigKeys:
     S3_SSE_CUSTOMER_KEY: Final[str] = "s3.sse.customer.key"
     S3_SSE_CUSTOMER_KEY_MD5: Final[str] = "s3.sse.customer.key.md5"
     S3_PROXY_PASSWORD: Final[str] = "s3.proxy.password"
+    # S3 source: https://docs.confluent.io/kafka-connectors/s3-source/current/configuration_options.html
+    S3_SOURCE_MODE: Final[str] = "mode"
+    TOPIC_REGEX_LIST: Final[str] = "topic.regex.list"
 
     # MongoDB configuration
 
@@ -133,22 +139,53 @@ def parse_comma_separated_list(value: str) -> List[str]:
     return items
 
 
+class S3SourceMode(StrEnum):
+    GENERIC = "GENERIC"
+    RESTORE_BACKUP = "RESTORE_BACKUP"
+
+
 class TopicRegexMapping(BaseModel):
     topic: str
     regex: str
 
 
-def parse_topic_regex_list(value: str) -> List[TopicRegexMapping]:
+class TopicRegexList(BaseModel):
+    mappings: List[TopicRegexMapping]
+    malformed: List[str]
+
+
+def parse_topic_regex_list(value: str) -> TopicRegexList:
     """Parse an S3 source `topic.regex.list` (`<topic>:<regex>,<topic>:<regex>`).
 
     Topic names cannot contain `:`, so the first `:` splits topic from regex.
     """
     mappings: List[TopicRegexMapping] = []
+    malformed: List[str] = []
     for pair in parse_comma_separated_list(value):
         topic, sep, regex = pair.partition(":")
         if sep and topic.strip() and regex.strip():
             mappings.append(TopicRegexMapping(topic=topic.strip(), regex=regex.strip()))
-    return mappings
+        else:
+            malformed.append(pair)
+    return TopicRegexList(mappings=mappings, malformed=malformed)
+
+
+def topics_from_regex_list(value: str) -> List[str]:
+    return deduplicate_list(
+        mapping.topic for mapping in parse_topic_regex_list(value).mappings
+    )
+
+
+def allowed_flow_properties(
+    config: Dict[str, str], allowed_keys: FrozenSet[str]
+) -> Dict[str, str]:
+    """Keep only connector properties known to hold no credentials.
+
+    Connector configs can carry secrets under arbitrary keys (`kafka.api.secret`,
+    `aws.session.token`, ...), so new connectors list what they show instead of
+    listing what they hide.
+    """
+    return {k: v for k, v in config.items() if k in allowed_keys}
 
 
 _REGEX_METACHARACTERS: Final[FrozenSet[str]] = frozenset(".^$*+?{}[]|()")

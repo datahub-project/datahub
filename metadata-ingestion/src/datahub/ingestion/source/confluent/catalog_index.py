@@ -10,9 +10,10 @@ from datahub.ingestion.source.confluent.models import (
 )
 
 CatalogReportType = TypeVar("CatalogReportType", bound=SourceReport)
+CatalogConfigType = TypeVar("CatalogConfigType", bound=ConfluentStreamCatalogConfig)
 
 
-class CatalogIndex(Generic[CatalogEntityType, CatalogReportType]):
+class CatalogIndex(Generic[CatalogEntityType, CatalogReportType, CatalogConfigType]):
     """Fetches one Stream Catalog entity type once and indexes it by name.
 
     The kafka and kafka-connect sources both need this; subclasses override `_filter`,
@@ -21,7 +22,7 @@ class CatalogIndex(Generic[CatalogEntityType, CatalogReportType]):
 
     def __init__(
         self,
-        config: ConfluentStreamCatalogConfig,
+        config: CatalogConfigType,
         report: CatalogReportType,
         *,
         query: str,
@@ -72,7 +73,7 @@ class CatalogIndex(Generic[CatalogEntityType, CatalogReportType]):
         self.report.warning(
             message="Skipping Stream Catalog metadata for a name that the catalog "
             "reports more than once in this environment.",
-            context=f"entity={self._entity_label}, name={name}",
+            context=f"{self._entity_label}={name}",
         )
 
     def _record_indexed(self, count: int) -> None:

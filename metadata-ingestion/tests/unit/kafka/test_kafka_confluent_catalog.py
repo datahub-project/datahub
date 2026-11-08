@@ -2,7 +2,9 @@ from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from pydantic import ValidationError
 
+from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.confluent.client import (
@@ -262,7 +264,7 @@ class TestTopicLookup:
             ],
             KafkaSourceReport(),
         )
-        catalog.topic_config.cluster_id = "lkc-222"
+        catalog.config.cluster_id = "lkc-222"
 
         topic = catalog.get_topic(TOPIC)
         assert topic is not None and topic.cluster_id == "lkc-222"
@@ -513,6 +515,7 @@ class TestCatalogLineage:
         mock_kafka: Mock,
         topics: List[CatalogKafkaTopic],
         platform_instance: Optional[str] = "dest",
+        complete: bool = True,
         **catalog_overrides: object,
     ) -> Tuple[KafkaSource, List[UpstreamLineageClass]]:
         cluster_metadata = MagicMock()
@@ -527,7 +530,7 @@ class TestCatalogLineage:
             ),
             PipelineContext(run_id="test"),
         )
-        attach_catalog(source, topics)
+        attach_catalog(source, topics, complete=complete)
         lineage = [
             aspect
             for aspect in aspects_of(list(source.get_workunits()), "upstreamLineage")
@@ -554,12 +557,64 @@ class TestCatalogLineage:
         self, mock_kafka: Mock, mock_admin_client: Mock
     ) -> None:
         source, lineage = self.run(
-            mock_kafka, [mirror_of(TOPIC, "lkc-src")], include_lineage=True
+            mock_kafka,
+            [mirror_of(TOPIC, "lkc-src")],
+            include_lineage=True,
+            cluster_id_to_platform_instance={"lkc-other": "other"},
         )
 
         assert not lineage
         assert list(source.report.catalog_mirror_lineage_skipped) == [TOPIC]
         assert source.report.warnings
+
+    def test_source_without_a_cluster_id_is_skipped_and_reported(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source, lineage = self.run(
+            mock_kafka,
+            [mirror_of(TOPIC, None)],
+            include_lineage=True,
+            cluster_id_to_platform_instance={"lkc-src": "src"},
+        )
+
+        assert not lineage
+        assert list(source.report.catalog_mirror_lineage_skipped) == [TOPIC]
+
+    def test_source_in_this_recipes_cluster_uses_its_platform_instance(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        topic = CatalogKafkaTopic.model_validate(
+            {
+                "name": TOPIC,
+                "logical_cluster_id": "lkc-dest",
+                "source_topic": {
+                    "name": "src.orders",
+                    "logical_cluster_id": "lkc-dest",
+                },
+            }
+        )
+
+        _, lineage = self.run(
+            mock_kafka, [topic], include_lineage=True, cluster_id="lkc-dest"
+        )
+
+        assert [u.dataset for u in lineage[0].upstreams] == [
+            "urn:li:dataset:(urn:li:dataPlatform:kafka,dest.src.orders,PROD)"
+        ]
+
+    def test_partial_catalog_without_cluster_id_emits_no_mirror_lineage(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source, lineage = self.run(
+            mock_kafka,
+            [mirror_of(TOPIC, "lkc-src")],
+            complete=False,
+            include_lineage=True,
+            cluster_id_to_platform_instance={"lkc-src": "src"},
+        )
+
+        assert not lineage
+        assert list(source.report.catalog_mirror_lineage_skipped) == [TOPIC]
 
     def test_edge_back_to_the_topic_itself_is_skipped(
         self, mock_kafka: Mock, mock_admin_client: Mock
@@ -593,11 +648,24 @@ class TestCatalogLineage:
         self, mock_kafka: Mock, mock_admin_client: Mock
     ) -> None:
         source, lineage = self.run(
-            mock_kafka, [CatalogKafkaTopic(name=TOPIC)], include_lineage=True
+            mock_kafka,
+            [CatalogKafkaTopic(name=TOPIC)],
+            include_lineage=True,
+            cluster_id_to_platform_instance={"lkc-src": "src"},
         )
 
         assert not lineage
         assert not source.report.catalog_mirror_lineage_skipped
+
+
+def test_mirror_lineage_without_any_cluster_mapping_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        make_source_config(catalog=enabled_catalog_config(include_lineage=True))
+
+
+def test_mirror_lineage_with_the_catalog_disabled_warns() -> None:
+    with pytest.warns(ConfigurationWarning):
+        make_source_config(catalog={"enabled": False, "include_lineage": True})
 
 
 def test_catalog_close_releases_the_client() -> None:
