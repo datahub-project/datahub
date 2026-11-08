@@ -11,7 +11,6 @@ TOPIC_CATALOG_QUERY: Final[str] = """
     name
     qualifiedName
     logical_cluster_id
-    externalSourceTopicName
     source_topic {
       name
       logical_cluster_id
