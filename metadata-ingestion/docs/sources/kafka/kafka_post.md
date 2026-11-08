@@ -137,14 +137,25 @@ source:
         lkc-src: src
 ```
 
+The upstream URN uses this recipe's `env`, so the recipe that ingests the source cluster must use
+the same `env`. `include_lineage` needs `cluster_id_to_platform_instance` (or `cluster_id`);
+without either, the recipe is rejected.
+
 Mirror topics are skipped, with a warning, when:
 
 - the source cluster is neither `cluster_id` nor a key of `cluster_id_to_platform_instance`;
 - the edge would point the topic at itself (both clusters ingested without distinct
-  platform instances and the link adds no prefix).
+  platform instances and the link adds no prefix);
+- the catalog was only partially read and `cluster_id` is not set, since the topic found
+  may belong to another cluster of the environment.
 
 A mirror whose source cluster is outside the catalog's environment gets no edge: the
 catalog only gives that source's topic name, not its cluster.
+
+A skipped mirror emits no `upstreamLineage` at all, rather than an empty one, so lineage
+written for the topic by other sources is left alone. As a result, an edge emitted by an
+earlier run stays in DataHub after the mirror link is removed or `include_lineage` is
+turned off; remove it in the UI or with the `datahub` CLI.
 
 #### Custom Schema Registry
 

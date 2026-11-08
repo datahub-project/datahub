@@ -1401,6 +1401,16 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         source = catalog_topic.source_topic
         if not source.name:
             return None
+        if not catalog_config.cluster_id and not self.topic_catalog.is_complete():
+            # Without cluster_id, a partial read can miss the same topic name in another
+            # cluster of the environment, so this match may be the wrong cluster's topic.
+            self._skip_mirror_lineage(
+                topic,
+                "Skipping mirror-topic lineage because the Stream Catalog was only "
+                "partially read and confluent_catalog.cluster_id is not set.",
+                f"topic={topic}",
+            )
+            return None
 
         if source.cluster_id and source.cluster_id == catalog_config.cluster_id:
             upstream_instance = self.source_config.platform_instance
