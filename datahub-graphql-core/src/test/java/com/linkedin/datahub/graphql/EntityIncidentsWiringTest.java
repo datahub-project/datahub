@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql;
 
 import static org.mockito.Mockito.mock;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver;
@@ -61,7 +60,7 @@ public class EntityIncidentsWiringTest {
       }
     }
 
-    assertEquals(problems, List.of());
+    assertTrue(problems.isEmpty(), String.join("\n", problems));
     assertTrue(wired.contains("Dataset"), wired.toString());
   }
 }
