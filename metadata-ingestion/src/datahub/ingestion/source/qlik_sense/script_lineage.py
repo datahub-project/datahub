@@ -103,8 +103,11 @@ EXPRESSION_KEYWORDS = {
     "xor",
 }
 # Single-quoted text is a string literal in a chart expression, not a field.
+# A quoted field can carry a derived-field suffix, as in [Date].autoCalendar.Year.
 EXPRESSION_NAME_RE = re.compile(
-    r"\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|'[^']*'|(?P<bare>[^\W\d][\w.]*)"
+    r"\[(?P<bracket>[^\]]+)\](?P<bracket_suffix>(?:\.\w+)*)"
+    r"|\"(?P<double>[^\"]+)\"(?P<double_suffix>(?:\.\w+)*)"
+    r"|'[^']*'|(?P<bare>[^\W\d][\w.]*)"
 )
 # A driver or provider names the engine, whatever the rest of the string says.
 DRIVER_RE = re.compile(
@@ -556,10 +559,19 @@ def parse_load_script(script: str) -> List[ScriptTable]:
 
 def _block_end(text: str, position: int, opening: str, closing: str) -> int:
     """Index just past the closing delimiter of a block opened right before
-    position, counting nested blocks."""
+    position, counting nested blocks. Delimiters inside quotes, such as the
+    search string in {<Name={"A)"}>}, do not count."""
     depth = 1
+    quote_closing: Optional[str] = None
     while position < len(text) and depth:
-        depth += {opening: 1, closing: -1}.get(text[position], 0)
+        char = text[position]
+        if quote_closing:
+            if char == quote_closing:
+                quote_closing = None
+        elif char in QUOTE_PAIRS:
+            quote_closing = QUOTE_PAIRS[char]
+        else:
+            depth += {opening: 1, closing: -1}.get(char, 0)
         position += 1
     return position
 
@@ -612,7 +624,12 @@ def expression_names(expression: str) -> List[str]:
             or FUNCTION_CALL_RE.match(expression, match.end())
         ):
             continue
-        name = match.group("bracket") or match.group("double") or bare
+        if match.group("bracket"):
+            name = match.group("bracket") + match.group("bracket_suffix")
+        elif match.group("double"):
+            name = match.group("double") + match.group("double_suffix")
+        else:
+            name = bare
         if name:
             names.append(name)
     return names
