@@ -4,6 +4,7 @@ import dataclasses
 import functools
 import hashlib
 import json
+import logging
 import os
 import pathlib
 import shlex
@@ -25,12 +26,22 @@ from expandvars import (
     UnboundVariable,
     expand as _expandvars_expand,
 )
-from loguru import logger
 
+# TODO: promote to a public config_loader helper.
+from datahub.configuration.config_loader import _extract_env_var_names
 from datahub.executor.common.env_config import (
     get_bundled_venv_path,
     get_dependency_resolution_enabled,
 )
+from datahub.executor.execution.pip_requirements_policy import (
+    validate_extra_pip_requirements,
+    validate_install_env_vars,
+    validate_plugin_names,
+)
+from datahub.masking.masking_filter import SecretMaskingFilter
+from datahub.masking.secret_registry import SecretRegistry
+
+logger = logging.getLogger(__name__)
 
 
 def _expand_pip_req(req: str) -> str:
@@ -56,6 +67,17 @@ def _expand_pip_req(req: str) -> str:
         raise RuntimeError(
             f"pip requirement {req!r} has invalid environment variable syntax: {e}"
         ) from e
+
+
+def referenced_env_values(reqs: list[str]) -> dict[str, str]:
+    """Values of only the env vars the user references in pip requirements."""
+    values: dict[str, str] = {}
+    for req in reqs:
+        for name in _extract_env_var_names(req):
+            value = os.environ.get(name)
+            if value is not None:
+                values[name] = value
+    return values
 
 
 _DEFAULT_MAX_LOG_LINES = 2000
@@ -139,6 +161,12 @@ class LogHolder:
         self._create_new_line = True
         self.most_recent_log_ts = None
 
+    def append_masked(self, content: str) -> None:
+        """Masks the whole buffer before splitting, so multi-line secrets cannot straddle lines."""
+        masked = SecretMaskingFilter(SecretRegistry.get_instance()).mask_text(content)
+        for line in masked.splitlines():
+            self.append(f"{line}\n")
+
     def append(self, partial_line: str) -> None:
         self.most_recent_log_ts = datetime.now(tz=timezone.utc)
 
@@ -164,7 +192,9 @@ class LogHolder:
         # If partial_line ends with a '\n', then the line is complete.
         if partial_line.endswith("\n"):
             if self._echo_logs_prefix is not None:
-                logger.opt(raw=True).debug(f"{self._echo_logs_prefix}{self._lines[-1]}")
+                logger.debug(
+                    "%s%s", self._echo_logs_prefix, self._lines[-1].rstrip("\n")
+                )
 
             # On the next append, we'll create a new line.
             self._create_new_line = True
@@ -473,6 +503,10 @@ async def setup_venv(
             venv_config=venv_config,
         )
 
+    # Plugin names become the bundled venv directory name and the extras of the
+    # acryl-datahub requirement, so check them before either is built.
+    validate_plugin_names([venv_config.main_plugin, *venv_config.extra_pip_plugins])
+
     # New: Handle bundled startup venvs
     if venv_config.version == VENV_VERSION_BUNDLED:
         if bundled_venv_path is None:
@@ -502,9 +536,23 @@ async def setup_venv(
         )
 
     # Handle dynamic venvs
+    SecretRegistry.get_instance().register_secrets_batch(
+        referenced_env_values(venv_config.extra_pip_requirements)
+    )
+
     # Expand env-var templates once so that the venv cache key and the
     # requirements file see the same os.environ snapshot.
     expanded_pip_reqs = venv_config.resolve_pip_requirements()
+
+    # Checked before the venv cache lookup so that a cached venv never serves a
+    # requirement the current policy would reject. A caller-supplied
+    # requirements_file is the caller's own, not recipe input, and is not checked.
+    if venv_config.requirements_file is None:
+        validate_extra_pip_requirements(
+            venv_config.extra_pip_requirements, expanded_pip_reqs
+        )
+    # extra_env_vars are applied to the install commands below.
+    validate_install_env_vars(venv_config.extra_env_vars)
 
     # Versions that are "moving targets" get random names, everything else gets a stable name
     venv_name_candidate = venv_config.get_stable_venv_name(
@@ -536,11 +584,12 @@ async def setup_venv(
         [_find_uv(), "venv", "--python", sys.executable, str(venv_loc)]
     )
 
-    venv_env = {
-        **os.environ,
-        **venv_config.extra_env_vars,
-        "VIRTUAL_ENV": str(venv_loc),
-    }
+    # The install environment is the executor's own. A recipe's extra_env_vars are
+    # deliberately left out: variables such as HOME or XDG_CONFIG_HOME change where
+    # uv reads its config (and so which package index it uses), which would let a
+    # recipe resolve even an allowlisted package from a different index. They still
+    # reach the ingestion run through VenvReference.extra_envs().
+    venv_env = {**os.environ, "VIRTUAL_ENV": str(venv_loc)}
 
     version = venv_config.version
 
@@ -550,7 +599,7 @@ async def setup_venv(
         runner._logs.append(
             f"Installing requirements from: {venv_config.requirements_file}\n"
         )
-        await runner.execute(["cat", str(venv_config.requirements_file)])
+        runner._logs.append_masked(venv_config.requirements_file.read_text())
         install_cmd = [
             _find_uv(),
             "pip",
@@ -614,7 +663,7 @@ async def setup_venv(
         extra_req_file = venv_loc / "extra-requirements.txt"
         extra_req_file.write_text("\n".join(expanded_pip_reqs))
         runner._logs.append(f"Installing extra requirements from: {extra_req_file}\n")
-        await runner.execute(["cat", str(extra_req_file)])
+        runner._logs.append_masked("\n".join(expanded_pip_reqs))
         await runner.execute(
             [_find_uv(), "pip", "install", "-r", str(extra_req_file)],
             env=venv_env,

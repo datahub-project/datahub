@@ -87,6 +87,10 @@ class DremioToDataHubSourceTypeMapping:
         "S3",
     }
 
+    # Database sources whose Dremio path starts with the database (one folder per
+    # database), so a configured database must not be prepended again.
+    DATABASE_IN_PATH_TYPES: Set[str] = {"MSSQL", "MYSQL", "SNOWFLAKE", "TERADATA"}
+
     def __init__(
         self,
         extra_mappings: Optional[Dict[str, "DremioSourceTypeOverride"]] = None,
@@ -94,9 +98,12 @@ class DremioToDataHubSourceTypeMapping:
         self._platform_overrides: Dict[str, str] = {}
         self._database_overrides: Set[str] = set()
         self._file_overrides: Set[str] = set()
+        self._database_in_path_overrides: Dict[str, bool] = {}
         for source_type, override in (extra_mappings or {}).items():
             key = source_type.upper()
             self._platform_overrides[key] = override.platform
+            if override.database_in_path is not None:
+                self._database_in_path_overrides[key] = override.database_in_path
             if override.category == "database":
                 self._database_overrides.add(key)
             elif override.category == "file_object_storage":
@@ -124,6 +131,18 @@ class DremioToDataHubSourceTypeMapping:
         if key in self._platform_overrides:
             return self._platform_overrides[key]
         return self.SOURCE_TYPE_MAPPING.get(key, dremio_source_type.lower())
+
+    def lookup_database_in_path(self, source_type: str) -> Optional[bool]:
+        """Whether the Dremio path starts with the database. None for a custom
+        type that doesn't declare it."""
+        key = source_type.upper()
+        if key in self._database_in_path_overrides:
+            return self._database_in_path_overrides[key]
+        if key in self.DATABASE_IN_PATH_TYPES:
+            return True
+        if key in self.DATABASE_SOURCE_TYPES:
+            return False
+        return None
 
     def lookup_category(self, source_type: str) -> str:
         key = source_type.upper()

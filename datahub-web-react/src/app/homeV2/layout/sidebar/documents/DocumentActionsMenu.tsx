@@ -21,7 +21,7 @@ const MenuButton = styled(Button)`
     min-width: 0;
 
     &:hover {
-        colors: ${(props) => props.theme.colors.textSecondary};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 

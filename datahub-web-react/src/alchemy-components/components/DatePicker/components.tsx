@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 
-import { formLabelTextStyles } from '@components/components/commonStyles';
+import { formLabelTextStyles, inputValueTextStyles } from '@components/components/commonStyles';
 import { spacing } from '@components/theme';
 
 import AntdDatePicker from '@utils/DayjsDatePicker';
@@ -18,14 +18,22 @@ export const Label = styled.div(({ theme }) => ({
     textAlign: 'left',
 }));
 
-export const StyledAntdDatePicker = styled(AntdDatePicker)<{ $noDefaultPaddings?: boolean }>`
+export const StyledAntdDatePicker = styled(AntdDatePicker)<{
+    $noDefaultPaddings?: boolean;
+    showTime?: boolean | Record<string, any>;
+}>`
     &.ant-picker {
         ${(props) => props.$noDefaultPaddings && 'padding: 0;'}
         width: 100%;
+        ${inputValueTextStyles()}
     }
 
     &.acryl-date-picker .ant-picker-cell-today > .ant-picker-cell-inner::before {
         border: 1px solid ${({ theme }) => theme.colors.borderBrand} !important;
+    }
+
+    .ant-picker-input {
+        ${inputValueTextStyles()}
     }
 `;
 

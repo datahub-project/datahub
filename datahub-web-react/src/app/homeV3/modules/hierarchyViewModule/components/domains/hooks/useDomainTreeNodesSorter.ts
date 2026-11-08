@@ -2,10 +2,10 @@ import { useCallback } from 'react';
 
 import { sortDomainTreeNodes } from '@app/homeV3/modules/hierarchyViewModule/components/domains/utils';
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 export default function useDomainTreeNodesSorter() {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     return useCallback((nodes: TreeNode[]) => sortDomainTreeNodes(nodes, entityRegistry), [entityRegistry]);
 }

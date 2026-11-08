@@ -20,7 +20,17 @@ record AgentSkillInfo {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: string
 
@@ -29,7 +39,16 @@ record AgentSkillInfo {
    */
   @Searchable = {
     "fieldType": "TEXT",
-    "hasValuesFieldName": "hasDescription"
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 
@@ -64,24 +83,32 @@ record AgentSkillInfo {
 
   /**
    * When this skill was registered.
+   * Search V3 does not index this time. The write is systemMetadata.aspectCreated,
+   * copied to _system.created.time.
    */
+  @deprecated = "Use systemMetadata.aspectCreated instead."
   @Searchable = {
     "/time": {
       "fieldName": "createdAt",
       "fieldType": "DATETIME",
-      "queryByDefault": false
+      "queryByDefault": false,
+      "v3": { "enabled": false }
     }
   }
   created: optional AuditStamp
 
   /**
    * When this skill was last modified.
+   * Search V3 does not index this time. The write is systemMetadata.aspectModified,
+   * copied to _system.modified.time.
    */
+  @deprecated = "Use systemMetadata.aspectModified instead."
   @Searchable = {
     "/time": {
       "fieldName": "lastModifiedAt",
       "fieldType": "DATETIME",
-      "queryByDefault": false
+      "queryByDefault": false,
+      "v3": { "enabled": false }
     }
   }
   lastModified: optional AuditStamp

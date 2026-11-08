@@ -2,21 +2,32 @@ import { useCallback, useEffect, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
 
 import { DataProductEntity } from '@app/marketplace/marketplaceTypes';
+import { mergeScrollPageResults } from '@app/marketplace/utils/scrollMergeUtils';
 import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 
 import { useScrollDataProductsQuery } from '@graphql/marketplaceBrowse.generated';
-import { EntityType, SortOrder } from '@types';
+import { EntityType, FilterOperator, SortOrder } from '@types';
 
 export const DATA_PRODUCT_ROOT_COUNT = 50;
 
-function buildScrollInput(scrollId: string | null) {
+function buildRootScrollInput(scrollId: string | null) {
     return {
         input: {
             scrollId,
             query: '*',
             types: [EntityType.DataProduct],
             count: DATA_PRODUCT_ROOT_COUNT,
-            orFilters: [{ and: [{ field: 'hasParentDataProduct', values: ['false'] }] }],
+            orFilters: [
+                {
+                    and: [
+                        {
+                            field: 'hasParentDataProduct',
+                            condition: FilterOperator.Equal,
+                            values: ['false'],
+                        },
+                    ],
+                },
+            ],
             sortInput: {
                 sortCriteria: [{ field: ENTITY_NAME_FIELD, sortOrder: SortOrder.Ascending }],
             },
@@ -25,9 +36,20 @@ function buildScrollInput(scrollId: string | null) {
     };
 }
 
-export default function useDataProductRoots() {
+/**
+ * Infinite scroll for root-level data products in browse mode.
+ * Filtered flat search uses `useMarketplaceSidebarSearch` instead.
+ */
+export default function useDataProductRoots(skip = false) {
     const [scrollId, setScrollId] = useState<string | null>(null);
     const [data, setData] = useState<DataProductEntity[]>([]);
+
+    useEffect(() => {
+        if (skip) {
+            // Keep prior browse results so leaving search does not flash an empty tree.
+            setScrollId(null);
+        }
+    }, [skip]);
 
     const {
         data: scrollData,
@@ -35,49 +57,49 @@ export default function useDataProductRoots() {
         error,
         refetch,
     } = useScrollDataProductsQuery({
-        variables: buildScrollInput(scrollId),
+        skip,
+        variables: buildRootScrollInput(scrollId),
         notifyOnNetworkStatusChange: true,
     });
 
     useEffect(() => {
-        if (scrollData?.scrollAcrossEntities?.searchResults) {
-            const fresh = scrollData.scrollAcrossEntities.searchResults
-                .map((r) => r.entity)
-                .filter((e): e is DataProductEntity => e?.__typename === 'DataProduct');
-            const freshByUrn = new Map(fresh.map((e) => [e.urn, e]));
+        if (skip) return;
+        if (loading && scrollId === null) return;
+        if (!scrollData?.scrollAcrossEntities?.searchResults) return;
 
-            setData((currData) => {
-                const updated = currData.map((e) => freshByUrn.get(e.urn) || e);
-                const seenUrns = new Set(updated.map((e) => e.urn));
-                const additions = fresh.filter((e) => !seenUrns.has(e.urn));
-                if (additions.length === 0 && updated.every((e, i) => e === currData[i])) {
-                    return currData;
-                }
-                return [...updated, ...additions];
-            });
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [scrollData]);
+        const fresh = scrollData.scrollAcrossEntities.searchResults
+            .map((r) => r.entity)
+            .filter((e): e is DataProductEntity => e?.__typename === 'DataProduct');
+
+        setData((currData) =>
+            mergeScrollPageResults({
+                current: currData,
+                fresh,
+                scrollId,
+            }),
+        );
+    }, [scrollData, skip, loading, scrollId]);
 
     const nextScrollId = scrollData?.scrollAcrossEntities?.nextScrollId;
 
     const [scrollRef, inView] = useInView({ triggerOnce: false });
 
     useEffect(() => {
-        if (!loading && nextScrollId && scrollId !== nextScrollId && inView) {
-            setScrollId(nextScrollId);
+        if (skip || loading || !nextScrollId || scrollId === nextScrollId || !inView) {
+            return;
         }
-    }, [inView, nextScrollId, scrollId, loading]);
+        setScrollId(nextScrollId);
+    }, [inView, nextScrollId, scrollId, loading, skip]);
 
     const refetchRoots = useCallback(() => {
         setScrollId(null);
         setData([]);
-        return refetch(buildScrollInput(null));
+        return refetch(buildRootScrollInput(null));
     }, [refetch]);
 
     return {
         data,
-        loading,
+        loading: skip ? false : loading,
         error,
         scrollRef,
         refetch: refetchRoots,

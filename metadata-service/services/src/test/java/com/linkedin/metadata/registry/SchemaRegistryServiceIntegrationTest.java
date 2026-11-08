@@ -48,11 +48,6 @@ public class SchemaRegistryServiceIntegrationTest {
           }
 
           @Override
-          public String getDataHubUpgradeHistoryTopicName() {
-            return "DataHubUpgradeHistory";
-          }
-
-          @Override
           public String getMetadataChangeEventTopicName() {
             return "MetadataChangeEvent";
           }

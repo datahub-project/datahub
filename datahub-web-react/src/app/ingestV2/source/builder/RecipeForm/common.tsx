@@ -1,5 +1,7 @@
 import i18next from 'i18next';
-import { get, omit, set } from 'lodash';
+import get from 'lodash/get';
+import omit from 'lodash/omit';
+import set from 'lodash/set';
 import React from 'react';
 
 import dayjs from '@utils/dayjs';
@@ -45,6 +47,7 @@ export interface RecipeField {
     getValueFromRecipeOverride?: (recipe: any) => any;
     setValueOnRecipeOverride?: (recipe: any, value: any) => any;
     placeholder?: string;
+    defaultValue?: string; // Default value to pre-populate the field (distinct from placeholder hint text)
 }
 
 export enum FilterRule {

@@ -1,13 +1,13 @@
-import OutputIcon from '@mui/icons-material/Output';
-import RefreshIcon from '@mui/icons-material/Refresh';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
+import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 // import AddOutputPortCard from './AddOutputPortCard';
 import { StyledHeaderWrapper } from '@app/entityV2/dataProduct/AssetsSections';
 import { SCREEN_WIDTH_BREAK_POINT } from '@app/entityV2/dataProduct/constants';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { SummaryTabHeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
 import { HorizontalList } from '@app/entityV2/shared/summary/ListComponents';
 import { OUTPUT_PORTS_FIELD } from '@app/search/utils/constants';
@@ -92,7 +92,7 @@ export const OutputPortsSection = () => {
         <OutputPortsWrapper>
             <StyledHeaderWrapper>
                 <SummaryTabHeaderTitle
-                    icon={<OutputIcon style={{ fontSize: 16, color: theme.colors.textSecondary }} />}
+                    icon={<ArrowSquareOut size={16} color={theme.colors.textSecondary} />}
                     title={t('dataProduct.outputPortsCountTitle', { count: numResults })}
                 />
             </StyledHeaderWrapper>
@@ -104,7 +104,7 @@ export const OutputPortsSection = () => {
                     })}
                 {showLoadMoreButton && (
                     <LoadMoreButton onClick={loadMore}>
-                        <RefreshIcon style={{ marginRight: 4 }} />
+                        <ArrowsClockwise style={{ marginRight: 4 }} />
                         {t('dataProduct.loadMore')}
                     </LoadMoreButton>
                 )}

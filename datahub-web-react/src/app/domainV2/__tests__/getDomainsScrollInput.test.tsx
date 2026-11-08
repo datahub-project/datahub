@@ -35,7 +35,6 @@ describe('getDomainsScrollInput', () => {
                             },
                         ],
                     },
-                    searchFlags: { skipCache: true },
                 },
             });
         });
@@ -69,7 +68,6 @@ describe('getDomainsScrollInput', () => {
                             },
                         ],
                     },
-                    searchFlags: { skipCache: true },
                 },
             });
         });
@@ -105,7 +103,6 @@ describe('getDomainsScrollInput', () => {
                             },
                         ],
                     },
-                    searchFlags: { skipCache: true },
                 },
             });
         });
@@ -138,7 +135,6 @@ describe('getDomainsScrollInput', () => {
                             },
                         ],
                     },
-                    searchFlags: { skipCache: true },
                 },
             });
         });
@@ -221,17 +217,6 @@ describe('getDomainsScrollInput', () => {
 
             expect(result1.input.sortInput).toEqual(expectedSortInput);
             expect(result2.input.sortInput).toEqual(expectedSortInput);
-        });
-
-        it('should always skip cache', () => {
-            const result1 = getDomainsScrollInput({ parentDomain: null, scrollId: null });
-            const result2 = getDomainsScrollInput({
-                parentDomain: 'urn:li:domain:parent',
-                scrollId: 'scroll-id',
-            });
-
-            expect(result1.input.searchFlags).toEqual({ skipCache: true });
-            expect(result2.input.searchFlags).toEqual({ skipCache: true });
         });
     });
 

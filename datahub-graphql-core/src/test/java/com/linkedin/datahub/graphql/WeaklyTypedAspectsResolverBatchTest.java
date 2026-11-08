@@ -7,6 +7,8 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.AuthorizationSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -14,7 +16,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.WeaklyTypedAspectsResolver.AspectsKey;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AspectParams;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -24,6 +25,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -121,25 +123,26 @@ public class WeaklyTypedAspectsResolverBatchTest {
   // ---------- Tests ----------
 
   @Test
-  public void testUnauthorizedDocumentDoesNotLoadRawAspects() {
+  @SuppressWarnings("unchecked")
+  public void testDocumentUsesSharedAspectLoadPath() {
     final DataFetchingEnvironment environment = Mockito.mock(DataFetchingEnvironment.class);
     final Entity document = Mockito.mock(Entity.class);
-    final QueryContext context = mockQueryContext();
-    final OperationContext opContext = context.getOperationContext();
     Mockito.when(document.getUrn()).thenReturn(DOCUMENT_URN.toString());
     Mockito.when(document.getType()).thenReturn(EntityType.DOCUMENT);
     Mockito.when(environment.getSource()).thenReturn(document);
-    Mockito.when(environment.getContext()).thenReturn(context);
+    Mockito.when(environment.getArgument("input")).thenReturn(null);
 
-    try (MockedStatic<AuthorizationUtils> authorizationUtils =
-        Mockito.mockStatic(AuthorizationUtils.class)) {
-      authorizationUtils
-          .when(() -> AuthorizationUtils.canView(opContext, DOCUMENT_URN))
-          .thenReturn(false);
+    final DataLoader<AspectsKey, List<RawAspect>> loader =
+        (DataLoader<AspectsKey, List<RawAspect>>) Mockito.mock(DataLoader.class);
+    final DataLoaderRegistry registry = Mockito.mock(DataLoaderRegistry.class);
+    Mockito.doReturn(loader).when(registry).getDataLoader(WeaklyTypedAspectsResolver.LOADER_NAME);
+    Mockito.when(environment.getDataLoaderRegistry()).thenReturn(registry);
+    final CompletableFuture<List<RawAspect>> expected =
+        CompletableFuture.completedFuture(Collections.emptyList());
+    Mockito.when(loader.load(any(AspectsKey.class))).thenReturn(expected);
 
-      assertTrue(new WeaklyTypedAspectsResolver().get(environment).join().isEmpty());
-      Mockito.verify(environment, Mockito.never()).getDataLoaderRegistry();
-    }
+    assertEquals(new WeaklyTypedAspectsResolver().get(environment), expected);
+    Mockito.verify(loader).load(any(AspectsKey.class));
   }
 
   @Test
@@ -910,5 +913,99 @@ public class WeaklyTypedAspectsResolverBatchTest {
     assertEquals(result.size(), 1);
     assertEquals(result.get(0).getAspectName(), ASPECT_A);
     assertTrue(result.get(0).getPayload().contains(DATASET_URN_1.toString()));
+  }
+
+  /**
+   * Credential-bearing aspects are dropped from the fetch (and therefore the response) unless the
+   * actor holds the mapped platform privilege. Other aspects on the same entity are unaffected.
+   */
+  @Test
+  public void testSensitiveAspectDroppedWithoutPrivilege() throws Exception {
+    final EntityClient client = Mockito.mock(EntityClient.class);
+    final EntityRegistry registry = Mockito.mock(EntityRegistry.class);
+    final QueryContext ctx = mockQueryContext();
+    final Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:victim");
+
+    stubEntitySpec(
+        registry,
+        "corpuser",
+        ImmutableList.of(
+            mockAspectSpec("corpUserInfo", false, null),
+            mockAspectSpec("corpUserCredentials", false, null)));
+    Mockito.when(
+            client.batchGetV2(
+                nullable(OperationContext.class),
+                eq("corpuser"),
+                eq(Collections.singleton(userUrn)),
+                eq(Collections.singleton("corpUserInfo"))))
+        .thenReturn(ImmutableMap.of(userUrn, entityResponseWithAspects(userUrn, "corpUserInfo")));
+
+    final AspectParams params = new AspectParams();
+    params.setAspectNames(ImmutableList.of("corpUserInfo", "corpUserCredentials"));
+    final List<AspectsKey> keys =
+        ImmutableList.of(AspectsKey.from(userUrn.toString(), "corpuser", params));
+
+    try (MockedStatic<AuthUtil> authUtil = Mockito.mockStatic(AuthUtil.class)) {
+      authUtil
+          .when(
+              () ->
+                  AuthUtil.isAuthorized(
+                      any(AuthorizationSession.class),
+                      eq(PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE)))
+          .thenReturn(false);
+
+      final List<List<RawAspect>> result =
+          WeaklyTypedAspectsResolver.batchLoad(keys, ctx, client, registry);
+
+      assertEquals(result.size(), 1);
+      assertEquals(result.get(0).size(), 1);
+      assertEquals(result.get(0).get(0).getAspectName(), "corpUserInfo");
+      Mockito.verify(client)
+          .batchGetV2(
+              nullable(OperationContext.class),
+              eq("corpuser"),
+              Mockito.anySet(),
+              eq(Collections.singleton("corpUserInfo")));
+    }
+  }
+
+  @Test
+  public void testSensitiveAspectReturnedWithPrivilege() throws Exception {
+    final EntityClient client = Mockito.mock(EntityClient.class);
+    final EntityRegistry registry = Mockito.mock(EntityRegistry.class);
+    final QueryContext ctx = mockQueryContext();
+    final Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:victim");
+
+    stubEntitySpec(
+        registry, "corpuser", ImmutableList.of(mockAspectSpec("corpUserCredentials", false, null)));
+    Mockito.when(
+            client.batchGetV2(
+                nullable(OperationContext.class),
+                eq("corpuser"),
+                eq(Collections.singleton(userUrn)),
+                eq(Collections.singleton("corpUserCredentials"))))
+        .thenReturn(
+            ImmutableMap.of(userUrn, entityResponseWithAspects(userUrn, "corpUserCredentials")));
+
+    final AspectParams params = new AspectParams();
+    params.setAspectNames(ImmutableList.of("corpUserCredentials"));
+    final List<AspectsKey> keys =
+        ImmutableList.of(AspectsKey.from(userUrn.toString(), "corpuser", params));
+
+    try (MockedStatic<AuthUtil> authUtil = Mockito.mockStatic(AuthUtil.class)) {
+      authUtil
+          .when(
+              () ->
+                  AuthUtil.isAuthorized(
+                      any(AuthorizationSession.class),
+                      eq(PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE)))
+          .thenReturn(true);
+
+      final List<List<RawAspect>> result =
+          WeaklyTypedAspectsResolver.batchLoad(keys, ctx, client, registry);
+
+      assertEquals(result.get(0).size(), 1);
+      assertEquals(result.get(0).get(0).getAspectName(), "corpUserCredentials");
+    }
   }
 }

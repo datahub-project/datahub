@@ -1,8 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entity/Entity';
-import EntityRegistry from '@app/entity/EntityRegistry';
+import { IconStyleType } from '@app/entityV2/Entity';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 
 import { EntityType, QuickFilter } from '@types';
 
@@ -11,7 +11,7 @@ const StyledIcon = styled.img`
     height: 14px;
 `;
 
-enum QuickFilterField {
+export enum QuickFilterField {
     Platform = 'platform',
     Entity = '_entityType',
 }

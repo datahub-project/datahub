@@ -1,5 +1,7 @@
 from typing import Dict, List
 
+from datahub.ingestion.source.sap_common.labels import description_from_source_label
+from datahub.ingestion.source.sap_common.models import UnknownColumnType
 from datahub.ingestion.source.sap_datasphere.constants import (
     CSN_ATTR_LABEL,
     CSN_ATTR_LENGTH,
@@ -9,10 +11,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     CSN_TYPE_ASSOCIATION,
     CSN_TYPE_COMPOSITION,
 )
-from datahub.ingestion.source.sap_datasphere.models import (
-    CsnSchemaResult,
-    UnknownColumnType,
-)
+from datahub.ingestion.source.sap_datasphere.models import CsnSchemaResult
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     BytesTypeClass,
@@ -114,13 +113,19 @@ def parse_csn_elements_to_schema_fields(
             cds_type, (NullTypeClass, cds_type or "UNKNOWN")
         )
         native = _native_type_string(native_root, element)
-        description = element.get(CSN_ATTR_LABEL)
+        # SAP's single business label feeds both the visible description (the schema
+        # UI does not render the deprecated label slot) and the label slot itself, which
+        # still backs the fieldLabels search index. Dropped when it only repeats the name.
+        source_label = description_from_source_label(
+            element.get(CSN_ATTR_LABEL), col_name
+        )
         fields.append(
             SchemaFieldClass(
                 fieldPath=col_name,
                 type=SchemaFieldDataTypeClass(type=type_ctor()),
                 nativeDataType=native,
-                description=description,
+                label=source_label,
+                description=source_label,
                 nullable=True,
             )
         )

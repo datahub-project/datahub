@@ -8,13 +8,16 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.NamedDataSchema;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
@@ -99,6 +102,15 @@ public class PegasusUtils {
     final MetadataChangeLog metadataChangeLog;
     if (base != null) {
       metadataChangeLog = new MetadataChangeLog(new DataMap(base.data()));
+      // The attributed actor is already in the audit stamp, and a value a client sent must not
+      // reach MCL readers looking like a trusted one.
+      if (metadataChangeLog.hasHeaders()) {
+        StringMap headers = metadataChangeLog.getHeaders();
+        headers.keySet().stream()
+            .filter(Constants.ATTRIBUTED_ACTOR_HEADER_NAME::equalsIgnoreCase)
+            .collect(Collectors.toList())
+            .forEach(headers::remove);
+      }
     } else {
       metadataChangeLog = new MetadataChangeLog();
     }

@@ -13,6 +13,17 @@ record DataProcessKey {
   * Process name i.e. an ETL job name
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "boostScore": 10.0,
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    },
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 4.0
@@ -24,6 +35,11 @@ record DataProcessKey {
   * TODO: Migrate towards something that can be validated like DataPlatform urn
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": false,
+      "searchLabel": "tool",
+      "boostScore": 1.0
+    },
     "fieldType": "TEXT_PARTIAL",
     "enableAutocomplete": true
   }
@@ -34,7 +50,14 @@ record DataProcessKey {
   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "queryByDefault": false
+    "queryByDefault": false,
+    "v3": {
+      "searchLabel": "origin",
+      "queryByDefault": false,
+      "mappings": [
+        { "type": "KEYWORD" }
+      ]
+    }
   }
   origin: FabricType
 }

@@ -43,8 +43,8 @@ The source **automatically fetches embedding configuration from your DataHub ser
 
 #### Related Documentation
 
-- [Semantic Search Configuration](/docs/how-to/semantic-search-configuration) - **Start Here**
-- [Notion Source](/docs/generated/ingestion/sources/notion) - Example document source with embeddings
+- [Semantic Search Configuration](../../../how-to/semantic-search-configuration.md) - **Start Here**
+- [Notion Source](notion.md) - Example document source with embeddings
 - [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/embeddings.html) - Embedding models
 - [AWS Bedrock Pricing](https://aws.amazon.com/bedrock/pricing/) - Cost estimation
 - [DataHub Developer Guides](https://docs.datahub.com/docs/developers) - Additional developer documentation
@@ -55,11 +55,11 @@ The source **automatically fetches embedding configuration from your DataHub ser
 
 **You MUST configure semantic search on your DataHub server before using this source.**
 
-See the [Semantic Search Configuration Guide](/docs/how-to/semantic-search-configuration) for complete setup instructions.
+See the [Semantic Search Configuration Guide](../../../how-to/semantic-search-configuration.md) for complete setup instructions.
 
 Required server configuration:
 
-- OpenSearch 2.17+ with k-NN plugin enabled
+- OpenSearch 2.17+ with the k-NN plugin enabled, or Elasticsearch 8.18+
 - AWS Bedrock or Cohere embedding provider configured
 - Semantic search enabled in `application.yml`
 
@@ -93,3 +93,37 @@ export AWS_ACCESS_KEY_ID="your-key"
 export AWS_SECRET_ACCESS_KEY="your-secret"
 export AWS_REGION="us-west-2"
 ```
+
+#### Server embeddings with DataHub credentials
+
+If your deployment offers server embeddings, you can use its model and provider credentials through your DataHub connection:
+
+```yaml
+source:
+  type: datahub-documents
+  config:
+    embedding:
+      provider: datahub
+sink:
+  type: datahub-rest
+  config: {}
+```
+
+Your DataHub connection supplies authentication. You do not need a separate embedding API key or cloud credential. The server selects the model and storage key. Omit `embedding.model` and `embedding.model_embedding_key` to load them from the semantic index configuration.
+
+The deployment must enable semantic search and advertise the embedding service in its `/config` response:
+
+```json
+{
+  "embeddingService": {
+    "enabled": true,
+    "path": "/openapi/v1/llm/v1/embeddings"
+  }
+}
+```
+
+The source uses the advertised path and checks availability at startup and during connection testing. OSS GMS does not currently advertise this service. If the field is absent or disabled, choose a provider with its own credentials, such as Bedrock, Cohere, OpenAI, or Vertex AI. Selecting `datahub` is opt-in. Existing recipes keep their current provider resolution.
+
+The source checks the model in every embedding response against `appConfig.semanticSearchConfig.embeddingConfig.modelId` and rejects mismatches. It requests document embeddings without normalization to match the stored vectors. A 403 response requires an administrator to enable Ask DataHub and check access. A 429 response with `x-should-retry: false` means credits are exhausted and is never retried. Transient rate limits and server errors use bounded retries.
+
+For clients that need to preview unpublished documents, `server_embedding_provider(graph)` in `datahub.ingestion.source.unstructured.embedding_providers.datahub_server` performs the same discovery and model checks. Pass that provider to `embed_document` in `datahub.ingestion.source.datahub_documents.document_embedding`, together with the source's chunking and filtering settings, to obtain chunk texts and vectors. The preview applies the same chunk-count and serialized-aspect size limits as ingestion. Call `provider.embed(texts, task=EmbeddingTask.QUERY)` to embed queries with the deployment's query task settings.

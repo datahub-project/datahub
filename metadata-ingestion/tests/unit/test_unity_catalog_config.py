@@ -5,6 +5,7 @@ import pytest
 import time_machine
 from pydantic import ValidationError
 
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.unity.config import (
     LineageDataSource,
     UnityCatalogSourceConfig,
@@ -571,7 +572,7 @@ def test_profiling_ge_method_rejected():
     ],
 )
 def test_profiling_method_no_spurious_removed_warning(profiling):
-    # UnityCatalogSQLAlchemyProfilerConfig inherits GEProfilingConfig, which carries
+    # UnityCatalogSQLAlchemyProfilerConfig inherits ProfilingConfig, which carries
     # the shared `method`-removed validator for SQL sources. Unity keeps `method` as
     # a real discriminator, so a no-op override must cancel that validator — otherwise
     # every Unity profiling config would emit a bogus "method was removed" warning.
@@ -741,3 +742,12 @@ def test_column_usage_stats_warns_when_combined_with_pushdown_skip(monkeypatch):
     assert "include_column_usage_stats" in warnings[0]
     assert "push_down_database_pattern_access_history" in warnings[0]
     assert "skip_sqlglot_when_system_table_lineage_missing" in warnings[0]
+
+
+def test_probe_qualifies_tables_through_its_own_filter_target():
+    # Its own override, not a Qualifier: with no single catalog pinned it
+    # returns None and warns, a degrade a Qualifier field cannot express.
+    assert (
+        UnityCatalogSourceConfig.probe_filter_target
+        is not SQLCommonConfig.probe_filter_target
+    )

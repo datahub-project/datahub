@@ -6,7 +6,7 @@ import styled, { useTheme } from 'styled-components';
 
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
 import SampleValueTag from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/SampleValueTag';
-import { downgradeV2FieldPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 
 import { DatasetFieldProfile, Maybe, PartitionSpec, PartitionType } from '@types';
 

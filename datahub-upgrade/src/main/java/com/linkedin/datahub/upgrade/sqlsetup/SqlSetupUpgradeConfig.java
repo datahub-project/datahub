@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.sqlsetup;
 
 import com.linkedin.datahub.upgrade.config.OpenTelemetryConfig;
+import com.linkedin.gms.factory.aws.AwsClientFactory;
 import com.linkedin.gms.factory.common.LocalEbeanConfigFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.system_telemetry.CacheInstrumentationFactory;
@@ -24,11 +25,12 @@ import org.springframework.context.annotation.Import;
  * fails to wire when {@code management.tracing.enabled=true} (the default in {@code
  * application.yaml}).
  *
- * <p>{@link ConfigurationProvider} and {@link LocalEbeanConfigFactory} are imported directly
- * (rather than wholesale-scanning {@code com.linkedin.gms.factory.config} / {@code
- * com.linkedin.gms.factory.common}) to avoid pulling in {@code SystemMetadataServiceFactory}, ES
- * graph factories, and similar heavy components that demand entity/search infrastructure unused by
- * SqlSetup.
+ * <p>{@link ConfigurationProvider}, {@link AwsClientFactory}, and {@link LocalEbeanConfigFactory}
+ * are imported directly (rather than wholesale-scanning {@code com.linkedin.gms.factory.config} /
+ * {@code com.linkedin.gms.factory.common} / {@code com.linkedin.gms.factory.aws}) to avoid pulling
+ * in {@code SystemMetadataServiceFactory}, ES graph factories, and similar heavy components that
+ * demand entity/search infrastructure unused by SqlSetup. {@link AwsClientFactory} supplies the
+ * process-wide credentials bean used by JDBC IAM.
  *
  * <p>Spring Boot's metrics auto-configurations are imported explicitly because the SqlSetup
  * application context is bootstrapped via {@link
@@ -42,6 +44,7 @@ import org.springframework.context.annotation.Import;
   CompositeMeterRegistryAutoConfiguration.class,
   SimpleMetricsExportAutoConfiguration.class,
   ConfigurationProvider.class,
+  AwsClientFactory.class,
   LocalEbeanConfigFactory.class,
   OpenTelemetryConfig.class
 })

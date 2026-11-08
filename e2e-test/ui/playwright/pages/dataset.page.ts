@@ -95,7 +95,10 @@ export class DatasetPage extends BasePage {
   // ── Dynamic locators ──────────────────────────────────────────────────────
 
   getTagChip(tagName: string): Locator {
-    return this.page.getByTestId(`tag-${tagName}`);
+    // Scoped to the sidebar Tags section: with datasetSummaryPageV1 on, the Summary tab's
+    // Properties panel renders its own chip with the same `tag-${name}` testid, so a bare
+    // page-level lookup is ambiguous.
+    return this.tagsSectionContainer.getByTestId(`tag-${tagName}`);
   }
 
   getTagOption(tagName: string): Locator {
@@ -114,7 +117,10 @@ export class DatasetPage extends BasePage {
   }
 
   getGlossaryTermLocator(termName: string): Locator {
-    return this.page.getByTestId(`term-${termName}`);
+    // Scoped to the sidebar Glossary Terms section: with datasetSummaryPageV1 on, the Summary
+    // tab's Properties panel renders its own chip with the same `term-${name}` testid, so a
+    // bare page-level lookup is ambiguous.
+    return this.sidebarGlossarySection.getByTestId(`term-${termName}`);
   }
 
   getGlossaryTermRemoveButtonLocator(glossaryTermLocator: Locator): Locator {
@@ -130,6 +136,7 @@ export class DatasetPage extends BasePage {
     await this.tagTermModalInput.click();
     await this.tagTermInput.fill(termName);
     await this.getTagOption(termName).click();
+    await this.tagTermModalInput.click();
     // Click the modal footer's confirm button directly: it sits below the trigger so the
     // dropdown popover (which AntD flips upward when results don't fit below) never
     // covers it, and clicking outside the dropdown dismisses the popover in one step.

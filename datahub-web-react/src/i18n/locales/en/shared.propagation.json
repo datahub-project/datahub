@@ -1,9 +1,12 @@
 {
     "autoPropagatedDescription": "This description was automatically propagated from an upstream column. <learnMore>Learn more</learnMore>",
+    "ingested": "Ingested",
+    "ingestedFrom": "Ingested from {{origin}}",
     "origin": "origin",
     "originLabel": "Origin",
     "propagated": "Propagated",
     "propagatedDescriptionTitle": "Propagated Description",
+    "sourceLabel": "Source",
     "via": "via",
     "viaLabel": "Via"
 }
