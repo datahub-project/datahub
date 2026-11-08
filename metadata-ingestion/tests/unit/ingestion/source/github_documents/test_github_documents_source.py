@@ -1,7 +1,7 @@
 """Unit tests for GitHubDocumentsSource."""
 
 import json
-from typing import Dict, List, Optional, Tuple, Type, TypedDict, cast
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Type, TypedDict, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1467,11 +1467,12 @@ def test_okf_maps_metadata_and_preserves_frontmatter(newline: str) -> None:
         "urn:li:glossaryTerm:active-user-id",
         "urn:li:glossaryTerm:metric",
     ]
-    for key, associations in [
+    keyed: List[Tuple[str, Sequence[Any]]] = [
         ("owners", owners),
         ("tags", tags),
         ("glossary_terms", terms),
-    ]:
+    ]
+    for key, associations in keyed:
         for association in associations:
             attribution = association.attribution
             assert attribution is not None
