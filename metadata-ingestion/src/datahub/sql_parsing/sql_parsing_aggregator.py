@@ -1558,10 +1558,30 @@ class SqlParsingAggregator(Closeable):
 
         # Generate lineage and queries.
         for downstream_urn in sorted(self._lineage_map):
-            yield from self._gen_lineage_for_downstream(
-                downstream_urn,
-                queries_generated=queries_generated,
-                allow_empty_lineage=downstream_urn in empty_view_definitions,
+            if downstream_urn in empty_view_definitions:
+                yield from self._gen_lineage_for_empty_view(
+                    downstream_urn, queries_generated
+                )
+            else:
+                yield from self._gen_lineage_for_downstream(
+                    downstream_urn, queries_generated=queries_generated
+                )
+
+    def _gen_lineage_for_empty_view(
+        self, view_urn: str, queries_generated: Set[QueryId]
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Keep replacement policy local to successfully parsed empty views."""
+        emitted_lineage = False
+        for mcp in self._gen_lineage_for_downstream(view_urn, queries_generated):
+            if isinstance(mcp.aspect, models.UpstreamLineageClass):
+                emitted_lineage = True
+            yield mcp
+
+        # Other observations can still supply nonempty lineage for this view.
+        if not emitted_lineage and self.is_allowed_table(view_urn):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=view_urn,
+                aspect=models.UpstreamLineageClass(upstreams=[]),
             )
 
     @classmethod
@@ -1646,10 +1666,7 @@ class SqlParsingAggregator(Closeable):
                 )
 
     def _gen_lineage_for_downstream(
-        self,
-        downstream_urn: str,
-        queries_generated: Set[QueryId],
-        allow_empty_lineage: bool = False,
+        self, downstream_urn: str, queries_generated: Set[QueryId]
     ) -> Iterable[MetadataChangeProposalWrapper]:
         query_ids: OrderedSet[QueryId] = self._lineage_map.get(
             downstream_urn, OrderedSet()
@@ -1792,11 +1809,7 @@ class SqlParsingAggregator(Closeable):
             upstream_aspect.fineGrainedLineages or None
         )
 
-        if (
-            not upstream_aspect.upstreams
-            and not upstream_aspect.fineGrainedLineages
-            and not allow_empty_lineage
-        ):
+        if not upstream_aspect.upstreams and not upstream_aspect.fineGrainedLineages:
             return
 
         yield MetadataChangeProposalWrapper(

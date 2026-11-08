@@ -19,7 +19,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
 )
-from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingDebugInfo, SqlParsingResult
 
 VIEW = DatasetUrn("postgres", "db.public.report")
 UPSTREAM = DatasetUrn("postgres", "db.public.source")
@@ -172,4 +172,37 @@ def test_filtered_view_is_not_emitted() -> None:
     with _aggregator() as aggregator:
         _view(aggregator, "select 1 as id")
         with patch.object(aggregator, "is_allowed_table", return_value=False):
+            assert _lineages(aggregator) == []
+
+
+def test_empty_view_does_not_override_other_query_lineage() -> None:
+    with _aggregator() as aggregator:
+        aggregator.add_observed_query(
+            ObservedQuery(
+                query="create table report as select id from source",
+                default_db="db",
+                default_schema="public",
+            )
+        )
+        _view(aggregator, "select 1 as id")
+        results = _lineages(aggregator)
+        assert len(results) == 1
+        assert isinstance(results[0].aspect, UpstreamLineageClass)
+        assert [u.dataset for u in results[0].aspect.upstreams] == [str(UPSTREAM)]
+
+
+def test_column_parse_error_does_not_authorize_empty_view() -> None:
+    with _aggregator() as aggregator:
+        _view(aggregator, "select 1 as id")
+        with patch.object(
+            aggregator,
+            "_run_sql_parser",
+            return_value=SqlParsingResult(
+                in_tables=[],
+                out_tables=[],
+                debug_info=SqlParsingDebugInfo(
+                    column_error=ValueError("incomplete columns")
+                ),
+            ),
+        ):
             assert _lineages(aggregator) == []
