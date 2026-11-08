@@ -5522,7 +5522,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 if sql_parsing_result and not sql_parsing_result.debug_info.table_error:
                     # If we have some table lineage from SQL parsing, use that.
                     upstream_urns = sql_parsing_result.in_tables
-                    has_authoritative_empty_lineage = not upstream_urns
+                    has_authoritative_empty_lineage = (
+                        not upstream_urns and not sql_parsing_result.debug_info.error
+                    )
 
                     cll = []
                     for column_lineage in sql_parsing_result.column_lineage or []:

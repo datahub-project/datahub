@@ -8,7 +8,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt.dbt_common import DBTColumnLineageInfo, DBTNode
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.metadata.schema_classes import ChangeTypeClass, UpstreamLineageClass
-from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingDebugInfo, SqlParsingResult
 
 
 def _source(
@@ -134,6 +134,13 @@ def test_successful_empty_sql_parse_is_authoritative(
     source = _source(prefer_sql_parser_lineage=True)
     upstream = _node("upstream")
     node = _node(upstream_nodes=[upstream.dbt_name] if has_manifest_dependency else [])
+    node.upstream_cll = [
+        DBTColumnLineageInfo(
+            upstream_dbt_name=upstream.dbt_name,
+            upstream_col="id",
+            downstream_col="id",
+        )
+    ]
     node.raw_sql_parsing_result = SqlParsingResult(in_tables=[], out_tables=[])
     result = source._create_lineage_aspect_for_dbt_node(
         node,
@@ -141,6 +148,7 @@ def test_successful_empty_sql_parse_is_authoritative(
     )
     assert result is not None
     assert result.upstreams == []
+    assert not result.fineGrainedLineages
 
 
 @pytest.mark.parametrize(
@@ -196,3 +204,23 @@ def test_empty_lineage_is_emitted_as_a_full_dbt_mcp(
     assert mcp.aspect.upstreams == []
     assert not mcp.aspect.fineGrainedLineages
     assert not source.report.failures
+
+
+@pytest.mark.parametrize("has_manifest_dependency", [False, True])
+def test_column_parse_error_does_not_clear_lineage(
+    has_manifest_dependency: bool,
+) -> None:
+    source = _source(prefer_sql_parser_lineage=True)
+    upstream = _node("upstream")
+    node = _node(upstream_nodes=[upstream.dbt_name] if has_manifest_dependency else [])
+    node.raw_sql_parsing_result = SqlParsingResult(
+        in_tables=[],
+        out_tables=[],
+        debug_info=SqlParsingDebugInfo(
+            column_error=ValueError("incomplete column parse")
+        ),
+    )
+    assert (
+        source._create_lineage_aspect_for_dbt_node(node, {upstream.dbt_name: upstream})
+        is None
+    )
