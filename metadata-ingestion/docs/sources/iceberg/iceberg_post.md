@@ -2,6 +2,10 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
+#### Variant columns
+
+`variant` columns, including nested variants in structs, lists, and maps, are ingested as opaque bytes with `variant` preserved in the native data type. A metadata-only adapter works around [PyIceberg's missing variant type support](https://github.com/apache/iceberg-python/issues/1819), allowing tables containing those columns to load for ingestion and the metadata probe. Variant values are not decoded or profiled for minimum and maximum values.
+
 #### Setting up connection to an Iceberg catalog
 
 There are multiple servers compatible with the Iceberg Catalog specification. DataHub's `iceberg` connector uses `pyiceberg`
