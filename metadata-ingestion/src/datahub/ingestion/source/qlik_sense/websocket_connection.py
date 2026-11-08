@@ -186,10 +186,14 @@ class WebsocketConnection:
         on_error: Callable[[str], None],
         properties: Optional[Dict[str, Dict]] = None,
         seen: Optional[Set[str]] = None,
+        on_measure_error: Optional[Callable[[str], None]] = None,
     ) -> List[Chart]:
         """Charts of a sheet object, including the charts held in a container's tabs.
         Must be called on the handle of the object's parent. `properties` holds
-        prefetched object properties; a chart missing from it is read on its own."""
+        prefetched object properties; a chart missing from it is read on its own.
+        `on_error` reports a chart that could not be read; `on_measure_error`
+        reports a chart that was read but whose measures were not."""
+        on_measure_error = on_measure_error or on_error
         # A container can hold a link that resolves back to itself.
         seen = set() if seen is None else seen
         if object_id in seen:
@@ -219,7 +223,10 @@ class WebsocketConnection:
                 if Constant.HYPERCUBE in q_layout:
                     chart = Chart.model_validate(q_layout)
                     self._add_measure_definitions(
-                        chart, (properties or {}).get(chart.qId), sheet_id, on_error
+                        chart,
+                        (properties or {}).get(chart.qId),
+                        sheet_id,
+                        on_measure_error,
                     )
                     return [chart]
                 object_type = q_layout.get(Constant.QINFO, {}).get(Constant.QTYPE)
@@ -243,6 +250,7 @@ class WebsocketConnection:
                         on_error,
                         properties,
                         seen,
+                        on_measure_error,
                     ):
                         if not chart.title:
                             chart.title = tab_labels.get(tab_id) or ""

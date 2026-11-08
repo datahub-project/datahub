@@ -455,6 +455,29 @@ def test_onprem_reads_charts_after_a_failed_chart(
     "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_unread_measures_keep_the_sheet_chart_list_complete(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    # The chart is listed, so the sheet's chart list can still be written.
+    engine = _ScriptedEngine(
+        _sheet_replies(["ok"])
+        + [
+            {"qReturn": {"qHandle": 3, "qType": "GenericObject"}},
+            _chart_layout("ok"),
+            RuntimeError("Access denied"),
+        ]
+    )
+    app = _read_onprem_app(mock_session_cls, mock_engine, engine)
+
+    assert [chart.qId for chart in app.sheets[0].charts] == ["ok"]
+    assert app.sheets[0].charts[0].fields_unread
+    assert app.sheets[0].charts_complete
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
 def test_onprem_reads_charts_inside_containers(
     mock_session_cls: MagicMock, mock_engine: MagicMock
 ) -> None:
@@ -732,6 +755,14 @@ def test_chart_input_fields_match_app_fields() -> None:
             id="derived_field_of_known_field",
         ),
         pytest.param(
+            ["[Region].autoCalendar.Year"],
+            True,
+            False,
+            ["Region"],
+            False,
+            id="bracketed_derived_field_of_known_field",
+        ),
+        pytest.param(
             ["OrderDate.autoCalendar.Year", "Region"],
             True,
             False,
@@ -847,6 +878,11 @@ def test_qualified_field_name_matches_before_derived_field() -> None:
         "orders"
     )
     assert QlikSenseSource._app_field_key("Customers.Region", app_fields) is None
+    # A field whose own name contains a dot keeps it when a suffix is derived.
+    assert (
+        QlikSenseSource._app_field_key("Orders.Region.autoCalendar.Year", app_fields)
+        == "orders.region"
+    )
 
 
 @pytest.mark.parametrize(

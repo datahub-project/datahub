@@ -177,20 +177,28 @@ class QlikBaseAPI(ABC):
                     f"Sheet {sheet_id}: {message}"
                 )
             )
-            read_errors = len(errors.messages)
+            # Only a chart that could not be read leaves the sheet's chart list
+            # incomplete; a chart whose measures were not read is still listed.
+            unread_charts: List[str] = []
+
+            def on_chart_error(message: str) -> None:
+                unread_charts.append(message)
+                errors.record(message)
+
             for i, chart_dict in enumerate(
                 sheet_dict[Constant.QCHILDLIST][Constant.QITEMS]
             ):
                 for chart in websocket_connection.get_charts(
                     chart_dict[Constant.QINFO][Constant.QID],
                     sheet_id,
-                    on_error=errors.record,
+                    on_error=on_chart_error,
                     properties=properties,
+                    on_measure_error=errors.record,
                 ):
                     if not chart.title:
                         chart.title = f"Object {i + 1} of Sheet '{sheet.title}'"
                     sheet.charts.append(chart)
-            sheet.charts_complete = len(errors.messages) == read_errors
+            sheet.charts_complete = not unread_charts
             return sheet
         except Exception as e:
             errors.record(f"Unable to fetch sheet with id {sheet_id}. Exception: {e}")

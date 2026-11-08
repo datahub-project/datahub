@@ -663,13 +663,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         name: str, app_fields: Dict[str, List[AppField]]
     ) -> Optional[str]:
         """The app field a chart name reads. A derived field such as
-        Date.autoCalendar.Year reads the field before its first dot, unless a
-        qualified field of that exact name exists."""
+        Date.autoCalendar.Year reads its base field, the longest leading part
+        of the name that is a field (field names can contain dots), unless a
+        field of that exact name exists."""
         key = name.lower()
-        if key in app_fields:
-            return key
-        base = key.split(".", 1)[0]
-        return base if "." in key and base in app_fields else None
+        while key not in app_fields and "." in key:
+            key = key.rsplit(".", 1)[0]
+        return key if key in app_fields else None
 
     @staticmethod
     def _get_chart_input_fields(

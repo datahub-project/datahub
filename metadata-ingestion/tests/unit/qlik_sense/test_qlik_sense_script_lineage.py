@@ -674,6 +674,16 @@ def test_drop_condition_variables(sql: str, expected: str) -> None:
             ["Region", "Amount", "Flag"],
             id="keywords",
         ),
+        pytest.param(
+            'Count({<Region={"A)"}, Year={"}"}>} Store) + Sum($(=Concat(")", ","))) + Amount',
+            ["Region", "Year", "Store", "Amount"],
+            id="delimiters_inside_quotes",
+        ),
+        pytest.param(
+            "Count([Date].autoCalendar.Year)",
+            ["Date.autoCalendar.Year"],
+            id="bracketed_derived_field",
+        ),
     ],
 )
 def test_expression_names_skip_function_calls(
