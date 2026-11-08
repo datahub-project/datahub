@@ -1,5 +1,7 @@
 from typing import Any, Dict, List
 
+import pytest
+
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationHandler,
     ClassificationReportMixin,
@@ -34,8 +36,10 @@ class RecordingClassifier(Classifier):
         return cls()
 
 
-def test_classifier_receives_column_metadata() -> None:
-    classifier_registry.register("test-recording", RecordingClassifier, override=True)
+def test_classifier_receives_column_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(
+        classifier_registry.mapping, "test-recording", RecordingClassifier
+    )
     config = ClassificationSourceConfigMixin(
         classification=ClassificationConfig(
             enabled=True,
