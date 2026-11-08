@@ -12,14 +12,16 @@ record OkfProperties {
   @Searchable = {
     "fieldName": "okfConceptId",
     "fieldType": "KEYWORD",
-    "queryByDefault": true,
+    "queryByDefault": false,
     "v3": {
       "queryByDefault": true,
-      "searchLabel": "okfConceptId",
+      "searchLabel": "id",
+      "boostScore": 2.0,
       "lowercase": true,
       "mappings": [
         { "type": "KEYWORD" },
-        { "subfield": "text", "type": "TEXT" }
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
       ]
     }
   }
@@ -29,14 +31,16 @@ record OkfProperties {
   @Searchable = {
     "fieldName": "okfDeclaredId",
     "fieldType": "KEYWORD",
-    "queryByDefault": true,
+    "queryByDefault": false,
     "v3": {
       "queryByDefault": true,
-      "searchLabel": "okfDeclaredId",
+      "searchLabel": "id",
+      "boostScore": 2.0,
       "lowercase": true,
       "mappings": [
         { "type": "KEYWORD" },
-        { "subfield": "text", "type": "TEXT" }
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
       ]
     }
   }
