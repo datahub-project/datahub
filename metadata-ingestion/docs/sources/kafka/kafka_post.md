@@ -115,10 +115,36 @@ Requirements and limitations:
   cluster the same topic name can appear twice. Those topics are skipped, with a warning, unless
   you set `confluent_catalog.cluster_id` to the cluster this recipe ingests (e.g. `lkc-xxxxx`).
 - The catalog does not expose the producer/consumer graph shown in Confluent's Stream
-  Lineage UI. Set `confluent_catalog.include_lineage: true` to emit topic-to-topic
-  lineage from cluster links / mirror topics. Connector-to-topic lineage is
-  available through the [`kafka-connect`](kafka-connect.md)
-  source for environments that use Kafka Connect.
+  Lineage UI. Connector-to-topic lineage is available through the
+  [`kafka-connect`](kafka-connect.md) source for environments that use Kafka Connect.
+
+#### Mirror-topic lineage (cluster links)
+
+Set `confluent_catalog.include_lineage: true` to add an upstream edge from each mirror
+topic to the topic it mirrors. The source topic lives in another Kafka cluster, so map
+that cluster's id to the `platform_instance` used by the recipe that ingests it:
+
+```yaml
+source:
+  type: kafka
+  config:
+    platform_instance: dest
+    confluent_catalog:
+      enabled: true
+      cluster_id: lkc-dest
+      include_lineage: true
+      cluster_id_to_platform_instance:
+        lkc-src: src
+```
+
+Mirror topics are skipped, with a warning, when:
+
+- the source cluster is neither `cluster_id` nor a key of `cluster_id_to_platform_instance`;
+- the edge would point the topic at itself (both clusters ingested without distinct
+  platform instances and the link adds no prefix).
+
+A mirror whose source cluster is outside the catalog's environment gets no edge: the
+catalog only gives that source's topic name, not its cluster.
 
 #### Custom Schema Registry
 

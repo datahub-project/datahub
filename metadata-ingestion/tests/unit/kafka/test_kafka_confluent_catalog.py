@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -38,9 +38,11 @@ def make_source_config(
     catalog: Optional[Dict[str, object]] = None,
     schema_registry_config: Optional[Dict[str, str]] = None,
     schema_registry_url: str = CONFLUENT_SCHEMA_REGISTRY_URL,
+    platform_instance: Optional[str] = None,
 ) -> KafkaSourceConfig:
     return KafkaSourceConfig.model_validate(
         {
+            "platform_instance": platform_instance,
             "connection": {
                 "bootstrap": "localhost:9092",
                 "schema_registry_url": schema_registry_url,
@@ -478,35 +480,28 @@ class TestCatalogMetadataOnTopics:
         )
 
 
-class TestMirrorSourceResolution:
-    def test_relationship_source_topic_wins_over_scalar_fallback(self) -> None:
-        topic = CatalogKafkaTopic.model_validate(
-            {
-                "name": TOPIC,
-                "source_topic": {"name": "orders_origin"},
-                "externalSourceTopicName": "ignored_external",
-            }
-        )
-        assert topic.upstream_topic_name() == "orders_origin"
-
-    def test_external_scalar_is_used_when_no_relationship(self) -> None:
-        topic = CatalogKafkaTopic.model_validate(
-            {"name": TOPIC, "externalSourceTopicName": "orders_external"}
-        )
-        assert topic.upstream_topic_name() == "orders_external"
-
-    def test_topic_without_a_mirror_source_has_no_upstream(self) -> None:
-        assert CatalogKafkaTopic(name=TOPIC).upstream_topic_name() is None
+def mirror_of(source_name: str, source_cluster: Optional[str]) -> CatalogKafkaTopic:
+    return CatalogKafkaTopic.model_validate(
+        {
+            "name": TOPIC,
+            "logical_cluster_id": "lkc-dest",
+            "source_topic": {
+                "name": source_name,
+                "logical_cluster_id": source_cluster,
+            },
+        }
+    )
 
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 class TestCatalogLineage:
-    def build_source(
+    def run(
         self,
         mock_kafka: Mock,
         topics: List[CatalogKafkaTopic],
+        platform_instance: Optional[str] = "dest",
         **catalog_overrides: object,
-    ) -> KafkaSource:
+    ) -> Tuple[KafkaSource, List[UpstreamLineageClass]]:
         cluster_metadata = MagicMock()
         cluster_metadata.topics = {TOPIC: None}
         mock_kafka.return_value.list_topics.return_value = cluster_metadata
@@ -515,67 +510,81 @@ class TestCatalogLineage:
             make_source_config(
                 catalog=enabled_catalog_config(**catalog_overrides),
                 schema_registry_url=SCHEMA_REGISTRY_URL,
+                platform_instance=platform_instance,
             ),
             PipelineContext(run_id="test"),
         )
         attach_catalog(source, topics)
-        return source
-
-    def test_mirror_topic_gets_an_upstream_edge_when_lineage_is_enabled(
-        self, mock_kafka: Mock, mock_admin_client: Mock
-    ) -> None:
-        source = self.build_source(
-            mock_kafka,
-            [
-                CatalogKafkaTopic.model_validate(
-                    {"name": TOPIC, "source_topic": {"name": "orders_origin"}}
-                )
-            ],
-            include_lineage=True,
-        )
-
-        workunits = list(source.get_workunits())
-
         lineage = [
             aspect
-            for aspect in aspects_of(workunits, "upstreamLineage")
+            for aspect in aspects_of(list(source.get_workunits()), "upstreamLineage")
             if isinstance(aspect, UpstreamLineageClass)
         ]
-        assert len(lineage) == 1
-        upstreams = [upstream.dataset for upstream in lineage[0].upstreams]
-        assert any("orders_origin" in urn for urn in upstreams)
+        return source, lineage
+
+    def test_mapped_source_cluster_gets_an_edge_in_its_platform_instance(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source, lineage = self.run(
+            mock_kafka,
+            [mirror_of(TOPIC, "lkc-src")],
+            include_lineage=True,
+            cluster_id_to_platform_instance={"lkc-src": "src"},
+        )
+
+        assert [u.dataset for u in lineage[0].upstreams] == [
+            "urn:li:dataset:(urn:li:dataPlatform:kafka,src.orders,PROD)"
+        ]
         assert source.report.catalog_mirror_lineage_edges == 1
+
+    def test_unmapped_source_cluster_is_skipped_and_reported(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source, lineage = self.run(
+            mock_kafka, [mirror_of(TOPIC, "lkc-src")], include_lineage=True
+        )
+
+        assert not lineage
+        assert list(source.report.catalog_mirror_lineage_skipped) == [TOPIC]
+        assert source.report.warnings
+
+    def test_edge_back_to_the_topic_itself_is_skipped(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        # Both clusters ingested without a platform instance: the mirror keeps the
+        # source name, so the "upstream" URN is the topic's own URN.
+        source, lineage = self.run(
+            mock_kafka,
+            [mirror_of(TOPIC, "lkc-src")],
+            platform_instance=None,
+            include_lineage=True,
+            cluster_id_to_platform_instance={"lkc-src": ""},
+        )
+
+        assert not lineage
+        assert list(source.report.catalog_mirror_lineage_skipped) == [TOPIC]
 
     def test_lineage_is_off_by_default(
         self, mock_kafka: Mock, mock_admin_client: Mock
     ) -> None:
-        source = self.build_source(
+        source, lineage = self.run(
             mock_kafka,
-            [
-                CatalogKafkaTopic.model_validate(
-                    {"name": TOPIC, "source_topic": {"name": "orders_origin"}}
-                )
-            ],
+            [mirror_of(TOPIC, "lkc-src")],
+            cluster_id_to_platform_instance={"lkc-src": "src"},
         )
 
-        workunits = list(source.get_workunits())
-
-        assert not aspects_of(workunits, "upstreamLineage")
+        assert not lineage
         assert source.report.catalog_mirror_lineage_edges == 0
 
     def test_topic_without_a_mirror_source_emits_no_lineage(
         self, mock_kafka: Mock, mock_admin_client: Mock
     ) -> None:
-        source = self.build_source(
-            mock_kafka,
-            [CatalogKafkaTopic(name=TOPIC)],
-            include_lineage=True,
+        source, lineage = self.run(
+            mock_kafka, [CatalogKafkaTopic(name=TOPIC)], include_lineage=True
         )
 
-        workunits = list(source.get_workunits())
-
-        assert not aspects_of(workunits, "upstreamLineage")
-        assert source.report.catalog_mirror_lineage_edges == 0
+        assert not lineage
+        assert not source.report.catalog_mirror_lineage_skipped
 
 
 def test_catalog_close_releases_the_client() -> None:

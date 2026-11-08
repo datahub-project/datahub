@@ -13,16 +13,10 @@ CatalogReportType = TypeVar("CatalogReportType", bound=SourceReport)
 
 
 class CatalogIndex(Generic[CatalogEntityType, CatalogReportType]):
-    """Lazy, name-indexed view over one Confluent Stream Catalog entity type.
+    """Fetches one Stream Catalog entity type once and indexes it by name.
 
-    Every catalog-backed source repeats the same boilerplate: fetch a single entity
-    type once, remember whether the read was complete, index it by name (reporting
-    empty and duplicate names), and close the client. That lives here so each source
-    only supplies its entity type, query, and any entity-specific behaviour.
-
-    Subclasses pass the query/root key/model/label to `__init__` and may override
-    `_filter` (narrow the fetched entities), `_warn_ambiguous` (duplicate-name
-    wording) and `_record_indexed` (bump the source's report counter).
+    The kafka and kafka-connect sources both need this; subclasses override `_filter`,
+    `_warn_ambiguous` and `_record_indexed` for their entity type.
     """
 
     def __init__(
