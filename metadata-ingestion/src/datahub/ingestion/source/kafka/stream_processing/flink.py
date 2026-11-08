@@ -35,6 +35,7 @@ from datahub.ingestion.source.kafka.stream_processing.flink_sql import (
     table_ref,
 )
 from datahub.ingestion.source.kafka.stream_processing.models import StreamProcessingJob
+from datahub.utilities.dedup_list import deduplicate_list
 
 logger = logging.getLogger(__name__)
 
@@ -75,34 +76,28 @@ class FlinkStatementsClient:
             url = _next_link(page)
             # The next link is a full URL that already carries pagination params.
             params = None
+        if url:
+            # Statements past the cap would look deleted; a failure keeps stale-entity
+            # removal from soft-deleting their jobs.
+            self.report.failure(
+                title="Flink statements listing truncated",
+                message="Stopped listing Confluent Cloud Flink statements at the page "
+                "limit; lineage for later statements is missing from this run",
+                context=f"pages={pages}, page_size={self.page_size}",
+            )
         return statements
 
     def _fetch(self, url: str, params: Optional[Dict[str, int]]) -> Dict[str, object]:
-        try:
-            response = self.session.get(
-                url, params=params, timeout=self.timeout_seconds
-            )
-            response.raise_for_status()
-            payload = response.json()
-        except requests.RequestException as e:
-            self.report.warning(
-                message="Failed to list Confluent Cloud Flink statements",
-                context=f"url={url}",
-                exc=e,
-                log=False,
-            )
-            raise
+        # Errors propagate: the caller reports them as a failure, which stops
+        # stale-entity removal from treating every Flink job as deleted.
+        response = self.session.get(url, params=params, timeout=self.timeout_seconds)
+        response.raise_for_status()
+        payload = response.json()
         if not isinstance(payload, dict):
-            exc = ValueError(
-                f"Unexpected Confluent Cloud Flink statements payload type: {type(payload).__name__}"
+            raise ValueError(
+                f"Unexpected Confluent Cloud Flink statements payload type: "
+                f"{type(payload).__name__} from {url}"
             )
-            self.report.warning(
-                message="Unexpected Confluent Cloud Flink statements response",
-                context=f"url={url}",
-                exc=exc,
-                log=False,
-            )
-            raise exc
         return payload
 
     def close(self) -> None:
@@ -141,7 +136,19 @@ class FlinkLineageExtractor:
     def extract(self) -> List[StreamProcessingJob]:
         jobs: List[StreamProcessingJob] = []
         for statement in self.client.list_statements():
-            job = self._build_job(statement)
+            try:
+                job = self._build_job(statement)
+            except Exception as e:
+                # The statement may have produced a job last run; a failure keeps
+                # stale-entity removal from soft-deleting it.
+                self.report.failure(
+                    title="Flink statement could not be read",
+                    message="Unexpected error reading a Flink statement; other "
+                    "statements are still emitted",
+                    context=f"statement={statement.get(FLINK_KEY_NAME)}",
+                    exc=e,
+                )
+                continue
             if job is not None:
                 jobs.append(job)
         return jobs
@@ -309,10 +316,4 @@ def _next_link(page: Dict[str, object]) -> Optional[str]:
 
 
 def _unique(values: Iterable[str]) -> List[str]:
-    seen = set()
-    result: List[str] = []
-    for value in values:
-        if value and value not in seen:
-            seen.add(value)
-            result.append(value)
-    return result
+    return deduplicate_list(value for value in values if value)

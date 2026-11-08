@@ -1255,6 +1255,38 @@ class TestConfluentCloudConnectors:
         assert "connection.password" not in bag
         assert not report.warnings
 
+    def test_cloud_managed_postgres_source_pairs_tables_by_topic_name(
+        self,
+    ) -> None:
+        # Cluster order differs from include-list order; pairing must follow names.
+        connector, _ = self._managed_postgres_source(
+            {"table.include.list": "public.users,sales.orders,public.items"},
+            ["pg-items", "pg-orders", "other", "pg-users"],
+        )
+
+        assert {
+            lineage.target_dataset: lineage.source_dataset
+            for lineage in connector.extract_lineages()
+        } == {
+            "pg-users": "testdb.public.users",
+            "pg-orders": "testdb.sales.orders",
+            "pg-items": "testdb.public.items",
+        }
+
+    def test_cloud_managed_postgres_source_skips_regex_entries(self) -> None:
+        # `.*users` would derive the topic `pg-users`, which exists, but a regex names
+        # no single table, so only the literal entry is mapped.
+        connector, report = self._managed_postgres_source(
+            {"table.include.list": "sales.orders,public\\.users.*"},
+            ["pg-orders", "pg-users"],
+        )
+
+        assert [
+            (lineage.source_dataset, lineage.target_dataset)
+            for lineage in connector.extract_lineages()
+        ] == [("testdb.sales.orders", "pg-orders")]
+        assert report.warnings
+
     def test_cloud_managed_postgres_source_never_claims_cluster_topics(
         self,
     ) -> None:

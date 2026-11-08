@@ -254,6 +254,19 @@ class TestTopicLookup:
         assert topic.tags == ["public"]
         assert not report.warnings
 
+    def test_cluster_id_is_read_when_the_catalog_is_first_fetched(self) -> None:
+        catalog = make_catalog(
+            [
+                CatalogKafkaTopic(name=TOPIC, logical_cluster_id="lkc-111"),
+                CatalogKafkaTopic(name=TOPIC, logical_cluster_id="lkc-222"),
+            ],
+            KafkaSourceReport(),
+        )
+        catalog.topic_config.cluster_id = "lkc-222"
+
+        topic = catalog.get_topic(TOPIC)
+        assert topic is not None and topic.cluster_id == "lkc-222"
+
     def test_cluster_id_matching_nothing_is_reported(self) -> None:
         report = KafkaSourceReport()
         catalog = make_catalog(

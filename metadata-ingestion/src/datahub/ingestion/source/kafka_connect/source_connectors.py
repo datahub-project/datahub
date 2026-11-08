@@ -10,6 +10,7 @@ from typing import (
     Iterable,
     List,
     Optional,
+    Set,
     Tuple,
 )
 
@@ -257,6 +258,12 @@ class JdbcParserFactory:
             query=query,
             transforms=transforms,
         )
+
+
+# `schema.table` or `table`, optionally double-quoted, with no regex syntax.
+_LITERAL_TABLE_ENTRY_RE: Final["re.Pattern[str]"] = re.compile(
+    r'^(?:"?[A-Za-z0-9_$]+"?\.)?"?[A-Za-z0-9_$]+"?$'
+)
 
 
 @dataclass
@@ -635,38 +642,86 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             if result:
                 return result
 
-        all_topics = self._topics_for_this_connector(cluster_topics)
-        if not all_topics:
-            return []
+        if self.connector_manifest.config.get(CONNECTOR_CLASS) != POSTGRES_SOURCE_CLOUD:
+            # Cloud CDC classes are dispatched to DebeziumSourceConnector; this path
+            # only runs when this class is used directly.
+            logger.debug("Falling back to config-based extraction strategies")
+            if self._has_one_to_one_topic_mapping(cluster_topics):
+                return self._extract_lineages_from_config_mapping(
+                    parser, cluster_topics
+                )
+            elif parser.topic_prefix:
+                return self._extract_lineages_from_prefix_inference(
+                    parser, cluster_topics
+                )
+            return self._create_direct_lineages_from_topics(cluster_topics, parser)
 
-        # Fallback to existing config-based strategies
-        logger.debug("Falling back to config-based extraction strategies")
-        if self._has_one_to_one_topic_mapping(all_topics):
-            return self._extract_lineages_from_config_mapping(parser, all_topics)
-        elif parser.topic_prefix:
-            return self._extract_lineages_from_prefix_inference(parser, all_topics)
-        else:
-            # Use available topics directly if no better strategy
-            return self._create_direct_lineages_from_topics(all_topics, parser)
-
-    def _topics_for_this_connector(self, cluster_topics: List[str]) -> List[str]:
-        # Cloud connectors report no topics of their own and the cluster list holds
-        # every connector's topics, so only topics derived from this connector's
-        # config ({topic.prefix}{table}) are attributed to it.
-        if self.connector_manifest.topic_names:
-            return list(self.connector_manifest.topic_names)
-        expected = set(self.get_topics_from_config())
-        scoped = [topic for topic in cluster_topics if topic in expected]
+        # Each config table produces `{topic.prefix}{table}`; map topics to tables by
+        # that name, in config order, and only for topics present on the cluster.
+        topic_tables = self._literal_table_topics(parser.topic_prefix)
+        cluster_topic_set = set(cluster_topics)
+        scoped = [topic for topic in topic_tables if topic in cluster_topic_set]
         if not scoped:
             self.report.warning(
                 message="No lineage for a Confluent Cloud JDBC source connector: none of "
                 "the topics derived from its config ({topic.prefix}{table}) are on the "
-                "cluster. table.include.list entries are regular expressions; only "
-                "literal schema.table entries can be mapped to topics.",
+                "cluster",
                 context=f"connector={self.connector_manifest.name}, "
-                f"expected_topics={sorted(expected)}",
+                f"expected_topics={sorted(topic_tables)}",
             )
-        return scoped
+            return []
+        return [
+            self._create_lineage_mapping(
+                topic_tables[topic],
+                parser.database_name,
+                parser.source_platform,
+                topic,
+                True,
+            )
+            for topic in scoped
+        ]
+
+    def _literal_table_topics(self, topic_prefix: str) -> Dict[str, str]:
+        """Map `{topic.prefix}{table}` to `schema.table` for literal include-list entries.
+
+        Confluent Cloud's `table.include.list` entries are regular expressions; only
+        entries that name a single table can be turned into a topic, so the rest are
+        skipped and reported. Two schemas with the same table name would write the
+        same topic, so those are skipped too.
+        """
+        table_config = self.connector_manifest.config.get(
+            "table.include.list"
+        ) or self.connector_manifest.config.get("table.whitelist", "")
+        topic_tables: Dict[str, str] = {}
+        ambiguous: Set[str] = set()
+        patterns: List[str] = []
+        for entry in parse_comma_separated_list(table_config):
+            if not _LITERAL_TABLE_ENTRY_RE.match(entry):
+                patterns.append(entry)
+                continue
+            clean = entry.replace('"', "")
+            topic = f"{topic_prefix}{clean.rsplit('.', 1)[-1]}"
+            if topic in topic_tables and topic_tables[topic] != clean:
+                ambiguous.add(topic)
+            topic_tables.setdefault(topic, clean)
+        if patterns:
+            self.report.warning(
+                message="Skipping table.include.list entries that are regular "
+                "expressions; only literal schema.table entries can be mapped to topics",
+                context=f"connector={self.connector_manifest.name}, entries={patterns}",
+            )
+        if ambiguous:
+            self.report.warning(
+                message="Skipping topics that more than one configured table would write "
+                "(same table name in different schemas)",
+                context=f"connector={self.connector_manifest.name}, "
+                f"topics={sorted(ambiguous)}",
+            )
+        return {
+            topic: table
+            for topic, table in topic_tables.items()
+            if topic not in ambiguous
+        }
 
     def _has_one_to_one_topic_mapping(self, topics: Optional[List[str]] = None) -> bool:
         """Check if connector has clear 1:1 table to topic mapping from config."""
@@ -704,8 +759,13 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         4. Create lineages from source tables to validated topics
         """
         try:
-            # Step 1: Get configured source tables
-            source_tables = self._get_source_tables_from_config()
+            # Step 1: Get configured source tables. Regex include-list entries name no
+            # single table, so they cannot predict a topic.
+            source_tables = [
+                table
+                for table in self._get_source_tables_from_config()
+                if _LITERAL_TABLE_ENTRY_RE.match(table)
+            ]
             if not source_tables:
                 logger.debug("No source tables found in connector config")
                 return []
@@ -716,25 +776,32 @@ class ConfluentJDBCSourceConnector(BaseConnector):
                 logger.debug("Forward transforms produced no expected topics")
                 return []
 
-            # Step 3: Filter all_topics to only include topics this connector actually produces
-            connector_topics = [
-                topic for topic in expected_topics if topic in all_topics
+            # Step 3: Keep each table paired with its own predicted topic, and only
+            # the pairs whose topic exists. Pairing by position after filtering would
+            # shift tables onto other tables' topics.
+            if len(expected_topics) != len(source_tables):
+                logger.debug(
+                    "Forward transforms did not predict one topic per table; "
+                    "cannot pair tables with topics"
+                )
+                return []
+            cluster_topic_set = set(all_topics)
+            pairs = [
+                (source_table, topic)
+                for source_table, topic in zip(
+                    source_tables, expected_topics, strict=True
+                )
+                if topic in cluster_topic_set
             ]
-            if not connector_topics:
+            if not pairs:
                 logger.debug(
                     f"None of the expected topics {expected_topics} found in cluster topics"
                 )
                 return []
 
-            logger.info(
-                f"Cloud connector matched {len(connector_topics)} topics from {len(expected_topics)} predicted: {connector_topics}"
-            )
-
             # Step 4: Create lineages from source tables to validated topics
             lineages = []
-            for source_table, topic in zip(
-                source_tables, connector_topics, strict=False
-            ):
+            for source_table, topic in pairs:
                 # Handle schema resolution
                 resolved_source_table, dataset_included = (
                     self._resolve_source_table_schema(

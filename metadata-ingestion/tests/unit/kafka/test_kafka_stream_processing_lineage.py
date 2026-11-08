@@ -11,11 +11,16 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.kafka.kafka import KafkaSource
 from datahub.ingestion.source.kafka.kafka_config import (
     FlinkLineageConfig,
+    KafkaSourceConfig,
 )
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
+from datahub.ingestion.source.kafka.stream_processing import flink as flink_module
 from datahub.ingestion.source.kafka.stream_processing.builder import (
     build_stream_processing_workunits,
 )
@@ -28,6 +33,9 @@ from datahub.ingestion.source.kafka.stream_processing.flink import (
     FlinkLineageExtractor,
     FlinkStatementsClient,
 )
+from datahub.ingestion.source.kafka.stream_processing.flink_sql import (
+    FlinkDmlStatement,
+)
 from datahub.ingestion.source.kafka.stream_processing.models import StreamProcessingJob
 from datahub.ingestion.source.kafka.stream_processing.sql import (
     column_lineage_fine_grained,
@@ -37,6 +45,7 @@ from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     DataJobInputOutputClass,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 PLATFORM = "kafka"
 ENV = "PROD"
@@ -548,3 +557,198 @@ def test_flink_close_only_closes_owned_session() -> None:
         )
     owned.close()
     owned_session.close.assert_called_once()
+
+
+def test_flink_listing_truncated_at_page_cap_is_a_failure() -> None:
+    session = MagicMock()
+    page = MagicMock()
+    page.json.return_value = {
+        "data": [_statement("INSERT INTO sink SELECT id FROM src", name="s1")],
+        "metadata": {"next": "https://flink.example/sql?page=2"},
+    }
+    session.get.return_value = page
+    client = _flink_client_with_session(session)
+
+    with patch(
+        "datahub.ingestion.source.kafka.stream_processing.flink.FLINK_MAX_PAGES", 1
+    ):
+        statements = client.list_statements()
+
+    assert [statement["name"] for statement in statements] == ["s1"]
+    assert client.report.failures
+
+
+def test_flink_error_in_one_statement_keeps_the_others_and_fails_the_run() -> None:
+    real_parse = flink_module.parse_flink_statement
+
+    def parse(sql: str) -> List[FlinkDmlStatement]:
+        if "poison" in sql:
+            raise RuntimeError("boom")
+        return real_parse(sql)
+
+    with patch.object(flink_module, "parse_flink_statement", side_effect=parse):
+        jobs, report = _extract(
+            [
+                _statement("INSERT INTO a SELECT * FROM x", name="ok-1"),
+                _statement("INSERT INTO poison SELECT * FROM x", name="bad"),
+                _statement("INSERT INTO b SELECT * FROM y", name="ok-2"),
+            ]
+        )
+
+    assert [job.name for job in jobs] == ["ok-1", "ok-2"]
+    assert report.failures
+
+
+def test_flink_tvf_argument_after_a_comment() -> None:
+    jobs, _ = _extract(
+        [
+            _statement(
+                "INSERT INTO agg SELECT window_start, COUNT(*) FROM TABLE(TUMBLE( -- in\n"
+                "  /* windowed */ TABLE orders, DESCRIPTOR(ts), INTERVAL '1' MINUTES)) "
+                "GROUP BY window_start"
+            )
+        ]
+    )
+
+    assert jobs[0].input_topics == ["orders"]
+
+
+def _graph_with_schema(columns: List[str]) -> MagicMock:
+    resolver = SchemaResolver(platform=PLATFORM, env=ENV)
+    resolver.add_raw_schema_info(
+        make_dataset_urn_with_platform_instance(
+            platform=PLATFORM, name="src_topic", platform_instance=None, env=ENV
+        ),
+        {column: "VARCHAR" for column in columns},
+    )
+    graph = MagicMock(spec=DataHubGraph)
+    graph._make_schema_resolver.return_value = resolver
+    return graph
+
+
+def test_column_lineage_expands_select_star_from_graph_schema() -> None:
+    fine_grained = column_lineage_fine_grained(
+        query="INSERT INTO sink_topic SELECT * FROM src_topic",
+        platform=PLATFORM,
+        platform_instance=None,
+        env=ENV,
+        graph=_graph_with_schema(["id", "name"]),
+        dialect=FLINK_SQL_DIALECT,
+        report=KafkaSourceReport(),
+        job_name="stmt",
+    )
+
+    downstreams = {urn for edge in fine_grained for urn in edge.downstreams or []}
+    assert {urn.rsplit(",", 1)[1] for urn in downstreams} == {"id)", "name)"}
+
+
+def test_column_lineage_parse_error_is_reported_and_returns_nothing() -> None:
+    report = KafkaSourceReport()
+
+    fine_grained = column_lineage_fine_grained(
+        query="INSERT INTO sink_topic SELEC id FRM src_topic",
+        platform=PLATFORM,
+        platform_instance=None,
+        env=ENV,
+        graph=None,
+        dialect=FLINK_SQL_DIALECT,
+        report=report,
+        job_name="stmt",
+    )
+
+    assert fine_grained == []
+    assert report.warnings
+
+
+def test_schema_resolver_failure_keeps_topic_edges() -> None:
+    graph = MagicMock(spec=DataHubGraph)
+    graph._make_schema_resolver.side_effect = RuntimeError("graph down")
+    report = KafkaSourceReport()
+    job = StreamProcessingJob(
+        engine=StreamProcessingEngine.FLINK,
+        job_id="stmt",
+        name="stmt",
+        input_topics=["src_topic"],
+        output_topics=["sink_topic"],
+        parse_query="INSERT INTO sink_topic SELECT id FROM src_topic",
+        sql_dialect=FLINK_SQL_DIALECT,
+    )
+
+    workunits = build_stream_processing_workunits(
+        jobs=[job],
+        platform=PLATFORM,
+        platform_instance=None,
+        env=ENV,
+        report=report,
+        topic_allowed=lambda _topic: True,
+        graph=graph,
+        include_column_lineage=True,
+    )
+
+    flow_urn = make_data_flow_urn(
+        PLATFORM, ENGINE_FLOW_METADATA[StreamProcessingEngine.FLINK][0], ENV
+    )
+    io = _aspect_for_urn(
+        workunits,
+        make_data_job_urn_with_flow(flow_urn, "stmt"),
+        DataJobInputOutputClass,
+    )
+    assert isinstance(io, DataJobInputOutputClass)
+    assert len(io.inputDatasets) == 1 and len(io.outputDatasets) == 1
+    assert io.fineGrainedLineages is None
+    assert report.warnings
+
+
+def _kafka_source_with_flink() -> KafkaSource:
+    return KafkaSource(
+        KafkaSourceConfig.model_validate(
+            {
+                "connection": {"bootstrap": "localhost:9092"},
+                "stream_processing_lineage": {
+                    "flink": _flink_config().model_dump(mode="json")
+                    | {"api_key": "k", "api_secret": "s"},
+                },
+            }
+        ),
+        PipelineContext(run_id="test"),
+    )
+
+
+@patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
+def test_kafka_source_emits_flink_jobs(mock_consumer: MagicMock, _: MagicMock) -> None:
+    mock_consumer.return_value.list_topics.return_value.topics = {}
+    client = _FakeFlinkClient([_statement("INSERT INTO sink SELECT id FROM src")])
+
+    with patch(
+        "datahub.ingestion.source.kafka.kafka.build_flink_client", return_value=client
+    ):
+        source = _kafka_source_with_flink()
+        urns = {wu.get_urn() for wu in source.get_workunits()}
+
+    flow_urn = make_data_flow_urn(
+        PLATFORM, ENGINE_FLOW_METADATA[StreamProcessingEngine.FLINK][0], ENV
+    )
+    assert make_data_job_urn_with_flow(flow_urn, "stmt") in urns
+    assert not source.report.failures
+
+
+@patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
+def test_kafka_source_reports_a_failed_flink_listing_as_a_failure(
+    mock_consumer: MagicMock, _: MagicMock
+) -> None:
+    mock_consumer.return_value.list_topics.return_value.topics = {}
+    client = MagicMock()
+    client.list_statements.side_effect = requests.HTTPError("503")
+
+    with patch(
+        "datahub.ingestion.source.kafka.kafka.build_flink_client", return_value=client
+    ):
+        source = _kafka_source_with_flink()
+        workunits = list(source.get_workunits())
+
+    # The failure is what stops stale-entity removal from soft-deleting the jobs.
+    assert source.report.failures
+    assert not [wu for wu in workunits if "dataJob" in wu.get_urn()]
+    client.close.assert_called_once()
