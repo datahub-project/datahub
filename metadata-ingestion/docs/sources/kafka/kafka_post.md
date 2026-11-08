@@ -149,12 +149,13 @@ catalog only gives that source's topic name, not its cluster.
 #### Stream-processing lineage (Flink SQL)
 
 On Confluent Cloud, set `stream_processing_lineage.flink.enabled: true` to emit
-topic-to-topic lineage from Flink SQL `INSERT INTO ... SELECT ... FROM ...`
-statements. Each statement is modeled as a DataJob under a synthetic Flink
-DataFlow. Column-level lineage is on by default (`include_column_lineage: true`).
+topic-to-topic lineage from Flink SQL `INSERT INTO ... SELECT` and
+`CREATE TABLE ... AS SELECT` statements, including those inside `EXECUTE STATEMENT SET`.
+Each statement is modeled as a DataJob under a Flink DataFlow. Column-level lineage is on
+by default (`include_column_lineage: true`).
 
 Requires a Confluent Cloud resource-management API key plus `organization_id`,
-`environment_id`, and either `endpoint` or both `region` and `cloud`.
+`environment_id`, `kafka_cluster_id`, and either `endpoint` or both `region` and `cloud`.
 
 ```yaml
 source:
@@ -167,11 +168,27 @@ source:
         enabled: true
         organization_id: "${CONFLUENT_ORG_ID}"
         environment_id: "env-xxxxx"
+        environment_name: "prod" # if statements use the catalog name
+        kafka_cluster_id: "lkc-xxxxx"
+        kafka_cluster_name: "orders-cluster" # if statements use the database name
         region: "us-east-1"
         cloud: "aws"
         api_key: "${CONFLUENT_CLOUD_API_KEY}"
         api_secret: "${CONFLUENT_CLOUD_API_SECRET}"
 ```
+
+In Flink a catalog is an environment and a database is a Kafka cluster. Statements are
+listed for the whole environment, so a table only becomes a topic of this recipe when its
+catalog and database match the environment and cluster configured above. Unqualified names
+use the statement's `sql.current-catalog` and `sql.current-database` properties.
+
+- Tables in another environment or cluster are dropped with a warning, and a statement
+  that writes to none of this cluster's topics is left to that cluster's recipe.
+- A statement whose SQL cannot be parsed, or with a table that has no catalog or database,
+  is skipped with a warning.
+- Only `RUNNING` statements are read unless `include_non_running_statements: true`.
+- Column-level lineage is only derived for single statements whose tables are all in this
+  cluster, and a parse failure is reported as a warning.
 
 #### Custom Schema Registry
 

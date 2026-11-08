@@ -609,7 +609,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     FlinkLineageExtractor(
                         flink_client,
                         self.report,
-                        config.flink.compute_pool_id,
+                        config.flink,
                     ).extract()
                 )
             except Exception as e:

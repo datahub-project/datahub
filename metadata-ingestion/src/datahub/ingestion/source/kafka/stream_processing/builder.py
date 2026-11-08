@@ -86,7 +86,7 @@ def build_stream_processing_workunits(
         )
 
         fine_grained: List[FineGrainedLineageClass] = []
-        # Skip CLL when any of the job's topics are denied — the parser cannot
+        # Skip CLL when any of the job's topics are denied - the parser cannot
         # tell allowed from denied identifiers, so mixed jobs would leak edges.
         job_topics_allowed = all(
             topic_allowed(topic) for topic in job.input_topics + job.output_topics
@@ -99,6 +99,8 @@ def build_stream_processing_workunits(
                 env=env,
                 graph=graph,
                 dialect=job.sql_dialect,
+                report=report,
+                job_name=job.name,
             )
             report.stream_processing_column_lineage_edges += len(fine_grained)
 

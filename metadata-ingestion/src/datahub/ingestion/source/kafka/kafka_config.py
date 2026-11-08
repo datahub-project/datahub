@@ -116,7 +116,30 @@ class FlinkLineageConfig(ConfigModel):
         default=None, description="Confluent Cloud organization id."
     )
     environment_id: Optional[str] = Field(
-        default=None, description="Confluent Cloud environment id, e.g. `env-xxxxx`."
+        default=None,
+        description="Confluent Cloud environment id, e.g. `env-xxxxx`. Flink calls an "
+        "environment a catalog.",
+    )
+    environment_name: Optional[str] = Field(
+        default=None,
+        description="Display name of the environment, if statements refer to the Flink "
+        "catalog by name rather than by id.",
+    )
+    kafka_cluster_id: Optional[str] = Field(
+        default=None,
+        description="Id of the Kafka cluster this recipe ingests, e.g. `lkc-xxxxx`. Flink "
+        "calls a cluster a database. Only tables in this environment and cluster are "
+        "mapped to topics; statements reading or writing other clusters lose those edges.",
+    )
+    kafka_cluster_name: Optional[str] = Field(
+        default=None,
+        description="Display name of the Kafka cluster, if statements refer to the Flink "
+        "database by name rather than by id.",
+    )
+    include_non_running_statements: bool = Field(
+        default=False,
+        description="Also emit lineage for statements that are not RUNNING (e.g. "
+        "STOPPED, FAILED, COMPLETED). Off by default so lineage reflects live pipelines.",
     )
     region: Optional[str] = Field(
         default=None,
@@ -173,6 +196,7 @@ class FlinkLineageConfig(ConfigModel):
             for name, value in (
                 ("organization_id", self.organization_id),
                 ("environment_id", self.environment_id),
+                ("kafka_cluster_id", self.kafka_cluster_id),
             )
             if not value
         ]
