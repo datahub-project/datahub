@@ -264,7 +264,7 @@ class TestTopicLookup:
             ],
             KafkaSourceReport(),
         )
-        catalog.topic_config.cluster_id = "lkc-222"
+        catalog.config.cluster_id = "lkc-222"
 
         topic = catalog.get_topic(TOPIC)
         assert topic is not None and topic.cluster_id == "lkc-222"
