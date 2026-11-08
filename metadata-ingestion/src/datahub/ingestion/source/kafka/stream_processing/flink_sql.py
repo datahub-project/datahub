@@ -136,7 +136,8 @@ def _may_move_data(sql: str) -> bool:
 
     Only words outside literals, quoted names and parentheses count, so a computed
     column (`total AS (price * qty)`) or a WATERMARK inside a CREATE TABLE column list
-    does not look like `CREATE TABLE ... AS SELECT`.
+    does not look like `CREATE TABLE ... AS SELECT`. A second statement's CREATE does
+    not reach back past the first one's `;`, since each CREATE is checked on its own.
     """
     code = _code_mask(sql)
     depth = 0
@@ -153,10 +154,17 @@ def _may_move_data(sql: str) -> bool:
         else:
             top_level.append(char if depth == 0 else " ")
     words = [word.upper() for word in _WORD_RE.findall("".join(top_level))]
+    if "INSERT" in words:
+        return True
+    # Only CREATE [OR REPLACE] [TEMPORARY] TABLE ... AS <query> writes a topic;
+    # CREATE FUNCTION ... AS 'class' or CREATE VIEW ... AS SELECT do not.
     for i, word in enumerate(words):
-        if word == "INSERT":
-            return True
-        if word == "AS" and i > 0 and "CREATE" in words[:i]:
+        if word != "CREATE":
+            continue
+        rest = words[i + 1 :]
+        while rest and rest[0] in ("OR", "REPLACE", "TEMPORARY"):
+            rest = rest[1:]
+        if rest[:1] == ["TABLE"] and "AS" in rest:
             return True
     return False
 

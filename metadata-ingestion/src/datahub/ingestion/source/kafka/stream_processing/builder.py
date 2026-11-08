@@ -32,6 +32,7 @@ from datahub.utilities.dedup_list import deduplicate_list
 def build_flink_workunits(
     jobs: List[FlinkJob],
     environment_id: str,
+    kafka_cluster_id: str,
     topic_platform: str,
     platform_instance: Optional[str],
     env: str,
@@ -40,25 +41,26 @@ def build_flink_workunits(
     graph: Optional[DataHubGraph],
     include_column_lineage: bool,
 ) -> Iterable[MetadataWorkUnit]:
-    """One `flink` DataFlow per Confluent environment and one DataJob per statement.
+    """One `flink` DataFlow per environment and Kafka cluster, one DataJob per statement.
 
-    The platform instance and env of this Kafka recipe scope both, so recipes for
-    different clusters of one environment do not overwrite each other's jobs.
+    A statement set can write to several clusters, and each cluster's recipe emits only
+    its own topics; keying the flow on the cluster gives each recipe its own job for the
+    statement instead of overwriting one shared job with a partial set of edges.
     """
     if not jobs:
         return
     flow_urn = make_data_flow_urn(
         orchestrator=FLINK_PLATFORM,
-        flow_id=environment_id,
+        flow_id=f"{environment_id}.{kafka_cluster_id}",
         cluster=env,
         platform_instance=platform_instance,
     )
     yield MetadataChangeProposalWrapper(
         entityUrn=flow_urn,
         aspect=DataFlowInfoClass(
-            name=f"Flink statements ({environment_id})",
-            description="Confluent Cloud Flink SQL statements writing to this Kafka "
-            "cluster.",
+            name=f"Flink statements ({environment_id} / {kafka_cluster_id})",
+            description="Confluent Cloud Flink SQL statements writing to Kafka cluster "
+            f"{kafka_cluster_id}.",
         ),
     ).as_workunit()
 
@@ -99,6 +101,7 @@ def build_flink_workunits(
                 )
                 continue
             yield from workunits
+            _count_emitted(workunits, report)
     finally:
         if schema_resolver is not None and graph is None:
             schema_resolver.close()
@@ -167,10 +170,20 @@ def _job_workunits(
             ),
         ).as_workunit(),
     ]
-    report.flink_column_lineage_edges += len(fine_grained)
-    report.flink_jobs_emitted += 1
-    report.flink_topic_lineage_edges += len(inputs) + len(outputs)
     return workunits
+
+
+def _count_emitted(
+    workunits: List[MetadataWorkUnit], report: KafkaSourceReport
+) -> None:
+    for workunit in workunits:
+        aspect = getattr(workunit.metadata, "aspect", None)
+        if isinstance(aspect, DataJobInputOutputClass):
+            report.flink_jobs_emitted += 1
+            report.flink_topic_lineage_edges += len(aspect.inputDatasets) + len(
+                aspect.outputDatasets
+            )
+            report.flink_column_lineage_edges += len(aspect.fineGrainedLineages or [])
 
 
 def _job_properties(job: FlinkJob) -> Dict[str, str]:
