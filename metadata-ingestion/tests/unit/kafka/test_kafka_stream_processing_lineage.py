@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -21,10 +21,8 @@ from datahub.ingestion.source.kafka.stream_processing.builder import (
 )
 from datahub.ingestion.source.kafka.stream_processing.constants import (
     ENGINE_FLOW_METADATA,
+    FLINK_SQL_DIALECT,
     StreamProcessingEngine,
-    from_join_identifiers,
-    last_identifier_segment,
-    strip_sql_noise,
 )
 from datahub.ingestion.source.kafka.stream_processing.flink import (
     FlinkLineageExtractor,
@@ -66,29 +64,71 @@ class _FakeFlinkClient:
         pass
 
 
-def test_flink_extracts_insert_into_topics_and_collapses_identifiers() -> None:
+ENV_ID = "env-1"
+CLUSTER_ID = "lkc-1"
+
+
+def _statement(
+    sql: str,
+    name: str = "stmt",
+    phase: str = "RUNNING",
+    properties: Optional[Dict[str, str]] = None,
+    compute_pool_id: Optional[str] = None,
+) -> Dict[str, object]:
+    spec: Dict[str, object] = {
+        "statement": sql,
+        "properties": {
+            "sql.current-catalog": ENV_ID,
+            "sql.current-database": CLUSTER_ID,
+        }
+        if properties is None
+        else properties,
+    }
+    if compute_pool_id:
+        spec["compute_pool_id"] = compute_pool_id
+    return {"name": name, "spec": spec, "status": {"phase": phase}}
+
+
+def _flink_config(**overrides: object) -> FlinkLineageConfig:
+    values: Dict[str, object] = {
+        "enabled": True,
+        "organization_id": "org-1",
+        "environment_id": ENV_ID,
+        "environment_name": "prod",
+        "kafka_cluster_id": CLUSTER_ID,
+        "kafka_cluster_name": "main",
+        "region": "us-east-1",
+        "cloud": "aws",
+        "api_key": "k",
+        "api_secret": "s",
+        **overrides,
+    }
+    return FlinkLineageConfig.model_validate(values)
+
+
+def _extract(
+    statements: List[Dict[str, object]], **overrides: object
+) -> Tuple[List[StreamProcessingJob], KafkaSourceReport]:
     report = KafkaSourceReport()
-    client = _FakeFlinkClient(
+    jobs = FlinkLineageExtractor(
+        _FakeFlinkClient(statements),  # type: ignore[arg-type]
+        report,
+        _flink_config(**overrides),
+    ).extract()
+    return jobs, report
+
+
+def test_flink_maps_tables_in_this_cluster_to_topics() -> None:
+    jobs, _ = _extract(
         [
-            {
-                "name": "enrich-statement",
-                "spec": {
-                    "statement": "INSERT INTO `cat`.`db`.`sink_topic` "
-                    "SELECT id FROM `cat`.`db`.`src_topic`",
-                    "compute_pool_id": "pool-1",
-                },
-                "status": {"phase": "RUNNING"},
-            },
-            # DDL statement (no INSERT INTO) is skipped.
-            {
-                "name": "ddl-statement",
-                "spec": {"statement": "CREATE TABLE foo (id INT)"},
-                "status": {"phase": "COMPLETED"},
-            },
+            _statement(
+                "INSERT INTO `prod`.`main`.`sink_topic` "
+                "SELECT id FROM `env-1`.`lkc-1`.`src_topic`"
+            ),
+            _statement("CREATE TABLE foo (id INT)", name="ddl"),
+            _statement("SELECT * FROM src_topic", name="query"),
         ]
     )
-
-    jobs = FlinkLineageExtractor(client, report).extract()  # type: ignore[arg-type]
 
     assert len(jobs) == 1
     job = jobs[0]
@@ -96,9 +136,130 @@ def test_flink_extracts_insert_into_topics_and_collapses_identifiers() -> None:
     assert job.input_topics == ["src_topic"]
     assert job.output_topics == ["sink_topic"]
     assert job.custom_properties.get("state") == "RUNNING"
-    # 3-part identifiers collapsed to bare topic names for the SQL parser.
     assert job.parse_query is not None
-    assert "`cat`.`db`" not in job.parse_query
+    assert "`prod`" not in job.parse_query and "`env-1`" not in job.parse_query
+
+
+def test_flink_does_not_take_topics_from_functions_windows_or_ctes() -> None:
+    jobs, _ = _extract(
+        [
+            _statement(
+                "INSERT INTO hourly SELECT EXTRACT(HOUR FROM ts) AS h, id FROM orders",
+                name="extract",
+            ),
+            _statement(
+                "INSERT INTO agg SELECT window_start, COUNT(*) FROM TABLE(TUMBLE("
+                "TABLE orders, DESCRIPTOR(ts), INTERVAL '1' MINUTES)) "
+                "GROUP BY window_start, window_end",
+                name="tumble",
+            ),
+            _statement(
+                "INSERT INTO out_t WITH big AS (SELECT * FROM orders WHERE amount > 10) "
+                "SELECT * FROM big",
+                name="cte",
+            ),
+        ]
+    )
+
+    assert {job.name: job.input_topics for job in jobs} == {
+        "extract": ["orders"],
+        "tumble": ["orders"],
+        "cte": ["orders"],
+    }
+
+
+def test_flink_drops_tables_in_other_clusters_and_reports_them() -> None:
+    jobs, report = _extract(
+        [
+            _statement(
+                "INSERT INTO sink SELECT * FROM `env-1`.`lkc-other`.`orders` o "
+                "JOIN customers c ON o.cid = c.id",
+                name="mixed",
+            ),
+            _statement(
+                "INSERT INTO `env-1`.`lkc-other`.`sink` SELECT * FROM orders",
+                name="writes-elsewhere",
+            ),
+        ]
+    )
+
+    assert len(jobs) == 1
+    assert jobs[0].input_topics == ["customers"]
+    assert jobs[0].output_topics == ["sink"]
+    # Column lineage would resolve the other cluster's table onto this cluster.
+    assert jobs[0].parse_query is None
+    assert report.warnings
+
+
+def test_flink_skips_unqualified_tables_without_current_catalog() -> None:
+    jobs, report = _extract(
+        [_statement("INSERT INTO sink SELECT * FROM src", properties={})]
+    )
+
+    assert jobs == []
+    assert list(report.stream_processing_statements_skipped) == ["stmt"]
+
+
+def test_flink_skips_statements_that_are_not_running_by_default() -> None:
+    statements = [
+        _statement("INSERT INTO sink SELECT * FROM src", phase="STOPPED"),
+    ]
+
+    jobs, report = _extract(statements)
+    assert jobs == []
+    assert list(report.stream_processing_statements_not_running) == ["stmt"]
+
+    jobs, _ = _extract(statements, include_non_running_statements=True)
+    assert [job.custom_properties["state"] for job in jobs] == ["STOPPED"]
+
+
+def test_flink_reads_every_insert_in_a_statement_set() -> None:
+    jobs, _ = _extract(
+        [
+            _statement(
+                "EXECUTE STATEMENT SET BEGIN INSERT INTO a SELECT * FROM x; "
+                "INSERT INTO b SELECT * FROM y; END;"
+            )
+        ]
+    )
+
+    assert jobs[0].input_topics == ["x", "y"]
+    assert jobs[0].output_topics == ["a", "b"]
+    assert jobs[0].parse_query is None
+
+
+def test_flink_skips_and_reports_unparseable_sql() -> None:
+    jobs, report = _extract([_statement("INSERT INTO sink SELECT FROM WHERE")])
+
+    assert jobs == []
+    assert list(report.stream_processing_statements_skipped) == ["stmt"]
+
+
+def test_flink_parse_query_keeps_string_literals_for_column_lineage() -> None:
+    jobs, _ = _extract(
+        [
+            _statement(
+                "INSERT INTO `orders-paid` SELECT id, name FROM `orders-raw` "
+                "WHERE status = 'PAID'"
+            )
+        ]
+    )
+    parse_query = jobs[0].parse_query
+    assert parse_query is not None
+    assert "'PAID'" in parse_query
+
+    fine_grained = column_lineage_fine_grained(
+        query=parse_query,
+        platform=PLATFORM,
+        platform_instance=None,
+        env=ENV,
+        graph=None,
+        dialect=FLINK_SQL_DIALECT,
+        report=KafkaSourceReport(),
+        job_name="stmt",
+    )
+    downstreams = {urn for edge in fine_grained for urn in edge.downstreams or []}
+    assert {urn.rsplit(",", 1)[1] for urn in downstreams} == {"id)", "name)"}
 
 
 def test_build_workunits_emits_flow_job_io_and_filters_denied_topics() -> None:
@@ -165,7 +326,9 @@ def test_column_lineage_parses_explicit_projection_without_graph() -> None:
         platform_instance=None,
         env=ENV,
         graph=None,
-        dialect="postgres",
+        dialect=FLINK_SQL_DIALECT,
+        report=KafkaSourceReport(),
+        job_name="stmt",
     )
 
     downstream = make_dataset_urn_with_platform_instance(
@@ -181,28 +344,6 @@ def test_column_lineage_parses_explicit_projection_without_graph() -> None:
     assert edge.upstreams == [f"urn:li:schemaField:({upstream},id)"]
 
 
-def test_flink_quotes_hyphenated_topic_names_in_parse_query() -> None:
-    report = KafkaSourceReport()
-    client = _FakeFlinkClient(
-        [
-            {
-                "name": "enrich-hyphen",
-                "spec": {
-                    "statement": "INSERT INTO `cat`.`db`.`orders-enriched` "
-                    "SELECT id FROM `cat`.`db`.`users-raw`",
-                },
-            }
-        ]
-    )
-
-    jobs = FlinkLineageExtractor(client, report).extract()  # type: ignore[arg-type]
-
-    assert len(jobs) == 1
-    assert jobs[0].parse_query is not None
-    assert '"orders-enriched"' in jobs[0].parse_query
-    assert '"users-raw"' in jobs[0].parse_query
-
-
 def test_build_workunits_emits_column_lineage_when_all_topics_allowed() -> None:
     report = KafkaSourceReport()
     jobs = [
@@ -213,7 +354,7 @@ def test_build_workunits_emits_column_lineage_when_all_topics_allowed() -> None:
             input_topics=["src_topic"],
             output_topics=["sink_topic"],
             parse_query="INSERT INTO sink_topic SELECT id FROM src_topic",
-            sql_dialect="postgres",
+            sql_dialect=FLINK_SQL_DIALECT,
         )
     ]
 
@@ -248,7 +389,7 @@ def test_build_workunits_skips_column_lineage_when_any_topic_denied() -> None:
             input_topics=["src_topic", "denied_topic"],
             output_topics=["sink_topic"],
             parse_query="INSERT INTO sink_topic SELECT id FROM src_topic",
-            sql_dialect="postgres",
+            sql_dialect=FLINK_SQL_DIALECT,
         )
     ]
 
@@ -279,6 +420,7 @@ def test_flink_requires_credentials_when_enabled() -> None:
             enabled=True,
             organization_id="org-1",
             environment_id="env-1",
+            kafka_cluster_id="lkc-1",
             region="us-east-1",
             cloud="aws",
         )
@@ -290,6 +432,7 @@ def test_flink_rejects_unknown_cloud() -> None:
             enabled=True,
             organization_id="org-1",
             environment_id="env-1",
+            kafka_cluster_id="lkc-1",
             region="us-east-1",
             cloud="digitalocean",
             api_key="k",
@@ -302,6 +445,7 @@ def test_flink_normalizes_cloud_case() -> None:
         enabled=True,
         organization_id="org-1",
         environment_id="env-1",
+        kafka_cluster_id="lkc-1",
         region="us-east-1",
         cloud="AWS",
         api_key="k",
@@ -320,73 +464,19 @@ def test_parse_query_requires_sql_dialect() -> None:
         )
 
 
-def test_last_identifier_segment_keeps_dots_inside_quotes() -> None:
-    assert last_identifier_segment("`customer.events`") == "customer.events"
-    assert last_identifier_segment("`cat`.`db`.`customer.events`") == "customer.events"
-    assert last_identifier_segment("cat.db.table") == "table"
-
-
-def test_from_join_identifiers_splits_comma_from_list() -> None:
-    assert from_join_identifiers("SELECT * FROM t1, t2 JOIN t3") == ["t1", "t2", "t3"]
-
-
-def test_sql_noise_does_not_match_from_in_comments_or_literals() -> None:
-    sql = (
-        "INSERT INTO sink SELECT id FROM src -- FROM decoy\n"
-        " WHERE x = 'from other' /* FROM hidden */"
-    )
-    assert from_join_identifiers(sql) == ["src"]
-    stripped = strip_sql_noise(sql)
-    assert "decoy" not in stripped
-    assert "hidden" not in stripped
-
-
 def test_flink_filters_compute_pool_and_malformed_statements() -> None:
-    report = KafkaSourceReport()
-    client = _FakeFlinkClient(
+    sql = "INSERT INTO sink SELECT id FROM src"
+    jobs, _ = _extract(
         [
-            {
-                "name": "other-pool",
-                "spec": {
-                    "statement": "INSERT INTO sink SELECT id FROM src",
-                    "compute_pool_id": "pool-2",
-                },
-            },
+            _statement(sql, name="other-pool", compute_pool_id="pool-2"),
             {"name": "no-spec"},
-            {"spec": {"statement": "INSERT INTO sink SELECT id FROM src"}},
-            {
-                "name": "ok",
-                "spec": {
-                    "statement": "INSERT INTO sink SELECT id FROM src",
-                    "compute_pool_id": "pool-1",
-                },
-            },
-        ]
+            {"spec": {"statement": sql}, "status": {"phase": "RUNNING"}},
+            _statement(sql, name="ok", compute_pool_id="pool-1"),
+        ],
+        compute_pool_id="pool-1",
     )
-
-    jobs = FlinkLineageExtractor(client, report, compute_pool_id="pool-1").extract()  # type: ignore[arg-type]
 
     assert [job.job_id for job in jobs] == ["ok"]
-
-
-def test_flink_extracts_comma_from_and_quoted_dot_topic() -> None:
-    report = KafkaSourceReport()
-    client = _FakeFlinkClient(
-        [
-            {
-                "name": "quoted-dot",
-                "spec": {
-                    "statement": "INSERT INTO `customer.events` SELECT id FROM t1, t2",
-                },
-            }
-        ]
-    )
-
-    jobs = FlinkLineageExtractor(client, report).extract()  # type: ignore[arg-type]
-
-    assert len(jobs) == 1
-    assert jobs[0].output_topics == ["customer.events"]
-    assert jobs[0].input_topics == ["t1", "t2"]
 
 
 def _flink_client_with_session(session: MagicMock) -> FlinkStatementsClient:
@@ -422,27 +512,17 @@ def test_flink_list_statements_follows_pagination() -> None:
     session = MagicMock()
     page1 = MagicMock()
     page1.json.return_value = {
-        "data": [
-            {
-                "name": "s1",
-                "spec": {"statement": "INSERT INTO sink SELECT id FROM src"},
-            }
-        ],
+        "data": [_statement("INSERT INTO sink SELECT id FROM src", name="s1")],
         "metadata": {"next": "https://flink.example/sql?page=2"},
     }
     page2 = MagicMock()
     page2.json.return_value = {
-        "data": [
-            {
-                "name": "s2",
-                "spec": {"statement": "INSERT INTO sink2 SELECT id FROM src2"},
-            }
-        ]
+        "data": [_statement("INSERT INTO sink2 SELECT id FROM src2", name="s2")]
     }
     session.get.side_effect = [page1, page2]
     client = _flink_client_with_session(session)
 
-    jobs = FlinkLineageExtractor(client, KafkaSourceReport()).extract()
+    jobs = FlinkLineageExtractor(client, KafkaSourceReport(), _flink_config()).extract()
 
     assert [job.job_id for job in jobs] == ["s1", "s2"]
     assert session.get.call_count == 2

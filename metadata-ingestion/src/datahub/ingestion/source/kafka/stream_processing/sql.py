@@ -1,15 +1,13 @@
-import logging
 from typing import List, Optional
 
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
-
-logger = logging.getLogger(__name__)
 
 
 def column_lineage_fine_grained(
@@ -19,11 +17,12 @@ def column_lineage_fine_grained(
     env: str,
     graph: Optional[DataHubGraph],
     dialect: Optional[str],
+    report: KafkaSourceReport,
+    job_name: str,
 ) -> List[FineGrainedLineageClass]:
-    # Best-effort: schema-aware when the graph is available (so `SELECT *` and column
-    # types resolve), otherwise falls back to schema-unaware parsing, which still yields
-    # column lineage for explicitly-projected columns. A parse miss yields no CLL and the
-    # caller still emits table-level lineage.
+    # Schema-aware when the graph is available (so `SELECT *` and column types
+    # resolve); otherwise only explicitly projected columns get lineage. A parse
+    # failure costs the column lineage only; the job keeps its topic-level edges.
     if not query:
         return []
     try:
@@ -37,8 +36,19 @@ def column_lineage_fine_grained(
             schema_aware=graph is not None,
             override_dialect=dialect,
         )
+        error = result.debug_info.error
     except Exception as e:
-        logger.debug(f"Column-level lineage parse failed: {e}")
+        result = None
+        error = e
+    if error is not None:
+        report.warning(
+            title="Flink column-level lineage skipped",
+            message="Could not derive column-level lineage from a Flink statement; its "
+            "topic-level lineage is still emitted",
+            context=f"statement={job_name}",
+            exc=error,
+        )
+    if result is None or not result.column_lineage:
         return []
 
     if not result.column_lineage:

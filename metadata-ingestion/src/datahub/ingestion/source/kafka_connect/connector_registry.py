@@ -27,6 +27,9 @@ from datahub.ingestion.source.kafka_connect.common import (
     get_platform_instance,
     parse_comma_separated_list,
 )
+from datahub.ingestion.source.kafka_connect.config_constants import (
+    parse_topic_regex_list,
+)
 from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 
 if TYPE_CHECKING:
@@ -392,8 +395,17 @@ class _GenericConnector(BaseConnector):
                     )
                 )
         else:
-            # Source mapping: source dataset → kafka topic
-            for topic in self.available_topics():
+            # Source mapping: source dataset -> kafka topic. Confluent Cloud reports no
+            # topics per connector, so fall back to topics the config names explicitly.
+            topics = self.available_topics() or self.get_topics_from_config()
+            if not topics:
+                self.report.warning(
+                    message="generic_connectors source mapping emitted no lineage: the "
+                    "connector reports no topics and its config names none ('topics', "
+                    "'kafka.topic', 'topic' or 'topic.regex.list')",
+                    context=f"connector={self.connector_manifest.name}",
+                )
+            for topic in topics:
                 lineages.append(
                     KafkaConnectLineage(
                         source_platform=self.generic_config.source_platform,
@@ -418,7 +430,15 @@ class _GenericConnector(BaseConnector):
         if topic:
             return [topic.strip()]
 
-        return []
+        # S3 source: `<topic>:<regex>` pairs name the produced topics.
+        return list(
+            dict.fromkeys(
+                mapping.topic
+                for mapping in parse_topic_regex_list(
+                    config.get("topic.regex.list", "")
+                )
+            )
+        )
 
     @staticmethod
     def supports_connector_class(connector_class: str) -> bool:

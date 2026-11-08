@@ -188,6 +188,50 @@ class TestConnectorRegistrySourceConnectors:
         assert isinstance(connector, _GenericConnector)
         assert connector.generic_config == generic_config
 
+    def test_generic_s3_source_on_cloud_uses_topics_named_in_config(self) -> None:
+        # Confluent Cloud reports no topics per connector; topic.regex.list names them.
+        manifest = create_manifest(SOURCE, S3_SOURCE_CLOUD, name="my-s3-source")
+        manifest.config["topic.regex.list"] = "orders:.*,payments:.*"
+        config = create_mock_config()
+        config.generic_connectors = [
+            GenericConnectorConfig(
+                connector_name="my-s3-source",
+                source_platform="s3",
+                source_dataset="my-bucket/custom-prefix",
+            )
+        ]
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+        assert connector is not None
+
+        assert [lineage.target_dataset for lineage in connector.extract_lineages()] == [
+            "orders",
+            "payments",
+        ]
+
+    def test_generic_source_with_no_known_topics_reports_it(self) -> None:
+        manifest = create_manifest(SOURCE, S3_SOURCE_CLOUD, name="my-s3-source")
+        config = create_mock_config()
+        config.generic_connectors = [
+            GenericConnectorConfig(
+                connector_name="my-s3-source",
+                source_platform="s3",
+                source_dataset="my-bucket/custom-prefix",
+            )
+        ]
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+        assert connector is not None
+
+        assert connector.extract_lineages() == []
+        report.warning.assert_called_once()  # type: ignore[attr-defined]
+
     def test_debezium_connector_with_prefix(self) -> None:
         """Test routing for Debezium connector with standard prefix."""
         manifest = create_manifest(SOURCE, "io.debezium.connector.mysql.MySqlConnector")

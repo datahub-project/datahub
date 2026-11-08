@@ -115,20 +115,47 @@ Requirements and limitations:
   cluster the same topic name can appear twice. Those topics are skipped, with a warning, unless
   you set `confluent_catalog.cluster_id` to the cluster this recipe ingests (e.g. `lkc-xxxxx`).
 - The catalog does not expose the producer/consumer graph shown in Confluent's Stream
-  Lineage UI. Set `confluent_catalog.include_lineage: true` to emit topic-to-topic
-  lineage from cluster links / mirror topics. Connector-to-topic lineage is
-  available through the [`kafka-connect`](kafka-connect.md)
-  source for environments that use Kafka Connect.
+  Lineage UI. Connector-to-topic lineage is available through the
+  [`kafka-connect`](kafka-connect.md) source for environments that use Kafka Connect.
+
+#### Mirror-topic lineage (cluster links)
+
+Set `confluent_catalog.include_lineage: true` to add an upstream edge from each mirror
+topic to the topic it mirrors. The source topic lives in another Kafka cluster, so map
+that cluster's id to the `platform_instance` used by the recipe that ingests it:
+
+```yaml
+source:
+  type: kafka
+  config:
+    platform_instance: dest
+    confluent_catalog:
+      enabled: true
+      cluster_id: lkc-dest
+      include_lineage: true
+      cluster_id_to_platform_instance:
+        lkc-src: src
+```
+
+Mirror topics are skipped, with a warning, when:
+
+- the source cluster is neither `cluster_id` nor a key of `cluster_id_to_platform_instance`;
+- the edge would point the topic at itself (both clusters ingested without distinct
+  platform instances and the link adds no prefix).
+
+A mirror whose source cluster is outside the catalog's environment gets no edge: the
+catalog only gives that source's topic name, not its cluster.
 
 #### Stream-processing lineage (Flink SQL)
 
 On Confluent Cloud, set `stream_processing_lineage.flink.enabled: true` to emit
-topic-to-topic lineage from Flink SQL `INSERT INTO ... SELECT ... FROM ...`
-statements. Each statement is modeled as a DataJob under a synthetic Flink
-DataFlow. Column-level lineage is on by default (`include_column_lineage: true`).
+topic-to-topic lineage from Flink SQL `INSERT INTO ... SELECT` and
+`CREATE TABLE ... AS SELECT` statements, including those inside `EXECUTE STATEMENT SET`.
+Each statement is modeled as a DataJob under a Flink DataFlow. Column-level lineage is on
+by default (`include_column_lineage: true`).
 
 Requires a Confluent Cloud resource-management API key plus `organization_id`,
-`environment_id`, and either `endpoint` or both `region` and `cloud`.
+`environment_id`, `kafka_cluster_id`, and either `endpoint` or both `region` and `cloud`.
 
 ```yaml
 source:
@@ -141,11 +168,27 @@ source:
         enabled: true
         organization_id: "${CONFLUENT_ORG_ID}"
         environment_id: "env-xxxxx"
+        environment_name: "prod" # if statements use the catalog name
+        kafka_cluster_id: "lkc-xxxxx"
+        kafka_cluster_name: "orders-cluster" # if statements use the database name
         region: "us-east-1"
         cloud: "aws"
         api_key: "${CONFLUENT_CLOUD_API_KEY}"
         api_secret: "${CONFLUENT_CLOUD_API_SECRET}"
 ```
+
+In Flink a catalog is an environment and a database is a Kafka cluster. Statements are
+listed for the whole environment, so a table only becomes a topic of this recipe when its
+catalog and database match the environment and cluster configured above. Unqualified names
+use the statement's `sql.current-catalog` and `sql.current-database` properties.
+
+- Tables in another environment or cluster are dropped with a warning, and a statement
+  that writes to none of this cluster's topics is left to that cluster's recipe.
+- A statement whose SQL cannot be parsed, or with a table that has no catalog or database,
+  is skipped with a warning.
+- Only `RUNNING` statements are read unless `include_non_running_statements: true`.
+- Column-level lineage is only derived for single statements whose tables are all in this
+  cluster, and a parse failure is reported as a warning.
 
 #### Custom Schema Registry
 

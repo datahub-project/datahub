@@ -25,12 +25,19 @@ class KafkaSourceReport(StaleEntityRemovalSourceReport):
     catalog_tagged_topics: int = 0
     catalog_topics_with_business_metadata: int = 0
     catalog_mirror_lineage_edges: int = 0
+    catalog_mirror_lineage_skipped: LossyList[str] = field(default_factory=LossyList)
 
     # Stream-processing (Confluent Cloud Flink SQL) topic-to-topic lineage.
     stream_processing_jobs_scanned: int = 0
     stream_processing_jobs_with_lineage: int = 0
     stream_processing_lineage_edges: int = 0
     stream_processing_column_lineage_edges: int = 0
+    stream_processing_statements_not_running: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    stream_processing_statements_skipped: LossyList[str] = field(
+        default_factory=LossyList
+    )
 
     def report_topic_scanned(self) -> None:
         self.topics_scanned += 1

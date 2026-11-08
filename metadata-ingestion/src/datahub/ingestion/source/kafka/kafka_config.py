@@ -116,7 +116,30 @@ class FlinkLineageConfig(ConfigModel):
         default=None, description="Confluent Cloud organization id."
     )
     environment_id: Optional[str] = Field(
-        default=None, description="Confluent Cloud environment id, e.g. `env-xxxxx`."
+        default=None,
+        description="Confluent Cloud environment id, e.g. `env-xxxxx`. Flink calls an "
+        "environment a catalog.",
+    )
+    environment_name: Optional[str] = Field(
+        default=None,
+        description="Display name of the environment, if statements refer to the Flink "
+        "catalog by name rather than by id.",
+    )
+    kafka_cluster_id: Optional[str] = Field(
+        default=None,
+        description="Id of the Kafka cluster this recipe ingests, e.g. `lkc-xxxxx`. Flink "
+        "calls a cluster a database. Only tables in this environment and cluster are "
+        "mapped to topics; statements reading or writing other clusters lose those edges.",
+    )
+    kafka_cluster_name: Optional[str] = Field(
+        default=None,
+        description="Display name of the Kafka cluster, if statements refer to the Flink "
+        "database by name rather than by id.",
+    )
+    include_non_running_statements: bool = Field(
+        default=False,
+        description="Also emit lineage for statements that are not RUNNING (e.g. "
+        "STOPPED, FAILED, COMPLETED). Off by default so lineage reflects live pipelines.",
     )
     region: Optional[str] = Field(
         default=None,
@@ -173,6 +196,7 @@ class FlinkLineageConfig(ConfigModel):
             for name, value in (
                 ("organization_id", self.organization_id),
                 ("environment_id", self.environment_id),
+                ("kafka_cluster_id", self.kafka_cluster_id),
             )
             if not value
         ]
@@ -212,10 +236,19 @@ class KafkaConfluentCatalogConfig(ConfluentStreamCatalogConfig):
     )
     include_lineage: bool = Field(
         default=False,
-        description="Emit topic-to-topic lineage from Stream Catalog replication metadata "
-        "(cluster links / mirror topics). Each topic that mirrors another gets an upstream "
-        "edge to its source topic. Connector and external-system lineage is handled by the "
-        "kafka-connect source, not here.",
+        description="Emit topic-to-topic lineage from Stream Catalog cluster links (mirror "
+        "topics). A mirror topic gets an upstream edge to its source topic only when the "
+        "source topic's cluster is `cluster_id` or is listed in "
+        "`cluster_id_to_platform_instance`; other mirror topics are skipped and reported. "
+        "Connector and external-system lineage is handled by the kafka-connect source.",
+    )
+    cluster_id_to_platform_instance: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Map of source Kafka cluster id (e.g. `lkc-xxxxx`) to the "
+        "`platform_instance` that the recipe ingesting that cluster uses. Mirror topics "
+        "live in a different cluster from their source, so the upstream topic URN needs "
+        "the source cluster's platform instance (an empty string if that recipe sets "
+        "none); without a mapping no edge is emitted.",
     )
 
 
