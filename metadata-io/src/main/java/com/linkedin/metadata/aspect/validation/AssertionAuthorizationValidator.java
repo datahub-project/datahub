@@ -108,15 +108,17 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
     AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
     EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
     Set<Urn> assertionUrns = items.stream().map(BatchItem::getUrn).collect(Collectors.toSet());
+    // Stored values decide which targets are checked, so a lagging replica must not hide them.
+    OperationFingerprint primary = primary(operationContext);
     // Each assertion's assertionInfo as of the item being checked, starting from the stored value.
     Map<Urn, AssertionInfo> current =
         new HashMap<>(
             AssertionAuthorizationUtils.fetchAssertionInfos(
-                operationContext, aspectRetriever, assertionUrns));
+                primary, aspectRetriever, assertionUrns));
     // Each assertion's status as of the item being checked; read only when the batch writes one.
     Map<Urn, Status> currentStatus =
         fetchLatest(
-            operationContext,
+            primary,
             aspectRetriever,
             urnsWriting(items, STATUS_ASPECT_NAME),
             STATUS_ASPECT_NAME,
@@ -389,11 +391,7 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
     Set<Urn> unknown =
         urns.stream().filter(urn -> !existing.containsKey(urn)).collect(Collectors.toSet());
     if (!unknown.isEmpty()) {
-      OperationFingerprint primary =
-          operationContext instanceof OperationContext opContext
-              ? opContext.withReadPreference(ReadPreference.PRIMARY)
-              : operationContext;
-      Map<Urn, Boolean> found = aspectRetriever.entityExists(primary, unknown);
+      Map<Urn, Boolean> found = aspectRetriever.entityExists(primary(operationContext), unknown);
       unknown.forEach(urn -> existing.put(urn, Boolean.TRUE.equals(found.get(urn))));
     }
     return urns.stream()
@@ -425,6 +423,13 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
         .filter(item -> aspectName.equals(item.getAspectName()))
         .map(BatchItem::getUrn)
         .collect(Collectors.toSet());
+  }
+
+  @Nonnull
+  private static OperationFingerprint primary(@Nonnull OperationFingerprint operationContext) {
+    return operationContext instanceof OperationContext opContext
+        ? opContext.withReadPreference(ReadPreference.PRIMARY)
+        : operationContext;
   }
 
   @Nonnull
