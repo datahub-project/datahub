@@ -6,15 +6,21 @@ import { useLocation } from 'react-router-dom';
 
 import SearchResultSiblings, { EXPANDED_PAGE_SIZE } from '@app/searchV2/siblings/SearchResultSiblings';
 import { SHOW_SIBLINGS_URL_PARAM, useShowSiblings } from '@app/searchV2/siblings/useShowSiblings';
-import { SiblingGroupData, useSiblingGroups } from '@app/searchV2/siblings/useSiblingGroups';
+import { SiblingGroupData, SiblingMemberData, useSiblingGroups } from '@app/searchV2/siblings/useSiblingGroups';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 import { GetSiblingGroupsDocument } from '@graphql/siblings.generated';
 import { EntityType } from '@types';
 
+let separateSiblings = true;
+vi.mock('@app/useAppConfig', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@app/useAppConfig')>()),
+    useIsShowSeparateSiblingsEnabled: () => separateSiblings,
+}));
+
 const RESULT_URN = 'urn:li:dataset:(urn:li:dataPlatform:glue,db.orders,PROD)';
 
-function member(name: string, isPrimary = false) {
+function member(name: string, isPrimary = false): SiblingMemberData {
     return {
         __typename: 'SiblingMember',
         isPrimary,
@@ -27,7 +33,7 @@ function member(name: string, isPrimary = false) {
             properties: { __typename: 'DatasetProperties', name },
             container: null,
         },
-    };
+    } as unknown as SiblingMemberData;
 }
 
 const MEMBERS = [member('orders_primary', true), ...Array.from({ length: 6 }, (_, i) => member(`copy_${i}`))];
@@ -46,30 +52,28 @@ function siblingGroupsMock(start: number, count: number, members = MEMBERS): Moc
     };
 }
 
+beforeEach(() => {
+    separateSiblings = true;
+});
+
 describe('useShowSiblings', () => {
-    const originalLocation = window.location;
-    afterEach(() => {
-        Object.defineProperty(window, 'location', { value: originalLocation, writable: true });
-    });
+    const filterParam = 'filter_platform___false___EQUAL___0';
+    const search = `?query=orders&${filterParam}=${encodeURIComponent('urn:li:dataPlatform:glue')},${encodeURIComponent(
+        'urn:li:dataPlatform:hive',
+    )}`;
 
-    // updateUrlParam reads window.location (kept in sync by the browser router in the app).
-    function setWindowSearch(search: string) {
-        Object.defineProperty(window, 'location', { value: { search }, writable: true });
-    }
-
-    it('reads the URL param and changes only that param, keeping multi-value comma filters', () => {
-        const filterParam = 'filter_platform___false___EQUAL___0';
-        const search = `?query=orders&${filterParam}=${encodeURIComponent('urn:li:dataPlatform:glue')},${encodeURIComponent(
-            'urn:li:dataPlatform:hive',
-        )}`;
-        setWindowSearch(search);
-        const { result } = renderHook(() => ({ toggle: useShowSiblings(), location: useLocation() }), {
+    function renderToggle(initial: string) {
+        return renderHook(() => ({ toggle: useShowSiblings(), location: useLocation() }), {
             wrapper: ({ children }) => (
                 <MockedProvider>
-                    <TestPageContainer initialEntries={[`/search${search}`]}>{children}</TestPageContainer>
+                    <TestPageContainer initialEntries={[`/search${initial}`]}>{children}</TestPageContainer>
                 </MockedProvider>
             ),
         });
+    }
+
+    it('reads the URL param and changes only that param, keeping multi-value comma filters', () => {
+        const { result } = renderToggle(search);
 
         expect(result.current.toggle[0]).toBe(false);
         act(() => result.current.toggle[1](true));
@@ -79,12 +83,16 @@ describe('useShowSiblings', () => {
         expect(params.get('query')).toBe('orders');
         expect(params.get(filterParam)).toBe('urn:li:dataPlatform:glue,urn:li:dataPlatform:hive');
 
-        setWindowSearch(result.current.location.search);
         act(() => result.current.toggle[1](false));
-        expect(new URLSearchParams(result.current.location.search).has(SHOW_SIBLINGS_URL_PARAM)).toBe(false);
-        expect(new URLSearchParams(result.current.location.search).get(filterParam)).toBe(
-            'urn:li:dataPlatform:glue,urn:li:dataPlatform:hive',
-        );
+        const after = new URLSearchParams(result.current.location.search);
+        expect(after.has(SHOW_SIBLINGS_URL_PARAM)).toBe(false);
+        expect(after.get(filterParam)).toBe('urn:li:dataPlatform:glue,urn:li:dataPlatform:hive');
+    });
+
+    it('ignores the param in the combined-siblings view', () => {
+        separateSiblings = false;
+        const { result } = renderToggle(`${search}&${SHOW_SIBLINGS_URL_PARAM}=true`);
+        expect(result.current.toggle[0]).toBe(false);
     });
 });
 
@@ -124,7 +132,7 @@ describe('SearchResultSiblings', () => {
         return render(
             <MockedProvider mocks={mocks} addTypename>
                 <TestPageContainer>
-                    <SearchResultSiblings urn={RESULT_URN} resultName="orders" group={group(MEMBERS.slice(0, 5))} />
+                    <SearchResultSiblings urn={RESULT_URN} resultName="orders" group={group(MEMBERS.slice(0, 5), 7)} />
                 </TestPageContainer>
             </MockedProvider>,
         );
@@ -148,5 +156,13 @@ describe('SearchResultSiblings', () => {
         fireEvent.click(screen.getByText('Show less'));
         expect(screen.queryAllByTestId('sibling-compact-row')).toHaveLength(0);
         expect(screen.getAllByTestId('sibling-row')).toHaveLength(5);
+    });
+
+    it('points aria-controls at a rendered element with a safe id', () => {
+        renderSiblings();
+        const more = screen.getByText('+ 2 more siblings of orders');
+        const controlled = document.getElementById(more.getAttribute('aria-controls') || '');
+        expect(controlled).not.toBeNull();
+        expect(controlled?.id).toMatch(/^siblings-[0-9a-f-]+$/);
     });
 });

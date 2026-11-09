@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { v4 as uuidv4 } from 'uuid';
 
 import { SIBLINGS_SHOWN_INLINE, SiblingGroupData, SiblingMemberData } from '@app/searchV2/siblings/useSiblingGroups';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
@@ -115,6 +116,28 @@ const ErrorText = styled.span`
     color: ${(props) => props.theme.colors.textError};
 `;
 
+const Logo = styled.img`
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+    flex-shrink: 0;
+`;
+
+const LogoSpacer = styled.span`
+    width: 14px;
+    flex-shrink: 0;
+`;
+
+/** Plain platform logo for compact rows (no color sampling, unlike PlatformIcon). */
+function CompactLogo({ member }: { member: SiblingMemberData }) {
+    const platform = 'platform' in member.entity ? (member.entity.platform as DataPlatform | null) : null;
+    const logoUrl = platform?.properties?.logoUrl || platform?.info?.logoUrl;
+    if (!logoUrl) {
+        return <LogoSpacer />;
+    }
+    return <Logo src={logoUrl} alt={platform?.properties?.displayName || platform?.name || ''} />;
+}
+
 const Footer = styled.div`
     padding: 6px 12px;
     font-size: 12px;
@@ -127,8 +150,6 @@ type Props = {
     /** The search result's display name, shown in "Sibling of …". */
     resultName: string;
     group: SiblingGroupData;
-    /** Members already merged into the result's card (combined-siblings view); not listed again. */
-    excludeUrns?: Set<string>;
 };
 
 type ExpandedState = {
@@ -144,19 +165,19 @@ const INITIAL_EXPANDED: ExpandedState = { members: [], total: 0, done: false, er
  * The siblings of one search result, listed under it while "Show siblings" is on: the first few as
  * rows, then "+ N more", which expands to the whole group as a compact, scrollable list.
  */
-export default function SearchResultSiblings({ urn, resultName, group, excludeUrns }: Props) {
+export default function SearchResultSiblings({ urn, resultName, group }: Props) {
     const { t } = useTranslation('search');
     const entityRegistry = useEntityRegistry();
-    const listId = `siblings-list-${urn}`;
+    // React 17 has no useId; a per-instance uuid gives a stable id that is safe in HTML.
+    const listId = useMemo(() => `siblings-${uuidv4()}`, []);
     const [expanded, setExpanded] = useState(false);
     const [state, setState] = useState<ExpandedState>(INITIAL_EXPANDED);
     const [loading, setLoading] = useState(false);
     const requestSeq = useRef(0);
     const listRef = useRef<HTMLDivElement>(null);
     const moreRef = useRef<HTMLButtonElement>(null);
-    const [fetchPage] = useGetSiblingGroupsLazyQuery();
-
-    const isExcluded = useCallback((member: SiblingMemberData) => !!excludeUrns?.has(member.entity.urn), [excludeUrns]);
+    // Always from the network, so a reset never shows a stale cached page.
+    const [fetchPage] = useGetSiblingGroupsLazyQuery({ fetchPolicy: 'network-only' });
 
     // A new group (or a refetched one) starts the expanded list over; responses still in flight are ignored.
     useEffect(() => {
@@ -228,9 +249,7 @@ export default function SearchResultSiblings({ urn, resultName, group, excludeUr
         }
     };
 
-    const inline = useMemo(() => group.members.filter((member) => !isExcluded(member)), [group.members, isExcluded]);
-    const excludedCount = excludeUrns ? excludeUrns.size : 0;
-    const visibleTotal = Math.max(0, group.total - excludedCount);
+    const visibleTotal = group.total;
 
     if (visibleTotal === 0) {
         return null;
@@ -252,9 +271,9 @@ export default function SearchResultSiblings({ urn, resultName, group, excludeUr
     );
 
     if (expanded) {
-        const expandedMembers = state.members.filter((member) => !isExcluded(member));
+        const expandedMembers = state.members;
         return (
-            <Container className={SIBLINGS_LIST_CLASS_NAME} data-testid={`siblings-expanded-${urn}`}>
+            <Container id={listId} className={SIBLINGS_LIST_CLASS_NAME} data-testid={`siblings-expanded-${urn}`}>
                 <Expanded>
                     <ExpandedHeader>
                         <span>{t('siblings.groupTitle', { count: visibleTotal, name: resultName })}</span>
@@ -271,17 +290,15 @@ export default function SearchResultSiblings({ urn, resultName, group, excludeUr
                         </LinkButton>
                     </ExpandedHeader>
                     <ExpandedList
-                        id={listId}
                         ref={listRef}
                         tabIndex={0}
                         role="list"
                         aria-label={t('siblings.groupTitle', { count: visibleTotal, name: resultName })}
                         onScroll={onScroll}
-                        onKeyDown={(event) => event.stopPropagation()}
                     >
                         {expandedMembers.map((member) => (
                             <CompactRow key={member.entity.urn} role="listitem" data-testid="sibling-compact-row">
-                                <PlatformIcon platform={memberPlatform(member)} size={14} />
+                                <CompactLogo member={member} />
                                 <Name to={memberUrl(member)}>{memberName(member)}</Name>
                                 {member.isPrimary && <PrimaryMarker>{t('siblings.primary')}</PrimaryMarker>}
                                 <Location>{memberLocation(member)}</Location>
@@ -303,10 +320,10 @@ export default function SearchResultSiblings({ urn, resultName, group, excludeUr
         );
     }
 
-    const shown = inline.slice(0, SIBLINGS_SHOWN_INLINE);
+    const shown = group.members.slice(0, SIBLINGS_SHOWN_INLINE);
     const more = visibleTotal - shown.length;
     return (
-        <Container className={SIBLINGS_LIST_CLASS_NAME} data-testid={`siblings-${urn}`}>
+        <Container id={listId} className={SIBLINGS_LIST_CLASS_NAME} data-testid={`siblings-${urn}`}>
             <div role="list" aria-label={t('siblings.groupTitle', { count: visibleTotal, name: resultName })}>
                 {shown.map((member) => (
                     <SiblingRow key={member.entity.urn} role="listitem" data-testid="sibling-row">

@@ -1,9 +1,10 @@
 import { InMemoryCache } from '@apollo/client';
 import { MockedProvider } from '@apollo/client/testing';
-import { render, waitFor } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 import React from 'react';
-import { Route } from 'react-router';
+import { Route, RouteComponentProps, useHistory } from 'react-router';
 
+import analytics, { EventType } from '@app/analytics';
 import { SearchPage } from '@app/searchV2/SearchPage';
 import { PageRoutes } from '@conf/Global';
 import { mocksWithSearchFlagsOff } from '@src/Mocks';
@@ -59,5 +60,35 @@ describe('SearchPage', () => {
         expect(tableauPlatformValue).toBeInTheDocument();
         const bigqueryPlatformValue = queryByTestId('active-filter-value-platform-urn:li:dataPlatform:bigquery');
         expect(bigqueryPlatformValue).not.toBeInTheDocument();
+    });
+
+    it('does not log another results view when only "Show siblings" changes', async () => {
+        const eventSpy = vi.spyOn(analytics, 'event');
+        let history: RouteComponentProps['history'] | undefined;
+        const CaptureHistory = () => {
+            history = useHistory();
+            return null;
+        };
+        const { queryByTestId } = render(
+            <MockedProvider mocks={mocksWithSearchFlagsOff} addTypename cache={cache}>
+                <TestPageContainer initialEntries={[URL]}>
+                    <CaptureHistory />
+                    <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+        const viewEvents = () =>
+            eventSpy.mock.calls.filter(([event]) => event.type === EventType.SearchResultsViewEvent).length;
+
+        await waitFor(() => expect(queryByTestId('active-filter-_entityType␞typeNames')).toBeInTheDocument());
+        await waitFor(() => expect(viewEvents()).toBeGreaterThan(0));
+        const before = viewEvents();
+
+        act(() => history?.replace(`${URL}&showSiblings=true`));
+        await new Promise((resolve) => {
+            setTimeout(resolve, 50);
+        });
+        expect(viewEvents()).toBe(before);
+        eventSpy.mockRestore();
     });
 });

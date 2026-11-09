@@ -35,6 +35,7 @@ import {
 import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
 import SearchMenuItems from '@app/sharedV2/search/SearchMenuItems';
+import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { FacetFilterInput, FacetMetadata } from '@types';
@@ -144,6 +145,9 @@ export default function SearchFilters({
     const filteredFilters = (availableFilters || []).filter((f) => !FILTERS_TO_REMOVE.includes(f.field));
     const filters = basicFilters ? filteredFilters : availableFilters;
     const recommendedFilters = useGetRecommendedFilters(filters, activeFilters);
+    // "Show siblings" only applies where siblings are separate results.
+    const isShowSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    const showSiblingsSwitch = showSiblingsToggle && isShowSeparateSiblings;
 
     const viewTabs: TabButtonItem[] = useMemo(
         () => [
@@ -182,7 +186,7 @@ export default function SearchFilters({
     return (
         <Container id={SEARCH_RESULTS_FILTERS_ID} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <FiltersContainerTop>
-                {showSiblingsToggle ? (
+                {showSiblingsSwitch ? (
                     <FilterOptionsContainer>
                         {filterOptions}
                         <ShowSiblingsToggle />
