@@ -3,7 +3,6 @@ import hashlib
 import json
 import logging
 from datetime import datetime
-from enum import Enum
 from functools import partial
 from typing import Collection, Dict, Iterable, List, Optional, Union
 
@@ -139,13 +138,14 @@ from datahub.sql_parsing.sqlglot_lineage import (
     column_refs_to_schema_field_urns,
     create_lineage_sql_parsed_result,
 )
+from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import guess_entity_type
 
 # Logger instance
 logger = logging.getLogger(__name__)
 
 
-class _PartialRead(str, Enum):
+class _PartialRead(StrEnum):
     KEPT = "kept"
     LIMIT_REACHED = "limit_reached"
     NOT_KEPT = "not_kept"
@@ -1061,6 +1061,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 mapping=script_table.mapping,
             ),
         )
+        lineage.mapping = lineage.mapping and script_table.mapping
         lineage.upstream_urns.extend(
             urn for urn in upstream_urns if urn not in lineage.upstream_urns
         )
@@ -1082,6 +1083,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 script_table.crosstable, script_table.preceding_loads, sql_columns
             )
         for field, upstreams in (fields or {}).items():
+            if not script_table.mapping:
+                if field in lineage.mapping_columns:
+                    lineage.mapping_columns.remove(field)
+            elif field not in lineage.column_upstreams:
+                lineage.mapping_columns.append(field)
             lineage.column_upstreams.setdefault(field, []).extend(upstreams)
 
     def _build_script_tables(self, app: App) -> List[ScriptTableLineage]:
@@ -1237,9 +1243,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # model, so charts cannot read it.
             if script_table.mapping:
                 continue
-            table_fields[self._gen_qlik_dataset_urn(script_table.identifier)] = (
-                self._script_table_fields(script_table)
-            )
+            table_fields[self._gen_qlik_dataset_urn(script_table.identifier)] = [
+                field
+                for field in self._script_table_fields(script_table)
+                if field.name not in script_table.mapping_columns
+            ]
         return table_fields
 
     def _gen_app_workunit(

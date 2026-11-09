@@ -252,9 +252,11 @@ class LoadField(BaseModel):
 
 
 class _FieldLineage(BaseModel):
-    # None for an unaliased expression.
-    name: Optional[str]
+    name: str
     upstreams: List[str]
+    # False for an unaliased expression, which a load above can still read
+    # by its text but which is not ingested as a field.
+    named: bool = True
 
 
 class CrossTable(BaseModel):
@@ -310,7 +312,12 @@ class ScriptTableLineage(BaseModel):
     upstream_urns: List[str] = []
     # Downstream column name to upstream schema field URNs.
     column_upstreams: Dict[str, List[str]] = {}
+    # Mapping tables are a separate namespace from data model tables, so a
+    # label can be both; it is only a mapping table if every load of it is.
     mapping: bool = False
+    # Columns only mapping loads of the label produce, which are not in the
+    # data model.
+    mapping_columns: List[str] = []
 
 
 class DataConnectionInfo(BaseModel):
@@ -911,36 +918,42 @@ def apply_preceding_loads(
 ) -> Dict[str, List[str]]:
     """Rename SQL columns to the fields the LOAD statements above them produce,
     carrying each field's upstream columns."""
+    return {
+        field.name: field.upstreams
+        for field in _compose_preceding_loads(preceding_loads, column_upstreams)
+        if field.named
+    }
+
+
+def _compose_preceding_loads(
+    preceding_loads: List[PrecedingLoad],
+    column_upstreams: Dict[str, List[str]],
+) -> List[_FieldLineage]:
+    fields = [
+        _FieldLineage(name=name, upstreams=upstreams)
+        for name, upstreams in column_upstreams.items()
+    ]
     for load in reversed(preceding_loads):
-        column_upstreams = {
-            field.name: field.upstreams
-            for field in _load_field_lineage(load, column_upstreams)
-            if field.name is not None
-        }
-    return column_upstreams
+        fields = _load_field_lineage(load, fields)
+    return fields
 
 
 def _load_field_lineage(
-    load: PrecedingLoad, below: Dict[str, List[str]]
+    load: PrecedingLoad, below: List[_FieldLineage]
 ) -> List[_FieldLineage]:
-    """The fields a LOAD produces from the columns below it, in order."""
-    # A $(variable) may hold any of the columns below, so they are kept.
-    kept = (
-        [
-            _FieldLineage(name=name, upstreams=upstreams)
-            for name, upstreams in below.items()
-        ]
-        if load.keeps_all or load.unreadable
-        else []
-    )
+    """The fields a LOAD produces from the fields below it, in order."""
+    # A $(variable) may hold any of the fields below, so they are kept.
+    kept = list(below) if load.keeps_all or load.unreadable else []
+    upstreams_by_name = {field.name: field.upstreams for field in below}
     return kept + [
         _FieldLineage(
-            name=field.name if field.named else None,
+            name=field.name,
+            named=field.named,
             upstreams=list(
                 dict.fromkeys(
                     upstream
                     for source in field.sources
-                    for upstream in _column_upstreams(below, source)
+                    for upstream in _column_upstreams(upstreams_by_name, source)
                 )
             ),
         )
@@ -970,7 +983,7 @@ def apply_crosstable(
         if top.keeps_all or top.unreadable:
             return None
         slots = _load_field_lineage(
-            top, apply_preceding_loads(preceding_loads[1:], sql_columns)
+            top, _compose_preceding_loads(preceding_loads[1:], sql_columns)
         )
     if len(slots) <= crosstable.qualifiers:
         return None
@@ -978,7 +991,7 @@ def apply_crosstable(
         **{
             slot.name: slot.upstreams
             for slot in slots[: crosstable.qualifiers]
-            if slot.name is not None
+            if slot.named
         },
         crosstable.attribute: [],
         crosstable.data: list(
