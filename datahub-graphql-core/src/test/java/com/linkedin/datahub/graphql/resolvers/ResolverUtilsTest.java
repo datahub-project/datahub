@@ -231,6 +231,32 @@ public class ResolverUtilsTest {
     assertNull(getQueryContext(env));
   }
 
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testGetAuthentication_throwsWhenQueryContextNull() {
+    DataFetchingEnvironment env = mock(DataFetchingEnvironment.class);
+    when(env.getContext()).thenReturn(null);
+    when(env.getGraphQlContext()).thenReturn(null);
+    getAuthentication(env);
+  }
+
+  @Test
+  public void testGetAuthentication_returnsAuthWhenContextFromGetContext() {
+    DataFetchingEnvironment env = mock(DataFetchingEnvironment.class);
+    QueryContext ctx = TestUtils.getMockAllowContext();
+    when(env.getContext()).thenReturn(ctx);
+    assertNotNull(getAuthentication(env));
+  }
+
+  @Test
+  public void testGetAuthentication_returnsAuthWhenContextFromGraphQLContext() {
+    DataFetchingEnvironment env = mock(DataFetchingEnvironment.class);
+    QueryContext ctx = TestUtils.getMockAllowContext();
+    GraphQLContext graphqlContext = GraphQLContext.newContext().of(QueryContext.class, ctx).build();
+    when(env.getContext()).thenReturn(null);
+    when(env.getGraphQlContext()).thenReturn(graphqlContext);
+    assertNotNull(getAuthentication(env));
+  }
+
   @Test
   public void testEscapeForwardSlash_withSlash() {
     assertEquals(escapeForwardSlash("foo/bar"), "foo\\/bar");
