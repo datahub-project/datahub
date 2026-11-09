@@ -33,6 +33,7 @@ public class JUnitInTestNGGuard implements Action<Task> {
   private static final List<String> JUNIT_TEST_ANNOTATIONS =
       List.of(
           "Lorg/junit/Test;",
+          "Lorg/junit/experimental/theories/Theory;",
           "Lorg/junit/jupiter/api/Test;",
           "Lorg/junit/jupiter/api/RepeatedTest;",
           "Lorg/junit/jupiter/api/TestFactory;",
