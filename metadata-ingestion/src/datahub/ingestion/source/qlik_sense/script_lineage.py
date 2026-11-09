@@ -582,6 +582,35 @@ def _literal_value(text: str) -> Optional[str]:
     return text if NUMBER_RE.match(text) else None
 
 
+SELECT_LIST_RE = re.compile(
+    r"^\s*SELECT\s+(?:(?:DISTINCT|ALL)\s+)?(?:TOP\s+\(?\d+\)?\s+)?",
+    re.IGNORECASE,
+)
+TOP_LEVEL_FROM_RE = re.compile(r"\bFROM\b", re.IGNORECASE)
+
+
+def select_list_size(sql: str) -> Optional[int]:
+    """How many columns a plain SELECT lists, None if a column is a * or the
+    list cannot be found."""
+    select = SELECT_LIST_RE.match(sql)
+    if not select:
+        return None
+    masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), sql)
+    end = next(
+        (
+            match.start()
+            for match in TOP_LEVEL_FROM_RE.finditer(masked, select.end())
+            if masked.count("(", 0, match.start())
+            == masked.count(")", 0, match.start())
+        ),
+        len(sql),
+    )
+    items = _split_top_level(sql[select.end() : end])
+    if any(not item or item.endswith("*") for item in items):
+        return None
+    return len(items)
+
+
 def _from_table_name(sql: str) -> Optional[str]:
     # FROM in a string literal or a nested query does not name the table.
     masked = STRING_LITERAL_SQL_RE.sub(lambda literal: " " * len(literal.group(0)), sql)
@@ -657,6 +686,8 @@ class _ScriptParser(BaseModel):
             if self.exited:
                 return
             if piece.control:
+                # A preceding LOAD only stacks on the statement right below it.
+                self._clear_pending()
                 control = CONTROL_RE.match(piece.text)
                 if control:
                     self.flow.apply_control(control)
@@ -960,6 +991,7 @@ def apply_crosstable(
     crosstable: Optional[CrossTable],
     preceding_loads: List[PrecedingLoad],
     sql_columns: Dict[str, List[str]],
+    sql_columns_in_order: bool = True,
 ) -> Optional[Dict[str, List[str]]]:
     """The fields a CrossTable load produces: its qualifier fields keep their
     upstreams, the attribute field holds column names so it has none, and the
@@ -969,6 +1001,9 @@ def apply_crosstable(
     if crosstable is None:
         return None
     if not preceding_loads:
+        # The SELECT's columns are the slots, so their order must be known.
+        if not sql_columns_in_order:
+            return None
         slots = [
             _FieldLineage(name=name, upstreams=upstreams)
             for name, upstreams in sql_columns.items()
