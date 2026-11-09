@@ -56,16 +56,20 @@ VARIABLE_REFERENCE_RE = re.compile(r"\$\((?P<name>[^()=]+)\)")
 LABEL_RE = re.compile(
     r"^(?:\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|(?P<bare>[^\W\d][\w.\-]*))\s*:(?!/)"
 )
+# A prefix's arguments, where a quoted or bracketed name may hold a `)`.
+_PREFIX_ARGS = r"\((?:[^()\[\]'\"]|\[[^\]]*\]|'[^']*'|\"[^\"]*\")*\)"
 PREFIX_RE = re.compile(
     r"^(?:(?:NoConcatenate|Concatenate|Join|Left|Right|Inner|Outer|Keep|Mapping|Generic"
     r"|Buffer|Hierarchy|HierarchyBelongsTo|IntervalMatch|CrossTable|Replace|Add|Merge|Only"
-    r"|First\s+\d+|Sample\s+[\d.]+)\b\s*(?:\([^)]*\))?\s*)*",
+    rf"|First\s+\d+|Sample\s+[\d.]+)\b\s*(?:{_PREFIX_ARGS})?\s*)*",
     re.IGNORECASE,
 )
 # Concatenate and Join add to an existing table, named in parentheses or else
 # the table loaded last. Keep (X) is not here: it creates a table of its own.
 MERGE_PREFIX_RE = re.compile(
-    r"\b(?:Concatenate|Join)\b\s*(?:\(\s*(?P<target>[^)]*?)\s*\))?", re.IGNORECASE
+    r"\b(?:Concatenate|Join)\b\s*"
+    r"(?:\(\s*(?P<target>\[[^\]]*\]|'[^']*'|\"[^\"]*\"|[^)]*?)\s*\))?",
+    re.IGNORECASE,
 )
 SQL_RE = re.compile(
     r"^(?:SQL\s+)?(?P<sql>(?:SELECT|WITH)\b.*)$", re.IGNORECASE | re.DOTALL

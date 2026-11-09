@@ -1886,6 +1886,8 @@ def test_engine_reply_wait_is_bounded(mock_connect: MagicMock) -> None:
 
     assert mock_connect.call_args.kwargs["timeout"] == 5
     assert mock_connect.call_args.kwargs["sslopt"]["password"] == "key-password"
+    # The receive after a notification only waits for the time that is left.
+    socket.settimeout.assert_called_once_with(4)
 
 
 def test_qrs_adapter_passes_the_client_key_password() -> None:
