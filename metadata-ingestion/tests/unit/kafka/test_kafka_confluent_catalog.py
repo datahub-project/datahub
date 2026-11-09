@@ -507,6 +507,50 @@ def mirror_of(source_name: str, source_cluster: Optional[str]) -> CatalogKafkaTo
         }
     )
 
+    @pytest.mark.parametrize(
+        "source_topic, expected_name",
+        [
+            (None, None),
+            ([], None),
+            ({"name": "orders_origin"}, "orders_origin"),
+            ([{"name": "orders_origin"}], "orders_origin"),
+            ([{"name": "orders_origin"}, {"name": "ignored_second"}], "orders_origin"),
+            (["orders_origin"], None),
+        ],
+    )
+    def test_source_topic_accepts_object_list_and_null_shapes(
+        self, source_topic: object, expected_name: Optional[str]
+    ) -> None:
+        # The live shape is unconfirmed: a validation failure here would drop the
+        # topic and its tags, so every plausible shape must parse.
+        topic = CatalogKafkaTopic.model_validate(
+            {"name": TOPIC, "source_topic": source_topic}
+        )
+
+        if expected_name is None:
+            assert topic.source_topic is None
+        else:
+            assert topic.source_topic is not None
+            assert topic.source_topic.name == expected_name
+
+
+class TestTopicCatalogQuery:
+    def sent_query(self, **catalog_overrides: object) -> str:
+        catalog = make_catalog([], KafkaSourceReport(), **catalog_overrides)
+        catalog.get_topic(TOPIC)
+        assert isinstance(catalog.client, Mock)
+        return catalog.client.fetch_entities.call_args.args[0]
+
+    def test_mirror_fields_are_only_requested_when_lineage_is_enabled(self) -> None:
+        without_lineage = self.sent_query()
+        with_lineage = self.sent_query(include_lineage=True, cluster_id="lkc-1")
+
+        for query in (without_lineage, with_lineage):
+            assert "tags" in query and "business_metadata" in query
+            assert "{mirror_fields}" not in query
+        assert "source_topic" not in without_lineage
+        assert "source_topic" in with_lineage
+
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 class TestCatalogLineage:

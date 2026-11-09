@@ -1,16 +1,27 @@
+import logging
 from typing import List, Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from datahub.ingestion.source.confluent.catalog_index import CatalogIndex
 from datahub.ingestion.source.confluent.client import ConfluentStreamCatalogClient
 from datahub.ingestion.source.confluent.models import CatalogEntity, CatalogModel
 from datahub.ingestion.source.kafka.confluent_catalog_constants import (
+    MIRROR_FIELDS_PLACEHOLDER,
     TOPIC_CATALOG_QUERY,
+    TOPIC_MIRROR_FIELDS,
     TOPIC_ROOT_KEY,
 )
 from datahub.ingestion.source.kafka.kafka_config import KafkaConfluentCatalogConfig
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
+
+logger = logging.getLogger(__name__)
+
+
+def build_topic_catalog_query(include_lineage: bool) -> str:
+    return TOPIC_CATALOG_QUERY.replace(
+        MIRROR_FIELDS_PLACEHOLDER, TOPIC_MIRROR_FIELDS if include_lineage else ""
+    )
 
 
 class CatalogMirrorSourceTopic(CatalogModel):
@@ -25,6 +36,24 @@ class CatalogKafkaTopic(CatalogEntity):
     # not read.
     source_topic: Optional[CatalogMirrorSourceTopic] = None
 
+    @field_validator("source_topic", mode="before")
+    @classmethod
+    def unwrap_source_topic(cls, value: object) -> object:
+        # The catalog serves other relationships (cn_connector.topics) as lists
+        # and an unset relationship may come back as [] rather than null, while
+        # the one-to-one shape of a set `source_topic` is unconfirmed on a tenant
+        # with cluster links. Accept either shape so a mismatch cannot fail
+        # validation of the whole topic and drop its tags and business metadata.
+        if not isinstance(value, list):
+            return value
+        if len(value) > 1:
+            logger.debug(
+                f"source_topic carried {len(value)} entries; using the first: {value}"
+            )
+        if not value or not isinstance(value[0], dict):
+            return None
+        return value[0]
+
 
 class KafkaTopicCatalog(
     CatalogIndex[CatalogKafkaTopic, KafkaSourceReport, KafkaConfluentCatalogConfig]
@@ -38,7 +67,7 @@ class KafkaTopicCatalog(
         super().__init__(
             config,
             report,
-            query=TOPIC_CATALOG_QUERY,
+            query=build_topic_catalog_query(config.include_lineage),
             root_key=TOPIC_ROOT_KEY,
             model=CatalogKafkaTopic,
             entity_label="topic",
