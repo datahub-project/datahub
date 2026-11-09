@@ -267,23 +267,34 @@ def test_onprem_reads_apps_of_different_streams_in_parallel(
             stream_id = params["filter"].rsplit(" ", 1)[-1]
             if stream_id == "stream-3":
                 return FakeResponse({}, status_code=503)
+            count = 5 if stream_id == "stream-1" else 1
             return FakeResponse(
-                [{**APP, "id": f"app-of-{stream_id}", "stream": {"id": stream_id}}]
+                [
+                    {
+                        **APP,
+                        "id": f"app-{i}-of-{stream_id}",
+                        "stream": {"id": stream_id},
+                    }
+                    for i in range(count)
+                ]
             )
         return fake_qrs_get(url, params, **kwargs)
 
-    # One app per stream, so the reads only finish when apps of different
-    # streams are read at the same time.
-    overlapping = threading.Barrier(2, timeout=10)
+    # Apps of the large stream-1 only finish once the app of stream-2 has
+    # started, so the reads fail if stream-2 waits behind all of stream-1.
+    other_stream_started = threading.Event()
 
-    def get_script() -> str:
-        overlapping.wait()
+    def get_script(app_id: str) -> str:
+        if app_id.endswith("stream-2"):
+            other_stream_started.set()
+        elif not other_stream_started.wait(timeout=10):
+            raise TimeoutError(app_id)
         return ""
 
     def open_engine(app_id: str, **_: object) -> MagicMock:
         websocket = MagicMock()
         websocket.websocket_send_request.side_effect = fake_engine_calls()
-        websocket.get_script.side_effect = get_script
+        websocket.get_script.side_effect = lambda: get_script(app_id)
         return websocket
 
     session = mock_session_cls.return_value
@@ -297,7 +308,9 @@ def test_onprem_reads_apps_of_different_streams_in_parallel(
     api.get_spaces()
     items = list(api.get_items(["stream-1", "stream-2", "stream-3"]))
 
-    assert sorted(item.id for item in items) == ["app-of-stream-1", "app-of-stream-2"]
+    assert sorted(item.id for item in items) == sorted(
+        [*(f"app-{i}-of-stream-1" for i in range(5)), "app-0-of-stream-2"]
+    )
     assert all(isinstance(item, App) and item.read_complete for item in items)
     assert [unread.name for unread in api.unread_items] == ["apps of stream stream-3"]
 
@@ -1147,6 +1160,32 @@ def test_unread_master_measure_marks_chart_fields_incomplete() -> None:
     assert "Sum(Sales)" in chart.field_expressions
     assert not chart.fields_complete
     assert chart.fields_unread
+
+
+def test_unreadable_master_measure_list_entry_falls_back_to_reading_one_by_one() -> (
+    None
+):
+    chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
+    chart.measure_library_ids = ["measure-1"]
+    engine = _ScriptedEngine(
+        [
+            {"qReturn": {"qHandle": 3}},
+            {"qLayout": {"qMeasureList": {"qItems": [{"qData": {}}]}}},
+            {"qReturn": {"qHandle": 4}},
+            {"qLayout": {"qMeasure": {"qDef": "Sum(Sales)"}}},
+        ]
+    )
+    fallbacks: List[str] = []
+
+    engine.add_master_measure_definitions(
+        [MagicMock(charts=[chart])],
+        on_error=lambda _: None,
+        on_fallback=fallbacks.append,
+    )
+
+    assert len(fallbacks) == 1
+    assert chart.field_expressions[-1] == "Sum(Sales)"
+    assert chart.fields_complete
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
@@ -2007,6 +2046,28 @@ def test_onprem_test_connection_checks_the_engine_port(
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable is engine_reachable
     assert mock_connect.call_args.args[0] == ("qlik.example.com", 4747)
+
+
+@pytest.mark.parametrize("mapping_first", [True, False])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_mapping_table_does_not_hide_data_table_with_same_label(
+    mock_onprem: MagicMock, mapping_first: bool
+) -> None:
+    mapping_load = "Regions:\nMAPPING SQL SELECT region_code, region_name FROM sales_db.dbo.regions;"
+    data_load = (
+        "Regions:\nSQL SELECT region_code, manager FROM sales_db.dbo.region_managers;"
+    )
+    loads = [mapping_load, data_load] if mapping_first else [data_load, mapping_load]
+    source, tables = _script_tables(
+        mock_onprem, {}, script="\n".join(["LIB CONNECT TO 'Sales SQL';", *loads])
+    )
+
+    assert [table.mapping for table in tables] == [False]
+    assert [
+        field.name
+        for fields in source._app_table_fields([], tables).values()
+        for field in fields
+    ] == ["region_code", "manager"]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
