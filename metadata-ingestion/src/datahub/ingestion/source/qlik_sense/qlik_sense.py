@@ -4,7 +4,7 @@ import json
 import logging
 from datetime import datetime
 from functools import partial
-from typing import Collection, Dict, Iterable, List, Optional, Union
+from typing import Collection, Dict, Iterable, List, Optional, Tuple, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub._version import __version__
@@ -1043,16 +1043,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def _merge_script_table(
-        tables: Dict[str, ScriptTableLineage],
+        tables: Dict[Tuple[str, bool], ScriptTableLineage],
         app_id: str,
         script_table: ScriptTable,
         connection_name: Optional[str],
         upstream_urns: List[str],
         result: SqlParsingResult,
     ) -> None:
-        # A label loaded by several statements is one Qlik table.
+        # A label loaded by several statements is one Qlik table. Mapping
+        # tables are a separate namespace, so a mapping load is kept apart.
         lineage = tables.setdefault(
-            script_table.label,
+            (script_table.label, script_table.mapping),
             ScriptTableLineage(
                 label=script_table.label,
                 identifier=f"{app_id}.{script_table.label}".lower(),
@@ -1060,7 +1061,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 mapping=script_table.mapping,
             ),
         )
-        lineage.mapping = lineage.mapping and script_table.mapping
         lineage.upstream_urns.extend(
             urn for urn in upstream_urns if urn not in lineage.upstream_urns
         )
@@ -1082,17 +1082,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 script_table.crosstable, script_table.preceding_loads, sql_columns
             )
         for field, upstreams in (fields or {}).items():
-            if not script_table.mapping:
-                if field in lineage.mapping_columns:
-                    lineage.mapping_columns.remove(field)
-            elif field not in lineage.column_upstreams:
-                lineage.mapping_columns.append(field)
             lineage.column_upstreams.setdefault(field, []).extend(upstreams)
 
     def _build_script_tables(self, app: App) -> List[ScriptTableLineage]:
         if not app.script:
             return []
-        tables: Dict[str, ScriptTableLineage] = {}
+        tables: Dict[Tuple[str, bool], ScriptTableLineage] = {}
         # Tables the data model already traces are ingested from it instead.
         traced = {
             name.lower()
@@ -1153,8 +1148,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "`data_connection_to_platform_instance`.",
                 context=f"app={app.id}, tables={sorted(set(unqualified))}",
             )
-        self.reporter.script_tables_with_lineage += len(tables)
-        return list(tables.values())
+        # A data table and a mapping table with the same label share one
+        # dataset URN, so only the data table, which charts read, is kept.
+        script_tables = [
+            lineage
+            for (label, mapping), lineage in tables.items()
+            if not (mapping and (label, False) in tables)
+        ]
+        self.reporter.script_tables_with_lineage += len(script_tables)
+        return script_tables
 
     @staticmethod
     def _script_table_fields(
@@ -1242,11 +1244,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # model, so charts cannot read it.
             if script_table.mapping:
                 continue
-            table_fields[self._gen_qlik_dataset_urn(script_table.identifier)] = [
-                field
-                for field in self._script_table_fields(script_table)
-                if field.name not in script_table.mapping_columns
-            ]
+            table_fields[self._gen_qlik_dataset_urn(script_table.identifier)] = (
+                self._script_table_fields(script_table)
+            )
         return table_fields
 
     def _gen_app_workunit(

@@ -207,6 +207,7 @@ def test_close_error_keeps_loaded_app(
         app = api._get_app("app-1")
 
     assert app is mock_app_cls.model_validate.return_value
+    mock_websocket_cls.for_cloud.return_value.close_websocket.assert_called_once()
 
 
 @pytest.mark.parametrize(
