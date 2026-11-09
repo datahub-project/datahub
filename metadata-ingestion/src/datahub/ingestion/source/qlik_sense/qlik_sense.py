@@ -3,7 +3,6 @@ import hashlib
 import json
 import logging
 from datetime import datetime
-from enum import Enum
 from functools import partial
 from typing import Collection, Dict, Iterable, List, Optional, Union
 
@@ -137,13 +136,14 @@ from datahub.sql_parsing.sqlglot_lineage import (
     column_refs_to_schema_field_urns,
     create_lineage_sql_parsed_result,
 )
+from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import guess_entity_type
 
 # Logger instance
 logger = logging.getLogger(__name__)
 
 
-class _PartialRead(str, Enum):
+class _PartialRead(StrEnum):
     KEPT = "kept"
     LIMIT_REACHED = "limit_reached"
     NOT_KEPT = "not_kept"
