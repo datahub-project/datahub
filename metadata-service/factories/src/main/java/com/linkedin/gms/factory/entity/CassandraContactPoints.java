@@ -23,7 +23,7 @@ final class CassandraContactPoints {
   static List<InetSocketAddress> parse(@Nonnull String hosts, int port, @Nonnull String setting) {
     List<InetSocketAddress> addresses =
         Arrays.stream(hosts.split(","))
-            .map(String::trim)
+            .map(String::strip)
             .filter(host -> !host.isEmpty())
             .map(host -> new InetSocketAddress(host, port))
             .collect(Collectors.toList());
