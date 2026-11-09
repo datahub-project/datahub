@@ -354,6 +354,7 @@ Left Join ([Orders]) LOAD id, region;
 SQL SELECT id, region FROM db.s.regions;
 Concatenate SQL SELECT * FROM db.s.more_orders;
 Customers: Left Keep (Orders) SQL SELECT * FROM db.s.customers;
+Concatenate ([Orders (old)]) SQL SELECT * FROM db.s.archive;
 """
     assert [t.label for t in parse_load_script(script)] == [
         "Orders",
@@ -361,6 +362,7 @@ Customers: Left Keep (Orders) SQL SELECT * FROM db.s.customers;
         "Orders",
         "Orders",
         "Customers",
+        "Orders (old)",
     ]
 
 

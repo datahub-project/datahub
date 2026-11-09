@@ -130,6 +130,9 @@ class WebsocketConnection:
         # the whole wait for the reply is bounded too.
         deadline = time.monotonic() + self._timeout if self._timeout else None
         while True:
+            if deadline is not None:
+                # Each receive only waits for what is left of the deadline.
+                socket_connection.settimeout(max(deadline - time.monotonic(), 0.001))
             message = json.loads(socket_connection.recv())
             if deadline is not None and time.monotonic() > deadline:
                 raise TimeoutError(
