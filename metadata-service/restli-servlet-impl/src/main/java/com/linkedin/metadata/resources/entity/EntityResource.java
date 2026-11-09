@@ -42,6 +42,7 @@ import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.FilterExistingUrnsRequest;
+import com.linkedin.metadata.authorization.AssertionAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
@@ -1151,6 +1152,14 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               (aspectName == null) ? timeseriesAspectNames : ImmutableList.of(aspectName);
 
           if (aspectName == null) {
+            // An assertion's run history needs the same privilege as deleting the assertion, so
+            // refuse before anything is deleted rather than delete the assertion and keep its runs.
+            if (!timeseriesAspectsToDelete.isEmpty()
+                && !AssertionAuthorizationUtils.isAuthorizedToDeleteRunHistory(
+                    timeseriesDeleteContext(urn), List.of(urn))) {
+              throw new RestLiServiceException(
+                  HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity " + urn);
+            }
             // The timeseries values go with the entity only when the actor may delete them;
             // otherwise the entity is deleted and the request refused, as deleteTimeseriesAspects
             // refuses it.
@@ -1207,10 +1216,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     final OperationContext opContext = timeseriesDeleteContext(urn);
 
-    if (!isAPIAuthorizedUrns(
-            opContext,
-            TIMESERIES, DELETE,
-            List.of(urn))) {
+    if (!isTimeseriesDeleteAuthorized(urn)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity " + urn);
     }
@@ -1219,9 +1225,20 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         opContext, urn, aspectsToDelete, startTimeMillis, endTimeMillis);
   }
 
-  /** Whether the actor may delete the timeseries values of {@code urn}. */
+  /**
+   * Whether the actor may delete the timeseries values of {@code urn}. For an assertion this
+   * matches the OpenAPI aspect delete: Delete Entity on the assertion or Edit Assertions on the
+   * assets it checks, and in either case Edit Assertions on those assets, as deleting the
+   * assertion needs.
+   */
   private boolean isTimeseriesDeleteAuthorized(@Nonnull Urn urn) {
-    return isAPIAuthorizedUrns(timeseriesDeleteContext(urn), TIMESERIES, DELETE, List.of(urn));
+    final OperationContext opContext = timeseriesDeleteContext(urn);
+    final boolean authorized =
+        AssertionAuthorizationUtils.isAssertionEntity(urn)
+            ? isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))
+            : isAPIAuthorizedUrns(opContext, TIMESERIES, DELETE, List.of(urn));
+    return authorized
+        && AssertionAuthorizationUtils.isAuthorizedToDeleteRunHistory(opContext, List.of(urn));
   }
 
   private OperationContext timeseriesDeleteContext(@Nonnull Urn urn) {
