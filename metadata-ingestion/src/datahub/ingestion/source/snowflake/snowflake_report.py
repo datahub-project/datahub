@@ -111,6 +111,9 @@ class SnowflakeV2Report(
     num_tags_skipped_datahub_managed: int = 0
     num_structured_properties_mapped_to_datahub_urn: int = 0
     num_structured_properties_skipped_datahub_managed: int = 0
+    # DataHub-owned properties whose value could not be written back; the asset's
+    # structured properties are left unchanged for the run.
+    num_structured_properties_unresolved: int = 0
     num_tag_platform_resource_lookup_failures: int = 0
     streams_scanned: int = 0
     procedures_scanned: int = 0

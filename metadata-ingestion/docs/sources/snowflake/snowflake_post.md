@@ -298,13 +298,13 @@ The Stream entity itself is also extracted as a top-level dataset; the lineage a
 
 When DataHub writes tags, glossary terms or structured properties back to Snowflake as Snowflake tags (for example with a DataHub Cloud sync automation), ingestion recognises them on the next run instead of creating new DataHub tags from them. Each Snowflake tag gets a platform resource record that names the DataHub entity it stands for and whether DataHub created it.
 
-| Snowflake tag created by DataHub from | With `extract_tags`                             | With `extract_tags_as_structured_properties`                                 |
-| ------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------- |
-| A DataHub tag                         | Ingested as the original DataHub tag            | Skipped                                                                      |
-| A glossary term                       | Skipped; the term stays on the asset in DataHub | Skipped                                                                      |
-| A structured property                 | Skipped                                         | Ingested as the original property (`upsert` write mode) or skipped (`patch`) |
+| Snowflake tag created by DataHub from | With `extract_tags`                                                                                                       | With `extract_tags_as_structured_properties`                                                                                                                                                            |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A DataHub tag                         | Ingested as the original DataHub tag on databases, schemas and tables; skipped on columns, where DataHub already holds it | Skipped                                                                                                                                                                                                 |
+| A glossary term                       | Skipped; the term stays on the asset in DataHub                                                                           | Skipped                                                                                                                                                                                                 |
+| A structured property                 | Skipped                                                                                                                   | Ingested as the original property (`upsert` write mode) or skipped (`patch`). If its value can't be converted to the property's type, the asset's structured properties are left unchanged for that run |
 
-Every other Snowflake tag is ingested as before. The records are looked up and written through the DataHub graph, so this needs a DataHub connection (`datahub_api`, or the `datahub-rest` sink). Without one, every Snowflake tag is ingested as a native tag.
+Every other Snowflake tag is ingested as before. Records are loaded once at the start of each run, so a tag DataHub writes to Snowflake during a run is recognised from the next run. The records are looked up and written through the DataHub graph, so this needs a DataHub connection (`datahub_api`, or the `datahub-rest` sink). Without one, every Snowflake tag is ingested as a native tag.
 
 #### Metadata Pattern Pushdown
 

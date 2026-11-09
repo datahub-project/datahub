@@ -1533,24 +1533,25 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     def _format_tags_as_structured_properties(
         self, tags: List[SnowflakeTag]
-    ) -> Dict[StructuredPropertyUrn, Union[str, float]]:
-        resolved: Dict[StructuredPropertyUrn, Union[str, float]] = {}
-        for tag in tags:
-            prop = self.tag_resolver.resolve_structured_property(tag)
-            if prop is not None:
-                resolved[prop.urn] = prop.value
-        return resolved
+    ) -> Optional[Dict[StructuredPropertyUrn, Union[str, float]]]:
+        # None or empty means no aspect is written: an UPSERT write replaces the
+        # whole aspect, so writing a partial or empty one would delete values.
+        return self.tag_resolver.resolve_structured_properties(tags) or None
 
-    def _resolve_tag_urns(self, tags: List[SnowflakeTag]) -> List[TagUrn]:
+    def _resolve_tag_urns(
+        self, tags: List[SnowflakeTag], map_back: bool = True
+    ) -> List[TagUrn]:
         resolved: List[TagUrn] = []
         for tag in tags:
-            tag_urn = self.tag_resolver.resolve_tag_urn(tag)
+            tag_urn = self.tag_resolver.resolve_tag_urn(tag, map_back=map_back)
             if tag_urn is not None:
                 resolved.append(tag_urn)
         return resolved
 
     def _column_global_tags(self, tags: List[SnowflakeTag]) -> Optional[GlobalTags]:
-        tag_urns = self._resolve_tag_urns(tags)
+        # Column tags in schemaMetadata are ingestion's own copy (the user's is in
+        # editableSchemaMetadata), so a DataHub-owned tag is skipped, not mapped back.
+        tag_urns = self._resolve_tag_urns(tags, map_back=False)
         if not tag_urns:
             return None
         return GlobalTags([TagAssociation(tag_urn.urn()) for tag_urn in tag_urns])
@@ -1626,11 +1627,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         if table.tags:
             if self.config.extract_tags_as_structured_properties:
-                yield from add_structured_properties_to_entity_wu(
-                    dataset_urn,
-                    self._format_tags_as_structured_properties(table.tags),
-                    write_mode=self.config.structured_properties_write_mode,
+                tag_structured_properties = self._format_tags_as_structured_properties(
+                    table.tags
                 )
+                if tag_structured_properties:
+                    yield from add_structured_properties_to_entity_wu(
+                        dataset_urn,
+                        tag_structured_properties,
+                        write_mode=self.config.structured_properties_write_mode,
+                    )
             else:
                 tag_urns = self._resolve_tag_urns(table.tags)
                 if tag_urns:
@@ -1797,13 +1802,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     ) -> Iterable[MetadataWorkUnit]:
         for column_name in table.column_tags:
             schema_field_urn = SchemaFieldUrn(dataset_urn, column_name).urn()
-            yield from add_structured_properties_to_entity_wu(
-                schema_field_urn,
-                self._format_tags_as_structured_properties(
-                    table.column_tags[column_name]
-                ),
-                write_mode=self.config.structured_properties_write_mode,
+            column_properties = self._format_tags_as_structured_properties(
+                table.column_tags[column_name]
             )
+            if column_properties:
+                yield from add_structured_properties_to_entity_wu(
+                    schema_field_urn,
+                    column_properties,
+                    write_mode=self.config.structured_properties_write_mode,
+                )
 
     def _build_json_props(
         self,
