@@ -49,6 +49,8 @@ ownership:
 
 Valid values depend on the PowerBI access right types for your resources (e.g., dataset, report, dashboard). If `owner_criteria` is not set or is an empty list, all users with `principalType: User` qualify as owners.
 
+With `metadata_api_mode: workspace_apis`, owners come from workspace roles, so `owner_criteria` is matched against the role names `Admin`, `Member`, `Contributor` and `Viewer`, and must include at least one of them. The example above keeps workspace Admins.
+
 #### Admin scan vs. workspace listing
 
 PowerBI ingestion uses two metadata paths per workspace:

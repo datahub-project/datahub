@@ -109,3 +109,26 @@ def test_refresh_history_allowed_in_admin_scan_but_not_admin_only() -> None:
         PowerBiDashboardSourceConfig.model_validate(
             {**BASE, "extract_refresh_history": True, "admin_apis_only": True}
         )
+
+
+def test_workspace_apis_owner_criteria_must_name_a_workspace_role() -> None:
+    """Owners come from workspace roles in this mode; criteria naming only
+    item-level rights would match nobody."""
+    with pytest.raises(ValidationError, match="owner_criteria"):
+        PowerBiDashboardSourceConfig.model_validate(
+            {
+                **BASE,
+                "metadata_api_mode": "workspace_apis",
+                "extract_ownership": True,
+                "ownership": {"owner_criteria": ["ReadWriteReshareExplore", "Owner"]},
+            }
+        )
+    config = PowerBiDashboardSourceConfig.model_validate(
+        {
+            **BASE,
+            "metadata_api_mode": "workspace_apis",
+            "extract_ownership": True,
+            "ownership": {"owner_criteria": ["ReadWriteReshareExplore", "Admin"]},
+        }
+    )
+    assert config.ownership.owner_criteria == ["ReadWriteReshareExplore", "Admin"]

@@ -582,6 +582,10 @@ class PowerBiAppUrlPattern(ConfigEnum):
     REDIRECT_BASED = "REDIRECT_BASED"
 
 
+# Workspace role names returned by GET /groups/{id}/users (groupUserAccessRight).
+WORKSPACE_ROLES = ("Admin", "Member", "Contributor", "Viewer")
+
+
 class PowerBiMetadataApiMode(ConfigEnum):
     # Admin Scanner API (POST /admin/workspaces/getInfo): needs tenant-admin
     # API access; the only source of endorsements, apps and per-item users.
@@ -1010,6 +1014,19 @@ class PowerBiDashboardSourceConfig(
             raise ValueError(
                 "metadata_api_mode: workspace_apis is only supported for the "
                 "COMMERCIAL environment; the Fabric API has no verified GCC endpoint."
+            )
+        owner_criteria = self.ownership.owner_criteria
+        if (
+            self.extract_ownership
+            and owner_criteria
+            and not set(owner_criteria) & set(WORKSPACE_ROLES)
+        ):
+            # Owners come from workspace roles in this mode, so criteria that
+            # name only item-level access rights would silently match nobody.
+            raise ValueError(
+                f"With metadata_api_mode: workspace_apis, ownership.owner_criteria "
+                f"is matched against workspace roles and must include at least one "
+                f"of {list(WORKSPACE_ROLES)}; got {owner_criteria}."
             )
         return self
 
