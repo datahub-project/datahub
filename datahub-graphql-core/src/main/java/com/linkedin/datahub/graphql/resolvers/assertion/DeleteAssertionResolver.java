@@ -44,14 +44,15 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
 
           if (isAuthorizedToDeleteAssertion(context, assertionUrn)) {
             try {
-              _entityClient.deleteEntity(context.getOperationContext(), assertionUrn);
+              final var references =
+                  _entityClient.deleteEntityThenReferences(
+                      context.getOperationContext(), assertionUrn);
 
               // Asynchronously Delete all references to the entity (to return quickly)
               CompletableFuture.runAsync(
                   () -> {
                     try {
-                      _entityClient.deleteEntityReferences(
-                          context.getOperationContext(), assertionUrn);
+                      references.run();
                     } catch (Exception e) {
                       log.error(
                           String.format(

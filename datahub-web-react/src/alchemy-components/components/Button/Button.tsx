@@ -57,7 +57,8 @@ export const Button = ({
     if (isLoading) {
         return (
             <ButtonBase {...styleProps} {...props}>
-                <LoadingSpinner /> {!isCircle && children}
+                <LoadingSpinner />
+                {!isCircle && children}
             </ButtonBase>
         );
     }
@@ -71,3 +72,7 @@ export const Button = ({
         </ButtonBase>
     );
 };
+
+// `FloatingOverlay` keys off this to wrap a disabled button. A disabled native button
+// never fires the hover listeners, so the tooltip has to listen on a parent instead.
+Button.displayName = 'Button';

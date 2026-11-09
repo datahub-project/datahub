@@ -28,9 +28,15 @@ from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     MapTypeClass,
+    NullTypeClass,
+    NumberTypeClass,
+    SchemaFieldClass,
     StringTypeClass,
 )
-from datahub.utilities.sqlalchemy_type_converter import MapType
+from datahub.utilities.sqlalchemy_type_converter import (
+    MapType,
+    get_schema_fields_for_sqlalchemy_column,
+)
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 
@@ -847,9 +853,64 @@ def test_get_column_type_simple_types():
     assert isinstance(
         CustomAthenaRestDialect()._get_column_type(type_="long"), types.BIGINT
     )
-    assert isinstance(
-        CustomAthenaRestDialect()._get_column_type(type_="double"), types.FLOAT
+    # PyAthena 3.x reflects double as DOUBLE, which is not a FLOAT subclass; the
+    # schema field tests below pin how that is converted.
+    assert type(CustomAthenaRestDialect()._get_column_type(type_="double")) is (
+        types.DOUBLE
     )
+
+
+def _athena_schema_fields(column_name: str, athena_type: str) -> List[SchemaFieldClass]:
+    dialect = CustomAthenaRestDialect()
+    inspector = mock.MagicMock()
+    inspector.dialect = dialect
+    return get_schema_fields_for_sqlalchemy_column(
+        column_name=column_name,
+        column_type=dialect._get_column_type(type_=athena_type),
+        inspector=inspector,
+    )
+
+
+@pytest.mark.parametrize(
+    "athena_type, expected_field_path",
+    [
+        # Paths match what SQLAlchemy 1.4 / PyAthena 2.x emitted, so upgrading
+        # does not change these columns' schemaField URNs.
+        ("double", "[version=2.0].[type=float].col"),
+        ("real", "[version=2.0].[type=float].col"),
+        ("float", "[version=2.0].[type=float].col"),
+        ("tinyint", "[version=2.0].[type=int].col"),
+        ("smallint", "[version=2.0].[type=int].col"),
+        ("int", "[version=2.0].[type=int].col"),
+        ("bigint", "[version=2.0].[type=long].col"),
+        ("json", "[version=2.0].[type=string].col"),
+    ],
+)
+def test_primitive_athena_types_keep_sqlalchemy_1_4_field_paths(
+    athena_type: str, expected_field_path: str
+) -> None:
+    fields = _athena_schema_fields("col", athena_type)
+
+    assert [f.fieldPath for f in fields] == [expected_field_path]
+    assert not isinstance(fields[0].type.type, NullTypeClass)
+
+
+def test_double_columns_get_distinct_field_paths() -> None:
+    first = _athena_schema_fields("price", "double")
+    second = _athena_schema_fields("discount", "double")
+
+    assert first[0].fieldPath == "[version=2.0].[type=float].price"
+    assert second[0].fieldPath == "[version=2.0].[type=float].discount"
+    assert isinstance(first[0].type.type, NumberTypeClass)
+
+
+def test_double_nested_in_struct_is_typed_float() -> None:
+    fields = _athena_schema_fields("s", "struct<amount:double,label:string>")
+
+    by_path = {f.fieldPath: f for f in fields}
+    amount_path = "[version=2.0].[type=struct].[type=struct].s.[type=float].amount"
+    assert amount_path in by_path
+    assert isinstance(by_path[amount_path].type.type, NumberTypeClass)
 
 
 def test_get_column_type_array():

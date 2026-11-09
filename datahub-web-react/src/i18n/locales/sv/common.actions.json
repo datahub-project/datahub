@@ -21,6 +21,7 @@
     "deactivate": "Inaktivera",
     "delete": "Ta bort",
     "disable": "Inaktivera",
+    "discard": "Ignorera",
     "disconnect": "Koppla från",
     "dismiss": "Avfärda",
     "done": "Klar",
@@ -83,5 +84,10 @@
     "viewAllCount": "Visa alla ({{count}})",
     "viewLess": "Visa färre",
     "viewMore": "Visa mer",
-    "yes": "Ja"
+    "yes": "Ja",
+    "documentationAdded": "Dokumentation tillagd",
+    "documentationRemoved": "Dokumentation borttagen",
+    "documentationUpdated": "Dokumentation uppdaterad",
+    "showDiff": "visa skillnader",
+    "hideDiff": "dölj skillnader"
 }

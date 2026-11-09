@@ -84,13 +84,13 @@ class PostgresQuery:
     def list_databases(conn: Connection) -> List[str]:
         """List databases visible on this connection, minus Postgres/RDS
         system databases (see POSTGRES_SYSTEM_DATABASES). Does not apply
-        database_pattern -- callers (PostgresSource.get_inspectors() and the
-        agent probe) apply that themselves, so both filter on the exact same
-        raw listing rather than each re-deriving it.
+        database_pattern: the caller does.
         """
         rows = conn.execute(
-            f"SELECT datname from pg_database where datname not in ({_SYSTEM_DATABASE_EXCLUSION})"
-        )
+            text(
+                f"SELECT datname from pg_database where datname not in ({_SYSTEM_DATABASE_EXCLUSION})"
+            )
+        ).mappings()
         return [str(row["datname"]) for row in rows]
 
     @staticmethod

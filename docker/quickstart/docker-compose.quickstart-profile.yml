@@ -66,17 +66,18 @@ services:
       DATAHUB_TELEMETRY_ENABLED: 'false'
       DATAHUB_TOKEN_SERVICE_SALT: ${DATAHUB_TOKEN_SERVICE_SALT}
       DATAHUB_TOKEN_SERVICE_SIGNING_KEY: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
-      DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID: generic-duhe-consumer-job-client-gms
       DEV_TOOLING_ENABLED: 'false'
       EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
       EBEAN_DATASOURCE_HOST: mysql:3306
       EBEAN_DATASOURCE_PASSWORD: datahub
-      EBEAN_DATASOURCE_URL: jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2
+      EBEAN_DATASOURCE_URL: jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&rewriteBatchedStatements=true&enabledTLSProtocols=TLSv1.2
       EBEAN_DATASOURCE_USERNAME: root
       ELASTICSEARCH_HOST: search
       ELASTICSEARCH_IMPLEMENTATION: opensearch
       ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX: 'true'
       ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX: 'true'
+      ELASTICSEARCH_INDEX_REFRESH_INTERVAL_TIMESERIES_SECONDS: '3'
+      ELASTICSEARCH_INDEX_REFRESH_INTERVAL_USAGE_SECONDS: '3'
       ELASTICSEARCH_LIMIT_RESULTS_STRICT: 'true'
       ELASTICSEARCH_PORT: '9200'
       ELASTICSEARCH_PROTOCOL: http
@@ -94,7 +95,7 @@ services:
       GRAPHQL_SHAPE_LOGGING_ERROR_COUNT_THRESHOLD: '1'
       GRAPHQL_SHAPE_LOGGING_FIELD_COUNT_THRESHOLD: '100'
       GRAPHQL_SHAPE_LOGGING_RESPONSE_SIZE_THRESHOLD_BYTES: '1048576'
-      JAVA_OPTS: -Xms1g -Xmx1g
+      JAVA_OPTS: -Xms1g -Xmx1g -Dhazelcast.wait.seconds.before.join=0
       KAFKA_BOOTSTRAP_SERVER: broker:29092
       KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
       LOG_AGGREGATOR_ENDPOINT: ''
@@ -114,7 +115,6 @@ services:
       SERVER_SHUTDOWN_MODE: immediate
       SHOW_HAS_SIBLINGS_FILTER: 'true'
       SHOW_HOME_PAGE_REDESIGN: 'true'
-      SHOW_INGESTION_PAGE_REDESIGN: 'true'
       SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN: 'true'
       STRICT_URN_VALIDATION_ENABLED: 'true'
       THEME_V2_DEFAULT: 'true'
@@ -447,7 +447,7 @@ services:
       EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
       EBEAN_DATASOURCE_HOST: mysql:3306
       EBEAN_DATASOURCE_PASSWORD: datahub
-      EBEAN_DATASOURCE_URL: jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2
+      EBEAN_DATASOURCE_URL: jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&rewriteBatchedStatements=true&enabledTLSProtocols=TLSv1.2
       EBEAN_DATASOURCE_USERNAME: root
       ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES: 'false'
       ELASTICSEARCH_HOST: search
@@ -455,6 +455,8 @@ services:
       ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX: 'true'
       ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS: '3'
       ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX: 'true'
+      ELASTICSEARCH_INDEX_REFRESH_INTERVAL_TIMESERIES_SECONDS: '3'
+      ELASTICSEARCH_INDEX_REFRESH_INTERVAL_USAGE_SECONDS: '3'
       ELASTICSEARCH_PORT: '9200'
       ELASTICSEARCH_PROTOCOL: http
       ELASTICSEARCH_USE_SSL: 'false'

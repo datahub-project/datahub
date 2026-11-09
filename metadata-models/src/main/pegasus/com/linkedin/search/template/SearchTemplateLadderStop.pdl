@@ -1,0 +1,22 @@
+namespace com.linkedin.search.template
+
+/**
+ * One stop condition. Stop is a disjunction: the rung is kept when any condition matches.
+ * {@code minHits} matches when the total is at least this value. {@code emptyWhen} matches when
+ * the total is zero and the named query shape holds.
+ */
+record SearchTemplateLadderStop {
+  /**
+   * Keep the rung when {@code numEntities} is at least this value.
+   */
+  minHits: optional int
+
+  /**
+   * Keep an empty rung when the query has this shape. One of {@code scoreSort}, {@code pageSize},
+   * {@code columnFilter}, {@code singleTerm}, {@code multiWord}, {@code dotted},
+   * {@code spacelessIdentifier}, {@code identity}, or {@code longQuery}. A single leading
+   * {@code -} inverts the predicate. {@code columnFilter} is a column constraint.
+   * {@code longQuery} is four or more tokens after alphanumeric splitting.
+   */
+  emptyWhen: optional string
+}

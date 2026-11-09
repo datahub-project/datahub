@@ -25,19 +25,31 @@ from datahub.configuration.common import GraphError, OperationalError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    SourceCapability,
+    SourceReport,
+    TestableSource,
+    TestConnectionReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
 from datahub.ingestion.source.datahub_documents.datahub_documents_config import (
     DataHubDocumentsSourceConfig,
 )
 from datahub.ingestion.source.datahub_documents.document_chunking_state_handler import (
     DocumentChunkingStateHandler,
+)
+from datahub.ingestion.source.datahub_documents.document_embedding import (
+    is_below_embed_minimum,
+    resolve_embed_text,
 )
 from datahub.ingestion.source.datahub_documents.document_indexing_lock import (
     DocumentIndexingLock,
@@ -58,6 +70,10 @@ from datahub.ingestion.source.unstructured.chunking_source import (
     DocumentChunkingSource,
     compute_source_text_sha256,
 )
+from datahub.ingestion.source.unstructured.embedding_target import (
+    model_storage_key,
+    resolve_embedding_target,
+)
 from datahub.ingestion.source.unstructured.event_consumer import DocumentEventConsumer
 
 logger = logging.getLogger(__name__)
@@ -67,6 +83,10 @@ logger = logging.getLogger(__name__)
 # carries the curated override. Passed to DocumentEventConsumer AND checked in
 # _process_single_event — keep the two filters in lockstep via this constant.
 EMBED_SOURCE_ASPECT_NAMES = ("documentInfo", "semanticText")
+
+# Source types whose documents DataHub owns and embeds itself. SYSTEM marks
+# documents managed by the platform rather than created by users.
+DATAHUB_OWNED_SOURCE_TYPES = ("NATIVE", "SYSTEM")
 
 
 class DocumentEnumerationError(Exception):
@@ -89,6 +109,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     num_documents_skipped_empty: int = 0
     num_documents_skipped_existing_embeddings: int = 0
     num_documents_skipped_orphaned: int = 0
+    num_documents_pruned_from_state: int = 0
     num_chunks_created: int = 0
     lock_skipped_run: bool = False
     num_embeddings_generated: int = 0
@@ -139,7 +160,8 @@ class DataHubDocumentsReport(StatefulIngestionReport):
 @platform_name("DataHubDocuments", id="datahub-documents")
 @support_status(SupportStatus.ALPHA)
 @config_class(DataHubDocumentsSourceConfig)
-class DataHubDocumentsSource(StatefulIngestionSourceBase):
+@capability(SourceCapability.TEST_CONNECTION, "Checks semantic embedding availability")
+class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
     """
     Extract Document entities from DataHub and generate semantic embeddings for semantic search.
 
@@ -209,16 +231,25 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             embedding=self.config.embedding,
             max_documents=self.config.max_documents,
         )
+        # A failed config lookup must stop the run: treating it as "semantic search
+        # off" would re-hash every document unembedded, then re-embed them all.
         self.chunking_source = DocumentChunkingSource(
             ctx=ctx,
             config=chunking_config,
             standalone=False,
             graph=self.graph,
+            fail_on_config_lookup_error=True,
         )
 
         # Initialize state tracking for incremental mode
         self.document_state: dict[str, dict[str, Any]] = {}
         self.state_file_path: Optional[Path] = None
+        # What the latest batch scroll listed (minus orphans) and whether it listed every
+        # live document, plus URNs written to state this run, which search may not list
+        # yet. Pruning keeps both, and only runs after a complete, non-empty listing.
+        self._enumerated_urns: set[str] = set()
+        self._enumeration_complete = False
+        self._written_urns: set[str] = set()
 
         if self.config.incremental.enabled:
             self._initialize_state_tracking()
@@ -256,6 +287,49 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             f"mode: {'event-driven' if self.config.event_mode.enabled else 'batch'}, "
             f"incremental: {self.config.incremental.enabled}"
         )
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        graph: Optional[DataHubGraph] = None
+        try:
+            config = DataHubDocumentsSourceConfig.model_validate(config_dict)
+            graph = DataHubGraph(
+                config=DatahubClientConfig(
+                    server=config.datahub.server,
+                    token=config.datahub.token.get_secret_value()
+                    if config.datahub.token
+                    else None,
+                )
+            )
+            graph.test_connection()
+            try:
+                embedding = DocumentChunkingSource.resolve_embedding_config(
+                    config.embedding, graph, fail_on_lookup_error=True
+                )
+                capability_report = DocumentChunkingSource.test_embedding_capability(
+                    embedding, graph=graph
+                )
+            except Exception as error:
+                capability_report = CapabilityReport(
+                    capable=False,
+                    failure_reason=str(error),
+                    mitigation_message="Check the embedding configuration. Use a provider with its own credentials if server embeddings are unavailable.",
+                )
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(capable=True),
+                capability_report={"semantic_search": capability_report},
+            )
+        except Exception as error:
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(
+                    capable=False,
+                    failure_reason=str(error),
+                    mitigation_message="Check the DataHub connection and embedding configuration. Use a provider with its own credentials if server embeddings are unavailable.",
+                )
+            )
+        finally:
+            if graph is not None:
+                graph.close()
 
     @staticmethod
     def _default_lock_id(pipeline_name: Optional[str]) -> str:
@@ -331,6 +405,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             return
 
         try:
+            self.chunking_source.verify_embedding_service()
             if self.config.event_mode.enabled:
                 yield from self._process_event_mode()
             else:
@@ -414,6 +489,17 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # though no semanticContent was ever written for it.
             if self.config.incremental.enabled and processed_ok:
                 self._update_document_state(doc["urn"], doc.get("text", ""))
+
+        # State is carried forward between runs, so without this every document ever
+        # embedded keeps an entry and the checkpoint grows until it can't be committed.
+        # A listing with no live documents is far likelier an index problem than an empty
+        # catalog.
+        if (
+            self.config.incremental.enabled
+            and self._enumeration_complete
+            and self._enumerated_urns
+        ):
+            self._prune_document_state(self._enumerated_urns | self._written_urns)
 
     def _bootstrap_event_mode_offsets(self, consumer_id: str) -> None:
         """Bootstrap event mode by capturing current offsets BEFORE batch mode.
@@ -544,11 +630,11 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             contents = dict(raw_contents)
             contents["semanticText"] = self._fetch_semantic_text(entity_urn)
 
-        # semanticText overrides text as the embedding source; see _resolve_embed_text.
+        # semanticText overrides text as the embedding source; see resolve_embed_text.
         # Empty text is NOT an early return: _process_single_document emits a skip marker
         # for it (and for too-short text) so the document is classified rather than
         # silently invisible, and incremental state stops re-visiting it.
-        text = self._resolve_embed_text(contents)
+        text = resolve_embed_text(contents)
 
         # Filter by source type (NATIVE vs EXTERNAL)
         # Default to NATIVE if source or sourceType is not set (backward compatibility with old documents)
@@ -674,7 +760,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 yield from self._process_batch_mode()
                 return
 
-        except DocumentEnumerationError:
+        except (DocumentEnumerationError, ServerEmbeddingRunError):
             # A batch fallback above aborted systemically and already reported a
             # specific failure. Falling back again would replay a full
             # enumeration + hydration storm against GMS for the same outcome.
@@ -853,12 +939,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         """Determine if document should be processed in event mode based on source type and platform filter.
 
         Logic:
-        - NATIVE documents: Always process if platform_filter is empty, or if platform matches
+        - NATIVE/SYSTEM documents: Always process if platform_filter is empty, or if platform matches
         - EXTERNAL documents: Processed when include_external_documents is True (default).
           If platform_filter is set, EXTERNAL documents are restricted to those platforms.
 
         Args:
-            source_type: Document source type ("NATIVE" or "EXTERNAL")
+            source_type: Document source type ("NATIVE", "SYSTEM" or "EXTERNAL")
             aspect_dict: Parsed documentInfo aspect dictionary
             entity_urn: Document URN for logging and fetching platform
 
@@ -871,8 +957,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         ):
             return True
 
-        # NATIVE documents: Process if platform_filter is empty (all native) or matches platform
-        if source_type == "NATIVE":
+        # NATIVE/SYSTEM documents: Process if platform_filter is empty (all native) or matches platform
+        if source_type in DATAHUB_OWNED_SOURCE_TYPES:
             # Empty platform_filter means "all native documents"
             if not self.config.platform_filter:
                 return True
@@ -918,7 +1004,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         """Determine if document should be processed in batch mode based on source type and platform filter.
 
         Logic:
-        - NATIVE documents: Always process if platform_filter is empty, or if platform matches
+        - NATIVE/SYSTEM documents: Always process if platform_filter is empty, or if platform matches
         - EXTERNAL documents: Processed when include_external_documents is True (default).
           If platform_filter is set, EXTERNAL documents are restricted to those platforms.
 
@@ -942,8 +1028,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         if source_type is None:
             source_type = "NATIVE"
 
-        # NATIVE documents: Process if platform_filter is empty (all native) or matches platform
-        if source_type == "NATIVE":
+        # NATIVE/SYSTEM documents: Process if platform_filter is empty (all native) or matches platform
+        if source_type in DATAHUB_OWNED_SOURCE_TYPES:
             # Empty platform_filter means "all native documents"
             if not self.config.platform_filter:
                 return True
@@ -1030,7 +1116,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 continue
 
             # Extract text content (GraphQL returns null for missing aspects).
-            # semanticText overrides text as the embedding source; see _resolve_embed_text.
+            # semanticText overrides text as the embedding source; see resolve_embed_text.
             info = entity.get("info") or {}
             contents = info.get("contents")
             if contents is None:
@@ -1038,7 +1124,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 # document with empty text: skip silently rather than stamping a skip
                 # marker onto an entity whose content we could not read.
                 continue
-            text = self._resolve_embed_text(contents)
+            text = resolve_embed_text(contents)
 
             # Default to NATIVE when sourceType is absent (older documents).
             source = info.get("source") or {}
@@ -1061,6 +1147,28 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             f"Fetched {num_documents} documents with text content from platforms: {self.config.platform_filter}"
         )
 
+    def _supports_non_global_context_documents(self) -> bool:
+        # Ask the live schema rather than infer from the server version: a server
+        # that doesn't define this flag rejects the whole query when it is sent.
+        try:
+            supported = self.graph._graphql_input_type_has_field(
+                "SearchFlags", "includeNonGlobalContextDocuments"
+            )
+        except GraphError as e:
+            self.report.warning(
+                title="Documents outside the global context were not enumerated",
+                message="Could not check whether the server supports "
+                "includeNonGlobalContextDocuments, so documents hidden from global "
+                "search are not embedded in this run.",
+                exc=e,
+            )
+            return False
+        logger.info(
+            f"includeNonGlobalContextDocuments {'enabled' if supported else 'disabled'} "
+            "for document enumeration"
+        )
+        return supported
+
     def _scroll_document_urns(self) -> Iterable[str]:
         """Enumerate Document URNs via scrollAcrossEntities.
 
@@ -1080,7 +1188,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         query scrollDocumentUrns(
             $scrollId: String,
             $batchSize: Int!,
-            $orFilters: [AndFilterInput!]
+            $orFilters: [AndFilterInput!],
+            $searchFlags: SearchFlags
         ) {
           scrollAcrossEntities(input: {
             types: [DOCUMENT],
@@ -1088,11 +1197,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             count: $batchSize,
             scrollId: $scrollId,
             orFilters: $orFilters,
-            searchFlags: {
-              skipHighlighting: true,
-              skipAggregates: true
-              includeHiddenLifecycleStages: true
-            }
+            searchFlags: $searchFlags
           }) {
             nextScrollId
             searchResults {
@@ -1124,6 +1229,19 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 }
             ]
 
+        search_flags: dict[str, bool] = {
+            "skipHighlighting": True,
+            "skipAggregates": True,
+            "includeHiddenLifecycleStages": True,
+        }
+        # Servers that place documents outside the global context (e.g. embedded product
+        # docs) hide them from search unless asked; older servers reject the unknown flag.
+        if self._supports_non_global_context_documents():
+            search_flags["includeNonGlobalContextDocuments"] = True
+
+        self._enumerated_urns = set()
+        self._enumeration_complete = False
+        truncated = False
         scroll_id: Optional[str] = None
         first_iter = True
         while first_iter or scroll_id:
@@ -1140,6 +1258,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 "batchSize": self.config.scroll_batch_size,
                 "scrollId": scroll_id,
                 "orFilters": or_filters,
+                "searchFlags": search_flags,
             }
             response = self.graph.execute_graphql(query, variables)
             scroll_data = response.get("scrollAcrossEntities")
@@ -1170,6 +1289,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # fail the run — a warning would let a large silent gap pass as a
             # successful run.
             if not scroll_id and len(search_results) >= self.config.scroll_batch_size:
+                truncated = True
                 self.report.failure(
                     title="Document enumeration ended without a scroll cursor",
                     message="A full page returned no nextScrollId; enumeration "
@@ -1180,7 +1300,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 entity = result.get("entity") or {}
                 urn = entity.get("urn")
                 if urn:
+                    self._enumerated_urns.add(urn)
                     yield urn
+
+        # Only a scroll that ran to the end without truncating lists every live
+        # document, which is what makes it safe to prune state against it. The
+        # checkpoint commits even when the run fails, so this can't rely on that.
+        self._enumeration_complete = not truncated
 
     def _hydrate_documents(self, urns: Iterable[str]) -> Iterable[dict[str, Any]]:
         """Resolve document URNs to entities in batches.
@@ -1369,6 +1495,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     def _skip_orphaned(self, urn: str) -> None:
         """Record an orphaned index entry (a URN with no resolvable entity)."""
+        # The document is gone even though its index entry outlived it.
+        self._enumerated_urns.discard(urn)
         self.report.report_document_skipped_orphaned()
         self.report.warning(
             title="Skipped orphaned document",
@@ -1408,8 +1536,16 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         Returns:
             Dictionary of config values that affect processing output.
         """
-        # Chunking/embedding is enabled when embedding provider is configured
-        embedding_enabled = self.config.embedding.provider is not None
+        # Read the config the chunking source resolved, not self.config.embedding: with
+        # no local embedding block (the managed recipe) the provider comes from the
+        # server, so the recipe copy stays empty and server changes would never re-hash.
+        embedding = self.chunking_source.config.embedding
+        embedding_enabled = embedding.provider is not None
+        target = (
+            resolve_embedding_target(embedding, self.graph)
+            if embedding_enabled
+            else None
+        )
 
         fingerprint: Dict[str, Any] = {
             # Chunking affects chunk boundaries and structure
@@ -1428,12 +1564,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             else None,
             # Embedding affects vector embeddings on chunks
             "embedding_enabled": embedding_enabled,
-            "embedding_provider": self.config.embedding.provider
-            if embedding_enabled
-            else None,
-            "embedding_model": self.config.embedding.model
-            if embedding_enabled
-            else None,
+            "embedding_provider": target.model_provider if target else None,
+            "embedding_model": target.model_id if target else None,
             # Partitioning affects how text is extracted
             "partition_strategy": self.config.partition_strategy,
         }
@@ -1448,22 +1580,22 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             fingerprint["chunking_max_chunks_per_document"] = (
                 self.config.chunking.max_chunks_per_document
             )
+        # cls and mean pooling give different vectors from the same onnx model. Like
+        # the chunk cap, only a non-default value is fingerprinted (normalized as the
+        # provider does), so onnx documents hashed before this knob are not re-embedded.
+        if target is not None and target.model_provider == "onnx":
+            pooling = target.onnx_pooling or "unknown_server_pooling"
+            if pooling != "cls":
+                fingerprint["onnx_pooling"] = pooling
+        # The storage key names the semanticContent entry the vectors are written
+        # under. Only a key that differs from the model's default is fingerprinted,
+        # so default-key hashes recorded before this field stay valid; a custom key
+        # re-embeds once after upgrading (see breaking-changes.md).
+        if target is not None and target.model_embedding_key != model_storage_key(
+            target.model_id
+        ):
+            fingerprint["embedding_model_key"] = target.model_embedding_key
         return fingerprint
-
-    @staticmethod
-    def _resolve_embed_text(contents: Dict[str, Any]) -> str:
-        """Resolve the text to embed from a contents dict.
-
-        `semanticText` overrides `text` as the embedding source when present, so
-        a curated representation can drive retrieval while the full body stays in
-        `text`. The override lives in the standalone `semanticText` aspect: batch
-        mode still receives it under `contents` because the GraphQL surface maps
-        the aspect there, and event mode injects it into the dict before calling
-        this. Resolving here (rather than in the hash) means the content hash
-        tracks the embedded value: editing `semanticText` re-embeds, and a change
-        to `text` while `semanticText` is set does not.
-        """
-        return contents.get("semanticText") or contents.get("text") or ""
 
     def _calculate_text_hash(self, text: str) -> str:
         """Calculate hash of document content AND processing configuration.
@@ -1504,14 +1636,18 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         empty documents are always skipped, but skip_empty_text=False keeps
         short-but-non-empty documents embeddable regardless of min_text_length.
         """
-        return not text or (
-            self.config.skip_empty_text and len(text) < self.config.min_text_length
+        return is_below_embed_minimum(
+            text,
+            min_text_length=self.config.min_text_length,
+            skip_empty_text=self.config.skip_empty_text,
         )
 
     def _update_document_state(self, document_urn: str, text: str) -> None:
         """Update state after processing document."""
         content_hash = self._calculate_text_hash(text)
         last_processed = datetime.utcnow().isoformat()
+        # Written this run, so it exists even if search can't list it yet.
+        self._written_urns.add(document_urn)
 
         # Use state_handler if available (proper stateful ingestion)
         if self.state_handler and self.state_handler.is_checkpointing_enabled():
@@ -1524,6 +1660,19 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 "content_hash": content_hash,
                 "last_processed": last_processed,
             }
+
+    def _prune_document_state(self, live_urns: set[str]) -> None:
+        """Drop state for documents that are no longer enumerated (deleted)."""
+        if self.state_handler and self.state_handler.is_checkpointing_enabled():
+            pruned = self.state_handler.prune_document_state(live_urns)
+        else:
+            stale = self.document_state.keys() - live_urns
+            for document_urn in stale:
+                del self.document_state[document_urn]
+            pruned = len(stale)
+        self.report.num_documents_pruned_from_state = pruned
+        if pruned:
+            logger.info(f"Pruned state for {pruned} deleted document(s)")
 
     def _state_has_document(self, document_urn: str) -> bool:
         """Whether incremental state already tracks this document.
@@ -1673,6 +1822,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 source_text_sha256=compute_source_text_sha256(text),
             )
 
+        except ServerEmbeddingRunError:
+            raise
         except Exception as e:
             if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True
@@ -1721,9 +1872,15 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     def close(self) -> None:
         """Cleanup resources."""
-        if self.config.incremental.enabled:
-            self._save_state()
-        # Safety net: release the lock if the work generator was never fully consumed.
-        if self.lock is not None:
-            self.lock.release()
-        super().close()
+        try:
+            self.chunking_source.close()
+        finally:
+            try:
+                if self.config.incremental.enabled:
+                    self._save_state()
+            finally:
+                # Safety net: release the lock if the work generator was never
+                # fully consumed, even when teardown above raised.
+                if self.lock is not None:
+                    self.lock.release()
+                super().close()

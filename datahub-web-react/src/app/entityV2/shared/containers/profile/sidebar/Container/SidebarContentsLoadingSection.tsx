@@ -1,9 +1,8 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { Spin } from 'antd';
+import { Loader } from '@components';
 import React from 'react';
 
 const SidebarContentsLoadingSection = () => {
-    return <Spin indicator={<LoadingOutlined />} />;
+    return <Loader size="sm" />;
 };
 
 export default SidebarContentsLoadingSection;

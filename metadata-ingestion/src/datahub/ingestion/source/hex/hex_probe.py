@@ -74,6 +74,7 @@ class HexMetadataProbe(RestApiPassthrough):
 
     def __exit__(self, *exc: object) -> None:
         self._api.session.close()
+        super().__exit__(*exc)
 
     def api_headers(self) -> Dict[str, str]:
         # HexApi's own header builder rather than restating "Bearer {token}":
@@ -82,19 +83,16 @@ class HexMetadataProbe(RestApiPassthrough):
 
     @property
     def probe_report(self) -> object:
-        """The HexApi report, both halves of it.
+        """The HexApi report, failures and warnings both, so a failed read
+        reaches the caller.
 
-        This used to be a `warnings` property that translated
-        self._api.report.warnings by hand -- and so read only half the report.
-        HexApi records a failed projects listing with report.failure()
-        (api.py's RequestException and ValidationError branches), then clears
-        the cursor and returns, so `projects`, `components` and `categories`
-        all came back as [] with no warnings at exit 0 on a bad token. Worse,
-        _project_id_or_raise then reported "no project titled 'X' found in this
-        workspace" -- exit 2, blaming the caller's argument for an auth failure.
-
-        Exposing the report itself means the framework renders both lists and
-        there is no second place to forget one.
+        HexApi records a failed projects listing with report.failure() (api.py's
+        RequestException and ValidationError branches) and returns no items.
+        Unless the report is read back, a bad token is an empty `projects`,
+        `components` or `categories` at exit 0, and _project_id_or_raise then
+        answers "no project or component titled 'X'" (exit 2), blaming the
+        caller's argument for an auth failure. The whole report, not a list
+        copied out of it, leaves no second place to forget the other.
         """
         return self._api.report
 

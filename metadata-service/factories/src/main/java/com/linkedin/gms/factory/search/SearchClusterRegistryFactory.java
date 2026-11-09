@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.search;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
@@ -12,6 +13,7 @@ import com.linkedin.metadata.config.search.SearchClusterIndexSettings;
 import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
@@ -43,10 +45,12 @@ public class SearchClusterRegistryFactory {
       @Nullable final SearchClientShims shims,
       @Qualifier("searchClientShim") final SearchClientShim<?> primaryShim,
       @Qualifier("elasticSearchIndexSettingsOverrides")
-          final Map<String, Map<String, String>> indexSettingOverrides,
+          final Map<String, Map<String, Object>> indexSettingOverrides,
       final GitVersion gitVersion,
       final ObjectMapper objectMapper,
-      final MetricUtils metricUtils) {
+      final MetricUtils metricUtils,
+      @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
+          final IndexConvention indexConvention) {
 
     ElasticSearchConfiguration esConfig = configurationProvider.getElasticSearch();
     Map<String, SearchClusterRegistry.ClusterConnection> connections = new LinkedHashMap<>();
@@ -94,7 +98,7 @@ public class SearchClusterRegistryFactory {
         connections.keySet(),
         esConfig.getComponentCluster());
 
-    return new SearchClusterRegistry(esConfig, connections);
+    return new SearchClusterRegistry(esConfig, connections, indexConvention, metricUtils);
   }
 
   /**

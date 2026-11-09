@@ -3,12 +3,12 @@ import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple'
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
-import { EntitySubHeaderSection, GenericEntityProperties } from '@app/entity/shared/types';
 import EntityMenuActions, { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import EntityTitleLoadingSection from '@app/entityV2/shared/containers/profile/header/EntityHeaderLoadingSection';
 import EntityName from '@app/entityV2/shared/containers/profile/header/EntityName';
 import IconColorPicker from '@app/entityV2/shared/containers/profile/header/IconPicker/IconColorPicker';
+import LifecycleStageBadge from '@app/entityV2/shared/containers/profile/header/LifecycleStageBadge';
 import PlatformHeaderIcons from '@app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
@@ -16,6 +16,7 @@ import { getDisplayedEntityType, getEntityPlatforms } from '@app/entityV2/shared
 import { EntityBackButton } from '@app/entityV2/shared/containers/profile/sidebar/EntityBackButton';
 import EntityActions, { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import { EntitySubHeaderSection, GenericEntityProperties } from '@app/entityV2/shared/types';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
 import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
@@ -221,6 +222,7 @@ export const DefaultEntityHeader = ({
                                         onClose={() => setShowIconPicker(false)}
                                         color={resolvedCurrentColor}
                                         icon={displayProperties?.icon?.name}
+                                        iconLibrary={displayProperties?.icon?.iconLibrary}
                                         showIcon={!!isIconEditable}
                                     />
                                 )}
@@ -244,10 +246,14 @@ export const DefaultEntityHeader = ({
                                         {entityData?.health && (
                                             <HealthIcon urn={urn} health={entityData.health} baseUrl={entityUrl} />
                                         )}
-                                        <StructuredPropertyBadge
-                                            structuredProperties={entityData?.structuredProperties}
-                                            platformUrn={platform?.urn}
-                                        />
+                                        {entityData?.status?.lifecycleStage ? (
+                                            <LifecycleStageBadge lifecycleStage={entityData.status.lifecycleStage} />
+                                        ) : (
+                                            <StructuredPropertyBadge
+                                                structuredProperties={entityData?.structuredProperties}
+                                                platformUrn={platform?.urn}
+                                            />
+                                        )}
                                         <VersioningBadge
                                             versionProperties={entityData?.versionProperties ?? undefined}
                                             showPopover

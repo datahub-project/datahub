@@ -1,6 +1,5 @@
 import { useApolloClient } from '@apollo/client';
-import { Text } from '@components';
-import { message } from 'antd';
+import { Text, toast } from '@components';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
@@ -122,7 +121,6 @@ export function IngestionSourceCreatePage() {
                     interval: input.schedule?.interval,
                     numOwners: data.owners?.length,
                     outcome: shouldRun ? 'save_and_run' : 'save',
-                    ingestionOnboardingRedesignV1: true,
                 });
 
                 analytics.event({
@@ -131,19 +129,13 @@ export function IngestionSourceCreatePage() {
                     exitType: shouldRun ? 'save_and_run' : 'save_draft',
                 });
 
-                message.success({
-                    content: t('multiStep.createPage.successMessage'),
-                    duration: 3,
-                });
+                toast.success(t('multiStep.createPage.successMessage'), { duration: 3 });
 
                 history.push(`${PageRoutes.INGESTION}/sources`);
             } catch (e: unknown) {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({
-                        content: e.message,
-                        duration: 3,
-                    });
+                    toast.error(e.message, { duration: 3 });
                 }
             }
 
@@ -166,18 +158,14 @@ export function IngestionSourceCreatePage() {
             type: EventType.IngestionExitConfigurationEvent,
             exitType: 'cancel',
         });
-        history.push(PageRoutes.INGESTION);
-    }, [history]);
+        history.push(location.state?.backUrl ?? PageRoutes.INGESTION);
+    }, [history, location.state?.backUrl]);
 
     return (
         <DiscardUnsavedChangesConfirmationProvider
             enableRedirectHandling={!isSubmitting}
             confirmationModalTitle={t('multiStep.builder.discard.title')}
-            confirmModalContent={
-                <Text color="gray" colorLevel={1700}>
-                    {t('multiStep.builder.discard.description')}
-                </Text>
-            }
+            confirmModalContent={<Text color="textSecondary">{t('multiStep.builder.discard.description')}</Text>}
             confirmButtonText={t('multiStep.builder.discard.confirm')}
             closeButtonText={t('multiStep.builder.discard.close')}
         >

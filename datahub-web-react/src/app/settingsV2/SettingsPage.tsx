@@ -12,7 +12,7 @@ import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
 import { Wrench } from '@phosphor-icons/react/dist/csr/Wrench';
 import React, { Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Redirect, Route, Switch, useHistory, useLocation, useRouteMatch } from 'react-router';
+import { Redirect, Route, Switch, useLocation, useRouteMatch } from 'react-router';
 import styled from 'styled-components';
 
 import useGetLogoutHandler from '@app/auth/useGetLogoutHandler';
@@ -20,7 +20,8 @@ import { useUserContext } from '@app/context/useUserContext';
 import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import { NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarRedesign/types';
 import { DEFAULT_PATH, PATHS } from '@app/settingsV2/settingsPaths';
-import { SuspenseBlock } from '@app/shared/SuspenseBlock';
+import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
+import { PAGE_GAP_PX } from '@app/sharedV2/layouts/constants';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { Button } from '@src/alchemy-components';
@@ -32,8 +33,8 @@ const PageContainer = styled.div`
     overflow: auto;
     flex: 1;
     border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
-    gap: 16px;
-    padding: 5px;
+    /* The app shell insets the page; the settings nav and content sit a page gap apart like other panels. */
+    gap: ${PAGE_GAP_PX}px;
 `;
 
 const NavBarContainer = styled.div<{ $isCollapsed: boolean }>`
@@ -116,7 +117,6 @@ const SettingsPageContent = () => {
     const { t } = useTranslation('settings.page');
     const { path, url } = useRouteMatch();
     const { pathname } = useLocation();
-    const history = useHistory();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const subscriptionsEnabled = false;
     const me = useUserContext();
@@ -321,13 +321,7 @@ const SettingsPageContent = () => {
                 </NavBarHeader>
                 <NavBarDivider />
                 <NavBarMenuContainer $isCollapsed={isCollapsed}>
-                    <NavBarMenu
-                        isCollapsed={isCollapsed}
-                        selectedKey={activePath}
-                        menu={menuItems}
-                        iconSize={16}
-                        onSelect={(key) => history.push(`${url}/${key}`)}
-                    />
+                    <NavBarMenu isCollapsed={isCollapsed} selectedKey={activePath} menu={menuItems} iconSize={16} />
                 </NavBarMenuContainer>
             </NavBarContainer>
             {/* Main Content */}

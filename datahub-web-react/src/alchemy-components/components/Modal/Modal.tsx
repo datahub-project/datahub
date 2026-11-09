@@ -1,10 +1,13 @@
-import { Button, ButtonProps, Icon, Text, typography } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Modal as AntModal, ModalProps as AntModalProps } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ModalContext } from '@app/sharedV2/modals/ModalContext';
+import { Button, type ButtonProps } from '@components/components/Button';
+import { Icon } from '@components/components/Icon';
+import { ModalContext } from '@components/components/Modal/ModalContext';
+import { Text } from '@components/components/Text';
+import { typography } from '@components/theme';
 
 const StyledModal = styled(AntModal)<{ hasChildren: boolean; hasFooter: boolean }>`
     font-family: ${typography.fonts.body};

@@ -11,7 +11,7 @@ Prefer run-unique ingest (`_ingest_cleanup_unique_dataset_impl` /
 is the fallback when fixture keys are already unique to the module: pre-delete,
 ingest, yield, cleanup.
 
-**Source:** `_ingest_cleanup_data_impl` in `smoke-test/conftest.py`
+**Source:** `_ingest_cleanup_data_impl` in `smoke-test/tests/e2e/conftest.py`
 
 ```python
 def _ingest_cleanup_data_impl(
@@ -44,7 +44,7 @@ def ingest_cleanup_data(auth_session, graph_client):
 
 ## Authentication Pattern
 
-**Source:** `smoke-test/tests/utils.py:363-478`
+**Source:** `smoke-test/tests/e2e/utils.py:363-478`
 
 Session creation chain:
 
@@ -77,7 +77,7 @@ kwargs["headers"].update({"Authorization": f"Bearer {self._gms_token}"})
 
 ## Retry Pattern: `@with_test_retry()`
 
-**Source:** `smoke-test/tests/utils.py:126-156`
+**Source:** `smoke-test/tests/e2e/utils.py:126-156`
 
 ```python
 def with_test_retry(max_attempts=None):
@@ -108,7 +108,7 @@ def _ensure_user_present(auth_session, urn):
 
 ## GraphQL Test Pattern
 
-**Source:** `smoke-test/tests/utils.py:188-224`
+**Source:** `smoke-test/tests/e2e/utils.py:188-224`
 
 ```python
 def execute_graphql(auth_session, query, variables=None, expect_errors=False):
@@ -153,7 +153,7 @@ def test_frontend_browse_datasets(auth_session):
 restli_default_headers = {"X-RestLi-Protocol-Version": "2.0.0"}
 ```
 
-File ingestion via REST (`smoke-test/tests/utils.py:243-265`):
+File ingestion via REST (`smoke-test/tests/e2e/utils.py:243-265`):
 
 ```python
 def ingest_file_via_rest(auth_session, filename, mode="ASYNC_BATCH"):
@@ -263,7 +263,7 @@ assert trace_data["searchStorage"]["writeStatus"] == "ACTIVE_STATE"
 
 Polls for events on a Kafka topic using offset tracking. Useful for tests that need to verify specific events were produced.
 
-**Source:** `smoke-test/tests/semantic/test_current_offset_api.py`
+**Source:** `smoke-test/tests/e2e/semantic/test_current_offset_api.py`
 
 **Endpoint:** `GET /openapi/v1/events/poll`
 
@@ -324,7 +324,7 @@ def wait_for_reload_completion(action_urn, integrations_url, timeout=120):
 
 For GraphQL calls that may fail under server load, use the retry-aware wrapper.
 
-**Source:** `smoke-test/tests/utils.py` (`execute_gql_with_retry`)
+**Source:** `smoke-test/tests/e2e/utils.py` (`execute_gql_with_retry`)
 
 ```python
 # Standard GraphQL call (no retry)
@@ -342,7 +342,7 @@ res_data = execute_gql_with_retry(auth_session, query, variables)
 
 ## Bulk Deletion Pattern
 
-**Source:** `smoke-test/tests/utils.py:277-300`
+**Source:** `smoke-test/tests/e2e/utils.py:277-300`
 
 Uses `joblib.Parallel` for parallel bulk deletion (10 workers):
 
@@ -363,7 +363,7 @@ def delete_urns_from_file(graph_client, filename, shared_data=False):
 
 ## Concurrent Test Runner
 
-**Source:** `smoke-test/tests/utilities/concurrent_test_runner.py`
+**Source:** `smoke-test/utilities/concurrent_test_runner.py`
 
 ```python
 def run_concurrent_tests(test_cases, test_fn, num_workers=5, test_name="test"):
@@ -383,7 +383,7 @@ def run_concurrent_tests(test_cases, test_fn, num_workers=5, test_name="test"):
 
 ## Batch Distribution
 
-**Source:** `smoke-test/conftest.py:125-322`
+**Source:** `smoke-test/tests/e2e/conftest.py:125-322`
 
 Bin-packing algorithm distributes test modules across CI batches:
 

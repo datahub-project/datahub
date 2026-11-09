@@ -15,6 +15,7 @@
 
 import { test } from '../../fixtures/base-test';
 import { GroupsPage } from '../../pages/settings/groups.page';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 function createTestId() {
   return Math.floor(Math.random() * 100000);
@@ -85,7 +86,7 @@ test.describe('create and manage group', () => {
     await groupsPage.deleteGroup(groupName);
   });
 
-  test('create group and add member', async ({ page, cleanup }) => {
+  test('create group and add member', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ page, cleanup }) => {
     const testId = createTestId();
     const groupName = `Test Group ${testId}`;
 

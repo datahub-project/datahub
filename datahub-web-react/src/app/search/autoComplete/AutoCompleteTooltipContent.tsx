@@ -1,10 +1,10 @@
-import { FolderOpenOutlined } from '@ant-design/icons';
+import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import React from 'react';
 import styled from 'styled-components';
 
-import { DatasetStatsSummary } from '@app/entity/dataset/shared/DatasetStatsSummary';
 import { getDatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
 import { ArrowWrapper } from '@app/search/autoComplete/ParentContainers';
+import { DatasetStatsSummary } from '@app/sharedV2/datasetStats/DatasetStatsSummary';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Dataset, Entity, EntityType } from '@types';
@@ -40,7 +40,7 @@ export default function AutoCompleteTooltipContent({ entity }: Props) {
                 <>
                     {[...parentContainers].reverse().map((container, index) => (
                         <>
-                            <FolderOpenOutlined />
+                            <FolderOpen />
                             <Container>{entityRegistry.getDisplayName(EntityType.Container, container)}</Container>
                             {index !== parentContainers.length - 1 && (
                                 <ArrowWrapper>{BREADCRUMB_SEPARATOR}</ArrowWrapper>

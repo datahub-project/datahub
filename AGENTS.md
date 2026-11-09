@@ -413,7 +413,7 @@ This is a mandatory security guardrail - never disable or skip this test.
 ### Commits
 
 - Follow Conventional Commits format for commit messages
-- Breaking Changes: Always update `docs/how/updating-datahub.md` for breaking changes. Write entries for non-technical audiences, reference the PR number, and focus on what users need to change rather than internal implementation details
+- Breaking Changes: Always update `docs/how/breaking-changes.md` for breaking changes. Write entries for non-technical audiences, reference the PR number, and focus on what users need to change rather than internal implementation details
 - **Never bypass git hook failures with `--no-verify`** (or any equivalent skip flag) on commit or push. A failing hook is a signal that something needs attention — stop, report the failure to the user, and confirm how to proceed. Only use `--no-verify` if the user explicitly tells you to for that specific action.
 
 ### Pull Requests
@@ -436,7 +436,7 @@ Example: `feat(parser): add ability to parse arrays`
 - [ ] Links to related issues (if applicable)
 - [ ] Tests added/updated (if applicable)
 - [ ] Docs added/updated (if applicable)
-- [ ] Breaking changes documented in `docs/how/updating-datahub.md`
+- [ ] Breaking changes documented in `docs/how/breaking-changes.md`
 
 ### Confidentiality in Committed Code
 

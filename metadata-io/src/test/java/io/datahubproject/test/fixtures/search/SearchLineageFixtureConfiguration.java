@@ -20,6 +20,7 @@ import com.linkedin.metadata.config.cache.SearchCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.config.search.SearchLineageConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
@@ -146,6 +147,7 @@ public abstract class SearchLineageFixtureConfiguration {
                     .numReplicas(0)
                     .numRetries(1)
                     .refreshIntervalSeconds(1)
+                    .refreshIntervals(RefreshIntervals.allServices(1))
                     .build())
             .build();
 
@@ -183,7 +185,7 @@ public abstract class SearchLineageFixtureConfiguration {
         new V2MappingsBuilder(
             TEST_ES_SEARCH_CONFIG.getEntityIndex(),
             OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
-        new V2LegacySettingsBuilder(TEST_ES_SEARCH_CONFIG.getIndex(), indexConvention),
+        new V2LegacySettingsBuilder(TEST_ES_SEARCH_CONFIG.getIndex(), indexConvention, false),
         searchDAO,
         browseDAO,
         writeDAO);
@@ -234,6 +236,7 @@ public abstract class SearchLineageFixtureConfiguration {
                     .numReplicas(1)
                     .numRetries(1)
                     .refreshIntervalSeconds(1)
+                    .refreshIntervals(RefreshIntervals.allServices(1))
                     .build())
             .build();
     return new ESIndexBuilder(

@@ -31,6 +31,7 @@ import { useTheme } from 'styled-components';
 import { EditorContainer, getEditorTheme } from '@components/components/Editor/EditorTheme';
 import { OnChangeMarkdown } from '@components/components/Editor/OnChangeMarkdown';
 import RemirrorLocaleProvider from '@components/components/Editor/RemirrorLocaleProvider';
+import { registerEditorCodeLanguages } from '@components/components/Editor/editorCodeLanguages';
 import { DetailsExtension } from '@components/components/Editor/extensions/details/DetailsExtension';
 import { DetailsSummaryExtension } from '@components/components/Editor/extensions/details/DetailsSummaryExtension';
 import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
@@ -49,6 +50,10 @@ import { notEmpty } from '@app/entityV2/shared/utils';
 // CSS class applied to the editor surface for antd typography styling.
 const EDITOR_CLASS_NAMES = ['ant-typography'];
 
+// Register the full grammar catalog on the shared refractor instance before
+// the editor or a file preview asks it to highlight.
+registerEditorCodeLanguages();
+
 /**
  * Picks the prism syntax theme that matches the app theme. The light theme's
  * token colors are mid-tone by design and become unreadable on a dark surface,
@@ -63,6 +68,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     const {
         content,
         readOnly,
+        editingDisabled,
         onChange,
         className,
         placeholder,
@@ -74,6 +80,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         hideBorder,
         uploadFileProps,
         fixedBottomToolbar,
+        belowToolbar,
         hideToolbar,
         compact,
     } = props;
@@ -153,7 +160,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                 <RemirrorLocaleProvider>
                     <Remirror
                         classNames={EDITOR_CLASS_NAMES}
-                        editable={!readOnly}
+                        editable={!readOnly && !editingDisabled}
                         manager={manager}
                         initialContent={state}
                         placeholder={placeholder || ''}
@@ -162,7 +169,11 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                             <>
                                 {!hideToolbar && (
                                     <>
-                                        <Toolbar styles={toolbarStyles} fixedBottom={fixedBottomToolbar} />
+                                        <Toolbar
+                                            styles={toolbarStyles}
+                                            fixedBottom={fixedBottomToolbar}
+                                            belowToolbar={belowToolbar}
+                                        />
                                         <CodeBlockToolbar />
                                         {!hideHighlightToolbar && <FloatingToolbar />}
                                         <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />

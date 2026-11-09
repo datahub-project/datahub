@@ -1,8 +1,8 @@
-import { Dropdown, Text } from '@components';
 import isEqual from 'lodash/isEqual';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Dropdown } from '@components/components/Dropdown';
 import { Loader } from '@components/components/Loader/Loader';
 import {
     ActionButtonsContainer,
@@ -25,6 +25,7 @@ import SelectActionButtons from '@components/components/Select/private/SelectAct
 import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
 import useSelectDropdown from '@components/components/Select/private/hooks/useSelectDropdown';
 import { SelectOption, SelectProps } from '@components/components/Select/types';
+import { Text } from '@components/components/Text';
 
 import NoResultsFoundPlaceholder from '@app/searchV2/searchBarV2/components/NoResultsFoundPlaceholder';
 

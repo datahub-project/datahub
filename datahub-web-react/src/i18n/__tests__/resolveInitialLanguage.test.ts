@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { USER_LANGUAGE_STORAGE_KEY } from '@app/shared/hooks/userLanguageStorage';
+import { USER_LANGUAGE_STORAGE_KEY } from '@app/sharedV2/hooks/userLanguageStorage';
 import { resolveInitialLanguage } from '@src/i18n/resolveInitialLanguage';
 
 const localStorageMock = (() => {
