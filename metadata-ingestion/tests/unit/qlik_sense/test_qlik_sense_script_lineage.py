@@ -453,6 +453,17 @@ def test_preceding_loads_rename_sql_columns() -> None:
     }
 
 
+def test_upper_load_reads_unaliased_expression_of_load_below() -> None:
+    (table,) = parse_load_script(
+        "Orders:\nLOAD [Upper(region)] AS Region;\nLOAD Upper(region);\n"
+        "SQL SELECT region FROM dbo.orders;"
+    )
+
+    assert apply_preceding_loads(table.preceding_loads, {"region": ["region_urn"]}) == {
+        "Region": ["region_urn"]
+    }
+
+
 def test_preceding_load_function_is_not_a_column() -> None:
     (table,) = parse_load_script(
         "Orders:\nLOAD Year(order_date) AS OrderYear;\n"
