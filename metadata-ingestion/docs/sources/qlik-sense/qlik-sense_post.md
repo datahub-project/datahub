@@ -29,6 +29,10 @@ On Qlik Cloud, only the Owner and users with **Can manage** or **Can operate** i
 
 Charts inside a container object's tabs are ingested as charts of the sheet. An untitled chart takes its tab label as its title. Objects with no data, such as buttons, filter panes and variable inputs, are skipped.
 
+#### Large sites
+
+On-prem, each app is opened in the Engine without its data. On Qlik Cloud, the Engine loads each app's data when the app is opened, so every worker holds an app in memory, and a rate-limited Engine connection is not retried and leaves its app unread. Raise `max_workers` on Qlik Cloud with care. `max_workers` sets how many apps and datasets are read at the same time, across all spaces and streams. It defaults to 4 on-prem and to 1 on Qlik Cloud. Each worker holds its own Engine session under the configured user. `max_workers` applies to Qlik Cloud too, where a rate-limited (HTTP 429) REST request is retried up to 5 times. Each retry waits for the `Retry-After` time when Qlik sends one, and otherwise backs off for 0, 2, 4, 8 and 16 seconds. A request that is still rate-limited after that fails, and the space, item or app it belonged to is reported as unread or partly read, which keeps stale metadata removal from deleting its metadata. Lower `max_workers` if this happens.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

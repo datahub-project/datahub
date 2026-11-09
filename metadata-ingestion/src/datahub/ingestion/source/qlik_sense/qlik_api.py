@@ -3,6 +3,8 @@ from typing import Dict, Iterable, List, Optional
 from urllib.parse import quote
 
 import requests
+from requests.adapters import DEFAULT_POOLSIZE, HTTPAdapter
+from urllib3.util.retry import Retry
 
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
@@ -44,6 +46,26 @@ class QlikAPI(QlikBaseAPI):
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
             }
+        )
+        # Qlik Cloud rate-limits the tenant, and parallel app reads make 429s
+        # likely. The lineage overview call is a POST but only reads. Only 429s
+        # are retried, so an unreachable tenant still fails fast.
+        retry = Retry(
+            total=5,
+            connect=0,
+            read=0,
+            other=0,
+            status=5,
+            backoff_factor=1,
+            status_forcelist=[429],
+            allowed_methods=None,
+            raise_on_status=False,
+        )
+        # Every worker can hold a connection at once.
+        pool_size = max(DEFAULT_POOLSIZE, config.resolved_max_workers())
+        self.session.mount(
+            "https://",
+            HTTPAdapter(max_retries=retry, pool_maxsize=pool_size),
         )
         self.rest_api_url = f"https://{self.tenant_hostname}/api/v1"
         # Test connection by fetching list of api keys

@@ -1,8 +1,19 @@
 import logging
 import sys
 from abc import ABC, abstractmethod
+from collections import deque
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Iterable, List, Optional, Sequence
+from typing import (
+    Callable,
+    Deque,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+)
 
 import requests
 
@@ -18,6 +29,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     infer_data_connection,
 )
 from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
+from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -88,13 +100,49 @@ class QlikBaseAPI(ABC):
     def _sheet_meta(self, meta: Dict, sheet_id: str) -> Optional[Dict]:
         """Sheet fields from the sheet layout's qMeta, None to leave the sheet out."""
 
-    def get_items(self, space_id: str) -> List[Item]:
-        items: List[Item] = []
-        for item_dict in self._list_items(space_id):
-            item = self._load_item(item_dict)
+    def get_items(self, space_ids: Sequence[str]) -> Iterable[Item]:
+        """Items of all the spaces, read by one pool of workers, so sites with
+        many small spaces or streams are read in parallel too. Items are taken
+        from the spaces in turn, so a large space does not hold back the rest."""
+        # REST and Engine reads are network-bound; the GIL is only held while
+        # decoding replies.
+        for future in BackpressureAwareExecutor.map(
+            self._load_item_or_record,
+            self._items_in_turn(space_ids),
+            max_workers=self.config.resolved_max_workers(),
+        ):
+            item = future.result()
             if item:
-                items.append(item)
-        return items
+                yield item
+
+    def _items_in_turn(self, space_ids: Sequence[str]) -> Iterator[Tuple[str, Dict]]:
+        # Each space is listed only when its turn first comes, so a slow
+        # listing does not hold back the items already listed.
+        unlisted = iter(space_ids)
+        listings: Deque[Tuple[str, Iterator[Dict]]] = deque()
+        while True:
+            space_id = next(unlisted, None)
+            if space_id is not None:
+                listings.appendleft((space_id, iter(self._list_items(space_id))))
+            elif not listings:
+                return
+            space_id, listing = listings.popleft()
+            item = next(listing, None)
+            if item is not None:
+                yield space_id, item
+                listings.append((space_id, listing))
+
+    def _load_item_or_record(self, space_id: str, item: Dict) -> Optional[Item]:
+        try:
+            return self._load_item(item)
+        except Exception as e:
+            item_id = item.get(Constant.RESOURCEID) or item.get(Constant.ID)
+            self._record_unread(
+                f"item {item_id} of space {space_id}",
+                f"Unable to load item {item_id}. Exception: {e}",
+                e,
+            )
+        return None
 
     @staticmethod
     def _infer_connection(

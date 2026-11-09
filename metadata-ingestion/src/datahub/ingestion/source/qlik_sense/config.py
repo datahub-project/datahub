@@ -247,6 +247,14 @@ class QlikSourceConfig(
         description="Connection to Qlik Sense Enterprise on Windows. Set this instead of "
         "`tenant_hostname` and `api_key` to read an on-prem site.",
     )
+    max_workers: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="Number of apps and datasets read at the same time, across "
+        "all spaces and streams. Each app read holds one Engine session open. Defaults to 4 on-prem, where apps "
+        "are opened without their data, and to 1 on Qlik Cloud, where every open "
+        "app's data is loaded.",
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
         description="Configuration for stateful ingestion and stale metadata removal.",
@@ -290,6 +298,11 @@ class QlikSourceConfig(
                 "(set the on_prem block for Qlik Sense Enterprise on Windows)"
             )
         return self
+
+    def resolved_max_workers(self) -> int:
+        if self.max_workers is not None:
+            return self.max_workers
+        return 4 if self.on_prem is not None else 1
 
     def ui_hostname(self) -> str:
         if self.on_prem is not None:

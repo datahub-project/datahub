@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Dict, Iterable, List, Literal, Optional, Union
 
 import requests
-from requests.adapters import HTTPAdapter
+from requests.adapters import DEFAULT_POOLSIZE, HTTPAdapter
 
 from datahub.ingestion.source.qlik_sense.config import (
     QLIK_DATETIME_FORMAT,
@@ -37,10 +37,11 @@ class _QrsAdapter(HTTPAdapter):
         self,
         assert_hostname: Union[str, Literal[False], None],
         key_password: Optional[str],
+        pool_maxsize: int = DEFAULT_POOLSIZE,
     ) -> None:
         self._assert_hostname = assert_hostname
         self._key_password = key_password
-        super().__init__()
+        super().__init__(pool_maxsize=pool_maxsize)
 
     def init_poolmanager(self, *args: Any, **kwargs: Any) -> None:
         # Qlik server certificates are issued to the node name, so connecting by
@@ -106,11 +107,15 @@ class QlikOnPremAPI(QlikBaseAPI):
             if on_prem.client_key_password
             else None
         )
-        assert_hostname = on_prem.tls_assert_hostname()
-        if assert_hostname is not None or self.key_password:
-            self.session.mount(
-                self.qrs_url, _QrsAdapter(assert_hostname, self.key_password)
-            )
+        # Every worker can hold a connection at once.
+        self.session.mount(
+            self.qrs_url,
+            _QrsAdapter(
+                on_prem.tls_assert_hostname(),
+                self.key_password,
+                pool_maxsize=max(DEFAULT_POOLSIZE, config.resolved_max_workers()),
+            ),
+        )
         logger.info(f"Trying to connect to {self.qrs_url}")
         try:
             self._get("/about")
@@ -347,11 +352,13 @@ class QlikOnPremAPI(QlikBaseAPI):
             else f"stream.id eq {space_id}"
         )
         try:
-            return self._get("/app/full", params={"filter": qrs_filter}).json()
+            app_dicts = self._get("/app/full", params={"filter": qrs_filter}).json()
         except Exception as e:
             self._record_unread(
                 f"apps of stream {space_id}",
                 f"Unable to fetch apps. Exception: {e}",
                 e,
             )
-        return []
+            return []
+        logger.info(f"Stream {self.spaces[space_id]} has {len(app_dicts)} apps")
+        return app_dicts
