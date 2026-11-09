@@ -306,22 +306,22 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             f"{self._fingerprint_salt}|{fingerprint}".encode("utf-8")
         ).hexdigest()
 
-    def _usable_checkpoint(self, app_id: str) -> Optional[AppCheckpoint]:
+    def _usable_checkpoint(
+        self, app_id: str, failures: List[str]
+    ) -> Optional[AppCheckpoint]:
         """The app's last read, when it can stand in for this run's read: it
         is recorded by the run the stale entity removal state comes from, and
-        it holds the entities to keep."""
+        it holds the entities to keep. A failed lookup goes to `failures`."""
         try:
             previous = self.app_state.previous(app_id)
         except Exception as e:
             logger.debug(f"Unable to load the last checkpoint of app {app_id}: {e}")
-            self._change_check_failures.append(
-                f"{app_id}: unable to load the last checkpoint: {e}"
-            )
+            failures.append(f"{app_id}: unable to load the last checkpoint: {e}")
             return None
         return previous if previous is not None and previous.urns else None
 
     def _is_app_unchanged(self, app_id: str, fingerprint: str) -> bool:
-        previous = self._usable_checkpoint(app_id)
+        previous = self._usable_checkpoint(app_id, self._change_check_failures)
         if previous is None or previous.fingerprint != self._salted_fingerprint(
             fingerprint
         ):
@@ -409,7 +409,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         """Keeps what the app's last read produced instead of emitting a partial
         read, which would overwrite its relationships. False when there is no
         usable checkpoint to keep."""
-        if self._usable_checkpoint(app.id) is None:
+        failures: List[str] = []
+        if self._usable_checkpoint(app.id, failures) is None:
+            for failure in failures:
+                self.reporter.warning(
+                    title="Unable to load the last checkpoint of a Qlik app",
+                    message="The partly read app could not keep its last read.",
+                    context=failure,
+                )
             return False
         urns = self._keep_previous_urns(app.id)
         if not urns:
@@ -1437,9 +1444,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             ):
                 self.reporter.warning(
                     title="Unable to fully read Qlik app",
-                    message="Nothing from this read of the app is emitted. "
-                    "Entities from its last read are kept, and it is read again "
-                    "on the next run.",
+                    message="Nothing from this read of the app is emitted. Its "
+                    "metadata stays as of its last complete read until a read of "
+                    "it completes.",
                     context=self._read_errors_context(item),
                 )
                 return
@@ -1515,13 +1522,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 context=f"{len(change_check_failures)} apps, for example "
                 f"{change_check_failures[0]}",
             )
-        if self.app_state.is_too_large():
-            self.reporter.warning(
-                title="Qlik app checkpoint is too large to save",
-                message="Unchanged apps are not skipped and partly read apps are "
-                "reported as failures until it fits. Raise "
-                "stateful_ingestion.max_checkpoint_state_size.",
-            )
         failed_users = self.qlik_api.failed_user_lookups
         if failed_users:
             self.reporter.warning(
@@ -1538,6 +1538,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 title="Unable to read from Qlik",
                 message="Left out of this run after a request failed.",
                 context=f"{unread.name}: {unread.cause}",
+            )
+        if self.reporter.failures:
+            # Like the stale entity removal state, a failed run keeps the last
+            # read of the apps it did not reach.
+            self.app_state.keep_unrecorded_apps()
+        if self.app_state.is_too_large():
+            self.reporter.warning(
+                title="Qlik app checkpoint is too large to save",
+                message="Unchanged apps are not skipped and partly read apps are "
+                "reported as failures until it fits. Raise "
+                "stateful_ingestion.max_checkpoint_state_size.",
             )
 
     def get_report(self) -> SourceReport:

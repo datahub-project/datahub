@@ -277,6 +277,9 @@ class PrecedingLoad(BaseModel):
     fields: List[LoadField] = []
     # A $(variable) left in the field list may hold any fields.
     unreadable: bool = False
+    # An unaliased expression is a field named after its text, which is left
+    # out of `fields` but still takes a place in the field order.
+    unnamed: bool = False
 
 
 class ScriptTable(BaseModel):
@@ -873,6 +876,8 @@ def _parse_load_fields(statement: str) -> PrecedingLoad:
         # or SQL column would match.
         elif field and name is not None:
             load.fields.append(LoadField(name=name, sources=[name]))
+        else:
+            load.unnamed = True
     return load
 
 
@@ -880,7 +885,12 @@ def _is_whole_expansion(text: str) -> bool:
     """Whether a field list item is only a $(...) expansion, as in LOAD
     $(vFields) or $(=Concat(Field, ',')), whose fields are unknown."""
     text = text.strip()
-    return text.startswith("$(") and _block_end(text, 2, "(", ")") == len(text)
+    if not text.startswith("$("):
+        return False
+    # Expansions joined together, as in $(vKeys)$(vMeasures), are one item.
+    while text.startswith("$("):
+        text = text[_block_end(text, 2, "(", ")") :].strip()
+    return not text
 
 
 def apply_preceding_loads(
@@ -918,7 +928,9 @@ def apply_crosstable(
     data field holds the values of the other fields. None when the fields or
     their order are not known."""
     order_unknown = bool(preceding_loads) and (
-        preceding_loads[0].keeps_all or preceding_loads[0].unreadable
+        preceding_loads[0].keeps_all
+        or preceding_loads[0].unreadable
+        or preceding_loads[0].unnamed
     )
     if crosstable is None or order_unknown or len(fields) <= crosstable.qualifiers:
         return None
