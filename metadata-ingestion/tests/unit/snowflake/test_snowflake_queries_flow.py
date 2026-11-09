@@ -8,6 +8,7 @@ audit-log caching and cleanup are exercised together.
 
 import json
 import pathlib
+import shutil
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from unittest.mock import MagicMock, patch
@@ -225,6 +226,25 @@ def test_default_temp_dir_is_not_leaked_across_runs() -> None:
 
     assert len(set(temp_dirs)) == 3
     assert not any(d.exists() for d in temp_dirs)
+
+
+def test_close_tolerates_an_already_removed_default_temp_dir() -> None:
+    extractor = _make_extractor(
+        _dispatch_for({"SNOWFLAKE.ACCOUNT_USAGE.USERS": []}),
+        include_lineage=False,
+        include_queries=False,
+        include_usage_statistics=False,
+        include_query_usage_statistics=False,
+        include_operations=False,
+    )
+    assert list(extractor.get_workunits_internal()) == []
+    assert extractor.report.audit_log_path is not None
+    temp_dir = pathlib.Path(extractor.report.audit_log_path).parent
+    shutil.rmtree(temp_dir)
+
+    extractor.close()  # must not raise for a directory that is already gone
+
+    assert not temp_dir.exists()
 
 
 def test_temp_and_allowed_table_checks_use_patterns_and_discovered_tables() -> None:
