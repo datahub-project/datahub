@@ -4,8 +4,10 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { v4 as uuidv4 } from 'uuid';
 
+import { IconStyleType } from '@app/entityV2/Entity';
 import { SIBLINGS_SHOWN_INLINE, SiblingGroupData, SiblingMemberData } from '@app/searchV2/siblings/useSiblingGroups';
-import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+import PlatformIcon, { getPlatformLogoUrl } from '@app/sharedV2/icons/PlatformIcon';
+import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSiblingGroupsLazyQuery } from '@graphql/siblings.generated';
@@ -14,8 +16,10 @@ import { DataPlatform, EntityType } from '@types';
 /** Members fetched per page while the expanded list is scrolled. */
 export const EXPANDED_PAGE_SIZE = 200;
 
-/** Class on the sibling lists; search's arrow-key navigation leaves keys inside them alone. */
-export const SIBLINGS_LIST_CLASS_NAME = 'search-result-siblings';
+/** Class on the scrollable expanded list; search's arrow-key navigation leaves arrows inside it alone. */
+export const SIBLINGS_LIST_CLASS_NAME = 'search-result-siblings-list';
+
+const COMPACT_LOGO_SIZE = 14;
 
 const Container = styled.div`
     margin: -4px 0 12px 28px;
@@ -123,19 +127,38 @@ const Logo = styled.img`
     flex-shrink: 0;
 `;
 
-const LogoSpacer = styled.span`
-    width: 14px;
+const DefaultLogo = styled.span`
+    display: flex;
     flex-shrink: 0;
+    font-size: ${COMPACT_LOGO_SIZE}px;
 `;
 
-/** Plain platform logo for compact rows (no color sampling, unlike PlatformIcon). */
-function CompactLogo({ member }: { member: SiblingMemberData }) {
-    const platform = 'platform' in member.entity ? (member.entity.platform as DataPlatform | null) : null;
-    const logoUrl = platform?.properties?.logoUrl || platform?.info?.logoUrl;
-    if (!logoUrl) {
-        return <LogoSpacer />;
+/**
+ * The platform logo for a compact row: the same logo as PlatformIcon, without its color sampling
+ * (a canvas read per row is too much for a list of hundreds), and the default icon if it fails to load.
+ */
+function CompactLogo({ platform }: { platform: DataPlatform | undefined }) {
+    const entityRegistry = useEntityRegistry();
+    const logoUrl = getPlatformLogoUrl(platform);
+    const [failedUrl, setFailedUrl] = useState<string | undefined>(undefined);
+    if (logoUrl && logoUrl !== failedUrl) {
+        return (
+            <Logo
+                src={logoUrl}
+                alt={platform?.properties?.displayName || platform?.name || ''}
+                onError={() => setFailedUrl(logoUrl)}
+            />
+        );
     }
-    return <Logo src={logoUrl} alt={platform?.properties?.displayName || platform?.name || ''} />;
+    return (
+        <DefaultLogo>
+            {platform?.properties?.logical ? (
+                <LogicalPlatformDefaultIcon size={COMPACT_LOGO_SIZE} />
+            ) : (
+                entityRegistry.getIcon(EntityType.DataPlatform, COMPACT_LOGO_SIZE, IconStyleType.ACCENT)
+            )}
+        </DefaultLogo>
+    );
 }
 
 const Footer = styled.div`
@@ -150,22 +173,23 @@ type Props = {
     /** The search result's display name, shown in "Sibling of …". */
     resultName: string;
     group: SiblingGroupData;
+    /** Called when a sibling's link is clicked, before navigating to it. */
+    onSiblingClick?: (member: SiblingMemberData) => void;
 };
 
 type ExpandedState = {
     members: SiblingMemberData[];
-    total: number;
     done: boolean;
     error: boolean;
 };
 
-const INITIAL_EXPANDED: ExpandedState = { members: [], total: 0, done: false, error: false };
+const INITIAL_EXPANDED: ExpandedState = { members: [], done: false, error: false };
 
 /**
  * The siblings of one search result, listed under it while "Show siblings" is on: the first few as
  * rows, then "+ N more", which expands to the whole group as a compact, scrollable list.
  */
-export default function SearchResultSiblings({ urn, resultName, group }: Props) {
+export default function SearchResultSiblings({ urn, resultName, group, onSiblingClick }: Props) {
     const { t } = useTranslation('search');
     const entityRegistry = useEntityRegistry();
     // React 17 has no useId; a per-instance uuid gives a stable id that is safe in HTML.
@@ -176,8 +200,9 @@ export default function SearchResultSiblings({ urn, resultName, group }: Props) 
     const requestSeq = useRef(0);
     const listRef = useRef<HTMLDivElement>(null);
     const moreRef = useRef<HTMLButtonElement>(null);
-    // Always from the network, so a reset never shows a stale cached page.
-    const [fetchPage] = useGetSiblingGroupsLazyQuery({ fetchPolicy: 'network-only' });
+    // Always from the network and kept out of the cache (like the app's default), so a reset never
+    // shows a stale page and hundreds of members don't pile up in the cache.
+    const [fetchPage] = useGetSiblingGroupsLazyQuery({ fetchPolicy: 'no-cache' });
 
     // A new group (or a refetched one) starts the expanded list over; responses still in flight are ignored.
     useEffect(() => {
@@ -185,6 +210,14 @@ export default function SearchResultSiblings({ urn, resultName, group }: Props) 
         setState(INITIAL_EXPANDED);
         setLoading(false);
     }, [urn, group]);
+
+    // Responses that arrive after unmount are ignored too.
+    useEffect(
+        () => () => {
+            requestSeq.current += 1;
+        },
+        [],
+    );
 
     const loadPage = useCallback(
         async (start: number) => {
@@ -209,7 +242,6 @@ export default function SearchResultSiblings({ urn, resultName, group }: Props) 
                     const members = start === 0 ? page.members : [...current.members, ...added];
                     return {
                         members,
-                        total: page.total,
                         done: page.members.length < EXPANDED_PAGE_SIZE || members.length >= page.total,
                         error: false,
                     };
@@ -249,9 +281,7 @@ export default function SearchResultSiblings({ urn, resultName, group }: Props) 
         }
     };
 
-    const visibleTotal = group.total;
-
-    if (visibleTotal === 0) {
+    if (group.total === 0) {
         return null;
     }
 
@@ -273,10 +303,10 @@ export default function SearchResultSiblings({ urn, resultName, group }: Props) 
     if (expanded) {
         const expandedMembers = state.members;
         return (
-            <Container id={listId} className={SIBLINGS_LIST_CLASS_NAME} data-testid={`siblings-expanded-${urn}`}>
+            <Container id={listId} data-testid={`siblings-expanded-${urn}`}>
                 <Expanded>
                     <ExpandedHeader>
-                        <span>{t('siblings.groupTitle', { count: visibleTotal, name: resultName })}</span>
+                        <span>{t('siblings.groupTitle', { count: group.total, name: resultName })}</span>
                         <LinkButton
                             type="button"
                             aria-expanded
@@ -291,15 +321,18 @@ export default function SearchResultSiblings({ urn, resultName, group }: Props) 
                     </ExpandedHeader>
                     <ExpandedList
                         ref={listRef}
+                        className={SIBLINGS_LIST_CLASS_NAME}
                         tabIndex={0}
                         role="list"
-                        aria-label={t('siblings.groupTitle', { count: visibleTotal, name: resultName })}
+                        aria-label={t('siblings.groupTitle', { count: group.total, name: resultName })}
                         onScroll={onScroll}
                     >
                         {expandedMembers.map((member) => (
                             <CompactRow key={member.entity.urn} role="listitem" data-testid="sibling-compact-row">
-                                <CompactLogo member={member} />
-                                <Name to={memberUrl(member)}>{memberName(member)}</Name>
+                                <CompactLogo platform={memberPlatform(member)} />
+                                <Name to={memberUrl(member)} onClick={() => onSiblingClick?.(member)}>
+                                    {memberName(member)}
+                                </Name>
                                 {member.isPrimary && <PrimaryMarker>{t('siblings.primary')}</PrimaryMarker>}
                                 <Location>{memberLocation(member)}</Location>
                             </CompactRow>
@@ -321,14 +354,16 @@ export default function SearchResultSiblings({ urn, resultName, group }: Props) 
     }
 
     const shown = group.members.slice(0, SIBLINGS_SHOWN_INLINE);
-    const more = visibleTotal - shown.length;
+    const more = group.total - shown.length;
     return (
-        <Container id={listId} className={SIBLINGS_LIST_CLASS_NAME} data-testid={`siblings-${urn}`}>
-            <div role="list" aria-label={t('siblings.groupTitle', { count: visibleTotal, name: resultName })}>
+        <Container id={listId} data-testid={`siblings-${urn}`}>
+            <div role="list" aria-label={t('siblings.groupTitle', { count: group.total, name: resultName })}>
                 {shown.map((member) => (
                     <SiblingRow key={member.entity.urn} role="listitem" data-testid="sibling-row">
                         <PlatformIcon platform={memberPlatform(member)} size={16} />
-                        <Name to={memberUrl(member)}>{memberName(member)}</Name>
+                        <Name to={memberUrl(member)} onClick={() => onSiblingClick?.(member)}>
+                            {memberName(member)}
+                        </Name>
                         {member.isPrimary && <PrimaryMarker>{t('siblings.primary')}</PrimaryMarker>}
                         <Badge>{t('siblings.siblingOf', { name: resultName })}</Badge>
                         <Location>{memberLocation(member)}</Location>

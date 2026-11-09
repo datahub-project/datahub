@@ -17,7 +17,7 @@ export type SiblingMemberData = SiblingGroupData['members'][number];
  */
 export function useSiblingGroups(datasetUrns: string[], enabled: boolean) {
     const urns = useMemo(() => Array.from(new Set(datasetUrns)).slice(0, MAX_URNS_PER_REQUEST), [datasetUrns]);
-    const { data, loading, error, refetch } = useGetSiblingGroupsQuery({
+    const { data, error, refetch } = useGetSiblingGroupsQuery({
         skip: !enabled || urns.length === 0,
         variables: { input: { urns, start: 0, count: SIBLINGS_SHOWN_INLINE } },
     });
@@ -29,5 +29,5 @@ export function useSiblingGroups(datasetUrns: string[], enabled: boolean) {
     const retry = useCallback(() => {
         refetch().catch(() => undefined); // the hook's error state reports a failure
     }, [refetch]);
-    return { groups, loading, error, retry };
+    return { groups, error, retry };
 }
