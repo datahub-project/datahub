@@ -3,9 +3,10 @@
 import contextlib
 import logging
 import signal
+import sys
 import threading
 from types import FrameType, TracebackType
-from typing import Any, Callable, ContextManager, Optional, Union
+from typing import Any, Callable, ClassVar, ContextManager, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -63,13 +64,29 @@ class _TimeLimit:
     def __init__(self, seconds: float) -> None:
         self._seconds = seconds
         self._previous_handler: _SignalHandler = None
+        # The frame of the `with` statement; the limit applies only while it is running.
+        self._owner_frame: Optional[FrameType] = None
+
+    def _owner_is_running(self, frame: Optional[FrameType]) -> bool:
+        while frame is not None:
+            if frame is self._owner_frame:
+                return True
+            frame = frame.f_back
+        return False
 
     def _on_alarm(self, signum: int, frame: Optional[FrameType]) -> None:
-        raise PartitionTimeoutError(
-            f"Partitioning exceeded {self._seconds:g}s of CPU time"
-        )
+        if self._owner_is_running(frame):
+            raise PartitionTimeoutError(
+                f"Partitioning exceeded {self._seconds:g}s of CPU time"
+            )
+        # The limited block was left without disarming: an alarm interrupted __exit__
+        # before _disarm ran. Disarm now instead of raising into unrelated code, where
+        # this BaseException would end the whole run rather than one document.
+        self._owner_frame = None
+        _disarm(self._previous_handler)
 
     def __enter__(self) -> None:
+        self._owner_frame = sys._getframe(1)
         self._previous_handler = signal.signal(signal.SIGVTALRM, self._on_alarm)
         try:
             signal.setitimer(
@@ -86,33 +103,14 @@ class _TimeLimit:
         tb: Optional[TracebackType],
     ) -> None:
         _disarm(self._previous_handler)
-
-
-_language_profiles_load_failed = False
-
-
-def _preload_language_profiles() -> None:
-    # langdetect loads its profiles into a process-wide factory on first use, under a
-    # bare `except:` that unstructured then logs and ignores. An alarm landing there
-    # would be swallowed and leave the factory half-loaded for the rest of the run,
-    # so load it before any time limit starts. init_factory() is a no-op once loaded.
-    global _language_profiles_load_failed
-    try:
-        from langdetect.detector_factory import init_factory
-    except ModuleNotFoundError:
-        return
-    try:
-        init_factory()
-    except Exception as e:
-        # unstructured logs and continues on the same error; do likewise rather than
-        # failing every document, and warn only once.
-        if not _language_profiles_load_failed:
-            logger.warning(f"Could not load langdetect language profiles: {e}")
-            _language_profiles_load_failed = True
+        self._owner_frame = None
 
 
 class TextPartitioner:
     """Partitions markdown text into unstructured.io elements."""
+
+    # Process-wide, like the langdetect factory it reports on: warn once per process.
+    _language_profiles_load_failed: ClassVar[bool] = False
 
     def __init__(
         self,
@@ -122,6 +120,26 @@ class TextPartitioner:
         self.disable_markdown_link_parsing = disable_markdown_link_parsing
         self.timeout_seconds = timeout_seconds
         self._logged_no_time_limit = False
+
+    @classmethod
+    def _preload_language_profiles(cls) -> None:
+        # langdetect loads its profiles into a process-wide factory on first use, under
+        # a bare `except:` that unstructured then logs and ignores. An alarm landing
+        # there would be swallowed and leave the factory half-loaded for the rest of
+        # the run, so load it before any time limit starts. init_factory() is a no-op
+        # once loaded.
+        try:
+            from langdetect.detector_factory import init_factory
+        except ModuleNotFoundError:
+            return
+        try:
+            init_factory()
+        except Exception as e:
+            # unstructured logs and continues on the same error; do likewise rather
+            # than failing every document, and warn only once.
+            if not cls._language_profiles_load_failed:
+                logger.warning(f"Could not load langdetect language profiles: {e}")
+                cls._language_profiles_load_failed = True
 
     def _can_enforce_time_limit(self) -> bool:
         if self.timeout_seconds <= 0:
@@ -170,7 +188,7 @@ class TextPartitioner:
             return []
 
         if self._can_enforce_time_limit():
-            _preload_language_profiles()
+            self._preload_language_profiles()
             time_limit: ContextManager[None] = _TimeLimit(self.timeout_seconds)
         else:
             time_limit = contextlib.nullcontext()

@@ -276,7 +276,8 @@ class DataHubDocumentsSourceConfig(
         default=DEFAULT_PARTITION_TIMEOUT_SECONDS,
         description="Maximum CPU seconds to partition one document; slower documents are "
         "skipped and counted in the report. Measured as CPU time rather than wall-clock "
-        "time, so a busy or throttled executor does not cause timeouts. 0 disables the "
+        "time, so a busy or throttled executor does not cause timeouts; time spent "
+        "waiting (e.g. on I/O or locks) is not limited. 0 disables the "
         "limit. Only enforced when the source runs "
         "on the main thread of a POSIX platform. Documents that already timed out are not "
         "retried after the limit is raised until their content changes; run once with "

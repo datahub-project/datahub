@@ -47,6 +47,7 @@ from datahub.ingestion.source.datahub_documents.markdown_link_guard import (
 from datahub.ingestion.source.datahub_documents.text_partitioner import (
     PartitionTimeoutError,
     TextPartitioner,
+    _TimeLimit,
 )
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.unstructured.chunking_config import (
@@ -5479,6 +5480,25 @@ class TestPartitionTimeout:
                 TextPartitioner(timeout_seconds=0.5).partition_text("some text")
             assert time.process_time() - start < 3
         assert signal.getitimer(signal.ITIMER_VIRTUAL) == (0.0, 0.0)
+
+    def test_timer_left_armed_after_the_block_is_disarmed_not_raised(self):
+        # Simulates an alarm interrupting __exit__ before it disarms: the timer is
+        # still on after the limited block has returned.
+        def leave_armed() -> None:
+            _TimeLimit(0.2).__enter__()
+
+        def previous(signum: int, frame: Any) -> None:
+            pass
+
+        original = signal.signal(signal.SIGVTALRM, previous)
+        try:
+            leave_armed()
+            _burn_cpu(1)  # would raise PartitionTimeoutError into this code
+            assert signal.getitimer(signal.ITIMER_VIRTUAL) == (0.0, 0.0)
+            assert signal.getsignal(signal.SIGVTALRM) is previous
+        finally:
+            signal.setitimer(signal.ITIMER_VIRTUAL, 0)
+            signal.signal(signal.SIGVTALRM, original)
 
     def test_waiting_does_not_count_toward_the_limit(self):
         # A busy or throttled machine stalls the process without using its CPU time.
