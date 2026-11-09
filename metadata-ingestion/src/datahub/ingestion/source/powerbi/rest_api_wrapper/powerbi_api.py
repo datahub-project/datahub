@@ -513,21 +513,40 @@ class PowerBiAPI:
                 # HTTP/network exceptions internally, so no outer try/except is needed here.
                 report.users = self.get_report_users(workspace.id, report.id)
 
+        workspace_apis = (
+            self.__config.metadata_api_mode == PowerBiMetadataApiMode.WORKSPACE_APIS
+        )
         for report in reports.values():
             try:
-                report.pages = self._get_resolver().get_pages_by_report(
-                    workspace=workspace, report_id=report.id
-                )
+                if workspace_apis and report.type is ReportType.PaginatedReport:
+                    # Paginated reports have no pages; the endpoint rejects them.
+                    report.pages = []
+                else:
+                    report.pages = self._get_resolver().get_pages_by_report(
+                        workspace=workspace,
+                        report_id=report.id,
+                        strict=workspace_apis,
+                    )
             except Exception:
                 self.log_http_error(
                     message=f"Unable to fetch pages for report {report.name}({report.id}) in workspace {workspace.name}"
                 )
-                self.reporter.warning(
-                    title="Report Pages Not Fetched",
-                    message="Report pages could not be fetched; the report will appear in DataHub without chart children.",
-                    context=f"workspace={workspace.name}, report_name={report.name}, report_id={report.id}",
-                )
                 report.pages = []
+                if workspace_apis:
+                    # Pages are the only source of this report's charts here;
+                    # empty pages would soft-delete them under stale-entity
+                    # removal.
+                    self.reporter.failure(
+                        title="Report Pages Not Fetched",
+                        message="Report pages could not be fetched; the report's charts are missing from this run.",
+                        context=f"workspace={workspace.name}, report_name={report.name}, report_id={report.id}",
+                    )
+                else:
+                    self.reporter.warning(
+                        title="Report Pages Not Fetched",
+                        message="Report pages could not be fetched; the report will appear in DataHub without chart children.",
+                        context=f"workspace={workspace.name}, report_name={report.name}, report_id={report.id}",
+                    )
             if self.__config.extract_report_field_usage:
                 self._fill_report_field_usage(workspace, report)
             if report.dataset_id:

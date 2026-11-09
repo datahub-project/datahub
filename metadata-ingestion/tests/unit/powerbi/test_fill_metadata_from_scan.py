@@ -1554,6 +1554,47 @@ def test_get_reports_pages_fetch_failure_on_fallback_warns_and_keeps_report():
     assert any(w.title == "Report Pages Not Fetched" for w in api.reporter.warnings)
 
 
+def test_get_reports_pages_fetch_failure_is_a_failure_in_workspace_mode():
+    """In workspace_apis mode pages are the only source of a report's charts,
+    so a failed pages fetch must fail the run: a green run would let
+    stale-entity removal soft-delete them. Paginated reports, which have no
+    pages, are not requested."""
+    api = _make_api(metadata_api_mode="workspace_apis")
+    workspace = _make_workspace("WS-NO-SCAN")
+    resolver_report = new_powerbi_reports(
+        workspace,
+        [
+            {
+                Constant.ID: "R-1",
+                Constant.NAME: "rpt",
+                Constant.REPORT_TYPE: "PowerBIReport",
+            },
+            {
+                Constant.ID: "R-2",
+                Constant.NAME: "paginated",
+                Constant.REPORT_TYPE: "PaginatedReport",
+            },
+        ],
+    )
+    resolver = api._get_resolver()
+    with (
+        mock.patch.object(resolver, "get_reports", return_value=resolver_report),
+        mock.patch.object(api, "get_report_users", return_value=[]),
+        mock.patch.object(
+            resolver, "get_pages_by_report", side_effect=RuntimeError("boom")
+        ) as pages_mock,
+        mock.patch.object(api, "_resolve_paginated_report_lineage"),
+    ):
+        reports = api.get_reports(workspace)
+
+    assert reports["R-1"].pages == []
+    assert [c.kwargs for c in pages_mock.call_args_list] == [
+        {"workspace": workspace, "report_id": "R-1", "strict": True}
+    ]
+    assert any(f.title == "Report Pages Not Fetched" for f in api.reporter.failures)
+    assert not any(w.title == "Report Pages Not Fetched" for w in api.reporter.warnings)
+
+
 def test_get_reports_logs_http_error_when_resolver_get_reports_raises():
     """Resolver get_reports exception must be swallowed and surface a 'Reports Fetch Failed' warning."""
     api = _make_api()

@@ -181,7 +181,10 @@ class DataResolverBase(ABC):
         pass
 
     @abstractmethod
-    def get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
+    def get_pages_by_report(
+        self, workspace: Workspace, report_id: str, strict: bool = False
+    ) -> List[Page]:
+        """With strict, an HTTP failure raises instead of returning no pages."""
         pass
 
     @abstractmethod
@@ -544,7 +547,9 @@ class RegularAPIResolver(DataResolverBase):
             DASHBOARD_ID=dashboard_id,
         )
 
-    def get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
+    def get_pages_by_report(
+        self, workspace: Workspace, report_id: str, strict: bool = False
+    ) -> List[Page]:
         pages_endpoint: str = RegularAPIResolver.API_ENDPOINTS[Constant.PAGE_BY_REPORT]
         # Replace place holders
         pages_endpoint = pages_endpoint.format(
@@ -559,7 +564,9 @@ class RegularAPIResolver(DataResolverBase):
             headers=self.get_authorization_header(),
         )
 
-        if is_http_failure(response, f"Unable to fetch pages for report {report_id}"):
+        if strict:
+            response.raise_for_status()
+        elif is_http_failure(response, f"Unable to fetch pages for report {report_id}"):
             return []
 
         response_dict = response.json()
@@ -956,7 +963,9 @@ class AdminAPIResolver(DataResolverBase):
             DASHBOARD_ID=dashboard_id,
         )
 
-    def get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
+    def get_pages_by_report(
+        self, workspace: Workspace, report_id: str, strict: bool = False
+    ) -> List[Page]:
         return []  # Report pages are not available in Admin API
 
     def get_report_datasources(
