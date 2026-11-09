@@ -72,6 +72,8 @@ class Constant:
     TABLELABEL = "tableLabel"
     TABLEQRI = "tableQRI"
     OWNERID = "ownerId"
+    PUBLISHED = "published"
+    USERID = "userId"
     # Websocket response key constants
     QID = "qId"
     RESULT = "result"
@@ -180,6 +182,11 @@ class QlikOnPremConfig(ConfigModel):
         min_length=1,
         description="Path to the PEM root certificate exported from the QMC.",
     )
+    client_key_password: Optional[TransparentSecretStr] = Field(
+        default=None,
+        description="Password of the client key, when it was exported from the QMC "
+        "with one.",
+    )
     qrs_port: int = Field(
         default=4242,
         ge=1,
@@ -267,12 +274,14 @@ class QlikSourceConfig(
         description="Connection to Qlik Sense Enterprise on Windows. Set this instead of "
         "`tenant_hostname` and `api_key` to read an on-prem site.",
     )
-    max_workers: int = Field(
-        default=4,
+    max_workers: Optional[int] = Field(
+        default=None,
         ge=1,
         description="Number of apps and datasets of one space or stream read at "
         "the same time. Spaces and streams are read one after another. Each app "
-        "read holds one Engine session open.",
+        "read holds one Engine session open. Defaults to 4 on-prem, where apps "
+        "are opened without their data, and to 1 on Qlik Cloud, where every open "
+        "app's data is loaded.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
@@ -287,6 +296,13 @@ class QlikSourceConfig(
     ingest_owner: Optional[bool] = Field(
         default=True,
         description="Ingest Owner from source. This will override Owner info entered from UI",
+    )
+    timeout_seconds: int = Field(
+        default=300,
+        ge=1,
+        description="Seconds to wait for the Qlik Engine, and on-prem for the "
+        "Repository Service, to connect or reply before the request fails. An app "
+        "whose read times out is ingested as partly read.",
     )
     # Qlik app dataset upstream tables from data connection to platform instance mapping
     data_connection_to_platform_instance: Dict[str, PlatformDetail] = Field(
@@ -310,6 +326,11 @@ class QlikSourceConfig(
                 "(set the on_prem block for Qlik Sense Enterprise on Windows)"
             )
         return self
+
+    def resolved_max_workers(self) -> int:
+        if self.max_workers is not None:
+            return self.max_workers
+        return 4 if self.on_prem is not None else 1
 
     def skips_unchanged_apps(self) -> bool:
         return self.on_prem is not None and self.on_prem.skip_unchanged_apps
