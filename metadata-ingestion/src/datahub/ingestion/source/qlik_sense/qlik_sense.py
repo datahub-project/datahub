@@ -1051,13 +1051,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         upstream_urns: List[str],
         result: SqlParsingResult,
     ) -> None:
-        # A label loaded by several statements is one Qlik table. Mapping
-        # tables are a separate namespace, so a mapping load is kept apart.
+        # Loads of one dataset URN are one table, so labels that differ only
+        # in case are merged. Mapping tables are a separate namespace, so a
+        # mapping load is kept apart.
+        identifier = f"{app_id}.{script_table.label}".lower()
         lineage = tables.setdefault(
-            (script_table.label, script_table.mapping),
+            (identifier, script_table.mapping),
             ScriptTableLineage(
                 label=script_table.label,
-                identifier=f"{app_id}.{script_table.label}".lower(),
+                identifier=identifier,
                 connection=connection_name,
                 mapping=script_table.mapping,
             ),
@@ -1159,12 +1161,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "`data_connection_to_platform_instance`.",
                 context=f"app={app.id}, tables={sorted(set(unqualified))}",
             )
-        # A data table and a mapping table with the same label share one
+        # A data table and a mapping table with the same identifier share one
         # dataset URN, so only the data table, which charts read, is kept.
         script_tables = [
             lineage
-            for (label, mapping), lineage in tables.items()
-            if not (mapping and (label, False) in tables)
+            for (identifier, mapping), lineage in tables.items()
+            if not (mapping and (identifier, False) in tables)
         ]
         self.reporter.script_tables_with_lineage += len(script_tables)
         return script_tables
