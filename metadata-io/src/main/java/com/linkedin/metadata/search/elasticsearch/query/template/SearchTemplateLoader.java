@@ -10,6 +10,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.config.search.SearchTemplateSource;
+import com.linkedin.metadata.search.elasticsearch.query.v3.ranking.RankingFormulaCheck;
 import com.linkedin.search.template.EntityTypeBoostArray;
 import com.linkedin.search.template.FieldFactorArray;
 import com.linkedin.search.template.FieldValueScoreArray;
@@ -351,6 +352,7 @@ public class SearchTemplateLoader {
             : StructuredPropertyReferences.resolver(operationContext, retriever);
     SearchFieldOverrides fields = null;
     HighlightFieldOverrides highlights = null;
+    Boolean matchedFields = null;
     SearchTemplateBoostArray boosts = null;
     StructuredPropertyQuery structuredPropertyQuery = null;
     FieldValueScoreArray fieldValueScores = null;
@@ -386,6 +388,9 @@ public class SearchTemplateLoader {
       if (props.hasHighlightFields()) {
         highlights =
             SearchTemplateFields.mergeHighlights(highlights, props.getHighlightFields(), resolver);
+      }
+      if (props.hasMatchedFields()) {
+        matchedFields = props.isMatchedFields();
       }
       if (props.hasBoosts()) {
         boosts =
@@ -469,6 +474,7 @@ public class SearchTemplateLoader {
     builder.lastModified(lastModified);
     builder.fields(fields);
     builder.highlightFields(highlights);
+    builder.matchedFields(matchedFields == null || matchedFields);
     builder.boosts(boosts);
     builder.structuredPropertyQuery(structuredPropertyQuery);
     builder.fieldValueScores(fieldValueScores);
@@ -538,6 +544,9 @@ public class SearchTemplateLoader {
     }
     if (props.hasBoostMode() && props.getBoostMode() != null) {
       builder.boostMode(props.getBoostMode());
+    }
+    if (props.hasSearchType() && props.getSearchType() != null) {
+      builder.searchType(props.getSearchType());
     }
     if (props.hasRescore()) {
       builder.rescore(blankToNull(props.getRescore()));
@@ -882,6 +891,13 @@ public class SearchTemplateLoader {
     if (!signals.isEmpty()) {
       applied.setSignals(new RankingSignalArray(signals));
     }
+    if (applied.hasFormula() && applied.getFormula() != null && !applied.getFormula().isBlank()) {
+      Set<String> names = new LinkedHashSet<>();
+      for (RankingSignal signal : signals) {
+        names.add(signal.getName());
+      }
+      RankingFormulaCheck.check(applied.getFormula(), names);
+    }
     return emptyRanking(applied) ? null : applied;
   }
 
@@ -935,17 +951,6 @@ public class SearchTemplateLoader {
     return -1;
   }
 
-  @Nullable
-  private static String rankingReferenceUrn(@Nullable SearchTemplateRanking ranking) {
-    if (ranking == null
-        || !ranking.hasTemplate()
-        || ranking.getTemplate() == null
-        || ranking.getTemplate().isBlank()) {
-      return null;
-    }
-    return ranking.getTemplate();
-  }
-
   private static boolean clearsTemplate(@Nonnull SearchTemplateRanking ranking) {
     return ranking.hasTemplate() && blank(ranking.getTemplate());
   }
@@ -993,9 +998,6 @@ public class SearchTemplateLoader {
       throw new SearchTemplateException("Search template ranking is a reference or it is inline");
     }
     String target = ranking.getTemplate();
-    if (urn.equals(target) || urns.contains(target)) {
-      throw new SearchTemplateException("Search template ranking reference cycle at " + target);
-    }
     TemplateCopy copy = resolve(operationContext, retriever, target, overrides);
     MergedSearchTemplate targetMerged =
         compose(operationContext, retriever, target, copy, overrides, classpathBridge, false);
@@ -1016,6 +1018,17 @@ public class SearchTemplateLoader {
       }
     }
     return new ResolvedRanking(resolved, targetMerged.getLastModified());
+  }
+
+  @Nullable
+  private static String rankingReferenceUrn(@Nullable SearchTemplateRanking ranking) {
+    if (ranking == null
+        || !ranking.hasTemplate()
+        || ranking.getTemplate() == null
+        || ranking.getTemplate().isBlank()) {
+      return null;
+    }
+    return ranking.getTemplate();
   }
 
   private static boolean inlineRanking(@Nonnull SearchTemplateRanking ranking) {

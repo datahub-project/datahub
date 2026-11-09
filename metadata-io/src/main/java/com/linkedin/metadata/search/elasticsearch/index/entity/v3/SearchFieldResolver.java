@@ -45,7 +45,16 @@ public final class SearchFieldResolver {
   private final Set<String> sharedHasValues;
   private final Map<String, String> unlabeledHasValuesSources;
 
+  /**
+   * For each label, whether a source is a URN. A key equal to the label is every source of that
+   * label.
+   */
+  private final Map<String, Map<String, Boolean>> labelSourceIsUrn;
+
+  private final Collection<EntitySpec> entitySpecs;
+
   public SearchFieldResolver(@Nonnull Collection<EntitySpec> entitySpecs) {
+    this.entitySpecs = List.copyOf(entitySpecs);
     Map<String, MutableField> byName = new LinkedHashMap<>();
     Map<String, MutableField> sources = new LinkedHashMap<>();
     Map<String, List<SearchableFieldSpec>> byLabel = new LinkedHashMap<>();
@@ -94,7 +103,12 @@ public final class SearchFieldResolver {
           List<List<FieldMapping>> mappings =
               contributors.stream().map(V3SearchFields::labelMappings).toList();
           FieldMapping.Resolved resolved = FieldMapping.union(label, mappings);
-          MutableField field = byName.computeIfAbsent(label, MutableField::new);
+          // A renamed source can be registered under this label's name before the label itself.
+          // That alias must not become the label: quoted name search would read id.text.
+          MutableField existing = byName.get(label);
+          MutableField field =
+              existing != null && label.equals(existing.path) ? existing : new MutableField(label);
+          byName.put(label, field);
           field.addRoot(
               resolved.getRoot(),
               "indexedField="
@@ -121,6 +135,7 @@ public final class SearchFieldResolver {
                         sources,
                         aliasedTo,
                         splitSourceNames,
+                        byLabel.keySet(),
                         annotation.getFieldName(),
                         field);
                     Optional.ofNullable(annotation.getFieldNameAliases())
@@ -128,7 +143,13 @@ public final class SearchFieldResolver {
                         .forEach(
                             alias ->
                                 aliasSource(
-                                    byName, sources, aliasedTo, splitSourceNames, alias, field));
+                                    byName,
+                                    sources,
+                                    aliasedTo,
+                                    splitSourceNames,
+                                    byLabel.keySet(),
+                                    alias,
+                                    field));
                   });
         });
 
@@ -139,6 +160,15 @@ public final class SearchFieldResolver {
         byName.put(field, direct);
       }
     }
+    if (!byName.containsKey(MappingConstants.SYSTEM_CREATED_ACTOR_FIELD)) {
+      MutableField creator = new MutableField(MappingConstants.SYSTEM_CREATED_ACTOR_FIELD);
+      creator.addRoot(
+          FieldMapping.root(Type.KEYWORD),
+          "system created actor " + MappingConstants.SYSTEM_CREATED_ACTOR_FIELD);
+      byName.put(MappingConstants.SYSTEM_CREATED_ACTOR_FIELD, creator);
+    }
+    registerSystemTime(byName, MappingConstants.SYSTEM_CREATED_TIME_FIELD);
+    registerSystemTime(byName, MappingConstants.SYSTEM_MODIFIED_TIME_FIELD);
     parsedKeywordPaths(entitySpecs)
         .forEach(
             (name, paths) -> {
@@ -179,6 +209,7 @@ public final class SearchFieldResolver {
     exactSourceFields = Collections.unmodifiableMap(exactSources);
     sharedHasValues = Set.copyOf(sharedHasValuesNames);
     unlabeledHasValuesSources = Map.copyOf(unlabeledHasValues);
+    labelSourceIsUrn = labelSourceIsUrn(this.entitySpecs);
   }
 
   /**
@@ -194,6 +225,29 @@ public final class SearchFieldResolver {
   /** A shared-label hasValues field stores only true. False is the field being missing. */
   public boolean falseIsMissing(@Nonnull String fieldName) {
     return sharedHasValues.contains(parent(fieldName));
+  }
+
+  /**
+   * The label is indexed by {@code copy_to} and is absent from {@code _source}. Every contributor
+   * keeps a different source name, so the projector omits that root and the value lives in doc
+   * values. The label's type does not matter: a count, a timestamp, a keyword, or a URN.
+   */
+  public boolean storedViaCopyTo(@Nonnull String fieldName) {
+    Field field = fields.get(parent(fieldName));
+    if (field == null || field.getSourceFields().isEmpty()) {
+      return false;
+    }
+    String indexed = parent(fieldName);
+    return field.getSourceFields().stream().noneMatch(indexed::equals);
+  }
+
+  /**
+   * A parsed URN label clears the root string. Its keywords are copied from the aspect and are not
+   * in {@code _source}, even when a contributor uses the label as its own field name.
+   */
+  public boolean parsedKeywordLabel(@Nonnull String fieldName) {
+    Field field = fields.get(parent(fieldName));
+    return field != null && field.isParsedKeywordLabel();
   }
 
   /**
@@ -260,6 +314,96 @@ public final class SearchFieldResolver {
     return field;
   }
 
+  /**
+   * Exact, filter, facet, and sort of a URN source read {@code <label>_urn}. The same lookup of a
+   * source that is not a URN reads the label value. The label name itself uses the URN sibling only
+   * when every source of that label is a URN.
+   */
+  @Nullable
+  private String urnSourcePath(
+      @Nonnull String fieldName, @Nonnull Field field, @Nonnull Intent intent) {
+    if (intent != Intent.EXACT
+        && intent != Intent.FILTER
+        && intent != Intent.FACET
+        && intent != Intent.SORT) {
+      return null;
+    }
+    Map<String, Boolean> sources = labelSourceIsUrn.get(field.getPath());
+    if (sources == null) {
+      return null;
+    }
+    Boolean urn = sources.get(parent(fieldName));
+    if (urn == null) {
+      return null;
+    }
+    if (!urn) {
+      return field.getPath();
+    }
+    if (V3SearchFields.isParsedKeywordLabel(field.getPath(), entitySpecs)
+        || V3SearchFields.labelKeepsFullUrn(field.getPath(), entitySpecs)) {
+      return V3SearchFields.fullUrnField(field.getPath());
+    }
+    return null;
+  }
+
+  /**
+   * Whether each source of a label is a URN. A key equal to the label is every source of that
+   * label.
+   */
+  @Nonnull
+  private static Map<String, Map<String, Boolean>> labelSourceIsUrn(
+      @Nonnull Collection<EntitySpec> entitySpecs) {
+    Map<String, Map<String, Boolean>> byLabel = new LinkedHashMap<>();
+    Map<String, Boolean> allUrn = new LinkedHashMap<>();
+    for (EntitySpec entity : entitySpecs) {
+      for (SearchableFieldSpec spec : fieldSpecs(entity)) {
+        SearchableAnnotation annotation = spec.getSearchableAnnotation().resolvedForV3();
+        if (annotation == null || !annotation.isV3Searchable()) {
+          continue;
+        }
+        String label = annotation.indexedFieldName().orElse(annotation.getFieldName());
+        boolean urn = V3SearchFields.contributesParsedUrn(spec);
+        Map<String, Boolean> sources = byLabel.computeIfAbsent(label, key -> new LinkedHashMap<>());
+        allUrn.merge(label, urn, Boolean::logicalAnd);
+        recordLabelSource(sources, label, annotation.getFieldName(), urn);
+        Optional.ofNullable(annotation.getFieldNameAliases())
+            .orElse(List.of())
+            .forEach(alias -> recordLabelSource(sources, label, alias, urn));
+      }
+    }
+    allUrn.forEach((label, urn) -> byLabel.get(label).put(label, urn));
+    Map<String, Map<String, Boolean>> frozen = new LinkedHashMap<>();
+    byLabel.forEach((label, sources) -> frozen.put(label, Map.copyOf(sources)));
+    return Map.copyOf(frozen);
+  }
+
+  private static void recordLabelSource(
+      @Nonnull Map<String, Boolean> sources,
+      @Nonnull String label,
+      @Nullable String name,
+      boolean urn) {
+    if (name == null || name.isEmpty() || label.equals(name)) {
+      return;
+    }
+    sources.merge(name, urn, Boolean::logicalAnd);
+  }
+
+  @Nonnull
+  private static List<SearchableFieldSpec> fieldSpecs(@Nonnull EntitySpec entity) {
+    List<AspectSpec> aspects = entity.getAspectSpecs();
+    if (aspects == null || aspects.isEmpty()) {
+      List<SearchableFieldSpec> fields = entity.getSearchableFieldSpecs();
+      return fields == null ? List.of() : fields;
+    }
+    List<SearchableFieldSpec> specs = new ArrayList<>();
+    for (AspectSpec aspect : aspects) {
+      if (aspect.getSearchableFieldSpecs() != null) {
+        specs.addAll(aspect.getSearchableFieldSpecs());
+      }
+    }
+    return specs;
+  }
+
   @Nullable
   private Field selectField(@Nonnull String fieldName, @Nonnull Intent intent) {
     // Exact-match scoring may still target a retained source root directly. Criteria, facets, and
@@ -273,6 +417,10 @@ public final class SearchFieldResolver {
   @Nonnull
   public String exactPath(@Nonnull String fieldName, @Nonnull Intent intent) {
     Field field = resolve(fieldName, intent);
+    String urnValue = urnSourcePath(fieldName, field, intent);
+    if (urnValue != null) {
+      return urnValue;
+    }
     // The logical field stores the parsed name. The complete URN is the <field>_urn sibling.
     if (field.isParsedKeywordLabel()) {
       if (intent == Intent.EXACT || intent == Intent.FULL_TEXT) {
@@ -311,15 +459,24 @@ public final class SearchFieldResolver {
   }
 
   /**
-   * Case-folded complete URN. A parsed root reads {@code <field>_urn.lowercase}. The document URN
-   * reads {@code urn.lowercase}, and its parsed identity reads {@code urn_name.lowercase}. Empty
-   * when the field has no case-folded URN.
+   * Case-folded complete URN. Follows {@code exactPath}: a URN source reads {@code
+   * <label>_urn.lowercase}, and a source that reads the label value does not. A parsed root reads
+   * the same sibling. The document URN reads {@code urn.lowercase}, and its parsed identity reads
+   * {@code urn_name.lowercase}. Empty when the field has no case-folded URN.
    */
   @Nonnull
   public String lowercaseFullUrnPath(@Nonnull String fieldName) {
     Field field = fields.get(parent(fieldName));
     if (field == null) {
       return "";
+    }
+    // A mixed label shares one field. The full-URN flag would send every source to <label>_urn,
+    // including a value that exactPath keeps on the label.
+    String urnPath = urnSourcePath(fieldName, field, Intent.FILTER);
+    if (urnPath != null) {
+      return V3SearchFields.fullUrnField(field.getPath()).equals(urnPath)
+          ? V3SearchFields.fullUrnLowercaseField(field.getPath())
+          : "";
     }
     if (field.isParsedKeywordLabel() || field.isFullUrnOnly()) {
       return V3SearchFields.fullUrnLowercaseField(field.getPath());
@@ -407,6 +564,7 @@ public final class SearchFieldResolver {
       Map<String, MutableField> sources,
       Map<String, MutableField> aliasedTo,
       Set<String> splitSourceNames,
+      Set<String> labels,
       String name,
       MutableField indexedField) {
     if (splitSourceNames.contains(name)) {
@@ -414,6 +572,17 @@ public final class SearchFieldResolver {
       if (source != null) {
         source.addSearchTarget(indexedField);
       }
+      return;
+    }
+    // The map key of a label is that label. A source renamed onto a different label must not
+    // replace it, or a quoted name query follows that source (id.text) instead of name.text.
+    // A source of the same name at another degree must not copy that degree's presence field onto
+    // the label either: hasDescription would no longer answer whether the entity itself has one.
+    MutableField occupant = byName.get(name);
+    if (labels.contains(name)
+        && occupant != null
+        && occupant != indexedField
+        && name.equals(occupant.path)) {
       return;
     }
     MutableField prior = aliasedTo.get(name);
@@ -431,6 +600,16 @@ public final class SearchFieldResolver {
     }
     aliasedTo.put(name, indexedField);
     byName.put(name, indexedField);
+  }
+
+  /** A date copied into a root {@code _system} object. Sort, range, and filter all read it. */
+  private static void registerSystemTime(Map<String, MutableField> byName, String field) {
+    if (byName.containsKey(field)) {
+      return;
+    }
+    MutableField time = new MutableField(field);
+    time.addRoot(FieldMapping.root(Type.DATETIME), "system time " + field);
+    byName.put(field, time);
   }
 
   private static String parent(String fieldName) {

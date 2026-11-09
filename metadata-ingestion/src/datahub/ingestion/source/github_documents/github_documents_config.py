@@ -1,10 +1,10 @@
 """Configuration for the github-documents ingestion source."""
 
+from pathlib import PurePosixPath
 from typing import List, Optional
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
-from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.github_documents.github_api import parse_repo_identifier
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -20,7 +20,7 @@ from datahub.ingestion.source.unstructured.config import (
 
 
 class GitHubDocumentsSourceConfig(
-    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig], ConfigModel
+    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
 ):
     """
     Configuration for ingesting markdown and text documents from a GitHub repository.
@@ -79,6 +79,21 @@ class GitHubDocumentsSourceConfig(
         default=True,
         description="Whether imported documents appear in global search and navigation.",
     )
+    enable_okf: bool = Field(
+        default=True,
+        description=(
+            "Recognize OKF concepts inside discovered or configured bundles. "
+            "Disable to import every file verbatim without OKF metadata."
+        ),
+    )
+    okf_bundle_roots: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Additional bundle roots relative to the repository, for bundles without "
+            "a versioned index.md. Use an empty string for the repository root. "
+            "Directories with an index.md declaring okf_version are also discovered."
+        ),
+    )
     include_repository_in_browse_path: bool = Field(
         default=True,
         description=(
@@ -111,6 +126,21 @@ class GitHubDocumentsSourceConfig(
         if not value or not value.get_secret_value().strip():
             raise ValueError("github_token is required and cannot be empty")
         return value
+
+    @field_validator("okf_bundle_roots")
+    @classmethod
+    def normalize_bundle_roots(cls, roots: List[str]) -> List[str]:
+        normalized: List[str] = []
+        for root in roots:
+            path = PurePosixPath(root)
+            if path.is_absolute() or ".." in path.parts or "\\" in root:
+                raise ValueError(
+                    "OKF bundle roots must be repository-relative POSIX paths"
+                )
+            canonical = "" if str(path) == "." else str(path)
+            if canonical not in normalized:
+                normalized.append(canonical)
+        return normalized
 
     @field_validator("repository")
     @classmethod

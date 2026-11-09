@@ -13,7 +13,6 @@ import { useLaunchDocumentIngestionSource } from '@app/context/import/hooks/useL
 import { ImportSourceType, ImportStep, ImportUseCase } from '@app/context/import/import.types';
 import { useImportDocumentsModalButtons } from '@app/context/import/useImportDocumentsModalButtons';
 import { useUserContext } from '@app/context/useUserContext';
-import { useAppConfig } from '@app/useAppConfig';
 
 type ImportDocumentsModalProps = {
     visible: boolean;
@@ -38,12 +37,9 @@ export default function ImportDocumentsModal({
 }: ImportDocumentsModalProps) {
     const { t } = useTranslation('misc');
     const { platformPrivileges } = useUserContext();
-    const appConfig = useAppConfig();
     const launchDocumentIngestionSource = useLaunchDocumentIngestionSource();
 
-    const canImportFromScheduledSources = Boolean(
-        platformPrivileges?.manageIngestion && appConfig.config.featureFlags.showIngestionPageRedesign,
-    );
+    const canImportFromScheduledSources = Boolean(platformPrivileges?.manageIngestion);
 
     const [step, setStep] = useState<ImportStep>('source');
     const [sourceType, setSourceType] = useState<ImportSourceType | null>(null);

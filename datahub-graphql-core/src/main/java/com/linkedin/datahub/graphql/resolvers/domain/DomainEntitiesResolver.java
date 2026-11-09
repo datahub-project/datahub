@@ -5,11 +5,13 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.DomainEntitiesInput;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.ListRecommendationsInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.loaders.DomainEntityCountsBatchLoader;
 import com.linkedin.datahub.graphql.loaders.DomainEntityCountsBatchLoader.DomainCountKey;
@@ -21,6 +23,9 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
+import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
@@ -48,9 +53,11 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
   }
 
   private final EntityClient _entityClient;
+  private final ViewService _viewService;
 
-  public DomainEntitiesResolver(final EntityClient entityClient) {
+  public DomainEntitiesResolver(final EntityClient entityClient, final ViewService viewService) {
     _entityClient = entityClient;
+    _viewService = viewService;
   }
 
   @Override
@@ -68,24 +75,29 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
     final String query = input.getQuery() != null ? input.getQuery() : DEFAULT_QUERY;
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
+    final DataHubViewInfo maybeResolvedView = getViewInfo(environment);
 
     // Fast path: the common count-only selections (Domain.entities/dataProducts/
     // applicationsInDomain in the domainEntitiesFields fragment) request no hits, no query, and at
     // most a single _entityType filter. Serve these from a batched, request-scoped aggregation so a
     // page of N domains costs a fixed number of searches instead of 3N. See
     // DomainEntityCountsBatchLoader.
-    if (canServeFromCounts(query, count, input.getFilters())) {
+    if (canServeFromCounts(query, count, maybeResolvedView, input.getFilters())) {
       return resolveCountFromLoader(environment, urn, start, input.getFilters());
     }
 
-    return resolveDirect(context, urn, input, query, start, count);
+    return resolveDirect(context, urn, input, query, start, count, maybeResolvedView);
   }
 
   private static boolean canServeFromCounts(
-      final String query, final int count, @Nullable final List<FacetFilterInput> filters) {
-    // The batched loader forces query "*", so anything relying on a real query or hit-returning
-    // pagination must take the direct path to preserve exact behavior.
-    if (count != 0 || !DEFAULT_QUERY.equals(query)) {
+      final String query,
+      final int count,
+      @Nullable final DataHubViewInfo maybeResolvedView,
+      @Nullable final List<FacetFilterInput> filters) {
+    // The batched loader forces query "*" and does not apply view resolution, so anything relying
+    // on a real query, hit-returning pagination or a view must take the direct path to preserve
+    // exact behavior.
+    if (count != 0 || maybeResolvedView != null || !DEFAULT_QUERY.equals(query)) {
       return false;
     }
     if (filters == null || filters.isEmpty()) {
@@ -150,7 +162,8 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
       final DomainEntitiesInput input,
       final String query,
       final int start,
-      final int count) {
+      final int count,
+      @Nullable final DataHubViewInfo maybeResolvedView) {
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
@@ -166,6 +179,10 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                         criteria.add(criterionFromFilter(filter));
                       });
             }
+            final Filter baseFilter =
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(criteria)));
 
             return UrnSearchResultsMapper.map(
                 context,
@@ -173,10 +190,10 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                     context.getOperationContext(),
                     getSearchEntityNames(context.getOperationContext()),
                     query,
-                    new Filter()
-                        .setOr(
-                            new ConjunctiveCriterionArray(
-                                new ConjunctiveCriterion().setAnd(criteria))),
+                    maybeResolvedView != null
+                        ? FilterUtils.combineFilters(
+                            baseFilter, maybeResolvedView.getDefinition().getFilter())
+                        : baseFilter,
                     start,
                     count,
                     Collections.emptyList()));
@@ -189,5 +206,28 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  /**
+   * Get viewUrn from parent listRecommendations query if this is the parent query, otherwise return
+   * null
+   */
+  DataHubViewInfo getViewInfo(final DataFetchingEnvironment environment) {
+    final QueryContext context = environment.getContext();
+
+    String viewUrn = null;
+    try {
+      ListRecommendationsInput listRecommendationsInput =
+          environment.getVariables().get(INPUT_ARG_NAME) != null
+              ? bindArgument(
+                  environment.getVariables().get(INPUT_ARG_NAME), ListRecommendationsInput.class)
+              : null;
+      viewUrn = listRecommendationsInput != null ? listRecommendationsInput.getViewUrn() : null;
+    } catch (Exception e) {
+      log.debug("DomainEntitiesResolver not being used in the listRecommendations context", e);
+    }
+    return (viewUrn != null)
+        ? resolveView(context.getOperationContext(), _viewService, UrnUtils.getUrn(viewUrn))
+        : null;
   }
 }
