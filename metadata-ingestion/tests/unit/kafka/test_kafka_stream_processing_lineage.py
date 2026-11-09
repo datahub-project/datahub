@@ -36,7 +36,7 @@ from datahub.ingestion.source.kafka.stream_processing.flink import (
     build_flink_client,
 )
 from datahub.ingestion.source.kafka.stream_processing.flink_sql import (
-    FlinkDmlStatement,
+    FlinkParsedStatement,
 )
 from datahub.ingestion.source.kafka.stream_processing.models import FlinkJob
 from datahub.ingestion.source.kafka.stream_processing.sql import (
@@ -360,7 +360,7 @@ def test_flink_filters_compute_pool_and_malformed_statements() -> None:
 def test_flink_error_in_one_statement_keeps_the_others_and_fails_the_run() -> None:
     real_parse = flink_module.parse_flink_statement
 
-    def parse(sql: str) -> List[FlinkDmlStatement]:
+    def parse(sql: str) -> FlinkParsedStatement:
         if "poison" in sql:
             raise RuntimeError("boom")
         return real_parse(sql)
@@ -932,7 +932,7 @@ def test_flink_temporary_ctas_writes_no_topic(sql: str) -> None:
     assert not report.failures
 
 
-def test_flink_views_and_temporary_tables_read_later_are_not_topics() -> None:
+def test_flink_temporary_views_read_later_are_not_topics() -> None:
     jobs, _ = _extract(
         [
             _statement(
@@ -969,3 +969,39 @@ def test_flink_listing_is_filtered_by_compute_pool() -> None:
         client.list_statements()
 
     assert m.last_request.qs["spec.compute_pool_id"] == ["lfcp-1"]
+
+
+def test_flink_temporary_ctas_keeps_its_topic_inputs_in_a_statement_set() -> None:
+    jobs, _ = _extract(
+        [
+            _statement(
+                "EXECUTE STATEMENT SET BEGIN "
+                "CREATE TEMPORARY TABLE staged AS SELECT * FROM orders; "
+                "INSERT INTO out_t SELECT * FROM staged; "
+                "END;"
+            )
+        ]
+    )
+
+    assert [(job.input_topics, job.output_topics) for job in jobs] == [
+        (["orders"], ["out_t"])
+    ]
+
+
+def test_flink_created_objects_are_matched_with_their_namespace() -> None:
+    jobs, report = _extract(
+        [
+            _statement(
+                "EXECUTE STATEMENT SET BEGIN "
+                "CREATE TEMPORARY VIEW big AS SELECT * FROM orders; "
+                "INSERT INTO out_t SELECT * FROM `env-1`.`lkc-1`.big "
+                "JOIN `env-1`.`lkc-2`.big AS other ON other.id = big.id; "
+                "END;"
+            )
+        ]
+    )
+
+    # The qualified read of the view is not a topic; the same name in another
+    # cluster is a different table and is reported as such.
+    assert [(job.input_topics, job.output_topics) for job in jobs] == [([], ["out_t"])]
+    assert any("env-1.lkc-2.big" in str(entry.context) for entry in report.warnings)

@@ -25,6 +25,7 @@ from datahub.ingestion.source.kafka.stream_processing.constants import (
 )
 from datahub.ingestion.source.kafka.stream_processing.flink_sql import (
     FlinkDmlStatement,
+    FlinkParsedStatement,
     FlinkSqlParseError,
     parse_flink_statement,
     table_ref,
@@ -217,22 +218,24 @@ class FlinkLineageExtractor:
             return None
 
         try:
-            dml_statements = parse_flink_statement(spec.statement)
+            parsed = parse_flink_statement(spec.statement)
         except FlinkSqlParseError as e:
             self._fail(name, "Flink statement SQL could not be parsed", exc=e)
             return None
-        if not dml_statements:
+        if not parsed.dml:
             # SELECT, DDL and SET statements move no data between topics.
             return None
 
-        resolved = self._resolve_tables(name, dml_statements, spec.properties)
+        resolved = self._resolve_tables(name, parsed, spec.properties)
         if resolved is None:
             return None
         inputs, outputs, elsewhere = resolved
         if not outputs:
-            # Writes to another cluster are that cluster's recipe's to emit.
-            self.report.flink_statements_other_cluster.append(name)
-            self._other_locations.update(elsewhere)
+            if elsewhere:
+                # Writes to another cluster are that cluster's recipe's to emit.
+                self.report.flink_statements_other_cluster.append(name)
+                self._other_locations.update(elsewhere)
+            # Otherwise it only writes temporary tables, which are not topics.
             return None
         self._statements_in_this_cluster += 1
         if elsewhere:
@@ -251,8 +254,8 @@ class FlinkLineageExtractor:
             input_topics=inputs,
             output_topics=outputs,
             query=spec.statement,
-            parse_query=_column_lineage_query(dml_statements)
-            if not elsewhere
+            parse_query=_column_lineage_query(parsed.dml)
+            if not elsewhere and not parsed.created_non_topics
             else None,
             custom_properties=properties,
         )
@@ -260,38 +263,49 @@ class FlinkLineageExtractor:
     def _resolve_tables(
         self,
         name: str,
-        dml_statements: List[FlinkDmlStatement],
+        parsed: FlinkParsedStatement,
         properties: Dict[str, str],
     ) -> Optional[Tuple[List[str], List[str], Set[str]]]:
         """Topics this statement reads and writes in this cluster, plus other places.
 
-        None when a table has no catalog or database to place it.
+        Views and temporary tables the statement creates are left out wherever they
+        are written or read. None when a table has no catalog or database to place it.
         """
         default_catalog = properties.get(FLINK_PROP_CURRENT_CATALOG) or None
         default_database = properties.get(FLINK_PROP_CURRENT_DATABASE) or None
+
+        def location(table: exp.Table) -> Tuple[Optional[str], Optional[str], str]:
+            ref = table_ref(table)
+            return (
+                ref.catalog or default_catalog,
+                ref.database or default_database,
+                ref.table,
+            )
+
+        non_topics = {location(table) for table in parsed.created_non_topics}
         inputs: List[str] = []
         outputs: List[str] = []
         elsewhere: Set[str] = set()
-        for dml in dml_statements:
+        for dml in parsed.dml:
             for table, targets in [(dml.output, outputs)] + [
                 (t, inputs) for t in dml.inputs
             ]:
-                ref = table_ref(table)
-                catalog = ref.catalog or default_catalog
-                database = ref.database or default_database
+                catalog, database, topic = location(table)
+                if (catalog, database, topic) in non_topics:
+                    continue
                 if catalog is None or database is None:
                     self._fail(
                         name,
                         "Flink statement has a table whose environment or Kafka "
                         "cluster is not named and has no sql.current-catalog / "
                         "sql.current-database default",
-                        detail=f"table={ref.table}",
+                        detail=f"table={topic}",
                     )
                     return None
                 if catalog in self._catalogs and database in self._databases:
-                    targets.append(ref.table)
+                    targets.append(topic)
                 else:
-                    elsewhere.add(f"{catalog}.{database}.{ref.table}")
+                    elsewhere.add(f"{catalog}.{database}.{topic}")
         return deduplicate_list(inputs), deduplicate_list(outputs), elsewhere
 
     def _fail(
