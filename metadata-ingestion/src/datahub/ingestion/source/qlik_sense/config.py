@@ -250,9 +250,8 @@ class QlikSourceConfig(
     max_workers: Optional[int] = Field(
         default=None,
         ge=1,
-        description="Number of apps and datasets of one space or stream read at "
-        "the same time. Spaces and streams are read one after another. Each app "
-        "read holds one Engine session open. Defaults to 4 on-prem, where apps "
+        description="Number of apps and datasets read at the same time, across "
+        "all spaces and streams. Each app read holds one Engine session open. Defaults to 4 on-prem, where apps "
         "are opened without their data, and to 1 on Qlik Cloud, where every open "
         "app's data is loaded.",
     )

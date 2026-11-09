@@ -89,12 +89,19 @@ class QlikBaseAPI(ABC):
     def _sheet_meta(self, meta: Dict, sheet_id: str) -> Optional[Dict]:
         """Sheet fields from the sheet layout's qMeta, None to leave the sheet out."""
 
-    def get_items(self, space_id: str) -> Iterable[Item]:
+    def get_items(self, space_ids: Sequence[str]) -> Iterable[Item]:
+        """Items of all the spaces, read by one pool of workers, so sites with
+        many small spaces or streams are read in parallel too. Each space is
+        only listed when its items are needed."""
         # REST and Engine reads are network-bound; the GIL is only held while
         # decoding replies.
         for future in BackpressureAwareExecutor.map(
             self._load_item_or_record,
-            ((space_id, item) for item in self._list_items(space_id)),
+            (
+                (space_id, item)
+                for space_id in space_ids
+                for item in self._list_items(space_id)
+            ),
             max_workers=self.config.resolved_max_workers(),
         ):
             item = future.result()

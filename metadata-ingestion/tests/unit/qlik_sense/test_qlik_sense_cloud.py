@@ -105,7 +105,7 @@ def test_failed_request_is_recorded_as_unread(
     api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
     mock_session_cls.return_value.get.side_effect = requests.ConnectionError("down")
 
-    list(getattr(api, call)(*(["space-1"] if call == "get_items" else [])))
+    list(getattr(api, call)(*([["space-1"]] if call == "get_items" else [])))
 
     assert api.unread_items == [UnreadItem(name=unread, cause="down")]
 
@@ -642,7 +642,7 @@ def test_unexpected_item_error_is_recorded_and_other_items_kept(
         ),
         patch.object(api, "_load_item", side_effect=load),
     ):
-        items = list(api.get_items("space-1"))
+        items = list(api.get_items(["space-1"]))
 
     assert items == [app]
     assert [unread.name for unread in api.unread_items] == [

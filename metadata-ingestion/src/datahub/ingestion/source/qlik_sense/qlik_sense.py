@@ -977,7 +977,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         ).as_workunit()
 
     def _gen_item_workunits(
-        self, item: Item, space: Space
+        self, item: Item, space_name: str
     ) -> Iterable[MetadataWorkUnit]:
         if isinstance(item, App):
             if not item.read_complete:
@@ -991,7 +991,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 )
             self._apps_processed += 1
             logger.info(
-                f"Processed app {item.qTitle} in space {space.name} "
+                f"Processed app {item.qTitle} in space {space_name} "
                 f"({self._apps_processed} apps processed)"
             )
             if item.script_read_failed:
@@ -1018,17 +1018,21 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         """
         logger.info("Qlik Sense plugin execution is started")
         allowed_spaces = self._get_allowed_spaces()
-        for space_number, allowed_space in enumerate(allowed_spaces, start=1):
-            logger.info(
-                f"Reading space {space_number} of {len(allowed_spaces)}: {allowed_space.name}"
+        space_names = {space.id: space.name for space in allowed_spaces}
+        for space in allowed_spaces:
+            yield from self._gen_space_workunit(space)
+        logger.info(f"Reading the items of {len(allowed_spaces)} spaces")
+        # Items of all spaces share one pool of workers, so max_workers bounds
+        # the whole run.
+        for item in self.qlik_api.get_items(
+            [
+                "personal" if space.id == Constant.PERSONAL_SPACE_ID else space.id
+                for space in allowed_spaces
+            ]
+        ):
+            yield from self._gen_item_workunits(
+                item, space_names.get(item.spaceId, item.spaceId)
             )
-            yield from self._gen_space_workunit(allowed_space)
-            for item in self.qlik_api.get_items(
-                "personal"
-                if allowed_space.id == Constant.PERSONAL_SPACE_ID
-                else allowed_space.id
-            ):
-                yield from self._gen_item_workunits(item, allowed_space)
         failed_users = self.qlik_api.failed_user_lookups
         if failed_users:
             self.reporter.warning(
