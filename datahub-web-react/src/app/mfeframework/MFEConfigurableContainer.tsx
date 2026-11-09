@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
@@ -11,6 +11,7 @@ import {
 import analytics, { EventType, MfeLoadOutcome } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { ErrorComponent } from '@app/mfeframework/ErrorComponent';
+import { MFEConfigContext } from '@app/mfeframework/MFEConfigContext';
 import { MFEConfig } from '@app/mfeframework/mfeConfigLoader';
 import { buildSlotContext } from '@app/mfeframework/slots/slotContextBuilders';
 import { SlotContext } from '@app/mfeframework/slots/slotTypes';
@@ -206,7 +207,7 @@ type MFEMountProps = {
     /** Typed context for the slot this MFE is placed in. Memoize it: a new object remounts the remote. */
     ctx: SlotContext;
     minHeight?: number;
-    /** Remote-module load timeout: the yaml's loadTimeoutMs, else the default. */
+    /** Remote-module load timeout. Omitted => the shared config's `loadTimeoutMs`, else the default. */
     loadTimeoutMs?: number;
 };
 
@@ -218,9 +219,12 @@ export const MFEMount = ({
     config,
     ctx,
     minHeight = DEFAULT_MOUNT_MIN_HEIGHT,
-    loadTimeoutMs = DEFAULT_LOAD_TIMEOUT_MS,
+    loadTimeoutMs: loadTimeoutMsProp,
 }: MFEMountProps) => {
     const { t } = useTranslation('misc');
+    // Slot hosts don't thread the timeout through, so fall back to the config every MFE shares.
+    const { config: sharedConfig } = useContext(MFEConfigContext);
+    const loadTimeoutMs = loadTimeoutMsProp ?? sharedConfig?.loadTimeoutMs ?? DEFAULT_LOAD_TIMEOUT_MS;
     const box = useRef<HTMLDivElement>(null);
     const history = useHistory();
     const [hasError, setHasError] = useState(false);

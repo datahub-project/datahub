@@ -4,7 +4,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContainer';
+import { MFEConfigContext } from '@app/mfeframework/MFEConfigContext';
+import { MFEBaseConfigurablePage, MFEMount } from '@app/mfeframework/MFEConfigurableContainer';
 import * as navBarHooks from '@app/useShowNavBarRedesign';
 
 // Mock theme and navbar hooks
@@ -182,6 +183,59 @@ describe('MFEBaseConfigurablePage', () => {
         expect(screen.queryByText(`${yaml.label} is not available at this time`)).toBeNull();
 
         // Crossing the configured timeout triggers the error state well before the 10000ms default
+        act(() => {
+            vi.advanceTimersByTime(1);
+        });
+        await vi.waitFor(
+            () => {
+                expect(screen.getByText(`${yaml.label} is not available at this time`)).toBeInTheDocument();
+            },
+            { timeout: 1000 },
+        );
+
+        vi.useRealTimers();
+    }, 10000);
+
+    it('applies the shared config loadTimeoutMs to a slot mount that is not given one', async () => {
+        const yaml = validParsedYaml.microFrontends[0];
+        getRemoteMock.mockImplementation(() => new Promise(() => {}));
+        unwrapModuleMock.mockResolvedValue({});
+
+        vi.useFakeTimers();
+
+        render(
+            <MemoryRouter>
+                <ThemeProvider theme={sampleTheme as any}>
+                    <MFEConfigContext.Provider
+                        value={{
+                            provided: true,
+                            loading: false,
+                            config: {
+                                topLevelMenuTitle: '',
+                                subNavigationMode: false,
+                                microFrontends: [],
+                                loadTimeoutMs: 1000,
+                            },
+                        }}
+                    >
+                        <MFEMount
+                            config={yaml}
+                            ctx={{
+                                slot: 'entity.detail.tab',
+                                contractVersion: '1.0.0',
+                                entity: { urn: 'urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)', type: 'DATASET' },
+                            }}
+                        />
+                    </MFEConfigContext.Provider>
+                </ThemeProvider>
+            </MemoryRouter>,
+        );
+
+        await act(async () => {
+            vi.advanceTimersByTime(999);
+        });
+        expect(screen.queryByText(`${yaml.label} is not available at this time`)).toBeNull();
+
         act(() => {
             vi.advanceTimersByTime(1);
         });

@@ -58,7 +58,8 @@ DataHub waits a fixed amount of time for an MFE's remote module to load before g
 rendering the "not available at this time" error state. The default is **10000 ms**, which can be
 too short for a large bundle or a slow network.
 
-Set `loadTimeoutMs` (in milliseconds) at the top level to change it for every MFE:
+Set `loadTimeoutMs` (in milliseconds) at the top level to change it for every MFE, full pages and
+slot placements alike:
 
 ```yaml
 topLevelMenuTitle: My Apps
@@ -128,7 +129,7 @@ the fields below.
 | Event              | When it fires                                                                    | MFE-specific fields                                                         |
 | ------------------ | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | `MfePageViewEvent` | An `/mfe/<path>` route renders, whether reached from the nav bar or a direct URL | `mfeId`, `mfeLabel`, `mfePath`                                              |
-| `MfeLoadEvent`     | The remote module load settles, successfully or not                              | `mfeId`, `mfeLabel`, `outcome`, `durationMs`, `loadTimeoutMs`               |
+| `MfeLoadEvent`     | The remote module load settles, successfully or not, for a page or a slot entry  | `mfeId`, `mfeLabel`, `outcome`, `durationMs`, `loadTimeoutMs`               |
 | `NavBarItemClick`  | The MFE's nav bar entry is clicked                                               | `label` (the MFE label, or the menu title with `subLabel` in dropdown mode) |
 | `PageViewEvent`    | Any route change, including `/mfe/<path>`                                        | none (filter on the page path)                                              |
 

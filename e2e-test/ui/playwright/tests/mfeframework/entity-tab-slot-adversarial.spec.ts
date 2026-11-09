@@ -15,9 +15,11 @@ const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,mfe_slot_test_data
 const TAB_ID = 'rogue-stub';
 const TAB_LABEL = 'Rogue Stub';
 const TAB_PATH = `mfe-${TAB_ID}`;
-const HOST_LOAD_TIMEOUT_MS = 5000;
+// Set in the yaml below, so the hanging-remote case also proves slot tabs honor loadTimeoutMs.
+const HOST_LOAD_TIMEOUT_MS = 3000;
 
 const TAB_MFE = `subNavigationMode: false
+loadTimeoutMs: ${HOST_LOAD_TIMEOUT_MS}
 microFrontends:
   - id: ${TAB_ID}
     label: ${TAB_LABEL}
