@@ -9,7 +9,7 @@ audit-log caching and cleanup are exercised together.
 import json
 import pathlib
 from datetime import datetime, timezone
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
@@ -208,7 +208,7 @@ def test_query_log_fetch_is_skipped_when_no_query_feature_is_enabled() -> None:
 
 
 def test_default_temp_dir_is_not_leaked_across_runs() -> None:
-    temp_dirs = []
+    temp_dirs: List[pathlib.Path] = []
     for _ in range(3):
         extractor = _make_extractor(
             _dispatch_for({"SNOWFLAKE.ACCOUNT_USAGE.USERS": []}),
