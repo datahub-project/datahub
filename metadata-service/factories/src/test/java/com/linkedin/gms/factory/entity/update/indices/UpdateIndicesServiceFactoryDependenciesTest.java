@@ -36,7 +36,8 @@ import org.testng.annotations.Test;
 /**
  * Pins the beans {@link UpdateIndicesServiceFactory} requires. The context has no {@link
  * TimeseriesAspectService} and no {@link SearchDocumentTransformer}: the service never uses them,
- * so neither variant may require them.
+ * so neither variant may require them. Only this factory is pinned: the V2/V3 strategy beans from
+ * {@link UpdateIndicesStrategyFactory} still need both, and they are left off this context.
  */
 public class UpdateIndicesServiceFactoryDependenciesTest {
 
