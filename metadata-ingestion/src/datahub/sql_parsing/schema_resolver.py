@@ -32,12 +32,30 @@ from datahub.metadata.urns import DataPlatformUrn
 from datahub.sql_parsing._models import _TableName as _TableName
 from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
+from datahub.utilities.urn_aliases.provider import graph_urn_alias_resolver
+from datahub.utilities.urn_aliases.resolver import (
+    UrnAliasResolver,
+    dataset_aliases_backfilled,
+)
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 logger = logging.getLogger(__name__)
 
 # A lightweight table schema: column -> type mapping.
 SchemaInfo = Dict[str, str]
+
+# What a failed call to DataHub can raise; on any of them a lookup degrades to a miss.
+_GRAPH_ERRORS = (
+    TimeoutError,
+    ConnectionError,
+    OSError,
+    HTTPError,
+    json.JSONDecodeError,
+    ValueError,
+    KeyError,
+    GraphError,
+    AssertionError,
+)
 
 
 @dataclass
@@ -46,6 +64,11 @@ class SchemaResolverReport:
 
     num_schema_cache_hits: int = 0
     num_schema_cache_misses: int = 0
+    # Tables whose spelling matched no URN as-is, resolved by finding the single
+    # casing of that name DataHub stores.
+    num_resolved_via_stored_casing: int = 0
+    # Tables left unresolved because DataHub stores several casings of the name.
+    num_stored_casing_ambiguous: int = 0
 
 
 class GraphQLSchemaField(TypedDict):
@@ -112,6 +135,11 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self._original_field_paths: FileBackedDict[Dict[str, str]] = FileBackedDict(
             shared_connection=self._conn, tablename="original_field_paths"
         )
+
+        # The cached URNs indexed ignoring case; built by _cached_casings on first use.
+        self._stored_casings: Optional[UrnAliasResolver] = None
+        # Whether the graph can be asked for stored casings; decided on first use.
+        self._graph_aliases_usable: Optional[bool] = None
 
     @property
     def platform(self) -> str:
@@ -221,56 +249,17 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                     return candidate_urn, schema_info
 
         if self.graph:
-            # Skip URNs already in cache (None entries included) to avoid repeated API calls.
-            urns_to_fetch = [u for u in urns_to_try if u not in self._schema_cache]
-
-            if urns_to_fetch:
-                try:
-                    entity_results = self.graph.get_entities(
-                        entity_name="dataset",
-                        urns=urns_to_fetch,
-                        aspects=[SchemaMetadataClass.ASPECT_NAME],
-                        with_system_metadata=False,
-                    )
-
-                    for fetch_urn in urns_to_fetch:
-                        schema_metadata: Optional[SchemaMetadataClass] = None
-
-                        if fetch_urn in entity_results:
-                            entity_aspects = entity_results[fetch_urn]
-                            if SchemaMetadataClass.ASPECT_NAME in entity_aspects:
-                                aspect_value, _ = entity_aspects[
-                                    SchemaMetadataClass.ASPECT_NAME
-                                ]
-                                if isinstance(aspect_value, SchemaMetadataClass):
-                                    schema_metadata = aspect_value
-
-                        self.add_schema_metadata_from_fetch(fetch_urn, schema_metadata)
-
-                except (
-                    TimeoutError,
-                    ConnectionError,
-                    OSError,
-                    HTTPError,
-                    json.JSONDecodeError,
-                    ValueError,
-                    KeyError,
-                    GraphError,
-                    AssertionError,
-                ) as e:
-                    logger.warning(
-                        f"Batch schema fetch failed ({type(e).__name__}): {e}. "
-                        f"Caching {len(urns_to_fetch)} URN(s) as None to avoid repeated lookups.",
-                        exc_info=True,
-                    )
-                    for fetch_urn in urns_to_fetch:
-                        self._save_to_cache(fetch_urn, None)
+            self._fetch_uncached_urns(urns_to_try)
 
             for candidate_urn in urns_to_try:
                 schema_info = self._schema_cache.get(candidate_urn)
                 if schema_info is not None:
                     self._track_cache_hit()
                     return candidate_urn, schema_info
+
+        stored = self._resolve_stored_casing(urn, tried=urns_to_try)
+        if stored is not None:
+            return stored
 
         logger.debug(
             f"Schema resolution failed for table {table}. Tried URNs: "
@@ -279,6 +268,143 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self._track_cache_miss()
 
         return self.get_urn_for_unresolved_table(table), None
+
+    def _fetch_uncached_urns(self, urns: List[str]) -> None:
+        """Fetch and cache the schemas of any of ``urns`` not cached yet, in one call."""
+        if not self.graph:
+            return
+
+        # Skip URNs already in cache (None entries included) to avoid repeated API calls.
+        urns_to_fetch = [u for u in urns if u not in self._schema_cache]
+        if not urns_to_fetch:
+            return
+
+        try:
+            entity_results = self.graph.get_entities(
+                entity_name="dataset",
+                urns=urns_to_fetch,
+                aspects=[SchemaMetadataClass.ASPECT_NAME],
+                with_system_metadata=False,
+            )
+
+            for fetch_urn in urns_to_fetch:
+                schema_metadata: Optional[SchemaMetadataClass] = None
+
+                if fetch_urn in entity_results:
+                    entity_aspects = entity_results[fetch_urn]
+                    if SchemaMetadataClass.ASPECT_NAME in entity_aspects:
+                        aspect_value, _ = entity_aspects[
+                            SchemaMetadataClass.ASPECT_NAME
+                        ]
+                        if isinstance(aspect_value, SchemaMetadataClass):
+                            schema_metadata = aspect_value
+
+                self.add_schema_metadata_from_fetch(fetch_urn, schema_metadata)
+
+        except _GRAPH_ERRORS as e:
+            logger.warning(
+                f"Batch schema fetch failed ({type(e).__name__}): {e}. "
+                f"Caching {len(urns_to_fetch)} URN(s) as None to avoid repeated lookups.",
+                exc_info=True,
+            )
+            for fetch_urn in urns_to_fetch:
+                self._save_to_cache(fetch_urn, None)
+
+    def _cached_casings(self) -> UrnAliasResolver:
+        """The cached URNs indexed ignoring case, built on first use.
+
+        Covers what a graph search cannot: datasets written earlier in this run, and
+        runs without a graph at all. Built lazily because most resolvers never need
+        it, and many are short-lived (one per parsed query in some sources), so an
+        eager index would cost each of them a second sqlite database.
+        """
+        if self._stored_casings is None:
+            self._stored_casings = UrnAliasResolver()
+            for row in self._schema_cache.sql_query(
+                f"SELECT key FROM {self._schema_cache.tablename} WHERE NOT is_missing"
+            ):
+                self._stored_casings.add(row[0])
+        return self._stored_casings
+
+    def _resolve_stored_casing(
+        self, urn: str, tried: List[str]
+    ) -> Optional[Tuple[str, Optional[SchemaInfo]]]:
+        """Resolve to the casing DataHub stores for a name no candidate matched.
+
+        A query rarely spells a name the way it is stored: users write `mytable` for
+        a `MyTable`, the parser folds unquoted identifiers, and sources build URNs per
+        identifier (Oracle stores `MY_SCHEMA."MixedCase"` as `my_schema.MixedCase`).
+        So rather than guess more spellings, look up which casings exist.
+
+        An exact match wins whatever other casings exist: the query's spelling names
+        a real dataset, which only got this far for lacking a schema. Otherwise only
+        a unique match is adopted; with several, nothing here can tell which one was
+        meant, and none is guessed.
+        """
+        if not self._prefers_urn_lower():
+            # On a case-sensitive platform a case variant is a different table.
+            return None
+
+        matches = list(self._cached_casings().find_match(urn))
+        for match in self._find_stored_casings_in_graph(urn):
+            if match not in matches:
+                matches.append(match)
+
+        if urn in matches:
+            match = urn
+        elif len(matches) == 1:
+            (match,) = matches
+        else:
+            if matches:
+                logger.debug(
+                    f"Not resolving {urn}: DataHub stores several casings of it: "
+                    f"{matches}"
+                )
+                if self.report is not None:
+                    self.report.num_stored_casing_ambiguous += 1
+            return None
+
+        self._fetch_uncached_urns([match])
+        schema_info = self._schema_cache.get(match)
+        if self.report is not None and match not in tried:
+            self.report.num_resolved_via_stored_casing += 1
+        if schema_info is None:
+            self._track_cache_miss()
+        else:
+            self._track_cache_hit()
+        # The stored URN is returned even without a schema: it names the real dataset,
+        # where the fallback would name one that does not exist.
+        return match, schema_info
+
+    def _find_stored_casings_in_graph(self, urn: str) -> List[str]:
+        if self.graph is None:
+            return []
+
+        if self._graph_aliases_usable is None:
+            try:
+                # Before the aliases backfill, a search miss is not an absence and a
+                # hit may lack other casings, so the graph is not asked at all.
+                self._graph_aliases_usable = dataset_aliases_backfilled(self.graph)
+            except _GRAPH_ERRORS as e:
+                logger.warning(
+                    f"Could not check the dataset aliases backfill ({type(e).__name__}): "
+                    f"{e}. Not looking up stored casings in DataHub for this run.",
+                    exc_info=True,
+                )
+                self._graph_aliases_usable = False
+        if not self._graph_aliases_usable:
+            return []
+
+        try:
+            return graph_urn_alias_resolver(self.graph).find_match(urn)
+        except _GRAPH_ERRORS as e:
+            logger.warning(
+                f"Stored casing lookup failed ({type(e).__name__}): {e}. "
+                "Not looking up stored casings in DataHub for the rest of this run.",
+                exc_info=True,
+            )
+            self._graph_aliases_usable = False
+            return []
 
     def resolve_table_parts(
         self,
@@ -389,6 +515,8 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         original_field_paths: Optional[Dict[str, str]] = None,
     ) -> None:
         self._schema_cache[urn] = schema_info
+        if schema_info is not None and self._stored_casings is not None:
+            self._stored_casings.add(urn)
         if original_field_paths:
             self._original_field_paths[urn] = original_field_paths
         else:
@@ -405,6 +533,8 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def close(self) -> None:
         # Closes (and flushes) both dicts; a temp-directory connection is removed.
         self._conn.close()
+        if self._stored_casings is not None:
+            self._stored_casings.close()
 
 
 class _SchemaResolverWithExtras(SchemaResolverInterface):

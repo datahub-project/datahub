@@ -1,6 +1,6 @@
 import json
 import pathlib
-from typing import List
+from typing import List, Optional
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,11 +10,17 @@ from sqlglot.expressions import Table
 
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
+from datahub.metadata.schema_classes import (
+    DataHubUpgradeResultClass,
+    DataHubUpgradeStateClass,
+    SchemaFieldClass,
+    SchemaMetadataClass,
+)
 from datahub.sql_parsing.schema_resolver import (
     GraphQLSchemaMetadata,
     SchemaInfo,
     SchemaResolver,
+    SchemaResolverReport,
     _SchemaResolverWithExtras,
     _TableName,
     match_columns_to_schema,
@@ -292,7 +298,12 @@ class TestResolveTableBatching:
 
         assert schema_info is None
         assert mock_graph.get_entities.call_count == 1
-        mock_graph.get_aspect.assert_not_called()
+        # get_aspect is also how the stored-casing lookup reads the aliases backfill
+        # marker; only a per-URN schema fetch would be a fallback.
+        assert all(
+            call.args[1] is not SchemaMetadataClass
+            for call in mock_graph.get_aspect.call_args_list
+        )
 
         # Verify URNs are cached as None to prevent repeated lookups
         resolved_urn2, schema_info2 = schema_resolver.resolve_table(table)
@@ -865,3 +876,124 @@ def test_reopened_cache_file_restores_schemas_and_original_field_paths(tmp_path)
         "col_a": "[version=2.0].[type=long].col_a",
         "Col_B": "[version=2.0].[type=string].Col_B",
     }
+
+
+class TestStoredCasingLookup:
+    """After the usual candidates miss, resolve_table looks the name up ignoring case
+    among the URNs DataHub actually stores, and adopts a match only when it is unique.
+    """
+
+    STORED = "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.public.MyTable,PROD)"
+    TABLE = _TableName(database="my_db", db_schema="public", table="mytable")
+
+    @staticmethod
+    def _graph(backfill_state: Optional[str]) -> MagicMock:
+        graph = MagicMock(spec=DataHubGraph)
+        graph.get_aspect.return_value = (
+            DataHubUpgradeResultClass(timestampMs=0, state=backfill_state)
+            if backfill_state is not None
+            else None
+        )
+        graph.get_entities.return_value = {}
+        return graph
+
+    def test_resolves_from_the_cache_without_a_graph(self):
+        # Also the same-run case: a dataset ingested earlier in this run is only in
+        # the cache, and is not searchable in DataHub yet.
+        report = SchemaResolverReport()
+        resolver = SchemaResolver(platform="postgres", env="PROD", report=report)
+        resolver.add_raw_schema_info(self.STORED, {"MyCol": "int"})
+
+        assert resolver.resolve_table(self.TABLE) == (self.STORED, {"MyCol": "int"})
+        assert report.num_resolved_via_stored_casing == 1
+
+    def test_resolves_from_the_graph_once_backfilled(self):
+        graph = self._graph(DataHubUpgradeStateClass.SUCCEEDED)
+        graph.get_dataset_urns_ignoring_case.return_value = [self.STORED]
+        graph.get_entities.side_effect = lambda **kwargs: {
+            urn: {"schemaMetadata": (create_mock_schema([("MyCol", "int")]), {})}
+            for urn in kwargs["urns"]
+            if urn == self.STORED
+        }
+        resolver = SchemaResolver(platform="postgres", env="PROD", graph=graph)
+
+        assert resolver.resolve_table(self.TABLE) == (self.STORED, {"MyCol": "int"})
+        graph.get_dataset_urns_ignoring_case.assert_called_once_with(
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.public.mytable,PROD)"
+        )
+
+    @pytest.mark.parametrize(
+        "backfill_state", [None, DataHubUpgradeStateClass.IN_PROGRESS]
+    )
+    def test_skips_the_graph_until_backfilled(self, backfill_state):
+        # Before the backfill a search miss is not an absence, and a hit may be
+        # missing other casings, so the graph is not asked at all.
+        graph = self._graph(backfill_state)
+        resolver = SchemaResolver(platform="postgres", env="PROD", graph=graph)
+
+        urn, schema_info = resolver.resolve_table(self.TABLE)
+
+        assert schema_info is None
+        assert urn == resolver.get_urn_for_unresolved_table(self.TABLE)
+        graph.get_dataset_urns_ignoring_case.assert_not_called()
+
+    def test_ambiguous_casings_are_not_guessed(self):
+        report = SchemaResolverReport()
+        resolver = SchemaResolver(platform="postgres", env="PROD", report=report)
+        resolver.add_raw_schema_info(self.STORED, {"MyCol": "int"})
+        resolver.add_raw_schema_info(self.STORED.replace("MyTable", "MYTABLE"), {})
+
+        urn, schema_info = resolver.resolve_table(self.TABLE)
+
+        assert schema_info is None
+        assert urn == resolver.get_urn_for_unresolved_table(self.TABLE)
+        assert report.num_stored_casing_ambiguous == 1
+        assert report.num_resolved_via_stored_casing == 0
+
+    def test_ambiguous_casings_prefer_the_spelling_the_query_used(self):
+        # A quoted identifier keeps its case through parsing, so the exact candidate
+        # picks it out before the case-insensitive lookup is consulted at all.
+        resolver = SchemaResolver(platform="postgres", env="PROD")
+        resolver.add_raw_schema_info(self.STORED, {"MyCol": "int"})
+        resolver.add_raw_schema_info(self.STORED.replace("MyTable", "MYTABLE"), {})
+
+        table = _TableName(database="my_db", db_schema="public", table="MyTable")
+        assert resolver.resolve_table(table) == (self.STORED, {"MyCol": "int"})
+
+    def test_exact_match_wins_among_casings_even_without_a_schema(self):
+        # The exact URN exists but has no schemaMetadata, so the exact candidate
+        # finds no schema. It still names a real dataset, and must win over the
+        # other casing rather than falling back to the lowercased URN. Nothing was
+        # recovered, so neither stored-casing counter moves.
+        lowercased = self.STORED.replace("MyTable", "mytable")
+        graph = self._graph(DataHubUpgradeStateClass.SUCCEEDED)
+        graph.get_dataset_urns_ignoring_case.return_value = [self.STORED, lowercased]
+        report = SchemaResolverReport()
+        resolver = SchemaResolver(
+            platform="postgres", env="PROD", graph=graph, report=report
+        )
+
+        table = _TableName(database="my_db", db_schema="public", table="MyTable")
+        assert resolver.resolve_table(table) == (self.STORED, None)
+        assert report.num_resolved_via_stored_casing == 0
+        assert report.num_stored_casing_ambiguous == 0
+
+    def test_finds_schemas_cached_after_the_first_lookup(self):
+        resolver = SchemaResolver(platform="postgres", env="PROD")
+        assert resolver.resolve_table(self.TABLE)[1] is None
+
+        resolver.add_raw_schema_info(self.STORED, {"MyCol": "int"})
+
+        assert resolver.resolve_table(self.TABLE) == (self.STORED, {"MyCol": "int"})
+
+    def test_case_sensitive_platforms_do_not_match_across_case(self):
+        # On BigQuery `mytable` and `MyTable` are different tables.
+        stored = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.MyTable,PROD)"
+        resolver = SchemaResolver(platform="bigquery", env="PROD")
+        resolver.add_raw_schema_info(stored, {"MyCol": "int"})
+
+        _, schema_info = resolver.resolve_table(
+            _TableName(database="my_project", db_schema="my_dataset", table="mytable")
+        )
+
+        assert schema_info is None
