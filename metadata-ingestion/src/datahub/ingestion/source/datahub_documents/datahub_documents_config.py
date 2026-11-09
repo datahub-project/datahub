@@ -267,6 +267,8 @@ class DataHubDocumentsSourceConfig(
     )
     partition_timeout_seconds: float = Field(
         default=DEFAULT_PARTITION_TIMEOUT_SECONDS,
+        ge=0,
+        allow_inf_nan=False,
         description="Maximum CPU seconds to partition one document; slower documents are "
         "skipped and counted in the report. Measured as CPU time rather than wall-clock "
         "time, so a busy or throttled executor does not cause timeouts; time spent "
@@ -274,7 +276,7 @@ class DataHubDocumentsSourceConfig(
         "limit. Only enforced when the source runs "
         "on the main thread of a POSIX platform. Documents that already timed out are not "
         "retried after the limit is raised until their content changes; run once with "
-        "incremental.force_reprocess: true to retry them.",
+        "incremental.force_reprocess: true to retry them (this re-embeds every document).",
     )
     # Override from base class to enable stateful ingestion by default
     # This ensures stateful ingestion is always available for:

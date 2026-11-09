@@ -5385,9 +5385,6 @@ class TestMarkdownLinkGuard:
             [e.to_dict() for e in partition_md(text=text)]
         )
 
-    def test_config_default_timeout(self):
-        assert _make_config().partition_timeout_seconds == 30.0
-
 
 def _burn_cpu(seconds: float) -> None:
     # The limit counts user CPU time, so the mocks must burn it: sleeping wouldn't
@@ -5433,6 +5430,25 @@ def _waiting_partition_md(**kwargs: Any) -> list:
 class TestPartitionTimeout:
     # Elapsed time is measured as CPU time, like the limit, so a loaded CI machine
     # can't make these flaky.
+
+    def test_config_default_timeout(self):
+        assert _make_config().partition_timeout_seconds == 30.0
+
+    @pytest.mark.parametrize("value", [-1, float("inf"), float("nan")])
+    def test_config_rejects_invalid_timeout(self, value):
+        with pytest.raises(ValueError):
+            _make_config(partition_timeout_seconds=value)
+
+    def test_existing_virtual_timer_is_left_alone(self):
+        previous = signal.signal(signal.SIGVTALRM, signal.SIG_IGN)
+        signal.setitimer(signal.ITIMER_VIRTUAL, 1000)
+        try:
+            TextPartitioner(timeout_seconds=5).partition_text("Some text.")
+            assert signal.getitimer(signal.ITIMER_VIRTUAL)[0] > 0
+            assert signal.getsignal(signal.SIGVTALRM) == signal.SIG_IGN
+        finally:
+            signal.setitimer(signal.ITIMER_VIRTUAL, 0)
+            signal.signal(signal.SIGVTALRM, previous)
 
     def test_timeout_passes_through_except_exception(self):
         with patch(

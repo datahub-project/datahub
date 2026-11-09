@@ -143,16 +143,20 @@ class TextPartitioner:
     def _can_enforce_time_limit(self) -> bool:
         if self.timeout_seconds <= 0:
             return False
-        if (
+        reason: Optional[str] = None
+        if not (
             hasattr(signal, "SIGVTALRM")
             and threading.current_thread() is threading.main_thread()
         ):
+            reason = "SIGVTALRM is only available on the main thread of POSIX platforms"
+        elif signal.getitimer(signal.ITIMER_VIRTUAL)[0] > 0:
+            # The timer is process-wide; arming ours would overwrite and then clear a
+            # timer some other code in the process (e.g. a profiler) relies on.
+            reason = "another ITIMER_VIRTUAL timer is already armed in this process"
+        if reason is None:
             return True
         if not self._logged_no_time_limit:
-            logger.debug(
-                "Partition time limit not enforced: SIGVTALRM is only available "
-                "on the main thread of POSIX platforms"
-            )
+            logger.debug(f"Partition time limit not enforced: {reason}")
             self._logged_no_time_limit = True
         return False
 

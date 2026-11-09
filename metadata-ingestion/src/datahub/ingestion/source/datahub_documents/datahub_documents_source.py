@@ -1842,8 +1842,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 title="Document partitioning timed out",
                 message="Partitioning exceeded partition_timeout_seconds, so the document "
                 f"was skipped (limit {self.config.partition_timeout_seconds:g}s of CPU "
-                "time). It is "
-                "retried when its content changes.",
+                "time). With incremental processing on, it is not retried until its "
+                "content changes.",
                 context=document_urn,
             )
             # The marker drops this pipeline's embeddings, which were built from an

@@ -614,7 +614,7 @@ As of December 2024 in us-west-2:
 - **No Binary Content:** Images, PDFs, etc. must be converted to text first
 - **Markdown Partitioning:** Uses `unstructured.partition.md` which may not handle all markdown variants
 - **Links and Images Kept as Text:** Markdown link and image syntax (for example `[docs](https://example.com)`) is not parsed and stays in the chunked text as written. This works around a denial of service in Python-Markdown (CVE-2019-25781) and will be removed once a fixed release is available.
-- **Partition Time Limit:** A document that takes more than `partition_timeout_seconds` (default 30) of CPU time to partition is skipped. Its existing embeddings are removed, and it is retried only when its content changes. The limit is only enforced when the source runs on the main thread of a POSIX platform, which is the case for `datahub ingest`.
+- **Partition Time Limit:** A document that takes more than `partition_timeout_seconds` (default 30) of CPU time to partition is skipped. Its existing embeddings are removed, and with incremental processing on (the default) it is retried only when its content changes. The limit is only enforced when the source runs on the main thread of a POSIX platform, which is the case for `datahub ingest`.
 
 #### Platform Filtering
 
@@ -797,7 +797,7 @@ The report shows `num_documents_partition_timeout` above zero, and the log warns
    partition_timeout_seconds: 120
    ```
 
-3. Timed-out documents are not retried until their content changes. After raising the limit, run the source once with `incremental.force_reprocess: true` to retry them.
+3. With incremental processing on (the default), timed-out documents are not retried until their content changes. To retry them after raising the limit, run once with `incremental.force_reprocess: true`. This re-embeds every document, so expect the full embedding cost.
 
 #### Troubleshooting
 
