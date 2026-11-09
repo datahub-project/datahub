@@ -1261,7 +1261,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_item_workunits(
         self,
         item: Union[Item, UnchangedApp],
-        space: Space,
+        space_name: str,
         record_state: bool,
     ) -> Iterable[MetadataWorkUnit]:
         if isinstance(item, UnchangedApp):
@@ -1269,7 +1269,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         elif isinstance(item, App):
             self.reporter.apps_read += 1
             logger.info(
-                f"Processed app {item.qTitle} in space {space.name} "
+                f"Processed app {item.qTitle} in space {space_name} "
                 f"({self.reporter.apps_read} apps read from the Engine)"
             )
             if (
@@ -1326,22 +1326,24 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         record_state = self.app_state.is_checkpointing_enabled()
         if skip_unchanged:
             self._init_fingerprint_salt()
-        for space_number, allowed_space in enumerate(allowed_spaces, start=1):
-            logger.info(
-                f"Reading space {space_number} of {len(allowed_spaces)}: {allowed_space.name}"
+        space_names = {space.id: space.name for space in allowed_spaces}
+        for space in allowed_spaces:
+            yield from self._gen_space_workunit(space)
+        logger.info(f"Reading the items of {len(allowed_spaces)} spaces")
+        # Items of all spaces share one pool of workers, so max_workers bounds
+        # the whole run.
+        items = self.qlik_api.get_items(
+            [
+                "personal" if space.id == Constant.PERSONAL_SPACE_ID else space.id
+                for space in allowed_spaces
+            ],
+            is_unchanged=self._is_app_unchanged if skip_unchanged else None,
+        )
+        for item in items:
+            space_id = getattr(item, "spaceId", "")
+            yield from self._gen_item_workunits(
+                item, space_names.get(space_id, space_id), record_state
             )
-            yield from self._gen_space_workunit(allowed_space)
-            space_id = (
-                "personal"
-                if allowed_space.id == Constant.PERSONAL_SPACE_ID
-                else allowed_space.id
-            )
-            items = self.qlik_api.get_items(
-                space_id,
-                is_unchanged=self._is_app_unchanged if skip_unchanged else None,
-            )
-            for item in items:
-                yield from self._gen_item_workunits(item, allowed_space, record_state)
         change_check_failures = [
             *self.qlik_api.change_check_failures,
             *self._change_check_failures,
