@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 import signal
 import threading
 import time
@@ -5422,7 +5423,40 @@ def _slow_partition_md(**kwargs: Any) -> list:
     return []
 
 
+def _swallowing_partition_md(**kwargs: Any) -> list:
+    # Mimics a library with a broad `except` around slow work.
+    try:
+        time.sleep(5)
+    except PartitionTimeoutError:
+        pass
+    time.sleep(5)
+    return []
+
+
 class TestPartitionTimeout:
+    def test_timeout_survives_a_swallowed_alarm(self):
+        with patch("unstructured.partition.md.partition_md", _swallowing_partition_md):
+            start = time.monotonic()
+            with pytest.raises(PartitionTimeoutError):
+                TextPartitioner(timeout_seconds=0.5).partition_text("some text")
+            assert time.monotonic() - start < 3
+        assert signal.getitimer(signal.ITIMER_REAL) == (0.0, 0.0)
+
+    def test_language_profiles_load_before_the_time_limit(self):
+        from langdetect import detector_factory
+
+        with (
+            patch.object(detector_factory, "_factory", None),
+            patch("unstructured.partition.md.partition_md", _slow_partition_md),
+        ):
+            with pytest.raises(PartitionTimeoutError):
+                TextPartitioner(timeout_seconds=0.1).partition_text("some text")
+            # Fully loaded, not left half-built by an interrupted first load.
+            assert detector_factory._factory is not None
+            assert len(detector_factory._factory.get_lang_list()) == len(
+                os.listdir(detector_factory.PROFILES_DIRECTORY)
+            )
+
     def test_timeout_fires_and_restores_handler(self):
         def previous(signum: int, frame: Any) -> None:
             pass
@@ -5479,16 +5513,18 @@ class TestPartitionTimeout:
             mock_state_handler = Mock()
             mock_state_handler.get_document_hash.return_value = "old-hash"
             source.state_handler = mock_state_handler
-            source.graph.get_aspect = Mock(
-                side_effect=existing_semantic_content,
-                return_value=None,
-            )
             docs = [
                 {"urn": "urn:li:document:slow", "text": text},
                 {"urn": "urn:li:document:next", "text": text},
             ]
             with (
                 patch.object(source, "_fetch_documents_graphql", return_value=docs),
+                patch.object(
+                    source.graph,
+                    "get_aspect",
+                    side_effect=existing_semantic_content,
+                    return_value=None,
+                ),
                 patch.object(
                     source.text_partitioner,
                     "partition_text",

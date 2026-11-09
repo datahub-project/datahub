@@ -272,7 +272,9 @@ class DataHubDocumentsSourceConfig(
         default=30.0,
         description="Maximum seconds to partition one document; slower documents are skipped "
         "and counted in the report. 0 disables the limit. Only enforced when the source runs "
-        "on the main thread of a POSIX platform.",
+        "on the main thread of a POSIX platform. Documents that already timed out are not "
+        "retried after the limit is raised until their content changes; run once with "
+        "incremental.force_reprocess: true to retry them.",
     )
     # Override from base class to enable stateful ingestion by default
     # This ensures stateful ingestion is always available for:

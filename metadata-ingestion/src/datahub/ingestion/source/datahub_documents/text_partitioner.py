@@ -5,7 +5,7 @@ import logging
 import signal
 import threading
 from types import FrameType
-from typing import Any, Iterator, Optional
+from typing import Any, Callable, ContextManager, Iterator, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -14,8 +14,29 @@ logger = logging.getLogger(__name__)
 _DEFAULT_MARKDOWN_EXTENSIONS = ("tables", "fenced_code")
 
 
+# After the first alarm, keep re-raising at this interval: code under the limit can
+# catch PartitionTimeoutError in a broad `except` (Python-Markdown has one) and carry on.
+_REARM_INTERVAL_SECONDS = 0.5
+
+
+# What signal.signal() accepts and returns (signal.Handlers is an int enum).
+_SignalHandler = Union[Callable[[int, Optional[FrameType]], Any], int, None]
+
+
 class PartitionTimeoutError(Exception):
     """Raised when partitioning one document exceeds the configured time limit."""
+
+
+def _disarm(previous_handler: _SignalHandler) -> None:
+    # The re-arming alarm can fire during cleanup; retry, or the timer would stay on
+    # and keep raising in whatever code runs after the limited block.
+    while True:
+        try:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            signal.signal(signal.SIGALRM, previous_handler)
+            return
+        except PartitionTimeoutError:
+            continue
 
 
 @contextlib.contextmanager
@@ -32,11 +53,22 @@ def _time_limit(seconds: float) -> Iterator[None]:
 
     previous_handler = signal.signal(signal.SIGALRM, _on_alarm)
     try:
-        signal.setitimer(signal.ITIMER_REAL, seconds)
+        signal.setitimer(signal.ITIMER_REAL, seconds, _REARM_INTERVAL_SECONDS)
         yield
     finally:
-        signal.setitimer(signal.ITIMER_REAL, 0)
-        signal.signal(signal.SIGALRM, previous_handler)
+        _disarm(previous_handler)
+
+
+def _preload_language_profiles() -> None:
+    # langdetect loads its profiles into a process-wide factory on first use, under a
+    # bare `except:` that unstructured then logs and ignores. An alarm landing there
+    # would be swallowed and leave the factory half-loaded for the rest of the run,
+    # so load it before any time limit starts. init_factory() is a no-op once loaded.
+    try:
+        from langdetect.detector_factory import init_factory
+    except ModuleNotFoundError:
+        return
+    init_factory()
 
 
 class TextPartitioner:
@@ -97,11 +129,11 @@ class TextPartitioner:
             logger.debug("Empty text provided, returning empty element list")
             return []
 
-        time_limit = (
-            _time_limit(self.timeout_seconds)
-            if self._can_enforce_time_limit()
-            else contextlib.nullcontext()
-        )
+        if self._can_enforce_time_limit():
+            _preload_language_profiles()
+            time_limit: ContextManager[None] = _time_limit(self.timeout_seconds)
+        else:
+            time_limit = contextlib.nullcontext()
         with time_limit:
             if self.disable_markdown_link_parsing:
                 from datahub.ingestion.source.datahub_documents.markdown_link_guard import (
