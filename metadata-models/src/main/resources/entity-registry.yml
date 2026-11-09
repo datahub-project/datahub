@@ -356,6 +356,7 @@ entities:
     keyAspect: documentKey
     aspects:
       - documentInfo
+      - okfProperties
       - documentSettings
       - status
       - ownership
