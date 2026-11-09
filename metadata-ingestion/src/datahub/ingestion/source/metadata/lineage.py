@@ -223,16 +223,22 @@ def _get_lineage_mcp(
             aspects=["upstreamLineage"],
             typed=True,
         ).get("upstreamLineage")
-        if old_upstream_lineage:
-            # Can't seem to get mypy to be happy about
-            # `Argument 1 to "list" has incompatible type "Optional[Any]";
-            # expected "Iterable[UpstreamClass]"`
-            new_upstreams.extend(old_upstream_lineage.get("upstreams"))  # type: ignore
+        if isinstance(old_upstream_lineage, models.UpstreamLineageClass):
+            new_upstreams.extend(old_upstream_lineage.upstreams)
+            # The aspect is written whole, so column lineage that is already
+            # there must be carried over or this run deletes it.
+            new_fine_grained_lineages.extend(
+                old_upstream_lineage.fineGrainedLineages or []
+            )
 
+    existing_upstream_urns = {upstream.dataset for upstream in new_upstreams}
     for upstream_entity_node in entity_node.upstream:
         upstream_entity = upstream_entity_node.entity
         upstream_entity_urn = _get_entity_urn(upstream_entity)
+        if upstream_entity_urn in existing_upstream_urns:
+            continue
         if upstream_entity_urn:
+            existing_upstream_urns.add(upstream_entity_urn)
             new_upstreams.append(
                 models.UpstreamClass(
                     dataset=upstream_entity_urn,
@@ -248,19 +254,19 @@ def _get_lineage_mcp(
                 f"Upstream lineage will be skipped for {upstream_entity.name}->{entity.name}"
             )
     for fine_grained_lineage in entity_node.fineGrainedLineages or []:
-        new_fine_grained_lineages.append(
-            models.FineGrainedLineageClass(
-                upstreams=fine_grained_lineage.upstreams,
-                upstreamType=fine_grained_lineage.upstreamType,
-                downstreams=fine_grained_lineage.downstreams,
-                downstreamType=fine_grained_lineage.downstreamType,
-                confidenceScore=fine_grained_lineage.confidenceScore,
-                # Cut before EnsureAspectSizeProcessor measures it; make_mcp() cuts only later.
-                transformOperation=cap_transform_operation(
-                    fine_grained_lineage.transformOperation
-                ),
-            )
+        new_fine_grained_lineage = models.FineGrainedLineageClass(
+            upstreams=fine_grained_lineage.upstreams,
+            upstreamType=fine_grained_lineage.upstreamType,
+            downstreams=fine_grained_lineage.downstreams,
+            downstreamType=fine_grained_lineage.downstreamType,
+            confidenceScore=fine_grained_lineage.confidenceScore,
+            # Cut before EnsureAspectSizeProcessor measures it; make_mcp() cuts only later.
+            transformOperation=cap_transform_operation(
+                fine_grained_lineage.transformOperation
+            ),
         )
+        if new_fine_grained_lineage not in new_fine_grained_lineages:
+            new_fine_grained_lineages.append(new_fine_grained_lineage)
 
     return MetadataChangeProposalWrapper(
         entityUrn=entity_urn,
