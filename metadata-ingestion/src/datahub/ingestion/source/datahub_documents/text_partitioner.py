@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 _DEFAULT_MARKDOWN_EXTENSIONS = ("tables", "fenced_code")
 
 # Shared by the source config, TextPartitioner and embed_document so they can't drift.
-DEFAULT_DISABLE_MARKDOWN_LINK_PARSING = True
 DEFAULT_PARTITION_TIMEOUT_SECONDS = 30.0
 
 # After the first alarm, keep re-raising at this interval: code under the limit can
@@ -116,11 +115,8 @@ class TextPartitioner:
     _language_profiles_load_failed: ClassVar[bool] = False
 
     def __init__(
-        self,
-        disable_markdown_link_parsing: bool = DEFAULT_DISABLE_MARKDOWN_LINK_PARSING,
-        timeout_seconds: float = DEFAULT_PARTITION_TIMEOUT_SECONDS,
+        self, timeout_seconds: float = DEFAULT_PARTITION_TIMEOUT_SECONDS
     ) -> None:
-        self.disable_markdown_link_parsing = disable_markdown_link_parsing
         self.timeout_seconds = timeout_seconds
         self._logged_no_time_limit = False
 
@@ -195,21 +191,19 @@ class TextPartitioner:
             time_limit: ContextManager[None] = _TimeLimit(self.timeout_seconds)
         else:
             time_limit = contextlib.nullcontext()
-        with time_limit:
-            if self.disable_markdown_link_parsing:
-                from datahub.ingestion.source.datahub_documents.markdown_link_guard import (
-                    NoInlineLinksExtension,
-                )
+        # Imported here, not at module level: it imports markdown, which is only
+        # installed with the unstructured extra.
+        from datahub.ingestion.source.datahub_documents.markdown_link_guard import (
+            NoInlineLinksExtension,
+        )
 
-                elements = partition_md(
-                    text=text,
-                    extensions=[
-                        *_DEFAULT_MARKDOWN_EXTENSIONS,
-                        NoInlineLinksExtension(),
-                    ],
-                )
-            else:
-                elements = partition_md(text=text)
+        with time_limit:
+            # Link and image syntax is kept as literal text (CVE-2019-25781 workaround;
+            # see markdown_link_guard).
+            elements = partition_md(
+                text=text,
+                extensions=[*_DEFAULT_MARKDOWN_EXTENSIONS, NoInlineLinksExtension()],
+            )
 
         # Convert to dict format expected by chunking
         element_dicts = [elem.to_dict() for elem in elements]

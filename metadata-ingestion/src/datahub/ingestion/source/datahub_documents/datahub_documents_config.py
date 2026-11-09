@@ -9,7 +9,6 @@ from datahub.ingestion.source.datahub_documents.document_chunking_state_handler 
     DocumentChunkingStatefulIngestionConfig,
 )
 from datahub.ingestion.source.datahub_documents.text_partitioner import (
-    DEFAULT_DISABLE_MARKDOWN_LINK_PARSING,
     DEFAULT_PARTITION_TIMEOUT_SECONDS,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -265,12 +264,6 @@ class DataHubDocumentsSourceConfig(
         description="Minimum text length in characters to process. Default 0 "
         "processes all non-empty documents; set > 0 to skip short documents. "
         "Empty documents are always skipped.",
-    )
-    disable_markdown_link_parsing: bool = Field(
-        default=DEFAULT_DISABLE_MARKDOWN_LINK_PARSING,
-        description="Workaround for a Python-Markdown denial of service (CVE-2019-25781): parse "
-        "Document text without Markdown link/image syntax, which is kept as literal text. "
-        "Temporary; will be removed once a fixed Python-Markdown release is pinned.",
     )
     partition_timeout_seconds: float = Field(
         default=DEFAULT_PARTITION_TIMEOUT_SECONDS,

@@ -5342,7 +5342,7 @@ def _texts(elements: list[dict[str, Any]]) -> str:
 
 
 class TestMarkdownLinkGuard:
-    """CVE-2019-25781 workaround: Markdown link parsing is off by default."""
+    """CVE-2019-25781 workaround: Markdown link and image syntax is not parsed."""
 
     def test_extension_removes_link_patterns(self):
         import markdown
@@ -5362,28 +5362,15 @@ class TestMarkdownLinkGuard:
         )
         assert time.monotonic() - start < 5
 
-    def test_flag_on_keeps_link_syntax_literal(self):
+    def test_link_syntax_kept_as_literal_text(self):
         elements = TextPartitioner().partition_text(
             "See [docs](https://x) here for the details."
         )
         assert "[docs](https://x)" in _texts(elements)
 
-    def test_flag_off_parses_links_as_before(self):
-        from unstructured.partition import md as unstructured_md
-
-        with patch.object(
-            unstructured_md, "partition_md", wraps=unstructured_md.partition_md
-        ) as spy:
-            elements = TextPartitioner(
-                disable_markdown_link_parsing=False
-            ).partition_text("See [docs](https://x) here for the details.")
-
-        text = _texts(elements)
-        assert "docs" in text
-        assert "[docs]" not in text
-        assert "extensions" not in spy.call_args.kwargs
-
     def test_documents_without_links_are_unchanged(self):
+        from unstructured.partition.md import partition_md
+
         text = (
             "# Runbook\n\nIntro paragraph with *emphasis* and `code`.\n\n"
             "## Steps\n\n- first item\n- second item\n\n"
@@ -5395,28 +5382,11 @@ class TestMarkdownLinkGuard:
             return [(e["type"], e["text"]) for e in elements]
 
         assert shape(TextPartitioner().partition_text(text)) == shape(
-            TextPartitioner(disable_markdown_link_parsing=False).partition_text(text)
+            [e.to_dict() for e in partition_md(text=text)]
         )
 
-    def test_config_defaults(self):
-        config = _make_config()
-        assert config.disable_markdown_link_parsing
-        assert config.partition_timeout_seconds == 30.0
-
-    def test_fingerprint_only_changes_when_link_parsing_enabled(self):
-        ctx = PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
-        with patch(
-            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
-        ):
-            default = DataHubDocumentsSource(ctx, _make_config())
-            enabled = DataHubDocumentsSource(
-                ctx, _make_config(disable_markdown_link_parsing=False)
-            )
-            default_fp = default._get_processing_config_fingerprint()
-            enabled_fp = enabled._get_processing_config_fingerprint()
-
-        assert "markdown_link_parsing" not in default_fp
-        assert enabled_fp == {**default_fp, "markdown_link_parsing": True}
+    def test_config_default_timeout(self):
+        assert _make_config().partition_timeout_seconds == 30.0
 
 
 def _burn_cpu(seconds: float) -> None:

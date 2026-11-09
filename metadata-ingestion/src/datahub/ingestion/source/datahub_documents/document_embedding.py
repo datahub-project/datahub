@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from datahub.ingestion.source.datahub_documents.text_partitioner import (
-    DEFAULT_DISABLE_MARKDOWN_LINK_PARSING,
     DEFAULT_PARTITION_TIMEOUT_SECONDS,
     TextPartitioner,
 )
@@ -58,13 +57,12 @@ def embed_document(
     batch_size: int,
     min_text_length: int,
     skip_empty_text: bool,
-    disable_markdown_link_parsing: bool = DEFAULT_DISABLE_MARKDOWN_LINK_PARSING,
     partition_timeout_seconds: float = DEFAULT_PARTITION_TIMEOUT_SECONDS,
 ) -> List[DocumentChunk]:
     """The chunks and vectors the source would write for `text`; empty when it skips it.
 
-    Pass the recipe's ``disable_markdown_link_parsing`` and ``partition_timeout_seconds``
-    to match its output; the defaults match the source's config defaults.
+    Pass the recipe's ``partition_timeout_seconds`` to match its output; the default
+    matches the source's config default.
 
     Raises:
         PartitionTimeoutError: If partitioning exceeds ``partition_timeout_seconds``
@@ -76,8 +74,7 @@ def embed_document(
     ):
         return []
     elements = TextPartitioner(
-        disable_markdown_link_parsing=disable_markdown_link_parsing,
-        timeout_seconds=partition_timeout_seconds,
+        timeout_seconds=partition_timeout_seconds
     ).partition_text(text)
     if not elements:
         return []

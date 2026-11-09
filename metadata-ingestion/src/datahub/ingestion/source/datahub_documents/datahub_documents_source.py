@@ -232,8 +232,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
 
         # Initialize text partitioner
         self.text_partitioner = TextPartitioner(
-            disable_markdown_link_parsing=self.config.disable_markdown_link_parsing,
-            timeout_seconds=self.config.partition_timeout_seconds,
+            timeout_seconds=self.config.partition_timeout_seconds
         )
 
         # Initialize chunking/embedding sub-component (same pattern as NotionSource)
@@ -1581,11 +1580,6 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             # Partitioning affects how text is extracted
             "partition_strategy": self.config.partition_strategy,
         }
-        # Link parsing is disabled by default (CVE-2019-25781 workaround). Only the
-        # non-default value is fingerprinted, so upgrading does not re-embed every
-        # document; turning link parsing back on changes the output and must re-hash.
-        if not self.config.disable_markdown_link_parsing:
-            fingerprint["markdown_link_parsing"] = True
         # Only fingerprint the chunk cap when non-default, so upgrading to a build that
         # adds the knob does not re-hash (and re-embed) every already-processed document;
         # a tuned cap changes emitted output and must re-hash.

@@ -551,6 +551,7 @@ report = {
     "num_documents_skipped": 15,        # Skipped (various reasons)
     "num_documents_skipped_unchanged": 10,  # Unchanged content
     "num_documents_skipped_empty": 5,   # Empty or too short
+    "num_documents_partition_timeout": 0,  # Exceeded partition_timeout_seconds
     "num_chunks_created": 425,          # Total chunks generated
     "num_embeddings_generated": 425,    # Total embeddings
     "processing_errors": []             # List of errors
@@ -612,6 +613,8 @@ As of December 2024 in us-west-2:
 - **Text Only:** Only processes `Document.text` field (markdown format expected)
 - **No Binary Content:** Images, PDFs, etc. must be converted to text first
 - **Markdown Partitioning:** Uses `unstructured.partition.md` which may not handle all markdown variants
+- **Links and Images Kept as Text:** Markdown link and image syntax (for example `[docs](https://example.com)`) is not parsed and stays in the chunked text as written. This works around a denial of service in Python-Markdown (CVE-2019-25781) and will be removed once a fixed release is available.
+- **Partition Time Limit:** A document that takes more than `partition_timeout_seconds` (default 30) of CPU time to partition is skipped. Its existing embeddings are removed, and it is retried only when its content changes. The limit is only enforced when the source runs on the main thread of a POSIX platform, which is the case for `datahub ingest`.
 
 #### Platform Filtering
 
@@ -782,6 +785,19 @@ Unable to load credentials from any provider in the chain
    chunking:
      max_characters: 1000 # Larger chunks = fewer embeddings
    ```
+
+#### Issue: Documents Skipped with a Partition Timeout
+
+The report shows `num_documents_partition_timeout` above zero, and the log warns that a document exceeded the partition time limit. These documents are very large or contain long runs of punctuation that are slow to partition.
+
+1. Check the document's text. Unusual content, such as thousands of repeated brackets, is the usual cause.
+2. If legitimate documents are timing out, raise the limit:
+
+   ```yaml
+   partition_timeout_seconds: 120
+   ```
+
+3. Timed-out documents are not retried until their content changes. After raising the limit, run the source once with `incremental.force_reprocess: true` to retry them.
 
 #### Troubleshooting
 

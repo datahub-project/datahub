@@ -8,16 +8,16 @@ Removal, once a Python-Markdown release fixes #798 (verify first:
 ``markdown.markdown("[" * 32000)`` should finish in under a second):
 
 1. Floor ``markdown>=<fixed version>`` in ``unstructured_lib`` in ``setup.py`` (or bump
-   ``unstructured[md]`` if its minimum already requires the fixed version).
-2. Delete this module and its tests.
-3. Delete the ``disable_markdown_link_parsing`` config field (deprecate it first, e.g. with
-   ``pydantic_removed_field``, so recipes that set it keep validating), the flag branch in
-   ``TextPartitioner``, and the ``markdown_link_parsing`` fingerprint key.
-4. Keep ``partition_timeout_seconds``; it is not part of this workaround.
-5. Deleting the flag does NOT change the processing fingerprint at its default, so nothing
-   is re-embedded: documents embedded during the workaround keep link syntax as literal
-   text until they are edited. For a consistent index, deliberately add a new fingerprint
-   value in the removal PR (re-embeds every document once) and note it in the release notes.
+   ``unstructured[md]`` if its minimum already requires the fixed version), then run
+   ``updateLockFile``.
+2. Delete this module and ``TestMarkdownLinkGuard``.
+3. In ``TextPartitioner.partition_text``, drop the import and the extensions argument:
+   ``partition_md(text=text)``. Keep the time limit around it; it also guards against
+   other slow input (e.g. spaCy's tokenizer on long punctuation runs).
+4. Documents embedded during the workaround keep link syntax as literal text until they
+   are edited. For a consistent index, add a new value to the processing fingerprint in
+   ``DataHubDocumentsSource`` (re-embeds every document once) and note it in the release
+   notes.
 """
 
 from markdown import Markdown
