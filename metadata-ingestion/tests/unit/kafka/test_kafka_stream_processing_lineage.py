@@ -880,3 +880,39 @@ def test_flink_unquoted_mixed_case_names_keep_their_case() -> None:
     assert [(job.input_topics, job.output_topics) for job in jobs] == [
         (["OrdersIn"], ["OrdersOut"])
     ]
+
+
+@pytest.mark.parametrize(
+    "phase,emitted",
+    [
+        ("PENDING", True),
+        ("RUNNING", True),
+        ("DEGRADED", True),
+        ("FAILING", True),
+        ("STOPPING", True),
+        ("STOPPED", False),
+        ("COMPLETED", False),
+        ("FAILED", False),
+        ("DELETING", False),
+    ],
+)
+def test_flink_live_phases_are_read_by_default(phase: str, emitted: bool) -> None:
+    jobs, _ = _extract([_statement("INSERT INTO sink SELECT * FROM src", phase=phase)])
+
+    assert bool(jobs) == emitted
+
+
+def test_flink_null_properties_and_page_data_are_empty() -> None:
+    statement = _statement("INSERT INTO sink SELECT * FROM src")
+    statement["spec"]["properties"] = None  # type: ignore[index]
+    statement["spec"]["statement"] = (  # type: ignore[index]
+        "INSERT INTO `env-1`.`lkc-1`.sink SELECT * FROM `env-1`.`lkc-1`.src"
+    )
+
+    jobs, report = _extract([statement])
+    assert [job.output_topics for job in jobs] == [["sink"]]
+    assert not report.failures
+
+    with requests_mock.Mocker() as m:
+        client = _client(m, [{"data": None, "metadata": None}])
+        assert client.list_statements() == []

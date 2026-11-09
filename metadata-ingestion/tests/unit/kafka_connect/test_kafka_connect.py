@@ -1376,11 +1376,16 @@ class TestConfluentCloudConnectors:
         assert "connection.user" not in bag
         assert bag["db.name"] == "testdb"
 
-    def test_cloud_managed_postgres_source_applies_the_exclude_list(self) -> None:
+    @pytest.mark.parametrize(
+        "exclude", ["sales\\..*", "\\Qsales.\\E.*"], ids=["regex", "java-quoted"]
+    )
+    def test_cloud_managed_postgres_source_applies_the_exclude_list(
+        self, exclude: str
+    ) -> None:
         connector, _ = self._managed_postgres_source(
             {
                 "table.include.list": "public.users,sales.orders",
-                "table.exclude.list": "sales\\..*",
+                "table.exclude.list": exclude,
             },
             ["pg-users", "pg-orders"],
         )

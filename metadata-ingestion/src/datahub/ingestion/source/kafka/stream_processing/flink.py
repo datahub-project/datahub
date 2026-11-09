@@ -12,9 +12,9 @@ from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.stream_processing.constants import (
     FLINK_DEFAULT_PAGE_SIZE,
     FLINK_HOST_TEMPLATE,
+    FLINK_LIVE_PHASES,
     FLINK_MAX_PAGES,
     FLINK_PAGE_SIZE_PARAM,
-    FLINK_PHASE_RUNNING,
     FLINK_PROP_CURRENT_CATALOG,
     FLINK_PROP_CURRENT_DATABASE,
     FLINK_SQL_DIALECT,
@@ -198,7 +198,7 @@ class FlinkLineageExtractor:
 
         phase = statement.status.phase if statement.status else None
         if (
-            phase != FLINK_PHASE_RUNNING
+            phase not in FLINK_LIVE_PHASES
             and not self.config.include_non_running_statements
         ):
             self.report.flink_statements_not_running.append(name)
