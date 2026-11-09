@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.kafka.common;
 
+import com.linkedin.gms.factory.kafka.KafkaMskIamAuth;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -43,6 +44,10 @@ public class AdminClientFactory {
     if (StringUtils.isNotBlank(producerSecurityProtocol)) {
       adminProperties.put(AdminClientConfig.SECURITY_PROTOCOL_CONFIG, producerSecurityProtocol);
     }
+
+    // Same MSK IAM handling as the producer and consumer factories: swap the stock
+    // IAMClientCallbackHandler for DataHub's shared-credentials handler.
+    KafkaMskIamAuth.configure(adminProperties);
 
     return KafkaAdminClient.create(adminProperties);
   }

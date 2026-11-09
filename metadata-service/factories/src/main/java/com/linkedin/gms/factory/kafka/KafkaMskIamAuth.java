@@ -26,7 +26,7 @@ public final class KafkaMskIamAuth {
 
   private KafkaMskIamAuth() {}
 
-  static void configure(Map<String, Object> kafkaProperties) {
+  public static void configure(Map<String, Object> kafkaProperties) {
     if (kafkaProperties == null || !isMskIam(kafkaProperties)) {
       return;
     }
