@@ -1,11 +1,11 @@
 package datahub.client.kafka;
 
-import static org.testng.Assert.*;
+import static org.junit.Assert.*;
 
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.common.KafkaException;
-import org.testng.annotations.Test;
+import org.junit.Test;
 
 public class KafkaProducerInitializationRetryTest {
 
@@ -28,7 +28,7 @@ public class KafkaProducerInitializationRetryTest {
           });
       fail("Should have thrown KafkaException");
     } catch (KafkaException e) {
-      assertEquals(attemptCount.get(), 1);
+      assertEquals(1, attemptCount.get());
     }
   }
 
@@ -53,7 +53,9 @@ public class KafkaProducerInitializationRetryTest {
           });
       fail("Should have thrown KafkaException");
     } catch (KafkaException e) {
-      assertTrue(attemptCount.get() < 10);
+      // Backoff 1000ms, then 1500ms (capped from 2000ms by the 2500ms budget), then the budget
+      // is exhausted: three attempts, not maxAttempts.
+      assertEquals(3, attemptCount.get());
     }
   }
 
