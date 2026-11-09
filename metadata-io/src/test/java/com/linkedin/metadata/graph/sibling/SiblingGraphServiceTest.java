@@ -1270,6 +1270,87 @@ public class SiblingGraphServiceTest {
     assertEquals(fixture.service.siblingGroup(opContext, table), Set.of(table));
   }
 
+  /**
+   * Group members come back without the dataset itself, primary first, without soft-deleted ones.
+   */
+  @Test
+  public void testSiblingGroupMembersPrimaryFirstWithoutDeleted() {
+    Urn copyA = dataset("glue", "members.copy_a");
+    Urn copyB = dataset("glue", "members.copy_b");
+    Urn original = dataset("glue", "members.original");
+    Urn deleted = dataset("glue", "members.deleted");
+    CountFixture fixture =
+        new CountFixture(
+            Map.of(
+                original, siblings(true, copyA, copyB, deleted),
+                copyA, siblings(false, original),
+                copyB, siblings(false, original),
+                deleted, siblings(false, original)));
+    when(fixture.entityService.exists(
+            any(OperationContext.class), any(Collection.class), eq(false)))
+        .thenAnswer(
+            args -> {
+              Set<Urn> existing = new HashSet<>((Collection<Urn>) args.getArgument(1));
+              existing.remove(deleted);
+              return existing;
+            });
+
+    SiblingGraphService.SiblingGroupMembers result =
+        fixture.service.siblingGroupMembers(opContext, copyB);
+
+    assertFalse(result.truncated());
+    assertEquals(
+        result.members(),
+        List.of(
+            new SiblingGraphService.SiblingGroupMember(original, true),
+            new SiblingGraphService.SiblingGroupMember(copyA, false)));
+  }
+
+  /**
+   * A group over the cap is reported truncated, and a primary the walk reached but didn't read
+   * (because it stopped at the cap) still comes back primary and first.
+   */
+  @Test
+  public void testCappedGroupKeepsThePrimaryFlag() {
+    Urn hub = dataset("glue", "capped.hub");
+    Urn primary = dataset("glue", "capped.primary");
+    Urn start = dataset("glue", "capped.start");
+    int extra = SiblingGraphService.MAX_GROUP_MEMBERS + 5;
+    Urn[] hubList = new Urn[extra + 2];
+    hubList[0] = start;
+    hubList[1] = primary;
+    Map<Urn, Siblings> store = new HashMap<>();
+    for (int i = 0; i < extra; i++) {
+      hubList[i + 2] = dataset("glue", "capped.copy_" + i);
+    }
+    store.put(hub, siblings(false, hubList));
+    store.put(start, siblings(false, hub));
+    store.put(primary, siblings(true, hub));
+    CountFixture fixture = new CountFixture(store);
+    when(fixture.entityService.exists(
+            any(OperationContext.class), any(Collection.class), eq(false)))
+        .thenAnswer(args -> new HashSet<>((Collection<Urn>) args.getArgument(1)));
+
+    SiblingGraphService.SiblingGroupMembers result =
+        fixture.service.siblingGroupMembers(opContext, start);
+
+    assertTrue(result.truncated());
+    assertEquals(result.members().size(), SiblingGraphService.MAX_GROUP_MEMBERS - 1);
+    assertEquals(
+        result.members().get(0), new SiblingGraphService.SiblingGroupMember(primary, true));
+  }
+
+  /** A legacy siblings aspect without the required primary field is read as not primary. */
+  @Test
+  public void testAspectWithoutPrimaryFlagIsNotPrimary() {
+    Urn a = dataset("glue", "legacy.a");
+    Urn b = dataset("glue", "legacy.b");
+    Siblings legacy = new Siblings().setSiblings(new UrnArray(List.of(a)));
+    CountFixture fixture = new CountFixture(Map.of(a, siblings(false, b), b, legacy));
+
+    assertEquals(fixture.service.siblingGroup(opContext, a), Set.of(a, b));
+  }
+
   /** A fresh service over an in-memory siblings store. */
   private class CountFixture {
     final EntityService<?> entityService = Mockito.mock(EntityService.class);
