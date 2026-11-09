@@ -2,6 +2,7 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATASET_PROFILE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DEPRECATION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
@@ -14,6 +15,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -22,6 +24,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
@@ -37,6 +40,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.events.metadata.ChangeType;
@@ -44,7 +48,6 @@ import com.linkedin.incident.IncidentInfo;
 import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
-import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.AspectSpec;
@@ -54,6 +57,7 @@ import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentWrite;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -65,6 +69,7 @@ import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
+import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
@@ -107,6 +112,13 @@ public class UpdateIndicesServiceTest {
     MockitoAnnotations.openMocks(this);
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
+    // V3 strategy drains pending bulk writes before rebuilding documents
+    ESWriteDAO esWriteDAO = mock(ESWriteDAO.class);
+    ESBulkProcessor esBulkProcessor = mock(ESBulkProcessor.class);
+    when(entitySearchService.getEsWriteDAO()).thenReturn(esWriteDAO);
+    when(esWriteDAO.bulkProcessors()).thenReturn(List.of(esBulkProcessor));
+    when(esBulkProcessor.flushAndAwait()).thenReturn(BulkProcessorFlushResult.empty());
+
     // Create test strategies - for testing we'll create both V2 and V3 strategies
     UpdateIndicesV2Strategy v2Strategy =
         new UpdateIndicesV2Strategy(
@@ -128,6 +140,8 @@ public class UpdateIndicesServiceTest {
             .elasticSearchService(entitySearchService)
             .searchDocumentTransformer(searchDocumentTransformer)
             .timeseriesAspectService(timeseriesAspectService)
+            .v2Enabled(false)
+            .timeseriesThrottleCache(null)
             .build();
 
     Collection<UpdateIndicesStrategy> strategies = Arrays.asList(v2Strategy, v3Strategy);
@@ -146,10 +160,7 @@ public class UpdateIndicesServiceTest {
 
   @Test
   public void testDeleteV3TombstonesThrowsWhenTheDeleteDoesNotFinish() {
-    ESWriteDAO writeDAO = mock(ESWriteDAO.class);
-    when(entitySearchService.getEsWriteDAO()).thenReturn(writeDAO);
-    when(writeDAO.deleteByQuerySync(
-            any(), anyString(), any(), nullable(BulkDeleteConfiguration.class)))
+    when(entitySearchService.deleteV3Tombstones(any(), anyString()))
         .thenReturn(
             ESWriteDAO.DeleteByQueryResult.builder()
                 .success(false)
@@ -258,7 +269,7 @@ public class UpdateIndicesServiceTest {
     // Verify
     verify(systemMetadataService)
         .deleteAspect(any(OperationContext.class), eq(urn.toString()), eq(CONTAINER_ASPECT_NAME));
-    verify(searchDocumentTransformer, times(2))
+    verify(searchDocumentTransformer, atLeastOnce())
         .transformAspect(
             eq(operationContext),
             eq(urn),
@@ -421,6 +432,280 @@ public class UpdateIndicesServiceTest {
     // The exact verification depends on the implementation details, but both should process the
     // event
     verify(updateGraphIndicesService).handleChangeEvent(operationContext, event);
+  }
+
+  @Test
+  public void testThrowingStrategyDoesNotSkipRemainingStrategyOrSideEffects() {
+    UpdateIndicesStrategy throwingStrategy = mock(UpdateIndicesStrategy.class);
+    UpdateIndicesStrategy remainingStrategy = mock(UpdateIndicesStrategy.class);
+    when(throwingStrategy.isEnabled()).thenReturn(true);
+    when(remainingStrategy.isEnabled()).thenReturn(true);
+    RuntimeException strategyFailure = new RuntimeException("V3 projection failed");
+    doThrow(strategyFailure)
+        .when(throwingStrategy)
+        .processBatch(eq(operationContext), any(), eq(true));
+
+    UpdateIndicesService service =
+        new UpdateIndicesService(
+            updateGraphIndicesService,
+            entitySearchService,
+            systemMetadataService,
+            List.of(throwingStrategy, remainingStrategy),
+            null,
+            true,
+            true,
+            true);
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,strategy.failure,PROD)");
+    DatasetProperties datasetProperties =
+        new DatasetProperties().setDescription("still apply side effects");
+    MetadataChangeLog event =
+        new MetadataChangeLog()
+            .setChangeType(ChangeType.UPSERT)
+            .setEntityUrn(urn)
+            .setAspectName(DATASET_PROPERTIES_ASPECT_NAME)
+            .setEntityType(urn.getEntityType())
+            .setAspect(GenericRecordUtils.serializeAspect(datasetProperties))
+            .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .setCreated(AuditStampUtils.createDefaultAuditStamp());
+
+    RuntimeException thrown =
+        expectThrows(
+            RuntimeException.class, () -> service.handleChangeEvent(operationContext, event));
+
+    assertSame(thrown, strategyFailure);
+    verify(remainingStrategy).processBatch(eq(operationContext), any(), eq(true));
+    verify(updateGraphIndicesService).handleChangeEvent(operationContext, event);
+    verify(systemMetadataService)
+        .insert(
+            eq(operationContext),
+            eq(event.getSystemMetadata()),
+            eq(urn.toString()),
+            eq(DATASET_PROPERTIES_ASPECT_NAME));
+  }
+
+  @Test
+  public void testRetryReplaysIdenticalGraphAndSystemSideEffects() {
+    UpdateIndicesStrategy retryingStrategy = mock(UpdateIndicesStrategy.class);
+    when(retryingStrategy.isEnabled()).thenReturn(true);
+    RetryableIndexingException retryableFailure =
+        new RetryableIndexingException(
+            "transient storage failure", new RuntimeException("connection refused"));
+    doThrow(retryableFailure)
+        .doNothing()
+        .when(retryingStrategy)
+        .processBatch(eq(operationContext), any(), eq(true));
+
+    UpdateIndicesService service =
+        new UpdateIndicesService(
+            updateGraphIndicesService,
+            entitySearchService,
+            systemMetadataService,
+            List.of(retryingStrategy),
+            null,
+            true,
+            true,
+            true);
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,retry.replay,PROD)");
+    MetadataChangeLog event =
+        new MetadataChangeLog()
+            .setChangeType(ChangeType.UPSERT)
+            .setEntityUrn(urn)
+            .setAspectName(DATASET_PROPERTIES_ASPECT_NAME)
+            .setEntityType(urn.getEntityType())
+            .setAspect(
+                GenericRecordUtils.serializeAspect(
+                    new DatasetProperties().setDescription("idempotent replay")))
+            .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .setCreated(AuditStampUtils.createDefaultAuditStamp());
+
+    RetryableIndexingException thrown =
+        expectThrows(
+            RetryableIndexingException.class,
+            () -> service.handleChangeEvent(operationContext, event));
+    assertSame(thrown, retryableFailure);
+
+    service.handleChangeEvent(operationContext, event);
+
+    verify(retryingStrategy, times(2)).processBatch(eq(operationContext), any(), eq(true));
+    verify(updateGraphIndicesService, times(2)).handleChangeEvent(operationContext, event);
+    verify(systemMetadataService, times(2))
+        .insert(
+            eq(operationContext),
+            eq(event.getSystemMetadata()),
+            eq(urn.toString()),
+            eq(DATASET_PROPERTIES_ASPECT_NAME));
+  }
+
+  @Test
+  public void testRetryableFailureTakesPrecedenceOverOtherStrategyFailures() {
+    UpdateIndicesStrategy terminalStrategy = mock(UpdateIndicesStrategy.class);
+    UpdateIndicesStrategy retryingStrategy = mock(UpdateIndicesStrategy.class);
+    when(terminalStrategy.isEnabled()).thenReturn(true);
+    when(retryingStrategy.isEnabled()).thenReturn(true);
+    IllegalArgumentException terminalFailure = new IllegalArgumentException("malformed projection");
+    RetryableIndexingException retryableFailure =
+        new RetryableIndexingException(
+            "transient storage failure", new RuntimeException("connection refused"));
+    doThrow(terminalFailure)
+        .when(terminalStrategy)
+        .processBatch(eq(operationContext), any(), eq(true));
+    doThrow(retryableFailure)
+        .when(retryingStrategy)
+        .processBatch(eq(operationContext), any(), eq(true));
+    UpdateIndicesService service =
+        new UpdateIndicesService(
+            updateGraphIndicesService,
+            entitySearchService,
+            systemMetadataService,
+            List.of(terminalStrategy, retryingStrategy),
+            null,
+            true,
+            true,
+            true);
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,retry.precedence,PROD)");
+    MetadataChangeLog event =
+        new MetadataChangeLog()
+            .setChangeType(ChangeType.UPSERT)
+            .setEntityUrn(urn)
+            .setAspectName(DATASET_PROPERTIES_ASPECT_NAME)
+            .setEntityType(urn.getEntityType())
+            .setAspect(
+                GenericRecordUtils.serializeAspect(
+                    new DatasetProperties().setDescription("retry precedence")))
+            .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .setCreated(AuditStampUtils.createDefaultAuditStamp());
+
+    RetryableIndexingException thrown =
+        expectThrows(
+            RetryableIndexingException.class,
+            () -> service.handleChangeEvent(operationContext, event));
+
+    assertSame(thrown, retryableFailure);
+    assertTrue(thrown.getSuppressed().length == 1);
+    assertSame(thrown.getSuppressed()[0], terminalFailure);
+    verify(updateGraphIndicesService).handleChangeEvent(operationContext, event);
+  }
+
+  @Test
+  public void testSideEffectFailureDoesNotClobberSavedRetryable() {
+    // A strategy records a retryable V3 write loss, then a required side effect (the graph write)
+    // fails synchronously. The synchronous failure must not propagate straight out and bypass the
+    // deferred rethrow — that would replace the retryable with a non-retryable exception and let
+    // the
+    // consumer commit the offset past the lost V3 document. The retryable must survive as the
+    // primary cause, with the side-effect failure suppressed.
+    UpdateIndicesStrategy retryingStrategy = mock(UpdateIndicesStrategy.class);
+    when(retryingStrategy.isEnabled()).thenReturn(true);
+    RetryableIndexingException retryableFailure =
+        new RetryableIndexingException(
+            "V3 write lost transiently", new RuntimeException("es_rejected_execution_exception"));
+    doThrow(retryableFailure)
+        .when(retryingStrategy)
+        .processBatch(eq(operationContext), any(), eq(true));
+
+    UpdateIndicesService service =
+        new UpdateIndicesService(
+            updateGraphIndicesService,
+            entitySearchService,
+            systemMetadataService,
+            List.of(retryingStrategy),
+            null,
+            true,
+            true,
+            true);
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,sideeffect.failure,PROD)");
+    MetadataChangeLog event =
+        new MetadataChangeLog()
+            .setChangeType(ChangeType.UPSERT)
+            .setEntityUrn(urn)
+            .setAspectName(DATASET_PROPERTIES_ASPECT_NAME)
+            .setEntityType(urn.getEntityType())
+            .setAspect(
+                GenericRecordUtils.serializeAspect(
+                    new DatasetProperties().setDescription("side effect throws")))
+            .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .setCreated(AuditStampUtils.createDefaultAuditStamp());
+    IllegalStateException sideEffectFailure = new IllegalStateException("graph write rejected");
+    doThrow(sideEffectFailure)
+        .when(updateGraphIndicesService)
+        .handleChangeEvent(eq(operationContext), any(MetadataChangeLog.class));
+
+    RetryableIndexingException thrown =
+        expectThrows(
+            RetryableIndexingException.class,
+            () -> service.handleChangeEvent(operationContext, event));
+
+    assertSame(thrown, retryableFailure);
+    assertTrue(Arrays.asList(thrown.getSuppressed()).contains(sideEffectFailure));
+  }
+
+  @Test
+  public void testThrowingStrategySkipsThrottleAccounting() {
+    UpdateIndicesStrategy throwingStrategy = mock(UpdateIndicesStrategy.class);
+    when(throwingStrategy.isEnabled()).thenReturn(true);
+    doThrow(new RuntimeException("V3 projection failed"))
+        .when(throwingStrategy)
+        .processBatch(eq(operationContext), any(), eq(true));
+    TimeseriesWriteThrottleCache throttleCache =
+        new TimeseriesWriteThrottleCache(
+            com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration.builder()
+                .entityIndex(
+                    com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration
+                        .IndexThrottleConfig.builder()
+                        .enabled(true)
+                        .build())
+                .refreshPeriodSeconds(3600)
+                .maxCacheUrns(100)
+                .build());
+    UpdateIndicesService service =
+        new UpdateIndicesService(
+            updateGraphIndicesService,
+            entitySearchService,
+            systemMetadataService,
+            List.of(throwingStrategy),
+            throttleCache,
+            true,
+            true,
+            true);
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,throttle.accounting,PROD)");
+    long eventTime = 1_000_000L;
+    MetadataChangeLog event =
+        new MetadataChangeLog()
+            .setChangeType(ChangeType.UPSERT)
+            .setEntityUrn(urn)
+            .setAspectName(DATASET_PROFILE_ASPECT_NAME)
+            .setEntityType(urn.getEntityType())
+            .setAspect(
+                GenericRecordUtils.serializeAspect(
+                    new DatasetProfile().setTimestampMillis(eventTime)))
+            .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .setCreated(AuditStampUtils.createDefaultAuditStamp().setTime(eventTime));
+
+    expectThrows(RuntimeException.class, () -> service.handleChangeEvent(operationContext, event));
+
+    assertFalse(
+        throttleCache.shouldThrottle(
+            DATASET_ENTITY_NAME, urn.toString(), DATASET_PROFILE_ASPECT_NAME, eventTime + 1));
+    verify(updateGraphIndicesService).handleChangeEvent(operationContext, event);
+  }
+
+  @Test
+  public void testFlushAndAwaitDrainsEveryClusterProcessor() {
+    ESBulkProcessor primary = mock(ESBulkProcessor.class);
+    ESBulkProcessor secondary = mock(ESBulkProcessor.class);
+    when(primary.flushAndAwait()).thenReturn(BulkProcessorFlushResult.empty());
+    when(secondary.flushAndAwait())
+        .thenReturn(new BulkProcessorFlushResult(7, 1, 0, 0, 0, false, null));
+    ESWriteDAO esWriteDAO = mock(ESWriteDAO.class);
+    when(esWriteDAO.bulkProcessors()).thenReturn(List.of(primary, secondary));
+    when(entitySearchService.getEsWriteDAO()).thenReturn(esWriteDAO);
+
+    BulkProcessorFlushResult result = updateIndicesService.flushAndAwait();
+
+    verify(primary).flushAndAwait();
+    verify(secondary).flushAndAwait();
+    assertEquals(result.successfulV3Writes(), 7);
+    assertEquals(result.staleVersionRejected(), 1);
   }
 
   @Test

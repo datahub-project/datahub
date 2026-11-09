@@ -597,6 +597,11 @@ module.exports = {
           ],
         },
         {
+          label: "Analytics Dashboards",
+          type: "doc",
+          id: "docs/features/feature-guides/analytics-dashboards",
+        },
+        {
           label: "Asset Summaries",
           type: "doc",
           id: "docs/features/feature-guides/custom-asset-summaries",

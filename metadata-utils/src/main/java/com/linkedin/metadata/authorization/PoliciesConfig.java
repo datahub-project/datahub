@@ -1056,6 +1056,23 @@ public class PoliciesConfig {
           "ML Feature Tables indexed by DataHub",
           COMMON_ENTITY_PRIVILEGES);
 
+  // Assertion Privileges. Assertions are usually managed through EDIT_ENTITY_ASSERTIONS on the
+  // asserted entity (e.g. the dataset); these entries cover policies scoped to the assertion
+  // itself.
+  public static final ResourcePrivileges ASSERTION_PRIVILEGES =
+      ResourcePrivileges.of(
+          Constants.ASSERTION_ENTITY_NAME,
+          "Assertions",
+          "Data quality assertions on DataHub",
+          ImmutableList.of(
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EXISTS_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_TAGS_PRIVILEGE,
+              EDIT_ENTITY_OWNERS_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE,
+              CREATE_ENTITY_PRIVILEGE,
+              DELETE_ENTITY_PRIVILEGE));
+
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -1084,7 +1101,8 @@ public class PoliciesConfig {
           DATAHUB_VIEW_PRIVILEGES,
           ML_MODEL_PRIVILEGES,
           ML_FEATURE_PRIVILEGES,
-          ML_FEATURE_TABLE_PRIVILEGES);
+          ML_FEATURE_TABLE_PRIVILEGES,
+          ASSERTION_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =

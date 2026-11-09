@@ -178,6 +178,7 @@ public class ESUtils {
   public static final String OBJECT_FIELD_TYPE = "object";
   public static final String TEXT_FIELD_TYPE = "text";
   public static final String TOKEN_COUNT_FIELD_TYPE = "token_count";
+  public static final String RANK_FEATURES_FIELD_TYPE = "rank_features";
 
   // End of field types
 
@@ -1593,9 +1594,14 @@ public class ESUtils {
                     v3Index))
             .queryName(queryName != null ? queryName : fieldName);
       } else if (condition == Condition.IN) {
-        return QueryBuilders.termsQuery(
-                toKeywordField(opContext, criterion.getField(), isTimeseries, aspectRetriever),
-                criterion.getValues())
+        // A resolved V3 path is already the keyword field. The V2 helper appends .keyword, which
+        // turns platform_urn into platform_urn.keyword and matches nothing.
+        String field =
+            resolvedForV3
+                ? fieldName
+                : toKeywordField(
+                    opContext, criterion.getField(), isTimeseries, aspectRetriever, v3Index);
+        return QueryBuilders.termsQuery(field, criterion.getValues())
             .queryName(queryName != null ? queryName : fieldName);
       }
     }
@@ -1653,19 +1659,62 @@ public class ESUtils {
   /**
    * A contains filter on a text-only label matches each analyzed subfield. Every token must match,
    * and any subfield is enough. Multiple values stay in disjunction, as a keyword wildcard does.
+   *
+   * <p>The V3 search analyzer emits an identifier and its underscore parts at one position, and AND
+   * does not apply inside that synonym group, so {@code fct_users_deleted} would also match {@code
+   * fct_users_created}. The standard analyzer matches the preserved original token, which keeps
+   * that exclusion and still matches a short identifier such as {@code db_id} after {@code
+   * min_length} drops its parts. The parts are also required at separate positions, so {@code
+   * fct_users} matches {@code fct_users_deleted}.
    */
   @Nonnull
   private static QueryBuilder buildAnalyzedContainsQuery(
       @Nonnull String queryName, @Nonnull List<String> paths, @Nonnull Criterion criterion) {
     BoolQueryBuilder values = QueryBuilders.boolQuery().minimumShouldMatch(1);
     for (String value : criterion.getValues()) {
+      String trimmed = value.trim();
+      List<String> parts = analyzedContainParts(trimmed);
       BoolQueryBuilder fields = QueryBuilders.boolQuery().minimumShouldMatch(1);
       for (String path : paths) {
-        fields.should(QueryBuilders.matchQuery(path, value.trim()).operator(Operator.AND));
+        fields.should(analyzedContainOnPath(path, trimmed, parts));
       }
       values.should(fields);
     }
     return values.queryName(queryName);
+  }
+
+  /**
+   * The whole value, analyzed without splitting on {@code _}, or every part of it. One part is the
+   * whole value, so it does not need a second clause.
+   */
+  @Nonnull
+  private static QueryBuilder analyzedContainOnPath(
+      @Nonnull String path, @Nonnull String value, @Nonnull List<String> parts) {
+    QueryBuilder whole =
+        QueryBuilders.matchQuery(path, value).analyzer("standard").operator(Operator.AND);
+    if (parts.size() < 2) {
+      return whole;
+    }
+    BoolQueryBuilder either = QueryBuilders.boolQuery().minimumShouldMatch(1);
+    either.should(whole);
+    BoolQueryBuilder allParts = QueryBuilders.boolQuery();
+    for (String part : parts) {
+      allParts.must(QueryBuilders.matchQuery(path, part).operator(Operator.AND));
+    }
+    either.should(allParts);
+    return either;
+  }
+
+  /** Letters, digits, and combining marks. Underscores and whitespace separate parts. */
+  @Nonnull
+  private static List<String> analyzedContainParts(@Nonnull String value) {
+    List<String> parts = new ArrayList<>();
+    for (String part : value.split("[^\\p{L}\\p{N}\\p{M}]+")) {
+      if (!part.isEmpty()) {
+        parts.add(part);
+      }
+    }
+    return parts;
   }
 
   private static QueryBuilder buildContainsConditionFromCriterion(
