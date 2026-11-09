@@ -26,6 +26,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.authorization.AssertionAuthorizationUtils;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
 import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
@@ -716,6 +717,13 @@ public abstract class GenericEntitiesController<
       aspectSpec = maybeAspectSpec.get();
     }
     if (aspectSpec.isTimeseries()) {
+      // Run history is deleted without an aspect write the assertion validator sees.
+      if (!AssertionAuthorizationUtils.isAuthorizedToDeleteRunHistory(opContext, List.of(urn))) {
+        throw new UnauthorizedException(
+            authentication.getActor().toUrnStr()
+                + " is unauthorized to delete the run history of "
+                + urn);
+      }
       Map<Urn, Map<String, com.linkedin.metadata.aspect.EnvelopedAspect>> latestMap =
           timeseriesAspectService.getLatestTimeseriesAspectValues(
               opContext, Set.of(urn), Set.of(aspectSpec.getName()), null);
