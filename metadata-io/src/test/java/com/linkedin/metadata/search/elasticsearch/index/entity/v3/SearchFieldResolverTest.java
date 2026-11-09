@@ -289,6 +289,14 @@ public class SearchFieldResolverTest {
   }
 
   @Test
+  public void testSystemCreatedActorFilterIsTheRootKeyword() {
+    SearchFieldResolver resolver = new SearchFieldResolver(List.of());
+    assertEquals(
+        resolver.exactPath(MappingConstants.SYSTEM_CREATED_ACTOR_FIELD, Intent.FILTER),
+        "_system.created.actor");
+  }
+
+  @Test
   public void testChildValueMatchesItsDegreeAndNotTheEntityLabel() {
     EntityRegistry registry = TestOperationContexts.defaultEntityRegistry();
     EntitySpec dataset = registry.getEntitySpec("dataset");

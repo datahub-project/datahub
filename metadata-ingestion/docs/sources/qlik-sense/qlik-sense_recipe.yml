@@ -5,6 +5,13 @@ source:
     tenant_hostname: "xyz12xz.us.qlikcloud.com"
     # Credentials
     api_key: "QLIK_API_KEY"
+
+    # Qlik Sense Enterprise on Windows: set on_prem instead of tenant_hostname and api_key.
+    # on_prem:
+    #   server: qlik-central.example.com
+    #   client_cert: /secrets/client.pem
+    #   client_key: /secrets/client_key.pem
+    #   root_cert: /secrets/root.pem
     
     # Optional - filter for certain space names instead of ingesting everything.
     # Mention 'personal_space' if entities of personal space need to ingest
@@ -20,6 +27,9 @@ source:
     #   data_connection_name:
     #     platform_instance: cloud_instance
     #     env: DEV
+    #     platform: mssql
+    #     database: sales_db
+    #     default_schema: dbo
 
 sink:
   # sink configs

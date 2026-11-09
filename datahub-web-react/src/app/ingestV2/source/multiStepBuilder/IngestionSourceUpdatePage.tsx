@@ -103,7 +103,6 @@ export function IngestionSourceUpdatePage() {
                     interval: input.schedule?.interval,
                     numOwners: data.owners?.length,
                     outcome: shouldRun ? 'save_and_run' : 'save',
-                    ingestionOnboardingRedesignV1: true,
                 });
 
                 analytics.event({

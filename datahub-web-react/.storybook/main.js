@@ -22,6 +22,9 @@ export default {
         '@storybook/addon-links',
         '@geometricpanda/storybook-addon-badges',
     ],
+    // preview-head.html loads Mulish from ../src/fonts. The dev server serves that path from the
+    // project, but a static build doesn't, so copy the fonts to the same path in the output.
+    staticDirs: [{ from: '../src/fonts', to: '/src/fonts' }],
     typescript: {
         reactDocgen: 'react-docgen-typescript',
     },

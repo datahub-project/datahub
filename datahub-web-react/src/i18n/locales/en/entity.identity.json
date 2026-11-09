@@ -45,6 +45,7 @@
     "inviteToken.copyTooltip": "Copy invite link.",
     "inviteToken.createError": "Failed to create Invite Token for role {{roleName}} : \n {{error}}",
     "inviteToken.footerText": "Copy an invite link to send to your users. When they join, users will be automatically assigned to the selected role.",
+    "inviteToken.footerTextNoRole": "Copy an invite link to send to your users. They can create an account, and will not be assigned a role.",
     "inviteToken.generateNewLinkTooltip": "Generate a new link. Any old links will no longer be valid.",
     "inviteToken.generateSuccess": "Generated new invite link",
     "inviteToken.modalTitle": "Share Invite Link",

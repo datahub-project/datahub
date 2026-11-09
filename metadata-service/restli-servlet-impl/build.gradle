@@ -38,6 +38,7 @@ dependencies {
 
   annotationProcessor externalDependency.lombok
 
+  testImplementation testFixtures(project(':metadata-utils'))
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
   testImplementation project(':mock-entity-registry')

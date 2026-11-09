@@ -165,6 +165,7 @@ dependencies {
   compileOnlyApi externalDependency.djlApi
   compileOnlyApi externalDependency.djlHuggingFaceTokenizers
   // Provider unit tests exercise the real ONNX/DJL libraries.
+  testImplementation testFixtures(project(':metadata-utils'))
   testImplementation externalDependency.onnxRuntime
   testImplementation externalDependency.djlApi
   testImplementation externalDependency.djlHuggingFaceTokenizers
@@ -185,6 +186,8 @@ dependencies {
   implementation externalDependency.opentelemetrySdkTrace
   implementation externalDependency.opentelemetrySdkMetrics
   implementation externalDependency.resilience4j
+  // exp4j for mathematical expression evaluation in template ranking formulas
+  implementation 'net.objecthunter:exp4j:0.4.8'
   // Newer Spring libraries require JDK17 classes, allow for JDK11
   compileOnly externalDependency.springBootAutoconfigureJdk11
   implementation(externalDependency.mixpanel) {
