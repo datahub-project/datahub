@@ -19,6 +19,9 @@ class AppCheckpoint(BaseModel):
     # None, or "" in older state, makes the next run read the app again.
     fingerprint: Optional[str] = None
     urns: List[str]
+    # Consecutive runs in which the app was only partly read and these URNs,
+    # from its last complete read, were kept instead.
+    partial_reads: int = 0
 
 
 class QlikAppCheckpointState(CheckpointStateBase):
