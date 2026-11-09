@@ -470,6 +470,19 @@ U: SQL SELECT * FROM d.dbo.u1;
     ]
 
 
+def test_parse_load_script_ignores_sql_comments_in_bare_with_queries() -> None:
+    script = """
+LIB CONNECT TO 'A';
+T: WITH recent AS ( -- don't count returns
+  SELECT a FROM db.s.t1
+)
+SELECT a FROM recent;
+U: LOAD 'SELECT' AS kind, a--b AS diff RESIDENT T;
+V: SQL SELECT * FROM db.s.v1;
+"""
+    assert [t.label for t in parse_load_script(script)] == ["T", "V"]
+
+
 def test_parse_load_script_binds_sub_parameters() -> None:
     script = """
 SET vTable = 'db.s.global';
@@ -478,11 +491,13 @@ SUB LoadT(vTable)
 END SUB
 LIB CONNECT TO 'A';
 CALL LoadT('db.s.param_b');
+CALL LoadT(42);
 CALL LoadT(vOther);
 U: SQL SELECT * FROM $(vTable);
 """
     assert [t.sql for t in parse_load_script(script)] == [
         "SELECT * FROM db.s.param_b",
+        "SELECT * FROM 42",
         "SELECT * FROM $(vTable)",
         "SELECT * FROM db.s.global",
     ]
@@ -533,6 +548,19 @@ def test_parse_load_script_label_of_preceding_load_stack() -> None:
             id="cut_to_32_characters",
         ),
         pytest.param("SELECT 1 AS one", "table_1", id="no_from"),
+        pytest.param(
+            "SELECT 'x FROM y' AS note, a FROM db.s.t", "db.s.t", id="string_literal"
+        ),
+        pytest.param(
+            "SELECT * FROM (SELECT a FROM db.s.inner_t) AS sub",
+            "table_1",
+            id="subquery",
+        ),
+        pytest.param(
+            "SELECT EXTRACT(YEAR FROM d) AS y FROM db.s.dates",
+            "db.s.dates",
+            id="from_inside_function",
+        ),
     ],
 )
 def test_parse_load_script_names_unlabelled_tables_after_from(
