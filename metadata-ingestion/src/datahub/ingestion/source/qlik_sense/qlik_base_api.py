@@ -130,10 +130,16 @@ class QlikBaseAPI(ABC):
                 yield item
 
     def _items_in_turn(self, space_ids: Sequence[str]) -> Iterator[Tuple[str, Dict]]:
-        listings: Deque[Tuple[str, Iterator[Dict]]] = deque(
-            (space_id, iter(self._list_items(space_id))) for space_id in space_ids
-        )
-        while listings:
+        # Each space is listed only when its turn first comes, so a slow
+        # listing does not hold back the items already listed.
+        unlisted = iter(space_ids)
+        listings: Deque[Tuple[str, Iterator[Dict]]] = deque()
+        while True:
+            space_id = next(unlisted, None)
+            if space_id is not None:
+                listings.appendleft((space_id, iter(self._list_items(space_id))))
+            elif not listings:
+                return
             space_id, listing = listings.popleft()
             item = next(listing, None)
             if item is not None:
