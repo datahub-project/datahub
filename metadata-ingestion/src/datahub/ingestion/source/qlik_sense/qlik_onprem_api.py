@@ -398,7 +398,11 @@ class QlikOnPremAPI(QlikBaseAPI):
             "owner": {key: owner.get(key) for key in ("id", "name", "userId")},
             "objects": sorted(
                 json.dumps(
-                    {key: obj.get(key) for key in _OBJECT_FINGERPRINT_FIELDS},
+                    {
+                        **{key: obj.get(key) for key in _OBJECT_FINGERPRINT_FIELDS},
+                        # A sheet that changes owner is read again.
+                        "owner": (obj.get("owner") or {}).get(Constant.ID),
+                    },
                     sort_keys=True,
                 )
                 for obj in objects

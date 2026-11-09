@@ -185,7 +185,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self.ui_host = config.ui_hostname()
         self._data_connections: Optional[Dict[str, DataConnectionInfo]] = None
         # Owned here rather than by the automatic processor so that entities of
-        # apps skipped as unchanged can be kept in the state.
+        # apps skipped as unchanged or only partly read can be kept in the state.
         self.stale_entity_removal_handler: Optional[StaleEntityRemovalHandler] = (
             StaleEntityRemovalHandler(
                 state_provider=self.state_provider,
@@ -196,8 +196,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 run_id=ctx.run_id,
                 platform=self.platform,
             )
-            if config.skips_unchanged_apps()
-            else None
         )
         self.app_state = QlikAppStateHandler(
             state_provider=self.state_provider,
@@ -210,7 +208,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             else None,
         )
         self._fingerprint_salt: Optional[str] = None
-        self._change_check_failed = False
         # Filled from worker threads, so only copied to the report at the end.
         self._change_check_failures: List[str] = []
         if config.skips_unchanged_apps() and not self._skips_unchanged_apps():
@@ -267,7 +264,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return processors
 
     def _skips_unchanged_apps(self) -> bool:
-        return self.app_state.is_checkpointing_enabled()
+        return (
+            self.config.skips_unchanged_apps()
+            and self.app_state.is_checkpointing_enabled()
+        )
 
     def _init_fingerprint_salt(self) -> None:
         # The recipe and data connections shape every app's output, and a new
@@ -337,15 +337,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self._change_check_failures.append(
                 f"{app_id}: unable to read the app back from DataHub: {e}"
             )
-            if not self._change_check_failed:
-                self._change_check_failed = True
-                self.reporter.warning(
-                    title="Unable to check whether Qlik apps changed",
-                    message="Reading app metadata back from DataHub failed, so the "
-                    "affected apps are read again instead of skipped.",
-                    context=container_urn,
-                    exc=e,
-                )
             return False
 
     @staticmethod
@@ -435,9 +426,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # Recording the partial entity list as the app's last read would let
             # a later partial read keep only those entities.
             return
-        if fingerprint is None:
-            # No fingerprint never matches, so the next run reads the app again.
-            urns.update(dict.fromkeys(self._keep_previous_urns(app.id)))
+        # A complete read records only what it produced, so entities removed in
+        # Qlik are soft-deleted even when the change check keeps failing. No
+        # fingerprint never matches, so such an app is read again next run.
         self.app_state.record(
             app.id, AppCheckpoint(fingerprint=fingerprint, urns=list(urns))
         )
@@ -1264,7 +1255,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self,
         item: Union[Item, UnchangedApp],
         space: Space,
-        skip_unchanged: bool,
+        record_state: bool,
     ) -> Iterable[MetadataWorkUnit]:
         if isinstance(item, UnchangedApp):
             self._keep_unchanged_app(item)
@@ -1276,7 +1267,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             if (
                 not item.read_complete
-                and skip_unchanged
+                and record_state
                 and self._keep_partly_read_app(item)
             ):
                 self.reporter.warning(
@@ -1306,7 +1297,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 )
             yield from (
                 self._gen_recorded_app_workunit(item)
-                if skip_unchanged
+                if record_state
                 else self._gen_app_workunit(item)
             )
         elif isinstance(item, QlikDataset):
@@ -1325,6 +1316,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         logger.info("Qlik Sense plugin execution is started")
         allowed_spaces = self._get_allowed_spaces()
         skip_unchanged = self._skips_unchanged_apps()
+        record_state = self.app_state.is_checkpointing_enabled()
         if skip_unchanged:
             self._init_fingerprint_salt()
         for space_number, allowed_space in enumerate(allowed_spaces, start=1):
@@ -1342,12 +1334,29 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 is_unchanged=self._is_app_unchanged if skip_unchanged else None,
             )
             for item in items:
-                yield from self._gen_item_workunits(item, allowed_space, skip_unchanged)
-        for failure in [
+                yield from self._gen_item_workunits(item, allowed_space, record_state)
+        change_check_failures = [
             *self.qlik_api.change_check_failures,
             *self._change_check_failures,
-        ]:
+        ]
+        for failure in change_check_failures:
             self.reporter.apps_change_check_failed.append(failure)
+        if change_check_failures:
+            # Reported here rather than from the worker threads that check apps.
+            self.reporter.warning(
+                title="Unable to check whether Qlik apps changed",
+                message="These apps were read in full instead of skipped. "
+                "See apps_change_check_failed.",
+                context=f"{len(change_check_failures)} apps, for example "
+                f"{change_check_failures[0]}",
+            )
+        if self.app_state.is_too_large():
+            self.reporter.warning(
+                title="Qlik app checkpoint is too large to save",
+                message="Unchanged apps are not skipped and partly read apps are "
+                "reported as failures until it fits. Raise "
+                "stateful_ingestion.max_checkpoint_state_size.",
+            )
         failed_users = self.qlik_api.failed_user_lookups
         if failed_users:
             self.reporter.warning(
