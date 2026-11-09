@@ -154,7 +154,7 @@ MAPPING_PREFIX_RE = re.compile(r"\bMapping\b", re.IGNORECASE)
 # CrossTable and Generic turn columns into attribute and value fields, so the
 # field names are not the column names.
 RESHAPE_PREFIX_RE = re.compile(r"\b(?:CrossTable|Generic)\b", re.IGNORECASE)
-CROSSTABLE_RE = re.compile(r"\bCrossTable\s*\((?P<args>[^)]*)\)", re.IGNORECASE)
+CROSSTABLE_RE = re.compile(r"\bCrossTable\s*\(", re.IGNORECASE)
 # Single-quoted text is a string literal in a chart expression, not a field.
 # A quoted field can carry a derived-field suffix, as in [Date].autoCalendar.Year.
 EXPRESSION_NAME_RE = re.compile(
@@ -261,7 +261,9 @@ def _crosstable(prefix: str) -> Optional[CrossTable]:
     match = CROSSTABLE_RE.search(prefix)
     if not match:
         return None
-    args = [_unquote(arg) for arg in _split_top_level(match.group("args"))]
+    # A bracketed or quoted field name can hold a `)`, as in [Month)].
+    end = _block_end(prefix, match.end(), "(", ")")
+    args = [_unquote(arg) for arg in _split_top_level(prefix[match.end() : end - 1])]
     if len(args) == 2:
         return CrossTable(attribute=args[0], data=args[1])
     if len(args) == 3 and args[2].isdigit():

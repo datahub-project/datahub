@@ -930,6 +930,11 @@ def test_parse_load_script_marks_reshaped_tables(script: str) -> None:
             id="two_qualifiers",
         ),
         pytest.param(
+            "T: CrossTable([Month)], 'Sales, net', 1) SQL SELECT region, jan FROM db.s.t;",
+            {"region": ["r"], "Month)": [], "Sales, net": ["s", "j"]},
+            id="names_with_delimiters",
+        ),
+        pytest.param(
             "T: CrossTable(Month, Sales) LOAD *;\nSQL SELECT region, jan FROM db.s.t;",
             None,
             id="field_order_unknown",
