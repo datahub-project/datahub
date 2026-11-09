@@ -253,7 +253,10 @@ class AppFieldIndex(BaseModel):
     folded: Dict[str, List[AppField]] = {}
 
     def get(self, name: str) -> List[AppField]:
-        return self.exact.get(name) or self.folded.get(name.lower(), [])
+        exact = self.exact.get(name, [])
+        return exact + [
+            field for field in self.folded.get(name.lower(), []) if field not in exact
+        ]
 
 
 class QlikTable(_QlikBaseModel):

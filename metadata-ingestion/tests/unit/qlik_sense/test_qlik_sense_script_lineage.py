@@ -501,6 +501,11 @@ def test_preceding_load_interpretation_function_is_not_a_column() -> None:
             {"order_id": ["order_id_urn"], "Renamed": []},
             id="variable_in_alias",
         ),
+        pytest.param(
+            "$(vKeys)$(vMeasures)",
+            {"order_id": ["order_id_urn"]},
+            id="joined_variables",
+        ),
         pytest.param("Upper(order_id)", {}, id="unaliased_expression"),
         pytest.param(
             "order_id AS [$(vName)]",
@@ -930,9 +935,16 @@ def test_parse_load_script_marks_reshaped_tables(script: str) -> None:
             id="two_qualifiers",
         ),
         pytest.param(
-            "T: CrossTable([Month)], 'Sales, net', 1) SQL SELECT region, jan FROM db.s.t;",
+            "T: CrossTable([Month)], 'Sales, net', 1) "
+            "SQL SELECT region, store, jan FROM db.s.t;",
             {"region": ["r"], "Month)": [], "Sales, net": ["s", "j"]},
             id="names_with_delimiters",
+        ),
+        pytest.param(
+            "T: CrossTable(Month, Sales) LOAD Upper(region), store, jan;\n"
+            "SQL SELECT region, store, jan FROM db.s.t;",
+            None,
+            id="unaliased_expression",
         ),
         pytest.param(
             "T: CrossTable(Month, Sales) LOAD *;\nSQL SELECT region, jan FROM db.s.t;",
