@@ -5,6 +5,7 @@ import json
 import logging
 import pathlib
 import re
+import shutil
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -427,7 +428,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         use_cached_audit_log = audit_log_file.exists()
 
         if self.config.local_temp_path is None:
-            self._exit_stack.callback(lambda: audit_log_file.unlink(missing_ok=True))
+            temp_dir = self.local_temp_path
+            self._exit_stack.callback(shutil.rmtree, temp_dir, ignore_errors=True)
 
         shared_connection = self._exit_stack.enter_context(
             ConnectionWrapper(audit_log_file)

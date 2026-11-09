@@ -183,8 +183,8 @@ def test_audit_log_feeds_users_copy_history_and_query_log_into_lineage(
 
 def test_query_log_fetch_is_skipped_when_no_query_feature_is_enabled() -> None:
     """With every query feature off, neither the query log nor copy history is
-    fetched (checked on the issued SQL) and the default-location audit log is
-    removed on close."""
+    fetched (checked on the issued SQL) and the default-location audit log and
+    its temp directory are removed on close."""
     extractor = _make_extractor(
         _dispatch_for({"SNOWFLAKE.ACCOUNT_USAGE.USERS": []}),
         include_lineage=False,
@@ -200,8 +200,31 @@ def test_query_log_fetch_is_skipped_when_no_query_feature_is_enabled() -> None:
     ]
     assert not any("QUERY_HISTORY" in q or "COPY_HISTORY" in q for q in issued)
     extractor.close()
-    # The default temp dir audit log is removed on close.
-    assert not pathlib.Path(extractor.report.audit_log_path or "").exists()
+    # The default temp dir audit log, and the directory holding it, are removed.
+    assert extractor.report.audit_log_path is not None
+    audit_log = pathlib.Path(extractor.report.audit_log_path)
+    assert not audit_log.exists()
+    assert not audit_log.parent.exists()
+
+
+def test_default_temp_dir_is_not_leaked_across_runs() -> None:
+    temp_dirs = []
+    for _ in range(3):
+        extractor = _make_extractor(
+            _dispatch_for({"SNOWFLAKE.ACCOUNT_USAGE.USERS": []}),
+            include_lineage=False,
+            include_queries=False,
+            include_usage_statistics=False,
+            include_query_usage_statistics=False,
+            include_operations=False,
+        )
+        assert list(extractor.get_workunits_internal()) == []
+        assert extractor.report.audit_log_path is not None
+        temp_dirs.append(pathlib.Path(extractor.report.audit_log_path).parent)
+        extractor.close()
+
+    assert len(set(temp_dirs)) == 3
+    assert not any(d.exists() for d in temp_dirs)
 
 
 def test_temp_and_allowed_table_checks_use_patterns_and_discovered_tables() -> None:
