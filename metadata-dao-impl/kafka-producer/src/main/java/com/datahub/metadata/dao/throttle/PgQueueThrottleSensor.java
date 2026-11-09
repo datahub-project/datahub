@@ -38,7 +38,7 @@ import org.springframework.util.backoff.ExponentialBackOff;
  */
 @Slf4j
 @Builder(toBuilder = true)
-public class PgQueueThrottleSensor implements ThrottleSensor {
+public class PgQueueThrottleSensor implements ThrottleSensor, AutoCloseable {
 
   private static final Set<ThrottleType> SUPPORTED_THROTTLE_TYPES =
       Set.of(MCL_VERSIONED_LAG, MCL_TIMESERIES_LAG);
@@ -92,6 +92,16 @@ public class PgQueueThrottleSensor implements ThrottleSensor {
   @VisibleForTesting
   public void stop() {
     scheduler.shutdown();
+  }
+
+  /**
+   * Stops the lag refresh. Spring calls this when the context closes. The queue store is a shared
+   * bean, so it is left open.
+   */
+  @Override
+  public void close() {
+    // shutdownNow interrupts a throttle() that is sleeping through a backoff
+    scheduler.shutdownNow();
   }
 
   @VisibleForTesting

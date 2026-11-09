@@ -12,6 +12,7 @@ import com.linkedin.metadata.dao.throttle.ThrottleType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -47,9 +48,10 @@ import org.springframework.util.backoff.ExponentialBackOff;
  */
 @Slf4j
 @Builder(toBuilder = true)
-public class KafkaThrottleSensor implements ThrottleSensor {
+public class KafkaThrottleSensor implements ThrottleSensor, AutoCloseable {
   private static final Set<ThrottleType> SUPPORTED_THROTTLE_TYPES =
       Set.of(MCL_VERSIONED_LAG, MCL_TIMESERIES_LAG);
+  private static final Duration ADMIN_CLOSE_TIMEOUT = Duration.ofSeconds(10);
   @Nonnull private final EntityRegistry entityRegistry;
   @Nonnull private final Admin kafkaAdmin;
   @Nonnull private final MetadataChangeProposalConfig.ThrottlesConfig config;
@@ -102,6 +104,17 @@ public class KafkaThrottleSensor implements ThrottleSensor {
   @VisibleForTesting
   public void stop() {
     scheduler.shutdown();
+  }
+
+  /**
+   * Stops the lag refresh and closes the admin client this sensor owns. Spring calls this when the
+   * context closes.
+   */
+  @Override
+  public void close() {
+    // shutdownNow interrupts a throttle() that is sleeping through a backoff
+    scheduler.shutdownNow();
+    kafkaAdmin.close(ADMIN_CLOSE_TIMEOUT);
   }
 
   /**
