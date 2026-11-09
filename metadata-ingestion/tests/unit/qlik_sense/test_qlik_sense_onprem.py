@@ -1,7 +1,6 @@
 import json
 import ssl
 import threading
-import time
 from typing import Dict, List, Optional, Tuple, Union
 from unittest.mock import MagicMock, patch
 
@@ -23,6 +22,7 @@ from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import (
     UNPUBLISHED_APPS_NAME,
     QlikOnPremAPI,
+    _QrsAdapter,
 )
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import (
@@ -80,7 +80,8 @@ def test_onprem_lists_stream_and_opens_app(
 
     spaces = api.get_spaces()
     assert [space.name for space in spaces] == ["Everyone"]
-    assert api.get_user_name("user-1") == "Ada"
+    # The user id joins with users ingested from AD or LDAP; the name would not.
+    assert api.get_user_name("user-1") == "ada"
 
     items = list(api.get_items("stream-1"))
     assert len(items) == 1
@@ -99,6 +100,8 @@ def test_onprem_lists_stream_and_opens_app(
     assert (connection.platform, connection.database) == ("mssql", "sales_db")
     mock_engine.assert_called_once()
     assert mock_engine.call_args.kwargs["port"] == 4747
+    assert mock_engine.call_args.kwargs["timeout"] == 300
+    assert {call.kwargs["timeout"] for call in session.get.call_args_list} == {300}
     assert mock_engine.call_args.kwargs["user_header"] == (
         "UserDirectory=INTERNAL; UserId=sa_engine"
     )
@@ -194,12 +197,18 @@ def test_onprem_loads_apps_in_parallel(
             return FakeResponse([{**APP, "id": app_id} for app_id in app_ids])
         return fake_qrs_get(url, params, **kwargs)
 
+    # The first read waits until a second one is running, so the reads only
+    # finish when they really overlap.
+    overlapping = threading.Event()
+
     def get_script() -> str:
         nonlocal in_flight, peak
         with lock:
             in_flight += 1
             peak = max(peak, in_flight)
-        time.sleep(0.05)
+            if in_flight > 1:
+                overlapping.set()
+        overlapping.wait(timeout=10)
         with lock:
             in_flight -= 1
         return "// script"
@@ -224,6 +233,7 @@ def test_onprem_loads_apps_in_parallel(
     items = {item.id: item for item in api.get_items("stream-1")}
 
     assert sorted(items) == app_ids
+    assert overlapping.is_set()
     assert 1 < peak <= 3
     for app_id, item in items.items():
         assert isinstance(item, App)
@@ -865,6 +875,27 @@ def test_chart_inputs_when_fields_are_unknown(
     ] == matched_fields
 
 
+def test_field_names_match_in_any_case_only_for_script_tables() -> None:
+    model_a = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.a,PROD)"
+    model_b = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.b,PROD)"
+    script = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    app_fields = QlikSenseSource._index_app_fields(
+        {
+            model_a: [SchemaField(name="ID")],
+            model_b: [SchemaField(name="id")],
+            script: [SchemaField(name="amount")],
+        },
+        script_table_urns={script},
+    )
+    chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
+    chart.field_expressions = ["ID", "Sum(Amount)"]
+
+    assert [
+        (field.dataset_urn, field.field.name)
+        for field in QlikSenseSource._get_chart_input_fields(chart, app_fields)
+    ] == [(model_a, "ID"), (script, "amount")]
+
+
 def test_qualified_field_name_matches_before_derived_field() -> None:
     table = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
     app_fields = QlikSenseSource._index_app_fields(
@@ -872,16 +903,16 @@ def test_qualified_field_name_matches_before_derived_field() -> None:
     )
 
     assert QlikSenseSource._app_field_key("Orders.Region", app_fields) == (
-        "orders.region"
+        "Orders.Region"
     )
     assert QlikSenseSource._app_field_key("Orders.autoCalendar.Year", app_fields) == (
-        "orders"
+        "Orders"
     )
     assert QlikSenseSource._app_field_key("Customers.Region", app_fields) is None
     # A field whose own name contains a dot keeps it when a suffix is derived.
     assert (
         QlikSenseSource._app_field_key("Orders.Region.autoCalendar.Year", app_fields)
-        == "orders.region"
+        == "Orders.Region"
     )
 
 
@@ -1373,7 +1404,7 @@ def test_onprem_logs_presented_certificate_when_tls_fails(
         QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
 
     mock_presented.assert_called_once_with(
-        "qlik.example.com", 4242, "/secrets/client.pem", "/secrets/client_key.pem"
+        "qlik.example.com", 4242, "/secrets/client.pem", "/secrets/client_key.pem", None
     )
     assert "-----BEGIN CERTIFICATE-----" in caplog.text
 
@@ -1739,7 +1770,7 @@ def test_onprem_user_lookup_is_cached_and_failures_recorded_once(
 ) -> None:
     def qrs_get(url: str, **kwargs: object) -> FakeResponse:
         if url.endswith("/user/user-2"):
-            return FakeResponse({"name": "Grace"})
+            return FakeResponse({"name": "Grace", "userId": "grace"})
         if url.endswith("/user/user-3"):
             return FakeResponse({}, status_code=503)
         return fake_qrs_get(url, **kwargs)  # type: ignore[arg-type]
@@ -1749,7 +1780,7 @@ def test_onprem_user_lookup_is_cached_and_failures_recorded_once(
     session.get.side_effect = qrs_get
     api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
 
-    assert [api.get_user_name("user-2") for _ in range(2)] == ["Grace", "Grace"]
+    assert [api.get_user_name("user-2") for _ in range(2)] == ["grace", "grace"]
     assert [api.get_user_name("user-3") for _ in range(2)] == [None, None]
 
     user_calls = [
@@ -1778,3 +1809,144 @@ def test_onprem_unreadable_sheet_marks_app_partly_read(
     assert app.sheets == []
     assert not app.read_complete
     assert engine.handles == [-1, 1]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_script_sql_errors_do_not_report_secrets(mock_onprem: MagicMock) -> None:
+    script = """LIB CONNECT TO 'Sales SQL';
+T: SQL SELECT a -- don't
+FROM sales_db.dbo.t1;
+ODBC CONNECT TO [Driver={ODBC Driver 17 for SQL Server};Server=h;Database=d;UID=svc;PWD=Hunter2Secret];
+U: SQL SELECT * FROM d.dbo.u1;
+V: SQL SELECT FROM WHERE 'Hunter2Secret';
+"""
+    source, tables = _script_tables(mock_onprem, {}, script=script)
+
+    assert [table.label for table in tables] == ["T", "U"]
+    assert [warning.title for warning in source.reporter.warnings] == [
+        "Unable to parse Qlik load script SQL"
+    ]
+    assert "Hunter2Secret" not in str(source.reporter.as_obj())
+
+
+def _sheet_layout(sheet_id: str, **meta: object) -> List[object]:
+    return [
+        {"qReturn": {"qHandle": 2, "qType": "GenericObject"}},
+        {"qLayout": {"qMeta": {**SHEET_META, **meta}}},
+    ]
+
+
+@pytest.mark.parametrize("unpublished_app", [False, True])
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_private_sheets_of_published_apps_are_skipped(
+    mock_session_cls: MagicMock, mock_engine: MagicMock, unpublished_app: bool
+) -> None:
+    engine = _ScriptedEngine(
+        [
+            {"qReturn": {"qHandle": 1}},
+            {
+                "qList": [
+                    {"qInfo": {"qId": "base", "qType": "sheet"}},
+                    {"qInfo": {"qId": "mine", "qType": "sheet"}},
+                ]
+            },
+            # QRS can leave out fractional seconds.
+            *_sheet_layout("base", published=True, createdDate="2024-01-15T11:01:49Z"),
+            *_sheet_layout("mine", published=False),
+        ]
+    )
+    mock_engine.return_value = engine
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = fake_qrs_get
+    api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
+    app_dict = {**APP, "stream": None} if unpublished_app else APP
+
+    app = api._read_app(app_dict)
+
+    assert app is not None
+    assert len(app.sheets) == (2 if unpublished_app else 1)
+    assert app.read_complete
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_engine_reply_wait_is_bounded(mock_connect: MagicMock) -> None:
+    socket = MagicMock()
+    notification = json.dumps({"method": "OnConnected", "params": {}})
+    socket.recv.return_value = notification
+    mock_connect.return_value = socket
+    connection = WebsocketConnection.for_on_prem(
+        host="qlik.example.com",
+        port=4747,
+        app_id="app-1",
+        user_header="UserDirectory=INTERNAL; UserId=sa_engine",
+        client_cert="/secrets/client.pem",
+        client_key="/secrets/client_key.pem",
+        root_cert="/secrets/root.pem",
+        key_password="key-password",
+        timeout=5,
+    )
+
+    with (
+        patch(
+            "datahub.ingestion.source.qlik_sense.websocket_connection.time.monotonic",
+            side_effect=[0, 1, 6],
+        ),
+        pytest.raises(TimeoutError),
+    ):
+        connection.websocket_send_request(method="OpenDoc")
+
+    assert mock_connect.call_args.kwargs["timeout"] == 5
+    assert mock_connect.call_args.kwargs["sslopt"]["password"] == "key-password"
+
+
+def test_qrs_adapter_passes_the_client_key_password() -> None:
+    adapter = _QrsAdapter(assert_hostname=None, key_password="key-password")
+
+    assert adapter.poolmanager.connection_pool_kw["key_password"] == "key-password"
+    assert "assert_hostname" not in adapter.poolmanager.connection_pool_kw
+
+
+@pytest.mark.parametrize("engine_reachable", [True, False])
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.socket.create_connection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_test_connection_checks_the_engine_port(
+    mock_session_cls: MagicMock, mock_connect: MagicMock, engine_reachable: bool
+) -> None:
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = fake_qrs_get
+    if not engine_reachable:
+        mock_connect.side_effect = ConnectionRefusedError("refused")
+
+    report = QlikSenseSource.test_connection(ONPREM_CONFIG)
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable is engine_reachable
+    assert mock_connect.call_args.args[0] == ("qlik.example.com", 4747)
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_mapping_tables_are_not_chart_inputs(mock_onprem: MagicMock) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(ONPREM_CONFIG),
+        PipelineContext(run_id="test-onprem"),
+    )
+    tables = [
+        ScriptTableLineage(
+            label="Map",
+            identifier="app-1.map",
+            column_upstreams={"k": []},
+            mapping=True,
+        ),
+        ScriptTableLineage(
+            label="Orders", identifier="app-1.orders", column_upstreams={"k": []}
+        ),
+    ]
+
+    assert list(source._app_table_fields([], tables)) == [
+        "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    ]

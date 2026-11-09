@@ -244,6 +244,18 @@ class AppField(BaseModel):
     field: SchemaField
 
 
+class AppFieldIndex(BaseModel):
+    """Chart field lookup. Qlik field names are case-sensitive, but the SQL
+    parser may change the case of script table columns, so only those also
+    match by name in any case."""
+
+    exact: Dict[str, List[AppField]] = {}
+    folded: Dict[str, List[AppField]] = {}
+
+    def get(self, name: str) -> List[AppField]:
+        return self.exact.get(name) or self.folded.get(name.lower(), [])
+
+
 class QlikTable(_QlikBaseModel):
     tableName: str
     type: BoxType = Field(alias="boxType")

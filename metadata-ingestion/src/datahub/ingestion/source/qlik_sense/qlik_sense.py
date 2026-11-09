@@ -4,7 +4,7 @@ import json
 import logging
 from datetime import datetime
 from functools import partial
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Collection, Dict, Iterable, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub._version import __version__
@@ -47,6 +47,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     KNOWN_DATA_PLATFORM_MAPPING,
     App,
     AppField,
+    AppFieldIndex,
     AppKey,
     BoxType,
     Chart,
@@ -145,6 +146,12 @@ logger = logging.getLogger(__name__)
 ENTITY_CHECK_BATCH_SIZE = 100
 
 
+def _error_type(error: Optional[Exception]) -> str:
+    # SQL parser errors quote the statement, which can hold credentials when a
+    # script statement was split wrongly, so only the type goes in the report.
+    return type(error).__name__ if error else "unknown"
+
+
 @platform_name("Qlik Sense")
 @config_class(QlikSourceConfig)
 @support_status(SupportStatus.ALPHA)
@@ -185,7 +192,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self.ui_host = config.ui_hostname()
         self._data_connections: Optional[Dict[str, DataConnectionInfo]] = None
         # Owned here rather than by the automatic processor so that entities of
-        # apps skipped as unchanged can be kept in the state.
+        # apps skipped as unchanged or only partly read can be kept in the state.
         self.stale_entity_removal_handler: Optional[StaleEntityRemovalHandler] = (
             StaleEntityRemovalHandler(
                 state_provider=self.state_provider,
@@ -196,8 +203,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 run_id=ctx.run_id,
                 platform=self.platform,
             )
-            if config.skips_unchanged_apps()
-            else None
         )
         self.app_state = QlikAppStateHandler(
             state_provider=self.state_provider,
@@ -210,7 +215,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             else None,
         )
         self._fingerprint_salt: Optional[str] = None
-        self._change_check_failed = False
         # Filled from worker threads, so only copied to the report at the end.
         self._change_check_failures: List[str] = []
         if config.skips_unchanged_apps() and not self._skips_unchanged_apps():
@@ -236,7 +240,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         test_report = TestConnectionReport()
         try:
             config = QlikSourceConfig.parse_obj_allow_extras(config_dict)
-            QlikSenseSource._create_api(config)
+            api = QlikSenseSource._create_api(config)
+            if isinstance(api, QlikOnPremAPI):
+                api.check_engine_port()
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
@@ -265,7 +271,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return processors
 
     def _skips_unchanged_apps(self) -> bool:
-        return self.app_state.is_checkpointing_enabled()
+        return (
+            self.config.skips_unchanged_apps()
+            and self.app_state.is_checkpointing_enabled()
+        )
 
     def _init_fingerprint_salt(self) -> None:
         # The recipe and data connections shape every app's output, and a new
@@ -335,15 +344,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self._change_check_failures.append(
                 f"{app_id}: unable to read the app back from DataHub: {e}"
             )
-            if not self._change_check_failed:
-                self._change_check_failed = True
-                self.reporter.warning(
-                    title="Unable to check whether Qlik apps changed",
-                    message="Reading app metadata back from DataHub failed, so the "
-                    "affected apps are read again instead of skipped.",
-                    context=container_urn,
-                    exc=e,
-                )
             return False
 
     @staticmethod
@@ -433,9 +433,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # Recording the partial entity list as the app's last read would let
             # a later partial read keep only those entities.
             return
-        if fingerprint is None:
-            # No fingerprint never matches, so the next run reads the app again.
-            urns.update(dict.fromkeys(self._keep_previous_urns(app.id)))
+        # A complete read records only what it produced, so entities removed in
+        # Qlik are soft-deleted even when the change check keeps failing. No
+        # fingerprint never matches, so such an app is read again next run.
         self.app_state.record(
             app.id, AppCheckpoint(fingerprint=fingerprint, urns=list(urns))
         )
@@ -559,7 +559,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self,
         charts: List[Chart],
         input_tables_urns: Optional[List[str]],
-        app_fields: Dict[str, List[AppField]],
+        app_fields: AppFieldIndex,
         has_unknown_schema: bool,
         app_id: str,
     ) -> Iterable[MetadataWorkUnit]:
@@ -648,38 +648,32 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     @staticmethod
-    def _chart_field_names(
-        expression: str, app_fields: Dict[str, List[AppField]]
-    ) -> List[str]:
+    def _chart_field_names(expression: str, app_fields: AppFieldIndex) -> List[str]:
         # A dimension is usually a bare field name, which may contain spaces.
         return (
-            [expression]
-            if expression.lower() in app_fields
-            else expression_names(expression)
+            [expression] if app_fields.get(expression) else expression_names(expression)
         )
 
     @staticmethod
-    def _app_field_key(
-        name: str, app_fields: Dict[str, List[AppField]]
-    ) -> Optional[str]:
+    def _app_field_key(name: str, app_fields: AppFieldIndex) -> Optional[str]:
         """The app field a chart name reads. A derived field such as
         Date.autoCalendar.Year reads its base field, the longest leading part
         of the name that is a field (field names can contain dots), unless a
         field of that exact name exists."""
-        key = name.lower()
-        while key not in app_fields and "." in key:
+        key = name
+        while not app_fields.get(key) and "." in key:
             key = key.rsplit(".", 1)[0]
-        return key if key in app_fields else None
+        return key if app_fields.get(key) else None
 
     @staticmethod
     def _get_chart_input_fields(
-        chart: Chart, app_fields: Dict[str, List[AppField]]
+        chart: Chart, app_fields: AppFieldIndex
     ) -> List[AppField]:
         matched: Dict[str, AppField] = {}
         for expression in chart.field_expressions:
             for name in QlikSenseSource._chart_field_names(expression, app_fields):
                 key = QlikSenseSource._app_field_key(name, app_fields)
-                for app_field in app_fields.get(key, []) if key else []:
+                for app_field in app_fields.get(key) if key else []:
                     matched.setdefault(
                         f"{app_field.dataset_urn}.{app_field.field.name}", app_field
                     )
@@ -689,7 +683,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self,
         chart: Chart,
         chart_fields: List[AppField],
-        app_fields: Dict[str, List[AppField]],
+        app_fields: AppFieldIndex,
         input_tables_urns: List[str],
         has_unknown_schema: bool,
     ) -> List[str]:
@@ -719,22 +713,22 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     @staticmethod
     def _index_app_fields(
         tables: Dict[str, List[QlikDatasetSchemaField]],
-    ) -> Dict[str, List[AppField]]:
-        # Qlik field names are case-sensitive, but the SQL parser may change the
-        # case of script table columns.
-        app_fields: Dict[str, List[AppField]] = {}
+        script_table_urns: Collection[str] = (),
+    ) -> AppFieldIndex:
+        index = AppFieldIndex()
         for dataset_urn, fields in tables.items():
             for field in fields:
-                app_fields.setdefault(field.name.lower(), []).append(
-                    AppField(dataset_urn=dataset_urn, field=field)
-                )
-        return app_fields
+                app_field = AppField(dataset_urn=dataset_urn, field=field)
+                index.exact.setdefault(field.name, []).append(app_field)
+                if dataset_urn in script_table_urns:
+                    index.folded.setdefault(field.name.lower(), []).append(app_field)
+        return index
 
     def _gen_sheets_workunit(
         self,
         app: App,
         input_tables_urns: Optional[List[str]],
-        app_fields: Dict[str, List[AppField]],
+        app_fields: AppFieldIndex,
         has_unknown_schema: bool,
     ) -> Iterable[MetadataWorkUnit]:
         """
@@ -802,15 +796,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 default_schema=table.schemaName
                 or upstream_dataset_platform_detail.default_schema,
                 platform=platform,
-                env=upstream_dataset_platform_detail.env,
+                # Like script tables, an unset env follows the recipe's env.
+                env=upstream_dataset_platform_detail.env
+                if "env" in upstream_dataset_platform_detail.model_fields_set
+                else self.config.env,
                 platform_instance=upstream_dataset_platform_detail.platform_instance,
             )
             if not result.in_tables:
                 self.reporter.warning(
                     title="Unable to parse Qlik table SQL",
                     message="Upstream lineage for this Qlik table is skipped.",
-                    context=f"table={table.tableName}, connection={table.dataconnectorName}",
-                    exc=result.debug_info.table_error,
+                    context=f"table={table.tableName}, connection={table.dataconnectorName}, "
+                    f"error={_error_type(result.debug_info.table_error)}",
                 )
                 return None
             qualified = [
@@ -1008,8 +1005,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.warning(
                 title="Unable to parse Qlik load script SQL",
                 message="Upstream lineage for this script table is skipped.",
-                context=f"app={app_id}, table={script_table.label}",
-                exc=result.debug_info.table_error,
+                context=f"app={app_id}, table={script_table.label}, "
+                f"error={_error_type(result.debug_info.table_error)}",
             )
         else:
             logger.debug(
@@ -1033,6 +1030,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 label=script_table.label,
                 identifier=f"{app_id}.{script_table.label}".lower(),
                 connection=connection_name,
+                mapping=script_table.mapping,
             ),
         )
         lineage.upstream_urns.extend(
@@ -1199,6 +1197,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     table.datasetSchema
                 )
         for script_table in script_tables:
+            # A mapping table is only used by ApplyMap and is not in the data
+            # model, so charts cannot read it.
+            if script_table.mapping:
+                continue
             table_fields[self._gen_qlik_dataset_urn(script_table.identifier)] = (
                 self._script_table_fields(script_table)
             )
@@ -1216,6 +1218,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         script_tables = self._build_script_tables(app)
         table_fields = self._app_table_fields(app.tables, script_tables)
         input_tables_urns = list(table_fields)
+        script_table_urns = {
+            self._gen_qlik_dataset_urn(table.identifier) for table in script_tables
+        }
         container_workunits = list(
             gen_containers(
                 container_key=self._gen_app_key(app.id),
@@ -1241,7 +1246,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         yield from self._gen_sheets_workunit(
             app,
             None if app.tables_read_failed else input_tables_urns,
-            self._index_app_fields(table_fields),
+            self._index_app_fields(table_fields, script_table_urns),
             any(not fields for fields in table_fields.values()),
         )
         yield from self._gen_app_tables_workunit(app.tables, app.id)
@@ -1398,7 +1403,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self,
         item: Union[Item, UnchangedApp],
         space: Space,
-        skip_unchanged: bool,
+        record_state: bool,
     ) -> Iterable[MetadataWorkUnit]:
         if isinstance(item, UnchangedApp):
             self._keep_unchanged_app(item)
@@ -1417,7 +1422,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             if (
                 not item.read_complete
-                and skip_unchanged
+                and record_state
                 and self._keep_partly_read_app(item)
             ):
                 self.reporter.warning(
@@ -1447,7 +1452,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 )
             yield from (
                 self._gen_recorded_app_workunit(item)
-                if skip_unchanged
+                if record_state
                 else self._gen_app_workunit(item)
             )
         elif isinstance(item, QlikDataset):
@@ -1466,6 +1471,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         logger.info("Qlik Sense plugin execution is started")
         allowed_spaces = self._get_allowed_spaces()
         skip_unchanged = self._skips_unchanged_apps()
+        record_state = self.app_state.is_checkpointing_enabled()
         if skip_unchanged:
             self._init_fingerprint_salt()
         for space_number, allowed_space in enumerate(allowed_spaces, start=1):
@@ -1483,12 +1489,29 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 is_unchanged=self._is_app_unchanged if skip_unchanged else None,
             )
             for item in items:
-                yield from self._gen_item_workunits(item, allowed_space, skip_unchanged)
-        for failure in [
+                yield from self._gen_item_workunits(item, allowed_space, record_state)
+        change_check_failures = [
             *self.qlik_api.change_check_failures,
             *self._change_check_failures,
-        ]:
+        ]
+        for failure in change_check_failures:
             self.reporter.apps_change_check_failed.append(failure)
+        if change_check_failures:
+            # Reported here rather than from the worker threads that check apps.
+            self.reporter.warning(
+                title="Unable to check whether Qlik apps changed",
+                message="These apps were read in full instead of skipped. "
+                "See apps_change_check_failed.",
+                context=f"{len(change_check_failures)} apps, for example "
+                f"{change_check_failures[0]}",
+            )
+        if self.app_state.is_too_large():
+            self.reporter.warning(
+                title="Qlik app checkpoint is too large to save",
+                message="Unchanged apps are not skipped and partly read apps are "
+                "reported as failures until it fits. Raise "
+                "stateful_ingestion.max_checkpoint_state_size.",
+            )
         failed_users = self.qlik_api.failed_user_lookups
         if failed_users:
             self.reporter.warning(

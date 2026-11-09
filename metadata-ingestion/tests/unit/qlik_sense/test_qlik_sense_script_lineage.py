@@ -41,7 +41,7 @@ def test_parse_load_script_tracks_connections_and_labels() -> None:
     assert [(t.label, t.connection) for t in tables] == [
         ("Orders", "Finance:Sales SQL"),
         ("Customers", "Finance:Sales SQL"),
-        ("table_3", "Lakehouse"),
+        ("main.sales.events", "Lakehouse"),
     ]
     assert tables[0].sql.startswith("SELECT o.order_id")
     assert "'a;b // c /* d */'" in tables[0].sql
@@ -76,7 +76,7 @@ SELECT * FROM dbo.events;
         ("Orders", None, "SELECT * FROM dbo.orders"),
         ("Prod", "Warehouse SQL", "SELECT * FROM dbo.prod_only"),
         ("table_3", None, "SELECT * FROM $(vTable)"),
-        ("table_4", "$(vComputed)", "SELECT * FROM dbo.events"),
+        ("dbo.events", "$(vComputed)", "SELECT * FROM dbo.events"),
     ]
 
 
@@ -680,6 +680,9 @@ def test_drop_condition_variables(sql: str, expected: str) -> None:
             id="combined_set_values",
         ),
         pytest.param(
+            "Sum(Total) + Count(DISTINCT Total)", ["Total", "Total"], id="total_field"
+        ),
+        pytest.param(
             "Sum(DISTINCT TOTAL <Region> Amount) and not Flag",
             ["Region", "Amount", "Flag"],
             id="keywords",
@@ -712,3 +715,126 @@ def test_preceding_load_keeps_columns_named_like_chart_qualifiers() -> None:
         table.preceding_loads,
         {"total": ["total_urn"], "distinct": ["distinct_urn"]},
     ) == {"Total": ["total_urn"], "Kind": ["distinct_urn"]}
+
+
+def test_parse_load_script_ignores_sql_line_comments() -> None:
+    script = """
+LIB CONNECT TO 'A';
+T: SQL SELECT a -- don't
+FROM db.dbo.t1;
+ODBC CONNECT TO [Driver={ODBC Driver 17 for SQL Server};Server=h;Database=d];
+U: SQL SELECT * FROM d.dbo.u1;
+"""
+    assert [(t.label, t.sql) for t in parse_load_script(script)] == [
+        ("T", "SELECT a \nFROM db.dbo.t1"),
+        ("U", "SELECT * FROM d.dbo.u1"),
+    ]
+
+
+def test_parse_load_script_binds_sub_parameters() -> None:
+    script = """
+SET vTable = 'db.s.global';
+SUB LoadT(vTable)
+  T: SQL SELECT * FROM $(vTable);
+END SUB
+LIB CONNECT TO 'A';
+CALL LoadT('db.s.param_b');
+CALL LoadT(vOther);
+U: SQL SELECT * FROM $(vTable);
+"""
+    assert [t.sql for t in parse_load_script(script)] == [
+        "SELECT * FROM db.s.param_b",
+        "SELECT * FROM $(vTable)",
+        "SELECT * FROM db.s.global",
+    ]
+
+
+def test_parse_load_script_for_loop_variable_is_unknown() -> None:
+    script = """
+SET vTable = 'db.s.before';
+LIB CONNECT TO 'A';
+FOR EACH vTable IN 'db.s.a', 'db.s.b'
+  T: SQL SELECT * FROM $(vTable);
+NEXT vTable
+"""
+    assert [t.sql for t in parse_load_script(script)] == ["SELECT * FROM $(vTable)"]
+
+
+def test_parse_load_script_stops_at_exit_script() -> None:
+    script = """
+LIB CONNECT TO 'A';
+T: SQL SELECT * FROM db.s.t;
+IF vDebug = 1 THEN
+  EXIT SCRIPT;
+END IF
+U: SQL SELECT * FROM db.s.u;
+EXIT SCRIPT;
+Legacy: SQL SELECT * FROM db.s.legacy;
+"""
+    assert [t.label for t in parse_load_script(script)] == ["T", "U"]
+
+
+def test_parse_load_script_label_of_preceding_load_stack() -> None:
+    script = "LIB CONNECT TO 'A';\nT: LOAD a;\nLOAD a, b;\nSQL SELECT a, b FROM db.s.t;"
+    assert [t.label for t in parse_load_script(script)] == ["T"]
+
+
+@pytest.mark.parametrize(
+    "sql, label",
+    [
+        pytest.param('SELECT * FROM "dbo"."orders"', "dbo.orders", id="quoted"),
+        pytest.param(
+            "SELECT * FROM [sales db].dbo.orders o",
+            "sales db.dbo.orders",
+            id="bracketed",
+        ),
+        pytest.param(
+            "SELECT * FROM a_database_with_a_long_name.dbo.orders",
+            "a_database_with_a_long_name.dbo.",
+            id="cut_to_32_characters",
+        ),
+        pytest.param("SELECT 1 AS one", "table_1", id="no_from"),
+    ],
+)
+def test_parse_load_script_names_unlabelled_tables_after_from(
+    sql: str, label: str
+) -> None:
+    (table,) = parse_load_script(f"LIB CONNECT TO 'A';\nSQL {sql};")
+    assert table.label == label
+
+
+@pytest.mark.parametrize(
+    "connection",
+    [
+        pytest.param(
+            "Server=svc:Hunter2Secret@db.example.com;Database=d", id="userinfo"
+        ),
+        pytest.param(
+            "Server=db.example.com?token=Hunter2Secret;Database=d", id="query"
+        ),
+        pytest.param(
+            "Server=db.example.com\nPWD=Hunter2Secret;Database=d", id="newline"
+        ),
+    ],
+)
+def test_redact_connection_scrubs_allow_listed_values(connection: str) -> None:
+    redacted = redact_connection(connection)
+
+    assert "Hunter2Secret" not in redacted
+    assert "db.example.com" in redacted
+    assert "Database=d" in redacted
+
+
+def test_parse_load_script_marks_mapping_tables() -> None:
+    script = """
+LIB CONNECT TO 'A';
+Map: MAPPING LOAD k, v;
+SQL SELECT k, v FROM db.s.codes;
+Direct: Mapping SQL SELECT k, v FROM db.s.other_codes;
+T: SQL SELECT * FROM db.s.t;
+"""
+    assert [(t.label, t.mapping) for t in parse_load_script(script)] == [
+        ("Map", True),
+        ("Direct", True),
+        ("T", False),
+    ]
