@@ -265,23 +265,34 @@ def test_onprem_reads_apps_of_different_streams_in_parallel(
             stream_id = params["filter"].rsplit(" ", 1)[-1]
             if stream_id == "stream-3":
                 return FakeResponse({}, status_code=503)
+            count = 5 if stream_id == "stream-1" else 1
             return FakeResponse(
-                [{**APP, "id": f"app-of-{stream_id}", "stream": {"id": stream_id}}]
+                [
+                    {
+                        **APP,
+                        "id": f"app-{i}-of-{stream_id}",
+                        "stream": {"id": stream_id},
+                    }
+                    for i in range(count)
+                ]
             )
         return fake_qrs_get(url, params, **kwargs)
 
-    # One app per stream, so the reads only finish when apps of different
-    # streams are read at the same time.
-    overlapping = threading.Barrier(2, timeout=10)
+    # Apps of the large stream-1 only finish once the app of stream-2 has
+    # started, so the reads fail if stream-2 waits behind all of stream-1.
+    other_stream_started = threading.Event()
 
-    def get_script() -> str:
-        overlapping.wait()
+    def get_script(app_id: str) -> str:
+        if app_id.endswith("stream-2"):
+            other_stream_started.set()
+        elif not other_stream_started.wait(timeout=10):
+            raise TimeoutError(app_id)
         return ""
 
     def open_engine(app_id: str, **_: object) -> MagicMock:
         websocket = MagicMock()
         websocket.websocket_send_request.side_effect = fake_engine_calls()
-        websocket.get_script.side_effect = get_script
+        websocket.get_script.side_effect = lambda: get_script(app_id)
         return websocket
 
     session = mock_session_cls.return_value
@@ -295,7 +306,9 @@ def test_onprem_reads_apps_of_different_streams_in_parallel(
     api.get_spaces()
     items = list(api.get_items(["stream-1", "stream-2", "stream-3"]))
 
-    assert sorted(item.id for item in items) == ["app-of-stream-1", "app-of-stream-2"]
+    assert sorted(item.id for item in items) == sorted(
+        [*(f"app-{i}-of-stream-1" for i in range(5)), "app-0-of-stream-2"]
+    )
     assert all(isinstance(item, App) and item.read_complete for item in items)
     assert [unread.name for unread in api.unread_items] == ["apps of stream stream-3"]
 
