@@ -442,6 +442,8 @@ file_profiling = {
     # cpc_sketch (distinct count) and kll_floats_sketch (approx median) give us
     # Deequ-equivalent approximate metrics without a JVM or pyspark/pydeequ.
     "datasketches>=5.0.0,<6.0.0",
+    # The profiler reads Avro files with fastavro.
+    "fastavro>=1.2.0,<2.0.0",
     # cachetools is used by the profiling config
     *cachetools_lib,
 }
@@ -481,6 +483,11 @@ databricks_common = {
     # connector 4.x split the SQLAlchemy dialect into a separate package; required so
     # create_engine("databricks://...") can load the dialect for SQLAlchemy profiling.
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
+    # The SQL connector returns tz-aware Arrow timestamps. pyarrow needs a tz database
+    # to convert them, and slim images have no system zoneinfo, so ship IANA data via
+    # tzdata (zoneinfo's fallback). No upper bound: it is data, released every year.
+    # 2022.7 matches the floor pandas uses.
+    "tzdata>=2022.7",
 }
 
 databricks = {
