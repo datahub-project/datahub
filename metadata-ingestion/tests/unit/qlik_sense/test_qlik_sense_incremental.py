@@ -754,3 +754,58 @@ def test_failed_run_keeps_last_read_of_apps_it_did_not_reach(
     ]
     assert "urn:li:dashboard:(qlik-sense,sheet-of-app-2)" in _stale_urns(third)
     assert not _soft_deleted_urns(third_wus)
+
+
+def test_partly_read_app_is_kept_for_a_limited_number_of_runs(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    datahub = _DataHub(mock_datahub_graph)
+    container = None
+
+    def run(run_id: str, engine_fails: bool) -> Tuple[str, List[MetadataWorkUnit]]:
+        nonlocal container
+        qlik.engine_fails = engine_fails
+        source, workunits = _run(
+            mock_datahub_graph,
+            qlik,
+            run_id,
+            skip_unchanged_apps=False,
+            max_partial_reads_kept=2,
+        )
+        datahub.write(workunits)
+        container = _container_urn(source)
+        titles = [entry.title for entry in source.reporter.failures] + [
+            entry.title for entry in source.reporter.warnings
+        ]
+        outcome = (
+            "limit"
+            if "Qlik app has been only partly read for too many runs" in titles
+            else "kept"
+            if "Unable to fully read Qlik app" in titles
+            else "complete"
+        )
+        return outcome, workunits
+
+    outcomes = [
+        run("run-1", engine_fails=False),
+        run("run-2", engine_fails=True),
+        run("run-3", engine_fails=True),
+        run("run-4", engine_fails=True),
+        run("run-5", engine_fails=False),
+        run("run-6", engine_fails=True),
+    ]
+
+    assert [outcome for outcome, _ in outcomes] == [
+        "complete",
+        "kept",
+        "kept",
+        "limit",
+        "complete",
+        "kept",
+    ]
+    # Kept runs emit nothing for the app; the run at the limit ingests the
+    # partial read.
+    assert not [wu for wu in outcomes[1][1] if wu.get_urn() == container]
+    assert [wu for wu in outcomes[3][1] if wu.get_urn() == container]
+    assert not _soft_deleted_urns(outcomes[3][1])
