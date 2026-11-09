@@ -56,7 +56,10 @@ class _TimeLimit:
     make the limit fire earlier. The signal also interrupts compiled code that returns
     to the interpreter between operations (e.g. spaCy's tokenizer). SIGVTALRM rather
     than SIGPROF, which sampling profilers commonly use. Only usable on the main thread
-    of a POSIX platform; callers must check that first. A plain class rather than
+    of a POSIX platform; callers must check that first. Must be used directly in a
+    `with` statement: __enter__ records its caller's frame as the block to limit, so
+    entering it any other way (e.g. ExitStack.enter_context) records a frame that has
+    already returned and silently disables the limit. A plain class rather than
     @contextmanager, so cleanup runs directly in __exit__ and never depends on a
     generator being garbage-collected.
     """
