@@ -2487,6 +2487,12 @@ metadataChangeProposal:
     privilegeConstraints:
       enabled: ${MCP_VALIDATION_PRIVILEGE_CONSTRAINTS:true}
     aspectAuthorization:
+      assertion:
+        # Requires Edit Assertions (or Edit Entity) on the asserted asset to attach, re-target,
+        # delete, soft delete or report results for an assertion through any write API
+        enabled: ${MCP_VALIDATION_ASSERTION_AUTHORIZATION:true}
+        # Run events and run summaries dated further ahead of the server clock are rejected
+        maxFutureSkewSeconds: ${MCP_VALIDATION_ASSERTION_MAX_FUTURE_SKEW_SECONDS:300}
       corpUserCredentials:
         enabled: ${MCP_VALIDATION_CORP_USER_CREDENTIALS:true}
       domainWrite:
