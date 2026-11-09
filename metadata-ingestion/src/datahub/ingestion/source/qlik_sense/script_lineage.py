@@ -728,7 +728,7 @@ class _ScriptParser(BaseModel):
         prefix = PREFIX_RE.match(statement)
         merge = MERGE_PREFIX_RE.search(prefix.group(0)) if prefix else None
         # Only the prefix keywords, not arguments such as Concatenate ([Mapping]).
-        keywords = re.sub(r"\([^)]*\)", "", prefix.group(0)) if prefix else ""
+        keywords = re.sub(_PREFIX_ARGS, "", prefix.group(0)) if prefix else ""
         mapping = bool(MAPPING_PREFIX_RE.search(keywords))
         reshaped = bool(RESHAPE_PREFIX_RE.search(keywords))
         if prefix:

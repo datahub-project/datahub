@@ -865,6 +865,8 @@ Direct: Mapping SQL SELECT k, v FROM db.s.other_codes;
 T: SQL SELECT * FROM db.s.t;
 [Mapping]: SQL SELECT * FROM db.s.named_mapping;
 Concatenate ([Mapping]) SQL SELECT * FROM db.s.more;
+[Mapping (old)]: SQL SELECT * FROM db.s.old;
+Concatenate ([Mapping (old)]) SQL SELECT * FROM db.s.older;
 """
     assert [(t.label, t.mapping) for t in parse_load_script(script)] == [
         ("Map", True),
@@ -872,6 +874,8 @@ Concatenate ([Mapping]) SQL SELECT * FROM db.s.more;
         ("T", False),
         ("Mapping", False),
         ("Mapping", False),
+        ("Mapping (old)", False),
+        ("Mapping (old)", False),
     ]
 
 
