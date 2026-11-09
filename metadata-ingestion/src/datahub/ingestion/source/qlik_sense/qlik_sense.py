@@ -1058,11 +1058,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 mapping=script_table.mapping,
             ),
         )
+        lineage.mapping = lineage.mapping and script_table.mapping
         lineage.upstream_urns.extend(
             urn for urn in upstream_urns if urn not in lineage.upstream_urns
         )
         for column in result.column_lineage or []:
-            lineage.column_upstreams.setdefault(column.downstream.column, []).extend(
+            name = column.downstream.column
+            if not script_table.mapping:
+                if name in lineage.mapping_columns:
+                    lineage.mapping_columns.remove(name)
+            elif name not in lineage.column_upstreams:
+                lineage.mapping_columns.append(name)
+            lineage.column_upstreams.setdefault(name, []).extend(
                 column_refs_to_schema_field_urns(
                     ref for ref in column.upstreams if ref.table in upstream_urns
                 )
@@ -1221,9 +1228,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # model, so charts cannot read it.
             if script_table.mapping:
                 continue
-            table_fields[self._gen_qlik_dataset_urn(script_table.identifier)] = (
-                self._script_table_fields(script_table)
-            )
+            table_fields[self._gen_qlik_dataset_urn(script_table.identifier)] = [
+                field
+                for field in self._script_table_fields(script_table)
+                if field.name not in script_table.mapping_columns
+            ]
         return table_fields
 
     def _gen_app_workunit(

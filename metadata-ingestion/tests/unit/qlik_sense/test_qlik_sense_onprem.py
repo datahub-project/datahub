@@ -1162,6 +1162,32 @@ def test_unread_master_measure_marks_chart_fields_incomplete() -> None:
     assert chart.fields_unread
 
 
+def test_unreadable_master_measure_list_entry_falls_back_to_reading_one_by_one() -> (
+    None
+):
+    chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
+    chart.measure_library_ids = ["measure-1"]
+    engine = _ScriptedEngine(
+        [
+            {"qReturn": {"qHandle": 3}},
+            {"qLayout": {"qMeasureList": {"qItems": [{"qData": {}}]}}},
+            {"qReturn": {"qHandle": 4}},
+            {"qLayout": {"qMeasure": {"qDef": "Sum(Sales)"}}},
+        ]
+    )
+    fallbacks: List[str] = []
+
+    engine.add_master_measure_definitions(
+        [MagicMock(charts=[chart])],
+        on_error=lambda _: None,
+        on_fallback=fallbacks.append,
+    )
+
+    assert len(fallbacks) == 1
+    assert chart.field_expressions[-1] == "Sum(Sales)"
+    assert chart.fields_complete
+
+
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_onprem_source_uses_onprem_client(
@@ -2002,6 +2028,28 @@ def test_onprem_test_connection_checks_the_engine_port(
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable is engine_reachable
     assert mock_connect.call_args.args[0] == ("qlik.example.com", 4747)
+
+
+@pytest.mark.parametrize("mapping_first", [True, False])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_mapping_table_does_not_hide_data_table_with_same_label(
+    mock_onprem: MagicMock, mapping_first: bool
+) -> None:
+    mapping_load = "Regions:\nMAPPING SQL SELECT region_code, region_name FROM sales_db.dbo.regions;"
+    data_load = (
+        "Regions:\nSQL SELECT region_code, manager FROM sales_db.dbo.region_managers;"
+    )
+    loads = [mapping_load, data_load] if mapping_first else [data_load, mapping_load]
+    source, tables = _script_tables(
+        mock_onprem, {}, script="\n".join(["LIB CONNECT TO 'Sales SQL';", *loads])
+    )
+
+    assert [table.mapping for table in tables] == [False]
+    assert [
+        field.name
+        for fields in source._app_table_fields([], tables).values()
+        for field in fields
+    ] == ["region_code", "manager"]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
