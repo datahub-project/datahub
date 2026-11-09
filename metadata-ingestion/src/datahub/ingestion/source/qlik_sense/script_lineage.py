@@ -653,7 +653,11 @@ class _ScriptParser(BaseModel):
             statement = statement[label_match.end() :].lstrip()
         prefix = PREFIX_RE.match(statement)
         merge = MERGE_PREFIX_RE.search(prefix.group(0)) if prefix else None
-        mapping = bool(prefix and MAPPING_PREFIX_RE.search(prefix.group(0)))
+        # Only the prefix keywords, not arguments such as Concatenate ([Mapping]).
+        mapping = bool(
+            prefix
+            and MAPPING_PREFIX_RE.search(re.sub(r"\([^)]*\)", "", prefix.group(0)))
+        )
         if prefix:
             statement = statement[prefix.end() :]
         skip = False

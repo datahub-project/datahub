@@ -665,9 +665,13 @@ Map: MAPPING LOAD k, v;
 SQL SELECT k, v FROM db.s.codes;
 Direct: Mapping SQL SELECT k, v FROM db.s.other_codes;
 T: SQL SELECT * FROM db.s.t;
+[Mapping]: SQL SELECT * FROM db.s.named_mapping;
+Concatenate ([Mapping]) SQL SELECT * FROM db.s.more;
 """
     assert [(t.label, t.mapping) for t in parse_load_script(script)] == [
         ("Map", True),
         ("Direct", True),
         ("T", False),
+        ("Mapping", False),
+        ("Mapping", False),
     ]

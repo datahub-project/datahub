@@ -708,7 +708,8 @@ def test_chart_input_fields_match_app_fields() -> None:
     chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
     chart.field_expressions = [
         "Net Sales",
-        "=Upper(region)",
+        "=Upper(Region)",
+        # Data model field names are case-sensitive, so ORDER_ID is not order_id.
         "Sum({<Region={\"Segment\", 'Net Sales'}>} [Net Sales]) / Count(ORDER_ID)",
         # Segment is called as a function here, not read as a field.
         "=Sum(Segment (order_id))",
@@ -888,7 +889,7 @@ def test_field_names_match_in_any_case_only_for_script_tables() -> None:
         script_table_urns={script},
     )
     chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
-    chart.field_expressions = ["ID", "Sum(Amount)"]
+    chart.field_expressions = ["ID", "Id", "Sum(Amount)"]
 
     assert [
         (field.dataset_urn, field.field.name)
