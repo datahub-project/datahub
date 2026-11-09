@@ -232,6 +232,11 @@ public class KafkaThrottleSensor implements ThrottleSensor {
                     mclConsumerOffsets.entrySet().stream()
                         .filter(entry -> entry.getKey().topic().equals(topicName))
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                if (topicOffsets.isEmpty()) {
+                  // No committed offset for this topic yet (fresh install, never-consumed
+                  // timeseries topic): there is no median to take, so report no lag.
+                  return Map.entry(mclType, 0L);
+                }
                 List<Double> offsetValues =
                     topicOffsets.values().stream()
                         .map(OffsetAndMetadata::offset)

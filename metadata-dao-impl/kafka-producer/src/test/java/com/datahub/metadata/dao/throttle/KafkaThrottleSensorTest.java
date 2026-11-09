@@ -279,6 +279,82 @@ public class KafkaThrottleSensorTest {
     }
   }
 
+  @Test
+  public void testTopicWithoutCommittedOffsetsHasNoLag()
+      throws ExecutionException, InterruptedException {
+    // The consumer group has committed on the versioned topic only (lag 1, 2, 3 -> median 2)
+    AdminClient mockAdmin =
+        mockKafka(
+            generateLag(
+                List.of(STANDARD_TOPICS.get(0)),
+                topicPart -> (long) topicPart.partition() + 1,
+                topicPart -> ((long) topicPart.partition() + 1) * 2,
+                3));
+
+    KafkaThrottleSensor test =
+        KafkaThrottleSensor.builder()
+            .config(noSchedulerConfig().getThrottle())
+            .kafkaAdmin(mockAdmin)
+            .versionedTopicName(STANDARD_TOPICS.get(0))
+            .timeseriesTopicName(STANDARD_TOPICS.get(1))
+            .entityRegistry(mock(EntityRegistry.class))
+            .mclConsumerGroupId(STANDARD_MCL_CONSUMER_GROUP_ID)
+            .build();
+
+    test.refresh();
+
+    assertEquals(
+        test.getLag(),
+        Map.of(
+            ThrottleType.MCL_VERSIONED_LAG, 2L,
+            ThrottleType.MCL_TIMESERIES_LAG, 0L));
+  }
+
+  @Test
+  public void testSchedulerKeepsRefreshingAfterARefreshWithoutCommittedOffsets()
+      throws ExecutionException, InterruptedException {
+    MetadataChangeProposalConfig.ThrottlesConfig throttlesConfig =
+        new MetadataChangeProposalConfig.ThrottlesConfig().setUpdateIntervalMs(10);
+    // A threshold above any lag here, so throttle() between refreshes never backs off
+    throttlesConfig.setVersioned(
+        new MetadataChangeProposalConfig.ThrottleConfig().setEnabled(true).setThreshold(1000));
+    throttlesConfig.setTimeseries(
+        new MetadataChangeProposalConfig.ThrottleConfig().setEnabled(false));
+
+    // The first refresh sees a consumer group with no committed offsets, later ones a lag of 1
+    Pair<Map<TopicPartition, OffsetAndMetadata>, Map<TopicPartition, Long>> lag =
+        generateLag(STANDARD_TOPICS, topicPart -> 1L, topicPart -> 2L, 1);
+    AdminClient mockAdmin = mockKafka(lag);
+    KafkaFuture<Map<TopicPartition, OffsetAndMetadata>> consumerFuture = mock(KafkaFuture.class);
+    when(consumerFuture.get()).thenReturn(Map.of(), lag.getFirst());
+    ListConsumerGroupOffsetsResult offsetsResult = mock(ListConsumerGroupOffsetsResult.class);
+    when(offsetsResult.partitionsToOffsetAndMetadata()).thenReturn(consumerFuture);
+    when(mockAdmin.listConsumerGroupOffsets(anyString())).thenReturn(offsetsResult);
+
+    KafkaThrottleSensor test =
+        KafkaThrottleSensor.builder()
+            .config(throttlesConfig)
+            .kafkaAdmin(mockAdmin)
+            .versionedTopicName(STANDARD_TOPICS.get(0))
+            .timeseriesTopicName(STANDARD_TOPICS.get(1))
+            .entityRegistry(mock(EntityRegistry.class))
+            .mclConsumerGroupId(STANDARD_MCL_CONSUMER_GROUP_ID)
+            .build();
+
+    Map<ThrottleType, Long> expected =
+        Map.of(ThrottleType.MCL_VERSIONED_LAG, 1L, ThrottleType.MCL_TIMESERIES_LAG, 1L);
+    try {
+      test.start();
+      long deadline = System.currentTimeMillis() + 5_000;
+      while (!expected.equals(test.getLag()) && System.currentTimeMillis() < deadline) {
+        Thread.sleep(10);
+      }
+      assertEquals(test.getLag(), expected, "Expected lag refreshed after the empty refresh");
+    } finally {
+      test.stop();
+    }
+  }
+
   private static MetadataChangeProposalConfig noSchedulerConfig() {
     MetadataChangeProposalConfig config = new MetadataChangeProposalConfig();
     MetadataChangeProposalConfig.ThrottlesConfig throttlesConfig =
