@@ -137,12 +137,12 @@ class WebsocketConnection:
         deadline = time.monotonic() + self._timeout if self._timeout else None
         while True:
             message = json.loads(socket_connection.recv())
-            if message.get("id") == request_id:
-                return self._result(message)
             if deadline is not None and time.monotonic() > deadline:
                 raise TimeoutError(
                     f"No Engine reply to request {request_id} within {self._timeout}s"
                 )
+            if message.get("id") == request_id:
+                return self._result(message)
 
     def _send_request(self, request: Dict) -> Dict:
         if not self.socket_connection:
