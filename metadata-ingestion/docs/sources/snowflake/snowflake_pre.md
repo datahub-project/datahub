@@ -80,7 +80,7 @@ grant monitor on all tasks in database "<your-database>" to role datahub_role;
 grant monitor on future tasks in database "<your-database>" to role datahub_role;
 // Snowflake does not allow bulk grants (ON ALL) on pipes. Grant MONITOR on each existing pipe individually:
 grant monitor on pipe "<your-database>"."<your-schema>"."<your-pipe>" to role datahub_role;
-// Alternatively, grant the account-level MONITOR EXECUTION privilege, which lets the role see all pipes (and tasks) in the account:
+// Alternatively, grant the account-level MONITOR EXECUTION privilege (must be granted by ACCOUNTADMIN), which lets the role see all pipes and tasks in the account:
 // grant monitor execution on account to role datahub_role;
 grant monitor on future pipes in database "<your-database>" to role datahub_role;
 ```
