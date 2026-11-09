@@ -12,7 +12,7 @@ import org.junit.Test;
  *
  * <p>These tests specifically test the get() functionality in isolation.
  */
-public class EntityClientGetTest extends BaseIntegrationTest {
+public class EntityClientGetIntegrationTest extends BaseIntegrationTest {
 
   @Test
   public void testGetDatasetAfterWrite()
@@ -21,7 +21,7 @@ public class EntityClientGetTest extends BaseIntegrationTest {
     Dataset dataset =
         Dataset.builder()
             .platform("java_sdk_v2_test")
-            .name("test_get_method")
+            .name("test_get_method_" + System.currentTimeMillis())
             .env("DEV")
             .description("Testing the get method")
             .displayName("Get Test Dataset")
@@ -66,7 +66,7 @@ public class EntityClientGetTest extends BaseIntegrationTest {
     Dataset dataset =
         Dataset.builder()
             .platform("java_sdk_v2_test")
-            .name("test_get_custom_aspects")
+            .name("test_get_custom_aspects_" + System.currentTimeMillis())
             .env("DEV")
             .description("Testing custom aspects")
             .build();
