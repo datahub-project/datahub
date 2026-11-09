@@ -87,7 +87,7 @@ public class KafkaThrottleSensor implements ThrottleSensor {
             } catch (RuntimeException e) {
               // An exception escaping this task would cancel it and stop lag refreshes for the
               // life of the process, so log it and try again at the next interval.
-              log.error("MCL lag refresh failed; retrying at the next interval.", e);
+              log.error("MCL lag refresh or throttle failed; retrying at the next interval.", e);
             }
           },
           config.getUpdateIntervalMs(),
