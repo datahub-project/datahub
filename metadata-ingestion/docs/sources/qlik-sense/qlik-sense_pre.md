@@ -21,7 +21,7 @@ Before running ingestion, ensure network connectivity to the source, valid authe
 
 #### Qlik Sense Enterprise on Windows
 
-Set the `on_prem` block instead of `tenant_hostname` and `api_key`. Export the client certificate, client key, and root certificate from the QMC as PEM files. The ingestion host must reach the Repository Service (port 4242) and the Engine (port 4747) on the central node. Certificate calls run with administrator rights. The default accounts are `INTERNAL\sa_repository` for inventory and `INTERNAL\sa_engine` for app content.
+Set the `on_prem` block instead of `tenant_hostname` and `api_key`. Export the client certificate, client key, and root certificate from the QMC as PEM files. `client_cert`, `client_key`, and `root_cert` are file paths, not file contents, so the files must exist on the machine that runs ingestion. When the source is set up in the DataHub UI, run it on an executor where the files are mounted (on DataHub Cloud, a remote executor). The ingestion host must reach the Repository Service (port 4242) and the Engine (port 4747) on the central node. Certificate calls run with administrator rights. The default accounts are `INTERNAL\sa_repository` for inventory and `INTERNAL\sa_engine` for app content.
 
 This mode ingests streams, apps, sheets, and charts, plus lineage from the `SELECT` statements in each app's load script. It does not ingest Qlik Cloud datasets or QVD lineage.
 

@@ -136,12 +136,12 @@ export const QLIK_ON_PREM_SERVER: RecipeField = {
 };
 
 const certificatePathTooltip = (file: string) =>
-    `Path to the PEM ${file} exported from the QMC. This is a path on the machine that runs ingestion (the executor for UI ingestion), not the file contents.`;
+    `Path to the PEM ${file} exported from the QMC, not the file contents. The file must exist on the machine that runs ingestion, so UI ingestion must run on an executor where the certificate files are mounted (on DataHub Cloud, a remote executor).`;
 
 export const QLIK_ON_PREM_CLIENT_CERT: RecipeField = {
     name: 'on_prem.client_cert',
     label: 'Client Certificate Path',
-    helper: 'Path to client.pem on the executor',
+    helper: 'Path to client.pem on the executor where it is mounted',
     tooltip: certificatePathTooltip('client certificate'),
     type: FieldType.TEXT,
     fieldPath: 'source.config.on_prem.client_cert',
@@ -154,7 +154,7 @@ export const QLIK_ON_PREM_CLIENT_CERT: RecipeField = {
 export const QLIK_ON_PREM_CLIENT_KEY: RecipeField = {
     name: 'on_prem.client_key',
     label: 'Client Key Path',
-    helper: 'Path to client_key.pem on the executor',
+    helper: 'Path to client_key.pem on the executor where it is mounted',
     tooltip: certificatePathTooltip('client key'),
     type: FieldType.TEXT,
     fieldPath: 'source.config.on_prem.client_key',
@@ -167,7 +167,7 @@ export const QLIK_ON_PREM_CLIENT_KEY: RecipeField = {
 export const QLIK_ON_PREM_ROOT_CERT: RecipeField = {
     name: 'on_prem.root_cert',
     label: 'Root Certificate Path',
-    helper: 'Path to root.pem on the executor',
+    helper: 'Path to root.pem on the executor where it is mounted',
     tooltip: `${certificatePathTooltip('root certificate')} The server certificate is verified against it.`,
     type: FieldType.TEXT,
     fieldPath: 'source.config.on_prem.root_cert',
@@ -321,9 +321,9 @@ export const QLIK_ON_PREM_INGEST_UNPUBLISHED_APPS: RecipeField = {
 export const QLIK_ON_PREM_SKIP_UNCHANGED_APPS: RecipeField = {
     name: 'on_prem.skip_unchanged_apps',
     label: 'Skip Unchanged Apps',
-    helper: 'Only open apps that changed since the last run',
+    helper: 'Needs stateful ingestion. Only opens apps that changed since the last run',
     tooltip:
-        'Do not read an app from the Engine again when it has not been saved, reloaded, published or moved, and the recipe, data connections and connector version are unchanged since the last run. Its metadata is kept. Requires stateful ingestion. Qlik Sense Enterprise on Windows only.',
+        'Do not read an app from the Engine again when it has not been saved, reloaded, published or moved, and the recipe, data connections and connector version are unchanged since the last run. Its metadata is kept. Needs stateful ingestion: if Enable Stateful Ingestion is turned off, every app is read and the run reports a warning. Qlik Sense Enterprise on Windows only.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.on_prem.skip_unchanged_apps',
     rules: null,
