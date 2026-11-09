@@ -97,6 +97,7 @@ public class V3BulkWriteAccountingTest {
 
     V3BulkWriteAccounting.recordSuccessfulV3Writes(2, metricUtils);
     V3BulkWriteAccounting.recordStaleVersionRejected(1, metricUtils);
+    // A null MetricUtils is a no-op, not an error.
     V3BulkWriteAccounting.recordSuccessfulV3Writes(3, null);
 
     verify(metricUtils)

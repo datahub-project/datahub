@@ -1,6 +1,9 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8;
 
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -82,8 +85,11 @@ public class Es8BulkListenerTest {
     BulkProcessorFlushResult drainResult = tracker.flushAndAwait(() -> {}, 1, TimeUnit.SECONDS);
     assertEquals(drainResult.staleVersionRejected(), 1);
     assertFalse(drainResult.hasFailures());
-    verify(metricUtils, org.mockito.Mockito.never())
-        .increment(BulkListener.class, V3BulkWriteAccounting.STALE_VERSION_REJECTED_METRIC, 1d);
+    verify(metricUtils, never())
+        .increment(
+            eq(BulkListener.class),
+            eq(V3BulkWriteAccounting.STALE_VERSION_REJECTED_METRIC),
+            anyDouble());
   }
 
   @Test

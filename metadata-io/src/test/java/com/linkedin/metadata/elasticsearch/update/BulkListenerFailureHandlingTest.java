@@ -1,6 +1,8 @@
 package com.linkedin.metadata.elasticsearch.update;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -207,7 +209,10 @@ public class BulkListenerFailureHandlingTest {
     BulkListener.create(WriteRequest.RefreshPolicy.NONE, metricUtils, null, null)
         .afterBulk(1L, new BulkRequest(), response);
     verify(metricUtils, never())
-        .increment(BulkListener.class, V3BulkWriteAccounting.STALE_VERSION_REJECTED_METRIC, 1d);
+        .increment(
+            eq(BulkListener.class),
+            eq(V3BulkWriteAccounting.STALE_VERSION_REJECTED_METRIC),
+            anyDouble());
 
     BulkListener.create(
             WriteRequest.RefreshPolicy.NONE,
