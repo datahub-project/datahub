@@ -1,4 +1,4 @@
-from typing import Dict, Iterable, List, Optional, Type, TypeVar
+from typing import Dict, Iterable, List, Optional, Type, TypeVar, Union
 
 from pydantic.fields import Field
 from pydantic.main import BaseModel
@@ -279,7 +279,7 @@ class _StructuredPropertiesPatcher(HasStructuredPropertiesPatch, MetadataPatchPr
 
 def add_structured_properties_to_entity_wu(
     entity_urn: str,
-    structured_properties: Dict[StructuredPropertyUrn, str],
+    structured_properties: Dict[StructuredPropertyUrn, Union[str, float]],
     write_mode: StructuredPropertyWriteMode = StructuredPropertyWriteMode.UPSERT,
 ) -> Iterable[MetadataWorkUnit]:
     if write_mode == StructuredPropertyWriteMode.PATCH:
@@ -313,7 +313,7 @@ def gen_containers(
     sub_types: List[str],
     parent_container_key: Optional[ContainerKey] = None,
     extra_properties: Optional[Dict[str, str]] = None,
-    structured_properties: Optional[Dict[StructuredPropertyUrn, str]] = None,
+    structured_properties: Optional[Dict[StructuredPropertyUrn, Union[str, float]]] = None,
     domain_urn: Optional[str] = None,
     description: Optional[str] = None,
     owner_urn: Optional[str] = None,
