@@ -3,10 +3,8 @@ package com.linkedin.gms.factory.entity;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import java.net.InetSocketAddress;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.net.ssl.SSLContext;
 import lombok.extern.slf4j.Slf4j;
@@ -32,9 +30,7 @@ public class CassandraSessionFactory {
   protected CqlSession createSession() {
     int port = Integer.parseInt(sessionConfig.get("port"));
     List<InetSocketAddress> addresses =
-        Arrays.stream(sessionConfig.get("hosts").split(","))
-            .map(host -> new InetSocketAddress(host, port))
-            .collect(Collectors.toList());
+        CassandraContactPoints.parse(sessionConfig.get("hosts"), port);
 
     String dc = sessionConfig.get("datacenter");
     String ks = sessionConfig.get("keyspace");
