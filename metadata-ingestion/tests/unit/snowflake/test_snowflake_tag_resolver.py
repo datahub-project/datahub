@@ -1,13 +1,10 @@
 from typing import Dict, List, Optional
-from unittest.mock import MagicMock, create_autospec
 
 from datahub.emitter.mcp_builder import StructuredPropertyWriteMode
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeTag
 from datahub.ingestion.source.snowflake.snowflake_tag_entities import (
     SnowflakeTagPlatformResource,
-    SnowflakeTagPlatformResourceId,
-    SnowflakeTagPlatformResourceRepository,
 )
 from datahub.ingestion.source.snowflake.snowflake_tag_resolver import (
     ResolvedStructuredProperty,
@@ -16,65 +13,18 @@ from datahub.ingestion.source.snowflake.snowflake_tag_resolver import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
-from datahub.metadata.schema_classes import StructuredPropertyDefinitionClass
 from datahub.metadata.urns import StructuredPropertyUrn, TagUrn
-from tests.unit.snowflake.conftest import make_v2_config
+from tests.unit.snowflake.conftest import (
+    fake_tag_repository,
+    make_v2_config,
+    managed_record,
+)
 
 _TAG = SnowflakeTag(database="TEST_DB", schema="PUBLIC", name="PII", value="HIGH")
 _TAG_30 = SnowflakeTag(database="TEST_DB", schema="PUBLIC", name="PII", value="30")
 _NATIVE_TAG_URN = TagUrn("test_db.public.pii:high")
 _NATIVE_SP_URN = StructuredPropertyUrn("snowflake.test_db.public.pii")
 _NUMBER = "urn:li:dataType:datahub.number"
-
-
-def managed(*urns: str) -> SnowflakeTagPlatformResource:
-    """A record sync-back wrote; its id is replaced by the looked-up id."""
-    entity = SnowflakeTagPlatformResource.create_default(
-        SnowflakeTagPlatformResourceId(
-            database="x", schema_name="x", tag_name="x"
-        ),
-        managed_by_datahub=True,
-    )
-    for urn in urns:
-        entity.datahub_linked_resources().add(urn)
-    return entity
-
-
-def fake_repository(
-    records: Dict[str, SnowflakeTagPlatformResource],
-    value_type: Optional[str] = None,
-    lookup_error: Optional[Exception] = None,
-) -> SnowflakeTagPlatformResourceRepository:
-    """Answers lookups from `records` (keyed by primary key) and keeps defaults."""
-    store: Dict[str, SnowflakeTagPlatformResource] = {}
-    for key, record in records.items():
-        store[key] = record
-
-    def get_entity_from_datahub(
-        entity_id: SnowflakeTagPlatformResourceId, managed_by_datahub: bool = False
-    ) -> SnowflakeTagPlatformResource:
-        if lookup_error is not None:
-            raise lookup_error
-        key = entity_id.to_platform_resource_key().primary_key
-        if key not in store:
-            store[key] = SnowflakeTagPlatformResource.create_default(
-                entity_id, managed_by_datahub
-            )
-        else:
-            store[key].id = entity_id
-        return store[key]
-
-    repository = create_autospec(SnowflakeTagPlatformResourceRepository, instance=True)
-    repository.get_entity_from_datahub.side_effect = get_entity_from_datahub
-    repository.graph = MagicMock()
-    repository.graph.get_aspect.return_value = (
-        StructuredPropertyDefinitionClass(
-            qualifiedName="q", valueType=value_type, entityTypes=[]
-        )
-        if value_type
-        else None
-    )
-    return repository
 
 
 def resolver(
@@ -94,7 +44,7 @@ def resolver(
     return SnowflakeTagResolver(
         repository=None
         if no_repository
-        else fake_repository(records or {}, value_type, lookup_error),
+        else fake_tag_repository(records or {}, value_type, lookup_error),
         config=config,
         report=report,
         identifiers=SnowflakeIdentifierBuilder(
@@ -123,7 +73,7 @@ def test_no_repository_resolves_native_tag_and_property() -> None:
 
 
 def test_tag_mode_managed_tag_maps_back() -> None:
-    r = resolver({"test_db.public.pii:high": managed("urn:li:tag:pii")})
+    r = resolver({"test_db.public.pii:high": managed_record("urn:li:tag:pii")})
 
     assert r.resolve_tag_urn(_TAG) == TagUrn("pii")
     assert not r.is_native(_TAG)
@@ -131,7 +81,7 @@ def test_tag_mode_managed_tag_maps_back() -> None:
 
 
 def test_tag_mode_managed_term_is_skipped() -> None:
-    r = resolver({"test_db.public.pii:high": managed("urn:li:glossaryTerm:abc")})
+    r = resolver({"test_db.public.pii:high": managed_record("urn:li:glossaryTerm:abc")})
 
     assert r.resolve_tag_urn(_TAG) is None
     assert r.report.num_tags_skipped_datahub_managed == 1
@@ -139,7 +89,7 @@ def test_tag_mode_managed_term_is_skipped() -> None:
 
 def test_tag_mode_managed_structured_property_is_skipped() -> None:
     r = resolver(
-        {"test_db.public.pii": managed("urn:li:structuredProperty:io.acryl.pii")}
+        {"test_db.public.pii": managed_record("urn:li:structuredProperty:io.acryl.pii")}
     )
 
     assert r.resolve_tag_urn(_TAG) is None
@@ -148,7 +98,7 @@ def test_tag_mode_managed_structured_property_is_skipped() -> None:
 
 def test_sp_upsert_managed_property_maps_back_with_cast() -> None:
     r = resolver(
-        {"test_db.public.pii": managed("urn:li:structuredProperty:retention")},
+        {"test_db.public.pii": managed_record("urn:li:structuredProperty:retention")},
         sp_mode=StructuredPropertyWriteMode.UPSERT,
         value_type=_NUMBER,
     )
@@ -161,7 +111,7 @@ def test_sp_upsert_managed_property_maps_back_with_cast() -> None:
 
 def test_sp_patch_managed_property_is_skipped() -> None:
     r = resolver(
-        {"test_db.public.pii": managed("urn:li:structuredProperty:retention")},
+        {"test_db.public.pii": managed_record("urn:li:structuredProperty:retention")},
         sp_mode=StructuredPropertyWriteMode.PATCH,
     )
 
@@ -172,7 +122,7 @@ def test_sp_patch_managed_property_is_skipped() -> None:
 def test_sp_mode_managed_tag_or_term_is_skipped() -> None:
     for urn in ["urn:li:tag:pii", "urn:li:glossaryTerm:abc"]:
         r = resolver(
-            {"test_db.public.pii:high": managed(urn)},
+            {"test_db.public.pii:high": managed_record(urn)},
             sp_mode=StructuredPropertyWriteMode.UPSERT,
         )
 
@@ -211,7 +161,7 @@ def test_lookup_error_falls_back_to_native() -> None:
 
 
 def test_managed_record_without_urn_is_native() -> None:
-    r = resolver({"test_db.public.pii:high": managed()})
+    r = resolver({"test_db.public.pii:high": managed_record()})
 
     assert r.resolve_tag_urn(_TAG) == _NATIVE_TAG_URN
     assert r.is_native(_TAG)
@@ -222,7 +172,7 @@ def test_uncastable_value_is_skipped_and_reported() -> None:
         database="TEST_DB", schema="PUBLIC", name="PII", value="thirty"
     )
     r = resolver(
-        {"test_db.public.pii": managed("urn:li:structuredProperty:retention")},
+        {"test_db.public.pii": managed_record("urn:li:structuredProperty:retention")},
         sp_mode=StructuredPropertyWriteMode.UPSERT,
         value_type=_NUMBER,
     )

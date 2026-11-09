@@ -15,6 +15,9 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeTag,
     _SnowflakeTagCache,
 )
+from datahub.ingestion.source.snowflake.snowflake_tag_resolver import (
+    SnowflakeTagResolver,
+)
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
     SnowflakeIdentifierBuilder,
@@ -45,11 +48,20 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         data_dictionary: SnowflakeDataDictionary,
         report: SnowflakeV2Report,
         snowflake_identifiers: SnowflakeIdentifierBuilder,
+        tag_resolver: Optional[SnowflakeTagResolver] = None,
     ) -> None:
         self.config = config
         self.data_dictionary = data_dictionary
         self.report = report
         self.snowflake_identifiers = snowflake_identifiers
+        # Without a resolver (no DataHub graph) every Snowflake tag is native.
+        self.tag_resolver = tag_resolver or SnowflakeTagResolver(
+            repository=None,
+            config=config,
+            report=report,
+            identifiers=snowflake_identifiers,
+            platform_instance=None,
+        )
         self.tag_cache: Dict[str, _SnowflakeTagCache] = {}
 
     def _ensure_cache_loaded(self, db_name: str) -> None:
@@ -132,6 +144,9 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
             if not self.config.structured_property_pattern.allowed(
                 tag._id_prefix_as_str()
             ):
+                continue
+            # DataHub owns the definition of a property it synced to Snowflake.
+            if not self.tag_resolver.is_native(tag):
                 continue
             if self.config.extract_tags_as_structured_properties:
                 self.report.num_structured_property_templates_created += 1

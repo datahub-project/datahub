@@ -76,13 +76,21 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
+from datahub.ingestion.source.snowflake.snowflake_tag_entities import (
+    SnowflakeTagPlatformResource,
+    SnowflakeTagPlatformResourceId,
+    SnowflakeTagPlatformResourceRepository,
+)
+from datahub.ingestion.source.snowflake.snowflake_tag_resolver import (
+    SnowflakeTagResolver,
+)
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeFilter,
     SnowflakeIdentifierBuilder,
 )
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
-from datahub.metadata.schema_classes import _Aspect
+from datahub.metadata.schema_classes import StructuredPropertyDefinitionClass, _Aspect
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 # --- preserve_column_case sweep -----------------------------------------------
@@ -191,6 +199,59 @@ def aspects(
         if aspect is not None:
             found[wu.get_urn()] = aspect
     return found
+
+
+# --- Tag platform resources ---------------------------------------------------
+
+
+def managed_record(*urns: str) -> SnowflakeTagPlatformResource:
+    """A record sync-back wrote; the fake repository gives it the looked-up id."""
+    entity = SnowflakeTagPlatformResource.create_default(
+        SnowflakeTagPlatformResourceId(database="x", schema_name="x", tag_name="x"),
+        managed_by_datahub=True,
+    )
+    for urn in urns:
+        entity.datahub_linked_resources().add(urn)
+    return entity
+
+
+def fake_tag_repository(
+    records: Dict[str, SnowflakeTagPlatformResource],
+    value_type: Optional[str] = None,
+    lookup_error: Optional[Exception] = None,
+) -> SnowflakeTagPlatformResourceRepository:
+    """Answers lookups from ``records`` (keyed by primary key), keeping defaults.
+
+    Like the real repository's cache, the same key returns the same object, so
+    a native URN linked by one lookup is seen by the next.
+    """
+    store: Dict[str, SnowflakeTagPlatformResource] = dict(records)
+
+    def get_entity_from_datahub(
+        entity_id: SnowflakeTagPlatformResourceId, managed_by_datahub: bool = False
+    ) -> SnowflakeTagPlatformResource:
+        if lookup_error is not None:
+            raise lookup_error
+        key = entity_id.to_platform_resource_key().primary_key
+        if key not in store:
+            store[key] = SnowflakeTagPlatformResource.create_default(
+                entity_id, managed_by_datahub
+            )
+        else:
+            store[key].id = entity_id
+        return store[key]
+
+    repository = create_autospec(SnowflakeTagPlatformResourceRepository, instance=True)
+    repository.get_entity_from_datahub.side_effect = get_entity_from_datahub
+    repository.graph = MagicMock()
+    repository.graph.get_aspect.return_value = (
+        StructuredPropertyDefinitionClass(
+            qualifiedName="q", valueType=value_type, entityTypes=[]
+        )
+        if value_type
+        else None
+    )
+    return repository
 
 
 def make_v2_config(**overrides: object) -> SnowflakeV2Config:
@@ -368,7 +429,9 @@ def tag(name: str = "PII", value: str = "yes") -> SnowflakeTag:
 
 
 def make_gen(
-    aggregator: Optional[NonCallableMock] = None, **config_overrides: object
+    aggregator: Optional[NonCallableMock] = None,
+    tag_repository: Optional[SnowflakeTagPlatformResourceRepository] = None,
+    **config_overrides: object,
 ) -> SnowflakeSchemaGenerator:
     """A ``SnowflakeSchemaGenerator`` over an autospecced data dictionary.
 
@@ -387,18 +450,26 @@ def make_gen(
         }
     )
     report = SnowflakeV2Report()
+    identifiers = SnowflakeIdentifierBuilder(
+        identifier_config=config, structured_reporter=report
+    )
     gen = SnowflakeSchemaGenerator(
         config=config,
         report=report,
         connection=fake_connection(lambda _sql: []),
         filters=SnowflakeFilter(filter_config=config, structured_reporter=report),
-        identifiers=SnowflakeIdentifierBuilder(
-            identifier_config=config, structured_reporter=report
-        ),
+        identifiers=identifiers,
         domain_registry=None,
         profiler=None,
         aggregator=aggregator,
         snowsight_url_builder=None,
+        tag_resolver=SnowflakeTagResolver(
+            repository=tag_repository,
+            config=config,
+            report=report,
+            identifiers=identifiers,
+            platform_instance=None,
+        ),
     )
     data_dictionary = create_autospec(SnowflakeDataDictionary, instance=True)
     data_dictionary.get_pk_constraints_for_schema.return_value = {}
