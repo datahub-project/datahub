@@ -47,14 +47,26 @@ function siblingGroupsMock(start: number, count: number, members = MEMBERS): Moc
 }
 
 describe('useShowSiblings', () => {
-    it('reads the URL param and changes only that param', () => {
+    const originalLocation = window.location;
+    afterEach(() => {
+        Object.defineProperty(window, 'location', { value: originalLocation, writable: true });
+    });
+
+    // updateUrlParam reads window.location (kept in sync by the browser router in the app).
+    function setWindowSearch(search: string) {
+        Object.defineProperty(window, 'location', { value: { search }, writable: true });
+    }
+
+    it('reads the URL param and changes only that param, keeping multi-value comma filters', () => {
         const filterParam = 'filter_platform___false___EQUAL___0';
-        const filterValue = 'urn:li:dataPlatform:glue,extra';
-        const start = `/search?query=orders&${filterParam}=${encodeURIComponent(filterValue)}`;
+        const search = `?query=orders&${filterParam}=${encodeURIComponent('urn:li:dataPlatform:glue')},${encodeURIComponent(
+            'urn:li:dataPlatform:hive',
+        )}`;
+        setWindowSearch(search);
         const { result } = renderHook(() => ({ toggle: useShowSiblings(), location: useLocation() }), {
             wrapper: ({ children }) => (
                 <MockedProvider>
-                    <TestPageContainer initialEntries={[start]}>{children}</TestPageContainer>
+                    <TestPageContainer initialEntries={[`/search${search}`]}>{children}</TestPageContainer>
                 </MockedProvider>
             ),
         });
@@ -65,10 +77,14 @@ describe('useShowSiblings', () => {
         const params = new URLSearchParams(result.current.location.search);
         expect(params.get(SHOW_SIBLINGS_URL_PARAM)).toBe('true');
         expect(params.get('query')).toBe('orders');
-        expect(params.get(filterParam)).toBe(filterValue);
+        expect(params.get(filterParam)).toBe('urn:li:dataPlatform:glue,urn:li:dataPlatform:hive');
 
+        setWindowSearch(result.current.location.search);
         act(() => result.current.toggle[1](false));
         expect(new URLSearchParams(result.current.location.search).has(SHOW_SIBLINGS_URL_PARAM)).toBe(false);
+        expect(new URLSearchParams(result.current.location.search).get(filterParam)).toBe(
+            'urn:li:dataPlatform:glue,urn:li:dataPlatform:hive',
+        );
     });
 });
 

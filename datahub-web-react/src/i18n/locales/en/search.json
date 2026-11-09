@@ -182,5 +182,7 @@
     "siblings.showLess": "Show less",
     "siblings.showSiblings": "Show siblings",
     "siblings.siblingOf": "Sibling of {{name}}",
-    "siblings.truncated": "Showing the first {{count}} members of a larger group"
+    "siblings.truncated": "Showing the first {{count}} members of a larger group",
+    "siblings.loadError": "Couldn't load siblings.",
+    "siblings.retry": "Retry"
 }

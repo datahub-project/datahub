@@ -75,4 +75,15 @@ describe('updateUrlParam', () => {
         expect(call).toContain('query=hello%20world');
         expect(call).not.toContain('hello world');
     });
+
+    it('should remove the parameter when the value is null, keeping comma-separated values intact', () => {
+        Object.defineProperty(window, 'location', {
+            value: { search: '?filter_platform___false___EQUAL___0=a%2Cb&showSiblings=true' },
+            writable: true,
+        });
+
+        updateUrlParam(mockHistory as any, 'showSiblings', null);
+
+        expect(mockHistory.replace).toHaveBeenCalledWith('?filter_platform___false___EQUAL___0=a%2Cb', undefined);
+    });
 });
