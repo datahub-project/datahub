@@ -37,9 +37,9 @@ public class KafkaProducerInitializationRetryTest {
     KafkaProducerInitializationRetry.Settings settings =
         KafkaProducerInitializationRetry.Settings.builder()
             .maxAttempts(10)
-            .initialBackoffMs(1000)
-            .maxBackoffMs(4000)
-            .maxTotalWaitMs(2500)
+            .initialBackoffMs(100)
+            .maxBackoffMs(400)
+            .maxTotalWaitMs(250)
             .build();
     AtomicInteger attemptCount = new AtomicInteger(0);
 
@@ -53,7 +53,7 @@ public class KafkaProducerInitializationRetryTest {
           });
       fail("Should have thrown KafkaException");
     } catch (KafkaException e) {
-      // Backoff 1000ms, then 1500ms (capped from 2000ms by the 2500ms budget), then the budget
+      // Backoff 100ms, then 150ms (capped from 200ms by the 250ms budget), then the budget
       // is exhausted: three attempts, not maxAttempts.
       assertEquals(3, attemptCount.get());
     }
