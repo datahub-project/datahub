@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Set, Tuple, Union
 from urllib.parse import urlsplit
 
 import requests
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from sqlglot import exp
 from typing_extensions import LiteralString
 
@@ -38,6 +38,20 @@ from datahub.ingestion.source.kafka.stream_processing.models import (
 from datahub.utilities.dedup_list import deduplicate_list
 
 logger = logging.getLogger(__name__)
+
+# Stand-ins for "this recipe's environment / cluster", whichever alias names them.
+_THIS_ENVIRONMENT = "\0environment"
+_THIS_CLUSTER = "\0cluster"
+
+
+class _ResolvedTables(BaseModel):
+    inputs: List[str]
+    outputs: List[str]
+    # `catalog.database.table` of tables outside this recipe's cluster.
+    elsewhere: Set[str]
+    # Writes or reads a view or temporary table the statement creates, so its column
+    # lineage would name tables that are not topics.
+    touches_non_topic: bool
 
 
 class FlinkListingError(Exception):
@@ -229,7 +243,11 @@ class FlinkLineageExtractor:
         resolved = self._resolve_tables(name, parsed, spec.properties)
         if resolved is None:
             return None
-        inputs, outputs, elsewhere = resolved
+        inputs, outputs, elsewhere = (
+            resolved.inputs,
+            resolved.outputs,
+            resolved.elsewhere,
+        )
         if not outputs:
             if elsewhere:
                 # Writes to another cluster are that cluster's recipe's to emit.
@@ -255,7 +273,7 @@ class FlinkLineageExtractor:
             output_topics=outputs,
             query=spec.statement,
             parse_query=_column_lineage_query(parsed.dml)
-            if not elsewhere and not parsed.created_non_topics
+            if not elsewhere and not resolved.touches_non_topic
             else None,
             custom_properties=properties,
         )
@@ -265,7 +283,7 @@ class FlinkLineageExtractor:
         name: str,
         parsed: FlinkParsedStatement,
         properties: Dict[str, str],
-    ) -> Optional[Tuple[List[str], List[str], Set[str]]]:
+    ) -> Optional["_ResolvedTables"]:
         """Topics this statement reads and writes in this cluster, plus other places.
 
         Views and temporary tables the statement creates are left out wherever they
@@ -282,16 +300,29 @@ class FlinkLineageExtractor:
                 ref.table,
             )
 
-        non_topics = {location(table) for table in parsed.created_non_topics}
+        def canonical(
+            place: Tuple[Optional[str], Optional[str], str],
+        ) -> Tuple[Optional[str], Optional[str], str]:
+            # The environment and cluster may be named by id or display name.
+            catalog, database, table = place
+            return (
+                _THIS_ENVIRONMENT if catalog in self._catalogs else catalog,
+                _THIS_CLUSTER if database in self._databases else database,
+                table,
+            )
+
+        non_topics = {canonical(location(table)) for table in parsed.created_non_topics}
         inputs: List[str] = []
         outputs: List[str] = []
         elsewhere: Set[str] = set()
+        touches_non_topic = False
         for dml in parsed.dml:
             for table, targets in [(dml.output, outputs)] + [
                 (t, inputs) for t in dml.inputs
             ]:
                 catalog, database, topic = location(table)
-                if (catalog, database, topic) in non_topics:
+                if canonical((catalog, database, topic)) in non_topics:
+                    touches_non_topic = True
                     continue
                 if catalog is None or database is None:
                     self._fail(
@@ -306,7 +337,12 @@ class FlinkLineageExtractor:
                     targets.append(topic)
                 else:
                     elsewhere.add(f"{catalog}.{database}.{topic}")
-        return deduplicate_list(inputs), deduplicate_list(outputs), elsewhere
+        return _ResolvedTables(
+            inputs=deduplicate_list(inputs),
+            outputs=deduplicate_list(outputs),
+            elsewhere=elsewhere,
+            touches_non_topic=touches_non_topic,
+        )
 
     def _fail(
         self,

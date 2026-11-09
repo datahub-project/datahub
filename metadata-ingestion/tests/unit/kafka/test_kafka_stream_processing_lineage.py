@@ -1005,3 +1005,49 @@ def test_flink_created_objects_are_matched_with_their_namespace() -> None:
     # cluster is a different table and is reported as such.
     assert [(job.input_topics, job.output_topics) for job in jobs] == [([], ["out_t"])]
     assert any("env-1.lkc-2.big" in str(entry.context) for entry in report.warnings)
+
+
+def test_column_lineage_is_kept_when_created_objects_are_not_read() -> None:
+    jobs, _ = _extract(
+        [
+            _statement(
+                "EXECUTE STATEMENT SET BEGIN "
+                "CREATE TEMPORARY VIEW unused AS SELECT * FROM orders; "
+                "INSERT INTO out_t SELECT id FROM orders; "
+                "END;"
+            )
+        ]
+    )
+
+    assert jobs[0].parse_query is not None
+
+
+def test_column_lineage_is_dropped_when_a_created_object_is_read() -> None:
+    jobs, _ = _extract(
+        [
+            _statement(
+                "EXECUTE STATEMENT SET BEGIN "
+                "CREATE TEMPORARY VIEW big AS SELECT * FROM orders; "
+                "INSERT INTO out_t SELECT id FROM big JOIN customers ON big.id = customers.id; "
+                "END;"
+            )
+        ]
+    )
+
+    assert jobs[0].parse_query is None
+
+
+def test_created_objects_match_across_id_and_display_name() -> None:
+    # Created under the environment / cluster ids, read under their display names.
+    jobs, _ = _extract(
+        [
+            _statement(
+                "EXECUTE STATEMENT SET BEGIN "
+                "CREATE TEMPORARY VIEW `env-1`.`lkc-1`.big AS SELECT * FROM orders; "
+                "INSERT INTO out_t SELECT * FROM `prod`.`main`.big; "
+                "END;"
+            )
+        ]
+    )
+
+    assert [(job.input_topics, job.output_topics) for job in jobs] == [([], ["out_t"])]
