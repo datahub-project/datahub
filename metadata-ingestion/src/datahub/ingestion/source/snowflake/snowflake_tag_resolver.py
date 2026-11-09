@@ -1,3 +1,4 @@
+import math
 import threading
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set, Union
@@ -74,7 +75,7 @@ class SnowflakeTagResolver:
         self._new_keys: Set[str] = set()
         self._queued: Dict[str, SnowflakeTagPlatformResource] = {}
         self._emitted: Set[str] = set()
-        self._value_types: Dict[str, Optional[str]] = {}
+        self._value_types: Dict[str, str] = {}
         self._unreadable_definitions: Set[str] = set()
 
     def resolve_tag_urn(
@@ -280,16 +281,20 @@ class SnowflakeTagResolver:
         if value_type != _NUMBER_TYPE_URN:
             return tag.value
         try:
-            return float(tag.value)
-        except ValueError as e:
+            number = float(tag.value)
+        except ValueError:
+            number = math.nan
+        # float() also accepts "nan" and "inf", which DataHub cannot store.
+        if not math.isfinite(number):
             self.report.warning(
                 title="Snowflake tag value does not match its structured property type",
                 message="Structured properties of this asset are left unchanged.",
                 context=f"{tag.tag_identifier()} -> {property_urn}",
             )
-            raise _UnresolvedProperty() from e
+            raise _UnresolvedProperty()
+        return number
 
-    def _value_type(self, property_urn: str) -> Optional[str]:
+    def _value_type(self, property_urn: str) -> str:
         with self._lock:
             if property_urn in self._unreadable_definitions:
                 raise _UnresolvedProperty()
@@ -310,7 +315,16 @@ class SnowflakeTagResolver:
                 exc=e,
             )
             raise _UnresolvedProperty() from e
-        value_type = definition.valueType if definition is not None else None
+        if definition is None:
+            # A value for a property that no longer exists would fail the write.
+            with self._lock:
+                self._unreadable_definitions.add(property_urn)
+            self.report.warning(
+                title="Structured property definition not found",
+                message="Structured properties of assets using it are left unchanged.",
+                context=property_urn,
+            )
+            raise _UnresolvedProperty()
         with self._lock:
-            self._value_types[property_urn] = value_type
-        return value_type
+            self._value_types[property_urn] = definition.valueType
+        return definition.valueType

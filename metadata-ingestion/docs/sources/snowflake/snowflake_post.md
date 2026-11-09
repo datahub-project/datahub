@@ -306,6 +306,8 @@ When DataHub writes tags, glossary terms or structured properties back to Snowfl
 
 Every other Snowflake tag is ingested as before. Records are loaded once at the start of each run, so a tag DataHub writes to Snowflake during a run is recognised from the next run. The records are looked up and written through the DataHub graph, so this needs a DataHub connection (`datahub_api`, or the `datahub-rest` sink). Without one, every Snowflake tag is ingested as a native tag.
 
+Snowflake tag names and values are matched without regard to case, so DataHub tags that differ only in case (for example `PII` and `pii`) written to the same Snowflake tag and value are treated as one.
+
 #### Metadata Pattern Pushdown
 
 When ingesting metadata from large Snowflake environments, you can improve performance by pushing down pattern filters directly to Snowflake SQL queries using the `push_down_metadata_patterns` configuration option.
