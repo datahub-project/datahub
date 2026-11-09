@@ -111,6 +111,12 @@ from datahub.sql_parsing.sqlglot_lineage import (
 logger = logging.getLogger(__name__)
 
 
+def _error_type(error: Optional[Exception]) -> str:
+    # SQL parser errors quote the statement, which can hold credentials when a
+    # script statement was split wrongly, so only the type goes in the report.
+    return type(error).__name__ if error else "unknown"
+
+
 @platform_name("Qlik Sense")
 @config_class(QlikSourceConfig)
 @support_status(SupportStatus.ALPHA)
@@ -167,7 +173,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         test_report = TestConnectionReport()
         try:
             config = QlikSourceConfig.parse_obj_allow_extras(config_dict)
-            QlikSenseSource._create_api(config)
+            api = QlikSenseSource._create_api(config)
+            if isinstance(api, QlikOnPremAPI):
+                api.check_engine_port()
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
@@ -424,15 +432,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 default_schema=table.schemaName
                 or upstream_dataset_platform_detail.default_schema,
                 platform=platform,
-                env=upstream_dataset_platform_detail.env,
+                # Like script tables, an unset env follows the recipe's env.
+                env=upstream_dataset_platform_detail.env
+                if "env" in upstream_dataset_platform_detail.model_fields_set
+                else self.config.env,
                 platform_instance=upstream_dataset_platform_detail.platform_instance,
             )
             if not result.in_tables:
                 self.reporter.warning(
                     title="Unable to parse Qlik table SQL",
                     message="Upstream lineage for this Qlik table is skipped.",
-                    context=f"table={table.tableName}, connection={table.dataconnectorName}",
-                    exc=result.debug_info.table_error,
+                    context=f"table={table.tableName}, connection={table.dataconnectorName}, "
+                    f"error={_error_type(result.debug_info.table_error)}",
                 )
                 return None
             qualified = [
@@ -630,8 +641,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.warning(
                 title="Unable to parse Qlik load script SQL",
                 message="Upstream lineage for this script table is skipped.",
-                context=f"app={app_id}, table={script_table.label}",
-                exc=result.debug_info.table_error,
+                context=f"app={app_id}, table={script_table.label}, "
+                f"error={_error_type(result.debug_info.table_error)}",
             )
         else:
             logger.debug(

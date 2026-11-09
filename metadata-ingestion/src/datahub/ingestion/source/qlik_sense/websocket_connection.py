@@ -1,6 +1,7 @@
 import json
 import logging
 import ssl
+import time
 from contextlib import contextmanager
 from typing import Callable, Dict, Iterator, List, Literal, Optional, Set, Union
 
@@ -32,10 +33,13 @@ class WebsocketConnection:
         header: Dict[str, str],
         match_response_id: bool = False,
         sslopt: Optional[Dict[str, object]] = None,
+        timeout: Optional[float] = None,
     ) -> None:
         self._match_response_id = match_response_id
+        # Applies to the handshake and to each receive.
+        self._timeout = timeout
         self.socket_connection: Optional[WebSocket] = create_connection(
-            url, header=header, sslopt=sslopt or {}
+            url, header=header, sslopt=sslopt or {}, timeout=timeout
         )
         self.request_id = 0
         # Engine object handles, innermost last; -1 is the global handle.
@@ -43,11 +47,16 @@ class WebsocketConnection:
 
     @classmethod
     def for_cloud(
-        cls, tenant_hostname: str, api_key: str, app_id: str
+        cls,
+        tenant_hostname: str,
+        api_key: str,
+        app_id: str,
+        timeout: Optional[float] = None,
     ) -> "WebsocketConnection":
         return cls(
             f"wss://{tenant_hostname}/app/{app_id}",
             header={"Authorization": f"Bearer {api_key}"},
+            timeout=timeout,
         )
 
     @classmethod
@@ -61,6 +70,8 @@ class WebsocketConnection:
         client_key: str,
         root_cert: str,
         assert_hostname: Union[str, Literal[False], None] = None,
+        key_password: Optional[str] = None,
+        timeout: Optional[float] = None,
     ) -> "WebsocketConnection":
         # Direct Engine access. Certificate auth does not go through the proxy,
         # and the engine interleaves JSON-RPC replies with push notifications.
@@ -70,6 +81,8 @@ class WebsocketConnection:
             "ca_certs": root_cert,
             "cert_reqs": ssl.CERT_REQUIRED,
         }
+        if key_password:
+            sslopt["password"] = key_password
         if assert_hostname is False:
             sslopt["check_hostname"] = False
         elif assert_hostname:
@@ -79,6 +92,7 @@ class WebsocketConnection:
             header={"X-Qlik-User": user_header},
             match_response_id=True,
             sslopt=sslopt,
+            timeout=timeout,
         )
 
     @property
@@ -112,10 +126,17 @@ class WebsocketConnection:
         return message[Constant.RESULT]
 
     def _recv_matching(self, socket_connection: WebSocket, request_id: int) -> Dict:
+        # Push notifications keep each receive short of the socket timeout, so
+        # the whole wait for the reply is bounded too.
+        deadline = time.monotonic() + self._timeout if self._timeout else None
         while True:
             message = json.loads(socket_connection.recv())
             if message.get("id") == request_id:
                 return self._result(message)
+            if deadline is not None and time.monotonic() > deadline:
+                raise TimeoutError(
+                    f"No Engine reply to request {request_id} within {self._timeout}s"
+                )
 
     def _send_request(self, request: Dict) -> Dict:
         if not self.socket_connection:

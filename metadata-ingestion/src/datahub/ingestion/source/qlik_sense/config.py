@@ -71,6 +71,8 @@ class Constant:
     TABLELABEL = "tableLabel"
     TABLEQRI = "tableQRI"
     OWNERID = "ownerId"
+    PUBLISHED = "published"
+    USERID = "userId"
     # Websocket response key constants
     QID = "qId"
     RESULT = "result"
@@ -163,6 +165,11 @@ class QlikOnPremConfig(ConfigModel):
         min_length=1,
         description="Path to the PEM root certificate exported from the QMC.",
     )
+    client_key_password: Optional[TransparentSecretStr] = Field(
+        default=None,
+        description="Password of the client key, when it was exported from the QMC "
+        "with one.",
+    )
     qrs_port: int = Field(
         default=4242,
         ge=1,
@@ -253,6 +260,13 @@ class QlikSourceConfig(
     ingest_owner: Optional[bool] = Field(
         default=True,
         description="Ingest Owner from source. This will override Owner info entered from UI",
+    )
+    timeout_seconds: int = Field(
+        default=300,
+        ge=1,
+        description="Seconds to wait for the Qlik Engine, and on-prem for the "
+        "Repository Service, to connect or reply before the request fails. An app "
+        "whose read times out is ingested as partly read.",
     )
     # Qlik app dataset upstream tables from data connection to platform instance mapping
     data_connection_to_platform_instance: Dict[str, PlatformDetail] = Field(

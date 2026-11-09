@@ -100,7 +100,12 @@ class QlikAPI(QlikBaseAPI):
         return None
 
     def _open_engine(self, app_id: str) -> WebsocketConnection:
-        return WebsocketConnection.for_cloud(self.tenant_hostname, self.api_key, app_id)
+        return WebsocketConnection.for_cloud(
+            self.tenant_hostname,
+            self.api_key,
+            app_id,
+            timeout=self.config.timeout_seconds,
+        )
 
     def _sheet_meta(self, meta: Dict, sheet_id: str) -> Optional[Dict]:
         # A sheet without an owner is a private sheet.
@@ -243,16 +248,17 @@ class QlikAPI(QlikBaseAPI):
                 try:
                     app.script = websocket_connection.get_script()
                 except Exception as e:
-                    app.tables_read_failed = True
                     if isinstance(e, EngineError) and e.access_denied:
                         # Cloud only lets Owner, Can manage and Can operate read
                         # the load script, so a denied read leaves the rest of
-                        # the app complete.
+                        # the app complete. The denial lasts, so the data model
+                        # tables are all the tables charts will get.
                         log_read_error(
                             f"Access denied to load script of app {app_id}: {e}"
                         )
                         app.script_read_failed = True
                     else:
+                        app.tables_read_failed = True
                         errors.record(
                             f"Unable to fetch load script of app {app_id}. Exception: {e}"
                         )
