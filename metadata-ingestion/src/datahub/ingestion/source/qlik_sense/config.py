@@ -117,6 +117,18 @@ class Constant:
     CHILDREN = "children"
     REFID = "refId"
     LABEL = "label"
+    # Chart field references
+    QGROUPFIELDDEFS = "qGroupFieldDefs"
+    QPROPERTY = "qProp"
+    QPROPENTRY = "qPropEntry"
+    QPROPERTYTREEITEM = "qProperty"
+    QCHILDREN = "qChildren"
+    QHYPERCUBEDEF = "qHyperCubeDef"
+    QEXTENDSID = "qExtendsId"
+    QMEASURES = "qMeasures"
+    QDEF = "qDef"
+    QLIBRARYID = "qLibraryId"
+    QMEASURE = "qMeasure"
 
 
 @dataclass
