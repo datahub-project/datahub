@@ -2101,6 +2101,32 @@ def test_mapping_table_does_not_hide_data_table_with_same_label(
     ] == ["region_code", "manager"]
 
 
+@pytest.mark.parametrize("mapping_first", [True, False])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_labels_differing_only_in_case_are_one_table(
+    mock_onprem: MagicMock, mapping_first: bool
+) -> None:
+    mapping_load = "REGIONS:\nMAPPING SQL SELECT region_code, region_name FROM sales_db.dbo.regions;"
+    data_loads = [
+        "Regions:\nSQL SELECT region_code, manager FROM sales_db.dbo.region_managers;",
+        "regions:\nSQL SELECT region_code, office FROM sales_db.dbo.region_offices;",
+    ]
+    loads = (
+        [mapping_load, *data_loads] if mapping_first else [*data_loads, mapping_load]
+    )
+    _, tables = _script_tables(
+        mock_onprem, {}, script="\n".join(["LIB CONNECT TO 'Sales SQL';", *loads])
+    )
+
+    (table,) = tables
+    assert table.identifier == "app-1.regions"
+    assert table.upstream_urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,sales_db.dbo.region_managers,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,sales_db.dbo.region_offices,PROD)",
+    ]
+    assert list(table.column_upstreams) == ["region_code", "manager", "office"]
+
+
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
 def test_mapping_tables_are_not_chart_inputs(mock_onprem: MagicMock) -> None:
     source = QlikSenseSource(
