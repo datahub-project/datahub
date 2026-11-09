@@ -2125,6 +2125,31 @@ def test_mapping_tables_are_not_chart_inputs(mock_onprem: MagicMock) -> None:
 
 
 @pytest.mark.parametrize(
+    "select",
+    [
+        pytest.param("region, jan, region", id="column_selected_twice"),
+        pytest.param("*", id="star"),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_crosstable_on_select_of_unknown_column_order_keeps_table_lineage(
+    mock_onprem: MagicMock, select: str
+) -> None:
+    _, tables = _script_tables(
+        mock_onprem,
+        {},
+        script="LIB CONNECT TO 'Sales SQL';\n"
+        f"T: CrossTable(Month, Sales) SQL SELECT {select} FROM sales_db.dbo.sales;",
+    )
+
+    (table,) = tables
+    assert table.upstream_urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,sales_db.dbo.sales,PROD)"
+    ]
+    assert table.column_upstreams == {}
+
+
+@pytest.mark.parametrize(
     "load, expected_fields",
     [
         pytest.param(

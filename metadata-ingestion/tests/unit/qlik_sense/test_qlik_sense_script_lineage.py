@@ -13,6 +13,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     is_connector_sql,
     parse_load_script,
     redact_connection,
+    select_list_size,
 )
 
 SCRIPT = """
@@ -935,6 +936,44 @@ def test_preceding_load_source_column_case(
 def test_parse_load_script_marks_reshaped_tables(script: str) -> None:
     (table,) = parse_load_script(script)
     assert table.reshaped
+
+
+@pytest.mark.parametrize(
+    "script, stacked",
+    [
+        pytest.param(
+            "T:\nLOAD order_id AS OrderID;\nIF 1 = 1 THEN\n"
+            "SQL SELECT order_id FROM dbo.orders;\nEND IF",
+            False,
+            id="load_above_control_statement",
+        ),
+        pytest.param(
+            "IF 1 = 1 THEN\nT:\nLOAD order_id AS OrderID;\n"
+            "SQL SELECT order_id FROM dbo.orders;\nEND IF",
+            True,
+            id="load_and_select_in_one_block",
+        ),
+    ],
+)
+def test_preceding_load_stacks_only_on_the_statement_below(
+    script: str, stacked: bool
+) -> None:
+    (table,) = parse_load_script(script)
+
+    assert bool(table.preceding_loads) is stacked
+
+
+@pytest.mark.parametrize(
+    "sql, expected",
+    [
+        ("SELECT region, Sum(jan, feb), 'a, b' FROM db.s.t", 3),
+        ("SELECT DISTINCT TOP 10 region, jan FROM (SELECT * FROM db.s.t) x", 2),
+        ("SELECT t.*, jan FROM db.s.t t", None),
+        ("WITH x AS (SELECT 1 AS a) SELECT a FROM x", None),
+    ],
+)
+def test_select_list_size(sql: str, expected: Optional[int]) -> None:
+    assert select_list_size(sql) == expected
 
 
 @pytest.mark.parametrize(
