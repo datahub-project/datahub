@@ -1,5 +1,5 @@
 import re
-from typing import Final, List, Optional, Set, Tuple
+from typing import Final, List, Optional, Tuple
 
 import sqlglot
 from pydantic import BaseModel
@@ -54,12 +54,21 @@ class FlinkDmlStatement(BaseModel):
     inputs: List[exp.Table]
 
 
-def parse_flink_statement(sql: str) -> List[FlinkDmlStatement]:
+class FlinkParsedStatement(BaseModel):
+    model_config = {"arbitrary_types_allowed": True}
+
+    dml: List[FlinkDmlStatement]
+    # Views and temporary tables the statement creates. They are not Kafka topics, so
+    # writes to them and reads of them elsewhere in the statement are not topic edges.
+    created_non_topics: List[exp.Table]
+
+
+def parse_flink_statement(sql: str) -> FlinkParsedStatement:
     """Parse a Flink SQL statement into its INSERT / CTAS parts.
 
-    Returns [] for statements that move no data (SELECT, DDL without AS SELECT, SET).
-    Raises FlinkSqlParseError when the SQL cannot be parsed, so the caller can skip
-    the statement rather than guess its tables.
+    `dml` is empty for statements that move no data (SELECT, DDL without AS SELECT,
+    SET). Raises FlinkSqlParseError when the SQL cannot be parsed, so the caller can
+    skip the statement rather than guess its tables.
     """
     sql = _blank_comments(sql)
     statement_set = _STATEMENT_SET_RE.match(sql)
@@ -71,21 +80,18 @@ def parse_flink_statement(sql: str) -> List[FlinkDmlStatement]:
         # Flink DDL (computed columns, WATERMARK, DISTRIBUTED BY) is often beyond
         # sqlglot; it moves no data, so only SQL that can is an error.
         if not _may_move_data(body):
-            return []
+            return FlinkParsedStatement(dml=[], created_non_topics=[])
         raise FlinkSqlParseError(str(e)) from e
 
     statements: List[FlinkDmlStatement] = []
-    # Views and temporary tables created by the statement are not Kafka topics, so
-    # reads of them later in a statement set are not topic inputs.
-    non_topics: Set[str] = set()
+    created_non_topics: List[exp.Table] = []
     for expression in expressions:
         if not isinstance(expression, exp.Expression):
             continue
         if isinstance(expression, exp.Create) and _is_not_a_topic(expression):
-            name = expression.this.find(exp.Table) if expression.this else None
-            if name is not None:
-                non_topics.add(name.name)
-            continue
+            created = expression.this.find(exp.Table) if expression.this else None
+            if created is not None:
+                created_non_topics.append(created)
         if isinstance(expression, exp.Command):
             # sqlglot falls back to a Command for syntax it cannot read. Plain DDL
             # (CREATE TABLE without AS SELECT) moves no data, so it is not an error.
@@ -98,14 +104,10 @@ def parse_flink_statement(sql: str) -> List[FlinkDmlStatement]:
             raise FlinkSqlParseError(
                 f"unsupported syntax: {expression.sql(dialect=FLINK_SQL_DIALECT)[:100]}"
             )
-        dml = _as_dml(expression, non_topics)
+        dml = _as_dml(expression)
         if dml is not None:
             statements.append(dml)
-    return statements
-
-
-def _names_one_of(table: exp.Table, names: Set[str]) -> bool:
-    return not table.db and not table.catalog and table.name in names
+    return FlinkParsedStatement(dml=statements, created_non_topics=created_non_topics)
 
 
 def _is_not_a_topic(create: exp.Create) -> bool:
@@ -120,9 +122,7 @@ def table_ref(table: exp.Table) -> FlinkTableRef:
     )
 
 
-def _as_dml(
-    expression: exp.Expression, non_topics: Set[str]
-) -> Optional[FlinkDmlStatement]:
+def _as_dml(expression: exp.Expression) -> Optional[FlinkDmlStatement]:
     if isinstance(expression, exp.Insert) or (
         isinstance(expression, exp.Create)
         and str(expression.args.get("kind", "")).upper() == "TABLE"
@@ -134,16 +134,16 @@ def _as_dml(
         return None
 
     output = target if isinstance(target, exp.Table) else target.find(exp.Table)
-    if output is None or query is None or _names_one_of(output, non_topics):
+    if output is None or query is None:
         return None
 
-    not_topics = non_topics | {
-        cte.alias_or_name for cte in expression.find_all(exp.CTE)
-    }
+    cte_names = {cte.alias_or_name for cte in expression.find_all(exp.CTE)}
     inputs = [
         table
         for table in expression.find_all(exp.Table)
-        if table is not output and table.name and not _names_one_of(table, not_topics)
+        if table is not output
+        and table.name
+        and not (table.name in cte_names and not table.db and not table.catalog)
     ]
     return FlinkDmlStatement(expression=expression, output=output, inputs=inputs)
 

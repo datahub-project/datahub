@@ -213,9 +213,9 @@ use the statement's `sql.current-catalog` and `sql.current-database` properties.
 - A statement whose SQL cannot be parsed, or with a table that has no catalog or database,
   is skipped and reported as a failure, so stale-entity removal keeps its earlier job. A
   failed or truncated statements listing is a failure for the same reason.
-- `CREATE TEMPORARY TABLE ... AS SELECT` and views live in the statement's session or
-  catalog, not in a topic, so they get no edge; tables a statement reads from them are
-  not counted as topics either.
+- Views and temporary tables a statement creates are not topics: writes to them and reads of
+  them (matched by catalog, database and name) get no edge. The topics a
+  `CREATE TEMPORARY TABLE ... AS SELECT` reads still count as inputs of the statement.
 - With `compute_pool_id` set, only that pool's statements are listed and read.
 - Statements that are still deployed (`PENDING`, `RUNNING`, `DEGRADED`, `FAILING`,
   `STOPPING`) are read. `STOPPED`, `COMPLETED`, `FAILED` and `DELETING` statements are
