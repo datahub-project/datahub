@@ -1,8 +1,13 @@
+import copy
+import hashlib
+import json
 import logging
 from datetime import datetime
-from typing import Dict, Iterable, List, Optional
+from functools import partial
+from typing import Dict, Iterable, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
+from datahub._version import __version__
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_entity_to_container, gen_containers
 from datahub.ingestion.api.common import PipelineContext
@@ -16,14 +21,20 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
+    MetadataWorkUnitProcessor,
     SourceReport,
     TestableSource,
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
+)
+from datahub.ingestion.source.qlik_sense.app_state import (
+    AppCheckpoint,
+    QlikAppStateHandler,
 )
 from datahub.ingestion.source.qlik_sense.config import (
     Constant,
@@ -45,6 +56,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     Sheet,
     Space,
     SpaceKey,
+    UnchangedApp,
 )
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import QlikBaseAPI
@@ -66,8 +78,19 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     parse_load_script,
     redact_connection,
 )
+from datahub.ingestion.source.state.entity_removal_state import (
+    STATEFUL_INGESTION_IGNORED_ENTITY_TYPES,
+    GenericCheckpointState,
+)
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    auto_stale_entity_removal,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     Status,
@@ -93,6 +116,7 @@ from datahub.metadata.schema_classes import (
     AuditStampClass,
     ChangeAuditStampsClass,
     ChartInfoClass,
+    ContainerPropertiesClass,
     DashboardInfoClass,
     DataPlatformInstanceClass,
     OwnerClass,
@@ -106,9 +130,21 @@ from datahub.sql_parsing.sqlglot_lineage import (
     column_refs_to_schema_field_urns,
     create_lineage_sql_parsed_result,
 )
+from datahub.utilities.str_enum import StrEnum
+from datahub.utilities.urns.urn import guess_entity_type
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+
+class _PartialRead(StrEnum):
+    KEPT = "kept"
+    LIMIT_REACHED = "limit_reached"
+    NOT_KEPT = "not_kept"
+
+
+# Entities per DataHub request when checking that a skipped app's entities exist.
+ENTITY_CHECK_BATCH_SIZE = 100
 
 
 def _error_type(error: Optional[Exception]) -> str:
@@ -156,6 +192,38 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self.reporter = QlikSourceReport()
         self.ui_host = config.ui_hostname()
         self._data_connections: Optional[Dict[str, DataConnectionInfo]] = None
+        # Owned here rather than by the automatic processor so that entities of
+        # apps skipped as unchanged or only partly read can be kept in the state.
+        self.stale_entity_removal_handler: Optional[StaleEntityRemovalHandler] = (
+            StaleEntityRemovalHandler(
+                state_provider=self.state_provider,
+                report=self.reporter,
+                config=self.config,
+                state_type_class=GenericCheckpointState,
+                pipeline_name=ctx.pipeline_name,
+                run_id=ctx.run_id,
+                platform=self.platform,
+            )
+        )
+        self.app_state = QlikAppStateHandler(
+            state_provider=self.state_provider,
+            config=self.config,
+            pipeline_name=ctx.pipeline_name,
+            run_id=ctx.run_id,
+            stale_job_id=self.stale_entity_removal_handler.job_id
+            if self.stale_entity_removal_handler
+            and self.stale_entity_removal_handler.is_checkpointing_enabled()
+            else None,
+        )
+        self._fingerprint_salt: Optional[str] = None
+        # Filled from worker threads, so only copied to the report at the end.
+        self._change_check_failures: List[str] = []
+        if config.skips_unchanged_apps() and not self._skips_unchanged_apps():
+            self.reporter.warning(
+                title="skip_unchanged_apps is ignored",
+                message="Skipping unchanged apps needs stateful ingestion, so every "
+                "app is read.",
+            )
         try:
             self.qlik_api = self._create_api(self.config)
         except Exception as e:
@@ -187,6 +255,209 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def create(cls, config_dict, ctx):
         config = QlikSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
+
+    def get_excluded_workunit_processors(self):
+        return (
+            [AutoStaleEntityRemovalProcessor]
+            if self.stale_entity_removal_handler
+            else []
+        )
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        processors = super().get_workunit_processors()
+        if self.stale_entity_removal_handler:
+            processors.append(
+                partial(auto_stale_entity_removal, self.stale_entity_removal_handler)
+            )
+        return processors
+
+    def _skips_unchanged_apps(self) -> bool:
+        return (
+            self.config.skips_unchanged_apps()
+            and self.app_state.is_checkpointing_enabled()
+        )
+
+    def _init_fingerprint_salt(self) -> None:
+        # The recipe and data connections shape every app's output, and a new
+        # connector version may emit differently, so any change re-reads all apps.
+        self._fingerprint_salt = json.dumps(
+            {
+                "version": __version__,
+                "config": self.config.model_dump(
+                    mode="json",
+                    exclude={
+                        "stateful_ingestion": True,
+                        "max_workers": True,
+                        "max_partial_reads_kept": True,
+                        "on_prem": {"skip_unchanged_apps"},
+                    },
+                ),
+                "connections": {
+                    name: info.model_dump(mode="json")
+                    for name, info in sorted(self._get_data_connections().items())
+                },
+            },
+            sort_keys=True,
+        )
+
+    def _salted_fingerprint(self, fingerprint: str) -> str:
+        assert self._fingerprint_salt is not None
+        return hashlib.sha256(
+            f"{self._fingerprint_salt}|{fingerprint}".encode("utf-8")
+        ).hexdigest()
+
+    def _usable_checkpoint(
+        self, app_id: str, failures: List[str]
+    ) -> Optional[AppCheckpoint]:
+        """The app's last read, when it can stand in for this run's read: it
+        is recorded by the run the stale entity removal state comes from, and
+        it holds the entities to keep. A failed lookup goes to `failures`."""
+        try:
+            previous = self.app_state.previous(app_id)
+        except Exception as e:
+            logger.debug(f"Unable to load the last checkpoint of app {app_id}: {e}")
+            failures.append(f"{app_id}: unable to load the last checkpoint: {e}")
+            return None
+        return previous if previous is not None and previous.urns else None
+
+    def _is_app_unchanged(self, app_id: str, fingerprint: str) -> bool:
+        previous = self._usable_checkpoint(app_id, self._change_check_failures)
+        if previous is None or previous.fingerprint != self._salted_fingerprint(
+            fingerprint
+        ):
+            return False
+        # Checkpoints are committed even when the sink failed, so only trust one
+        # whose metadata actually reached DataHub and was not deleted since.
+        graph = self.ctx.graph
+        if graph is None:
+            return False
+        container_urn = self._gen_app_key(app_id).as_urn()
+        try:
+            properties = graph.get_aspect(container_urn, ContainerPropertiesClass)
+            if (
+                properties is None
+                or (properties.customProperties or {}).get(Constant.FINGERPRINT)
+                != previous.fingerprint
+            ):
+                return False
+            return self._entities_present(graph, previous.urns)
+        except Exception as e:
+            logger.debug(f"Unable to read app container {container_urn}: {e}")
+            self._change_check_failures.append(
+                f"{app_id}: unable to read the app back from DataHub: {e}"
+            )
+            return False
+
+    @staticmethod
+    def _entities_present(graph: DataHubGraph, urns: List[str]) -> bool:
+        """Whether every entity the app's last read produced is in DataHub and
+        not soft-deleted, which also catches entities the sink failed to write
+        and hard-deleted ones. Entities stale removal deleted after they left
+        Qlik are not in the checkpoint."""
+        by_type: Dict[str, List[str]] = {}
+        for urn in urns:
+            by_type.setdefault(guess_entity_type(urn), []).append(urn)
+        for entity_type, typed_urns in by_type.items():
+            for start in range(0, len(typed_urns), ENTITY_CHECK_BATCH_SIZE):
+                batch = typed_urns[start : start + ENTITY_CHECK_BATCH_SIZE]
+                entities = graph.get_entities(
+                    entity_type, batch, aspects=[Status.ASPECT_NAME]
+                )
+                for urn in batch:
+                    status = entities.get(urn, {}).get(Status.ASPECT_NAME)
+                    if status is None or getattr(status[0], "removed", True):
+                        return False
+        return True
+
+    def _keep_previous_urns(self, app_id: str) -> List[str]:
+        try:
+            previous = self.app_state.previous(app_id)
+        except Exception as e:
+            # Reporting a failure stops stale entity removal from soft-deleting
+            # what the app's last read produced.
+            self.reporter.failure(
+                title="Unable to load the last checkpoint of a Qlik app",
+                message="Entities from the app's last read could not be kept, so "
+                "stale metadata removal is skipped for this run.",
+                context=app_id,
+                exc=e,
+            )
+            return []
+        if previous is None:
+            return []
+        assert self.stale_entity_removal_handler is not None
+        for urn in previous.urns:
+            self.stale_entity_removal_handler.add_entity_to_state(
+                guess_entity_type(urn), urn
+            )
+        return previous.urns
+
+    def _keep_unchanged_app(self, app: UnchangedApp) -> None:
+        urns = self._keep_previous_urns(app.id)
+        # Without the kept entities, which _keep_previous_urns reports as a
+        # failure, nothing is recorded, so the next run reads the app again.
+        if urns:
+            self.app_state.record(
+                app.id,
+                AppCheckpoint(
+                    fingerprint=self._salted_fingerprint(app.fingerprint), urns=urns
+                ),
+            )
+        self.reporter.apps_skipped_unchanged += 1
+
+    def _keep_partly_read_app(self, app: App) -> _PartialRead:
+        """Keeps what the app's last read produced instead of emitting a partial
+        read, which would overwrite its relationships, for up to
+        max_partial_reads_kept consecutive runs."""
+        failures: List[str] = []
+        previous = self._usable_checkpoint(app.id, failures)
+        for failure in failures:
+            self.reporter.warning(
+                title="Unable to load the last checkpoint of a Qlik app",
+                message="The partly read app could not keep its last read.",
+                context=failure,
+            )
+        if previous is None:
+            return _PartialRead.NOT_KEPT
+        if previous.partial_reads >= self.config.max_partial_reads_kept:
+            return _PartialRead.LIMIT_REACHED
+        urns = self._keep_previous_urns(app.id)
+        if not urns:
+            return _PartialRead.NOT_KEPT
+        # No fingerprint, so the next run reads the app again.
+        self.app_state.record(
+            app.id,
+            AppCheckpoint(
+                fingerprint=None,
+                urns=urns,
+                partial_reads=previous.partial_reads + 1,
+            ),
+        )
+        return _PartialRead.KEPT
+
+    def _gen_recorded_app_workunit(self, app: App) -> Iterable[MetadataWorkUnit]:
+        fingerprint = (
+            self._salted_fingerprint(app.fingerprint)
+            if app.fingerprint and app.read_complete
+            else None
+        )
+        urns: Dict[str, None] = {}
+        for wu in self._gen_app_workunit(app, fingerprint):
+            urn = wu.get_urn()
+            if guess_entity_type(urn) not in STATEFUL_INGESTION_IGNORED_ENTITY_TYPES:
+                urns[urn] = None
+            yield wu
+        if not app.read_complete:
+            # Only reached without a usable last read, and reported as a failure.
+            # Recording the partial entity list as the app's last read would let
+            # a later partial read keep only those entities.
+            return
+        # A complete read records only what it produced, so entities removed in
+        # Qlik are soft-deleted even when the change check keeps failing. No
+        # fingerprint never matches, so such an app is read again next run.
+        self.app_state.record(
+            app.id, AppCheckpoint(fingerprint=fingerprint, urns=list(urns))
+        )
 
     def _gen_space_key(self, space_id: str) -> SpaceKey:
         return SpaceKey(
@@ -816,7 +1087,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if upstream_lineage_workunit:
                 yield upstream_lineage_workunit
 
-    def _gen_app_workunit(self, app: App) -> Iterable[MetadataWorkUnit]:
+    def _gen_app_workunit(
+        self, app: App, fingerprint: Optional[str] = None
+    ) -> Iterable[MetadataWorkUnit]:
         """
         Map Qlik App to Datahub container
         """
@@ -829,30 +1102,59 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             for identifier in map(self._get_app_table_identifier, app.tables)
             if identifier
         ] + [self._gen_qlik_dataset_urn(table.identifier) for table in script_tables]
-        yield from gen_containers(
-            container_key=self._gen_app_key(app.id),
-            name=app.qTitle,
-            description=app.description,
-            sub_types=[BIContainerSubTypes.QLIK_APP],
-            parent_container_key=self._gen_space_key(app.spaceId),
-            extra_properties={
-                Constant.QRI: app.qri,
-                **({Constant.USAGE: app.qUsage} if app.qUsage else {}),
-            },
-            owner_urn=(
-                builder.make_user_urn(owner_username)
-                if self.config.ingest_owner and owner_username
-                else None
-            ),
-            external_url=f"https://{self.ui_host}/sense/app/{app.id}/overview",
-            created=int(app.createdAt.timestamp() * 1000),
-            last_modified=int(app.updatedAt.timestamp() * 1000),
+        container_workunits = list(
+            gen_containers(
+                container_key=self._gen_app_key(app.id),
+                name=app.qTitle,
+                description=app.description,
+                sub_types=[BIContainerSubTypes.QLIK_APP],
+                parent_container_key=self._gen_space_key(app.spaceId),
+                extra_properties={
+                    Constant.QRI: app.qri,
+                    **({Constant.USAGE: app.qUsage} if app.qUsage else {}),
+                },
+                owner_urn=(
+                    builder.make_user_urn(owner_username)
+                    if self.config.ingest_owner and owner_username
+                    else None
+                ),
+                external_url=f"https://{self.ui_host}/sense/app/{app.id}/overview",
+                created=int(app.createdAt.timestamp() * 1000),
+                last_modified=int(app.updatedAt.timestamp() * 1000),
+            )
         )
+        yield from container_workunits
         yield from self._gen_sheets_workunit(
             app, None if app.tables_read_failed else input_tables_urns
         )
         yield from self._gen_app_tables_workunit(app.tables, app.id)
         yield from self._gen_script_tables_workunit(script_tables, app.id)
+        if fingerprint:
+            # Skipping an unchanged app trusts this fingerprint, so it is written
+            # only after everything else the app produced.
+            yield self._gen_fingerprint_workunit(container_workunits, fingerprint)
+
+    def _gen_fingerprint_workunit(
+        self, container_workunits: List[MetadataWorkUnit], fingerprint: str
+    ) -> MetadataWorkUnit:
+        properties = next(
+            aspect
+            for aspect in (
+                wu.get_aspect_of_type(ContainerPropertiesClass)
+                for wu in container_workunits
+            )
+            if aspect
+        )
+        stamped = copy.deepcopy(properties)
+        stamped.customProperties = {
+            **(stamped.customProperties or {}),
+            Constant.FINGERPRINT: fingerprint,
+        }
+        urn = container_workunits[0].get_urn()
+        return MetadataWorkUnit(
+            id=f"{urn}-fingerprint",
+            mcp=MetadataChangeProposalWrapper(entityUrn=urn, aspect=stamped),
+        )
 
     def _gen_qlik_dataset_urn(self, dataset_identifier: str) -> str:
         return builder.make_dataset_urn_with_platform_instance(
@@ -975,9 +1277,43 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_DATASET]),
         ).as_workunit()
 
-    def _gen_item_workunits(self, item: Item) -> Iterable[MetadataWorkUnit]:
-        if isinstance(item, App):
-            if not item.read_complete:
+    def _gen_item_workunits(
+        self,
+        item: Union[Item, UnchangedApp],
+        space_name: str,
+        record_state: bool,
+    ) -> Iterable[MetadataWorkUnit]:
+        if isinstance(item, UnchangedApp):
+            self._keep_unchanged_app(item)
+        elif isinstance(item, App):
+            self.reporter.apps_read += 1
+            logger.info(
+                f"Processed app {item.qTitle} in space {space_name} "
+                f"({self.reporter.apps_read} apps read from the Engine)"
+            )
+            partial_read = (
+                self._keep_partly_read_app(item)
+                if not item.read_complete and record_state
+                else _PartialRead.NOT_KEPT
+            )
+            if partial_read == _PartialRead.KEPT:
+                self.reporter.warning(
+                    title="Unable to fully read Qlik app",
+                    message="Nothing from this read of the app is emitted. Its "
+                    "metadata stays as of its last complete read until a read of "
+                    "it completes.",
+                    context=self._read_errors_context(item),
+                )
+                return
+            if partial_read == _PartialRead.LIMIT_REACHED:
+                self.reporter.failure(
+                    title="Qlik app has been only partly read for too many runs",
+                    message="Its last complete read is no longer kept, so this "
+                    "partial read is ingested. Stale metadata removal is skipped "
+                    "for this run.",
+                    context=self._read_errors_context(item),
+                )
+            elif not item.read_complete:
                 # Reporting a failure also stops stale entity removal from
                 # soft-deleting what this app's last full read produced.
                 self.reporter.failure(
@@ -994,7 +1330,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     "in managed spaces.",
                     context=item.id,
                 )
-            yield from self._gen_app_workunit(item)
+            yield from (
+                self._gen_recorded_app_workunit(item)
+                if record_state
+                else self._gen_app_workunit(item)
+            )
         elif isinstance(item, QlikDataset):
             yield from self._gen_dataset_workunit(item)
 
@@ -1010,14 +1350,43 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         """
         logger.info("Qlik Sense plugin execution is started")
         allowed_spaces = self._get_allowed_spaces()
-        for allowed_space in allowed_spaces:
-            yield from self._gen_space_workunit(allowed_space)
-            for item in self.qlik_api.get_items(
-                "personal"
-                if allowed_space.id == Constant.PERSONAL_SPACE_ID
-                else allowed_space.id
-            ):
-                yield from self._gen_item_workunits(item)
+        skip_unchanged = self._skips_unchanged_apps()
+        record_state = self.app_state.is_checkpointing_enabled()
+        if skip_unchanged:
+            self._init_fingerprint_salt()
+        space_names = {space.id: space.name for space in allowed_spaces}
+        for space in allowed_spaces:
+            yield from self._gen_space_workunit(space)
+        logger.info(f"Reading the items of {len(allowed_spaces)} spaces")
+        # Items of all spaces share one pool of workers, so max_workers bounds
+        # the whole run.
+        items = self.qlik_api.get_items(
+            [
+                "personal" if space.id == Constant.PERSONAL_SPACE_ID else space.id
+                for space in allowed_spaces
+            ],
+            is_unchanged=self._is_app_unchanged if skip_unchanged else None,
+        )
+        for item in items:
+            space_id = getattr(item, "spaceId", "")
+            yield from self._gen_item_workunits(
+                item, space_names.get(space_id, space_id), record_state
+            )
+        change_check_failures = [
+            *self.qlik_api.change_check_failures,
+            *self._change_check_failures,
+        ]
+        for failure in change_check_failures:
+            self.reporter.apps_change_check_failed.append(failure)
+        if change_check_failures:
+            # Reported here rather than from the worker threads that check apps.
+            self.reporter.warning(
+                title="Unable to check whether Qlik apps changed",
+                message="These apps were read in full instead of skipped. "
+                "See apps_change_check_failed.",
+                context=f"{len(change_check_failures)} apps, for example "
+                f"{change_check_failures[0]}",
+            )
         failed_users = self.qlik_api.failed_user_lookups
         if failed_users:
             self.reporter.warning(
@@ -1034,6 +1403,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 title="Unable to read from Qlik",
                 message="Left out of this run after a request failed.",
                 context=f"{unread.name}: {unread.cause}",
+            )
+        if self.reporter.failures:
+            # Like the stale entity removal state, a failed run keeps the last
+            # read of the apps it did not reach.
+            self.app_state.keep_unrecorded_apps()
+        if self.app_state.is_too_large():
+            self.reporter.warning(
+                title="Qlik app checkpoint is too large to save",
+                message="Unchanged apps are not skipped and partly read apps are "
+                "reported as failures until it fits. Raise "
+                "stateful_ingestion.max_checkpoint_state_size.",
             )
 
     def get_report(self) -> SourceReport:

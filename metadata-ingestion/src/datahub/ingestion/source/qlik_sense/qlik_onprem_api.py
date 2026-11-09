@@ -1,3 +1,5 @@
+import hashlib
+import json
 import logging
 import secrets
 import socket
@@ -6,7 +8,7 @@ from datetime import datetime
 from typing import Any, Dict, Iterable, List, Literal, Optional, Union
 
 import requests
-from requests.adapters import HTTPAdapter
+from requests.adapters import DEFAULT_POOLSIZE, HTTPAdapter
 
 from datahub.ingestion.source.qlik_sense.config import (
     QLIK_DATETIME_FORMAT,
@@ -17,10 +19,13 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     Space,
     SpaceType,
+    UnchangedApp,
 )
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
+    IsUnchanged,
     QlikBaseAPI,
     ReadErrors,
+    log_read_error,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import DataConnectionInfo
 from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
@@ -30,6 +35,26 @@ logger = logging.getLogger(__name__)
 UNPUBLISHED_APPS_ID = "unpublished-apps"
 UNPUBLISHED_APPS_NAME = "Unpublished"
 _XRFKEY_LENGTH = 16
+# The Repository Service lists sheets, stories and master items as app objects with
+# their own modifiedDate, so object edits are caught even if the app's own
+# modifiedDate does not move.
+_APP_FINGERPRINT_FIELDS = (
+    "name",
+    "description",
+    "modifiedDate",
+    "lastReloadTime",
+    "published",
+    "publishTime",
+)
+_OBJECT_FINGERPRINT_FIELDS = (
+    "engineObjectId",
+    "objectType",
+    "name",
+    "modifiedDate",
+    "contentHash",
+    "published",
+    "approved",
+)
 
 
 class _QrsAdapter(HTTPAdapter):
@@ -37,10 +62,11 @@ class _QrsAdapter(HTTPAdapter):
         self,
         assert_hostname: Union[str, Literal[False], None],
         key_password: Optional[str],
+        pool_maxsize: int = DEFAULT_POOLSIZE,
     ) -> None:
         self._assert_hostname = assert_hostname
         self._key_password = key_password
-        super().__init__()
+        super().__init__(pool_maxsize=pool_maxsize)
 
     def init_poolmanager(self, *args: Any, **kwargs: Any) -> None:
         # Qlik server certificates are issued to the node name, so connecting by
@@ -106,11 +132,15 @@ class QlikOnPremAPI(QlikBaseAPI):
             if on_prem.client_key_password
             else None
         )
-        assert_hostname = on_prem.tls_assert_hostname()
-        if assert_hostname is not None or self.key_password:
-            self.session.mount(
-                self.qrs_url, _QrsAdapter(assert_hostname, self.key_password)
-            )
+        # Every worker can hold a connection at once.
+        self.session.mount(
+            self.qrs_url,
+            _QrsAdapter(
+                on_prem.tls_assert_hostname(),
+                self.key_password,
+                pool_maxsize=max(DEFAULT_POOLSIZE, config.resolved_max_workers()),
+            ),
+        )
         logger.info(f"Trying to connect to {self.qrs_url}")
         try:
             self._get("/about")
@@ -263,19 +293,24 @@ class QlikOnPremAPI(QlikBaseAPI):
             meta[Constant.OWNERID] = self._remember_owner(meta.get("owner"))
         return meta
 
-    def _load_item(self, item: Dict) -> Optional[App]:
+    def _load_item(
+        self, item: Dict, is_unchanged: Optional[IsUnchanged]
+    ) -> Union[App, UnchangedApp, None]:
         app_id = str(item.get(Constant.ID))
         try:
-            return self._read_app(item)
+            return self._read_or_skip_app(item, is_unchanged)
         except Exception as e:
             self._record_unread(
                 app_id, f"Unable to load app {app_id}. Exception: {e}", e
             )
         return None
 
-    def _read_app(self, app_dict: Dict) -> Optional[App]:
+    def _read_app(
+        self, app_dict: Dict, fingerprint: Optional[str] = None
+    ) -> Optional[App]:
         try:
             app = self._app_from_qrs(app_dict)
+            app.fingerprint = fingerprint
         except Exception as e:
             self._record_unread(
                 str(app_dict.get(Constant.ID)),
@@ -317,6 +352,66 @@ class QlikOnPremAPI(QlikBaseAPI):
         app.read_errors = errors.messages
         return app
 
+    def _read_or_skip_app(
+        self,
+        app_dict: Dict,
+        is_unchanged: Optional[IsUnchanged],
+    ) -> Union[App, UnchangedApp, None]:
+        fingerprint: Optional[str] = None
+        if is_unchanged:
+            # Dropping the app here would let stale entity removal delete it, so
+            # any error while checking for changes falls back to reading it.
+            try:
+                fingerprint = self._app_fingerprint(app_dict)
+                if fingerprint and is_unchanged(app_dict[Constant.ID], fingerprint):
+                    return UnchangedApp(
+                        id=app_dict[Constant.ID], fingerprint=fingerprint
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"Unable to check whether app {app_dict.get(Constant.ID)} "
+                    f"changed, reading it instead. Exception: {e}"
+                )
+                self.change_check_failures.append(f"{app_dict.get(Constant.ID)}: {e}")
+        return self._read_app(app_dict, fingerprint)
+
+    def _app_fingerprint(self, app_dict: Dict) -> Optional[str]:
+        """Hash of everything the Repository Service knows about the app that the
+        Engine read depends on. None when it cannot be computed."""
+        try:
+            objects = self._get(
+                "/app/object/full",
+                params={"filter": f"app.id eq {app_dict[Constant.ID]}"},
+            ).json()
+        except Exception as e:
+            log_read_error(
+                f"Unable to fetch objects of app {app_dict.get(Constant.ID)}. Exception: {e}"
+            )
+            self.change_check_failures.append(
+                f"{app_dict.get(Constant.ID)}: unable to fetch app objects: {e}"
+            )
+            return None
+        owner = app_dict.get("owner") or {}
+        payload = {
+            "app": {key: app_dict.get(key) for key in _APP_FINGERPRINT_FIELDS},
+            "stream": (app_dict.get("stream") or {}).get(Constant.ID),
+            "owner": {key: owner.get(key) for key in ("id", "name", "userId")},
+            "objects": sorted(
+                json.dumps(
+                    {
+                        **{key: obj.get(key) for key in _OBJECT_FINGERPRINT_FIELDS},
+                        # A sheet that changes owner is read again.
+                        "owner": (obj.get("owner") or {}).get(Constant.ID),
+                    },
+                    sort_keys=True,
+                )
+                for obj in objects
+            ),
+        }
+        return hashlib.sha256(
+            json.dumps(payload, sort_keys=True).encode("utf-8")
+        ).hexdigest()
+
     def get_data_connections(self) -> Dict[str, DataConnectionInfo]:
         connections: Dict[str, DataConnectionInfo] = {}
         try:
@@ -347,11 +442,13 @@ class QlikOnPremAPI(QlikBaseAPI):
             else f"stream.id eq {space_id}"
         )
         try:
-            return self._get("/app/full", params={"filter": qrs_filter}).json()
+            app_dicts = self._get("/app/full", params={"filter": qrs_filter}).json()
         except Exception as e:
             self._record_unread(
                 f"apps of stream {space_id}",
                 f"Unable to fetch apps. Exception: {e}",
                 e,
             )
-        return []
+            return []
+        logger.info(f"Stream {self.spaces[space_id]} has {len(app_dicts)} apps")
+        return app_dicts
