@@ -10,12 +10,14 @@ import {
     QLIK_DEPLOYMENT_ON_PREM,
     QLIK_INGEST_OWNER,
     QLIK_ON_PREM_CLIENT_CERT,
+    QLIK_ON_PREM_CLIENT_KEY_PASSWORD,
     QLIK_ON_PREM_SERVER,
     QLIK_ON_PREM_SKIP_HOSTNAME_CHECK,
     QLIK_ON_PREM_SKIP_UNCHANGED_APPS,
     QLIK_SPACE_ALLOW,
     QLIK_SPACE_DENY,
     QLIK_TENANT_HOSTNAME,
+    QLIK_TIMEOUT_SECONDS,
     integerRangeRule,
     setIntegerValueOnRecipe,
     tenantHostnameRule,
@@ -64,6 +66,10 @@ describe('Qlik Sense recipe form', () => {
         expect(QLIK_ON_PREM_SERVER.dynamicHidden?.(cloud)).toBe(true);
         expect(QLIK_ON_PREM_CLIENT_CERT.dynamicRequired?.(onPrem)).toBe(true);
         expect(QLIK_ON_PREM_SKIP_UNCHANGED_APPS.dynamicHidden?.(cloud)).toBe(true);
+        expect(QLIK_ON_PREM_CLIENT_KEY_PASSWORD.dynamicHidden?.(cloud)).toBe(true);
+        expect(QLIK_ON_PREM_CLIENT_KEY_PASSWORD.dynamicHidden?.(onPrem)).toBe(false);
+        expect(QLIK_ON_PREM_CLIENT_KEY_PASSWORD.type).toBe(FieldType.SECRET);
+        expect(QLIK_TIMEOUT_SECONDS.dynamicHidden).toBeUndefined();
     });
 
     it('infers the deployment from whether the recipe has an on_prem block', () => {
@@ -80,12 +86,14 @@ describe('Qlik Sense recipe form', () => {
             api_key: 'api-key-value',
             'space_pattern.allow': ['Finance'],
             max_workers: '8',
+            timeout_seconds: '600',
         });
         expect(recipe.source.config).toEqual({
             tenant_hostname: 'example.us.qlikcloud.com',
             api_key: 'api-key-value',
             space_pattern: { allow: ['Finance'] },
             max_workers: 8,
+            timeout_seconds: 600,
         });
     });
 
@@ -95,6 +103,7 @@ describe('Qlik Sense recipe form', () => {
             'on_prem.server': '10.0.0.10',
             'on_prem.client_cert': '/secrets/client.pem',
             'on_prem.client_key': '/secrets/client_key.pem',
+            'on_prem.client_key_password': 'key-password',
             'on_prem.root_cert': '/secrets/root.pem',
             'on_prem.server_cert_hostname': 'qlik.example.com',
             'on_prem.qrs_port': '4243',
@@ -107,6 +116,7 @@ describe('Qlik Sense recipe form', () => {
                 server: '10.0.0.10',
                 client_cert: '/secrets/client.pem',
                 client_key: '/secrets/client_key.pem',
+                client_key_password: 'key-password',
                 root_cert: '/secrets/root.pem',
                 server_cert_hostname: 'qlik.example.com',
                 qrs_port: 4243,

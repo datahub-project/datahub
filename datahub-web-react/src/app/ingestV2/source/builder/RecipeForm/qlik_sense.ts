@@ -164,6 +164,19 @@ export const QLIK_ON_PREM_CLIENT_KEY: RecipeField = {
     dynamicRequired: isOnPrem,
 };
 
+export const QLIK_ON_PREM_CLIENT_KEY_PASSWORD: RecipeField = {
+    name: 'on_prem.client_key_password',
+    label: 'Client Key Password',
+    helper: 'Only if the client key was exported with a password',
+    tooltip:
+        'Password of the client key, when it was exported from the QMC with one. Leave empty for an unencrypted key.',
+    type: FieldType.SECRET,
+    fieldPath: 'source.config.on_prem.client_key_password',
+    placeholder: 'client_key_password',
+    rules: null,
+    dynamicHidden: isCloud,
+};
+
 export const QLIK_ON_PREM_ROOT_CERT: RecipeField = {
     name: 'on_prem.root_cert',
     label: 'Root Certificate Path',
@@ -292,18 +305,35 @@ export const QLIK_INGEST_OWNER: RecipeField = {
 };
 
 const maxWorkersFieldPath = 'source.config.max_workers';
+// Left unset by default: the connector reads 1 app at a time on Qlik Cloud, where every
+// open app's data is loaded, and 4 on-prem, where apps are opened without their data.
 export const QLIK_MAX_WORKERS: RecipeField = {
     name: 'max_workers',
     label: 'Max Workers',
-    helper: 'Apps read at the same time. Defaults to 4',
+    helper: 'Apps read at the same time. Defaults to 1 on Qlik Cloud, 4 on-prem',
     tooltip:
-        'Number of apps and datasets of one space or stream read at the same time. Each app read holds one Engine session open. Lower it if Qlik Cloud rate-limits the run. Defaults to 4.',
+        'Number of apps and datasets of one space or stream read at the same time. Each app read holds one Engine session open. Defaults to 1 on Qlik Cloud, where every open app loads its data, and 4 on Qlik Sense Enterprise, where apps are opened without their data. Lower it if Qlik Cloud rate-limits the run.',
     type: FieldType.TEXT,
     fieldPath: maxWorkersFieldPath,
-    placeholder: '4',
+    placeholder: '1 on Qlik Cloud, 4 on-prem',
     rules: [integerRangeRule(1)],
     setValueOnRecipeOverride: (recipe: any, value: string) =>
         setIntegerValueOnRecipe(recipe, value, maxWorkersFieldPath),
+};
+
+const timeoutSecondsFieldPath = 'source.config.timeout_seconds';
+export const QLIK_TIMEOUT_SECONDS: RecipeField = {
+    name: 'timeout_seconds',
+    label: 'Timeout (Seconds)',
+    helper: 'Wait for a Qlik reply before failing. Defaults to 300',
+    tooltip:
+        'Seconds to wait for the Qlik Engine, and on-prem for the Repository Service, to connect or reply before the request fails. An app whose read times out is ingested as partly read. Defaults to 300.',
+    type: FieldType.TEXT,
+    fieldPath: timeoutSecondsFieldPath,
+    placeholder: '300',
+    rules: [integerRangeRule(1)],
+    setValueOnRecipeOverride: (recipe: any, value: string) =>
+        setIntegerValueOnRecipe(recipe, value, timeoutSecondsFieldPath),
 };
 
 export const QLIK_ON_PREM_INGEST_UNPUBLISHED_APPS: RecipeField = {
