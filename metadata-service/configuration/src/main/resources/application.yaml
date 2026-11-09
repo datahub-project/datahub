@@ -671,8 +671,8 @@ cassandra:
   readPool:
     enabled: ${CASSANDRA_READ_POOL_ENABLED:false}
     hosts: ${CASSANDRA_READ_POOL_HOSTS:${CASSANDRA_READ_REPLICA_HOSTS:}}
-    port: ${CASSANDRA_READ_POOL_PORT:${CASSANDRA_PORT:9042}}
-    datacenter: ${CASSANDRA_READ_POOL_DATACENTER:${CASSANDRA_DATACENTER:datacenter1}}
+    port: ${CASSANDRA_READ_POOL_PORT:${cassandra.port}}
+    datacenter: ${CASSANDRA_READ_POOL_DATACENTER:${cassandra.datacenter}}
 
 # PostgreSQL optional SqlSetup (pgQueue).
 # postgres.schema / DATAHUB_POSTGRES_SCHEMA: Ebean/metadata tables (default public). SqlSetup
