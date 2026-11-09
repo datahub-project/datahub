@@ -28,7 +28,8 @@ dependencies {
   implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}"
   implementation 'commons-io:commons-io:2.17.0'
   // Class-file scans: the wiring ratchet (io.datahubproject.wiring.WiringCoverageCheck) and
-  // TestNgInheritedTestsCheck.
+  // TestNgInheritedTestsCheck. buildSrc is on every build script's classpath, so this wins over the
+  // ASM a plugin asks for: keep it at or above the ASM the shadow plugin (asm-commons) needs.
   implementation 'org.ow2.asm:asm:9.9'
 
   compileOnly 'org.projectlombok:lombok:1.18.42'

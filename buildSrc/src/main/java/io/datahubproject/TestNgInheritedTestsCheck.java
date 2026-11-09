@@ -102,7 +102,9 @@ public final class TestNgInheritedTestsCheck {
                   + ", but Gradle does not detect it as a test class, so it never runs."
                   + " Add a class-level @Test to "
                   + testSource.replace('/', '.')
-                  + ".");
+                  + " (or, if you cannot change it, to "
+                  + info.name.replace('/', '.')
+                  + ").");
         }
       }
       return problems;
@@ -158,13 +160,17 @@ public final class TestNgInheritedTestsCheck {
 
   private static ClassInfo read(InputStream in) throws IOException {
     ClassInfo info = new ClassInfo();
-    ClassReader reader;
+    byte[] bytes = in.readAllBytes();
     try {
-      reader = new ClassReader(in);
-    } catch (IllegalArgumentException e) {
-      // Class file version newer than this ASM supports; Gradle treats it as a test, so do we.
+      parse(new ClassReader(bytes), info);
+    } catch (RuntimeException e) {
+      // Gradle treats a class file it cannot parse as a test class, so there is nothing to report.
       return null;
     }
+    return info;
+  }
+
+  private static void parse(ClassReader reader, ClassInfo info) {
     reader.accept(
         new ClassVisitor(Opcodes.ASM9) {
           @Override
@@ -206,6 +212,5 @@ public final class TestNgInheritedTestsCheck {
           }
         },
         ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
-    return info;
   }
 }
