@@ -49,7 +49,7 @@ ownership:
 
 Valid values depend on the PowerBI access right types for your resources (e.g., dataset, report, dashboard). If `owner_criteria` is not set or is an empty list, all users with `principalType: User` qualify as owners.
 
-With `metadata_api_mode: workspace_apis`, owners come from workspace roles, so `owner_criteria` is matched against the role names `Admin`, `Member`, `Contributor` and `Viewer`, and must include at least one of them. The example above keeps workspace Admins.
+With `metadata_api_mode: workspace_apis`, dashboard and report owners come from workspace roles, so a non-empty `owner_criteria` is matched against the role names `Admin`, `Member`, `Contributor` and `Viewer` and must include at least one of them; item-level rights such as `ReadWriteReshareExplore` and `Owner` never match in this mode. In the example above only `Admin` applies, so it keeps workspace Admins. An unset or empty `owner_criteria` still makes every user principal an owner.
 
 #### Admin scan vs. workspace listing
 
