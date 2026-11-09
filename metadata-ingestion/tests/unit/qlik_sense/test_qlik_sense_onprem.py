@@ -316,6 +316,28 @@ def test_onprem_reads_apps_of_different_streams_in_parallel(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_items_of_next_space_are_listed_only_after_first_item_is_taken(
+    mock_session_cls: MagicMock,
+) -> None:
+    listed: List[str] = []
+
+    def list_items(space_id: str) -> List[Dict]:
+        listed.append(space_id)
+        return [{"id": f"{space_id}-{i}"} for i in range(2)]
+
+    api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
+    with patch.object(api, "_list_items", side_effect=list_items):
+        items = api._items_in_turn(["stream-1", "stream-2"])
+        assert next(items) == ("stream-1", {"id": "stream-1-0"})
+        assert listed == ["stream-1"]
+        assert [item["id"] for _, item in items] == [
+            "stream-2-0",
+            "stream-1-1",
+            "stream-2-1",
+        ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
 def test_onprem_unexpected_app_error_records_app_id(
     mock_session_cls: MagicMock,
 ) -> None:
