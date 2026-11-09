@@ -1847,7 +1847,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             self.report.warning(
                 title="Document partitioning timed out",
                 message="Partitioning exceeded partition_timeout_seconds, so the document "
-                f"was skipped (limit {self.config.partition_timeout_seconds:g}s). It is "
+                f"was skipped (limit {self.config.partition_timeout_seconds:g}s of CPU "
+                "time). It is "
                 "retried when its content changes.",
                 context=document_urn,
             )

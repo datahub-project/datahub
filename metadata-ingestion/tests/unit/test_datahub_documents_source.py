@@ -5418,49 +5418,72 @@ class TestMarkdownLinkGuard:
         assert enabled_fp == {**default_fp, "markdown_link_parsing": True}
 
 
+def _burn_cpu(seconds: float) -> None:
+    # The limit counts user CPU time, so the mocks must burn it: sleeping wouldn't
+    # count, and a tight loop over the clock is mostly system time.
+    deadline = time.process_time() + seconds
+    while time.process_time() < deadline:
+        total = 0
+        for i in range(20_000):
+            total += i
+
+
 def _slow_partition_md(**kwargs: Any) -> list:
-    time.sleep(5)
+    _burn_cpu(5)
     return []
 
 
 def _swallowing_partition_md(**kwargs: Any) -> list:
     # Mimics a library with a broad `except` around slow work.
     try:
-        time.sleep(5)
+        _burn_cpu(5)
     except PartitionTimeoutError:
         pass
-    time.sleep(5)
+    _burn_cpu(5)
     return []
 
 
 def _catch_exception_loop_partition_md(**kwargs: Any) -> list:
     # Mimics a per-item loop that catches Exception on every pass.
-    deadline = time.monotonic() + 5
-    while time.monotonic() < deadline:
+    deadline = time.process_time() + 5
+    while time.process_time() < deadline:
         try:
-            time.sleep(0.05)
+            _burn_cpu(0.05)
         except Exception:
             pass
     return []
 
 
+def _waiting_partition_md(**kwargs: Any) -> list:
+    time.sleep(1)
+    return []
+
+
 class TestPartitionTimeout:
+    # Elapsed time is measured as CPU time, like the limit, so a loaded CI machine
+    # can't make these flaky.
+
     def test_timeout_passes_through_except_exception(self):
         with patch(
             "unstructured.partition.md.partition_md", _catch_exception_loop_partition_md
         ):
-            start = time.monotonic()
+            start = time.process_time()
             with pytest.raises(PartitionTimeoutError):
                 TextPartitioner(timeout_seconds=0.5).partition_text("some text")
-            assert time.monotonic() - start < 2
+            assert time.process_time() - start < 2
 
     def test_timeout_survives_a_swallowed_alarm(self):
         with patch("unstructured.partition.md.partition_md", _swallowing_partition_md):
-            start = time.monotonic()
+            start = time.process_time()
             with pytest.raises(PartitionTimeoutError):
                 TextPartitioner(timeout_seconds=0.5).partition_text("some text")
-            assert time.monotonic() - start < 3
-        assert signal.getitimer(signal.ITIMER_REAL) == (0.0, 0.0)
+            assert time.process_time() - start < 3
+        assert signal.getitimer(signal.ITIMER_VIRTUAL) == (0.0, 0.0)
+
+    def test_waiting_does_not_count_toward_the_limit(self):
+        # A busy or throttled machine stalls the process without using its CPU time.
+        with patch("unstructured.partition.md.partition_md", _waiting_partition_md):
+            TextPartitioner(timeout_seconds=0.3).partition_text("some text")
 
     def test_language_profiles_load_before_the_time_limit(self):
         from langdetect import detector_factory
@@ -5481,17 +5504,17 @@ class TestPartitionTimeout:
         def previous(signum: int, frame: Any) -> None:
             pass
 
-        original = signal.signal(signal.SIGALRM, previous)
+        original = signal.signal(signal.SIGVTALRM, previous)
         try:
             with patch("unstructured.partition.md.partition_md", _slow_partition_md):
-                start = time.monotonic()
+                start = time.process_time()
                 with pytest.raises(PartitionTimeoutError):
                     TextPartitioner(timeout_seconds=0.5).partition_text("some text")
-                assert time.monotonic() - start < 2
-            assert signal.getsignal(signal.SIGALRM) is previous
-            assert signal.getitimer(signal.ITIMER_REAL) == (0.0, 0.0)
+                assert time.process_time() - start < 2
+            assert signal.getsignal(signal.SIGVTALRM) is previous
+            assert signal.getitimer(signal.ITIMER_VIRTUAL) == (0.0, 0.0)
         finally:
-            signal.signal(signal.SIGALRM, original)
+            signal.signal(signal.SIGVTALRM, original)
 
     def test_no_time_limit_off_main_thread(self):
         errors: list[BaseException] = []

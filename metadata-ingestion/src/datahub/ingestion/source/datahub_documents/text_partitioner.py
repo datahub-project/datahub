@@ -39,8 +39,8 @@ def _disarm(previous_handler: _SignalHandler) -> None:
     # and keep raising in whatever code runs after the limited block.
     while True:
         try:
-            signal.setitimer(signal.ITIMER_REAL, 0)
-            signal.signal(signal.SIGALRM, previous_handler)
+            signal.setitimer(signal.ITIMER_VIRTUAL, 0)
+            signal.signal(signal.SIGVTALRM, previous_handler)
             return
         except PartitionTimeoutError:
             continue
@@ -49,9 +49,13 @@ def _disarm(previous_handler: _SignalHandler) -> None:
 class _TimeLimit:
     """Raise PartitionTimeoutError if the block runs longer than ``seconds``.
 
-    Uses SIGALRM, which also interrupts compiled code that returns to the interpreter
-    between operations (e.g. spaCy's tokenizer). Only usable on the main thread of a
-    platform that has SIGALRM; callers must check that first. A plain class rather than
+    Counts the process's user CPU time (ITIMER_VIRTUAL / SIGVTALRM), not wall-clock
+    time, so a throttled or busy machine doesn't time out documents that would finish
+    on a free one. CPU time from the process's other threads counts too, which can only
+    make the limit fire earlier. The signal also interrupts compiled code that returns
+    to the interpreter between operations (e.g. spaCy's tokenizer). SIGVTALRM rather
+    than SIGPROF, which sampling profilers commonly use. Only usable on the main thread
+    of a POSIX platform; callers must check that first. A plain class rather than
     @contextmanager, so cleanup runs directly in __exit__ and never depends on a
     generator being garbage-collected.
     """
@@ -61,12 +65,16 @@ class _TimeLimit:
         self._previous_handler: _SignalHandler = None
 
     def _on_alarm(self, signum: int, frame: Optional[FrameType]) -> None:
-        raise PartitionTimeoutError(f"Partitioning exceeded {self._seconds:g}s")
+        raise PartitionTimeoutError(
+            f"Partitioning exceeded {self._seconds:g}s of CPU time"
+        )
 
     def __enter__(self) -> None:
-        self._previous_handler = signal.signal(signal.SIGALRM, self._on_alarm)
+        self._previous_handler = signal.signal(signal.SIGVTALRM, self._on_alarm)
         try:
-            signal.setitimer(signal.ITIMER_REAL, self._seconds, _REARM_INTERVAL_SECONDS)
+            signal.setitimer(
+                signal.ITIMER_VIRTUAL, self._seconds, _REARM_INTERVAL_SECONDS
+            )
         except BaseException:
             _disarm(self._previous_handler)
             raise
@@ -119,13 +127,13 @@ class TextPartitioner:
         if self.timeout_seconds <= 0:
             return False
         if (
-            hasattr(signal, "SIGALRM")
+            hasattr(signal, "SIGVTALRM")
             and threading.current_thread() is threading.main_thread()
         ):
             return True
         if not self._logged_no_time_limit:
             logger.debug(
-                "Partition time limit not enforced: SIGALRM is only available "
+                "Partition time limit not enforced: SIGVTALRM is only available "
                 "on the main thread of POSIX platforms"
             )
             self._logged_no_time_limit = True
