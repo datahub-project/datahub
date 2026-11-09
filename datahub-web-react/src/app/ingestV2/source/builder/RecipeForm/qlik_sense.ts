@@ -312,7 +312,7 @@ export const QLIK_MAX_WORKERS: RecipeField = {
     label: 'Max Workers',
     helper: 'Apps read at the same time. Defaults to 1 on Qlik Cloud, 4 on-prem',
     tooltip:
-        'Number of apps and datasets of one space or stream read at the same time. Each app read holds one Engine session open. Defaults to 1 on Qlik Cloud, where every open app loads its data, and 4 on Qlik Sense Enterprise, where apps are opened without their data. Lower it if Qlik Cloud rate-limits the run.',
+        'Number of apps and datasets read at the same time, across all spaces and streams. Each app read holds one Engine session open. Defaults to 1 on Qlik Cloud, where every open app loads its data, and 4 on Qlik Sense Enterprise, where apps are opened without their data. Lower it if Qlik Cloud rate-limits the run.',
     type: FieldType.TEXT,
     fieldPath: maxWorkersFieldPath,
     placeholder: '1 on Qlik Cloud, 4 on-prem',
