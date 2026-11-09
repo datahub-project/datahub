@@ -62,12 +62,13 @@ class _Qlik:
     def __init__(self) -> None:
         self.app = dict(APP)
         self.other_apps: List[Dict[str, object]] = []
-        self.objects = [dict(obj) for obj in APP_OBJECTS]
+        self.objects: List[Dict[str, object]] = [dict(obj) for obj in APP_OBJECTS]
         self.data_connection = dict(DATA_CONNECTION)
         self.engine_opens = 0
         self.engine_fails = False
         self.engine_fails_for: Set[str] = set()
         self.objects_fail = False
+        self.apps_without_sheets: Set[str] = set()
 
     def qrs_get(
         self, url: str, params: Optional[Dict[str, str]] = None, **_: object
@@ -100,7 +101,11 @@ class _Qlik:
             raise OSError("engine port closed")
         websocket = MagicMock()
         websocket.websocket_send_request.side_effect = (
-            fake_engine_calls() if app_id == "app-1" else _app_engine_calls(app_id)
+            [{"qReturn": {"qHandle": 1}}, {"qList": []}]
+            if app_id in self.apps_without_sheets
+            else fake_engine_calls()
+            if app_id == "app-1"
+            else _app_engine_calls(app_id)
         )
         websocket.get_script.return_value = LOAD_SCRIPT
         return websocket
@@ -303,6 +308,7 @@ def _container_urn(source: QlikSenseSource) -> str:
         "data_connection_changed",
         "app_reloaded",
         "app_moved_stream",
+        "sheet_owner_changed",
         "datahub_unreachable",
     ],
 )
@@ -337,6 +343,8 @@ def test_app_is_read_again(mock_datahub_graph: MagicMock, change: str) -> None: 
         qlik.app["lastReloadTime"] = "2024-02-01T09:00:00.000Z"
     if change == "app_moved_stream":
         qlik.app["stream"] = {"id": "stream-2", "name": "Finance"}
+    if change == "sheet_owner_changed":
+        qlik.objects[0]["owner"] = {"id": "user-2", "userId": "grace"}
     if change == "datahub_unreachable":
         mock_datahub_graph.get_aspect.side_effect = RuntimeError("timed out")
     if change == "container_soft_deleted":
@@ -446,24 +454,29 @@ def test_deleted_app_is_soft_deleted(
     assert not second.reporter.failures
 
 
-def test_partly_read_app_without_checkpoint_is_a_failure(
+def test_partly_read_app_keeps_last_read_without_skip_unchanged_apps(
     mock_datahub_graph: MagicMock,  # noqa: F811
 ) -> None:
     qlik = _Qlik()
     qlik.other_apps = [SECOND_APP]
     datahub = _DataHub(mock_datahub_graph)
 
-    _, first_wus = _run(mock_datahub_graph, qlik, "run-1", skip_unchanged_apps=False)
+    first, first_wus = _run(
+        mock_datahub_graph, qlik, "run-1", skip_unchanged_apps=False
+    )
     datahub.write(first_wus)
     qlik.engine_fails_for = {"app-2"}
-    second, second_wus = _run(mock_datahub_graph, qlik, "run-2")
+    second, second_wus = _run(
+        mock_datahub_graph, qlik, "run-2", skip_unchanged_apps=False
+    )
 
-    assert "urn:li:dashboard:(qlik-sense,sheet-of-app-2)" in {
-        wu.get_urn() for wu in first_wus
-    }
+    sheet = "urn:li:dashboard:(qlik-sense,sheet-of-app-2)"
+    assert sheet in {wu.get_urn() for wu in first_wus}
+    assert sheet in _stale_urns(second)
     assert not _soft_deleted_urns(second_wus)
+    assert not second.reporter.failures
     assert "Unable to fully read Qlik app" in [
-        failure.title for failure in second.reporter.failures
+        warning.title for warning in second.reporter.warnings
     ]
 
 
@@ -515,7 +528,7 @@ def test_app_checkpoint_is_trusted_again_after_a_full_read(
     assert not _soft_deleted_urns(fourth_wus)
 
 
-def test_partly_read_app_after_skip_was_off_is_a_failure(
+def test_partly_read_app_after_unsaved_app_checkpoint_is_a_failure(
     mock_datahub_graph: MagicMock,  # noqa: F811
 ) -> None:
     qlik = _Qlik()
@@ -523,7 +536,10 @@ def test_partly_read_app_after_skip_was_off_is_a_failure(
 
     _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
     datahub.write(first_wus)
-    _, second_wus = _run(mock_datahub_graph, qlik, "run-2", skip_unchanged_apps=False)
+    # Run 2 saves the stale removal state but not the app checkpoint, as when
+    # the checkpoint is over the size limit.
+    with patch.object(QlikAppStateHandler, "create_checkpoint", return_value=None):
+        _, second_wus = _run(mock_datahub_graph, qlik, "run-2")
     datahub.write(second_wus)
     qlik.engine_fails = True
     third, third_wus = _run(mock_datahub_graph, qlik, "run-3")
@@ -655,3 +671,49 @@ def test_partial_read_with_checkpoint_without_entities_is_a_failure(
         failure.title for failure in second.reporter.failures
     ]
     assert not _soft_deleted_urns(second_wus)
+
+
+def test_sheet_removed_in_qlik_is_soft_deleted_when_change_check_fails(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    datahub = _DataHub(mock_datahub_graph)
+    qlik.objects_fail = True
+
+    first, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    second, second_wus = _run(mock_datahub_graph, qlik, "run-2")
+    qlik.apps_without_sheets = {"app-1"}
+    third, third_wus = _run(mock_datahub_graph, qlik, "run-3")
+
+    sheet = "urn:li:dashboard:(qlik-sense,sheet-1)"
+    assert sheet in _stale_urns(second)
+    assert sheet in _soft_deleted_urns(third_wus)
+    assert not third.reporter.failures
+    assert "Unable to check whether Qlik apps changed" in [
+        warning.title for warning in third.reporter.warnings
+    ]
+
+
+def test_oversized_app_checkpoint_is_reported(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    _DataHub(mock_datahub_graph)
+
+    # The framework logs the skipped commit with a format string that fails
+    # under pytest's log capture.
+    with patch("datahub.ingestion.source.state.stateful_ingestion_base.logger"):
+        first, _ = _run(
+            mock_datahub_graph,
+            qlik,
+            "run-1",
+            stateful_ingestion={
+                **CONFIG["stateful_ingestion"],  # type: ignore[dict-item]
+                "max_checkpoint_state_size": 16,
+            },
+        )
+
+    assert "Qlik app checkpoint is too large to save" in [
+        warning.title for warning in first.reporter.warnings
+    ]
