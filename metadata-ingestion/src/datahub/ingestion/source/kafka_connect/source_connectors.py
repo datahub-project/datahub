@@ -720,30 +720,32 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         return self._without_excluded_tables(tables)
 
     def _without_excluded_tables(self, tables: List[TableId]) -> List[TableId]:
-        # table.exclude.list holds regexes over `schema.table`; the connector does not
-        # read a table that matches one, even if table.include.list names it.
+        # table.exclude.list holds Java regexes over `schema.table`; the connector does
+        # not read a table that fully matches one, even if table.include.list names it.
         config = self.connector_manifest.config
-        raw = config.get("table.exclude.list") or config.get("table.blacklist", "")
-        patterns: List["re.Pattern[str]"] = []
-        for entry in parse_comma_separated_list(raw):
-            try:
-                patterns.append(re.compile(entry))
-            except re.error as e:
-                self._warn_postgres(
-                    "Could not read a table.exclude.list pattern, so excluded tables "
-                    "cannot be told apart; no lineage emitted",
-                    f"pattern={entry}",
-                    exc=e,
-                )
-                return []
-        return [
-            table
-            for table in tables
-            if not any(
-                pattern.fullmatch(f"{table.schema}.{table.table}")
-                for pattern in patterns
+        patterns = parse_comma_separated_list(
+            config.get("table.exclude.list") or config.get("table.blacklist", "")
+        )
+        if not patterns:
+            return tables
+        # JavaRegexMatcher answers "no match" when Java is missing or a pattern is
+        # invalid, which here would keep an excluded table, so check both first.
+        try:
+            from java.util.regex import Pattern as JavaPattern
+
+            for pattern in patterns:
+                JavaPattern.compile(pattern)
+        except Exception as e:
+            self._warn_postgres(
+                "Could not evaluate table.exclude.list with Java regex, so excluded "
+                "tables cannot be told apart; no lineage emitted",
+                f"patterns={patterns}",
+                exc=e,
             )
-        ]
+            return []
+        names = {f"{table.schema}.{table.table}": table for table in tables}
+        excluded = set(JavaRegexMatcher().filter_matches(patterns, list(names)))
+        return [table for name, table in names.items() if name not in excluded]
 
     def _predict_managed_postgres_topics(
         self, tables: List[TableId], parser: JdbcParser
