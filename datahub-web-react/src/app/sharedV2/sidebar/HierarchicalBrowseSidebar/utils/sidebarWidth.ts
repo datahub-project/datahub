@@ -9,9 +9,9 @@ export function clampSidebarWidth(width: number): number {
 }
 
 /** Returns a clamped stored width, or null if missing / invalid. */
-export function readStoredSidebarWidth(): number | null {
+export function readStoredSidebarWidth(storageKey: string = SIDEBAR_WIDTH_STORAGE_KEY): number | null {
     try {
-        const raw = localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
+        const raw = localStorage.getItem(storageKey);
         if (raw == null || raw === '') {
             return null;
         }
@@ -25,9 +25,9 @@ export function readStoredSidebarWidth(): number | null {
     }
 }
 
-export function writeStoredSidebarWidth(width: number): void {
+export function writeStoredSidebarWidth(width: number, storageKey: string = SIDEBAR_WIDTH_STORAGE_KEY): void {
     try {
-        localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(clampSidebarWidth(width)));
+        localStorage.setItem(storageKey, String(clampSidebarWidth(width)));
     } catch {
         // private mode / quota — ignore
     }

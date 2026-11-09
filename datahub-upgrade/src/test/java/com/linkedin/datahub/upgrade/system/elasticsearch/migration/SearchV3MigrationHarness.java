@@ -314,7 +314,6 @@ final class SearchV3MigrationHarness implements AutoCloseable {
       v3BulkProcessor = v2BulkProcessor;
       v3IndexBuilder = v2IndexBuilder;
     }
-    clusterRegistry = new SearchClusterRegistry(config, connections);
     entityRegistry = TestOperationContexts.defaultEntityRegistry();
     indexConvention =
         new IndexConventionImpl(
@@ -322,6 +321,7 @@ final class SearchV3MigrationHarness implements AutoCloseable {
             new ConfiguredIndexPrefixResolver(DEPLOY_INDEX_PREFIX),
             config.getEntityIndex(),
             IndexConventionImpl.explicitComponentPrefixOverlays(config));
+    clusterRegistry = new SearchClusterRegistry(config, connections, indexConvention, null);
 
     aspectDao =
         new EbeanAspectDao(

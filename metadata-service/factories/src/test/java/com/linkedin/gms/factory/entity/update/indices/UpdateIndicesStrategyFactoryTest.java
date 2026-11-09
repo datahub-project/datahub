@@ -1,6 +1,5 @@
 package com.linkedin.gms.factory.entity.update.indices;
 
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -63,14 +62,17 @@ public class UpdateIndicesStrategyFactoryTest {
                 mock(SearchDocumentTransformer.class),
                 mock(TimeseriesAspectService.class),
                 null,
+                mock(ConfigurationProvider.class),
                 new Sha256UrnEntityDocumentIdHasher(),
-                mock(ConfigurationProvider.class, RETURNS_DEEP_STUBS),
                 List.of(),
                 false,
                 false,
+                "MD5",
+                "ebean",
+                searchClusterRegistry,
                 null,
                 mock(StructuredPropertyMappingCache.class),
-                searchClusterRegistry);
+                List.of());
 
     OperationContext opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(new PartialNgramEntityRegistry());

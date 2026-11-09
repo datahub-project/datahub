@@ -185,7 +185,7 @@ public class SampleDataFixtureConfiguration {
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     V2LegacySettingsBuilder settingsBuilder =
-        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention, false);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             false,
@@ -208,7 +208,7 @@ public class SampleDataFixtureConfiguration {
         new V2MappingsBuilder(
             TEST_ES_SEARCH_CONFIG.getEntityIndex(),
             OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
-        new V2LegacySettingsBuilder(TEST_ES_SEARCH_CONFIG.getIndex(), indexConvention),
+        new V2LegacySettingsBuilder(TEST_ES_SEARCH_CONFIG.getIndex(), indexConvention, false),
         searchDAO,
         browseDAO,
         esWriteDAO);

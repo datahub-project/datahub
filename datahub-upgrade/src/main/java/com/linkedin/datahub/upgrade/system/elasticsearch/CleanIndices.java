@@ -19,6 +19,7 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -38,13 +39,9 @@ public class CleanIndices implements NonBlockingSystemUpgrade {
       final GitVersion gitVersion,
       final String revision) {
 
-    final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
-    if (configurationProvider.getStructuredProperties().isSystemUpdateEnabled()) {
-      structuredProperties =
-          ElasticSearchUpgradeUtils.getActiveStructuredPropertiesDefinitions(aspectDao);
-    } else {
-      structuredProperties = Set.of();
-    }
+    final Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties =
+        ElasticSearchUpgradeUtils.getStructuredPropertiesForIndexMappings(
+            configurationProvider.getStructuredProperties(), aspectDao);
 
     List<ElasticSearchIndexed> indexedServices =
         ElasticSearchUpgradeUtils.createElasticSearchIndexedServices(

@@ -559,7 +559,7 @@ public class SearchTestUtils {
     List<SettingsBuilder> settingsBuilders = new ArrayList<>();
 
     if (entityIndexConfiguration.getV2().isEnabled()) {
-      settingsBuilders.add(new V2LegacySettingsBuilder(indexConfiguration, indexConvention));
+      settingsBuilders.add(new V2LegacySettingsBuilder(indexConfiguration, indexConvention, false));
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {
@@ -606,7 +606,8 @@ public class SearchTestUtils {
               entityIndexConfiguration,
               searchClient != null
                   ? searchClient.partialNgramConfig()
-                  : OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG));
+                  : OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+              ESUtils.KEYWORD_MAXLENGTH));
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {

@@ -49,9 +49,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -105,6 +107,21 @@ public class SearchDocumentTransformer {
    * stores the URN from the event. V2 expansion does not read this flag.
    */
   @Setter private boolean v3BusinessAttributeExpansionEnabled;
+
+  private List<SearchDocumentEnricher> enrichers = List.of();
+
+  public void setEnrichers(@Nullable List<SearchDocumentEnricher> enrichers) {
+    this.enrichers = enrichers == null ? List.of() : List.copyOf(enrichers);
+  }
+
+  public SearchDocumentTransformer(
+      final int maxArrayLength, final int maxObjectKeys, final int maxValueLength) {
+    this(maxArrayLength, maxObjectKeys, maxValueLength, false, ESUtils.KEYWORD_MAXLENGTH);
+  }
+
+  public static boolean v3ProjectionActive() {
+    return V3_PROJECTION_DEPTH.get() > 0;
+  }
 
   public static void beginV3Projection() {
     V3_PROJECTION_DEPTH.set(V3_PROJECTION_DEPTH.get() + 1);
@@ -230,8 +247,17 @@ public class SearchDocumentTransformer {
       JsonNode currentValue = current.get(fieldName);
 
       if (currentValue == null) {
-        // Field was removed, set it to null
-        current.set(fieldName, JsonNodeFactory.instance.nullNode());
+        if ("structuredPropertyRankFeatures".equals(fieldName) && prevValue.isObject()) {
+          // rank_features rejects a null field and accepts nulls for individual feature keys.
+          ObjectNode removedFeatures = JsonNodeFactory.instance.objectNode();
+          prevValue
+              .fieldNames()
+              .forEachRemaining(
+                  feature -> removedFeatures.set(feature, JsonNodeFactory.instance.nullNode()));
+          current.set(fieldName, removedFeatures);
+        } else {
+          current.set(fieldName, JsonNodeFactory.instance.nullNode());
+        }
       } else if (currentValue.isObject() && prevValue.isObject()) {
         // Both are objects, recurse into them
         processFieldsForRemoval((ObjectNode) currentValue, prevValue);
@@ -286,8 +312,12 @@ public class SearchDocumentTransformer {
     }
 
     if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
-      setStructuredPropertiesSearchValue(
-          opContext, new StructuredProperties(aspect.data()), searchDocument, forDelete);
+      // A delete MCL carries no record. The projector removes fields from the previous document,
+      // so there is nothing to read here. Dereferencing the record aborts the whole batch.
+      if (aspect != null) {
+        setStructuredPropertiesSearchValue(
+            opContext, new StructuredProperties(aspect.data()), searchDocument, forDelete);
+      }
       result = Optional.of(searchDocument);
     }
 
@@ -297,6 +327,12 @@ public class SearchDocumentTransformer {
       result = Optional.of(searchDocument);
     }
 
+    if (result.isPresent()) {
+      for (SearchDocumentEnricher enricher : enrichers) {
+        enricher.enrich(
+            opContext, urn, aspectSpec, aspect, searchDocument, Boolean.TRUE.equals(forDelete));
+      }
+    }
     return result;
   }
 
@@ -384,7 +420,10 @@ public class SearchDocumentTransformer {
           JsonNodeFactory.instance.numberNode((Long) mclCreatedAuditStamp.getTime()));
     }
 
-    if (isArray || (valueType == DataSchema.Type.MAP && !OBJECT_FIELD_TYPES.contains(fieldType))) {
+    if (isArray
+        || (valueType == DataSchema.Type.MAP
+            && !OBJECT_FIELD_TYPES.contains(fieldType)
+            && fieldType != FieldType.RANK_FEATURES)) {
       if (fieldType == FieldType.BROWSE_PATH_V2) {
         String browsePathV2Value = getBrowsePathV2Value(fieldValues);
         searchDocument.set(fieldName, JsonNodeFactory.instance.textNode(browsePathV2Value));
@@ -423,10 +462,22 @@ public class SearchDocumentTransformer {
           .subList(0, Math.min(fieldValues.size(), maxObjectKeys))
           .forEach(
               fieldValue -> {
-                String[] keyValues = fieldValue.toString().split("=");
+                String entry = fieldValue.toString();
+                String[] keyValues = entry.split("=");
                 String key = keyValues[0], value = "";
                 if (keyValues.length > 1) {
                   value = keyValues[1];
+                  if (fieldType == FieldType.RANK_FEATURES) {
+                    // A feature key may itself contain '='. The weight is the part after the last
+                    // '='. Split there, then keep only a key and weight the rank_features mapper
+                    // can index.
+                    int separator = entry.lastIndexOf('=');
+                    key = indexableRankFeatureKey(entry.substring(0, separator));
+                    value = entry.substring(separator + 1);
+                    if (key == null || !isIndexableRankFeatureWeight(value)) {
+                      return;
+                    }
+                  }
                   if (((MapDataSchema) fieldSpec.getPegasusSchema())
                       .getValues()
                       .getType()
@@ -534,6 +585,22 @@ public class SearchDocumentTransformer {
             && fieldSpec.getSearchableAnnotation().isSanitizeRichText()) {
           value = SearchDocumentSanitizer.sanitizeForIndexing(value);
         }
+        // Analyzed text is stored under a keyword parent. A term longer than Lucene's limit
+        // rejects the whole document, so the indexed value is cut on a UTF-8 boundary.
+        if (fieldType == FieldType.TEXT
+            || fieldType == FieldType.TEXT_PARTIAL
+            || fieldType == FieldType.WORD_GRAM) {
+          String truncated =
+              SearchDocumentSanitizer.truncateForIndexing(value, ESUtils.KEYWORD_MAXLENGTH);
+          if (truncated != null && !truncated.equals(value)) {
+            log.warn(
+                "Truncated field '{}' from {} bytes to fit the {}-byte OpenSearch term limit",
+                fieldSpec.getSearchableAnnotation().getFieldName(),
+                value.getBytes(StandardCharsets.UTF_8).length,
+                ESUtils.KEYWORD_MAXLENGTH);
+            value = truncated;
+          }
+        }
         return value.isEmpty()
             ? Optional.of(JsonNodeFactory.instance.nullNode())
             : Optional.of(JsonNodeFactory.instance.textNode(value));
@@ -596,11 +663,10 @@ public class SearchDocumentTransformer {
         .entrySet()
         .forEach(
             propertyEntry -> {
+              Map<String, Aspect> propertyAspects = definitions.get(propertyEntry.getKey());
               Optional<StructuredPropertyDefinition> definition =
-                  Optional.ofNullable(
-                          definitions
-                              .get(propertyEntry.getKey())
-                              .get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
+                  Optional.ofNullable(propertyAspects)
+                      .map(aspects -> aspects.get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
                       .map(def -> new StructuredPropertyDefinition(def.data()));
 
               LogicalValueType logicalValueType =
@@ -886,5 +952,32 @@ public class SearchDocumentTransformer {
       }
     }
     return Optional.empty();
+  }
+
+  private static final Pattern RANK_FEATURE_KEY_SEPARATORS =
+      Pattern.compile("[.\\s\\u200b\\ufeff]+", Pattern.UNICODE_CHARACTER_CLASS);
+
+  @Nullable
+  private static String indexableRankFeatureKey(@Nonnull String rawTerm) {
+    String feature =
+        RANK_FEATURE_KEY_SEPARATORS
+            .matcher(rawTerm.strip())
+            .replaceAll(" ")
+            .strip()
+            .toLowerCase(Locale.ROOT);
+    if (feature.isEmpty()
+        || feature.getBytes(StandardCharsets.UTF_8).length > ESUtils.KEYWORD_MAXLENGTH) {
+      return null;
+    }
+    return feature;
+  }
+
+  private static boolean isIndexableRankFeatureWeight(@Nonnull String rawWeight) {
+    try {
+      float weight = Float.parseFloat(rawWeight);
+      return Float.isFinite(weight) && weight >= Float.MIN_NORMAL;
+    } catch (NumberFormatException e) {
+      return false;
+    }
   }
 }

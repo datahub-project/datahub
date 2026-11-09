@@ -1,82 +1,144 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.linkedin.metadata.service.UpdateIndicesService.UPDATE_CHANGE_TYPES;
+
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
-import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappingCache;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
-import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
-import com.linkedin.metadata.service.CatchUpBatchRebuilder;
 import com.linkedin.metadata.service.IncrementalReindexWriteTargets;
+import com.linkedin.metadata.service.RetryableIndexingException;
+import com.linkedin.metadata.service.SearchIndexFailureClassifier;
+import com.linkedin.metadata.service.TimeseriesIndexWriter;
 import com.linkedin.metadata.service.TimeseriesWriteThrottleCache;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.service.UpdateIndicesUtil;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import java.io.IOException;
+import java.sql.SQLRecoverableException;
+import java.sql.SQLTransientException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.client.config.RequestConfig;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.RestClientBuilder;
+import org.opensearch.client.indices.PutMappingRequest;
 
 /**
  * V3 update indices strategy implementation for UpdateIndicesService. This handles the new v3
  * mapping approach with multi-entity indices.
  *
- * <p>Live and catch-up writes project the aspects their batch carries and merge that patch into the
- * existing document; catch-up first rebuilds its batch from primary storage and nulls what the
- * index holds that storage no longer has. The baseline fill writes the whole document, and only
- * when the index holds none. A hard delete replaces the document with a tombstone.
+ * <p>Baseline and catch-up writes write the complete document. Catch-up and a baseline batch that
+ * does not carry every stored aspect hydrate primary storage first; a complete-entity baseline
+ * batch is the stored state. Live writes project only the aspects carried by their MCL batch and
+ * merge that patch into the document, creating it when absent, without hydrating storage or reading
+ * the existing source.
  *
  * <p>No write carries an external version. Live and catch-up events for one URN share a change-log
- * partition, so they reach the index in order and the later one wins. The baseline fill reads
- * primary storage outside that order, so it only creates documents that are absent: a live write or
- * tombstone already in the index is never overwritten by an older snapshot. A fill-read race that
- * leaves a stale or partial document is repaired by catch-up, whose window starts when the fill is
- * planned.
+ * partition, so they reach the index in order and the later one wins. An upgrade fill names its
+ * target index and reads primary storage outside that order, so it only creates documents that are
+ * absent: a live write or tombstone already in the index is never overwritten by an older snapshot.
+ * A partial document a live merge creates ahead of the fill, and a fill-read race that leaves a
+ * stale document, are repaired by catch-up, whose window starts when the fill is planned. A
+ * baseline that names no target is operator maintenance of the alias and replaces documents.
+ *
+ * <p>A hard delete removes the document. While a fill could still bring the entity back, the index
+ * it writes holds a tombstone instead, which catch-up removes once it completes.
  */
 @Slf4j
 public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
+  private final AtomicLong drainedSuccessfulV3Writes = new AtomicLong();
+  private final AtomicLong drainedStaleVersionRejected = new AtomicLong();
+
+  // The MAE search client shares two pooled connections between the bulk processor and these
+  // puts. One put at a time leaves bulk writes a connection, and the attempts fit well inside
+  // the Kafka max.poll.interval.ms default of five minutes.
+  private static final int PUT_MAPPING_MAX_ATTEMPTS = 2;
+  private static final int PUT_MAPPING_SOCKET_TIMEOUT_MILLIS = 60_000;
+  private static final int PUT_MAPPING_DEFAULT_CONNECTION_REQUEST_TIMEOUT_MILLIS = 10_000;
+  private static final long PUT_MAPPING_RETRY_BACKOFF_MILLIS = 1_000L;
+  private static final long PUT_MAPPING_BUDGET_MILLIS = 150_000L;
+
+  /**
+   * Structured-property field ids each V3 index has acknowledged in this JVM. Filled only by
+   * acknowledged puts, never by reading mappings, so a failed put is sent again by the next batch.
+   */
+  private final Map<String, Set<String>> appliedStructuredPropertyFields =
+      new ConcurrentHashMap<>();
+
+  private final Object structuredPropertyMappingLock = new Object();
+
+  private static final int MAX_READ_ATTEMPTS = 3;
+  private static final String PRIMARY_HYDRATION_FAILURE_METRIC = "v3_primary_hydration_read_failed";
+  private static final String TIMESERIES_HYDRATION_FAILURE_METRIC =
+      "v3_timeseries_hydration_read_failed";
+  private static final String EXISTING_SOURCE_FAILURE_METRIC = "v3_existing_source_read_failed";
+  private static final String LEGACY_SYSTEM_METADATA_FIELD = "_systemmetadata";
+  private static final Set<String> EXISTING_TIMESERIES_ROOT_EXCLUDED_FIELDS =
+      Set.of(
+          V3SearchDocumentProjector.SYSTEM_METADATA_FIELD,
+          LEGACY_SYSTEM_METADATA_FIELD,
+          MappingConstants.ASPECTS_FIELD_NAME,
+          V3SearchDocumentProjector.URN_FIELD,
+          V3SearchDocumentProjector.ENTITY_TYPE_FIELD,
+          V3SearchDocumentProjector.TOMBSTONE_FIELD,
+          V3IndexOnlyFieldMerger.RUN_ID_FIELD,
+          V3IndexOnlyFieldMerger.SYSTEM_INDEX_MODIFIED_FIELD);
+
   private final EntityIndexVersionConfiguration v3Config;
   private final ElasticSearchService elasticSearchService;
   private final V3SearchDocumentProjector searchDocumentProjector;
+  private final V3IndexOnlyFieldMerger indexOnlyFieldMerger;
   private final TimeseriesAspectService timeseriesAspectService;
   private final MultiEntityMappingsBuilder mappingsBuilder;
   @Nullable private final TimeseriesWriteThrottleCache timeseriesThrottleCache;
@@ -86,63 +148,96 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private final EntityDocumentIdHasher entityDocumentIdHasher;
   private final List<V3SearchDocumentContributor> documentContributors;
   private final boolean v2Enabled;
+  private final String idHashAlgo;
   @Nullable private final SemanticSearchConfiguration semanticSearchConfiguration;
   @Nullable private final IncrementalReindexWriteTargets incrementalReindexWriteTargets;
+  // Accepted for builder parity with V2; V3 does not read it.
   @Nullable private final StructuredPropertyMappingCache structuredPropertyMappingCache;
-  private final CatchUpBatchRebuilder catchUpBatchRebuilder;
+  @Nullable private final List<V3SearchIndexSkip> searchIndexSkips;
 
-  /** Drains of a batch that mirrored deletes into a rebuild's index, before it is given up on. */
-  private static final int MIRRORED_DELETE_DRAIN_ATTEMPTS = 3;
-
-  /**
-   * Built through {@link #builder()}. Unset optional parts take their defaults: the URN hasher, no
-   * document contributors, V2 not dual-written, no semantic search configuration, no rollback
-   * targets, no timeseries throttle, no structured-property restate nulls, and the default
-   * partial-ngram mapping shape when no V3 search client is given.
-   */
   @Builder
   public UpdateIndicesV3Strategy(
       @Nonnull EntityIndexVersionConfiguration v3Config,
       @Nonnull ElasticSearchService elasticSearchService,
       @Nonnull SearchDocumentTransformer searchDocumentTransformer,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
+      final boolean v2Enabled,
+      @Nullable String idHashAlgo,
       @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
-      @Nullable EntityDocumentIdHasher entityDocumentIdHasher,
+      @Nullable SearchClientShim<?> searchClientShim,
+      final boolean vectorProjectionEnabled,
+      @Nonnull Map<String, Integer> expectedVectorDimensions,
+      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
       @Nullable List<V3SearchDocumentContributor> documentContributors,
-      boolean v2Enabled,
       @Nullable SemanticSearchConfiguration semanticSearchConfiguration,
       @Nullable IncrementalReindexWriteTargets incrementalReindexWriteTargets,
       @Nullable StructuredPropertyMappingCache structuredPropertyMappingCache,
-      @Nullable SearchClientShim<?> v3SearchClient) {
+      @Nullable List<V3SearchIndexSkip> searchIndexSkips) {
     this.v3Config = v3Config;
     this.elasticSearchService = elasticSearchService;
-    this.searchDocumentProjector = new V3SearchDocumentProjector(searchDocumentTransformer);
+    this.searchDocumentProjector =
+        new V3SearchDocumentProjector(
+            searchDocumentTransformer,
+            vectorProjectionEnabled,
+            expectedVectorDimensions == null || expectedVectorDimensions.isEmpty()
+                ? configuredVectorDimensions(semanticSearchConfiguration)
+                : expectedVectorDimensions,
+            semanticEntityNames(semanticSearchConfiguration));
+    this.indexOnlyFieldMerger = new V3IndexOnlyFieldMerger();
     this.timeseriesAspectService = timeseriesAspectService;
     this.timeseriesThrottleCache = timeseriesThrottleCache;
     this.entityDocumentIdHasher =
         entityDocumentIdHasher == null
             ? new Sha256UrnEntityDocumentIdHasher()
             : entityDocumentIdHasher;
-    this.catchUpBatchRebuilder =
-        new CatchUpBatchRebuilder(elasticSearchService, this.entityDocumentIdHasher);
     this.documentContributors =
         documentContributors == null ? List.of() : List.copyOf(documentContributors);
     this.v2Enabled = v2Enabled;
+    this.idHashAlgo = idHashAlgo == null || idHashAlgo.isBlank() ? "MD5" : idHashAlgo;
     this.semanticSearchConfiguration = semanticSearchConfiguration;
     this.incrementalReindexWriteTargets = incrementalReindexWriteTargets;
     this.structuredPropertyMappingCache = structuredPropertyMappingCache;
+    this.searchIndexSkips = searchIndexSkips == null ? List.of() : List.copyOf(searchIndexSkips);
     try {
       this.mappingsBuilder =
           new MultiEntityMappingsBuilder(
               com.linkedin.metadata.config.search.EntityIndexConfiguration.builder()
                   .v3(v3Config)
                   .build(),
-              v3SearchClient,
+              searchClientShim,
               ESUtils.KEYWORD_MAXLENGTH,
               List.of());
     } catch (IOException e) {
       throw new RuntimeException("Failed to initialize V3 mappings builder", e);
     }
+  }
+
+  /**
+   * Dimensions for the configured models. A model missing from this map is treated as retired and
+   * its vectors are dropped, so fall back to the semantic configuration rather than drop every
+   * vector when a caller supplies that configuration alone.
+   */
+  @Nonnull
+  private static Map<String, Integer> configuredVectorDimensions(
+      @Nullable SemanticSearchConfiguration semanticSearchConfiguration) {
+    if (semanticSearchConfiguration == null || semanticSearchConfiguration.getModels() == null) {
+      return Map.of();
+    }
+    return semanticSearchConfiguration.getModels().entrySet().stream()
+        .filter(entry -> entry.getValue() != null)
+        .collect(
+            Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getVectorDimension()));
+  }
+
+  @Nonnull
+  private static Set<String> semanticEntityNames(
+      @Nullable SemanticSearchConfiguration semanticSearchConfiguration) {
+    if (semanticSearchConfiguration == null
+        || !semanticSearchConfiguration.isEnabled()
+        || semanticSearchConfiguration.getEnabledEntities() == null) {
+      return Set.of();
+    }
+    return Set.copyOf(semanticSearchConfiguration.getEnabledEntities());
   }
 
   @Override
@@ -160,181 +255,610 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
     log.debug("Processing {} URN groups with V3 unified batch optimization", groupedEvents.size());
 
-    CatchUpBatchRebuilder.RebuiltBatches rebuilt =
-        catchUpBatchRebuilder.rebuild(opContext, groupedEvents);
-    Map<Urn, List<MCLItem>> batches = withLatestTimeseriesAspects(opContext, rebuilt.batches());
-    List<Runnable> mirroredDeletes = new ArrayList<>();
-    // Process each group of events for the same URN
-    for (Map.Entry<Urn, List<MCLItem>> entry : batches.entrySet()) {
-      Urn urn = entry.getKey();
-      List<MCLItem> urnEvents = entry.getValue();
-      if (urnEvents.isEmpty()) {
+    final List<PreparedUrnBatch> preparedBatches = new ArrayList<>();
+    for (Map.Entry<Urn, List<MCLItem>> entry : groupedEvents.entrySet()) {
+      final Urn urn = entry.getKey();
+      final List<MCLItem> indexEvents =
+          entry.getValue().stream()
+              .filter(event -> !shouldSkipSearchIndexUpdate(event))
+              .collect(Collectors.toList());
+
+      if (indexEvents.isEmpty()) {
         continue;
       }
 
-      log.debug("Processing {} events for URN: {} with V3 unified batch", urnEvents.size(), urn);
+      log.debug("Processing {} events for URN: {} with V3 unified batch", indexEvents.size(), urn);
 
-      // V3 optimization: single operation per URN regardless of aspect count
-      mirroredDeletes.addAll(
-          processUrnBatch(
-              opContext,
-              urn,
-              urnEvents,
-              rebuilt.removedAspects().getOrDefault(urn, Map.of()),
-              rebuilt.indexedFields().getOrDefault(urn, Map.of()),
-              structuredPropertiesHookEnabled,
-              throttleSummary));
+      prepareUrnBatch(opContext, urn, indexEvents).ifPresent(preparedBatches::add);
     }
 
-    if (throttleSummary != null) {
-      throttleSummary.logIfSuppressed();
+    final Map<Urn, Map<String, EnvelopedAspect>> latestTimeseriesByUrn =
+        hydrateLatestTimeseriesAspects(opContext, preparedBatches);
+
+    // A fill or catch-up checkpoints once this returns, so those writes have to land first. A
+    // delete mirrored into an index a fill is building has to land too: nothing replays it. An
+    // ordinary live batch is left queued. The next batch does not read what this one wrote.
+    // The drain still runs when processing throws, so a fill's earlier writes are not left for a
+    // later batch to account. The original processing failure still propagates, with any drain
+    // failure attached as suppressed.
+    final boolean drainWrites = preparedBatches.stream().anyMatch(this::requiresDurableDrain);
+    RuntimeException processingFailure = null;
+    try {
+      // The timeseries index is not versioned with the entity index. V2 writes it when that
+      // strategy is enabled; otherwise this strategy writes the same documents.
+      if (!v2Enabled) {
+        writeSharedTimeseriesIndex(opContext, groupedEvents, throttleSummary);
+      }
+      // One cluster-state update for every structured-property definition in the batch. Doing this
+      // per definition, and then per index, holds the consumer long enough that later events in
+      // the same partition (a dataset profile, for one) are not indexed before readers give up.
+      applyCoalescedStructuredPropertyMappings(
+          opContext, preparedBatches, structuredPropertiesHookEnabled);
+      for (PreparedUrnBatch preparedBatch : preparedBatches) {
+        processUrnBatch(
+            opContext,
+            preparedBatch,
+            latestTimeseriesByUrn.getOrDefault(preparedBatch.urn(), Collections.emptyMap()),
+            throttleSummary);
+      }
+      if (throttleSummary != null) {
+        throttleSummary.logIfSuppressed();
+      }
+    } catch (RuntimeException e) {
+      processingFailure = e;
     }
 
-    // A backfill checkpoints what it has written once this returns, so its pages land before then.
-    // A delete mirrored into the index a rebuild is filling must land too, and nothing replays a
-    // hard delete, so such a batch is drained as well and a failed drain is retried. Any other
-    // live batch is appended and committed, as before.
-    boolean backfill =
-        groupedEvents.values().stream()
-            .flatMap(List::stream)
-            .anyMatch(UpdateIndicesV3Strategy::isBackfillEvent);
-    if (!mirroredDeletes.isEmpty()) {
-      drainMirroredDeletes(mirroredDeletes);
-    } else if (backfill) {
-      elasticSearchService.getEsWriteDAO().flushAndWait();
+    if (drainWrites) {
+      try {
+        flushPendingWrites();
+      } catch (RuntimeException drainFailure) {
+        if (processingFailure == null) {
+          throw drainFailure;
+        }
+        // A retryable drain failure means the buffered writes did not land and a redelivery can
+        // recover them, so prefer it over a non-retryable processing failure. Otherwise it would be
+        // attached as a suppressed exception and missed — the MAE transports detect retryability by
+        // walking the cause chain, not the suppressed list.
+        if (drainFailure instanceof RetryableIndexingException
+            && !(processingFailure instanceof RetryableIndexingException)) {
+          drainFailure.addSuppressed(processingFailure);
+          throw drainFailure;
+        }
+        processingFailure.addSuppressed(drainFailure);
+      }
+    }
+    if (processingFailure != null) {
+      throw processingFailure;
     }
   }
 
   /**
-   * Adds the latest value of each searchable timeseries aspect to the baseline fill batches.
-   * Timeseries aspects are not in the primary storage the fill reads, the fill creates each
-   * document once, and a live timeseries write does not create a document while that fill is in
-   * place on the alias, so the created document has to carry them. A failed read propagates: the
-   * fill is the only pass over the entity.
+   * Upserts each timeseries update into the shared timeseries index. Entity-index throttling is
+   * applied later and does not suppress this write; only the timeseries-index throttle does.
    */
-  @Nonnull
-  private Map<Urn, List<MCLItem>> withLatestTimeseriesAspects(
-      @Nonnull OperationContext opContext, @Nonnull Map<Urn, List<MCLItem>> batches) {
-    Map<String, Set<Urn>> urnsByEntityType = new LinkedHashMap<>();
-    for (Map.Entry<Urn, List<MCLItem>> entry : batches.entrySet()) {
-      List<MCLItem> events = entry.getValue();
-      if (!events.isEmpty()
-          && isBaselineBatch(events)
-          && !searchableTimeseriesAspectSpecs(events.get(0).getEntitySpec()).isEmpty()) {
-        urnsByEntityType
-            .computeIfAbsent(events.get(0).getEntitySpec().getName(), ignored -> new HashSet<>())
-            .add(entry.getKey());
+  private void writeSharedTimeseriesIndex(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Map<Urn, List<MCLItem>> groupedEvents,
+      @Nullable final TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
+    for (List<MCLItem> urnEvents : groupedEvents.values()) {
+      for (MCLItem event : urnEvents) {
+        if (event.getAspectSpec() == null
+            || !event.getAspectSpec().isTimeseries()
+            || !UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
+          continue;
+        }
+        if (suppressTimeseriesIndexWrite(event, throttleSummary)) {
+          continue;
+        }
+        TimeseriesIndexWriter.upsert(opContext, timeseriesAspectService, idHashAlgo, event);
+        if (throttleSummary != null
+            && timeseriesThrottleCache != null
+            && timeseriesThrottleCache.isEnabled()) {
+          throttleSummary.recordWritten(
+              TimeseriesWriteThrottleCache.ThrottleTarget.TIMESERIES_INDEX);
+        }
       }
     }
-    if (urnsByEntityType.isEmpty()) {
-      return batches;
+  }
+
+  private boolean suppressTimeseriesIndexWrite(
+      @Nonnull final MCLItem event,
+      @Nullable final TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
+    if (timeseriesThrottleCache == null) {
+      return false;
     }
-    Map<Urn, List<MCLItem>> hydrated = new LinkedHashMap<>(batches);
-    for (Set<Urn> urns : urnsByEntityType.values()) {
-      EntitySpec entitySpec = batches.get(urns.iterator().next()).get(0).getEntitySpec();
-      Map<String, AspectSpec> aspectSpecs = searchableTimeseriesAspectSpecs(entitySpec);
-      Map<Urn, Map<String, EnvelopedAspect>> latest =
-          Optional.ofNullable(
-                  timeseriesAspectService.getLatestTimeseriesAspectValues(
-                      opContext, urns, aspectSpecs.keySet(), null))
-              .orElse(Map.of());
-      latest.forEach(
-          (urn, aspects) -> {
-            List<MCLItem> events = new ArrayList<>(hydrated.get(urn));
-            Set<String> carried =
-                events.stream().map(MCLItem::getAspectName).collect(Collectors.toSet());
-            aspects.forEach(
-                (aspectName, aspect) -> {
-                  AspectSpec aspectSpec = aspectSpecs.get(aspectName);
-                  if (aspectSpec != null && !carried.contains(aspectName)) {
-                    events.add(
-                        timeseriesRestate(opContext, urn, events.get(0), aspectSpec, aspect));
-                  }
-                });
-            hydrated.put(urn, events);
+    boolean timeseriesIndexEnabled = timeseriesThrottleCache.isTimeseriesIndexEnabled();
+    boolean observeEnabled = timeseriesThrottleCache.isObserveEnabled();
+    if (!timeseriesIndexEnabled && !observeEnabled) {
+      return false;
+    }
+
+    long eventTimeMs =
+        event.getAuditStamp() == null
+            ? System.currentTimeMillis()
+            : event.getAuditStamp().getTime();
+    boolean throttled =
+        timeseriesThrottleCache.shouldThrottle(
+            event.getEntitySpec().getName(),
+            event.getUrn().toString(),
+            event.getAspectName(),
+            eventTimeMs);
+    if (throttled && timeseriesIndexEnabled) {
+      if (throttleSummary != null) {
+        throttleSummary.recordSuppressed(
+            TimeseriesWriteThrottleCache.ThrottleTarget.TIMESERIES_INDEX);
+      }
+      return true;
+    }
+    if (throttled && observeEnabled && throttleSummary != null) {
+      throttleSummary.recordObserved();
+    }
+    return false;
+  }
+
+  /**
+   * A baseline fill and a catch-up replay are checkpointed when the batch returns, so their bulk
+   * writes are drained first. A live delete copied into an index a fill is building is drained too,
+   * because that copy is the only record of the delete. Any other live write stays queued.
+   */
+  private boolean requiresDurableDrain(@Nonnull final PreparedUrnBatch preparedBatch) {
+    if (preparedBatch.baselineFill() || preparedBatch.catchUpReplay()) {
+      return true;
+    }
+    return carriesDelete(preparedBatch)
+        && incrementalReindexWriteTargets != null
+        && incrementalReindexWriteTargets.fillTargetFor(preparedBatch.indexName()).isPresent();
+  }
+
+  private void flushPendingWrites() {
+    BulkProcessorFlushResult result = BulkProcessorFlushResult.empty();
+    for (ESBulkProcessor bulkProcessor : elasticSearchService.getEsWriteDAO().bulkProcessors()) {
+      result = result.plus(bulkProcessor.flushAndAwait());
+    }
+    if (result.hasFailures()) {
+      final String detail =
+          String.format(
+              "unexpectedItemFailures=%d, transportFailedOperations=%d, incompleteOperations=%d,"
+                  + " timedOut=%s",
+              result.unexpectedItemFailures(),
+              result.transportFailedOperations(),
+              result.incompleteOperations(),
+              result.timedOut());
+      if (result.unexpectedItemFailures() > 0) {
+        // Poison: item-level rejections (mapping errors, non-stale conflicts) will not succeed on
+        // retry. Do not escalate for redelivery — a bounded-retry consumer would just re-fail and
+        // head-of-line-block the batch. Fail loudly; the MAE transports keep at-most-once and
+        // commit past it, while batch jobs (LoadIndices) still fail the whole run.
+        throw new IllegalStateException(
+            "V3 search writes hit non-retryable item failures before rebuilding documents ("
+                + detail
+                + ")",
+            result.flushException());
+      }
+      // Transient (transport error / timeout / incomplete drain): a bounded redelivery can
+      // succeed, so surface it as retryable. The MAE transports escalate this to redelivery;
+      // batch jobs (LoadIndices) fail the run and are re-run.
+      throw new RetryableIndexingException(
+          "V3 search writes failed transiently before rebuilding documents (" + detail + ")",
+          result.flushException() != null
+              ? result.flushException()
+              : new IllegalStateException("bulk drain did not complete: " + detail));
+    }
+    // Intermediate drains consume the bulk processor's windowed flush stats; accumulate them so
+    // run-level reports (LoadIndices) can add them to the final flush instead of losing them.
+    drainedSuccessfulV3Writes.addAndGet(result.successfulV3Writes());
+    drainedStaleVersionRejected.addAndGet(result.staleVersionRejected());
+    log.debug("Drained pending V3 search writes: {}", result);
+  }
+
+  /** Totals accumulated from intermediate {@link #flushPendingWrites()} drains. */
+  public record DrainedWriteStats(long successfulV3Writes, long staleVersionRejected) {}
+
+  /** Returns and resets the accumulated intermediate drain totals. */
+  @Nonnull
+  public DrainedWriteStats consumeDrainedWriteStats() {
+    return new DrainedWriteStats(
+        drainedSuccessfulV3Writes.getAndSet(0), drainedStaleVersionRejected.getAndSet(0));
+  }
+
+  /**
+   * Puts every structured-property definition in the batch onto every V3 index in one request.
+   *
+   * <p>The definition written for a URN is that URN's surviving event. A catch-up replay carries
+   * definitions that are already on the indices it is rebuilding, and a delete carries no
+   * definition. Re-saving a definition puts its mapping again: that re-apply is the only repair
+   * when the structured-property system-update machinery is disabled (the default).
+   *
+   * <p>The body is only the shared {@code structuredProperties} object. Put mapping merges it, so
+   * each index keeps its other fields. The indices are named explicitly; a {@code *index_v3}
+   * wildcard also matches rebuild backing indices. One rejected index fails the whole request, so
+   * that falls back to one {@code applyMappings} per index.
+   */
+  private void applyCoalescedStructuredPropertyMappings(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final List<PreparedUrnBatch> preparedBatches,
+      final boolean structuredPropertiesHookEnabled) {
+    if (!structuredPropertiesHookEnabled) {
+      return;
+    }
+    final List<Pair<Urn, StructuredPropertyDefinition>> definitions =
+        structuredPropertyDefinitions(preparedBatches);
+    if (definitions.isEmpty()) {
+      return;
+    }
+    final Map<String, Object> mappingBody =
+        buildStructuredPropertyMappingBody(opContext, definitions);
+    if (mappingBody.isEmpty()) {
+      return;
+    }
+    final Set<String> fieldIds = StructuredPropertyMappingCache.fieldNames(mappingBody);
+    if (fieldIds.isEmpty() || missingFieldIndices(opContext, fieldIds).isEmpty()) {
+      return;
+    }
+    synchronized (structuredPropertyMappingLock) {
+      // Another thread may have applied the same fields while this one waited.
+      final List<String> indexNames = missingFieldIndices(opContext, fieldIds);
+      if (indexNames.isEmpty()) {
+        return;
+      }
+      putStructuredPropertyMappings(
+          opContext, definitions.size(), indexNames, mappingBody, fieldIds);
+    }
+  }
+
+  /**
+   * The combined body for {@code definitions}. One definition that cannot be projected must not
+   * keep the rest of the batch from becoming searchable, so a failure retries each definition on
+   * its own and merges the bodies of those that build.
+   */
+  @Nonnull
+  private Map<String, Object> buildStructuredPropertyMappingBody(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final List<Pair<Urn, StructuredPropertyDefinition>> definitions) {
+    try {
+      return structuredPropertyMappingBody(opContext, definitions);
+    } catch (RuntimeException e) {
+      log.error(
+          "Failed to build V3 structured property mappings for {} definitions; building each one",
+          definitions.size(),
+          e);
+    }
+    final Map<String, Object> mergedFields = new LinkedHashMap<>();
+    Map<String, Object> structuredPropertiesTemplate = null;
+    for (Pair<Urn, StructuredPropertyDefinition> definition : definitions) {
+      try {
+        final Map<String, Object> body =
+            structuredPropertyMappingBody(opContext, List.of(definition));
+        final Map<String, Object> structuredProperties = structuredPropertiesOf(body);
+        if (structuredProperties == null) {
+          continue;
+        }
+        if (structuredPropertiesTemplate == null) {
+          structuredPropertiesTemplate = structuredProperties;
+        }
+        mergedFields.putAll(structuredPropertyFields(structuredProperties));
+      } catch (RuntimeException e) {
+        log.error(
+            "Failed to build V3 structured property mapping for {}; skipping it",
+            definition.getKey(),
+            e);
+      }
+    }
+    if (structuredPropertiesTemplate == null || mergedFields.isEmpty()) {
+      return Map.of();
+    }
+    final Map<String, Object> structuredProperties = new HashMap<>(structuredPropertiesTemplate);
+    structuredProperties.put("properties", mergedFields);
+    return Map.of(
+        "properties", Map.of(Constants.STRUCTURED_PROPERTY_MAPPING_FIELD, structuredProperties));
+  }
+
+  @Nullable
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> structuredPropertiesOf(
+      @Nonnull final Map<String, Object> body) {
+    if (body.get("properties") instanceof Map<?, ?> properties
+        && properties.get(Constants.STRUCTURED_PROPERTY_MAPPING_FIELD) instanceof Map<?, ?> value) {
+      return (Map<String, Object>) value;
+    }
+    return null;
+  }
+
+  @Nonnull
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> structuredPropertyFields(
+      @Nonnull final Map<String, Object> structuredProperties) {
+    return structuredProperties.get("properties") instanceof Map<?, ?> fields
+        ? (Map<String, Object>) fields
+        : Map.of();
+  }
+
+  /** V3 entity indices that have not acknowledged every one of {@code fieldIds}. */
+  @Nonnull
+  private List<String> missingFieldIndices(
+      @Nonnull final OperationContext opContext, @Nonnull final Set<String> fieldIds) {
+    return mappingTargetIndexNames(opContext).stream()
+        .filter(
+            indexName ->
+                !appliedStructuredPropertyFields
+                    .getOrDefault(indexName, Set.of())
+                    .containsAll(fieldIds))
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * The V3 aliases plus the separate index a fill in flight is building behind one. That index is
+   * not reachable through its alias yet, and a definition saved mid-fill would otherwise be missing
+   * from the mapping the fill's documents are written under.
+   */
+  @Nonnull
+  private List<String> mappingTargetIndexNames(@Nonnull final OperationContext opContext) {
+    final List<String> aliases = v3EntityIndexNames(opContext);
+    if (incrementalReindexWriteTargets == null) {
+      return aliases;
+    }
+    final Set<String> targets = new LinkedHashSet<>(aliases);
+    for (String alias : aliases) {
+      incrementalReindexWriteTargets.fillTargetFor(alias).ifPresent(targets::add);
+    }
+    return List.copyOf(targets);
+  }
+
+  private void recordAppliedFields(
+      @Nonnull final Collection<String> indexNames, @Nonnull final Set<String> fieldIds) {
+    for (String indexName : indexNames) {
+      appliedStructuredPropertyFields.merge(
+          indexName,
+          Set.copyOf(fieldIds),
+          (applied, added) -> {
+            final Set<String> merged = new HashSet<>(applied);
+            merged.addAll(added);
+            return Set.copyOf(merged);
           });
     }
-    return hydrated;
-  }
-
-  /** A RESTATE of a timeseries aspect's latest value, marked like the fill event it joins. */
-  @Nonnull
-  private static MCLItem timeseriesRestate(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn urn,
-      @Nonnull MCLItem fillEvent,
-      @Nonnull AspectSpec aspectSpec,
-      @Nonnull EnvelopedAspect aspect) {
-    RecordTemplate value =
-        GenericRecordUtils.deserializeAspect(
-            aspect.getAspect().getValue(), aspect.getAspect().getContentType(), aspectSpec);
-    MetadataChangeLog restate =
-        PegasusUtils.constructMCL(
-            null,
-            fillEvent.getEntitySpec().getName(),
-            urn,
-            ChangeType.RESTATE,
-            aspectSpec.getName(),
-            fillEvent.getAuditStamp(),
-            value,
-            aspect.getSystemMetadata(),
-            null,
-            null);
-    restate.setHeaders(fillEvent.getMetadataChangeLog().getHeaders());
-    return MCLItemImpl.builder().build(restate, opContext.getAspectRetriever());
-  }
-
-  @Nonnull
-  private static Map<String, AspectSpec> searchableTimeseriesAspectSpecs(
-      @Nonnull EntitySpec entitySpec) {
-    return entitySpec.getAspectSpecs().stream()
-        .filter(AspectSpec::isTimeseries)
-        .filter(aspectSpec -> !aspectSpec.getSearchableFieldSpecs().isEmpty())
-        .collect(
-            Collectors.toMap(
-                AspectSpec::getName,
-                aspectSpec -> aspectSpec,
-                (first, ignored) -> first,
-                LinkedHashMap::new));
   }
 
   /**
-   * Waits for a batch that mirrored deletes into an index a rebuild is filling to land. A drain
-   * that reports failed writes has the mirrored deletes issued again and is repeated, a bounded
-   * number of times; each mirror rewrites the same document, so the repeats are safe. The last
-   * failure then propagates: the consumer records it and moves on, and the entity may return when
-   * the fill swaps. A drain that merely runs out of time is not a failure: the bulk processor is
-   * shared by every consumer thread and idles only when all of them pause, so the mirrors are left
-   * queued with the processor's own retries behind them.
+   * One put naming every index in {@code indexNames}. A transport failure, 429 or 5xx is tried once
+   * more while the budget allows, then left unrecorded for the next batch. Any other failure, such
+   * as a 4xx mapping rejection, can come from one bad index failing the whole request, so each
+   * index is then applied on its own.
    */
-  private void drainMirroredDeletes(@Nonnull List<Runnable> mirroredDeletes) {
-    RuntimeException last = null;
-    for (int attempt = 1; attempt <= MIRRORED_DELETE_DRAIN_ATTEMPTS; attempt++) {
+  private void putStructuredPropertyMappings(
+      @Nonnull final OperationContext opContext,
+      final int definitionCount,
+      @Nonnull final List<String> indexNames,
+      @Nonnull final Map<String, Object> mappingBody,
+      @Nonnull final Set<String> fieldIds) {
+    final SearchClientShim<?> searchClient =
+        elasticSearchService.getIndexBuilder(indexNames.get(0)).getSearchClient();
+    final RequestOptions options = putMappingRequestOptions(searchClient);
+    final long deadline = System.currentTimeMillis() + PUT_MAPPING_BUDGET_MILLIS;
+    final long attemptMillis =
+        (long) options.getRequestConfig().getConnectionRequestTimeout()
+            + PUT_MAPPING_SOCKET_TIMEOUT_MILLIS;
+    for (int attempt = 1; ; attempt++) {
       try {
-        elasticSearchService.getEsWriteDAO().flushAndWait();
+        log.info(
+            "Applying {} V3 structured property definition(s) to {} indices, attempt {}",
+            definitionCount,
+            indexNames.size(),
+            attempt);
+        searchClient.putIndexMapping(
+            opContext,
+            new PutMappingRequest(indexNames.toArray(String[]::new)).source(mappingBody),
+            options);
+        recordAppliedFields(indexNames, fieldIds);
         return;
-      } catch (RuntimeException e) {
-        if (e.getCause() instanceof TimeoutException) {
-          log.warn(
-              "Draining a batch with {} deletes mirrored into a rebuild's index did not finish within"
-                  + " the bulk transfer timeout; leaving them queued",
-              mirroredDeletes.size());
+      } catch (Exception e) {
+        if (!isRetryablePutMappingFailure(e)) {
+          log.error(
+              "V3 structured property mapping update rejected for {} definitions; applying per index",
+              definitionCount,
+              e);
+          applyStructuredPropertyMappingsPerIndex(opContext, indexNames, mappingBody, fieldIds);
           return;
         }
-        last = e;
+        final boolean outOfBudget =
+            System.currentTimeMillis() + PUT_MAPPING_RETRY_BACKOFF_MILLIS + attemptMillis
+                > deadline;
+        if (attempt >= PUT_MAPPING_MAX_ATTEMPTS || outOfBudget) {
+          log.error(
+              "V3 structured property mapping update failed after {} attempt(s) for {} definitions"
+                  + " on indices {}; the next batch with these definitions sends it again",
+              attempt,
+              definitionCount,
+              indexNames,
+              e);
+          return;
+        }
         log.warn(
-            "Draining a batch with {} deletes mirrored into a rebuild's index failed (attempt {} of"
-                + " {}); issuing the mirrored deletes again",
-            mirroredDeletes.size(),
+            "V3 structured property mapping update attempt {} failed; retrying in {}ms",
             attempt,
-            MIRRORED_DELETE_DRAIN_ATTEMPTS,
+            PUT_MAPPING_RETRY_BACKOFF_MILLIS,
             e);
-        if (attempt < MIRRORED_DELETE_DRAIN_ATTEMPTS) {
-          mirroredDeletes.forEach(Runnable::run);
+        try {
+          Thread.sleep(PUT_MAPPING_RETRY_BACKOFF_MILLIS);
+        } catch (InterruptedException interrupted) {
+          Thread.currentThread().interrupt();
+          return;
         }
       }
     }
-    throw last;
+  }
+
+  private static boolean isRetryablePutMappingFailure(@Nonnull final Exception failure) {
+    final OptionalInt httpStatus = SearchIndexFailureClassifier.findHttpStatus(failure);
+    if (httpStatus.isPresent()) {
+      return SearchIndexFailureClassifier.isRetryableHttpStatus(httpStatus.getAsInt());
+    }
+    Throwable current = failure;
+    while (current != null) {
+      if (current instanceof IOException || current instanceof TimeoutException) {
+        return true;
+      }
+      current = current.getCause() == current ? null : current.getCause();
+    }
+    return false;
+  }
+
+  /**
+   * A request config replaces the client's defaults rather than merging with them, so the connect
+   * and connection-request timeouts are set alongside the longer socket timeout.
+   */
+  @Nonnull
+  private static RequestOptions putMappingRequestOptions(
+      @Nonnull final SearchClientShim<?> searchClient) {
+    Integer connectionRequestTimeout = null;
+    final SearchClientShim.ShimConfiguration shimConfiguration =
+        searchClient.getShimConfiguration();
+    if (shimConfiguration != null) {
+      connectionRequestTimeout = shimConfiguration.getConnectionRequestTimeout();
+    }
+    if (connectionRequestTimeout == null || connectionRequestTimeout <= 0) {
+      connectionRequestTimeout = PUT_MAPPING_DEFAULT_CONNECTION_REQUEST_TIMEOUT_MILLIS;
+    }
+    return RequestOptions.DEFAULT.toBuilder()
+        .setRequestConfig(
+            RequestConfig.custom()
+                .setConnectTimeout(RestClientBuilder.DEFAULT_CONNECT_TIMEOUT_MILLIS)
+                .setConnectionRequestTimeout(connectionRequestTimeout)
+                .setSocketTimeout(PUT_MAPPING_SOCKET_TIMEOUT_MILLIS)
+                .build())
+        .build();
+  }
+
+  /**
+   * The surviving structured-property definition of each URN. Catch-up events and deletes are
+   * skipped, matching the per-event mapping hook this replaces.
+   */
+  @Nonnull
+  private static List<Pair<Urn, StructuredPropertyDefinition>> structuredPropertyDefinitions(
+      @Nonnull final List<PreparedUrnBatch> preparedBatches) {
+    final Map<Urn, StructuredPropertyDefinition> definitionsByUrn = new LinkedHashMap<>();
+    for (PreparedUrnBatch preparedBatch : preparedBatches) {
+      for (MCLItem event : preparedBatch.coalescedEvents().finalEvents()) {
+        if (isCatchUpBackfillEvent(event) || event.getRecordTemplate() == null) {
+          continue;
+        }
+        final EntitySpec entitySpec = event.getEntitySpec();
+        final AspectSpec aspectSpec = event.getAspectSpec();
+        if (entitySpec == null
+            || aspectSpec == null
+            || !Constants.STRUCTURED_PROPERTY_ENTITY_NAME.equals(entitySpec.getName())
+            || !Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectSpec.getName())) {
+          continue;
+        }
+        final StructuredPropertyDefinition definition;
+        try {
+          definition = new StructuredPropertyDefinition(event.getRecordTemplate().data().copy());
+        } catch (CloneNotSupportedException e) {
+          log.error("Failed to copy structured property definition for URN {}", event.getUrn(), e);
+          continue;
+        }
+        if (definition.getEntityTypes() == null || definition.getEntityTypes().isEmpty()) {
+          continue;
+        }
+        definitionsByUrn.put(event.getUrn(), definition);
+      }
+    }
+    return definitionsByUrn.entrySet().stream()
+        .map(entry -> Pair.of(entry.getKey(), entry.getValue()))
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * The {@code structuredProperties} object for these definitions, wrapped as a put-mapping body.
+   * Empty when none of the definitions name a searchable entity type.
+   */
+  @Nonnull
+  private Map<String, Object> structuredPropertyMappingBody(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final List<Pair<Urn, StructuredPropertyDefinition>> definitions) {
+    final Collection<MappingsBuilder.IndexMapping> mappings =
+        mappingsBuilder.getIndexMappings(opContext, definitions);
+    if (mappings.isEmpty()) {
+      return Map.of();
+    }
+    final Object properties = mappings.iterator().next().getMappings().get("properties");
+    if (!(properties instanceof Map<?, ?> propertyMap)) {
+      return Map.of();
+    }
+    final Object structuredProperties =
+        propertyMap.get(Constants.STRUCTURED_PROPERTY_MAPPING_FIELD);
+    if (!(structuredProperties instanceof Map<?, ?> structuredPropertyMap)) {
+      return Map.of();
+    }
+    final Object fields = structuredPropertyMap.get("properties");
+    if (!(fields instanceof Map<?, ?> fieldMap) || fieldMap.isEmpty()) {
+      return Map.of();
+    }
+    final Map<String, Object> bodyProperties = new HashMap<>();
+    bodyProperties.put(Constants.STRUCTURED_PROPERTY_MAPPING_FIELD, structuredProperties);
+    final Map<String, Object> body = new HashMap<>();
+    body.put("properties", bodyProperties);
+    return body;
+  }
+
+  @Nonnull
+  private static List<String> v3EntityIndexNames(@Nonnull final OperationContext opContext) {
+    return V3IndexKeys.groupEntitySpecs(opContext.getEntityRegistry()).keySet().stream()
+        .map(
+            indexKey ->
+                opContext
+                    .getSearchContext()
+                    .getIndexConvention()
+                    .getEntityIndexNameV3(opContext, indexKey))
+        .distinct()
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * One {@code applyMappings} per index of the same body the combined request would have sent. A
+   * failure on one index does not stop the others, and only the indices that succeed are recorded.
+   */
+  private void applyStructuredPropertyMappingsPerIndex(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final List<String> indexNames,
+      @Nonnull final Map<String, Object> mappingBody,
+      @Nonnull final Set<String> fieldIds) {
+    for (String indexName : indexNames) {
+      try {
+        final Map<String, Object> currentMappings = currentIndexMappings(opContext, indexName);
+        final ReindexConfig indexState =
+            ReindexConfig.builder()
+                .name(indexName)
+                .exists(true)
+                .currentMappings(currentMappings)
+                .targetMappings(mappingBody)
+                .build();
+        elasticSearchService.getIndexBuilder(indexName).applyMappings(opContext, indexState, false);
+        recordAppliedFields(List.of(indexName), fieldIds);
+      } catch (Exception e) {
+        log.error("Failed to apply V3 structured property mappings to index {}", indexName, e);
+      }
+    }
+  }
+
+  /**
+   * The index's own mapping, so a field that is already there is not classified as new and a
+   * definition whose type changed is not put in place. An unreadable mapping falls back to an empty
+   * one, which treats every field as an addition.
+   */
+  @Nonnull
+  private Map<String, Object> currentIndexMappings(
+      @Nonnull final OperationContext opContext, @Nonnull final String indexName) {
+    try {
+      final Map<String, Object> mapping =
+          elasticSearchService.indexMappingSource(opContext, indexName);
+      if (mapping != null && !mapping.isEmpty()) {
+        return mapping;
+      }
+    } catch (Exception e) {
+      log.warn(
+          "Could not read the mapping of V3 index {}; treating every field as new", indexName, e);
+    }
+    return Map.of("properties", Map.of());
   }
 
   public void updateIndexMappings(
@@ -356,9 +880,9 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         // Apply the mapping for the full set of currently-declared entity types on every
         // definition upsert, not just types newly added since oldValue. applyMappings is an
         // idempotent put_mapping, so re-saving a property re-applies (and thereby repairs) any
-        // mapping a previous attempt failed to write — the only convergence path when the
-        // structured-property system-update machinery is disabled (the default). Entity types
-        // removed from the definition are handled by the dedicated removal path, not here.
+        // mapping a previous attempt failed to write, without waiting for the next
+        // system-update to add it. Entity types removed from the definition are handled by the
+        // dedicated removal path, not here.
         if (!newDefinition.getEntityTypes().isEmpty()) {
 
           // V3 uses the same approach as V2 but with V3 mappings and index convention
@@ -419,269 +943,452 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     return true;
   }
 
-  /**
-   * Processes all events for a single URN in V3 optimized fashion: one tombstone, create, or merge.
-   * Returns the deletes the batch mirrored into an index a rebuild is filling, re-issuable.
-   */
-  @Nonnull
-  private List<Runnable> processUrnBatch(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn urn,
-      @Nonnull List<MCLItem> events,
-      @Nonnull Map<String, Set<String>> removedAspects,
-      @Nonnull Map<String, Set<String>> indexedFields,
-      boolean structuredPropertiesHookEnabled,
-      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
+  /** Resolves where one URN's events are written and which write path they take. */
+  private Optional<PreparedUrnBatch> prepareUrnBatch(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final List<MCLItem> events) {
+    final CoalescedEvents coalescedEvents = coalesceFinalEvents(events);
+    final List<MCLItem> effectiveEvents = coalescedEvents.finalEvents();
+    if (effectiveEvents.isEmpty()) {
+      return Optional.empty();
+    }
 
+    final EntitySpec entitySpec = effectiveEvents.get(0).getEntitySpec();
+    // Explicit searchGroup consolidates entities into a shared V3 index; unset resolves to the
+    // entity-named index, matching V2's per-entity splits.
+    final String searchGroup = V3IndexKeys.resolve(entitySpec);
+
+    final String docId = entityDocumentIdHasher.documentId(opContext, urn);
+    // An MCL side effect joined to this URN carries no backfill mode. It must not turn a fill into
+    // a live merge, nor a complete fill into one that hydrates. A live event does carry no mode
+    // either, and one sharing the batch is projected with the fill; catch-up repairs the alias.
+    final List<MCLItem> classifiedEvents =
+        effectiveEvents.stream()
+            .filter(event -> backfillMode(event).isPresent())
+            .collect(Collectors.toList());
+    final boolean baselineFill =
+        !classifiedEvents.isEmpty()
+            && classifiedEvents.stream().allMatch(UpdateIndicesV3Strategy::isBaselineBackfillEvent);
+    final boolean completeBaselineFill =
+        baselineFill
+            && classifiedEvents.stream()
+                .allMatch(UpdateIndicesV3Strategy::isCompleteEntityFillEvent);
+    final boolean catchUpReplay =
+        classifiedEvents.stream().anyMatch(UpdateIndicesV3Strategy::isCatchUpBackfillEvent);
+    final boolean hasKeyAspectDeletion =
+        effectiveEvents.stream()
+            .filter(
+                event ->
+                    ChangeType.DELETE.equals(event.getChangeType())
+                        && !isCatchUpBackfillEvent(event))
+            .map(UpdateIndicesUtil::extractSpecPair)
+            .anyMatch(UpdateIndicesUtil::isDeletingKey);
+    // A replay (the catch-up step, or operator LoadIndices in catch-up mode) describes rows read
+    // from a snapshot of primary storage. The document is rebuilt from primary storage as it
+    // stands now, and an entity that is gone from it is removed whatever the replayed row says.
+    final Map<String, AspectSpec> searchableTimeseriesAspectSpecs =
+        getSearchableTimeseriesAspectSpecs(entitySpec);
+    final Optional<String> fillTarget =
+        baselineFill ? fillTargetIndex(classifiedEvents) : Optional.empty();
+    return Optional.of(
+        new PreparedUrnBatch(
+            urn,
+            events,
+            coalescedEvents,
+            entitySpec,
+            searchGroup,
+            fillTarget.orElseGet(() -> v3IndexName(opContext, searchGroup)),
+            docId,
+            baselineFill,
+            fillTarget.isPresent(),
+            completeBaselineFill,
+            hasKeyAspectDeletion,
+            catchUpReplay,
+            searchableTimeseriesAspectSpecs));
+  }
+
+  /**
+   * The index an upgrade fill rebuilds into, named by every baseline event in the batch. It is the
+   * next physical index the alias does not point at yet, or the alias itself for a fill in place.
+   * Such a fill only creates absent documents. A baseline event without the header is operator
+   * LoadIndices maintenance of the alias, which replaces documents. One baseline event without the
+   * header downgrades the whole batch the same way: create-only would drop that event.
+   */
+  private static Optional<String> fillTargetIndex(@Nonnull final List<MCLItem> events) {
+    final Set<String> targets = new HashSet<>();
+    for (MCLItem event : events) {
+      final String target =
+          event.getMetadataChangeLog().getHeaders().get(BackfillHeaders.TARGET_INDEX_HEADER_NAME);
+      if (target == null || target.isEmpty()) {
+        return Optional.empty();
+      }
+      targets.add(target);
+    }
+    return targets.size() == 1 ? targets.stream().findFirst() : Optional.empty();
+  }
+
+  private Map<Urn, Map<String, EnvelopedAspect>> hydrateLatestTimeseriesAspects(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final List<PreparedUrnBatch> preparedBatches) {
+    final Map<TimeseriesHydrationGroup, Set<Urn>> urnsByHydrationGroup = new LinkedHashMap<>();
+    for (PreparedUrnBatch preparedBatch : preparedBatches) {
+      if ((!preparedBatch.baselineFill() && !preparedBatch.catchUpReplay())
+          || preparedBatch.searchableTimeseriesAspectSpecs().isEmpty()) {
+        continue;
+      }
+      final TimeseriesHydrationGroup hydrationGroup =
+          new TimeseriesHydrationGroup(
+              preparedBatch.entitySpec().getName(),
+              Set.copyOf(preparedBatch.searchableTimeseriesAspectSpecs().keySet()));
+      urnsByHydrationGroup
+          .computeIfAbsent(hydrationGroup, ignored -> new LinkedHashSet<>())
+          .add(preparedBatch.urn());
+    }
+
+    final Map<Urn, Map<String, EnvelopedAspect>> latestTimeseriesByUrn = new LinkedHashMap<>();
+    for (Map.Entry<TimeseriesHydrationGroup, Set<Urn>> entry : urnsByHydrationGroup.entrySet()) {
+      final TimeseriesHydrationGroup hydrationGroup = entry.getKey();
+      final Set<Urn> urns = entry.getValue();
+      final Map<Urn, Map<String, EnvelopedAspect>> hydratedGroup =
+          readWithRetry(
+              opContext,
+              TIMESERIES_HYDRATION_FAILURE_METRIC,
+              "hydrate latest timeseries aspects for entity type " + hydrationGroup.entityType(),
+              () ->
+                  Optional.ofNullable(
+                          timeseriesAspectService.getLatestTimeseriesAspectValuesStrict(
+                              opContext, urns, hydrationGroup.aspectNames(), null))
+                      .orElse(Collections.emptyMap()));
+      latestTimeseriesByUrn.putAll(hydratedGroup);
+    }
+    return latestTimeseriesByUrn;
+  }
+
+  private void processUrnBatch(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final PreparedUrnBatch preparedBatch,
+      @Nonnull final Map<String, EnvelopedAspect> latestTimeseriesAspects,
+      @Nullable final TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
     try {
-      return processUrnBatchUnchecked(
-          opContext,
-          urn,
-          events,
-          removedAspects,
-          indexedFields,
-          structuredPropertiesHookEnabled,
-          throttleSummary);
+      processUrnBatchUnchecked(opContext, preparedBatch, latestTimeseriesAspects, throttleSummary);
     } catch (RuntimeException e) {
       // Live dual-write: one URN's V3 failure must not stall V2, and the entity's next event
       // rebuilds its document. A replay is different: nothing comes back for a URN it drops. A
       // baseline fill is the only pass over the historical corpus, and a catch-up replay is the
       // only pass over its window; the loader counts a URN as processed once this returns, and
       // the system-update catch-up step checkpoints after producing the event, so neither sends
-      // it again. A replay's failure propagates instead: the loader retries the batch, splitting
-      // it down to the single event, and otherwise fails the run with its checkpoint intact. A
-      // removal's failure is skipped like any other live write's: the consumer records a failed
-      // batch and moves on without redelivering it, so failing the batch would only drop the
-      // other entities' writes with it. A mirror that could not be handed over is lost with the
-      // skip, and the entity may return when the fill swaps. What can be retried, a delete that
-      // was mirrored into an index a rebuild is filling, is retried when the batch is drained.
-      final boolean replay = events.stream().anyMatch(UpdateIndicesV3Strategy::isBackfillEvent);
-      if (v2Enabled && !replay) {
+      // it again. A later baseline cannot repair the hole either, since it does not overwrite the
+      // live documents already in the index. The failure propagates instead: the loader retries the
+      // batch, splitting it down to the single event, and otherwise fails the run with its
+      // checkpoint intact; the MAE consumer redelivers a retryable failure and fails loudly on a
+      // non-retryable one. A removal that failed retryably is not skipped either: no later event
+      // removes the entity or the aspect again, on the alias or in the index a rebuild is filling,
+      // so the consumer must redeliver it. A removal that failed for good is skipped like any other
+      // live write: failing the batch would only drop the other entities' writes with it. A failed
+      // aspect read is redelivered too, including a live upsert while V2 is dual-written: nothing
+      // else writes that aspect, so skipping it leaves the document missing it. A transient index
+      // write stays skipped for a live upsert, because the entity's next event rebuilds it.
+      final boolean replay = preparedBatch.baselineFill() || preparedBatch.catchUpReplay();
+      final boolean redeliverableRemoval =
+          carriesDelete(preparedBatch) && e instanceof RetryableIndexingException;
+      final boolean failedAspectRead = hasCause(e, RemoteInvocationException.class);
+      if (v2Enabled && !replay && !redeliverableRemoval && !failedAspectRead) {
         log.error(
             "V3 search write failed for URN {} while V2 dual-write is enabled; skipping V3 document",
-            urn,
+            preparedBatch.urn(),
             e);
-        return List.of();
+        return;
       }
       throw e;
     }
   }
 
-  @Nonnull
-  private List<Runnable> processUrnBatchUnchecked(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn urn,
-      @Nonnull List<MCLItem> events,
-      @Nonnull Map<String, Set<String>> removedAspects,
-      @Nonnull Map<String, Set<String>> indexedFields,
-      boolean structuredPropertiesHookEnabled,
-      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
+  private void processUrnBatchUnchecked(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final PreparedUrnBatch preparedBatch,
+      @Nonnull final Map<String, EnvelopedAspect> latestTimeseriesAspects,
+      @Nullable final TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
+    final Urn urn = preparedBatch.urn();
+    final List<MCLItem> events = preparedBatch.originalEvents();
+    final CoalescedEvents coalescedEvents = preparedBatch.coalescedEvents();
+    final List<MCLItem> effectiveEvents = coalescedEvents.finalEvents();
+    final EntitySpec entitySpec = preparedBatch.entitySpec();
+    if (!preparedBatch.baselineFill() && !preparedBatch.catchUpReplay()) {
+      processLiveUrnBatch(opContext, preparedBatch, throttleSummary);
+      return;
+    }
+    // A fill into a target index rebuilds the whole document from primary storage and writes it
+    // only if the index holds none. There is no document to merge with, and reading one back would
+    // cost the V3 cluster a round trip per URN. Maintenance of the alias and catch-up replace the
+    // document, so they keep the index-only fields it already holds.
+    final Optional<Map<String, Object>> existingSource =
+        preparedBatch.targetFill()
+            ? Optional.empty()
+            : loadExistingV3DocumentSource(
+                opContext, preparedBatch.searchGroup(), preparedBatch.docId(), urn);
 
     log.debug("V3 unified batch processing for URN: {} with {} events", urn, events.size());
 
-    // Check if any event is a key aspect deletion - if so, delete the entire document
-    boolean hasKeyAspectDeletion =
-        events.stream()
-            .anyMatch(
-                event -> {
-                  try {
-                    // Only check for key aspect deletion if this is actually a DELETE event
-                    if (event.getChangeType() == ChangeType.DELETE) {
-                      Pair<EntitySpec, AspectSpec> specPair =
-                          UpdateIndicesUtil.extractSpecPair(event);
-                      return UpdateIndicesUtil.isDeletingKey(specPair);
-                    }
-                    return false;
-                  } catch (Exception e) {
-                    log.error(
-                        "Error checking key aspect deletion for event {}: {}",
-                        event.getAspectName(),
-                        e.getMessage(),
-                        e);
-                    return false;
-                  }
-                });
-
-    EntitySpec entitySpec = events.get(0).getEntitySpec();
-    String docId = entityDocumentIdHasher.documentId(opContext, urn);
-    String indexKey = v3IndexKey(entitySpec);
-    boolean baseline = isBaselineBatch(events);
-    // A baseline fill rebuilding into a next physical index names it on every event; the alias
-    // keeps serving the old index until the fill swaps it.
-    String fillTarget = fillTarget(events);
-    String indexName = fillTarget != null ? fillTarget : v3IndexName(opContext, indexKey);
-    if (hasKeyAspectDeletion) {
-      if (baseline) {
-        log.debug("V3 baseline fill skips URN {}, whose key aspect is deleted", urn);
-        return List.of();
-      }
-      return writeHardDelete(opContext, urn, entitySpec, indexName, docId, events);
+    // A complete baseline fill batch carries every stored aspect of the entity: the loader read
+    // the rows hydration would read. Treat them as the stored state rather than reading them a
+    // second time from primary storage.
+    final Map<String, SystemAspect> latestStoredAspects =
+        preparedBatch.completeBaselineFill()
+            ? storedAspectsFromEvents(effectiveEvents)
+            : hydrateLatestStoredAspects(opContext, urn, entitySpec);
+    // Remove only when the key aspect is truly absent from primary storage; hydration reads
+    // PRIMARY, so absence is authoritative. A catch-up replay's row was read before the entity was
+    // hard-deleted, and rebuilding from an empty hydration would otherwise bring back what the
+    // live DELETE removed as a bare document that surfaces as a blank search hit.
+    if ((preparedBatch.hasKeyAspectDeletion() || preparedBatch.catchUpReplay())
+        && !latestStoredAspects.containsKey(entitySpec.getKeyAspectName())) {
+      writeTombstone(opContext, preparedBatch, existingSource);
+      return;
     }
 
-    // Build the combined V3 document with _aspect structure
-    ObjectNode combinedDocument =
+    V3DocumentBuildResult buildResult =
         buildV3SearchDocument(
-            opContext, urn, events, removedAspects, indexedFields, throttleSummary);
-
-    // As on V2, the structured property mapping hook runs even when no aspect changed
-    if (structuredPropertiesHookEnabled) {
-      for (MCLItem event : events) {
-        try {
-          updateIndexMappings(
-              opContext,
-              event.getUrn(),
-              event.getEntitySpec(),
-              event.getAspectSpec(),
-              event.getRecordTemplate(),
-              event.getPreviousRecordTemplate());
-        } catch (RuntimeException e) {
-          log.error(
-              "Error updating V3 index mappings for aspect {} of URN {}",
-              event.getAspectName(),
-              urn,
-              e);
-        }
-      }
-    }
-
-    final boolean restoresKey = !baseline && restoresKey(events, entitySpec);
-    if (combinedDocument == null) {
-      if (!restoresKey) {
-        log.debug("V3 combined document is empty for URN: {}, skipping update", urn);
-        return List.of();
-      }
-      combinedDocument =
-          searchDocumentProjector.newEntityDocument(urn, entitySpec, opContext.getEntityRegistry());
-    }
-    List<String> runIds = distinctRunIds(events);
-
-    if (baseline) {
-      // The fill writes the document once, so its runs go in with it rather than as appends.
-      putRunIds(combinedDocument, runIds);
-      writeV3Document(
-          opContext,
-          new V3SearchDocumentWrite(
-              indexName,
-              docId,
-              urn,
-              combinedDocument.toString(),
-              fillTarget != null
-                  ? V3SearchDocumentWrite.Kind.CREATE
-                  : V3SearchDocumentWrite.Kind.REPLACE),
-          false);
-      log.debug(
-          "V3 created baseline document for URN: {} in index: {} with {} aspects",
-          urn,
-          indexName,
-          events.size());
-      return List.of();
-    }
-
-    // The hard-delete placeholder stays in the index with removed=true. A merge leaves any field
-    // it omits, so the key write that recreates the entity has to clear it.
-    if (restoresKey) {
-      clearHardDeleteMarker(combinedDocument);
-    }
-    boolean carriesDelete = carriesDelete(events);
-    // An in-place fill creates into this same alias. A timeseries-only batch is not in SQL, so
-    // catch-up cannot rebuild the entity, and a document created here would make the fill skip it.
-    boolean updateOnly = timeseriesOnlyDuringInPlaceFill(indexName, events);
-    Optional<Runnable> mirrored =
-        writeV3Document(
             opContext,
-            new V3SearchDocumentWrite(
-                indexName,
-                docId,
-                urn,
-                combinedDocument.toString(),
-                updateOnly
-                    ? V3SearchDocumentWrite.Kind.MERGE_EXISTING
-                    : V3SearchDocumentWrite.Kind.MERGE),
-            carriesDelete);
-    log.debug(
-        "V3 merged combined document for URN: {} into index: {} with {} aspects",
-        urn,
-        indexName,
-        events.size());
-    appendRunIds(opContext, indexKey, indexName, docId, urn, runIds, carriesDelete, updateOnly);
-    return mirrored.map(List::of).orElse(List.of());
-  }
+            urn,
+            effectiveEvents,
+            preparedBatch.searchableTimeseriesAspectSpecs(),
+            latestTimeseriesAspects,
+            latestStoredAspects,
+            existingSource,
+            !preparedBatch.completeBaselineFill(),
+            throttleSummary);
 
-  /**
-   * Replaces the entity's document with the hard-delete placeholder. A delete would let a fill that
-   * read the entity before it was deleted create it again; the placeholder keeps the document
-   * present, so the create-only fill skips it, and {@code removed=true} keeps it out of search.
-   */
-  @Nonnull
-  private List<Runnable> writeHardDelete(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn urn,
-      @Nonnull EntitySpec entitySpec,
-      @Nonnull String indexName,
-      @Nonnull String docId,
-      @Nonnull List<MCLItem> events) {
-    ObjectNode tombstone = searchDocumentProjector.newTombstoneDocument(urn, entitySpec);
-    putRunIds(tombstone, distinctRunIds(events));
-    applyDocumentContributors(opContext, urn, tombstone);
-
-    Optional<String> activeFillTarget =
-        incrementalReindexWriteTargets == null
-            ? Optional.empty()
-            : incrementalReindexWriteTargets.activeFillTargetFor(indexName);
-    if (activeFillTarget.filter(indexName::equals).isPresent()) {
-      V3SearchDocumentWrite write =
-          new V3SearchDocumentWrite(
-              indexName, docId, urn, tombstone.toString(), V3SearchDocumentWrite.Kind.TOMBSTONE);
-      elasticSearchService.writeV3SearchDocument(opContext, write);
-      return List.of(() -> elasticSearchService.writeV3SearchDocument(opContext, write));
+    if (buildResult == null) {
+      log.debug("V3 combined document is empty for URN: {}, skipping update", urn);
+      return;
     }
+    ObjectNode combinedDocument = buildResult.document();
+
+    List<String> distinctRunIds = getDistinctRunIds(events);
+    indexOnlyFieldMerger.merge(
+        combinedDocument, existingSource, distinctRunIds, buildResult.latestSystemMetadata());
+    String finalDocument = combinedDocument.toString();
 
     writeV3Document(
         opContext,
-        new V3SearchDocumentWrite(indexName, docId, urn, "", V3SearchDocumentWrite.Kind.DELETE),
-        false);
-    return activeFillTarget
-        .filter(target -> !target.equals(indexName))
-        .map(
-            target -> {
-              V3SearchDocumentWrite write =
-                  new V3SearchDocumentWrite(
-                      target,
-                      docId,
-                      urn,
-                      tombstone.toString(),
-                      V3SearchDocumentWrite.Kind.TOMBSTONE);
-              Runnable mirror = () -> elasticSearchService.writeV3SearchDocument(opContext, write);
-              mirror.run();
-              return List.of(mirror);
-            })
-        .orElse(List.of());
+        new V3SearchDocumentWrite(
+            preparedBatch.indexName(),
+            preparedBatch.docId(),
+            urn,
+            finalDocument,
+            preparedBatch.targetFill()
+                ? V3SearchDocumentWrite.Kind.CREATE
+                : V3SearchDocumentWrite.Kind.REPLACE),
+        carriesDelete(preparedBatch));
+    log.debug(
+        "V3 wrote combined document for URN: {} to search group: {} with {} aspects",
+        urn,
+        preparedBatch.searchGroup(),
+        effectiveEvents.size());
+  }
+
+  private void processLiveUrnBatch(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final PreparedUrnBatch preparedBatch,
+      @Nullable final TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
+    if (preparedBatch.hasKeyAspectDeletion()) {
+      writeTombstone(opContext, preparedBatch, Optional.empty());
+      return;
+    }
+
+    final ObjectNode document =
+        searchDocumentProjector.newEntityDocument(
+            preparedBatch.urn(), preparedBatch.entitySpec(), opContext.getEntityRegistry());
+    boolean hasProjection = false;
+    for (List<MCLItem> aspectEvents :
+        UpdateIndicesUtil.groupUpdatesByAspect(preparedBatch.originalEvents()).values()) {
+      final MCLItem event = aspectEvents.get(aspectEvents.size() - 1);
+      // A throttled timeseries event is omitted from the partial update. The entity document keeps
+      // the value it already has; an earlier event in this batch is not a substitute for it.
+      if (event.getAspectSpec().isTimeseries() && timeseriesThrottleCache != null) {
+        long eventTimeMs =
+            event.getAuditStamp() == null
+                ? System.currentTimeMillis()
+                : event.getAuditStamp().getTime();
+        if (timeseriesThrottleCache.shouldThrottle(
+            event.getEntitySpec().getName(),
+            preparedBatch.urn().toString(),
+            event.getAspectName(),
+            eventTimeMs)) {
+          if (timeseriesThrottleCache.isEntityIndexEnabled()) {
+            if (throttleSummary != null) {
+              throttleSummary.recordSuppressed(
+                  TimeseriesWriteThrottleCache.ThrottleTarget.ENTITY_INDEX);
+            }
+            continue;
+          }
+          if (timeseriesThrottleCache.isObserveEnabled() && throttleSummary != null) {
+            throttleSummary.recordObserved();
+          }
+        }
+      }
+      final RecordTemplate previous = aspectEvents.get(0).getPreviousRecordTemplate();
+      final Optional<V3SearchDocumentProjector.ProjectedAspect> projection;
+      try {
+        projection = searchDocumentProjector.projectAspect(opContext, event, previous);
+      } catch (RetryableIndexingException e) {
+        // A failed aspect read. Redeliver it; skipping the aspect commits the offset past a
+        // document this event never writes again.
+        throw e;
+      } catch (RuntimeException e) {
+        // A deterministic projection failure is not retryable, and failing the URN here drops
+        // every later URN in the MCL batch. The listener commits that batch, so those documents
+        // are never written. Skip the aspect; the rest of this URN and the batch still land.
+        log.error(
+            "V3 search projection failed for aspect {} of URN {}; skipping this aspect",
+            event.getAspectName(),
+            preparedBatch.urn(),
+            e);
+        continue;
+      }
+      if (projection.isPresent()) {
+        searchDocumentProjector.applyProjection(document, projection.get());
+        hasProjection = true;
+        if (event.getAspectSpec().isTimeseries() && throttleSummary != null) {
+          throttleSummary.recordWritten(TimeseriesWriteThrottleCache.ThrottleTarget.ENTITY_INDEX);
+        }
+      }
+    }
+    // The hard-delete placeholder stays in the index with removed=true. A partial update leaves
+    // any field it omits, so the key upsert that recreates the entity has to clear it. Other
+    // aspects must not: a soft-deleted entity is also removed=true, and a later tag update has
+    // to leave that flag in place.
+    final boolean restoresKey = liveBatchRestoresKey(preparedBatch);
+    if (restoresKey) {
+      clearHardDeleteMarker(document);
+    }
+    if (!hasProjection && !restoresKey) {
+      return;
+    }
+    liftSemanticEmbeddingsToRoot(preparedBatch.entitySpec().getName(), document);
+    applyDocumentContributors(opContext, preparedBatch.urn(), document);
+    // The partial document must not carry runId: an update replaces an array, which would drop
+    // runs already stored. The script appends this batch's runs after the document write.
+    indexOnlyFieldMerger.stampIndexModified(document);
+    final boolean carriesDelete = carriesDelete(preparedBatch);
+    // An in-place fill creates into this same alias. A versioned write can leave a partial
+    // document, because catch-up replays that row and replaces it. A timeseries-only batch is not
+    // in primary storage, so catch-up never sees it, and a document created here would make the
+    // fill skip the entity.
+    final boolean updateOnly = timeseriesOnlyDuringInPlaceFill(preparedBatch);
+    writeV3Document(
+        opContext,
+        new V3SearchDocumentWrite(
+            preparedBatch.indexName(),
+            preparedBatch.docId(),
+            preparedBatch.urn(),
+            document.toString(),
+            updateOnly
+                ? V3SearchDocumentWrite.Kind.MERGE_EXISTING
+                : V3SearchDocumentWrite.Kind.MERGE),
+        carriesDelete);
+    appendLiveRunIds(opContext, preparedBatch, carriesDelete, updateOnly);
   }
 
   /**
-   * The batch's surviving key event creates the entity rather than deleting it or restating an
-   * existing one: a key with no previous value. A re-emitted key of a live entity must not clear
-   * {@code removed}, which a soft delete also sets.
+   * Appends this batch's run ids on every index the live merge just wrote. Same document-id routing
+   * as the merge, and queued after it, so the append sees that document. In a next index a fill is
+   * building, the append only updates a document the fill already wrote, like the mirrored merge. A
+   * timeseries-only write during an in-place fill does the same on the alias: an upsert would
+   * create the partial document the fill then skips.
    */
-  private static boolean restoresKey(
-      @Nonnull List<MCLItem> events, @Nonnull EntitySpec entitySpec) {
-    String keyAspectName = entitySpec.getKeyAspectName();
-    MCLItem lastKeyEvent = null;
-    for (MCLItem event : events) {
-      if (keyAspectName.equals(event.getAspectName())) {
-        lastKeyEvent = event;
+  private void appendLiveRunIds(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final PreparedUrnBatch preparedBatch,
+      final boolean carriesDelete,
+      final boolean updateOnly) {
+    final List<String> runIds = getDistinctRunIds(preparedBatch.originalEvents());
+    if (runIds.isEmpty()) {
+      return;
+    }
+    if (updateOnly) {
+      appendRunIdsToExistingDocument(
+          opContext, preparedBatch.indexName(), preparedBatch.docId(), runIds);
+    } else {
+      for (String runId : runIds) {
+        elasticSearchService.appendRunIdBySearchGroup(
+            opContext,
+            preparedBatch.searchGroup(),
+            preparedBatch.docId(),
+            preparedBatch.urn(),
+            runId);
       }
     }
-    return lastKeyEvent != null
-        && lastKeyEvent.getChangeType() != ChangeType.DELETE
-        && lastKeyEvent.getPreviousRecordTemplate() == null;
+    if (incrementalReindexWriteTargets == null) {
+      return;
+    }
+    incrementalReindexWriteTargets
+        .oldBackingIndexFor(preparedBatch.indexName())
+        .ifPresent(
+            indexName -> {
+              if (updateOnly) {
+                appendRunIdsToExistingDocument(opContext, indexName, preparedBatch.docId(), runIds);
+              } else {
+                for (String runId : runIds) {
+                  elasticSearchService.appendRunIdByIndexName(
+                      opContext, indexName, preparedBatch.docId(), preparedBatch.urn(), runId);
+                }
+              }
+            });
+    if (carriesDelete) {
+      incrementalReindexWriteTargets
+          .fillTargetFor(preparedBatch.indexName())
+          .ifPresent(
+              indexName ->
+                  appendRunIdsToExistingDocument(
+                      opContext, indexName, preparedBatch.docId(), runIds));
+    }
+  }
+
+  private void appendRunIdsToExistingDocument(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final String indexName,
+      @Nonnull final String docId,
+      @Nonnull final List<String> runIds) {
+    for (String runId : runIds) {
+      elasticSearchService.appendRunIdToExistingDocument(opContext, indexName, docId, runId);
+    }
+  }
+
+  /**
+   * True when this alias is the index an in-place fill is creating and the batch holds only
+   * timeseries aspects. Creating a document here would block that fill, and catch-up never sees the
+   * batch.
+   */
+  private boolean timeseriesOnlyDuringInPlaceFill(@Nonnull final PreparedUrnBatch preparedBatch) {
+    if (incrementalReindexWriteTargets == null
+        || preparedBatch.originalEvents().isEmpty()
+        || incrementalReindexWriteTargets
+            .activeFillTargetFor(preparedBatch.indexName())
+            .filter(preparedBatch.indexName()::equals)
+            .isEmpty()) {
+      return false;
+    }
+    return preparedBatch.originalEvents().stream()
+        .allMatch(event -> event.getAspectSpec() != null && event.getAspectSpec().isTimeseries());
+  }
+
+  /** The batch's surviving key event creates or updates the entity, rather than deleting it. */
+  private static boolean liveBatchRestoresKey(@Nonnull final PreparedUrnBatch preparedBatch) {
+    final String keyAspectName = preparedBatch.entitySpec().getKeyAspectName();
+    return preparedBatch.coalescedEvents().finalEvents().stream()
+        .anyMatch(
+            event ->
+                keyAspectName.equals(event.getAspectName())
+                    && !ChangeType.DELETE.equals(event.getChangeType()));
   }
 
   /**
    * Clears the hard-delete placeholder. A status aspect in this batch already wrote {@code removed}
    * (a soft delete or an undelete), so that value is left as projected.
    */
-  private static void clearHardDeleteMarker(@Nonnull ObjectNode document) {
+  private static void clearHardDeleteMarker(@Nonnull final ObjectNode document) {
     if (!document.has(V3SearchDocumentProjector.REMOVED_FIELD)) {
       document.put(V3SearchDocumentProjector.REMOVED_FIELD, false);
     }
@@ -689,136 +1396,113 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     document.putNull(V3SearchDocumentProjector.TOMBSTONE_FIELD);
   }
 
+  private void writeTombstone(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final PreparedUrnBatch preparedBatch,
+      @Nonnull final Optional<Map<String, Object>> existingSource) {
+    final ObjectNode tombstoneDocument =
+        searchDocumentProjector.newTombstoneDocument(
+            preparedBatch.urn(), preparedBatch.entitySpec());
+    indexOnlyFieldMerger.merge(
+        tombstoneDocument,
+        existingSource,
+        getDistinctRunIds(preparedBatch.originalEvents()),
+        List.of());
+    applyDocumentContributors(opContext, preparedBatch.urn(), tombstoneDocument);
+    final V3SearchDocumentWrite.Kind kind = removalKind(preparedBatch);
+    writeV3Document(
+        opContext,
+        new V3SearchDocumentWrite(
+            preparedBatch.indexName(),
+            preparedBatch.docId(),
+            preparedBatch.urn(),
+            tombstoneDocument.toString(),
+            kind),
+        carriesDelete(preparedBatch));
+    log.debug(
+        "V3 wrote {} for URN: {} to search group: {} due to absent key aspect",
+        kind,
+        preparedBatch.urn(),
+        preparedBatch.searchGroup());
+  }
+
   /**
-   * Appends this batch's run ids on every index the merge just wrote, so rollback and list-runs can
-   * find the entities a run touched. Same document-id routing as the merge, and queued after it, so
-   * the append sees that document. In a next index a fill is building, the append only updates a
-   * document the fill already wrote, like the mirrored merge.
+   * A removed entity's document is deleted, unless a fill could still bring it back: the fill
+   * creates documents only where the index holds none, so the index it writes keeps the hard-delete
+   * placeholder instead. That is a fill's target index, or the alias while it is filled in place.
+   * Catch-up starts only once the fill is done, so its replays delete, and it removes the
+   * placeholders when it completes. A copy of a delete into a next index a fill is building becomes
+   * a placeholder too, see {@link V3SearchDocumentWrite#redirectedToFill}.
    */
-  private void appendRunIds(
-      @Nonnull OperationContext opContext,
-      @Nonnull String indexKey,
-      @Nonnull String indexName,
-      @Nonnull String docId,
-      @Nonnull Urn urn,
-      @Nonnull List<String> runIds,
-      boolean carriesDelete,
-      boolean updateOnly) {
-    if (runIds.isEmpty()) {
-      return;
-    }
-    if (updateOnly) {
-      appendRunIdsToExistingDocument(opContext, indexName, docId, runIds);
-    } else {
-      for (String runId : runIds) {
-        elasticSearchService.appendRunIdBySearchGroup(opContext, indexKey, docId, urn, runId);
-      }
-    }
-    if (incrementalReindexWriteTargets == null) {
-      return;
-    }
-    incrementalReindexWriteTargets
-        .oldBackingIndexFor(indexName)
-        .ifPresent(
-            index -> {
-              if (updateOnly) {
-                appendRunIdsToExistingDocument(opContext, index, docId, runIds);
-              } else {
-                appendRunIdsOnIndex(opContext, index, docId, urn, runIds);
-              }
-            });
-    if (carriesDelete) {
-      incrementalReindexWriteTargets
-          .fillTargetFor(indexName)
-          .ifPresent(index -> appendRunIdsToExistingDocument(opContext, index, docId, runIds));
-    }
-  }
-
-  private void appendRunIdsToExistingDocument(
-      @Nonnull OperationContext opContext,
-      @Nonnull String indexName,
-      @Nonnull String docId,
-      @Nonnull List<String> runIds) {
-    for (String runId : runIds) {
-      elasticSearchService.appendRunIdToExistingDocument(opContext, indexName, docId, runId);
-    }
-  }
-
-  private void appendRunIdsOnIndex(
-      @Nonnull OperationContext opContext,
-      @Nonnull String indexName,
-      @Nonnull String docId,
-      @Nonnull Urn urn,
-      @Nonnull List<String> runIds) {
-    for (String runId : runIds) {
-      elasticSearchService.appendRunIdByIndexName(opContext, indexName, docId, urn, runId);
-    }
-  }
-
-  @Nonnull
-  private static List<String> distinctRunIds(@Nonnull List<MCLItem> events) {
-    return events.stream()
-        .filter(e -> e.getSystemMetadata() != null && e.getSystemMetadata().hasRunId())
-        .map(e -> e.getSystemMetadata().getRunId())
-        .distinct()
-        .collect(Collectors.toList());
-  }
-
-  private static void putRunIds(@Nonnull ObjectNode document, @Nonnull List<String> runIds) {
-    if (runIds.isEmpty()) {
-      return;
-    }
-    ArrayNode runIdArray = document.putArray(MappingConstants.RUN_ID_FIELD);
-    runIds.forEach(runIdArray::add);
+  private V3SearchDocumentWrite.Kind removalKind(@Nonnull final PreparedUrnBatch preparedBatch) {
+    final boolean filledInPlace =
+        incrementalReindexWriteTargets != null
+            && incrementalReindexWriteTargets
+                .activeFillTargetFor(preparedBatch.indexName())
+                .filter(preparedBatch.indexName()::equals)
+                .isPresent();
+    return preparedBatch.targetFill() || filledInPlace
+        ? V3SearchDocumentWrite.Kind.TOMBSTONE
+        : V3SearchDocumentWrite.Kind.DELETE;
   }
 
   /**
-   * Writes to the index and, while the index's alias has a swapped-out backing index awaiting
+   * Writes to the live index and, while the index's alias has a swapped-out backing index awaiting
    * rollback, repeats the identical write there, so the old backing index stays a faithful copy the
-   * alias can be swapped back to. The rollback copy never fails the write; a missed copy only
+   * alias can be swapped back to. The rollback copy never fails the live write; a missed copy only
    * degrades rollback fidelity.
    *
    * <p>A write that carries a delete is also repeated on the index a rebuild is filling for the
    * alias, while that fill is in flight: the alias still serves the old index, and catch-up
    * re-derives its window from primary storage, which holds nothing for a removed entity or aspect.
-   * The fill creates only absent documents, so a mirrored tombstone keeps the entity deleted. A
-   * mirrored merge only updates a document the fill already wrote, so it cannot leave a partial one
-   * for the fill to skip. Returns the mirrored write, so the batch can issue it again if its drain
-   * fails, and lets a failure to hand it to the bulk processor propagate: nothing replays a hard
-   * delete, so a mirror that does not land leaves the entity in the next index across the swap.
+   * The fill creates only absent documents, so a delete is mirrored as a tombstone that keeps the
+   * entity deleted. A mirrored merge only updates a document the fill already wrote, so it cannot
+   * leave a partial one for the fill to skip. Unlike the rollback copy, a mirrored delete that
+   * cannot be handed to the bulk processor fails the write as retryable: nothing replays a hard
+   * delete, so the consumer has to redeliver it.
    */
-  @Nonnull
-  private Optional<Runnable> writeV3Document(
-      @Nonnull OperationContext opContext,
-      @Nonnull V3SearchDocumentWrite write,
-      boolean carriesDelete) {
+  private void writeV3Document(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final V3SearchDocumentWrite write,
+      final boolean carriesDelete) {
     elasticSearchService.writeV3SearchDocument(opContext, write);
     if (incrementalReindexWriteTargets == null) {
-      return Optional.empty();
+      return;
     }
     incrementalReindexWriteTargets
         .oldBackingIndexFor(write.indexName())
         .ifPresent(oldBackingIndex -> writeRollbackCopy(opContext, write, oldBackingIndex));
-    if (!carriesDelete) {
-      return Optional.empty();
+    if (carriesDelete) {
+      incrementalReindexWriteTargets
+          .fillTargetFor(write.indexName())
+          .ifPresent(fillTarget -> writeFillTargetCopy(opContext, write, fillTarget));
     }
-    return incrementalReindexWriteTargets
-        .fillTargetFor(write.indexName())
-        .map(
-            fillTarget -> {
-              Runnable mirror =
-                  () ->
-                      elasticSearchService.writeV3SearchDocument(
-                          opContext, write.redirectedToFill(fillTarget));
-              mirror.run();
-              return mirror;
-            });
+  }
+
+  private void writeFillTargetCopy(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final V3SearchDocumentWrite write,
+      @Nonnull final String fillTarget) {
+    try {
+      elasticSearchService.writeV3SearchDocument(opContext, write.redirectedToFill(fillTarget));
+    } catch (RuntimeException e) {
+      throw new RetryableIndexingException(
+          String.format(
+              "Mirroring a delete into fill target '%s' failed for index '%s', urn '%s'",
+              fillTarget, write.indexName(), write.urn()),
+          e);
+    }
+  }
+
+  private static boolean carriesDelete(@Nonnull final PreparedUrnBatch preparedBatch) {
+    return preparedBatch.originalEvents().stream()
+        .anyMatch(event -> event.getChangeType() == ChangeType.DELETE);
   }
 
   private void writeRollbackCopy(
-      @Nonnull OperationContext opContext,
-      @Nonnull V3SearchDocumentWrite write,
-      @Nonnull String oldBackingIndex) {
+      @Nonnull final OperationContext opContext,
+      @Nonnull final V3SearchDocumentWrite write,
+      @Nonnull final String oldBackingIndex) {
     try {
       elasticSearchService.writeV3SearchDocument(opContext, write.redirectedTo(oldBackingIndex));
       incrementalReindexWriteTargets.recordDualWriteStarted(write.indexName());
@@ -832,611 +1516,184 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     }
   }
 
-  @Nonnull
-  private static String v3IndexName(@Nonnull OperationContext opContext, @Nonnull String indexKey) {
+  private static String v3IndexName(
+      @Nonnull final OperationContext opContext, @Nonnull final String searchGroup) {
     return opContext
         .getSearchContext()
         .getIndexConvention()
-        .getEntityIndexNameV3(opContext, indexKey);
+        .getEntityIndexNameV3(opContext, searchGroup);
   }
 
-  /**
-   * The physical index a baseline fill names on every event of {@code events}, or null when the
-   * batch is not such a fill and the write goes to the alias.
-   */
-  @Nullable
-  private static String fillTarget(@Nonnull List<MCLItem> events) {
-    String target = null;
+  private static CoalescedEvents coalesceFinalEvents(@Nonnull final List<MCLItem> events) {
+    final Map<String, MCLItem> finalEventsByAspect = new LinkedHashMap<>();
+    final Map<String, RecordTemplate> earliestPreviousByAspect = new LinkedHashMap<>();
     for (MCLItem event : events) {
-      String mode = backfillMode(event);
-      if (mode == null) {
-        continue;
+      final String aspectName = event.getAspectName();
+      if (!earliestPreviousByAspect.containsKey(aspectName)) {
+        earliestPreviousByAspect.put(aspectName, event.getPreviousRecordTemplate());
       }
-      if (!BackfillHeaders.MODE_BASELINE.equalsIgnoreCase(mode)) {
-        return null;
-      }
-      String named =
-          event.getMetadataChangeLog().getHeaders().get(BackfillHeaders.TARGET_INDEX_HEADER_NAME);
-      if (named == null || named.isEmpty() || (target != null && !target.equals(named))) {
-        return null;
-      }
-      target = named;
+      finalEventsByAspect.remove(aspectName);
+      finalEventsByAspect.put(aspectName, event);
     }
-    return target;
+    return new CoalescedEvents(
+        new ArrayList<>(finalEventsByAspect.values()), earliestPreviousByAspect);
   }
 
-  private static boolean isBackfillEvent(@Nonnull MCLItem event) {
-    return backfillMode(event) != null;
-  }
-
-  private static boolean isBaselineBatch(@Nonnull List<MCLItem> events) {
-    boolean sawBackfill = false;
-    for (MCLItem event : events) {
-      String mode = backfillMode(event);
-      if (mode == null) {
-        continue;
-      }
-      sawBackfill = true;
-      if (!BackfillHeaders.MODE_BASELINE.equalsIgnoreCase(mode)) {
-        return false;
-      }
-    }
-    return sawBackfill;
-  }
-
-  private static boolean carriesDelete(@Nonnull List<MCLItem> events) {
-    return events.stream().anyMatch(event -> event.getChangeType() == ChangeType.DELETE);
-  }
-
-  /**
-   * True when this alias is the index an in-place fill is creating and the batch holds only
-   * timeseries aspects. Creating a document here would block that fill, and catch-up never sees the
-   * batch.
-   */
-  private boolean timeseriesOnlyDuringInPlaceFill(
-      @Nonnull String indexName, @Nonnull List<MCLItem> events) {
-    if (incrementalReindexWriteTargets == null
-        || events.isEmpty()
-        || incrementalReindexWriteTargets
-            .activeFillTargetFor(indexName)
-            .filter(indexName::equals)
-            .isEmpty()) {
-      return false;
-    }
+  private static List<String> getDistinctRunIds(@Nonnull final List<MCLItem> events) {
     return events.stream()
-        .allMatch(event -> event.getAspectSpec() != null && event.getAspectSpec().isTimeseries());
-  }
-
-  /** The backfill mode stamped on a replayed event, or null for a live write. */
-  @Nullable
-  private static String backfillMode(@Nonnull MCLItem event) {
-    return event.getMetadataChangeLog() != null && event.getMetadataChangeLog().getHeaders() != null
-        ? event.getMetadataChangeLog().getHeaders().get(BackfillHeaders.MODE_HEADER_NAME)
-        : null;
-  }
-
-  /**
-   * Builds a V3 search document by combining multiple aspects into a single document with _aspect
-   * structure.
-   *
-   * @param opContext the operation context
-   * @param urn the URN of the entity
-   * @param events the events for this URN
-   * @param removedAspects aspects a catch-up replay found in the document but not in storage, as
-   *     aspect name to the field names the document holds for it; empty for a live write
-   * @param indexedFields the raw per-URN field map the index reported for a catch-up replay; empty
-   *     for a live write
-   * @return the combined V3 document or null if no aspects to process
-   */
-  private ObjectNode buildV3SearchDocument(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn urn,
-      @Nonnull List<MCLItem> events,
-      @Nonnull Map<String, Set<String>> removedAspects,
-      @Nonnull Map<String, Set<String>> indexedFields,
-      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
-
-    EntitySpec entitySpec = events.get(0).getEntitySpec();
-    String entityType = entitySpec.getName();
-    ObjectNode combinedDocument =
-        searchDocumentProjector.newEntityDocument(urn, entitySpec, opContext.getEntityRegistry());
-
-    boolean hasAnyAspects = false;
-    List<BatchProjection> projections = new ArrayList<>();
-    Set<String> changedRootFields = new HashSet<>();
-
-    for (CoalescedAspectEvent coalesced : coalesceAspectEvents(events)) {
-      MCLItem event = coalesced.event();
-      try {
-        if (isUnchanged(coalesced)) {
-          opContext
-              .getMetricUtils()
-              .ifPresent(
-                  metricUtils ->
-                      metricUtils.increment(this.getClass(), "search_diff_no_changes_detected", 1));
-          // Unchanged, so there is nothing to diff against
-          searchDocumentProjector
-              .projectAspect(opContext, event, null)
-              .ifPresent(unchanged -> projections.add(new BatchProjection(unchanged, true)));
-          continue;
-        }
-        AspectSpec aspectSpec = event.getAspectSpec();
-        String aspectName = aspectSpec.getName();
-
-        // Throttle live timeseries writes; a fill carries only the latest value, once
-        if (aspectSpec.isTimeseries()
-            && timeseriesThrottleCache != null
-            && !isBackfillEvent(event)) {
-          long eventTimeMs =
-              event.getAuditStamp() != null
-                  ? event.getAuditStamp().getTime()
-                  : System.currentTimeMillis();
-          if (timeseriesThrottleCache.shouldThrottle(
-              event.getEntitySpec().getName(), urn.toString(), aspectName, eventTimeMs)) {
-            if (timeseriesThrottleCache.isEntityIndexEnabled()) {
-              if (throttleSummary != null) {
-                throttleSummary.recordSuppressed(
-                    TimeseriesWriteThrottleCache.ThrottleTarget.ENTITY_INDEX);
-              }
-              continue;
-            }
-            if (timeseriesThrottleCache.isObserveEnabled() && throttleSummary != null) {
-              throttleSummary.recordObserved();
-            }
-          }
-        }
-
-        // Each aspect's fields go to the document root and under _aspects.<aspect>; structured
-        // properties go to the root only. In V3, timeseries aspects are treated the same as other
-        // versioned aspects.
-        Optional<V3SearchDocumentProjector.ProjectedAspect> projectedAspect =
-            searchDocumentProjector.projectAspect(opContext, event, coalesced.baseline());
-        if (projectedAspect.isPresent()) {
-          projections.add(new BatchProjection(projectedAspect.get(), false));
-          projectedAspect.get().rootFields().fieldNames().forEachRemaining(changedRootFields::add);
-          hasAnyAspects = true;
-
-          // recordWrite is handled by UpdateIndicesService after all strategies have processed
-          if (aspectSpec.isTimeseries() && throttleSummary != null) {
-            throttleSummary.recordWritten(TimeseriesWriteThrottleCache.ThrottleTarget.ENTITY_INDEX);
-          }
-
-          if (aspectSpec.isTimeseries()) {
-            log.debug(
-                "V3 included timeseries aspect {} in combined document for URN: {}",
-                aspectName,
-                urn);
-          } else {
-            log.debug(
-                "V3 included versioned aspect {} in combined document for URN: {}",
-                aspectName,
-                urn);
-          }
-        }
-
-      } catch (Exception e) {
-        log.error(
-            "Error processing aspect {} for URN {}: {}",
-            event.getAspectName(),
-            urn,
-            e.getMessage(),
-            e);
-      }
-    }
-
-    if (!hasAnyAspects && removedAspects.isEmpty()) {
-      return null;
-    }
-
-    // Aspects the batch left unchanged are not rewritten, but they keep their place in the order
-    // for the root fields a changed aspect writes, so a shared root field ends with the value of
-    // the last aspect in the batch that sets it
-    for (BatchProjection projection : projections) {
-      searchDocumentProjector.applyProjection(
-          combinedDocument,
-          projection.unchanged()
-              ? sharedRootValues(projection.projected(), changedRootFields)
-              : keepBatchRootValues(combinedDocument, projection.projected()));
-    }
-
-    Set<String> timeseriesRootFields = timeseriesRootFields(entitySpec, indexedFields);
-    removeAspects(combinedDocument, removedAspects, timeseriesRootFields);
-    liftSemanticEmbeddingsToRoot(entityType, combinedDocument);
-
-    applyDocumentContributors(opContext, urn, combinedDocument);
-    if (isCatchUpBatch(events)) {
-      clearStaleCatchUpFields(combinedDocument, events, indexedFields, timeseriesRootFields);
-    } else if (!isBaselineBatch(events)) {
-      // A SQL restate has no previous aspect, so the partial upsert would keep structured-property
-      // fields the aspect no longer sets. Null the mapped ones. Catch-up already clears from the
-      // document it read; a baseline fill creates the whole document, so there is nothing to null.
-      nullRemovedStructuredProperties(opContext, events, combinedDocument);
-    }
-    return combinedDocument;
-  }
-
-  /**
-   * Nulls mapped structured-property keys the finished document does not set. Skipped when the
-   * batch is not a structuredProperties RESTATE with a null previous value, or when the mapping
-   * cannot be read. The parent {@code structuredProperties} key is left alone.
-   */
-  private void nullRemovedStructuredProperties(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<MCLItem> events,
-      @Nonnull ObjectNode document) {
-    if (structuredPropertyMappingCache == null
-        || !structuredPropertyMappingCache.isEnabled()
-        || isCatchUpBatch(events)
-        || !restatesStructuredPropertiesWithoutPrevious(events)) {
-      return;
-    }
-    String indexName = fillTarget(events);
-    if (indexName == null) {
-      indexName =
-          opContext
-              .getSearchContext()
-              .getIndexConvention()
-              .getEntityIndexNameV3(opContext, v3IndexKey(events.get(0).getEntitySpec()));
-    }
-    Optional<Set<String>> fields = structuredPropertyMappingCache.fields(opContext, indexName);
-    if (fields.isEmpty()) {
-      return;
-    }
-    nullMissingStructuredPropertyKeys(document, fields.get());
-  }
-
-  /**
-   * True when the batch restates structured properties and no structured-properties event in it has
-   * a previous value. A previous value is already diffed into nulls by the projector.
-   */
-  private static boolean restatesStructuredPropertiesWithoutPrevious(
-      @Nonnull List<MCLItem> events) {
-    boolean restate = false;
-    for (MCLItem event : events) {
-      if (!isStructuredProperties(event)) {
-        continue;
-      }
-      if (event.getPreviousRecordTemplate() != null) {
-        return false;
-      }
-      if (event.getChangeType() == ChangeType.RESTATE && event.getRecordTemplate() != null) {
-        restate = true;
-      }
-    }
-    return restate;
-  }
-
-  private static boolean isStructuredProperties(@Nonnull MCLItem event) {
-    if (event.getAspectSpec() != null
-        && Constants.STRUCTURED_PROPERTIES_ASPECT_NAME.equals(event.getAspectSpec().getName())) {
-      return true;
-    }
-    return Constants.STRUCTURED_PROPERTIES_ASPECT_NAME.equals(event.getAspectName());
-  }
-
-  /**
-   * Nulls what the document holds for aspects primary storage no longer has, as a catch-up replay
-   * found them in the index: the entry under {@code _aspects} and the root fields the aspect
-   * projected, except a root field an aspect of this batch still sets, which keeps its value, a
-   * root field a timeseries aspect in the index still holds, and the fields the strategy itself
-   * owns. Structured properties are dotted root keys, so losing that aspect nulls those keys and
-   * leaves the parent key alone. The merge the document is written with then clears them.
-   */
-  private static void removeAspects(
-      @Nonnull ObjectNode document,
-      @Nonnull Map<String, Set<String>> removedAspects,
-      @Nonnull Set<String> timeseriesRootFields) {
-    if (removedAspects.isEmpty()) {
-      return;
-    }
-    JsonNode existing = document.get(MappingConstants.ASPECTS_FIELD_NAME);
-    ObjectNode aspects =
-        existing instanceof ObjectNode node
-            ? node
-            : document.putObject(MappingConstants.ASPECTS_FIELD_NAME);
-    removedAspects.forEach(
-        (aspectName, fields) -> {
-          if (Constants.STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectName)) {
-            nullMissingStructuredPropertyKeys(document, fields);
-            return;
-          }
-          aspects.putNull(aspectName);
-          for (String field : fields) {
-            if (rootFieldKept(document, field, timeseriesRootFields)) {
-              continue;
-            }
-            nullIfAbsent(document, field);
-          }
-        });
-  }
-
-  /**
-   * After a catch-up document is fully built, nulls index fields the restate no longer sets. A
-   * child missing from a restated aspect is nulled under {@code _aspects} and, when the finished
-   * document has no value there, at the root. A key missing from an object field the document still
-   * has, such as {@code customProperties}, is nulled inside that object. A root field a timeseries
-   * aspect in the index still holds, or that the strategy owns, stays. Structured properties are
-   * dotted root keys the finished document does not set; the parent key is left alone. A leftover
-   * {@code _aspects.structuredProperties} entry is nulled without reading its children as those
-   * keys.
-   */
-  private static void clearStaleCatchUpFields(
-      @Nonnull ObjectNode document,
-      @Nonnull List<MCLItem> events,
-      @Nonnull Map<String, Set<String>> indexedFields,
-      @Nonnull Set<String> timeseriesRootFields) {
-    if (indexedFields.isEmpty()) {
-      return;
-    }
-    nullMissingStructuredPropertyKeys(
-        document,
-        indexedFields.getOrDefault(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME, Set.of()));
-    if (indexedFields.containsKey(ESSearchDAO.STALE_ASPECTS_STRUCTURED_PROPERTIES)) {
-      aspectsObject(document).putNull(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME);
-    }
-
-    Set<String> restated = new HashSet<>();
-    for (MCLItem event : events) {
-      if (event.getChangeType() == ChangeType.RESTATE && event.getRecordTemplate() != null) {
-        restated.add(event.getAspectName());
-      }
-    }
-    JsonNode aspectsNode = document.get(MappingConstants.ASPECTS_FIELD_NAME);
-    ObjectNode aspects = aspectsNode instanceof ObjectNode node ? node : null;
-    for (String aspectName : restated) {
-      if (Constants.STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectName)) {
-        continue;
-      }
-      Set<String> fields = indexedFields.get(aspectName);
-      if (fields == null) {
-        continue;
-      }
-      JsonNode aspectNode = aspects == null ? null : aspects.get(aspectName);
-      ObjectNode aspect = aspectNode instanceof ObjectNode node ? node : null;
-      for (String field : fields) {
-        if (aspect != null && !STRATEGY_OWNED_DOCUMENT_FIELDS.contains(field)) {
-          nullIfAbsent(aspect, field);
-        }
-        if (rootFieldKept(document, field, timeseriesRootFields)) {
-          continue;
-        }
-        nullIfAbsent(document, field);
-      }
-    }
-  }
-
-  /** Dotted {@code structuredProperties.<name>} keys the document does not already set. */
-  private static void nullMissingStructuredPropertyKeys(
-      @Nonnull ObjectNode document, @Nonnull Set<String> fields) {
-    for (String field : fields) {
-      if (isStructuredPropertyKey(field) && !document.hasNonNull(field)) {
-        document.putNull(field);
-      }
-    }
-  }
-
-  private static boolean isStructuredPropertyKey(@Nonnull String field) {
-    return field.startsWith(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME + ".");
-  }
-
-  /**
-   * A root field the catch-up document already sets, that a timeseries aspect in the index holds,
-   * or that the strategy owns, is not nulled.
-   */
-  private static boolean rootFieldKept(
-      @Nonnull ObjectNode document,
-      @Nonnull String field,
-      @Nonnull Set<String> timeseriesRootFields) {
-    return STRATEGY_OWNED_DOCUMENT_FIELDS.contains(field)
-        || V3SearchDocumentProjector.SYSTEM_METADATA_FIELD.equals(field)
-        || timeseriesRootFields.contains(field)
-        || valuePresent(document, field);
-  }
-
-  /**
-   * Nulls {@code path} where the finished document does not already have it. A path with {@link
-   * ESSearchDAO#NESTED_FIELD_SEPARATOR} is a key inside an object field; the child is nulled only
-   * when that object is present, so a missing parent is cleared by its own top-level name rather
-   * than by inventing the object here.
-   */
-  private static void nullIfAbsent(@Nonnull ObjectNode root, @Nonnull String path) {
-    String[] parts = path.split(ESSearchDAO.NESTED_FIELD_SEPARATOR, -1);
-    ObjectNode node = root;
-    for (int i = 0; i < parts.length - 1; i++) {
-      JsonNode child = node.get(parts[i]);
-      if (!(child instanceof ObjectNode object)) {
-        return;
-      }
-      node = object;
-    }
-    if (!node.has(parts[parts.length - 1])) {
-      node.putNull(parts[parts.length - 1]);
-    }
-  }
-
-  private static boolean valuePresent(@Nonnull ObjectNode root, @Nonnull String path) {
-    String[] parts = path.split(ESSearchDAO.NESTED_FIELD_SEPARATOR, -1);
-    JsonNode node = root;
-    for (String part : parts) {
-      if (!(node instanceof ObjectNode object) || !object.has(part) || object.get(part).isNull()) {
-        return false;
-      }
-      node = object.get(part);
-    }
-    return true;
-  }
-
-  /**
-   * Root fields the timeseries aspects the index reports still hold. A catch-up replay rebuilds
-   * versioned aspects only, so neither a removed aspect nor a restate that no longer sets one of
-   * these fields may null it.
-   */
-  @Nonnull
-  private static Set<String> timeseriesRootFields(
-      @Nonnull EntitySpec entitySpec, @Nonnull Map<String, Set<String>> indexedFields) {
-    Set<String> fields = new HashSet<>();
-    indexedFields.forEach(
-        (aspectName, aspectFields) -> {
-          if (isTimeseriesAspect(entitySpec, aspectName)) {
-            fields.addAll(aspectFields);
-          }
-        });
-    return fields;
-  }
-
-  private static boolean isTimeseriesAspect(
-      @Nonnull EntitySpec entitySpec, @Nonnull String aspectName) {
-    return Boolean.TRUE.equals(entitySpec.hasAspect(aspectName))
-        && entitySpec.getAspectSpec(aspectName).isTimeseries();
-  }
-
-  private static boolean isCatchUpBatch(@Nonnull List<MCLItem> events) {
-    return events.stream()
-        .anyMatch(event -> BackfillHeaders.MODE_CATCH_UP.equalsIgnoreCase(backfillMode(event)));
-  }
-
-  @Nonnull
-  private static ObjectNode aspectsObject(@Nonnull ObjectNode document) {
-    JsonNode existing = document.get(MappingConstants.ASPECTS_FIELD_NAME);
-    return existing instanceof ObjectNode node
-        ? node
-        : document.putObject(MappingConstants.ASPECTS_FIELD_NAME);
-  }
-
-  /**
-   * The event that writes an aspect, the aspect value to diff it against, and whether the aspect
-   * must be written even when that value equals the last one.
-   */
-  private record CoalescedAspectEvent(
-      @Nonnull MCLItem event, @Nullable RecordTemplate baseline, boolean mustWrite) {}
-
-  private static boolean isForceIndexing(@Nonnull MCLItem event) {
-    SystemMetadata systemMetadata = event.getSystemMetadata();
-    return systemMetadata != null
-        && systemMetadata.getProperties() != null
-        && Boolean.parseBoolean(systemMetadata.getProperties().get(Constants.FORCE_INDEXING_KEY));
-  }
-
-  /** An aspect's projection, and whether the batch left the aspect unchanged. */
-  private record BatchProjection(
-      @Nonnull V3SearchDocumentProjector.ProjectedAspect projected, boolean unchanged) {}
-
-  /**
-   * One event per aspect, in order of first appearance: the last event in the batch, diffed against
-   * the first previous value of the batch, as V2 does when it coalesces a batch. That value is what
-   * the index held before the batch, or, when the batch restated the aspect, the value it held
-   * right after that, so removal nulls cover every field the batch dropped; diffing each event
-   * against its own predecessor would lose the nulls of all but the last event under {@code
-   * _aspects.<aspect>}, which each event replaces. An aspect the batch created has no baseline: the
-   * index held none of its values, and a null for one could only clear a root field another aspect
-   * supplies. An aspect the batch created or forced is always written.
-   *
-   * <p>Two aspects can project the same root field (e.g. corpuser displayName from CorpUserInfo and
-   * CorpUserEditableInfo). Root fields are last-write-wins, so user-edited override aspects are
-   * applied after their ingested base aspect.
-   */
-  @Nonnull
-  private static List<CoalescedAspectEvent> coalesceAspectEvents(@Nonnull List<MCLItem> events) {
-    Map<String, MCLItem> lastEventByAspect = new LinkedHashMap<>();
-    Map<String, RecordTemplate> baselineByAspect = new HashMap<>();
-    // Aspects the batch must write even if their value looks unchanged: the index may not hold the
-    // first event's value (it had no previous value), or an event forces indexing
-    Set<String> mustWrite = new HashSet<>();
-    Set<String> created = new HashSet<>();
-    for (MCLItem event : events) {
-      String aspectName = event.getAspectName();
-      if (!lastEventByAspect.containsKey(aspectName) && event.getPreviousRecordTemplate() == null) {
-        mustWrite.add(aspectName);
-        if (event.getChangeType() != ChangeType.RESTATE) {
-          created.add(aspectName);
-        }
-      }
-      if (isForceIndexing(event)) {
-        mustWrite.add(aspectName);
-      }
-      // A restate carries no previous value, so a later event's previous value is the baseline
-      if (baselineByAspect.get(aspectName) == null && !created.contains(aspectName)) {
-        baselineByAspect.put(aspectName, event.getPreviousRecordTemplate());
-      }
-      lastEventByAspect.put(aspectName, event);
-    }
-    return lastEventByAspect.entrySet().stream()
-        .sorted(Comparator.comparing(entry -> isEditableOverrideAspect(entry.getKey())))
-        .map(
-            entry ->
-                new CoalescedAspectEvent(
-                    entry.getValue(),
-                    baselineByAspect.get(entry.getKey()),
-                    mustWrite.contains(entry.getKey())))
+        .filter(e -> e.getSystemMetadata() != null && e.getSystemMetadata().hasRunId())
+        .map(e -> e.getSystemMetadata().getRunId())
+        .distinct()
         .collect(Collectors.toList());
   }
 
   /**
-   * Skips an aspect whose value did not change, as V2 does outside forced indexing. Rewriting it
-   * would let an unchanged base aspect overwrite the root value of its user-edited override.
+   * Builds a V3 search document by hydrating latest primary-storage aspect state and overlaying the
+   * current batch's changed aspects into a single document with _aspect structure.
+   *
+   * @param opContext the operation context
+   * @param urn the URN of the entity
+   * @param events the events for this URN
+   * @return the combined V3 document or null if no aspects to process
    */
-  private static boolean isUnchanged(@Nonnull CoalescedAspectEvent coalesced) {
-    MCLItem event = coalesced.event();
-    return !coalesced.mustWrite()
-        && event.getChangeType() != ChangeType.DELETE
-        && coalesced.baseline() != null
-        && event.getRecordTemplate() != null
-        && coalesced.baseline().data() != null
-        && coalesced.baseline().data().equals(event.getRecordTemplate().data());
-  }
+  private V3DocumentBuildResult buildV3SearchDocument(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull List<MCLItem> events,
+      @Nonnull Map<String, AspectSpec> searchableTimeseriesAspectSpecs,
+      @Nonnull Map<String, EnvelopedAspect> latestTimeseriesAspects,
+      @Nonnull Map<String, SystemAspect> latestStoredAspects,
+      @Nonnull Optional<Map<String, Object>> existingSource,
+      final boolean overlayEvents,
+      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
 
-  /**
-   * A null root value means the aspect dropped the field. When an aspect applied earlier in the
-   * batch still sets it, as when a user-edited displayName is removed while the ingested one stays,
-   * the earlier value is kept; the null still clears the field under {@code _aspects.<aspect>}.
-   */
-  @Nonnull
-  private static V3SearchDocumentProjector.ProjectedAspect keepBatchRootValues(
-      @Nonnull ObjectNode document, @Nonnull V3SearchDocumentProjector.ProjectedAspect projected) {
-    ObjectNode rootFields = projected.rootFields().deepCopy();
-    List<String> setEarlier = new ArrayList<>();
-    rootFields
-        .fieldNames()
-        .forEachRemaining(
-            name -> {
-              if (rootFields.get(name).isNull() && document.hasNonNull(name)) {
-                setEarlier.add(name);
-              }
-            });
-    rootFields.remove(setEarlier);
-    return new V3SearchDocumentProjector.ProjectedAspect(
-        projected.aspectName(), rootFields, projected.aspectFields(), projected.rootOnly());
-  }
+    final EntitySpec entitySpec = events.get(0).getEntitySpec();
+    final String entityType = entitySpec.getName();
+    final ObjectNode combinedDocument =
+        searchDocumentProjector.newEntityDocument(urn, entitySpec, opContext.getEntityRegistry());
+    final Set<String> deletedAspectNames = getDeletedAspectNames(events);
+    // Honor a live DELETE only when primary hydration confirms the aspect is gone. If the aspect
+    // is still present in primary, the DELETE is stale — it was re-ingested afterwards — and
+    // masking it would erase the field from the rebuilt document (the key-aspect case is decided
+    // the same way by the tombstone check before this method). A
+    // version comparison is not usable here: aspect versions restart after a full delete, so
+    // presence in primary is the authoritative signal, matching the catch-up path where
+    // hydration always wins. Timeseries aspects are absent from latestStoredAspects and keep
+    // their delete masking.
+    deletedAspectNames.removeIf(latestStoredAspects::containsKey);
+    final List<SystemMetadata> latestSystemMetadata = new ArrayList<>();
 
-  /**
-   * The root values of an unchanged aspect, limited to the root fields a changed aspect of the
-   * batch writes. Its other root fields and its {@code _aspects.<aspect>} entry are not rewritten,
-   * so an unchanged aspect cannot overwrite a value another aspect set in an earlier batch.
-   */
-  @Nonnull
-  private static V3SearchDocumentProjector.ProjectedAspect sharedRootValues(
-      @Nonnull V3SearchDocumentProjector.ProjectedAspect unchanged,
-      @Nonnull Set<String> changedRootFields) {
-    ObjectNode rootFields = JsonNodeFactory.instance.objectNode();
-    unchanged
-        .rootFields()
-        .fieldNames()
-        .forEachRemaining(
-            name -> {
-              if (changedRootFields.contains(name) && unchanged.rootFields().hasNonNull(name)) {
-                rootFields.set(name, unchanged.rootFields().get(name).deepCopy());
-              }
-            });
-    return new V3SearchDocumentProjector.ProjectedAspect(
-        unchanged.aspectName(), rootFields, JsonNodeFactory.instance.objectNode(), true);
-  }
+    boolean hasAnyAspects = false;
+    final Set<String> projectedTimeseriesAspectNames = new LinkedHashSet<>();
+    hasAnyAspects |=
+        applyLatestTimeseriesAspects(
+            opContext,
+            urn,
+            entitySpec,
+            searchableTimeseriesAspectSpecs,
+            latestTimeseriesAspects,
+            deletedAspectNames,
+            combinedDocument,
+            latestSystemMetadata,
+            projectedTimeseriesAspectNames);
+    hasAnyAspects |=
+        applyExistingTimeseriesProjections(
+            opContext,
+            searchableTimeseriesAspectSpecs,
+            projectedTimeseriesAspectNames,
+            deletedAspectNames,
+            existingSource,
+            combinedDocument);
+    hasAnyAspects |=
+        applyLatestStoredAspects(
+            opContext,
+            latestStoredAspects,
+            deletedAspectNames,
+            combinedDocument,
+            latestSystemMetadata);
 
-  // DataHub names user-override aspects with "editable"/"Editable" (corpUserEditableInfo,
-  // corpGroupEditableInfo, editableDatasetProperties, editableSchemaMetadata, ...). These overrides
-  // conventionally take precedence over their ingested base aspect, so they are applied last when
-  // resolving a shared root convenience field.
-  private static boolean isEditableOverrideAspect(@Nullable final String aspectName) {
-    return aspectName != null && aspectName.toLowerCase(Locale.ROOT).contains("editable");
+    // When the batch itself was the stored state, its aspects were applied above in stored-aspect
+    // order; overlaying them again in event order would let page order decide root-field winners.
+    for (MCLItem event : overlayEvents ? events : Collections.<MCLItem>emptyList()) {
+      AspectSpec aspectSpec = event.getAspectSpec();
+      String aspectName = aspectSpec.getName();
+
+      if (ChangeType.DELETE.equals(event.getChangeType())) {
+        continue;
+      }
+      if (isCatchUpBackfillEvent(event)) {
+        continue;
+      }
+      // A delayed live event can carry an older aspect value than what authoritative PRIMARY
+      // hydration just read; overlaying it would regress the field in the whole document written
+      // here. Skip the overlay only when the stored aspect is
+      // verifiably newer — a lower system-metadata version within the same incarnation, or an
+      // emit timestamp before the stored aspect's creation (which catches a hard delete + recreate
+      // where per-aspect versions restart). Missing signals fall through to overlay so
+      // read-your-writes holds. A delayed UPSERT for an aspect already hard-deleted from PRIMARY
+      // (absent from hydration entirely) can still transiently reappear until the aspect's next
+      // event; robustly suppressing that needs a primary-storage deletion high-water mark that
+      // does not exist yet (tracked separately).
+      if (!aspectSpec.isTimeseries()
+          && isOlderThanStored(event, latestStoredAspects.get(aspectName))) {
+        log.debug(
+            "V3 skipped overlay of stale aspect {} for URN: {} (primary has a newer version)",
+            aspectName,
+            urn);
+        continue;
+      }
+
+      // Throttle timeseries aspects for entity index writes
+      if (aspectSpec.isTimeseries() && timeseriesThrottleCache != null) {
+        long eventTimeMs =
+            event.getAuditStamp() != null
+                ? event.getAuditStamp().getTime()
+                : System.currentTimeMillis();
+        if (timeseriesThrottleCache.shouldThrottle(
+            event.getEntitySpec().getName(), urn.toString(), aspectName, eventTimeMs)) {
+          if (timeseriesThrottleCache.isEntityIndexEnabled()) {
+            if (throttleSummary != null) {
+              throttleSummary.recordSuppressed(
+                  TimeseriesWriteThrottleCache.ThrottleTarget.ENTITY_INDEX);
+            }
+            continue;
+          }
+          if (timeseriesThrottleCache.isObserveEnabled() && throttleSummary != null) {
+            throttleSummary.recordObserved();
+          }
+        }
+      }
+
+      Optional<V3SearchDocumentProjector.ProjectedAspect> projectedAspect =
+          searchDocumentProjector.projectAspect(
+              opContext, event, event.getPreviousRecordTemplate());
+      if (projectedAspect.isPresent()) {
+        searchDocumentProjector.applyProjection(combinedDocument, projectedAspect.get());
+        hasAnyAspects = true;
+
+        // recordWrite is handled by UpdateIndicesService after all strategies have processed
+        if (aspectSpec.isTimeseries() && throttleSummary != null) {
+          throttleSummary.recordWritten(TimeseriesWriteThrottleCache.ThrottleTarget.ENTITY_INDEX);
+        }
+
+        if (aspectSpec.isTimeseries()) {
+          log.debug(
+              "V3 included timeseries aspect {} in combined document for URN: {}", aspectName, urn);
+        } else {
+          log.debug(
+              "V3 included versioned aspect {} in combined document for URN: {}", aspectName, urn);
+        }
+      }
+    }
+
+    if (!hasAnyAspects && deletedAspectNames.isEmpty()) {
+      return null;
+    }
+
+    liftSemanticEmbeddingsToRoot(entityType, combinedDocument);
+
+    applyDocumentContributors(opContext, urn, combinedDocument);
+    return new V3DocumentBuildResult(combinedDocument, latestSystemMetadata);
   }
 
   private void liftSemanticEmbeddingsToRoot(
@@ -1463,9 +1720,11 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   }
 
   private void applyDocumentContributors(
-      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull ObjectNode document) {
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final ObjectNode document) {
     for (V3SearchDocumentContributor contributor : documentContributors) {
-      ObjectNode extras = JsonNodeFactory.instance.objectNode();
+      final ObjectNode extras = JsonNodeFactory.instance.objectNode();
       contributor.contribute(opContext, urn, extras);
       extras
           .fields()
@@ -1484,8 +1743,436 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     }
   }
 
-  @Nonnull
-  private String v3IndexKey(@Nonnull EntitySpec entitySpec) {
-    return V3IndexKeys.resolve(entitySpec);
+  /**
+   * True when the event is older than the hydrated stored aspect. Uses the system-metadata version
+   * when both sides carry one (precise within a single entity incarnation), and additionally treats
+   * the event as stale when its emit timestamp is strictly before the stored aspect's creation
+   * time. The timestamp guard catches a hard delete + recreate, where per-aspect versions restart
+   * from 1 and a delayed pre-delete event can carry a numerically-higher version than the recreated
+   * aspect — its emit time still precedes the recreated aspect's creation. Missing or zero signals
+   * fall through so read-your-writes is preserved.
+   */
+  private static boolean isOlderThanStored(
+      @Nonnull final MCLItem event, @Nullable final SystemAspect storedAspect) {
+    if (storedAspect == null) {
+      return false;
+    }
+    final Optional<Long> storedVersion = storedAspect.getSystemMetadataVersion();
+    final Optional<Long> eventVersion =
+        Optional.ofNullable(event.getSystemMetadata())
+            .filter(SystemMetadata::hasVersion)
+            .map(SystemMetadata::getVersion)
+            .flatMap(UpdateIndicesV3Strategy::parseVersion);
+    if (storedVersion.isPresent()
+        && eventVersion.isPresent()
+        && eventVersion.get() < storedVersion.get()) {
+      return true;
+    }
+    final long eventEmitTime =
+        event.getSystemMetadata() != null ? event.getSystemMetadata().getLastObserved() : 0L;
+    final long storedCreatedTime =
+        storedAspect.getCreatedOn() != null ? storedAspect.getCreatedOn().getTime() : 0L;
+    return eventEmitTime > 0 && storedCreatedTime > 0 && eventEmitTime < storedCreatedTime;
   }
+
+  // systemMetadata.version is a free-form string; treat a non-numeric event version as "no version"
+  // so a malformed value falls through to the timestamp guard instead of dropping the write with a
+  // NumberFormatException. The stored side is guarded the same way in SystemAspect.
+  private static Optional<Long> parseVersion(@Nonnull final String version) {
+    try {
+      return Optional.of(Long.parseLong(version));
+    } catch (NumberFormatException e) {
+      return Optional.empty();
+    }
+  }
+
+  private Map<String, SystemAspect> hydrateLatestStoredAspects(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final EntitySpec entitySpec) {
+    final Set<String> aspectNames =
+        entitySpec.getAspectSpecs().stream()
+            .filter(aspectSpec -> !aspectSpec.isTimeseries())
+            .map(AspectSpec::getName)
+            .collect(Collectors.toSet());
+    if (aspectNames.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    // Force PRIMARY: this hydration is the authoritative source for a full-document REPLACE, so a
+    // read pool replica lagging behind PRIMARY (EBEAN_READ_POOL_ENABLED /
+    // CASSANDRA_READ_POOL_ENABLED)
+    // could omit a recently-written aspect and drop it from the rebuilt document, which a fill then
+    // keeps, since it never overwrites a document it already wrote. Only re-wrap when
+    // the context is not already PRIMARY (the default), so the common path keeps the same context
+    // instance; this read takes no row locks.
+    final boolean alreadyPrimary =
+        opContext.getPrimaryStorageContext() == null
+            || opContext.getPrimaryStorageContext().getReadPreference() == ReadPreference.PRIMARY;
+    final OperationContext primaryContext =
+        alreadyPrimary ? opContext : opContext.withReadPreference(ReadPreference.PRIMARY);
+    return readWithRetry(
+        primaryContext,
+        PRIMARY_HYDRATION_FAILURE_METRIC,
+        "hydrate latest primary-storage aspects for " + urn,
+        () ->
+            Optional.ofNullable(
+                    primaryContext
+                        .getAspectRetriever()
+                        .getLatestSystemAspects(primaryContext, Map.of(urn, aspectNames)))
+                .orElse(Collections.emptyMap())
+                .getOrDefault(urn, Collections.emptyMap()));
+  }
+
+  // DataHub names user-override aspects with "editable"/"Editable" (corpUserEditableInfo,
+  // corpGroupEditableInfo, editableDatasetProperties, editableSchemaMetadata, ...). These overrides
+  // conventionally take precedence over their ingested base aspect, so they are applied last when
+  // resolving a shared root convenience field.
+  private static boolean isEditableOverrideAspect(@Nonnull final String aspectName) {
+    return aspectName.toLowerCase(Locale.ROOT).contains("editable");
+  }
+
+  private boolean applyLatestStoredAspects(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Map<String, SystemAspect> latestAspects,
+      @Nonnull final Set<String> deletedAspectNames,
+      @Nonnull final ObjectNode combinedDocument,
+      @Nonnull final List<SystemMetadata> latestSystemMetadata) {
+    boolean hasAnyAspects = false;
+    // Two stored aspects can project the same root convenience field (e.g. corpuser displayName
+    // from CorpUserInfo and CorpUserEditableInfo, or dataset deprecated); applyProjection is
+    // last-write-wins on those root fields while per-aspect values stay under _aspects.<name>.
+    // Apply the user-editable override aspect last so it wins the shared root field over its
+    // ingested base aspect (DataHub's *Editable* aspects are the user override that conventionally
+    // takes precedence for display/search), and break ties by ascending aspect name. This makes
+    // the root winner deterministic across runs instead of depending on the hydration map's
+    // arbitrary iteration order, without the plain-alphabetical order that would (for the
+    // corpUserEditableInfo/corpUserInfo pair) let the base aspect win.
+    final List<SystemAspect> orderedAspects = new ArrayList<>(latestAspects.values());
+    orderedAspects.sort(
+        Comparator.comparing(
+                (SystemAspect aspect) -> isEditableOverrideAspect(aspect.getAspectName()))
+            .thenComparing(SystemAspect::getAspectName));
+    for (SystemAspect systemAspect : orderedAspects) {
+      if (deletedAspectNames.contains(systemAspect.getAspectName())) {
+        continue;
+      }
+      if (systemAspect.getSystemMetadata() != null) {
+        latestSystemMetadata.add(systemAspect.getSystemMetadata());
+      }
+      Optional<V3SearchDocumentProjector.ProjectedAspect> projectedAspect =
+          searchDocumentProjector.projectSystemAspect(opContext, systemAspect);
+      if (projectedAspect.isPresent()) {
+        searchDocumentProjector.applyProjection(combinedDocument, projectedAspect.get());
+        hasAnyAspects = true;
+      }
+    }
+    return hasAnyAspects;
+  }
+
+  private boolean applyLatestTimeseriesAspects(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final EntitySpec entitySpec,
+      @Nonnull final Map<String, AspectSpec> aspectSpecs,
+      @Nonnull final Map<String, EnvelopedAspect> latestAspects,
+      @Nonnull final Set<String> deletedAspectNames,
+      @Nonnull final ObjectNode combinedDocument,
+      @Nonnull final List<SystemMetadata> latestSystemMetadata,
+      @Nonnull final Set<String> projectedAspectNames) {
+    if (aspectSpecs.isEmpty()) {
+      return false;
+    }
+
+    boolean hasAnyAspects = false;
+    for (Map.Entry<String, EnvelopedAspect> entry : latestAspects.entrySet()) {
+      if (deletedAspectNames.contains(entry.getKey())) {
+        continue;
+      }
+      final AspectSpec aspectSpec = aspectSpecs.get(entry.getKey());
+      if (aspectSpec == null) {
+        continue;
+      }
+      final EnvelopedAspect envelopedAspect = entry.getValue();
+      final RecordTemplate recordTemplate =
+          GenericRecordUtils.deserializeAspect(
+              envelopedAspect.getAspect().getValue(),
+              envelopedAspect.getAspect().getContentType(),
+              aspectSpec);
+      if (envelopedAspect.getSystemMetadata() != null) {
+        latestSystemMetadata.add(envelopedAspect.getSystemMetadata());
+      }
+      Optional<V3SearchDocumentProjector.ProjectedAspect> projectedAspect =
+          searchDocumentProjector.projectStoredAspect(
+              opContext,
+              urn,
+              entitySpec,
+              aspectSpec,
+              recordTemplate,
+              envelopedAspect.getSystemMetadata());
+      if (projectedAspect.isPresent()) {
+        searchDocumentProjector.applyProjection(combinedDocument, projectedAspect.get());
+        projectedAspectNames.add(entry.getKey());
+        hasAnyAspects = true;
+      }
+    }
+    return hasAnyAspects;
+  }
+
+  private boolean applyExistingTimeseriesProjections(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Map<String, AspectSpec> aspectSpecs,
+      @Nonnull final Set<String> projectedAspectNames,
+      @Nonnull final Set<String> deletedAspectNames,
+      @Nonnull final Optional<Map<String, Object>> existingSource,
+      @Nonnull final ObjectNode combinedDocument) {
+    if (aspectSpecs.isEmpty() || existingSource.isEmpty()) {
+      return false;
+    }
+
+    final JsonNode existingDocument = opContext.getObjectMapper().valueToTree(existingSource.get());
+    final JsonNode existingAspects = existingDocument.get(MappingConstants.ASPECTS_FIELD_NAME);
+    if (existingAspects == null || !existingAspects.isObject()) {
+      return false;
+    }
+
+    boolean hasAnyAspects = false;
+    for (String aspectName : aspectSpecs.keySet()) {
+      if (projectedAspectNames.contains(aspectName) || deletedAspectNames.contains(aspectName)) {
+        continue;
+      }
+      final JsonNode existingAspect = existingAspects.get(aspectName);
+      if (!(existingAspect instanceof ObjectNode existingAspectFields)) {
+        continue;
+      }
+      final ObjectNode canonicalAspectFields = existingAspectFields.deepCopy();
+      final JsonNode legacySystemMetadata =
+          canonicalAspectFields.remove(LEGACY_SYSTEM_METADATA_FIELD);
+      if (!canonicalAspectFields.has(V3SearchDocumentProjector.SYSTEM_METADATA_FIELD)
+          && legacySystemMetadata != null) {
+        canonicalAspectFields.set(
+            V3SearchDocumentProjector.SYSTEM_METADATA_FIELD, legacySystemMetadata);
+      }
+      final ObjectNode rootFields = canonicalAspectFields.deepCopy();
+      rootFields.remove(EXISTING_TIMESERIES_ROOT_EXCLUDED_FIELDS);
+      searchDocumentProjector.applyProjection(
+          combinedDocument,
+          new V3SearchDocumentProjector.ProjectedAspect(
+              aspectName, rootFields, canonicalAspectFields, false));
+      hasAnyAspects = true;
+    }
+    return hasAnyAspects;
+  }
+
+  private static Map<String, AspectSpec> getSearchableTimeseriesAspectSpecs(
+      @Nonnull final EntitySpec entitySpec) {
+    return entitySpec.getAspectSpecs().stream()
+        .filter(AspectSpec::isTimeseries)
+        .filter(aspectSpec -> !aspectSpec.getSearchableFieldSpecs().isEmpty())
+        .collect(
+            Collectors.toMap(
+                AspectSpec::getName,
+                aspectSpec -> aspectSpec,
+                (first, ignored) -> first,
+                LinkedHashMap::new));
+  }
+
+  private Optional<Map<String, Object>> loadExistingV3DocumentSource(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final String searchGroup,
+      @Nonnull final String docId,
+      @Nonnull final Urn urn) {
+    return readWithRetry(
+        opContext,
+        EXISTING_SOURCE_FAILURE_METRIC,
+        "read existing V3 document source for " + urn,
+        () ->
+            Optional.ofNullable(
+                    elasticSearchService.getV3DocumentSourceBySearchGroup(
+                        opContext, searchGroup, docId))
+                .orElse(Optional.empty()));
+  }
+
+  private <T> T readWithRetry(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final String failureMetric,
+      @Nonnull final String description,
+      @Nonnull final ReadOperation<T> operation) {
+    for (int attempt = 1; attempt <= MAX_READ_ATTEMPTS; attempt++) {
+      try {
+        return operation.execute();
+      } catch (Exception e) {
+        opContext
+            .getMetricUtils()
+            .ifPresent(metricUtils -> metricUtils.increment(getClass(), failureMetric, 1));
+        if (hasCause(e, InterruptedException.class)) {
+          Thread.currentThread().interrupt();
+          throw new RetryableIndexingException("Interrupted while attempting to " + description, e);
+        }
+        if (!isTransientReadFailure(e)) {
+          throw propagateReadFailure(description, e);
+        }
+        if (attempt == MAX_READ_ATTEMPTS) {
+          throw new RetryableIndexingException(
+              "Failed to " + description + " after " + MAX_READ_ATTEMPTS + " attempts", e);
+        }
+        log.warn(
+            "Failed to {} on attempt {}/{}, retrying", description, attempt, MAX_READ_ATTEMPTS, e);
+      }
+    }
+    throw new IllegalStateException(
+        "Retry loop exited unexpectedly while attempting to " + description);
+  }
+
+  private static boolean isTransientReadFailure(@Nonnull final Throwable failure) {
+    // Transport-level retryability (HTTP 429/5xx + connection failures) is shared with the
+    // write-time index-existence check so both agree on what a redelivery can recover; the SQL
+    // cases below are specific to primary-storage-backed reads on this path.
+    return SearchIndexFailureClassifier.isRetryableTransportFailure(failure)
+        || hasCause(failure, SQLTransientException.class)
+        || hasCause(failure, SQLRecoverableException.class);
+  }
+
+  private static boolean hasCause(
+      @Nonnull final Throwable failure, @Nonnull final Class<? extends Throwable> causeType) {
+    Throwable current = failure;
+    while (current != null) {
+      if (causeType.isInstance(current)) {
+        return true;
+      }
+      if (current == current.getCause()) {
+        break;
+      }
+      current = current.getCause();
+    }
+    return false;
+  }
+
+  private static RuntimeException propagateReadFailure(
+      @Nonnull final String description, @Nonnull final Exception failure) {
+    if (failure instanceof RuntimeException runtimeException) {
+      return runtimeException;
+    }
+    return new IllegalStateException("Failed to " + description, failure);
+  }
+
+  private static Set<String> getDeletedAspectNames(@Nonnull final List<MCLItem> events) {
+    return events.stream()
+        .filter(
+            event ->
+                ChangeType.DELETE.equals(event.getChangeType()) && !isCatchUpBackfillEvent(event))
+        .map(MCLItem::getAspectName)
+        .collect(Collectors.toSet());
+  }
+
+  boolean shouldSkipSearchIndexUpdate(@Nonnull MCLItem event) {
+    for (V3SearchIndexSkip skip : searchIndexSkips) {
+      if (skip.skip(event)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** The backfill mode header, or empty when the event is not part of a fill or a replay. */
+  @Nonnull
+  private static Optional<String> backfillMode(@Nonnull final MCLItem event) {
+    if (event.getMetadataChangeLog() == null || event.getMetadataChangeLog().getHeaders() == null) {
+      return Optional.empty();
+    }
+    final String mode =
+        event.getMetadataChangeLog().getHeaders().get(BackfillHeaders.MODE_HEADER_NAME);
+    return mode == null || mode.isEmpty() ? Optional.empty() : Optional.of(mode);
+  }
+
+  private static boolean isBaselineBackfillEvent(@Nonnull final MCLItem event) {
+    return event.getMetadataChangeLog() != null
+        && event.getMetadataChangeLog().getHeaders() != null
+        && BackfillHeaders.MODE_BASELINE.equalsIgnoreCase(
+            event
+                .getMetadataChangeLog()
+                .getHeaders()
+                .getOrDefault(BackfillHeaders.MODE_HEADER_NAME, ""));
+  }
+
+  /** A baseline fill event whose batch carries every stored aspect of its entity. */
+  private static boolean isCompleteEntityFillEvent(@Nonnull final MCLItem event) {
+    return event.getMetadataChangeLog() != null
+        && event.getMetadataChangeLog().getHeaders() != null
+        && Boolean.parseBoolean(
+            event
+                .getMetadataChangeLog()
+                .getHeaders()
+                .get(BackfillHeaders.COMPLETE_ENTITY_HEADER_NAME));
+  }
+
+  /**
+   * The batch's events as the entity's stored state, so they flow through the same projection as
+   * hydrated aspects: override aspects applied last and {@code systemCreated} stamped from the key
+   * aspect, exactly as a read from primary storage would produce.
+   */
+  private static Map<String, SystemAspect> storedAspectsFromEvents(
+      @Nonnull final List<MCLItem> events) {
+    final Map<String, SystemAspect> stored = new HashMap<>();
+    for (MCLItem event : events) {
+      final AspectSpec aspectSpec = event.getAspectSpec();
+      if (aspectSpec.isTimeseries() || ChangeType.DELETE.equals(event.getChangeType())) {
+        continue;
+      }
+      final EntityAspect row =
+          EntityAspect.builder()
+              .urn(event.getUrn().toString())
+              .aspect(aspectSpec.getName())
+              .version(ASPECT_LATEST_VERSION)
+              .build();
+      final EntityAspect.EntitySystemAspect aspect =
+          EntityAspect.EntitySystemAspect.builder()
+              .forUpdate(event.getEntitySpec(), aspectSpec, row);
+      aspect.setRecordTemplate(event.getRecordTemplate());
+      aspect.setSystemMetadata(event.getSystemMetadata());
+      aspect.setAuditStamp(event.getAuditStamp());
+      stored.put(aspectSpec.getName(), aspect);
+    }
+    return stored;
+  }
+
+  private static boolean isCatchUpBackfillEvent(@Nonnull final MCLItem event) {
+    return event.getMetadataChangeLog() != null
+        && event.getMetadataChangeLog().getHeaders() != null
+        && BackfillHeaders.MODE_CATCH_UP.equalsIgnoreCase(
+            event
+                .getMetadataChangeLog()
+                .getHeaders()
+                .getOrDefault(BackfillHeaders.MODE_HEADER_NAME, ""));
+  }
+
+  @FunctionalInterface
+  private interface ReadOperation<T> {
+    T execute() throws Exception;
+  }
+
+  private record V3DocumentBuildResult(
+      @Nonnull ObjectNode document, @Nonnull List<SystemMetadata> latestSystemMetadata) {}
+
+  private record CoalescedEvents(
+      @Nonnull List<MCLItem> finalEvents,
+      @Nonnull Map<String, RecordTemplate> earliestPreviousByAspect) {}
+
+  private record PreparedUrnBatch(
+      @Nonnull Urn urn,
+      @Nonnull List<MCLItem> originalEvents,
+      @Nonnull CoalescedEvents coalescedEvents,
+      @Nonnull EntitySpec entitySpec,
+      @Nonnull String searchGroup,
+      @Nonnull String indexName,
+      @Nonnull String docId,
+      boolean baselineFill,
+      boolean targetFill,
+      boolean completeBaselineFill,
+      boolean hasKeyAspectDeletion,
+      boolean catchUpReplay,
+      @Nonnull Map<String, AspectSpec> searchableTimeseriesAspectSpecs) {}
+
+  private record TimeseriesHydrationGroup(
+      @Nonnull String entityType, @Nonnull Set<String> aspectNames) {}
 }

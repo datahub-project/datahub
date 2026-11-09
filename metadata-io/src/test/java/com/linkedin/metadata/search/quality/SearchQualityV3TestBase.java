@@ -115,6 +115,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -136,6 +137,7 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
   private static final Urn ACTOR = UrnUtils.getUrn("urn:li:corpuser:datahub");
 
   private final List<String> createdIndices = new ArrayList<>();
+  private final List<String> indexedEntityTypes = new ArrayList<>();
   private final Map<String, Card> cards = new HashMap<>();
   private OperationContext opContext;
   private ElasticSearchService searchService;
@@ -316,6 +318,7 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
               settingsBuilder.getSettings(config.getIndex(), indexName)));
       createdIndices.add(indexName);
     }
+    indexedEntityTypes.addAll(new TreeSet<>(entityTypes));
     UpdateIndicesV3Strategy.builder()
         .v3Config(entityIndex.getV3())
         .elasticSearchService(searchService)
@@ -424,7 +427,8 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
           || "field-probe".equals(group)
           || "autocomplete".equals(group)
           || "entity-boost".equals(group)
-          || "entity-search".equals(group)) {
+          || "entity-search".equals(group)
+          || "quickstart-search".equals(group)) {
         continue;
       }
       if ("benchmark".equals(group)) {
@@ -508,6 +512,15 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
   @Test
   public void testEntitySearchProbes() throws Exception {
     assertProbeGroup("entity-search", 2);
+  }
+
+  /**
+   * Quickstart "sample" recall on the template path. These queries are not part of either nDCG
+   * floor, and the Java builder is not gated here.
+   */
+  @Test
+  public void testQuickstartSearchProbes() throws Exception {
+    assertProbeGroup("quickstart-search", 2);
   }
 
   /** Caller sort on the closed sort-probe set. These queries are not part of either nDCG floor. */
@@ -605,8 +618,16 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
                   + urns);
         }
       }
+      List<String> absent = new ArrayList<>();
+      judgment.path("absentUrns").forEach(node -> absent.add(node.asText()));
+      for (String urn : absent) {
+        if (urns.contains(urn)) {
+          failures.add(
+              judgment.path("id").asText() + " should not suggest " + urn + " got " + urns);
+        }
+      }
     }
-    assertEquals(seen, 3, "autocomplete probes were not loaded");
+    assertEquals(seen, 4, "autocomplete probes were not loaded");
     assertTrue(failures.isEmpty(), String.join("\n", failures));
   }
 
@@ -688,34 +709,34 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
   }
 
   private RankedSearchResult run(JsonNode judgment, boolean javaBuilder) throws Exception {
-    Filter filter = null;
+    CriterionArray criteria = new CriterionArray();
     if (judgment.hasNonNull("filter")) {
       JsonNode criterion = judgment.get("filter");
-      filter =
-          new Filter()
-              .setOr(
-                  new ConjunctiveCriterionArray(
-                      new ConjunctiveCriterion()
-                          .setAnd(
-                              new CriterionArray(
-                                  buildCriterion(
-                                      criterion.path("field").asText(),
-                                      Condition.valueOf(criterion.path("condition").asText()),
-                                      criterion.path("value").asText())))));
+      criteria.add(
+          buildCriterion(
+              criterion.path("field").asText(),
+              Condition.valueOf(criterion.path("condition").asText()),
+              criterion.path("value").asText()));
     }
     if (judgment.has("candidateUrns")) {
       List<String> urns = new ArrayList<>();
       judgment.get("candidateUrns").forEach(node -> urns.add(node.asText()));
+      criteria.add(buildCriterion("urn", Condition.EQUAL, urns));
+    }
+    Filter filter = null;
+    if (!criteria.isEmpty()) {
       filter =
           new Filter()
-              .setOr(
-                  new ConjunctiveCriterionArray(
-                      new ConjunctiveCriterion()
-                          .setAnd(
-                              new CriterionArray(buildCriterion("urn", Condition.EQUAL, urns)))));
+              .setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(criteria)));
     }
     List<String> entityTypes = new ArrayList<>();
     judgment.path("entityTypes").forEach(node -> entityTypes.add(node.asText()));
+    // An empty list means every entity type. Passing it through searches every index in the
+    // cluster, including OpenSearch's .plugins-ml-config, which fails the urn sort on OS3. Expand
+    // it to the types this pack indexed, which is what the production searchable list covers.
+    if (entityTypes.isEmpty()) {
+      entityTypes.addAll(indexedEntityTypes);
+    }
     String surface = SearchTemplateSurfaces.SEARCH_ENTITIES;
     OperationContext judgmentContext = viewerContext(judgment);
     return search(

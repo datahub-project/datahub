@@ -135,7 +135,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
         IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention mockIndexConvention = mock(IndexConvention.class);
     when(mockIndexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
-    settingsBuilder = new V2LegacySettingsBuilder(indexConfiguration, mockIndexConvention);
+    settingsBuilder = new V2LegacySettingsBuilder(indexConfiguration, mockIndexConvention, false);
     elasticSearchService = buildEntitySearchService(getSearchConfiguration());
     elasticSearchService.reindexAll(operationContext, Collections.emptySet());
     pitElasticSearchService = buildPITEntitySearchService(getSearchConfiguration());

@@ -2903,7 +2903,7 @@
         },
         {
           "capability": "TAGS",
-          "description": "Metric, attribute, and temporal field tags",
+          "description": "Metric, attribute, temporal, and derived-metric field tags",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4794,6 +4794,12 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Opt-in: topic to raw-delivery queue, when both have schemas",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "SNS has no description",
           "subtype_modifier": null,
@@ -4831,13 +4837,13 @@
         },
         {
           "capability": "SCHEMA_METADATA",
-          "description": "SNS has no schema",
+          "description": "Opt-in: AWS Glue Schema Registry schemas listed in `glue_schema_registry.topic_schema_map`, or found by `use_naming_convention`",
           "subtype_modifier": null,
-          "supported": false
+          "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Topic to subscribed queue and to subscription dead-letter queue",
+          "description": "Subscribed queues and dead-letter queues, Lambda, EventBridge rules and Pipes",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4995,6 +5001,12 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Queue to dead-letter queue, when both have schemas",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "SQS has no description",
           "subtype_modifier": null,
@@ -5026,13 +5038,13 @@
         },
         {
           "capability": "SCHEMA_METADATA",
-          "description": "SQS has no schema",
+          "description": "Opt-in: AWS Glue Schema Registry schemas listed in `glue_schema_registry.queue_schema_map`, or found by `use_naming_convention`",
           "subtype_modifier": null,
-          "supported": false
+          "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Queue to dead-letter queue",
+          "description": "Dead-letter queues, Lambda triggers and destinations, EventBridge rules and Pipes",
           "subtype_modifier": null,
           "supported": true
         },

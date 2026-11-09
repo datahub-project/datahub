@@ -116,6 +116,11 @@ class GitHubApiClient:
         self._session = requests.Session()
         self._timeout = timeout_seconds
         self._last_api_error: Optional[str] = None
+        self._index_file_paths: Set[str] = set()
+
+    @property
+    def index_file_paths(self) -> Set[str]:
+        return self._index_file_paths
 
     @property
     def last_api_error(self) -> Optional[str]:
@@ -135,6 +140,8 @@ class GitHubApiClient:
         path_prefix: str,
         extensions: List[str],
     ) -> Tuple[List[GitHubFileInfo], bool]:
+        # The source passes a resolved commit SHA; branch names remain supported
+        # for connection checks and direct client callers.
         tree_url = (
             f"{GITHUB_API_BASE}/repos/{owner_repo}/git/trees/{quote(branch, safe='')}"
             "?recursive=true"
@@ -151,10 +158,13 @@ class GitHubApiClient:
         normalized_prefix = path_prefix.strip("/")
 
         matching: List[GitHubFileInfo] = []
+        self._index_file_paths = set()
         for item in tree["tree"]:
             if item.get("type") != "blob":
                 continue
             path = item.get("path", "")
+            if path == "index.md" or path.endswith("/index.md"):
+                self._index_file_paths.add(path)
             if not _matches_filters(path, normalized_prefix, ext_set):
                 continue
             size = item.get("size")
