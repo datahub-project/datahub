@@ -357,6 +357,7 @@ Left Join ([Orders]) LOAD id, region;
 SQL SELECT id, region FROM db.s.regions;
 Concatenate SQL SELECT * FROM db.s.more_orders;
 Customers: Left Keep (Orders) SQL SELECT * FROM db.s.customers;
+Concatenate ([Orders (old)]) SQL SELECT * FROM db.s.archive;
 """
     assert [t.label for t in parse_load_script(script)] == [
         "Orders",
@@ -364,6 +365,7 @@ Customers: Left Keep (Orders) SQL SELECT * FROM db.s.customers;
         "Orders",
         "Orders",
         "Customers",
+        "Orders (old)",
     ]
 
 
@@ -863,6 +865,8 @@ Direct: Mapping SQL SELECT k, v FROM db.s.other_codes;
 T: SQL SELECT * FROM db.s.t;
 [Mapping]: SQL SELECT * FROM db.s.named_mapping;
 Concatenate ([Mapping]) SQL SELECT * FROM db.s.more;
+[Mapping (old)]: SQL SELECT * FROM db.s.old;
+Concatenate ([Mapping (old)]) SQL SELECT * FROM db.s.older;
 """
     assert [(t.label, t.mapping) for t in parse_load_script(script)] == [
         ("Map", True),
@@ -870,6 +874,8 @@ Concatenate ([Mapping]) SQL SELECT * FROM db.s.more;
         ("T", False),
         ("Mapping", False),
         ("Mapping", False),
+        ("Mapping (old)", False),
+        ("Mapping (old)", False),
     ]
 
 
@@ -922,6 +928,11 @@ def test_parse_load_script_marks_reshaped_tables(script: str) -> None:
             "T: CrossTable(Month, Sales, 2) SQL SELECT region, store, jan FROM db.s.t;",
             {"region": ["r"], "store": ["s"], "Month": [], "Sales": ["j"]},
             id="two_qualifiers",
+        ),
+        pytest.param(
+            "T: CrossTable([Month)], 'Sales, net', 1) SQL SELECT region, jan FROM db.s.t;",
+            {"region": ["r"], "Month)": [], "Sales, net": ["s", "j"]},
+            id="names_with_delimiters",
         ),
         pytest.param(
             "T: CrossTable(Month, Sales) LOAD *;\nSQL SELECT region, jan FROM db.s.t;",

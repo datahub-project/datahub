@@ -56,16 +56,20 @@ VARIABLE_REFERENCE_RE = re.compile(r"\$\((?P<name>[^()=]+)\)")
 LABEL_RE = re.compile(
     r"^(?:\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|(?P<bare>[^\W\d][\w.\-]*))\s*:(?!/)"
 )
+# A prefix's arguments, where a quoted or bracketed name may hold a `)`.
+_PREFIX_ARGS = r"\((?:[^()\[\]'\"]|\[[^\]]*\]|'[^']*'|\"[^\"]*\")*\)"
 PREFIX_RE = re.compile(
     r"^(?:(?:NoConcatenate|Concatenate|Join|Left|Right|Inner|Outer|Keep|Mapping|Generic"
     r"|Buffer|Hierarchy|HierarchyBelongsTo|IntervalMatch|CrossTable|Replace|Add|Merge|Only"
-    r"|First\s+\d+|Sample\s+[\d.]+)\b\s*(?:\([^)]*\))?\s*)*",
+    rf"|First\s+\d+|Sample\s+[\d.]+)\b\s*(?:{_PREFIX_ARGS})?\s*)*",
     re.IGNORECASE,
 )
 # Concatenate and Join add to an existing table, named in parentheses or else
 # the table loaded last. Keep (X) is not here: it creates a table of its own.
 MERGE_PREFIX_RE = re.compile(
-    r"\b(?:Concatenate|Join)\b\s*(?:\(\s*(?P<target>[^)]*?)\s*\))?", re.IGNORECASE
+    r"\b(?:Concatenate|Join)\b\s*"
+    r"(?:\(\s*(?P<target>\[[^\]]*\]|'[^']*'|\"[^\"]*\"|[^)]*?)\s*\))?",
+    re.IGNORECASE,
 )
 SQL_RE = re.compile(
     r"^(?:SQL\s+)?(?P<sql>(?:SELECT|WITH)\b.*)$", re.IGNORECASE | re.DOTALL
@@ -150,7 +154,7 @@ MAPPING_PREFIX_RE = re.compile(r"\bMapping\b", re.IGNORECASE)
 # CrossTable and Generic turn columns into attribute and value fields, so the
 # field names are not the column names.
 RESHAPE_PREFIX_RE = re.compile(r"\b(?:CrossTable|Generic)\b", re.IGNORECASE)
-CROSSTABLE_RE = re.compile(r"\bCrossTable\s*\((?P<args>[^)]*)\)", re.IGNORECASE)
+CROSSTABLE_RE = re.compile(r"\bCrossTable\s*\(", re.IGNORECASE)
 # Single-quoted text is a string literal in a chart expression, not a field.
 # A quoted field can carry a derived-field suffix, as in [Date].autoCalendar.Year.
 EXPRESSION_NAME_RE = re.compile(
@@ -257,7 +261,9 @@ def _crosstable(prefix: str) -> Optional[CrossTable]:
     match = CROSSTABLE_RE.search(prefix)
     if not match:
         return None
-    args = [_unquote(arg) for arg in _split_top_level(match.group("args"))]
+    # A bracketed or quoted field name can hold a `)`, as in [Month)].
+    end = _block_end(prefix, match.end(), "(", ")")
+    args = [_unquote(arg) for arg in _split_top_level(prefix[match.end() : end - 1])]
     if len(args) == 2:
         return CrossTable(attribute=args[0], data=args[1])
     if len(args) == 3 and args[2].isdigit():
@@ -724,7 +730,7 @@ class _ScriptParser(BaseModel):
         prefix = PREFIX_RE.match(statement)
         merge = MERGE_PREFIX_RE.search(prefix.group(0)) if prefix else None
         # Only the prefix keywords, not arguments such as Concatenate ([Mapping]).
-        keywords = re.sub(r"\([^)]*\)", "", prefix.group(0)) if prefix else ""
+        keywords = re.sub(_PREFIX_ARGS, "", prefix.group(0)) if prefix else ""
         mapping = bool(MAPPING_PREFIX_RE.search(keywords))
         reshaped = bool(RESHAPE_PREFIX_RE.search(keywords))
         if prefix:
