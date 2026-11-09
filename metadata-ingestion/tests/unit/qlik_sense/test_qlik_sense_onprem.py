@@ -46,6 +46,7 @@ from tests.unit.qlik_sense.qlik_fakes import (
     ON_PREM,
     ONPREM_CONFIG,
     SHEET_META,
+    STREAM,
     FakeResponse,
     fake_engine_calls,
     fake_qrs_get,
@@ -83,7 +84,7 @@ def test_onprem_lists_stream_and_opens_app(
     # The user id joins with users ingested from AD or LDAP; the name would not.
     assert api.get_user_name("user-1") == "ada"
 
-    items = list(api.get_items("stream-1"))
+    items = list(api.get_items(["stream-1"]))
     assert len(items) == 1
     app = items[0]
     assert isinstance(app, App)
@@ -121,7 +122,7 @@ def test_onprem_keeps_app_when_engine_is_unreachable(
 
     api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
     api.get_spaces()
-    items = list(api.get_items("stream-1"))
+    items = list(api.get_items(["stream-1"]))
 
     assert len(items) == 1
     app = items[0]
@@ -160,7 +161,7 @@ def test_onprem_closes_engine_session_when_app_cannot_open(
 
     api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
     api.get_spaces()
-    items = list(api.get_items("stream-1"))
+    items = list(api.get_items(["stream-1"]))
 
     assert [item.id for item in items] == ["app-1"]
     websocket.close_websocket.assert_called_once()
@@ -230,7 +231,7 @@ def test_onprem_loads_apps_in_parallel(
         QlikSourceConfig.model_validate({**ONPREM_CONFIG, "max_workers": 3})
     )
     api.get_spaces()
-    items = {item.id: item for item in api.get_items("stream-1")}
+    items = {item.id: item for item in api.get_items(["stream-1"])}
 
     assert sorted(items) == app_ids
     assert overlapping.is_set()
@@ -241,6 +242,64 @@ def test_onprem_loads_apps_in_parallel(
         assert [sheet.title for sheet in item.sheets] == expected_sheets
         # A failed read must not leak into other apps read on the same thread.
         assert item.read_complete is (app_id != "app-2")
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_reads_apps_of_different_streams_in_parallel(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    streams = [
+        {**STREAM, "id": "stream-1"},
+        {**STREAM, "id": "stream-2", "name": "Finance"},
+        {**STREAM, "id": "stream-3", "name": "Sales"},
+    ]
+
+    def qrs_get(
+        url: str, params: Optional[Dict[str, str]] = None, **kwargs: object
+    ) -> FakeResponse:
+        if url.endswith("/stream/full"):
+            return FakeResponse(streams)
+        if url.endswith("/app/full"):
+            assert params is not None
+            stream_id = params["filter"].rsplit(" ", 1)[-1]
+            if stream_id == "stream-3":
+                return FakeResponse({}, status_code=503)
+            return FakeResponse(
+                [{**APP, "id": f"app-of-{stream_id}", "stream": {"id": stream_id}}]
+            )
+        return fake_qrs_get(url, params, **kwargs)
+
+    # One app per stream, so the reads only finish when apps of different
+    # streams are read at the same time.
+    overlapping = threading.Barrier(2, timeout=10)
+
+    def get_script() -> str:
+        overlapping.wait()
+        return ""
+
+    def open_engine(app_id: str, **_: object) -> MagicMock:
+        websocket = MagicMock()
+        websocket.websocket_send_request.side_effect = fake_engine_calls()
+        websocket.get_script.side_effect = get_script
+        return websocket
+
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = qrs_get
+    mock_engine.side_effect = open_engine
+
+    api = QlikOnPremAPI(
+        QlikSourceConfig.model_validate({**ONPREM_CONFIG, "max_workers": 2})
+    )
+    api.get_spaces()
+    items = list(api.get_items(["stream-1", "stream-2", "stream-3"]))
+
+    assert sorted(item.id for item in items) == ["app-of-stream-1", "app-of-stream-2"]
+    assert all(isinstance(item, App) and item.read_complete for item in items)
+    assert [unread.name for unread in api.unread_items] == ["apps of stream stream-3"]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
@@ -254,7 +313,7 @@ def test_onprem_unexpected_app_error_records_app_id(
     api.get_spaces()
 
     with patch.object(api, "_read_app", side_effect=RuntimeError("boom")):
-        assert list(api.get_items("stream-1")) == []
+        assert list(api.get_items(["stream-1"])) == []
 
     assert api.unread_items == [UnreadItem(name=APP["id"], cause="boom")]
 
@@ -373,7 +432,7 @@ def _read_onprem_app(
     session.get.side_effect = fake_qrs_get
     api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
     api.get_spaces()
-    (app,) = api.get_items("stream-1")
+    (app,) = api.get_items(["stream-1"])
     assert isinstance(app, App)
     return app
 
@@ -1389,7 +1448,7 @@ def test_onprem_qrs_errors_return_no_streams_or_apps(
     api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
 
     assert api.get_spaces() == []
-    assert list(api.get_items("stream-1")) == []
+    assert list(api.get_items(["stream-1"])) == []
     assert api.get_data_connections() == {}
 
 
@@ -1704,7 +1763,7 @@ def test_onprem_unpublished_apps(
 
     spaces = api.get_spaces()
     for space in spaces:
-        list(api.get_items(space.id))
+        list(api.get_items([space.id]))
 
     assert [space.name for space in spaces] == (
         ["Everyone", UNPUBLISHED_APPS_NAME] if ingest_unpublished else ["Everyone"]
