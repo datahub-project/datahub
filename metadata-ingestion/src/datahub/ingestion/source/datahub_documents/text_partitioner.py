@@ -4,8 +4,8 @@ import contextlib
 import logging
 import signal
 import threading
-from types import FrameType
-from typing import Any, Callable, ContextManager, Iterator, Optional, Union
+from types import FrameType, TracebackType
+from typing import Any, Callable, ContextManager, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -13,18 +13,25 @@ logger = logging.getLogger(__name__)
 # partition_md replaces that default, so these must be repeated alongside our own.
 _DEFAULT_MARKDOWN_EXTENSIONS = ("tables", "fenced_code")
 
+# Shared by the source config, TextPartitioner and embed_document so they can't drift.
+DEFAULT_DISABLE_MARKDOWN_LINK_PARSING = True
+DEFAULT_PARTITION_TIMEOUT_SECONDS = 30.0
 
 # After the first alarm, keep re-raising at this interval: code under the limit can
-# catch PartitionTimeoutError in a broad `except` (Python-Markdown has one) and carry on.
+# catch the alarm in a broad `except` (langdetect has a bare one) and carry on.
 _REARM_INTERVAL_SECONDS = 0.5
-
 
 # What signal.signal() accepts and returns (signal.Handlers is an int enum).
 _SignalHandler = Union[Callable[[int, Optional[FrameType]], Any], int, None]
 
 
-class PartitionTimeoutError(Exception):
-    """Raised when partitioning one document exceeds the configured time limit."""
+class PartitionTimeoutError(BaseException):
+    """Raised when partitioning one document exceeds the configured time limit.
+
+    A BaseException so that the `except Exception` handlers in the libraries being
+    timed (e.g. a per-item loop in Python-Markdown) can't catch it on every pass and
+    run past the limit. Callers must catch it by name.
+    """
 
 
 def _disarm(previous_handler: _SignalHandler) -> None:
@@ -39,24 +46,41 @@ def _disarm(previous_handler: _SignalHandler) -> None:
             continue
 
 
-@contextlib.contextmanager
-def _time_limit(seconds: float) -> Iterator[None]:
+class _TimeLimit:
     """Raise PartitionTimeoutError if the block runs longer than ``seconds``.
 
     Uses SIGALRM, which also interrupts compiled code that returns to the interpreter
     between operations (e.g. spaCy's tokenizer). Only usable on the main thread of a
-    platform that has SIGALRM; callers must check that first.
+    platform that has SIGALRM; callers must check that first. A plain class rather than
+    @contextmanager, so cleanup runs directly in __exit__ and never depends on a
+    generator being garbage-collected.
     """
 
-    def _on_alarm(signum: int, frame: Optional[FrameType]) -> None:
-        raise PartitionTimeoutError(f"Partitioning exceeded {seconds:g}s")
+    def __init__(self, seconds: float) -> None:
+        self._seconds = seconds
+        self._previous_handler: _SignalHandler = None
 
-    previous_handler = signal.signal(signal.SIGALRM, _on_alarm)
-    try:
-        signal.setitimer(signal.ITIMER_REAL, seconds, _REARM_INTERVAL_SECONDS)
-        yield
-    finally:
-        _disarm(previous_handler)
+    def _on_alarm(self, signum: int, frame: Optional[FrameType]) -> None:
+        raise PartitionTimeoutError(f"Partitioning exceeded {self._seconds:g}s")
+
+    def __enter__(self) -> None:
+        self._previous_handler = signal.signal(signal.SIGALRM, self._on_alarm)
+        try:
+            signal.setitimer(signal.ITIMER_REAL, self._seconds, _REARM_INTERVAL_SECONDS)
+        except BaseException:
+            _disarm(self._previous_handler)
+            raise
+
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
+        _disarm(self._previous_handler)
+
+
+_language_profiles_load_failed = False
 
 
 def _preload_language_profiles() -> None:
@@ -64,11 +88,19 @@ def _preload_language_profiles() -> None:
     # bare `except:` that unstructured then logs and ignores. An alarm landing there
     # would be swallowed and leave the factory half-loaded for the rest of the run,
     # so load it before any time limit starts. init_factory() is a no-op once loaded.
+    global _language_profiles_load_failed
     try:
         from langdetect.detector_factory import init_factory
     except ModuleNotFoundError:
         return
-    init_factory()
+    try:
+        init_factory()
+    except Exception as e:
+        # unstructured logs and continues on the same error; do likewise rather than
+        # failing every document, and warn only once.
+        if not _language_profiles_load_failed:
+            logger.warning(f"Could not load langdetect language profiles: {e}")
+            _language_profiles_load_failed = True
 
 
 class TextPartitioner:
@@ -76,8 +108,8 @@ class TextPartitioner:
 
     def __init__(
         self,
-        disable_markdown_link_parsing: bool = True,
-        timeout_seconds: float = 30.0,
+        disable_markdown_link_parsing: bool = DEFAULT_DISABLE_MARKDOWN_LINK_PARSING,
+        timeout_seconds: float = DEFAULT_PARTITION_TIMEOUT_SECONDS,
     ) -> None:
         self.disable_markdown_link_parsing = disable_markdown_link_parsing
         self.timeout_seconds = timeout_seconds
@@ -131,7 +163,7 @@ class TextPartitioner:
 
         if self._can_enforce_time_limit():
             _preload_language_profiles()
-            time_limit: ContextManager[None] = _time_limit(self.timeout_seconds)
+            time_limit: ContextManager[None] = _TimeLimit(self.timeout_seconds)
         else:
             time_limit = contextlib.nullcontext()
         with time_limit:

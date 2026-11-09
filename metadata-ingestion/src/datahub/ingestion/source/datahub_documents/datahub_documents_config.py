@@ -8,6 +8,10 @@ from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.datahub_documents.document_chunking_state_handler import (
     DocumentChunkingStatefulIngestionConfig,
 )
+from datahub.ingestion.source.datahub_documents.text_partitioner import (
+    DEFAULT_DISABLE_MARKDOWN_LINK_PARSING,
+    DEFAULT_PARTITION_TIMEOUT_SECONDS,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
@@ -263,13 +267,13 @@ class DataHubDocumentsSourceConfig(
         "Empty documents are always skipped.",
     )
     disable_markdown_link_parsing: bool = Field(
-        default=True,
+        default=DEFAULT_DISABLE_MARKDOWN_LINK_PARSING,
         description="Workaround for a Python-Markdown denial of service (CVE-2019-25781): parse "
         "Document text without Markdown link/image syntax, which is kept as literal text. "
         "Temporary; will be removed once a fixed Python-Markdown release is pinned.",
     )
     partition_timeout_seconds: float = Field(
-        default=30.0,
+        default=DEFAULT_PARTITION_TIMEOUT_SECONDS,
         description="Maximum seconds to partition one document; slower documents are skipped "
         "and counted in the report. 0 disables the limit. Only enforced when the source runs "
         "on the main thread of a POSIX platform. Documents that already timed out are not "

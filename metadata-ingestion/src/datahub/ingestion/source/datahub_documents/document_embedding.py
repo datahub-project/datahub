@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from datahub.ingestion.source.datahub_documents.text_partitioner import (
+    DEFAULT_DISABLE_MARKDOWN_LINK_PARSING,
+    DEFAULT_PARTITION_TIMEOUT_SECONDS,
     TextPartitioner,
 )
 from datahub.ingestion.source.unstructured.chunking_config import ChunkingConfig
@@ -56,8 +58,8 @@ def embed_document(
     batch_size: int,
     min_text_length: int,
     skip_empty_text: bool,
-    disable_markdown_link_parsing: bool = True,
-    partition_timeout_seconds: float = 30.0,
+    disable_markdown_link_parsing: bool = DEFAULT_DISABLE_MARKDOWN_LINK_PARSING,
+    partition_timeout_seconds: float = DEFAULT_PARTITION_TIMEOUT_SECONDS,
 ) -> List[DocumentChunk]:
     """The chunks and vectors the source would write for `text`; empty when it skips it.
 
@@ -66,7 +68,8 @@ def embed_document(
 
     Raises:
         PartitionTimeoutError: If partitioning exceeds ``partition_timeout_seconds``
-            (enforced only on the main thread of a POSIX process).
+            (enforced only on the main thread of a POSIX process). It derives from
+            BaseException, so ``except Exception`` does not catch it.
     """
     if is_below_embed_minimum(
         text, min_text_length=min_text_length, skip_empty_text=skip_empty_text

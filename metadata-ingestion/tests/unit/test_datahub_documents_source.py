@@ -5433,7 +5433,27 @@ def _swallowing_partition_md(**kwargs: Any) -> list:
     return []
 
 
+def _catch_exception_loop_partition_md(**kwargs: Any) -> list:
+    # Mimics a per-item loop that catches Exception on every pass.
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        try:
+            time.sleep(0.05)
+        except Exception:
+            pass
+    return []
+
+
 class TestPartitionTimeout:
+    def test_timeout_passes_through_except_exception(self):
+        with patch(
+            "unstructured.partition.md.partition_md", _catch_exception_loop_partition_md
+        ):
+            start = time.monotonic()
+            with pytest.raises(PartitionTimeoutError):
+                TextPartitioner(timeout_seconds=0.5).partition_text("some text")
+            assert time.monotonic() - start < 2
+
     def test_timeout_survives_a_swallowed_alarm(self):
         with patch("unstructured.partition.md.partition_md", _swallowing_partition_md):
             start = time.monotonic()
