@@ -3,7 +3,9 @@ package com.linkedin.datahub.upgrade.loadindices;
 import com.linkedin.datahub.upgrade.config.OpenTelemetryConfig;
 import com.linkedin.gms.factory.entity.RetentionBufferFactory;
 import com.linkedin.gms.factory.entity.RetentionBufferSchedulingConfig;
+import com.linkedin.metadata.event.EventProducer;
 import org.springframework.boot.micrometer.metrics.autoconfigure.MetricsAutoConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.FilterType;
@@ -39,4 +41,14 @@ import org.springframework.context.annotation.Import;
           type = FilterType.ASSIGNABLE_TYPE,
           classes = {RetentionBufferFactory.class, RetentionBufferSchedulingConfig.class})
     })
-public class LoadIndicesUpgradeConfig {}
+public class LoadIndicesUpgradeConfig {
+
+  /**
+   * EntityServiceFactory depends on {@code kafkaEventProducer}, but this context does not scan the
+   * Kafka factories. LoadIndices writes straight to the indices and never emits events.
+   */
+  @Bean(name = "kafkaEventProducer")
+  public EventProducer kafkaEventProducer() {
+    return new NoOpKafkaEventProducer();
+  }
+}

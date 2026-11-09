@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.cleanup;
 
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.config.OpenTelemetryConfig;
+import com.linkedin.datahub.upgrade.loadindices.NoOpKafkaEventProducer;
 import com.linkedin.datahub.upgrade.sqlsetup.SqlSetupArgs;
 import com.linkedin.datahub.upgrade.sqlsetup.config.SqlSetupConfig;
 import com.linkedin.datahub.upgrade.sqlsetup.config.SqlSetupEbeanFactory;
@@ -11,6 +12,7 @@ import com.linkedin.gms.factory.entity.RetentionBufferSchedulingConfig;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.utils.EnvironmentUtils;
 import io.ebean.Database;
 import java.util.ArrayList;
@@ -83,6 +85,15 @@ public class CleanupUpgradeConfig {
   @Autowired(required = false)
   @Nullable
   private SearchClusterRegistry searchClusterRegistry;
+
+  /**
+   * EntityServiceFactory depends on {@code kafkaEventProducer}, but this context does not scan the
+   * Kafka factories. Cleanup only tears infrastructure down and never emits events.
+   */
+  @Bean(name = "kafkaEventProducer")
+  public EventProducer kafkaEventProducer() {
+    return new NoOpKafkaEventProducer();
+  }
 
   @Bean(name = "cleanup")
   @Nonnull
