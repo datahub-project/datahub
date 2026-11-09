@@ -55,10 +55,10 @@ def resolver(
 
 
 def _resource_urns(r: SnowflakeTagResolver) -> List[str]:
-    return [
-        wu.metadata.entityUrn  # type: ignore[union-attr]
-        for wu in r.platform_resource_workunits()
-    ]
+    urns: List[str] = []
+    for wu in r.platform_resource_workunits():
+        urns.append(wu.get_urn())
+    return urns
 
 
 def test_no_repository_resolves_native_tag_and_property() -> None:

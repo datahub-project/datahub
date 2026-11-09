@@ -222,7 +222,6 @@ def test_tags_are_emitted_once_as_tag_entities_or_as_structured_properties() -> 
     ]
 
 
-
 def test_managed_tag_maps_back_on_dataset_and_column_without_tag_properties() -> None:
     gen = make_gen(
         tag_repository=fake_tag_repository(

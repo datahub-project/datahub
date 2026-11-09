@@ -15,7 +15,9 @@ def test_primary_key_with_and_without_value() -> None:
         _TAG, None, with_value=False
     )
 
-    assert with_value.to_platform_resource_key().primary_key == "test_db.public.pii:high"
+    assert (
+        with_value.to_platform_resource_key().primary_key == "test_db.public.pii:high"
+    )
     assert without.to_platform_resource_key().primary_key == "test_db.public.pii"
     assert with_value.to_platform_resource_key().platform == "snowflake"
     assert (
