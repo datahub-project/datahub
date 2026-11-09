@@ -22,15 +22,9 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.opensearch.action.index.IndexRequest;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class Es8BulkListenerTest {
-
-  @BeforeMethod
-  public void setup() {
-    V3BulkWriteAccounting.resetForTests();
-  }
 
   @Test
   public void testAfterBulkRecordsExpectedV3StaleConflict() {
@@ -57,8 +51,6 @@ public class Es8BulkListenerTest {
     listener.afterBulk(1L, mock(BulkRequest.class), List.of(submission), response);
 
     BulkProcessorFlushResult drainResult = tracker.flushAndAwait(() -> {}, 1, TimeUnit.SECONDS);
-    V3BulkWriteAccounting.Snapshot snapshot = V3BulkWriteAccounting.snapshot();
-    assertEquals(snapshot.staleVersionRejected(), 1);
     assertEquals(drainResult.staleVersionRejected(), 1);
     assertFalse(drainResult.hasFailures());
     verify(metricUtils)
@@ -88,7 +80,6 @@ public class Es8BulkListenerTest {
     listener.afterBulk(1L, mock(BulkRequest.class), List.of(submission), response);
 
     BulkProcessorFlushResult drainResult = tracker.flushAndAwait(() -> {}, 1, TimeUnit.SECONDS);
-    assertEquals(V3BulkWriteAccounting.snapshot().staleVersionRejected(), 0);
     assertEquals(drainResult.staleVersionRejected(), 1);
     assertFalse(drainResult.hasFailures());
     verify(metricUtils, org.mockito.Mockito.never())

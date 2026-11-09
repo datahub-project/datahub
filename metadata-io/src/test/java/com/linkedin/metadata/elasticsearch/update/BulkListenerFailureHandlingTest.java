@@ -201,13 +201,11 @@ public class BulkListenerFailureHandlingTest {
 
   @Test
   public void testV3AccountingAppliesOnlyWhenTheClassifierIsWired() {
-    V3BulkWriteAccounting.resetForTests();
     MetricUtils metricUtils = mock(MetricUtils.class);
     BulkResponse response = v3ConflictResponse();
 
     BulkListener.create(WriteRequest.RefreshPolicy.NONE, metricUtils, null, null)
         .afterBulk(1L, new BulkRequest(), response);
-    assertEquals(V3BulkWriteAccounting.snapshot().staleVersionRejected(), 0);
     verify(metricUtils, never())
         .increment(BulkListener.class, V3BulkWriteAccounting.STALE_VERSION_REJECTED_METRIC, 1d);
 
@@ -219,7 +217,6 @@ public class BulkListenerFailureHandlingTest {
             null,
             V3BulkWriteAccounting::classifyOpenSearchResponse)
         .afterBulk(2L, new BulkRequest(), response);
-    assertEquals(V3BulkWriteAccounting.snapshot().staleVersionRejected(), 1);
     verify(metricUtils)
         .increment(BulkListener.class, V3BulkWriteAccounting.STALE_VERSION_REJECTED_METRIC, 1d);
   }
