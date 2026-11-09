@@ -17,7 +17,12 @@ import javax.annotation.Nonnull;
  * hyperParams} with {@code /<field>/-}. A JSON Patch append needs the target array to exist, and
  * both fields are optional, so the template supplies an empty array when the field is absent and
  * drops it again if it is still empty after the patch. An aspect that never had metrics therefore
- * does not gain an empty {@code trainingMetrics} array from an unrelated patch.
+ * does not gain an empty {@code trainingMetrics} array from an unrelated patch. Because the
+ * template cannot tell a seeded array from a stored one, an explicitly stored empty array is also
+ * dropped; for these optional fields absent and empty mean the same thing.
+ *
+ * <p>Appends are not keyed by name: adding a metric whose name already exists adds a second entry,
+ * matching what {@code MLModelPropertiesPatchBuilder} asks for.
  */
 public class MLModelPropertiesTemplate implements Template<MLModelProperties> {
 
