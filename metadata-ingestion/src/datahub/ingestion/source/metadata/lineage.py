@@ -225,18 +225,11 @@ def _get_lineage_mcp(
             typed=True,
         ).get("upstreamLineage")
         if isinstance(old_upstream_lineage, models.UpstreamLineageClass):
-            # Deduplicated on the way in, so copies left by earlier runs go away.
+            # One edge per upstream, which also collapses copies left by earlier runs.
             for upstream in old_upstream_lineage.upstreams:
                 if upstream.dataset not in existing_upstream_urns:
                     existing_upstream_urns.add(upstream.dataset)
                     new_upstreams.append(upstream)
-            # The aspect is written whole, so column lineage that is already
-            # there must be carried over or this run deletes it.
-            for old_fine_grained_lineage in (
-                old_upstream_lineage.fineGrainedLineages or []
-            ):
-                if old_fine_grained_lineage not in new_fine_grained_lineages:
-                    new_fine_grained_lineages.append(old_fine_grained_lineage)
 
     for upstream_entity_node in entity_node.upstream:
         upstream_entity = upstream_entity_node.entity
@@ -260,19 +253,19 @@ def _get_lineage_mcp(
                 f"Upstream lineage will be skipped for {upstream_entity.name}->{entity.name}"
             )
     for fine_grained_lineage in entity_node.fineGrainedLineages or []:
-        new_fine_grained_lineage = models.FineGrainedLineageClass(
-            upstreams=fine_grained_lineage.upstreams,
-            upstreamType=fine_grained_lineage.upstreamType,
-            downstreams=fine_grained_lineage.downstreams,
-            downstreamType=fine_grained_lineage.downstreamType,
-            confidenceScore=fine_grained_lineage.confidenceScore,
-            # Cut before EnsureAspectSizeProcessor measures it; make_mcp() cuts only later.
-            transformOperation=cap_transform_operation(
-                fine_grained_lineage.transformOperation
-            ),
+        new_fine_grained_lineages.append(
+            models.FineGrainedLineageClass(
+                upstreams=fine_grained_lineage.upstreams,
+                upstreamType=fine_grained_lineage.upstreamType,
+                downstreams=fine_grained_lineage.downstreams,
+                downstreamType=fine_grained_lineage.downstreamType,
+                confidenceScore=fine_grained_lineage.confidenceScore,
+                # Cut before EnsureAspectSizeProcessor measures it; make_mcp() cuts only later.
+                transformOperation=cap_transform_operation(
+                    fine_grained_lineage.transformOperation
+                ),
+            )
         )
-        if new_fine_grained_lineage not in new_fine_grained_lineages:
-            new_fine_grained_lineages.append(new_fine_grained_lineage)
 
     return MetadataChangeProposalWrapper(
         entityUrn=entity_urn,

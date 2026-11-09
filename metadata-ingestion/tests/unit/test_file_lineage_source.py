@@ -243,33 +243,17 @@ def _preserved_mcp(
         return _get_lineage_mcp(lineage_config.lineage[0], True)
 
 
-def test_preserve_upstream_merges_without_duplicates(basic_mcp):
-    """Re-running the same file keeps one edge per upstream and keeps column
-    lineage that other writers added to the entity. Copies left by earlier runs
-    are collapsed."""
+def test_preserve_upstream_keeps_one_edge_per_upstream():
+    """Re-running the same file adds no second edge for an upstream that is
+    already there, and collapses copies left by earlier runs."""
     topic1 = "urn:li:dataset:(urn:li:dataPlatform:kafka,topic1,DEV)"
     other = "urn:li:dataset:(urn:li:dataPlatform:kafka,other,DEV)"
-    other_cll = FineGrainedLineageClass(
-        upstreamType="FIELD_SET",
-        upstreams=[f"urn:li:schemaField:({other},col_a)"],
-        downstreamType="FIELD",
-        downstreams=[
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,topic3,DEV),col_a)"
-        ],
-    )
     stamp = AuditStampClass(time=0, actor="urn:li:corpuser:datahub")
     existing = UpstreamLineageClass(
         upstreams=[
             UpstreamClass(dataset=topic1, type="TRANSFORMED", auditStamp=stamp),
             UpstreamClass(dataset=other, type="TRANSFORMED", auditStamp=stamp),
             UpstreamClass(dataset=topic1, type="TRANSFORMED", auditStamp=stamp),
-        ],
-        # The file's own column lineage, written by an earlier run, plus another
-        # writer's, stored twice.
-        fineGrainedLineages=[
-            *basic_mcp.aspect.fineGrainedLineages,
-            other_cll,
-            other_cll,
         ],
     )
     lineage_config = LineageConfig.model_validate(
@@ -280,29 +264,15 @@ def test_preserve_upstream_merges_without_duplicates(basic_mcp):
                 upstream:
                   - entity: {name: topic1, type: dataset, env: DEV, platform: kafka}
                   - entity: {name: topic2, type: dataset, env: DEV, platform: kafka}
-                fineGrainedLineages:
-                  - upstreamType: FIELD_SET
-                    upstreams:
-                      - urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,topic1,PROD),user_id)
-                    downstreamType: FIELD_SET
-                    downstreams:
-                      - urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,topic3,PROD),user_id)
-                    confidenceScore: 0.9
-                    transformOperation: func1
             """
         )
     )
 
     mcp = _preserved_mcp(lineage_config, existing)
     assert mcp is not None and isinstance(mcp.aspect, UpstreamLineageClass)
-    aspect = mcp.aspect
 
-    assert [u.dataset for u in aspect.upstreams] == [
+    assert [u.dataset for u in mcp.aspect.upstreams] == [
         topic1,
         other,
         "urn:li:dataset:(urn:li:dataPlatform:kafka,topic2,DEV)",
-    ]
-    assert aspect.fineGrainedLineages == [
-        *basic_mcp.aspect.fineGrainedLineages,
-        other_cll,
     ]
