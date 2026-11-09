@@ -1850,7 +1850,9 @@ def test_onprem_private_sheets_of_published_apps_are_skipped(
     app = api._read_app(app_dict)
 
     assert app is not None
-    assert len(app.sheets) == (2 if unpublished_app else 1)
+    assert {sheet.id for sheet in app.sheets} == (
+        {"base", "mine"} if unpublished_app else {"base"}
+    )
     assert app.read_complete
 
 
