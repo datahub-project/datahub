@@ -5,6 +5,7 @@ import { updateUrlParam } from '@app/sharedV2/updateUrlParam';
 describe('updateUrlParam', () => {
     const mockHistory = {
         replace: vi.fn(),
+        location: { search: '' },
     };
 
     beforeEach(() => {
@@ -12,10 +13,7 @@ describe('updateUrlParam', () => {
     });
 
     it('should replace history with new URL containing the parameter', () => {
-        Object.defineProperty(window, 'location', {
-            value: { search: '?param1=value1' },
-            writable: true,
-        });
+        mockHistory.location.search = '?param1=value1';
 
         updateUrlParam(mockHistory as any, 'newParam', 'test');
 
@@ -23,10 +21,7 @@ describe('updateUrlParam', () => {
     });
 
     it('should replace history with new URL containing the parameter and state', () => {
-        Object.defineProperty(window, 'location', {
-            value: { search: '?param1=value1' },
-            writable: true,
-        });
+        mockHistory.location.search = '?param1=value1';
 
         const mockState = { some: 'state' };
         updateUrlParam(mockHistory as any, 'newParam', 'test', mockState);
@@ -35,10 +30,7 @@ describe('updateUrlParam', () => {
     });
 
     it('should update existing parameter value', () => {
-        Object.defineProperty(window, 'location', {
-            value: { search: '?param1=value1&existingParam=oldValue' },
-            writable: true,
-        });
+        mockHistory.location.search = '?param1=value1&existingParam=oldValue';
 
         updateUrlParam(mockHistory as any, 'existingParam', 'newValue');
 
@@ -49,10 +41,7 @@ describe('updateUrlParam', () => {
         // Simulates the Impact Analysis URL after user selects 3+ dependency levels.
         // Previously, the native URL.searchParams API would decode 3%2B → 3+ and re-encode as 3%20,
         // causing GMS to reject with "3  is not a valid filter value for degree filters".
-        Object.defineProperty(window, 'location', {
-            value: { search: '?filter_degree___false___EQUAL___0=3%2B%2C2%2C1' },
-            writable: true,
-        });
+        mockHistory.location.search = '?filter_degree___false___EQUAL___0=3%2B%2C2%2C1';
 
         updateUrlParam(mockHistory as any, 'sortOption', 'relevance');
 
@@ -64,10 +53,7 @@ describe('updateUrlParam', () => {
     });
 
     it('should encode special characters in the new value being set', () => {
-        Object.defineProperty(window, 'location', {
-            value: { search: '' },
-            writable: true,
-        });
+        mockHistory.location.search = '';
 
         updateUrlParam(mockHistory as any, 'query', 'hello world');
 
@@ -77,10 +63,7 @@ describe('updateUrlParam', () => {
     });
 
     it('should remove the parameter when the value is null, keeping comma-separated values intact', () => {
-        Object.defineProperty(window, 'location', {
-            value: { search: '?filter_platform___false___EQUAL___0=a%2Cb&showSiblings=true' },
-            writable: true,
-        });
+        mockHistory.location.search = '?filter_platform___false___EQUAL___0=a%2Cb&showSiblings=true';
 
         updateUrlParam(mockHistory as any, 'showSiblings', null);
 

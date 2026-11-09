@@ -17,7 +17,6 @@ import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearc
 import { SEARCH_BAR_CLASS_NAME } from '@app/searchV2/utils/constants';
 import { PreviewSection } from '@app/sharedV2/MatchesContext';
 import { PAGE_GAP_PX } from '@app/sharedV2/layouts/constants';
-import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
@@ -278,24 +277,6 @@ export const SearchResultList = ({
         error: siblingsError,
         retry: retrySiblings,
     } = useSiblingGroups(datasetUrns, showSiblings);
-    // In the combined view a result card already merges some siblings; don't list those again.
-    const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
-    const mergedSiblingUrns = useCallback(
-        (result: CombinedSearchResult): Set<string> | undefined => {
-            if (showSeparateSiblings) return undefined;
-            const merged = new Set<string>();
-            (result.matchedEntities || []).forEach((entity) => merged.add(entity.urn));
-            const { siblingsSearch } = result.entity as {
-                siblingsSearch?: { searchResults?: { entity?: { urn?: string } }[] };
-            };
-            (siblingsSearch?.searchResults || []).forEach(
-                (sibling) => sibling.entity?.urn && merged.add(sibling.entity.urn),
-            );
-            merged.delete(result.entity.urn);
-            return merged.size ? merged : undefined;
-        },
-        [showSeparateSiblings],
-    );
 
     return (
         <>
@@ -370,7 +351,6 @@ export const SearchResultList = ({
                                     urn={item.entity.urn}
                                     resultName={entityRegistry.getDisplayName(item.entity.type, item.entity)}
                                     group={siblingGroup}
-                                    excludeUrns={mergedSiblingUrns(item)}
                                 />
                             )}
                         </div>

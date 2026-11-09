@@ -1,20 +1,35 @@
+import { FetchResult } from '@apollo/client';
 import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
+import { RouteComponentProps } from 'react-router-dom';
 
 import { SearchResultList } from '@app/searchV2/SearchResultList';
+import SearchFilters from '@app/searchV2/filters/SearchFilters';
 import SearchResultSiblings, { EXPANDED_PAGE_SIZE } from '@app/searchV2/siblings/SearchResultSiblings';
-import { SiblingGroupData } from '@app/searchV2/siblings/useSiblingGroups';
+import { SiblingGroupData, SiblingMemberData } from '@app/searchV2/siblings/useSiblingGroups';
+import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearchResults';
+import { UnionType } from '@app/searchV2/utils/constants';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 import { GetSiblingGroupsDocument } from '@graphql/siblings.generated';
 import { EntityType } from '@types';
 
+let separateSiblings = true;
+vi.mock('@app/useAppConfig', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@app/useAppConfig')>()),
+    useIsShowSeparateSiblingsEnabled: () => separateSiblings,
+}));
+
+type NamedEntity = { urn: string; name?: string };
+
 vi.mock('@app/useEntityRegistry', () => ({
     useEntityRegistry: () => ({
-        renderSearchResult: (_type: EntityType, item: any) => <div data-testid="result">{item.entity.urn}</div>,
-        getDisplayName: (_type: EntityType, entity: any) => entity.name || entity.urn,
+        renderSearchResult: (_type: EntityType, item: { entity: NamedEntity }) => (
+            <div data-testid="result">{item.entity.urn}</div>
+        ),
+        getDisplayName: (_type: EntityType, entity: NamedEntity) => entity.name || entity.urn,
         getEntityUrl: (_type: EntityType, urn: string) => `/dataset/${encodeURIComponent(urn)}`,
         getIcon: () => null,
     }),
@@ -23,7 +38,7 @@ vi.mock('@app/useEntityRegistry', () => ({
 const RESULT_URN = 'urn:li:dataset:(urn:li:dataPlatform:glue,db.orders,PROD)';
 const CHART_URN = 'urn:li:chart:(looker,c1)';
 
-function member(name: string, isPrimary = false) {
+function member(name: string, isPrimary = false): SiblingMemberData {
     return {
         __typename: 'SiblingMember',
         isPrimary,
@@ -36,16 +51,16 @@ function member(name: string, isPrimary = false) {
             properties: { __typename: 'DatasetProperties', name },
             container: null,
         },
-    };
+    } as unknown as SiblingMemberData;
 }
 
 const ALL = Array.from({ length: 250 }, (_, i) => member(`copy_${String(i).padStart(3, '0')}`, i === 0));
 
-function group(members: any[], total: number): SiblingGroupData {
+function group(members: SiblingMemberData[], total: number): SiblingGroupData {
     return { __typename: 'SiblingGroup', urn: RESULT_URN, total, truncated: false, members } as SiblingGroupData;
 }
 
-function pageMock(start: number, count: number, result: () => any): MockedResponse {
+function pageMock(start: number, count: number, result: () => FetchResult): MockedResponse {
     return {
         request: { query: GetSiblingGroupsDocument, variables: { input: { urns: [RESULT_URN], start, count } } },
         result,
@@ -58,6 +73,10 @@ function scrollToBottom(list: HTMLElement) {
     Object.defineProperty(list, 'scrollTop', { value: 640, configurable: true });
     fireEvent.scroll(list);
 }
+
+beforeEach(() => {
+    separateSiblings = true;
+});
 
 describe('expanded sibling list paging', () => {
     it('requests the next page on scroll and stops after a short page', async () => {
@@ -129,37 +148,25 @@ describe('expanded sibling list paging', () => {
         fireEvent.click(screen.getByText('Show less'));
         expect(screen.getByText('+ 2 more siblings of orders')).toHaveFocus();
     });
-
-    it('leaves out members already merged into the result card', () => {
-        render(
-            <MockedProvider addTypename>
-                <TestPageContainer>
-                    <SearchResultSiblings
-                        urn={RESULT_URN}
-                        resultName="orders"
-                        group={group(ALL.slice(0, 5), 7)}
-                        excludeUrns={new Set([ALL[1].entity.urn])}
-                    />
-                </TestPageContainer>
-            </MockedProvider>,
-        );
-        expect(screen.getAllByTestId('sibling-row')).toHaveLength(4);
-        expect(screen.getByText('+ 2 more siblings of orders')).toBeInTheDocument();
-    });
 });
 
 describe('navigateToSearchUrl and showSiblings', () => {
-    function historyAt(search: string) {
-        return { location: { search }, push: vi.fn() } as any;
+    type HistoryStub = Pick<RouteComponentProps['history'], 'location' | 'push'> & {
+        push: ReturnType<typeof vi.fn>;
+    };
+    // A stub with only what navigateToSearchUrl uses.
+    const asHistory = (stub: HistoryStub) => stub as unknown as RouteComponentProps['history'];
+    function historyAt(search: string): HistoryStub {
+        return { location: { search } as RouteComponentProps['history']['location'], push: vi.fn() };
     }
 
     it('keeps showSiblings when paging or filtering', () => {
         const history = historyAt('?query=orders&showSiblings=true');
-        navigateToSearchUrl({ query: 'orders', page: 2, history });
+        navigateToSearchUrl({ query: 'orders', page: 2, history: asHistory(history) });
         navigateToSearchUrl({
             query: 'orders',
             filters: [{ field: 'platform', values: ['urn:li:dataPlatform:glue', 'urn:li:dataPlatform:hive'] }],
-            history,
+            history: asHistory(history),
         });
         history.push.mock.calls.forEach(([target]) => {
             expect(new URLSearchParams(target.search).get('showSiblings')).toBe('true');
@@ -169,22 +176,31 @@ describe('navigateToSearchUrl and showSiblings', () => {
 
     it('leaves it off when it was off, or when explicitly turned off', () => {
         const off = historyAt('?query=orders');
-        navigateToSearchUrl({ query: 'orders', page: 2, history: off });
+        navigateToSearchUrl({ query: 'orders', page: 2, history: asHistory(off) });
         expect(off.push.mock.calls[0][0].search).not.toContain('showSiblings');
 
         const on = historyAt('?query=orders&showSiblings=true');
-        navigateToSearchUrl({ query: 'orders', history: on, showSiblings: false });
+        navigateToSearchUrl({ query: 'orders', history: asHistory(on), showSiblings: false });
         expect(on.push.mock.calls[0][0].search).not.toContain('showSiblings');
     });
 });
 
 describe('SearchResultList with siblings', () => {
-    const results: any[] = [
+    beforeAll(() => {
+        // jsdom has no scrollIntoView; the list scrolls the highlighted result into view.
+        Element.prototype.scrollIntoView = vi.fn();
+    });
+
+    const results = [
         { entity: { urn: RESULT_URN, type: EntityType.Dataset, name: 'orders' }, matchedFields: [] },
         { entity: { urn: CHART_URN, type: EntityType.Chart, name: 'chart' }, matchedFields: [] },
-    ];
+    ] as unknown as CombinedSearchResult[];
 
-    function renderList(search: string, mocks: MockedResponse[]) {
+    function renderList(
+        search: string,
+        mocks: MockedResponse[],
+        setHighlightedIndex: (index: number | null) => void = () => undefined,
+    ) {
         return render(
             <MockedProvider mocks={mocks} addTypename>
                 <TestPageContainer initialEntries={[`/search${search}`]}>
@@ -197,8 +213,8 @@ describe('SearchResultList with siblings', () => {
                         selectedEntities={[]}
                         setSelectedEntities={() => undefined}
                         suggestions={[]}
-                        highlightedIndex={null}
-                        setHighlightedIndex={() => undefined}
+                        highlightedIndex={0}
+                        setHighlightedIndex={setHighlightedIndex}
                         pageNumber={1}
                     />
                 </TestPageContainer>
@@ -206,7 +222,7 @@ describe('SearchResultList with siblings', () => {
         );
     }
 
-    const listMock = (result: () => any): MockedResponse => ({
+    const listMock = (result: () => FetchResult): MockedResponse => ({
         request: { query: GetSiblingGroupsDocument, variables: { input: { urns: [RESULT_URN], start: 0, count: 5 } } },
         result,
     });
@@ -228,5 +244,60 @@ describe('SearchResultList with siblings', () => {
         await waitFor(() => expect(screen.getAllByTestId('sibling-row')).toHaveLength(5));
         expect(screen.getByTestId(`siblings-${RESULT_URN}`)).toBeInTheDocument();
         expect(screen.queryByTestId(`siblings-${CHART_URN}`)).toBeNull();
+    });
+
+    it('shows an error with Retry when the siblings request fails, and retries', async () => {
+        renderList('?query=orders&showSiblings=true', [
+            { ...listMock(() => ({})), error: new Error('boom') },
+            listMock(() => ({ data: { siblingGroups: [group(ALL.slice(0, 5), 7)] } })),
+        ]);
+        await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load siblings."));
+        fireEvent.click(screen.getByText('Retry'));
+        await waitFor(() => expect(screen.getAllByTestId('sibling-row')).toHaveLength(5));
+    });
+
+    it('leaves arrow keys inside a sibling list alone', async () => {
+        const setHighlightedIndex = vi.fn();
+        renderList(
+            '?query=orders&showSiblings=true',
+            [listMock(() => ({ data: { siblingGroups: [group(ALL.slice(0, 5), 7)] } }))],
+            setHighlightedIndex,
+        );
+        await waitFor(() => expect(screen.getAllByTestId('sibling-row')).toHaveLength(5));
+        fireEvent.keyDown(screen.getAllByTestId('sibling-row')[0], { key: 'ArrowDown' });
+        expect(setHighlightedIndex).not.toHaveBeenCalled();
+        fireEvent.keyDown(document.body, { key: 'ArrowDown' });
+        expect(setHighlightedIndex).toHaveBeenCalledWith(1);
+    });
+
+    it('shows no toggle and no rows in the combined-siblings view, even with showSiblings=true', async () => {
+        separateSiblings = false;
+        const fetched = vi.fn(() => ({ data: { siblingGroups: [group(ALL.slice(0, 5), 7)] } }));
+        renderList('?query=orders&showSiblings=true', [listMock(fetched)]);
+        await new Promise((resolve) => {
+            setTimeout(resolve, 20);
+        });
+        expect(fetched).not.toHaveBeenCalled();
+        expect(screen.queryAllByTestId('sibling-row')).toHaveLength(0);
+
+        render(
+            <MockedProvider addTypename>
+                <TestPageContainer initialEntries={['/search?query=orders&showSiblings=true']}>
+                    <SearchFilters
+                        loading={false}
+                        availableFilters={[]}
+                        activeFilters={[]}
+                        unionType={UnionType.AND}
+                        onChangeFilters={() => undefined}
+                        onChangeUnionType={() => undefined}
+                        onClearFilters={() => undefined}
+                        query="orders"
+                        downloadSearchResults={async () => null}
+                        showSiblingsToggle
+                    />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+        expect(screen.queryByTestId('show-siblings-toggle')).toBeNull();
     });
 });
