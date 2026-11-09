@@ -167,8 +167,8 @@ class QlikDataset(Item):
 
 
 class AxisProperty(_QlikBaseModel):
-    # A dimension or measure in an error state, such as one on a removed field,
-    # comes back with only its qError.
+    # The Engine leaves these out for some dimensions and measures, such as
+    # ones in an error state.
     Title: Optional[str] = Field(default=None, alias="qFallbackTitle")
     Min: Optional[str] = Field(default=None, alias="qMin")
     Max: Optional[str] = Field(default=None, alias="qMax")
@@ -181,6 +181,14 @@ class Chart(_QlikBaseModel):
     subtitle: str = ""
     qDimension: List[AxisProperty]
     qMeasure: List[AxisProperty]
+    # Field names or expressions read by the chart's dimensions and measures.
+    field_expressions: List[str] = []
+    # Master measures keep their expression on the app rather than the chart.
+    measure_library_ids: List[str] = []
+    fields_complete: bool = True
+    # A measure could not be read this time, as opposed to one that no longer
+    # exists, so the input fields from the last read are kept.
+    fields_unread: bool = False
 
     @model_validator(mode="before")
     @classmethod
@@ -190,6 +198,19 @@ class Chart(_QlikBaseModel):
         values[Constant.QID] = values[Constant.QINFO][Constant.QID]
         values["qDimension"] = values[Constant.HYPERCUBE]["qDimensionInfo"]
         values["qMeasure"] = values[Constant.HYPERCUBE]["qMeasureInfo"]
+        values.setdefault(
+            "field_expressions",
+            [
+                field_def
+                for dimension in values["qDimension"]
+                for field_def in dimension.get(Constant.QGROUPFIELDDEFS) or []
+            ],
+        )
+        if any(
+            not dimension.get(Constant.QGROUPFIELDDEFS)
+            for dimension in values["qDimension"]
+        ):
+            values["fields_complete"] = False
         return values
 
 
@@ -216,6 +237,26 @@ class Sheet(_QlikBaseModel):
             values[Constant.MODIFIEDDATE], QLIK_DATETIME_FORMAT
         )
         return values
+
+
+class AppField(BaseModel):
+    dataset_urn: str
+    field: SchemaField
+
+
+class AppFieldIndex(BaseModel):
+    """Chart field lookup. Qlik field names are case-sensitive, but the SQL
+    parser may change the case of script table columns, so only those also
+    match by name in any case."""
+
+    exact: Dict[str, List[AppField]] = {}
+    folded: Dict[str, List[AppField]] = {}
+
+    def get(self, name: str) -> List[AppField]:
+        exact = self.exact.get(name, [])
+        return exact + [
+            field for field in self.folded.get(name.lower(), []) if field not in exact
+        ]
 
 
 class QlikTable(_QlikBaseModel):
@@ -260,6 +301,8 @@ class App(Item):
     tables_read_failed: bool = False
     # Engine reads of this app that failed, so its metadata is only partly read.
     read_errors: List[str] = []
+    # Batch Engine reads that fell back to slower per-object reads.
+    read_fallbacks: List[str] = []
 
     @model_validator(mode="before")
     @classmethod

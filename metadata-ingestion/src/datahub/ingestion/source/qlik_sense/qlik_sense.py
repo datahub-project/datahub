@@ -4,7 +4,7 @@ import json
 import logging
 from datetime import datetime
 from functools import partial
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Collection, Dict, Iterable, List, Optional, Tuple, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub._version import __version__
@@ -46,6 +46,8 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     FIELD_TYPE_MAPPING,
     KNOWN_DATA_PLATFORM_MAPPING,
     App,
+    AppField,
+    AppFieldIndex,
     AppKey,
     BoxType,
     Chart,
@@ -71,11 +73,13 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     brackets_to_backticks,
     connection_lookup_names,
     drop_condition_variables,
+    expression_names,
     has_qualified_name,
     infer_data_connection,
     is_connector_sql,
     is_inline_connection,
     parse_load_script,
+    reads_unknown_fields,
     redact_connection,
 )
 from datahub.ingestion.source.state.entity_removal_state import (
@@ -119,6 +123,8 @@ from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     DashboardInfoClass,
     DataPlatformInstanceClass,
+    InputFieldClass,
+    InputFieldsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -578,6 +584,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self,
         charts: List[Chart],
         input_tables_urns: Optional[List[str]],
+        app_fields: AppFieldIndex,
+        has_unknown_schema: bool,
         app_id: str,
     ) -> Iterable[MetadataWorkUnit]:
         """
@@ -596,6 +604,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "Dimension": str(chart.qDimension),
                 "Measure": str(chart.qMeasure),
             }
+            chart_fields = self._get_chart_input_fields(chart, app_fields)
 
             if input_tables_urns is None:
                 # Unknown inputs would overwrite the ones the last full read
@@ -611,7 +620,31 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                         description=chart.visualization,
                         lastModified=ChangeAuditStampsClass(),
                         customProperties=custom_properties,
-                        inputs=input_tables_urns,
+                        inputs=self._get_chart_inputs(
+                            chart,
+                            chart_fields,
+                            app_fields,
+                            input_tables_urns,
+                            has_unknown_schema,
+                        ),
+                    ),
+                ).as_workunit()
+
+            # Emitted even when empty so fields a chart stopped using are cleared,
+            # but not from a partial list of a chart whose measures were unread.
+            if input_tables_urns is not None and not chart.fields_unread:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=chart_urn,
+                    aspect=InputFieldsClass(
+                        fields=[
+                            InputFieldClass(
+                                schemaFieldUrn=builder.make_schema_field_urn(
+                                    field.dataset_urn, field.field.name
+                                ),
+                                schemaField=self._gen_schema_field(field.field),
+                            )
+                            for field in chart_fields
+                        ]
                     ),
                 ).as_workunit()
 
@@ -639,8 +672,89 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
             )
 
+    @staticmethod
+    def _chart_field_names(expression: str, app_fields: AppFieldIndex) -> List[str]:
+        # A dimension is usually a bare field name, which may contain spaces.
+        return (
+            [expression] if app_fields.get(expression) else expression_names(expression)
+        )
+
+    @staticmethod
+    def _app_field_key(name: str, app_fields: AppFieldIndex) -> Optional[str]:
+        """The app field a chart name reads. A derived field such as
+        Date.autoCalendar.Year reads its base field, the longest leading part
+        of the name that is a field (field names can contain dots), unless a
+        field of that exact name exists."""
+        key = name
+        while not app_fields.get(key) and "." in key:
+            key = key.rsplit(".", 1)[0]
+        return key if app_fields.get(key) else None
+
+    @staticmethod
+    def _get_chart_input_fields(
+        chart: Chart, app_fields: AppFieldIndex
+    ) -> List[AppField]:
+        matched: Dict[str, AppField] = {}
+        for expression in chart.field_expressions:
+            for name in QlikSenseSource._chart_field_names(expression, app_fields):
+                key = QlikSenseSource._app_field_key(name, app_fields)
+                for app_field in app_fields.get(key) if key else []:
+                    matched.setdefault(
+                        f"{app_field.dataset_urn}.{app_field.field.name}", app_field
+                    )
+        return list(matched.values())
+
+    def _get_chart_inputs(
+        self,
+        chart: Chart,
+        chart_fields: List[AppField],
+        app_fields: AppFieldIndex,
+        input_tables_urns: List[str],
+        has_unknown_schema: bool,
+    ) -> List[str]:
+        # The fields behind a $(variable) expansion are unknown, so the chart
+        # may read any of the app's tables, as may a measure that could not be
+        # read, a derived field such as Date.autoCalendar.Year whose base field
+        # is not known, or a name that is not a known field while some table's
+        # columns are unknown (e.g. SELECT *). Set modifier values only filter.
+        unmatched = [
+            name
+            for expression in chart.field_expressions
+            for name in self._chart_field_names(expression, app_fields)
+            if self._app_field_key(name, app_fields) is None
+        ]
+        if (
+            not chart.fields_complete
+            or any(map(reads_unknown_fields, chart.field_expressions))
+            or any("." in name for name in unmatched)
+            or (has_unknown_schema and unmatched)
+        ):
+            return input_tables_urns
+        return (
+            list(dict.fromkeys(field.dataset_urn for field in chart_fields))
+            or input_tables_urns
+        )
+
+    @staticmethod
+    def _index_app_fields(
+        tables: Dict[str, List[QlikDatasetSchemaField]],
+        script_table_urns: Collection[str] = (),
+    ) -> AppFieldIndex:
+        index = AppFieldIndex()
+        for dataset_urn, fields in tables.items():
+            for field in fields:
+                app_field = AppField(dataset_urn=dataset_urn, field=field)
+                index.exact.setdefault(field.name, []).append(app_field)
+                if dataset_urn in script_table_urns:
+                    index.folded.setdefault(field.name.lower(), []).append(app_field)
+        return index
+
     def _gen_sheets_workunit(
-        self, app: App, input_tables_urns: Optional[List[str]]
+        self,
+        app: App,
+        input_tables_urns: Optional[List[str]],
+        app_fields: AppFieldIndex,
+        has_unknown_schema: bool,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Qlik Sheet to Datahub dashboard
@@ -670,7 +784,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 yield self._gen_entity_owner_aspect(dashboard_urn, owner_username)
 
             yield from self._gen_charts_workunit(
-                sheet.charts, input_tables_urns, app.id
+                sheet.charts,
+                input_tables_urns,
+                app_fields,
+                has_unknown_schema,
+                app.id,
             )
 
     def _gen_app_table_upstream_lineage(
@@ -923,20 +1041,24 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def _merge_script_table(
-        tables: Dict[str, ScriptTableLineage],
+        tables: Dict[Tuple[str, bool], ScriptTableLineage],
         app_id: str,
         script_table: ScriptTable,
         connection_name: Optional[str],
         upstream_urns: List[str],
         result: SqlParsingResult,
     ) -> None:
-        # A label loaded by several statements is one Qlik table.
+        # Loads of one dataset URN are one table, so labels that differ only
+        # in case are merged. Mapping tables are a separate namespace, so a
+        # mapping load is kept apart.
+        identifier = f"{app_id}.{script_table.label}".lower()
         lineage = tables.setdefault(
-            script_table.label,
+            (identifier, script_table.mapping),
             ScriptTableLineage(
                 label=script_table.label,
-                identifier=f"{app_id}.{script_table.label}".lower(),
+                identifier=identifier,
                 connection=connection_name,
+                mapping=script_table.mapping,
             ),
         )
         lineage.upstream_urns.extend(
@@ -952,7 +1074,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _build_script_tables(self, app: App) -> List[ScriptTableLineage]:
         if not app.script:
             return []
-        tables: Dict[str, ScriptTableLineage] = {}
+        tables: Dict[Tuple[str, bool], ScriptTableLineage] = {}
         # Tables the data model already traces are ingested from it instead.
         traced = {
             name.lower()
@@ -1013,8 +1135,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "`data_connection_to_platform_instance`.",
                 context=f"app={app.id}, tables={sorted(set(unqualified))}",
             )
-        self.reporter.script_tables_with_lineage += len(tables)
-        return list(tables.values())
+        # A data table and a mapping table with the same identifier share one
+        # dataset URN, so only the data table, which charts read, is kept.
+        script_tables = [
+            lineage
+            for (identifier, mapping), lineage in tables.items()
+            if not (mapping and (identifier, False) in tables)
+        ]
+        self.reporter.script_tables_with_lineage += len(script_tables)
+        return script_tables
 
     @staticmethod
     def _script_table_fields(
@@ -1087,6 +1216,26 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if upstream_lineage_workunit:
                 yield upstream_lineage_workunit
 
+    def _app_table_fields(
+        self, tables: List[QlikTable], script_tables: List[ScriptTableLineage]
+    ) -> Dict[str, List[QlikDatasetSchemaField]]:
+        table_fields: Dict[str, List[QlikDatasetSchemaField]] = {}
+        for table in tables:
+            identifier = self._get_app_table_identifier(table)
+            if identifier:
+                table_fields[self._gen_qlik_dataset_urn(identifier)] = (
+                    table.datasetSchema
+                )
+        for script_table in script_tables:
+            # A mapping table is only used by ApplyMap and is not in the data
+            # model, so charts cannot read it.
+            if script_table.mapping:
+                continue
+            table_fields[self._gen_qlik_dataset_urn(script_table.identifier)] = (
+                self._script_table_fields(script_table)
+            )
+        return table_fields
+
     def _gen_app_workunit(
         self, app: App, fingerprint: Optional[str] = None
     ) -> Iterable[MetadataWorkUnit]:
@@ -1097,11 +1246,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.on_prem is None and not app.tables:
             self.reporter.apps_without_load_model.append(app.id)
         script_tables = self._build_script_tables(app)
-        input_tables_urns = [
-            self._gen_qlik_dataset_urn(identifier)
-            for identifier in map(self._get_app_table_identifier, app.tables)
-            if identifier
-        ] + [self._gen_qlik_dataset_urn(table.identifier) for table in script_tables]
+        table_fields = self._app_table_fields(app.tables, script_tables)
+        input_tables_urns = list(table_fields)
+        script_table_urns = {
+            self._gen_qlik_dataset_urn(table.identifier) for table in script_tables
+        }
         container_workunits = list(
             gen_containers(
                 container_key=self._gen_app_key(app.id),
@@ -1125,7 +1274,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
         yield from container_workunits
         yield from self._gen_sheets_workunit(
-            app, None if app.tables_read_failed else input_tables_urns
+            app,
+            None if app.tables_read_failed else input_tables_urns,
+            self._index_app_fields(table_fields, script_table_urns),
+            any(not fields for fields in table_fields.values()),
         )
         yield from self._gen_app_tables_workunit(app.tables, app.id)
         yield from self._gen_script_tables_workunit(script_tables, app.id)
@@ -1180,26 +1332,26 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         else:
             return None
 
+    @staticmethod
+    def _gen_schema_field(field: QlikDatasetSchemaField) -> SchemaField:
+        return SchemaField(
+            fieldPath=field.name,
+            type=SchemaFieldDataTypeClass(
+                type=(
+                    FIELD_TYPE_MAPPING.get(field.dataType, NullType)()
+                    if field.dataType
+                    else NullType()
+                )
+            ),
+            nativeDataType=field.dataType if field.dataType else "",
+            nullable=field.nullable,
+            isPartOfKey=field.primaryKey,
+        )
+
     def _gen_schema_fields(
         self, schema: List[QlikDatasetSchemaField]
     ) -> List[SchemaField]:
-        schema_fields: List[SchemaField] = []
-        for field in schema:
-            schema_field = SchemaField(
-                fieldPath=field.name,
-                type=SchemaFieldDataTypeClass(
-                    type=(
-                        FIELD_TYPE_MAPPING.get(field.dataType, NullType)()
-                        if field.dataType
-                        else NullType()
-                    )
-                ),
-                nativeDataType=field.dataType if field.dataType else "",
-                nullable=field.nullable,
-                isPartOfKey=field.primaryKey,
-            )
-            schema_fields.append(schema_field)
-        return schema_fields
+        return [self._gen_schema_field(field) for field in schema]
 
     def _gen_schema_metadata(
         self, dataset_identifier: str, dataset_schema: List[QlikDatasetSchemaField]
@@ -1286,6 +1438,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if isinstance(item, UnchangedApp):
             self._keep_unchanged_app(item)
         elif isinstance(item, App):
+            for fallback in item.read_fallbacks:
+                self.reporter.info(
+                    title="Qlik Engine batch read unavailable",
+                    message="Fell back to one Engine request per chart or master "
+                    "measure, which is slower on large apps.",
+                    context=f"{item.id}: {fallback}",
+                )
             self.reporter.apps_read += 1
             logger.info(
                 f"Processed app {item.qTitle} in space {space_name} "
