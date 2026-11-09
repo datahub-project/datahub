@@ -203,14 +203,18 @@ transforms.RegexRouter.replacement: "events.$1"
 **Cloud PostgreSQL Source** (`PostgresSource`): topics are `<topic.prefix><table>`, then any
 `RegexRouter` / `TopicRegexRouter` transform. Each `table.include.list` entry must be a literal
 `schema.table` (for example `public.orders`) to get lineage. Tables matched by `table.exclude.list`
-(Java regular expressions over `schema.table`) are left out, as the connector does. Lineage is skipped, with a warning, for:
+are left out, as the connector does. Its entries are Java regular expressions that must match the
+whole `schema.table` name: `orders` does not exclude `public.orders`, but `.*\.orders` does.
+Lineage is skipped, with a warning, for:
 
 - regular-expression entries;
 - entries without a schema;
 - tables with the same name in two schemas, which write the same topic;
 - connectors that use a custom `query`;
 - connectors with topic-routing transforms that cannot be predicted, such as Debezium's
-  `EventRouter`.
+  `EventRouter`;
+- connectors whose `table.exclude.list` cannot be evaluated (a pattern Java cannot compile,
+  or no Java runtime), since excluded tables cannot be told apart.
 
 **S3 Source**: lineage needs the S3 folder behind each topic.
 
