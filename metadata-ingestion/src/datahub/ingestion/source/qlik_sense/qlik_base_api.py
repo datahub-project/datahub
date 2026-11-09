@@ -13,6 +13,7 @@ from typing import (
     Optional,
     Sequence,
     Tuple,
+    Union,
 )
 
 import requests
@@ -22,6 +23,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     Item,
     Sheet,
     Space,
+    UnchangedApp,
     UnreadItem,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import (
@@ -32,6 +34,9 @@ from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketCo
 from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 
 logger = logging.getLogger(__name__)
+
+# Called with an app id and fingerprint; True skips reading that app.
+IsUnchanged = Callable[[str, str], bool]
 
 
 def log_read_error(message: str) -> None:
@@ -67,6 +72,8 @@ class QlikBaseAPI(ABC):
         self.failed_user_lookups: Dict[str, str] = {}
         # Spaces and items that failed to load, so the source can report them.
         self.unread_items: List[UnreadItem] = []
+        # Apps read again because checking whether they changed failed.
+        self.change_check_failures: List[str] = []
 
     def _record_failed_user_lookup(self, user_id: str, e: Exception) -> None:
         log_read_error(f"Unable to fetch user with id {user_id}. Exception: {e}")
@@ -90,7 +97,9 @@ class QlikBaseAPI(ABC):
         """Raw items of a space, recording the space as unread when listing fails."""
 
     @abstractmethod
-    def _load_item(self, item: Dict) -> Optional[Item]:
+    def _load_item(
+        self, item: Dict, is_unchanged: Optional[IsUnchanged]
+    ) -> Union[Item, UnchangedApp, None]:
         """Reads one listed item, recording it as unread when that fails."""
 
     @abstractmethod
@@ -100,7 +109,9 @@ class QlikBaseAPI(ABC):
     def _sheet_meta(self, meta: Dict, sheet_id: str) -> Optional[Dict]:
         """Sheet fields from the sheet layout's qMeta, None to leave the sheet out."""
 
-    def get_items(self, space_ids: Sequence[str]) -> Iterable[Item]:
+    def get_items(
+        self, space_ids: Sequence[str], is_unchanged: Optional[IsUnchanged] = None
+    ) -> Iterable[Union[Item, UnchangedApp]]:
         """Items of all the spaces, read by one pool of workers, so sites with
         many small spaces or streams are read in parallel too. Items are taken
         from the spaces in turn, so a large space does not hold back the rest."""
@@ -108,7 +119,10 @@ class QlikBaseAPI(ABC):
         # decoding replies.
         for future in BackpressureAwareExecutor.map(
             self._load_item_or_record,
-            self._items_in_turn(space_ids),
+            (
+                (space_id, item, is_unchanged)
+                for space_id, item in self._items_in_turn(space_ids)
+            ),
             max_workers=self.config.resolved_max_workers(),
         ):
             item = future.result()
@@ -132,9 +146,11 @@ class QlikBaseAPI(ABC):
                 yield space_id, item
                 listings.append((space_id, listing))
 
-    def _load_item_or_record(self, space_id: str, item: Dict) -> Optional[Item]:
+    def _load_item_or_record(
+        self, space_id: str, item: Dict, is_unchanged: Optional[IsUnchanged]
+    ) -> Union[Item, UnchangedApp, None]:
         try:
-            return self._load_item(item)
+            return self._load_item(item, is_unchanged)
         except Exception as e:
             item_id = item.get(Constant.RESOURCEID) or item.get(Constant.ID)
             self._record_unread(

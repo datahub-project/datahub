@@ -60,6 +60,7 @@ class Constant:
     DATAFIELDS = "dataFields"
     RESOURCETYPE = "resourceType"
     USAGE = "usage"
+    FINGERPRINT = "ingestionFingerprint"
     CREATEDDATE = "createdDate"
     MODIFIEDDATE = "modifiedDate"
     RESOURCEID = "resourceId"
@@ -125,6 +126,10 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     script_tables_with_lineage: int = 0
     apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
     unresolved_data_connections: LossyList[str] = field(default_factory=LossyList)
+    apps_read: int = 0
+    apps_skipped_unchanged: int = 0
+    # Apps read again because checking whether they changed failed.
+    apps_change_check_failed: LossyList[str] = field(default_factory=LossyList)
 
     def report_number_of_spaces(self, number_of_spaces: int) -> None:
         self.number_of_spaces = number_of_spaces
@@ -209,6 +214,16 @@ class QlikOnPremConfig(ConfigModel):
         default=False,
         description="Also ingest apps that are not published to a stream.",
     )
+    skip_unchanged_apps: bool = Field(
+        default=False,
+        description="Do not re-read an app from the Engine when the app, its "
+        "objects (sheets, stories, master items), its reload time, the data connections, this "
+        "recipe and the connector version are all unchanged since the last run, and DataHub "
+        "still holds that run's metadata for it. Its entities are kept, not soft-deleted. "
+        "Requires stateful ingestion. Set `stateful_ingestion.ignore_old_state` for one run "
+        "to force a full read, for example after ingesting upstream schemas that column-level "
+        "lineage should resolve against.",
+    )
 
     @model_validator(mode="after")
     def warn_unused_server_cert_hostname(self) -> "QlikOnPremConfig":
@@ -246,6 +261,15 @@ class QlikSourceConfig(
         default=None,
         description="Connection to Qlik Sense Enterprise on Windows. Set this instead of "
         "`tenant_hostname` and `api_key` to read an on-prem site.",
+    )
+    max_partial_reads_kept: int = Field(
+        default=3,
+        ge=0,
+        description="With stateful ingestion and stale metadata removal, how many "
+        "consecutive runs an app that is only partly read keeps the entities of its "
+        "last complete read. After that, its partial read is ingested and reported "
+        "as a failure, so its current state appears and stale metadata removal is "
+        "skipped for that run.",
     )
     max_workers: Optional[int] = Field(
         default=None,
@@ -303,6 +327,9 @@ class QlikSourceConfig(
         if self.max_workers is not None:
             return self.max_workers
         return 4 if self.on_prem is not None else 1
+
+    def skips_unchanged_apps(self) -> bool:
+        return self.on_prem is not None and self.on_prem.skip_unchanged_apps
 
     def ui_hostname(self) -> str:
         if self.on_prem is not None:
