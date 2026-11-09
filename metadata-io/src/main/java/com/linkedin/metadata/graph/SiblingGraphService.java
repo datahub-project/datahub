@@ -9,6 +9,7 @@ import com.google.common.util.concurrent.RateLimiter;
 import com.linkedin.common.Siblings;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.entity.EntityService;
@@ -16,7 +17,9 @@ import com.linkedin.metadata.entity.validation.ValidationUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -251,15 +254,82 @@ public class SiblingGraphService {
    */
   @Nonnull
   public Set<Urn> siblingGroup(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
-    final Set<Urn> group = new LinkedHashSet<>(List.of(urn));
+    return Collections.unmodifiableSet(walkGroup(opContext, urn).primary().keySet());
+  }
+
+  /** A member of a sibling group and whether its own siblings aspect marks it primary. */
+  public record SiblingGroupMember(@Nonnull Urn urn, boolean primary) {}
+
+  /**
+   * The other members of a sibling group. {@code truncated} is true when the group is larger than
+   * {@link #MAX_GROUP_MEMBERS}, so {@code members} is only part of it.
+   */
+  public record SiblingGroupMembers(@Nonnull List<SiblingGroupMember> members, boolean truncated) {}
+
+  /**
+   * The other members of {@code urn}'s sibling group (see {@link #siblingGroup}), primary first and
+   * then in URN order, leaving out soft-deleted members (which still count toward the cap).
+   */
+  @Nonnull
+  public SiblingGroupMembers siblingGroupMembers(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    final GroupWalk walk = walkGroup(opContext, urn);
+    final Map<Urn, Boolean> group = new LinkedHashMap<>(walk.primary());
+    group.remove(urn);
+    if (group.isEmpty()) {
+      return new SiblingGroupMembers(List.of(), walk.truncated());
+    }
+    // A capped walk stops before reading every member's own aspect; read those for their flag.
+    final List<Urn> unread =
+        walk.unread().stream().filter(group::containsKey).collect(Collectors.toList());
+    for (List<Urn> batch : Iterables.partition(unread, GROUP_READ_BATCH_SIZE)) {
+      final List<Siblings> aspects = siblingAspects(opContext, batch);
+      for (int i = 0; i < batch.size(); i++) {
+        group.put(batch.get(i), isPrimary(aspects.get(i)));
+      }
+    }
+    final Set<Urn> existing = _entityService.exists(opContext, group.keySet(), false);
+    return new SiblingGroupMembers(
+        group.entrySet().stream()
+            .filter(member -> existing.contains(member.getKey()))
+            .map(member -> new SiblingGroupMember(member.getKey(), member.getValue()))
+            .sorted(
+                Comparator.comparing((SiblingGroupMember member) -> !member.primary())
+                    .thenComparing(member -> member.urn().toString()))
+            .collect(Collectors.toList()),
+        walk.truncated());
+  }
+
+  /**
+   * A walked group: each member's primary flag (read from its own aspect, or {@code false} when not
+   * read), the members whose aspect wasn't read because the walk stopped at the cap, and whether it
+   * stopped there.
+   */
+  private record GroupWalk(Map<Urn, Boolean> primary, Set<Urn> unread, boolean truncated) {}
+
+  @Nonnull
+  private GroupWalk walkGroup(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    final Map<Urn, Boolean> group = new LinkedHashMap<>(Map.of(urn, false));
+    final Set<Urn> read = new HashSet<>();
+    boolean truncated = false;
     Set<Urn> frontier = Set.of(urn);
     walk:
     while (!frontier.isEmpty()) {
       final Set<Urn> next = new LinkedHashSet<>();
       for (List<Urn> batch : Iterables.partition(frontier, GROUP_READ_BATCH_SIZE)) {
-        for (List<Urn> siblings : siblingLists(opContext, batch)) {
-          for (Urn sibling : siblings) {
-            if (group.contains(sibling)) {
+        final List<Siblings> aspects = siblingAspects(opContext, batch);
+        for (int i = 0; i < batch.size(); i++) {
+          final Siblings aspect = aspects.get(i);
+          read.add(batch.get(i));
+          if (aspect == null) {
+            continue;
+          }
+          group.put(batch.get(i), isPrimary(aspect));
+          if (!aspect.hasSiblings()) {
+            continue;
+          }
+          for (Urn sibling : aspect.getSiblings()) {
+            if (group.containsKey(sibling)) {
               continue;
             }
             if (group.size() >= MAX_GROUP_MEMBERS) {
@@ -270,35 +340,46 @@ public class SiblingGraphService {
                     MAX_GROUP_MEMBERS,
                     MAX_GROUP_MEMBERS);
               }
+              truncated = true;
               break walk;
             }
-            group.add(sibling);
+            group.put(sibling, false);
             next.add(sibling);
           }
         }
       }
       frontier = next;
     }
-    return Collections.unmodifiableSet(group);
+    final Set<Urn> unread = new LinkedHashSet<>(group.keySet());
+    unread.removeAll(read);
+    return new GroupWalk(group, unread, truncated);
   }
 
-  /** The sibling list of each of {@code urns}, in batch order, from one batched read. */
+  /** A legacy aspect may lack the required {@code primary} field; treat that as not primary. */
+  private static boolean isPrimary(@Nullable Siblings siblings) {
+    return siblings != null && Boolean.TRUE.equals(siblings.isPrimary(GetMode.NULL));
+  }
+
+  /**
+   * The siblings aspect of each of {@code urns}, in batch order ({@code null} where there is none),
+   * from one batched read.
+   */
   @Nonnull
-  private List<List<Urn>> siblingLists(
+  private List<Siblings> siblingAspects(
       @Nonnull OperationContext opContext, @Nonnull List<Urn> urns) {
     final Map<Urn, List<RecordTemplate>> aspects =
         _entityService.getLatestAspects(
             opContext, new HashSet<>(urns), ImmutableSet.of(SIBLINGS_ASPECT_NAME), false);
-    final List<List<Urn>> lists = new ArrayList<>(urns.size());
+    final List<Siblings> result = new ArrayList<>(urns.size());
     for (Urn urn : urns) {
-      lists.add(
+      result.add(
           aspects.getOrDefault(urn, List.of()).stream()
-              .filter(aspect -> aspect instanceof Siblings && ((Siblings) aspect).hasSiblings())
+              .filter(aspect -> aspect instanceof Siblings)
+              .map(aspect -> (Siblings) aspect)
               .findFirst()
-              .<List<Urn>>map(aspect -> ((Siblings) aspect).getSiblings())
-              .orElse(List.of()));
+              .orElse(null));
     }
-    return lists;
+    return result;
   }
 
   /**
