@@ -8,6 +8,7 @@ import static org.testng.AssertJUnit.assertNotNull;
 import com.linkedin.datahub.upgrade.UpgradeCliApplication;
 import com.linkedin.datahub.upgrade.UpgradeCliApplicationTestConfiguration;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
+import com.linkedin.datahub.upgrade.shared.NoOpKafkaEventProducer;
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;

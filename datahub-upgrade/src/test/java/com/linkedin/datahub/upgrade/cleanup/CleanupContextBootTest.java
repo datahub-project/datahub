@@ -6,7 +6,7 @@ import static org.testng.Assert.assertTrue;
 
 import com.linkedin.datahub.upgrade.UpgradeCliApplication;
 import com.linkedin.datahub.upgrade.UpgradeCliApplicationTestConfiguration;
-import com.linkedin.datahub.upgrade.loadindices.NoOpKafkaEventProducer;
+import com.linkedin.datahub.upgrade.shared.NoOpKafkaEventProducer;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.event.EventProducer;

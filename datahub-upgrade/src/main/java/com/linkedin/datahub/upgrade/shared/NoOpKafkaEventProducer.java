@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.loadindices;
+package com.linkedin.datahub.upgrade.shared;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
