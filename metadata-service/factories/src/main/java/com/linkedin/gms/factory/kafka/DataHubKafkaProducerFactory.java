@@ -72,7 +72,7 @@ public class DataHubKafkaProducerFactory {
             ? kafkaConfiguration.getProducer().getBootstrapServers()
             : kafkaConfiguration.getBootstrapServers();
     props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-    putProducerSecurityProtocol(props, kafkaConfiguration);
+    putProducerSecurityProtocol(props, kafkaConfiguration, properties);
     // key: Actor urn.
     // value: JSON object.
     props.putAll(kafkaConfiguration.getSerde().getUsageEvent().getProducerProperties(null));
@@ -124,11 +124,21 @@ public class DataHubKafkaProducerFactory {
         .build();
   }
 
-  /** Applies KAFKA_PRODUCER_SECURITY_PROTOCOL, the split producer/consumer override, if set. */
+  /**
+   * Applies KAFKA_PRODUCER_SECURITY_PROTOCOL, the split producer/consumer override, if set. A
+   * {@code spring.kafka.producer.properties.security.protocol} still takes precedence, as it did
+   * when this override was set on the shared KafkaProperties.
+   */
   private static void putProducerSecurityProtocol(
-      Map<String, Object> props, KafkaConfiguration kafkaConfiguration) {
+      Map<String, Object> props,
+      KafkaConfiguration kafkaConfiguration,
+      KafkaProperties properties) {
     String securityProtocol = kafkaConfiguration.getProducer().getSecurityProtocol();
-    if (StringUtils.isNotBlank(securityProtocol)) {
+    if (StringUtils.isNotBlank(securityProtocol)
+        && !properties
+            .getProducer()
+            .getProperties()
+            .containsKey(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG)) {
       props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, securityProtocol);
     }
   }
@@ -152,7 +162,10 @@ public class DataHubKafkaProducerFactory {
           ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, Arrays.asList(bootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
-    putProducerSecurityProtocol(props, kafkaConfiguration);
+    putProducerSecurityProtocol(props, kafkaConfiguration, properties);
+    // Spring's per-client raw properties map was applied after the overrides above when they were
+    // set on KafkaProperties; keep it winning so precedence is unchanged.
+    props.putAll(properties.getProducer().getProperties());
 
     props.putAll(
         kafkaConfiguration.getSerde().getEvent().getProducerProperties(schemaRegistryConfig));

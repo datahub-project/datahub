@@ -135,6 +135,9 @@ public class KafkaEventConsumerFactory {
     if (StringUtils.isNotBlank(securityProtocol)) {
       customizedProperties.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, securityProtocol);
     }
+    // Spring's per-client raw properties map was applied after the overrides above when they were
+    // set on KafkaProperties; keep it winning so precedence is unchanged.
+    customizedProperties.putAll(baseKafkaProperties.getConsumer().getProperties());
 
     customizedProperties.putAll(
         kafkaConfiguration.getSerde().getEvent().getConsumerProperties(schemaRegistryConfig));

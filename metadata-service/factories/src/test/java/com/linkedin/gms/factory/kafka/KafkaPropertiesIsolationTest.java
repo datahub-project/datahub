@@ -13,8 +13,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.apache.kafka.clients.CommonClientConfigs;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
+import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.testng.annotations.Test;
 
 /**
@@ -107,6 +109,49 @@ public class KafkaPropertiesIsolationTest {
     assertEquals(regular.get(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG), BASE_PROTOCOL);
   }
 
+  @Test
+  public void springPerClientPropertiesStillOverrideDataHubOverrides() {
+    ConfigurationProvider provider = splitProvider();
+    KafkaConfiguration kafka = provider.getKafka();
+    KafkaProperties shared = baseKafkaProperties();
+    shared
+        .getProducer()
+        .getProperties()
+        .put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_SSL");
+    shared
+        .getConsumer()
+        .getProperties()
+        .put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_SSL");
+    shared.getConsumer().getProperties().put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+
+    Map<String, Object> producer =
+        DataHubKafkaProducerFactory.buildProducerProperties(
+            kafka.getSerde().getEvent(), kafka, shared);
+    Map<String, Object> usageProducer =
+        captureProducerConfigs(factory -> factory.createDUEProducer(provider, shared)).get(0);
+    Map<String, Object> eventConsumer =
+        KafkaEventConsumerFactory.buildCustomizedProperties(
+            shared, kafka, kafka.getSerde().getEvent(), true, false);
+    Map<String, Object> simpleConsumer =
+        ((ConcurrentKafkaListenerContainerFactory<?, ?>)
+                new SimpleKafkaConsumerFactory().createInstance(provider, shared))
+            .getConsumerFactory()
+            .getConfigurationProperties();
+    Map<String, Object> cdcConsumer =
+        ((ConcurrentKafkaListenerContainerFactory<?, ?>)
+                new CDCConsumerFactory().createCdcConsumerFactory(provider, shared))
+            .getConsumerFactory()
+            .getConfigurationProperties();
+
+    for (Map<String, Object> config :
+        List.of(producer, usageProducer, eventConsumer, simpleConsumer, cdcConsumer)) {
+      assertEquals(config.get(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG), "SASL_SSL");
+    }
+    for (Map<String, Object> config : List.of(eventConsumer, simpleConsumer, cdcConsumer)) {
+      assertEquals(config.get(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG), "false");
+    }
+  }
+
   /** Runs the action with KafkaProducer construction intercepted; returns the configs, in order. */
   @SuppressWarnings({"unchecked", "rawtypes"})
   private static List<Map<String, Object>> captureProducerConfigs(
@@ -126,7 +171,8 @@ public class KafkaPropertiesIsolationTest {
     return Map.of(
         "producer", properties.buildProducerProperties(),
         "consumer", properties.buildConsumerProperties(),
-        "admin", properties.buildAdminProperties());
+        "admin", properties.buildAdminProperties(),
+        "streams", properties.buildStreamsProperties());
   }
 
   private static KafkaProperties baseKafkaProperties() {
