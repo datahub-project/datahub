@@ -13,7 +13,7 @@ CONNECT_RE = re.compile(
 DISCONNECT_RE = re.compile(r"^DISCONNECT\b", re.IGNORECASE)
 REM_RE = re.compile(r"REM\b", re.IGNORECASE)
 # `--` is a line comment only in SQL that Qlik passes to the database.
-SQL_STATEMENT_RE = re.compile(r"\b(?:SQL|SELECT)\b", re.IGNORECASE)
+SQL_STATEMENT_RE = re.compile(r"\b(?:SQL|SELECT|WITH)\b", re.IGNORECASE)
 # Control statements end at the line break rather than a semicolon, so they
 # lead the statement that follows them.
 # Quoted text may contain THEN, so only an unquoted THEN ends a condition.
@@ -341,7 +341,10 @@ def _strip_comments(script: str, expression: bool = False) -> str:
             )
             or not expression
             and script.startswith("--", i)
-            and SQL_STATEMENT_RE.search("".join(kept[statement_begin:]))
+            # Quoted text such as 'SELECT' in a LOAD does not make it SQL.
+            and SQL_STATEMENT_RE.search(
+                QUOTED_RE.sub("", "".join(kept[statement_begin:]))
+            )
         ):
             end = script.find("\n", i)
             i = len(script) if end == -1 else end
@@ -538,9 +541,19 @@ def _literal_value(text: str) -> Optional[str]:
 
 
 def _from_table_name(sql: str) -> Optional[str]:
-    match = FROM_TABLE_RE.search(sql)
+    # FROM in a string literal or a nested query does not name the table.
+    masked = STRING_LITERAL_SQL_RE.sub(lambda literal: " " * len(literal.group(0)), sql)
+    match = next(
+        (
+            match
+            for match in FROM_TABLE_RE.finditer(masked)
+            if masked.count("(", 0, match.start())
+            == masked.count(")", 0, match.start())
+        ),
+        None,
+    )
     # A name cut short by an unexpanded $(variable) is not the table's name.
-    if not match or sql.startswith("(", match.end()):
+    if not match or masked.startswith("(", match.end()):
         return None
     parts = re.split(r"\s*\.\s*", match.group("name"))
     name = ".".join(part.strip('[]"`') for part in parts)
@@ -683,8 +696,10 @@ class _ScriptParser(BaseModel):
             statement = statement[label_match.end() :].lstrip()
         prefix = PREFIX_RE.match(statement)
         merge = MERGE_PREFIX_RE.search(prefix.group(0)) if prefix else None
-        mapping = bool(prefix and MAPPING_PREFIX_RE.search(prefix.group(0)))
-        reshaped = bool(prefix and RESHAPE_PREFIX_RE.search(prefix.group(0)))
+        # Only the prefix keywords, not arguments such as Concatenate ([Mapping]).
+        keywords = re.sub(r"\([^)]*\)", "", prefix.group(0)) if prefix else ""
+        mapping = bool(MAPPING_PREFIX_RE.search(keywords))
+        reshaped = bool(RESHAPE_PREFIX_RE.search(keywords))
         if prefix:
             statement = statement[prefix.end() :]
         skip = False
