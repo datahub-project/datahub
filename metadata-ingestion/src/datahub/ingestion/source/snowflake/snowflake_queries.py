@@ -203,6 +203,13 @@ class SnowflakeQueriesSourceConfig(
     connection: SnowflakeConnectionConfig
 
 
+def _remove_temp_dir(path: pathlib.Path) -> None:
+    # Not ignore_errors=True: a failed removal must still raise so the caller can
+    # report the leftover directory.
+    if path.exists():
+        shutil.rmtree(path)
+
+
 @dataclass
 class SnowflakeQueriesExtractorReport(Report):
     copy_history_fetch_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
@@ -428,8 +435,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         use_cached_audit_log = audit_log_file.exists()
 
         if self.config.local_temp_path is None:
-            temp_dir = self.local_temp_path
-            self._exit_stack.callback(shutil.rmtree, temp_dir, ignore_errors=True)
+            self._exit_stack.callback(_remove_temp_dir, self.local_temp_path)
 
         shared_connection = self._exit_stack.enter_context(
             ConnectionWrapper(audit_log_file)
