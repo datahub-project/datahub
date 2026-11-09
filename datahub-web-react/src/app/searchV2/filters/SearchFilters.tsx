@@ -87,6 +87,8 @@ const FilterOptionsContainer = styled.div`
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
+    flex: 1;
+    min-width: 0;
 `;
 
 const ControlsContainer = styled.div`
@@ -167,19 +169,27 @@ export default function SearchFilters({
         [t],
     );
 
+    const filterOptions = (
+        <SearchFilterOptions
+            loading={loading}
+            availableFilters={filters}
+            activeFilters={activeFilters}
+            unionType={unionType}
+            onChangeFilters={onChangeFilters}
+        />
+    );
+
     return (
         <Container id={SEARCH_RESULTS_FILTERS_ID} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <FiltersContainerTop>
-                <FilterOptionsContainer>
-                    <SearchFilterOptions
-                        loading={loading}
-                        availableFilters={filters}
-                        activeFilters={activeFilters}
-                        unionType={unionType}
-                        onChangeFilters={onChangeFilters}
-                    />
-                    {showSiblingsToggle && <ShowSiblingsToggle />}
-                </FilterOptionsContainer>
+                {showSiblingsToggle ? (
+                    <FilterOptionsContainer>
+                        {filterOptions}
+                        <ShowSiblingsToggle />
+                    </FilterOptionsContainer>
+                ) : (
+                    filterOptions
+                )}
                 <ControlsContainer>
                     <SearchSortSelect
                         selectedSortOption={selectedSortOption}

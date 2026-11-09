@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { GetSiblingGroupsQuery, useGetSiblingGroupsQuery } from '@graphql/siblings.generated';
 
@@ -17,7 +17,7 @@ export type SiblingMemberData = SiblingGroupData['members'][number];
  */
 export function useSiblingGroups(datasetUrns: string[], enabled: boolean) {
     const urns = useMemo(() => Array.from(new Set(datasetUrns)).slice(0, MAX_URNS_PER_REQUEST), [datasetUrns]);
-    const { data, loading } = useGetSiblingGroupsQuery({
+    const { data, loading, error, refetch } = useGetSiblingGroupsQuery({
         skip: !enabled || urns.length === 0,
         variables: { input: { urns, start: 0, count: SIBLINGS_SHOWN_INLINE } },
     });
@@ -26,5 +26,8 @@ export function useSiblingGroups(datasetUrns: string[], enabled: boolean) {
         (data?.siblingGroups || []).forEach((group) => byUrn.set(group.urn, group));
         return byUrn;
     }, [data]);
-    return { groups, loading };
+    const retry = useCallback(() => {
+        refetch().catch(() => undefined); // the hook's error state reports a failure
+    }, [refetch]);
+    return { groups, loading, error, retry };
 }

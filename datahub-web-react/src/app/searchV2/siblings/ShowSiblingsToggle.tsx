@@ -13,6 +13,7 @@ export default function ShowSiblingsToggle() {
             label={t('siblings.showSiblings')}
             labelPosition="right"
             checked={enabled}
+            isChecked={enabled}
             onChange={(e) => setEnabled(e.target.checked)}
             data-testid="show-siblings-toggle"
         />

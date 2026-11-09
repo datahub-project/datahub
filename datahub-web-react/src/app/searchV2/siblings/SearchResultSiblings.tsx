@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -12,6 +12,9 @@ import { DataPlatform, EntityType } from '@types';
 
 /** Members fetched per page while the expanded list is scrolled. */
 export const EXPANDED_PAGE_SIZE = 200;
+
+/** Class on the sibling lists; search's arrow-key navigation leaves keys inside them alone. */
+export const SIBLINGS_LIST_CLASS_NAME = 'search-result-siblings';
 
 const Container = styled.div`
     margin: -4px 0 12px 28px;
@@ -108,6 +111,10 @@ const Location = styled(Muted)`
     font-size: 12px;
 `;
 
+const ErrorText = styled.span`
+    color: ${(props) => props.theme.colors.textError};
+`;
+
 const Footer = styled.div`
     padding: 6px 12px;
     font-size: 12px;
@@ -120,45 +127,112 @@ type Props = {
     /** The search result's display name, shown in "Sibling of …". */
     resultName: string;
     group: SiblingGroupData;
+    /** Members already merged into the result's card (combined-siblings view); not listed again. */
+    excludeUrns?: Set<string>;
 };
+
+type ExpandedState = {
+    members: SiblingMemberData[];
+    total: number;
+    done: boolean;
+    error: boolean;
+};
+
+const INITIAL_EXPANDED: ExpandedState = { members: [], total: 0, done: false, error: false };
 
 /**
  * The siblings of one search result, listed under it while "Show siblings" is on: the first few as
  * rows, then "+ N more", which expands to the whole group as a compact, scrollable list.
  */
-export default function SearchResultSiblings({ urn, resultName, group }: Props) {
+export default function SearchResultSiblings({ urn, resultName, group, excludeUrns }: Props) {
     const { t } = useTranslation('search');
     const entityRegistry = useEntityRegistry();
+    const listId = `siblings-list-${urn}`;
     const [expanded, setExpanded] = useState(false);
-    const [allMembers, setAllMembers] = useState<SiblingMemberData[]>([]);
-    const [fetchPage, { loading }] = useGetSiblingGroupsLazyQuery({ fetchPolicy: 'network-only' });
+    const [state, setState] = useState<ExpandedState>(INITIAL_EXPANDED);
+    const [loading, setLoading] = useState(false);
+    const requestSeq = useRef(0);
+    const listRef = useRef<HTMLDivElement>(null);
+    const moreRef = useRef<HTMLButtonElement>(null);
+    const [fetchPage] = useGetSiblingGroupsLazyQuery();
+
+    const isExcluded = useCallback((member: SiblingMemberData) => !!excludeUrns?.has(member.entity.urn), [excludeUrns]);
+
+    // A new group (or a refetched one) starts the expanded list over; responses still in flight are ignored.
+    useEffect(() => {
+        requestSeq.current += 1;
+        setState(INITIAL_EXPANDED);
+        setLoading(false);
+    }, [urn, group]);
 
     const loadPage = useCallback(
         async (start: number) => {
-            const result = await fetchPage({
-                variables: { input: { urns: [urn], start, count: EXPANDED_PAGE_SIZE } },
-            });
-            const page = result.data?.siblingGroups?.[0]?.members || [];
-            setAllMembers((loaded) => (start === 0 ? page : [...loaded, ...page]));
+            requestSeq.current += 1;
+            const seq = requestSeq.current;
+            setLoading(true);
+            try {
+                const result = await fetchPage({
+                    variables: { input: { urns: [urn], start, count: EXPANDED_PAGE_SIZE } },
+                });
+                if (seq !== requestSeq.current) {
+                    return; // superseded by a newer request or a reset
+                }
+                const page = result.data?.siblingGroups?.[0];
+                if (result.error || !page) {
+                    setState((current) => ({ ...current, error: true }));
+                    return;
+                }
+                setState((current) => {
+                    const seen = new Set(current.members.map((member) => member.entity.urn));
+                    const added = page.members.filter((member) => !seen.has(member.entity.urn));
+                    const members = start === 0 ? page.members : [...current.members, ...added];
+                    return {
+                        members,
+                        total: page.total,
+                        done: page.members.length < EXPANDED_PAGE_SIZE || members.length >= page.total,
+                        error: false,
+                    };
+                });
+            } catch (e) {
+                if (seq === requestSeq.current) {
+                    setState((current) => ({ ...current, error: true }));
+                }
+            } finally {
+                if (seq === requestSeq.current) {
+                    setLoading(false);
+                }
+            }
         },
         [fetchPage, urn],
     );
 
     useEffect(() => {
-        if (expanded && allMembers.length === 0) {
+        if (expanded && state.members.length === 0 && !state.done && !state.error && !loading) {
             loadPage(0);
         }
-    }, [expanded, allMembers.length, loadPage]);
+    }, [expanded, state, loading, loadPage]);
+
+    // Focus follows the toggle: into the list on expand, back to "+ N more" on collapse.
+    const focusAfterToggle = useRef<'list' | 'more' | null>(null);
+    useEffect(() => {
+        if (focusAfterToggle.current === 'list') listRef.current?.focus();
+        if (focusAfterToggle.current === 'more') moreRef.current?.focus();
+        focusAfterToggle.current = null;
+    }, [expanded]);
 
     const onScroll = (event: React.UIEvent<HTMLDivElement>) => {
         const list = event.currentTarget;
         const nearBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 40;
-        if (nearBottom && !loading && allMembers.length < group.total) {
-            loadPage(allMembers.length);
+        if (nearBottom && !loading && !state.done && !state.error) {
+            loadPage(state.members.length);
         }
     };
 
-    if (group.total === 0) {
+    const inline = useMemo(() => group.members.filter((member) => !isExcluded(member)), [group.members, isExcluded]);
+    const excludedCount = excludeUrns ? excludeUrns.size : 0;
+    const visibleTotal = Math.max(0, group.total - excludedCount);
+
+    if (visibleTotal === 0) {
         return null;
     }
 
@@ -171,19 +245,42 @@ export default function SearchResultSiblings({ urn, resultName, group }: Props) 
     const memberLocation = (member: SiblingMemberData) =>
         'container' in member.entity ? member.entity.container?.properties?.name : undefined;
 
+    const retryButton = (onRetry: () => void) => (
+        <LinkButton type="button" onClick={onRetry}>
+            {t('siblings.retry')}
+        </LinkButton>
+    );
+
     if (expanded) {
+        const expandedMembers = state.members.filter((member) => !isExcluded(member));
         return (
-            <Container data-testid={`siblings-expanded-${urn}`}>
+            <Container className={SIBLINGS_LIST_CLASS_NAME} data-testid={`siblings-expanded-${urn}`}>
                 <Expanded>
                     <ExpandedHeader>
-                        <span>{t('siblings.groupTitle', { count: group.total, name: resultName })}</span>
-                        <LinkButton type="button" onClick={() => setExpanded(false)}>
+                        <span>{t('siblings.groupTitle', { count: visibleTotal, name: resultName })}</span>
+                        <LinkButton
+                            type="button"
+                            aria-expanded
+                            aria-controls={listId}
+                            onClick={() => {
+                                focusAfterToggle.current = 'more';
+                                setExpanded(false);
+                            }}
+                        >
                             {t('siblings.showLess')}
                         </LinkButton>
                     </ExpandedHeader>
-                    <ExpandedList onScroll={onScroll}>
-                        {allMembers.map((member) => (
-                            <CompactRow key={member.entity.urn} data-testid="sibling-compact-row">
+                    <ExpandedList
+                        id={listId}
+                        ref={listRef}
+                        tabIndex={0}
+                        role="list"
+                        aria-label={t('siblings.groupTitle', { count: visibleTotal, name: resultName })}
+                        onScroll={onScroll}
+                        onKeyDown={(event) => event.stopPropagation()}
+                    >
+                        {expandedMembers.map((member) => (
+                            <CompactRow key={member.entity.urn} role="listitem" data-testid="sibling-compact-row">
                                 <PlatformIcon platform={memberPlatform(member)} size={14} />
                                 <Name to={memberUrl(member)}>{memberName(member)}</Name>
                                 {member.isPrimary && <PrimaryMarker>{t('siblings.primary')}</PrimaryMarker>}
@@ -191,31 +288,47 @@ export default function SearchResultSiblings({ urn, resultName, group }: Props) 
                             </CompactRow>
                         ))}
                     </ExpandedList>
-                    {(loading || group.truncated) && (
-                        <Footer>
-                            {loading ? t('siblings.loading') : t('siblings.truncated', { count: group.total })}
-                        </Footer>
-                    )}
+                    <Footer aria-live="polite">
+                        {loading && t('siblings.loading')}
+                        {!loading && state.error && (
+                            <>
+                                <ErrorText>{t('siblings.loadError')}</ErrorText>{' '}
+                                {retryButton(() => loadPage(state.members.length))}
+                            </>
+                        )}
+                        {!loading && !state.error && group.truncated && t('siblings.truncated', { count: group.total })}
+                    </Footer>
                 </Expanded>
             </Container>
         );
     }
 
-    const shown = group.members.slice(0, SIBLINGS_SHOWN_INLINE);
-    const more = group.total - shown.length;
+    const shown = inline.slice(0, SIBLINGS_SHOWN_INLINE);
+    const more = visibleTotal - shown.length;
     return (
-        <Container data-testid={`siblings-${urn}`}>
-            {shown.map((member) => (
-                <SiblingRow key={member.entity.urn} data-testid="sibling-row">
-                    <PlatformIcon platform={memberPlatform(member)} size={16} />
-                    <Name to={memberUrl(member)}>{memberName(member)}</Name>
-                    {member.isPrimary && <PrimaryMarker>{t('siblings.primary')}</PrimaryMarker>}
-                    <Badge>{t('siblings.siblingOf', { name: resultName })}</Badge>
-                    <Location>{memberLocation(member)}</Location>
-                </SiblingRow>
-            ))}
+        <Container className={SIBLINGS_LIST_CLASS_NAME} data-testid={`siblings-${urn}`}>
+            <div role="list" aria-label={t('siblings.groupTitle', { count: visibleTotal, name: resultName })}>
+                {shown.map((member) => (
+                    <SiblingRow key={member.entity.urn} role="listitem" data-testid="sibling-row">
+                        <PlatformIcon platform={memberPlatform(member)} size={16} />
+                        <Name to={memberUrl(member)}>{memberName(member)}</Name>
+                        {member.isPrimary && <PrimaryMarker>{t('siblings.primary')}</PrimaryMarker>}
+                        <Badge>{t('siblings.siblingOf', { name: resultName })}</Badge>
+                        <Location>{memberLocation(member)}</Location>
+                    </SiblingRow>
+                ))}
+            </div>
             {more > 0 && (
-                <LinkButton type="button" onClick={() => setExpanded(true)}>
+                <LinkButton
+                    ref={moreRef}
+                    type="button"
+                    aria-expanded={false}
+                    aria-controls={listId}
+                    onClick={() => {
+                        focusAfterToggle.current = 'list';
+                        setExpanded(true);
+                    }}
+                >
                     {t('siblings.moreSiblings', { count: more, name: resultName })}
                 </LinkButton>
             )}
