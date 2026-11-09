@@ -32,6 +32,7 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsResult;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartition;
 import org.testng.annotations.Test;
@@ -313,14 +314,6 @@ public class KafkaThrottleSensorTest {
   @Test
   public void testSchedulerKeepsRefreshingAfterARefreshWithoutCommittedOffsets()
       throws ExecutionException, InterruptedException {
-    MetadataChangeProposalConfig.ThrottlesConfig throttlesConfig =
-        new MetadataChangeProposalConfig.ThrottlesConfig().setUpdateIntervalMs(10);
-    // A threshold above any lag here, so throttle() between refreshes never backs off
-    throttlesConfig.setVersioned(
-        new MetadataChangeProposalConfig.ThrottleConfig().setEnabled(true).setThreshold(1000));
-    throttlesConfig.setTimeseries(
-        new MetadataChangeProposalConfig.ThrottleConfig().setEnabled(false));
-
     // The first refresh sees a consumer group with no committed offsets, later ones a lag of 1
     Pair<Map<TopicPartition, OffsetAndMetadata>, Map<TopicPartition, Long>> lag =
         generateLag(STANDARD_TOPICS, topicPart -> 1L, topicPart -> 2L, 1);
@@ -333,7 +326,7 @@ public class KafkaThrottleSensorTest {
 
     KafkaThrottleSensor test =
         KafkaThrottleSensor.builder()
-            .config(throttlesConfig)
+            .config(highThresholdSchedulerConfig())
             .kafkaAdmin(mockAdmin)
             .versionedTopicName(STANDARD_TOPICS.get(0))
             .timeseriesTopicName(STANDARD_TOPICS.get(1))
@@ -341,6 +334,54 @@ public class KafkaThrottleSensorTest {
             .mclConsumerGroupId(STANDARD_MCL_CONSUMER_GROUP_ID)
             .build();
 
+    assertLagEventuallyRefreshed(test);
+  }
+
+  @Test
+  public void testSchedulerKeepsRefreshingAfterARefreshFails()
+      throws ExecutionException, InterruptedException {
+    // The first refresh fails in the admin client, later ones see a lag of 1
+    AdminClient mockAdmin =
+        mockKafka(generateLag(STANDARD_TOPICS, topicPart -> 1L, topicPart -> 2L, 1));
+    ListConsumerGroupOffsetsResult offsetsResult =
+        mockAdmin.listConsumerGroupOffsets(STANDARD_MCL_CONSUMER_GROUP_ID);
+    when(mockAdmin.listConsumerGroupOffsets(anyString()))
+        .thenThrow(new KafkaException("broker unavailable"))
+        .thenReturn(offsetsResult);
+
+    KafkaThrottleSensor test =
+        KafkaThrottleSensor.builder()
+            .config(highThresholdSchedulerConfig())
+            .kafkaAdmin(mockAdmin)
+            .versionedTopicName(STANDARD_TOPICS.get(0))
+            .timeseriesTopicName(STANDARD_TOPICS.get(1))
+            .entityRegistry(mock(EntityRegistry.class))
+            .mclConsumerGroupId(STANDARD_MCL_CONSUMER_GROUP_ID)
+            .build();
+
+    assertLagEventuallyRefreshed(test);
+  }
+
+  /**
+   * Refreshes every 10ms with versioned throttling on and a threshold above any lag here, so
+   * throttle() never backs off between refreshes.
+   */
+  private static MetadataChangeProposalConfig.ThrottlesConfig highThresholdSchedulerConfig() {
+    MetadataChangeProposalConfig.ThrottlesConfig throttlesConfig =
+        new MetadataChangeProposalConfig.ThrottlesConfig().setUpdateIntervalMs(10);
+    throttlesConfig.setVersioned(
+        new MetadataChangeProposalConfig.ThrottleConfig().setEnabled(true).setThreshold(1000));
+    throttlesConfig.setTimeseries(
+        new MetadataChangeProposalConfig.ThrottleConfig().setEnabled(false));
+    return throttlesConfig;
+  }
+
+  /**
+   * Starts the sensor and waits for a lag of 1 on both topics. Lag is computed for the timeseries
+   * topic too, even though its throttling is off.
+   */
+  private static void assertLagEventuallyRefreshed(KafkaThrottleSensor test)
+      throws InterruptedException {
     Map<ThrottleType, Long> expected =
         Map.of(ThrottleType.MCL_VERSIONED_LAG, 1L, ThrottleType.MCL_TIMESERIES_LAG, 1L);
     try {
@@ -349,7 +390,7 @@ public class KafkaThrottleSensorTest {
       while (!expected.equals(test.getLag()) && System.currentTimeMillis() < deadline) {
         Thread.sleep(10);
       }
-      assertEquals(test.getLag(), expected, "Expected lag refreshed after the empty refresh");
+      assertEquals(test.getLag(), expected, "Expected lag refreshed by a later run");
     } finally {
       test.stop();
     }
