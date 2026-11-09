@@ -83,6 +83,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     parse_load_script,
     reads_unknown_fields,
     redact_connection,
+    select_list_size,
 )
 from datahub.ingestion.source.state.entity_removal_state import (
     STATEFUL_INGESTION_IGNORED_ENTITY_TYPES,
@@ -1079,8 +1080,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # Only a CrossTable whose fields are known keeps column lineage;
             # otherwise the fields are not the columns and only table lineage
             # is kept.
+            selected = [
+                column.downstream.column for column in result.column_lineage or []
+            ]
             fields = apply_crosstable(
-                script_table.crosstable, script_table.preceding_loads, sql_columns
+                script_table.crosstable,
+                script_table.preceding_loads,
+                sql_columns,
+                # The parser lists columns in SELECT order, but leaves out a *
+                # and repeats a name selected twice, which would shift slots.
+                sql_columns_in_order=len(set(selected))
+                == len(selected)
+                == select_list_size(script_table.sql),
             )
         for field, upstreams in (fields or {}).items():
             lineage.column_upstreams.setdefault(field, []).extend(upstreams)
