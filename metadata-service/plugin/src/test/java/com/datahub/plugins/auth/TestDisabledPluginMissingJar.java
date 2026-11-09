@@ -12,8 +12,12 @@ import com.datahub.plugins.factory.PluginConfigFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -23,6 +27,26 @@ import org.testng.annotations.Test;
  * fail the whole load. An enabled plugin without its jar must still fail.
  */
 public class TestDisabledPluginMissingJar {
+
+  private final List<Path> tempDirs = new ArrayList<>();
+
+  @AfterMethod
+  public void deleteTempDirs() throws IOException {
+    for (Path dir : tempDirs) {
+      try (Stream<Path> paths = Files.walk(dir)) {
+        for (Path p : paths.sorted(Comparator.reverseOrder()).collect(Collectors.toList())) {
+          Files.delete(p);
+        }
+      }
+    }
+    tempDirs.clear();
+  }
+
+  private Path tempDir(String prefix) throws IOException {
+    Path dir = Files.createTempDirectory(prefix);
+    tempDirs.add(dir);
+    return dir;
+  }
 
   @DataProvider(name = "pluginTypes")
   public Object[][] pluginTypes() {
@@ -34,7 +58,7 @@ public class TestDisabledPluginMissingJar {
   @Test(dataProvider = "pluginTypes")
   public void disabledPluginWithMissingJarIsSkipped(PluginType type, String yamlType)
       throws IOException {
-    Path baseDir = Files.createTempDirectory("disabled-plugin-missing-jar");
+    Path baseDir = tempDir("disabled-plugin-missing-jar");
     writeConfig(baseDir, pluginEntry("disabled-plugin", yamlType, false));
 
     List<PluginConfig> configs = load(baseDir, type);
@@ -45,7 +69,7 @@ public class TestDisabledPluginMissingJar {
   @Test(dataProvider = "pluginTypes")
   public void enabledPluginWithMissingJarStillFails(PluginType type, String yamlType)
       throws IOException {
-    Path baseDir = Files.createTempDirectory("enabled-plugin-missing-jar");
+    Path baseDir = tempDir("enabled-plugin-missing-jar");
     writeConfig(baseDir, pluginEntry("enabled-plugin", yamlType, true));
     Path expectedJar =
         baseDir.toAbsolutePath().resolve("enabled-plugin").resolve("enabled-plugin.jar");
@@ -60,7 +84,7 @@ public class TestDisabledPluginMissingJar {
   @Test(dataProvider = "pluginTypes")
   public void disabledPluginWithMissingJarDoesNotHideEnabledPlugin(PluginType type, String yamlType)
       throws IOException {
-    Path baseDir = Files.createTempDirectory("mixed-plugins");
+    Path baseDir = tempDir("mixed-plugins");
     Path enabledHome = Files.createDirectories(baseDir.resolve("enabled-plugin"));
     Files.createFile(enabledHome.resolve("enabled-plugin.jar"));
     writeConfig(
