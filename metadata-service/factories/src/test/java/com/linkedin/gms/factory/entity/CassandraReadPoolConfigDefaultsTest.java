@@ -82,6 +82,24 @@ public class CassandraReadPoolConfigDefaultsTest {
         });
   }
 
+  @Test
+  public void testReadPoolKeysStillOverrideThePrimary() {
+    runWithBuilders(
+        runner()
+            .withPropertyValues(
+                "CASSANDRA_READ_POOL_PORT=9342", "CASSANDRA_READ_POOL_DATACENTER=dc-env"),
+        (context, builders) -> {
+          assertThat(context).hasNotFailed();
+          assertThat(builders).hasSize(1);
+          CqlSessionBuilder session = builders.get(0);
+          assertThat(contactPoints(session))
+              .containsExactly(
+                  new InetSocketAddress("127.0.0.1", 9342),
+                  new InetSocketAddress("127.0.0.2", 9342));
+          verify(session).withLocalDatacenter("dc-env");
+        });
+  }
+
   /** Runs the context with {@link CqlSession#builder()} handing out recording builders. */
   private static void runWithBuilders(
       ApplicationContextRunner runner,
