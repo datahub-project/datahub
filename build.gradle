@@ -543,6 +543,41 @@ allprojects {
         }
       }
     }
+
+    // A TestNG run silently ignores JUnit 4/5 test methods: the class compiles, the task stays
+    // green, and its tests never execute. Fail any TestNG task whose test classes carry a JUnit
+    // test annotation. The checked descriptors appear in a class file only where that annotation
+    // is applied (or a field/parameter has that annotation type), so helpers that merely depend
+    // on JUnit are not flagged.
+    task.doFirst {
+      if (!(task.options instanceof org.gradle.api.tasks.testing.testng.TestNGOptions)) {
+        return
+      }
+      def junitTestAnnotations = [
+        'Lorg/junit/Test;',
+        'Lorg/junit/jupiter/api/Test;',
+        'Lorg/junit/jupiter/api/RepeatedTest;',
+        'Lorg/junit/jupiter/api/TestFactory;',
+        'Lorg/junit/jupiter/api/TestTemplate;',
+        'Lorg/junit/jupiter/params/ParameterizedTest;',
+      ]
+      def offenders = new TreeSet<String>()
+      task.testClassesDirs.asFileTree.matching { include '**/*.class' }.visit { details ->
+        if (!details.directory) {
+          // ISO-8859-1 maps bytes 1:1, so the ASCII descriptors match the constant pool verbatim.
+          def text = new String(details.file.bytes, 'ISO-8859-1')
+          if (junitTestAnnotations.any { text.contains(it) }) {
+            offenders << details.relativePath.pathString.replaceAll(/(\$.*)?\.class$/, '').replace('/', '.')
+          }
+        }
+      }
+      if (!offenders.isEmpty()) {
+        throw new GradleException(
+            "${task.path} runs TestNG, which silently skips JUnit tests, but these classes use " +
+            "JUnit test annotations: ${offenders.join(', ')}. Use org.testng.annotations.Test " +
+            "(and TestNG lifecycle/assert APIs) instead.")
+      }
+    }
   }
 
   /**
