@@ -76,6 +76,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testcontainers.kafka.ConfluentKafkaContainer;
 import org.testcontainers.utility.DockerImageName;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 @Slf4j
@@ -134,6 +135,15 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
       return channel;
     } catch (IOException e) {
       throw new IllegalStateException("Failed to reserve a port for schema registry test", e);
+    }
+  }
+
+  /** Releases the port if the context failed before Jetty took the channel over. */
+  @AfterClass(alwaysRun = true)
+  public void releaseUnclaimedPort() throws IOException {
+    ServerSocketChannel channel = RESERVED_CHANNEL.getAndSet(null);
+    if (channel != null) {
+      channel.close();
     }
   }
 
