@@ -493,7 +493,13 @@ def get_sql_agg_max_queries_per_downstream() -> int:
     an upstream that only an older query references; use it as a safety valve for
     runtime, not as the default.
     """
-    return _get_int_env("DATAHUB_SQL_AGG_MAX_QUERIES_PER_DOWNSTREAM", 0)
+    var = "DATAHUB_SQL_AGG_MAX_QUERIES_PER_DOWNSTREAM"
+    limit = _get_int_env(var, 0)
+    if limit < 0:
+        raise ValueError(
+            f"Environment variable {var}={limit} must be 0 (no cap) or more."
+        )
+    return limit
 
 
 def get_sql_parse_cache_size() -> int:

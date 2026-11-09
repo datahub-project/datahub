@@ -114,6 +114,14 @@ SLOW_LINEAGE_DOWNSTREAM_SECONDS = 60.0
 
 
 @dataclasses.dataclass
+class _ColumnLineageMergeResult:
+    """What merging one query's column lineage into a downstream's lineage added."""
+
+    entries_added: int = 0
+    columns_with_new_edges: Set[str] = dataclasses.field(default_factory=set)
+
+
+@dataclasses.dataclass
 class LoggedQuery:
     query: str
     session_id: Optional[str]
@@ -640,6 +648,15 @@ class SqlParsingAggregator(Closeable):
         )
         self._exit_stack.push(self._lineage_map)
 
+        # Ids of queries added through add_known_query_lineage. They keep their own or
+        # fingerprinted ids, so the opt-in per-downstream cap can't recognise them by
+        # prefix the way it recognises known_ and view_ lineage.
+        self._known_query_lineage_ids = FileBackedDict[bool](
+            shared_connection=self._shared_connection,
+            tablename="known_query_lineage_ids",
+        )
+        self._exit_stack.push(self._known_query_lineage_ids)
+
         # Map of view urn -> view definition
         self._view_definitions = FileBackedDict[ViewDefinition](
             shared_connection=self._shared_connection, tablename="view_definitions"
@@ -850,6 +867,7 @@ class SqlParsingAggregator(Closeable):
         )
 
         # Register the lineage.
+        self._known_query_lineage_ids[query_fingerprint] = True
         self._lineage_map.for_mutation(
             known_query_lineage.downstream, OrderedSet()
         ).add(query_fingerprint)
@@ -1583,7 +1601,7 @@ class SqlParsingAggregator(Closeable):
         upstreams: Dict[UrnStr, QueryId],
         cll: Dict[str, Dict[SchemaFieldUrn, QueryId]],
         queries_with_inconsistencies: Set[QueryId],
-    ) -> int:
+    ) -> _ColumnLineageMergeResult:
         """Process column lineage for a query and apply consistency fixes.
 
         This method:
@@ -1591,8 +1609,9 @@ class SqlParsingAggregator(Closeable):
         2. Adds missing tables from column lineage to table lineage (consistency fix)
         3. Updates the column lineage mapping (cll)
 
-        Returns the number of entries it added to `upstreams` and `cll`, so the caller
-        can tell whether the query contributed anything.
+        Returns how many entries it added to `upstreams` and `cll`, so the caller can
+        tell whether the query contributed anything, and the downstream columns it
+        added an edge to, so the caller can count column-lineage groups incrementally.
 
         Args:
             query: The query metadata containing column lineage
@@ -1600,7 +1619,7 @@ class SqlParsingAggregator(Closeable):
             cll: Column lineage mapping (modified in-place)
             queries_with_inconsistencies: Set tracking queries that needed fixes (modified in-place)
         """
-        added = 0
+        result = _ColumnLineageMergeResult()
         for lineage_info in query.column_lineage:
             # Validate downstream column
             if (
@@ -1641,15 +1660,16 @@ class SqlParsingAggregator(Closeable):
                     upstreams[table_urn] = query.query_id
                     queries_with_inconsistencies.add(query.query_id)
                     self.report.num_tables_added_from_column_lineage += 1
-                    added += 1
+                    result.entries_added += 1
 
                 # Add to column lineage mapping
                 column_upstreams = cll[lineage_info.downstream.column]
                 upstream_field = SchemaFieldUrn(table_urn, upstream_ref.column)
                 if upstream_field not in column_upstreams:
                     column_upstreams[upstream_field] = query.query_id
-                    added += 1
-        return added
+                    result.entries_added += 1
+                    result.columns_with_new_edges.add(lineage_info.downstream.column)
+        return result
 
     def _gen_lineage_for_downstream(
         self, downstream_urn: str, queries_generated: Set[QueryId]
@@ -1682,11 +1702,13 @@ class SqlParsingAggregator(Closeable):
         # single hot downstream take hours and tens of GB before.
         queries_map: Dict[QueryId, QueryMetadata] = {}
         last_query: Optional[QueryMetadata] = None
-        num_cll_groups = 0
+        # One fineGrainedLineages entry is emitted per (downstream column, query id),
+        # so this set tracks the entry count without rescanning cll after each query.
+        cll_groups: Set[Tuple[str, QueryId]] = set()
         for query_id in ordered_query_ids:
             if (
                 len(upstreams) >= MAX_UPSTREAM_TABLES_COUNT
-                and num_cll_groups >= MAX_FINEGRAINEDLINEAGE_COUNT
+                and len(cll_groups) >= MAX_FINEGRAINEDLINEAGE_COUNT
             ):
                 # Both output caps are full, so stop resolving the rest of this
                 # table's queries. Upstream tables come out the same as with a full
@@ -1708,15 +1730,15 @@ class SqlParsingAggregator(Closeable):
                 if upstream not in upstreams:
                     upstreams[upstream] = query.query_id
                     added += 1
-            added += self._process_column_lineage_for_query(
+            merge = self._process_column_lineage_for_query(
                 query, upstreams, cll, queries_with_inconsistencies
+            )
+            added += merge.entries_added
+            cll_groups.update(
+                (column, query.query_id) for column in merge.columns_with_new_edges
             )
             if added:
                 queries_map[query.query_id] = query
-                num_cll_groups = sum(
-                    len(set(column_upstreams.values()))
-                    for column_upstreams in cll.values()
-                )
 
         # Log and update metrics if we applied the consistency fix
         if queries_with_inconsistencies:
@@ -1878,8 +1900,9 @@ class SqlParsingAggregator(Closeable):
         """Apply the opt-in MAX_QUERIES_PER_DOWNSTREAM cap, if set.
 
         Query ids are registered in the order the query log was read, which is time
-        order, so the tail of the set is the most recent queries. Known-lineage and
-        view query ids outrank every parsed query, so they are always kept. This can
+        order, so the tail of the set is the most recent queries. Known lineage (from
+        add_known_lineage_mapping or add_known_query_lineage) and view query ids
+        outrank every parsed query, so they are always kept. This can
         drop an upstream that only an older query references, which is why it is off
         by default.
         """
@@ -1893,7 +1916,9 @@ class SqlParsingAggregator(Closeable):
         selected = OrderedSet[QueryId](
             query_id
             for query_id in all_ids
-            if self._is_known_lineage_query_id(query_id) or query_id.startswith("view_")
+            if self._is_known_lineage_query_id(query_id)
+            or query_id.startswith("view_")
+            or query_id in self._known_query_lineage_ids
         )
         selected.update(all_ids[-MAX_QUERIES_PER_DOWNSTREAM:])
 

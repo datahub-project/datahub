@@ -2617,6 +2617,23 @@ def test_known_query_lineage_keeps_observed_custom_properties() -> None:
     assert query_properties[0].customProperties == _DAG_A_LABELS
 
 
+def _make_lineage_aggregator() -> SqlParsingAggregator:
+    return SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+
+def _target_lineage(
+    aggregator: SqlParsingAggregator, downstream: str
+) -> UpstreamLineageClass:
+    lineage = _upstream_lineage_aspect(list(aggregator.gen_metadata()), downstream)
+    assert lineage is not None
+    return lineage
+
+
 def test_lineage_queries_per_downstream_opt_in_cap(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -2624,20 +2641,25 @@ def test_lineage_queries_per_downstream_opt_in_cap(
 
     monkeypatch.setattr(aggregator_module, "MAX_QUERIES_PER_DOWNSTREAM", 3)
 
-    aggregator = SqlParsingAggregator(
-        platform="snowflake",
-        generate_lineage=True,
-        generate_usage_statistics=False,
-        generate_operations=False,
-    )
+    aggregator = _make_lineage_aggregator()
     downstream = DatasetUrn("snowflake", "dev.public.target").urn()
     copy_source = DatasetUrn("snowflake", "dev.public.copy_source").urn()
+    known_source = DatasetUrn("snowflake", "dev.public.known_source").urn()
     sources = [DatasetUrn("snowflake", f"dev.public.src_{i}").urn() for i in range(10)]
 
     # Known lineage outranks parsed queries and must survive the cap even though it
     # was registered first.
     aggregator.add_known_lineage_mapping(
         upstream_urn=copy_source, downstream_urn=downstream
+    )
+    # Known query lineage keeps a fingerprinted id rather than a known_ prefix.
+    aggregator.add_known_query_lineage(
+        KnownQueryLineageInfo(
+            query_text="INSERT INTO target SELECT * FROM known_source",
+            downstream=downstream,
+            upstreams=[known_source],
+            timestamp=_ts(0),
+        )
     )
     for i, source in enumerate(sources):
         aggregator.add_preparsed_query(
@@ -2650,24 +2672,18 @@ def test_lineage_queries_per_downstream_opt_in_cap(
             )
         )
 
-    lineage = [
-        mcp.aspect
-        for mcp in aggregator.gen_metadata()
-        if mcp.entityUrn == downstream and isinstance(mcp.aspect, UpstreamLineageClass)
-    ]
-    assert len(lineage) == 1
-    assert {u.dataset for u in lineage[0].upstreams} == {copy_source, *sources[-3:]}
+    lineage = _target_lineage(aggregator, downstream)
+    assert {u.dataset for u in lineage.upstreams} == {
+        copy_source,
+        known_source,
+        *sources[-3:],
+    }
     assert aggregator.report.num_downstreams_with_capped_lineage_queries == 1
-    assert aggregator.report.capped_lineage_downstreams[downstream] == 11
+    assert aggregator.report.capped_lineage_downstreams[downstream] == 12
 
 
 def test_lineage_uses_every_query_by_default() -> None:
-    aggregator = SqlParsingAggregator(
-        platform="snowflake",
-        generate_lineage=True,
-        generate_usage_statistics=False,
-        generate_operations=False,
-    )
+    aggregator = _make_lineage_aggregator()
     downstream = DatasetUrn("snowflake", "dev.public.target").urn()
     sources = [DatasetUrn("snowflake", f"dev.public.src_{i}").urn() for i in range(50)]
     for i, source in enumerate(sources):
@@ -2681,12 +2697,8 @@ def test_lineage_uses_every_query_by_default() -> None:
             )
         )
 
-    lineage = [
-        mcp.aspect
-        for mcp in aggregator.gen_metadata()
-        if mcp.entityUrn == downstream and isinstance(mcp.aspect, UpstreamLineageClass)
-    ]
-    assert {u.dataset for u in lineage[0].upstreams} == set(sources)
+    lineage = _target_lineage(aggregator, downstream)
+    assert {u.dataset for u in lineage.upstreams} == set(sources)
     assert aggregator.report.num_downstreams_with_capped_lineage_queries == 0
 
 
@@ -2698,12 +2710,7 @@ def test_lineage_walk_stops_once_output_caps_are_full(
     monkeypatch.setattr(aggregator_module, "MAX_UPSTREAM_TABLES_COUNT", 2)
     monkeypatch.setattr(aggregator_module, "MAX_FINEGRAINEDLINEAGE_COUNT", 2)
 
-    aggregator = SqlParsingAggregator(
-        platform="snowflake",
-        generate_lineage=True,
-        generate_usage_statistics=False,
-        generate_operations=False,
-    )
+    aggregator = _make_lineage_aggregator()
     downstream = DatasetUrn("snowflake", "dev.public.target").urn()
     sources = [DatasetUrn("snowflake", f"dev.public.src_{i}").urn() for i in range(6)]
     for i, source in enumerate(sources):
@@ -2725,16 +2732,11 @@ def test_lineage_walk_stops_once_output_caps_are_full(
             )
         )
 
-    lineage = [
-        mcp.aspect
-        for mcp in aggregator.gen_metadata()
-        if mcp.entityUrn == downstream and isinstance(mcp.aspect, UpstreamLineageClass)
-    ]
-    assert len(lineage) == 1
+    lineage = _target_lineage(aggregator, downstream)
     # Latest timestamp wins, and the walk ends once both caps are satisfied.
-    assert [u.dataset for u in lineage[0].upstreams] == [sources[5], sources[4]]
-    assert lineage[0].fineGrainedLineages is not None
-    assert len(lineage[0].fineGrainedLineages) == 2
+    assert [u.dataset for u in lineage.upstreams] == [sources[5], sources[4]]
+    assert lineage.fineGrainedLineages is not None
+    assert len(lineage.fineGrainedLineages) == 2
     assert aggregator.report.num_downstreams_with_lineage_walk_stopped_early == 1
 
 
@@ -2763,12 +2765,7 @@ def test_lineage_walk_stop_keeps_highest_precedence_column_lineage(
         aggregator_module, "MAX_FINEGRAINEDLINEAGE_COUNT", max_column_edges
     )
 
-    aggregator = SqlParsingAggregator(
-        platform="snowflake",
-        generate_lineage=True,
-        generate_usage_statistics=False,
-        generate_operations=False,
-    )
+    aggregator = _make_lineage_aggregator()
     downstream = DatasetUrn("snowflake", "dev.public.target").urn()
     sources = {
         name: DatasetUrn("snowflake", f"dev.public.{name}").urn()
@@ -2806,11 +2803,7 @@ def test_lineage_walk_stop_keeps_highest_precedence_column_lineage(
         )
     )
 
-    [lineage] = [
-        mcp.aspect
-        for mcp in aggregator.gen_metadata()
-        if mcp.entityUrn == downstream and isinstance(mcp.aspect, UpstreamLineageClass)
-    ]
+    lineage = _target_lineage(aggregator, downstream)
     assert [u.dataset for u in lineage.upstreams] == [sources["src_new"]]
     created = lineage.upstreams[0].created
     assert created is not None
