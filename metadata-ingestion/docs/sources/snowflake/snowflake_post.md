@@ -294,6 +294,18 @@ DataHub extracts lineage when a query reads from a Snowflake Stream. Coverage de
 
 The Stream entity itself is also extracted as a top-level dataset; the lineage above is in addition to that.
 
+#### Tags Written by DataHub
+
+When DataHub writes tags, glossary terms or structured properties back to Snowflake as Snowflake tags (for example with a DataHub Cloud sync automation), ingestion recognises them on the next run instead of creating new DataHub tags from them. Each Snowflake tag gets a platform resource record that names the DataHub entity it stands for and whether DataHub created it.
+
+| Snowflake tag created by DataHub from | With `extract_tags`                             | With `extract_tags_as_structured_properties`                                 |
+| ------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------- |
+| A DataHub tag                         | Ingested as the original DataHub tag            | Skipped                                                                      |
+| A glossary term                       | Skipped; the term stays on the asset in DataHub | Skipped                                                                      |
+| A structured property                 | Skipped                                         | Ingested as the original property (`upsert` write mode) or skipped (`patch`) |
+
+Every other Snowflake tag is ingested as before. The records are looked up and written through the DataHub graph, so this needs a DataHub connection (`datahub_api`, or the `datahub-rest` sink). Without one, every Snowflake tag is ingested as a native tag.
+
 #### Metadata Pattern Pushdown
 
 When ingesting metadata from large Snowflake environments, you can improve performance by pushing down pattern filters directly to Snowflake SQL queries using the `push_down_metadata_patterns` configuration option.

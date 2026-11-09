@@ -11,6 +11,7 @@ import datahub.ingestion.source.snowflake.snowflake_utils
 from datahub.configuration.common import AllowDenyPattern, ConfigurationWarning
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.ingestion.api.source import SourceCapability
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
     CLIENT_SESSION_KEEP_ALIVE,
@@ -53,6 +54,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import TableRename, TableSwap
 from datahub.testing.doctest import assert_doctest
 from tests.integration.snowflake.common import inject_rowcount
 from tests.test_helpers import test_connection_helpers
+from tests.unit.snowflake.conftest import make_source
 
 default_oauth_dict: Dict[str, Any] = {
     "client_id": "client_id",
@@ -1681,3 +1683,13 @@ def test_get_procedures_for_database_maps_rows_to_base_procedure():
     assert proc.last_altered == altered
     assert proc.get_procedure_identifier() != "load_facts"
     assert proc.get_procedure_identifier().startswith("load_facts_")
+
+
+def test_tag_resolver_looks_up_platform_resources_only_with_a_graph() -> None:
+    source = make_source(platform_instance="acct_a")
+    assert source._build_tag_resolver().repository is None
+
+    source.ctx.graph = MagicMock(spec=DataHubGraph)
+    resolver = source._build_tag_resolver()
+    assert resolver.repository is not None
+    assert resolver.platform_instance == "acct_a"
