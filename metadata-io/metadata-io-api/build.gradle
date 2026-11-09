@@ -12,6 +12,7 @@ dependencies {
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
 
+  testImplementation testFixtures(project(':metadata-utils'))
   testImplementation(externalDependency.testng)
   testImplementation(externalDependency.mockito)
   testImplementation(testFixtures(project(":entity-registry")))

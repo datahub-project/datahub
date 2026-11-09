@@ -445,7 +445,7 @@ public class ParallelReindexOrchestrator {
     String tempIndexName = ESIndexBuilder.getNextIndexName(indexConfig.name(), startTime);
 
     try {
-      indexBuilder.createIndex(opContext, tempIndexName, indexConfig);
+      indexBuilder.createReindexDestination(opContext, tempIndexName, indexConfig);
 
       // Optimize destination index for reindex (reduce ES overhead)
       // This MUST be restored in finalizeReindex or on failure

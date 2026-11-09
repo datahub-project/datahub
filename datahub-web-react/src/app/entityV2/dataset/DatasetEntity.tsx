@@ -15,7 +15,6 @@ import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import i18next from 'i18next';
 import * as React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { getGovernanceTabName, getQualityTabName } from '@app/entityV2/dataset/constants';
 import { Preview } from '@app/entityV2/dataset/preview/Preview';
@@ -51,7 +50,7 @@ import {
     SummaryTab,
 } from '@app/entityV2/shared/profileChunks';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
-import { EntityTab } from '@app/entityV2/shared/types';
+import { EntityTab, GenericEntityProperties } from '@app/entityV2/shared/types';
 import {
     SidebarTitleActionType,
     getDatasetLastUpdatedMs,
@@ -64,9 +63,10 @@ import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
 import { matchedFieldPathsRenderer } from '@app/searchV2/matches/matchedFieldPathsRenderer';
 import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useAppConfig } from '@app/useAppConfig';
+import { FeatureFlags } from '@src/appConfigContext';
 
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '@graphql/dataset.generated';
-import { Dataset, DatasetProperties, EntityType, FeatureFlagsConfig, SearchResult } from '@types';
+import { Dataset, DatasetProperties, EntityType, SearchResult } from '@types';
 
 const OperationsTab = lazyProfileComponent('OperationsTab', () =>
     import('@app/entityV2/dataset/profile/OperationsTab').then((module) => ({
@@ -114,7 +114,7 @@ const ViewDefinitionTab = lazyProfileComponent(
     () => import('@app/entityV2/shared/tabs/Dataset/View/ViewDefinitionTab'),
 );
 const GovernanceTab = lazyProfileComponent('GovernanceTab', () =>
-    import('@src/app/entity/shared/tabs/Dataset/Governance/GovernanceTab').then((module) => ({
+    import('@src/app/entityV2/shared/tabs/Dataset/Governance/GovernanceTab').then((module) => ({
         default: module.GovernanceTab,
     })),
 );
@@ -403,7 +403,7 @@ export class DatasetEntity implements Entity<Dataset> {
         },
     ];
 
-    #shouldMergeInLineage(dataset?: Dataset | null, flags?: FeatureFlagsConfig): boolean {
+    #shouldMergeInLineage(dataset?: Dataset | null, flags?: FeatureFlags): boolean {
         // Lineage query must include platform and typeNames on dataset and its sibling
         return (
             !!flags?.hideDbtSourceInLineage &&
@@ -412,10 +412,7 @@ export class DatasetEntity implements Entity<Dataset> {
         );
     }
 
-    getOverridePropertiesFromEntity = (
-        dataset?: Dataset | null,
-        flags?: FeatureFlagsConfig,
-    ): GenericEntityProperties => {
+    getOverridePropertiesFromEntity = (dataset?: Dataset | null, flags?: FeatureFlags): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it
         const subTypes = dataset?.subTypes;
 
@@ -563,7 +560,7 @@ export class DatasetEntity implements Entity<Dataset> {
         return data.platform.properties?.logoUrl || undefined;
     };
 
-    getGenericEntityProperties = (data: Dataset, flags?: FeatureFlagsConfig) => {
+    getGenericEntityProperties = (data: Dataset, flags?: FeatureFlags) => {
         return getDataForEntityType({
             data,
             entityType: this.type,

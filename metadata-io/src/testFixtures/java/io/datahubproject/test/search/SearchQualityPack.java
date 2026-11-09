@@ -31,7 +31,8 @@ public final class SearchQualityPack {
           "structured-property",
           "sort",
           "field-probe",
-          "autocomplete");
+          "autocomplete",
+          "quickstart-search");
 
   private SearchQualityPack() {}
 

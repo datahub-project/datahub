@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Dict, Optional
 
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -55,6 +55,9 @@ class DremioSourceReport(
     # whole catalog; query lineage then falls back to the filters alone. Set
     # only through DremioAPIOperations._report_dataset_fetch_failure.
     dataset_fetch_incomplete: bool = False
+    # One upstream URN per mapped Dremio source, to compare against the URNs the
+    # source's own connector ingests.
+    source_mapping_sample_upstream_urns: Dict[str, str] = field(default_factory=dict)
 
     api_calls_total: int = 0
     api_calls_by_method_and_path: TopKDict[str, int] = field(
