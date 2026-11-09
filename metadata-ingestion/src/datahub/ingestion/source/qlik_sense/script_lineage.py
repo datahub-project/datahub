@@ -150,6 +150,7 @@ MAPPING_PREFIX_RE = re.compile(r"\bMapping\b", re.IGNORECASE)
 # CrossTable and Generic turn columns into attribute and value fields, so the
 # field names are not the column names.
 RESHAPE_PREFIX_RE = re.compile(r"\b(?:CrossTable|Generic)\b", re.IGNORECASE)
+CROSSTABLE_RE = re.compile(r"\bCrossTable\s*\((?P<args>[^)]*)\)", re.IGNORECASE)
 # Single-quoted text is a string literal in a chart expression, not a field.
 # A quoted field can carry a derived-field suffix, as in [Date].autoCalendar.Year.
 EXPRESSION_NAME_RE = re.compile(
@@ -243,6 +244,27 @@ class LoadField(BaseModel):
     sources: List[str]
 
 
+class CrossTable(BaseModel):
+    """CrossTable(attribute, data, qualifiers) keeps the first `qualifiers`
+    fields and turns the others into attribute and data fields."""
+
+    attribute: str
+    data: str
+    qualifiers: int = 1
+
+
+def _crosstable(prefix: str) -> Optional[CrossTable]:
+    match = CROSSTABLE_RE.search(prefix)
+    if not match:
+        return None
+    args = [_unquote(arg) for arg in _split_top_level(match.group("args"))]
+    if len(args) == 2:
+        return CrossTable(attribute=args[0], data=args[1])
+    if len(args) == 3 and args[2].isdigit():
+        return CrossTable(attribute=args[0], data=args[1], qualifiers=int(args[2]))
+    return None
+
+
 class PrecedingLoad(BaseModel):
     # LOAD * passes every field of the statement below through.
     keeps_all: bool = False
@@ -259,8 +281,11 @@ class ScriptTable(BaseModel):
     preceding_loads: List[PrecedingLoad] = []
     # A mapping table is only used by ApplyMap and dropped from the data model.
     mapping: bool = False
-    # A CrossTable or Generic load, whose fields cannot be traced to columns.
+    # A CrossTable or Generic load, whose fields are not its columns.
     reshaped: bool = False
+    # Set when the reshaping is a CrossTable on the statement that makes the
+    # table, so its qualifier fields can still be traced.
+    crosstable: Optional[CrossTable] = None
 
 
 class ScriptTableLineage(BaseModel):
@@ -601,6 +626,7 @@ class _ScriptParser(BaseModel):
     pending_loads: List[PrecedingLoad] = []
     pending_mapping: bool = False
     pending_reshaped: bool = False
+    pending_crosstable: Optional[CrossTable] = None
     # A SELECT under a preceding LOAD that adds to an unknown table.
     pending_skip: bool = False
     # The table a Concatenate or Join without a target adds to.
@@ -623,6 +649,7 @@ class _ScriptParser(BaseModel):
     def _clear_pending(self) -> None:
         self.pending_mapping = False
         self.pending_reshaped = False
+        self.pending_crosstable = None
         self.pending_label = None
         self.pending_loads = []
         self.pending_skip = False
@@ -711,6 +738,11 @@ class _ScriptParser(BaseModel):
         sql = SQL_RE.match(statement)
         if sql:
             if not (skip or self.pending_skip):
+                if not self.pending_loads:
+                    crosstable = _crosstable(prefix.group(0) if prefix else "")
+                else:
+                    # A reshaping under the preceding loads hides the fields.
+                    crosstable = None if reshaped else self.pending_crosstable
                 table_label = (
                     label
                     or self.pending_label
@@ -725,6 +757,7 @@ class _ScriptParser(BaseModel):
                         preceding_loads=self.pending_loads,
                         mapping=mapping or self.pending_mapping,
                         reshaped=reshaped or self.pending_reshaped,
+                        crosstable=crosstable,
                     )
                 )
                 self.last_label = table_label
@@ -738,6 +771,10 @@ class _ScriptParser(BaseModel):
                 self.pending_label = label
                 self.pending_skip = skip
                 self.pending_mapping = mapping
+                self.pending_crosstable = _crosstable(prefix.group(0) if prefix else "")
+            elif reshaped:
+                # Reshaped below the top, so the top's fields are not known.
+                self.pending_crosstable = None
             self.pending_reshaped = self.pending_reshaped or reshaped
             self.pending_loads.append(_parse_load_fields(statement))
         else:
@@ -863,6 +900,35 @@ def apply_preceding_loads(
             },
         }
     return column_upstreams
+
+
+def apply_crosstable(
+    crosstable: Optional[CrossTable],
+    preceding_loads: List[PrecedingLoad],
+    fields: Dict[str, List[str]],
+) -> Optional[Dict[str, List[str]]]:
+    """The fields a CrossTable load produces: its qualifier fields keep their
+    upstreams, the attribute field holds column names so it has none, and the
+    data field holds the values of the other fields. None when the fields or
+    their order are not known."""
+    order_unknown = bool(preceding_loads) and (
+        preceding_loads[0].keeps_all or preceding_loads[0].unreadable
+    )
+    if crosstable is None or order_unknown or len(fields) <= crosstable.qualifiers:
+        return None
+    names = list(fields)
+    qualifiers = names[: crosstable.qualifiers]
+    return {
+        **{name: fields[name] for name in qualifiers},
+        crosstable.attribute: [],
+        crosstable.data: list(
+            dict.fromkeys(
+                upstream
+                for name in names[crosstable.qualifiers :]
+                for upstream in fields[name]
+            )
+        ),
+    }
 
 
 def _column_upstreams(columns: Dict[str, List[str]], name: str) -> List[str]:

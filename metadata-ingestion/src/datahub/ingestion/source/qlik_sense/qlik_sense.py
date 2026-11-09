@@ -70,6 +70,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     ResolvedConnection,
     ScriptTable,
     ScriptTableLineage,
+    apply_crosstable,
     apply_preceding_loads,
     brackets_to_backticks,
     connection_lookup_names,
@@ -1043,13 +1044,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     ref for ref in column.upstreams if ref.table in upstream_urns
                 )
             )
-        if script_table.reshaped:
-            # The fields of a CrossTable or Generic load are not its columns, so
-            # only table lineage is kept.
-            return
-        for field, upstreams in apply_preceding_loads(
+        fields: Optional[Dict[str, List[str]]] = apply_preceding_loads(
             script_table.preceding_loads, sql_columns
-        ).items():
+        )
+        if script_table.reshaped:
+            # Only a CrossTable whose fields are known keeps column lineage;
+            # otherwise the fields are not the columns and only table lineage
+            # is kept.
+            fields = apply_crosstable(
+                script_table.crosstable, script_table.preceding_loads, fields or {}
+            )
+        for field, upstreams in (fields or {}).items():
             lineage.column_upstreams.setdefault(field, []).extend(upstreams)
 
     def _build_script_tables(self, app: App) -> List[ScriptTableLineage]:

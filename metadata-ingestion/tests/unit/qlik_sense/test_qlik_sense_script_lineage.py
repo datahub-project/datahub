@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 import pytest
 
 from datahub.ingestion.source.qlik_sense.script_lineage import (
+    apply_crosstable,
     apply_preceding_loads,
     connection_lookup_names,
     drop_condition_variables,
@@ -912,3 +913,35 @@ def test_preceding_load_source_column_case(
 def test_parse_load_script_marks_reshaped_tables(script: str) -> None:
     (table,) = parse_load_script(script)
     assert table.reshaped
+
+
+@pytest.mark.parametrize(
+    "script, expected",
+    [
+        pytest.param(
+            "T: CrossTable(Month, Sales, 2) SQL SELECT region, store, jan FROM db.s.t;",
+            {"region": ["r"], "store": ["s"], "Month": [], "Sales": ["j"]},
+            id="two_qualifiers",
+        ),
+        pytest.param(
+            "T: CrossTable(Month, Sales) LOAD *;\nSQL SELECT region, jan FROM db.s.t;",
+            None,
+            id="field_order_unknown",
+        ),
+        pytest.param(
+            "T: CrossTable(Month, Sales) LOAD region, jan;\n"
+            "Generic LOAD region, jan;\nSQL SELECT region, jan FROM db.s.t;",
+            None,
+            id="reshaped_below_the_top",
+        ),
+    ],
+)
+def test_crosstable_fields(
+    script: str, expected: Optional[Dict[str, List[str]]]
+) -> None:
+    (table,) = parse_load_script(script)
+    columns = {"region": ["r"], "store": ["s"], "jan": ["j"]}
+    fields = apply_preceding_loads(table.preceding_loads, columns)
+
+    assert table.reshaped
+    assert apply_crosstable(table.crosstable, table.preceding_loads, fields) == expected

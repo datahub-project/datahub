@@ -1955,20 +1955,33 @@ def test_mapping_tables_are_not_chart_inputs(mock_onprem: MagicMock) -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    "load, expected_fields",
+    [
+        pytest.param(
+            "T: CrossTable(Month, Sales) LOAD region, jan, feb;",
+            {"region": ["region"], "Month": [], "Sales": ["jan", "feb"]},
+            id="crosstable",
+        ),
+        pytest.param("T: Generic LOAD region, jan, feb;", {}, id="generic"),
+    ],
+)
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
-def test_crosstable_script_table_keeps_only_table_lineage(
-    mock_onprem: MagicMock,
+def test_reshaped_script_tables_keep_only_traceable_fields(
+    mock_onprem: MagicMock, load: str, expected_fields: Dict[str, List[str]]
 ) -> None:
     _, tables = _script_tables(
         mock_onprem,
         {},
         script="LIB CONNECT TO 'Sales SQL';\n"
-        "T: CrossTable(Month, Sales) LOAD region, jan, feb;\n"
+        f"{load}\n"
         "SQL SELECT region, jan, feb FROM sales_db.dbo.sales;",
     )
 
     (table,) = tables
-    assert table.upstream_urns == [
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,sales_db.dbo.sales,PROD)"
-    ]
-    assert table.column_upstreams == {}
+    upstream = "urn:li:dataset:(urn:li:dataPlatform:mssql,sales_db.dbo.sales,PROD)"
+    assert table.upstream_urns == [upstream]
+    assert table.column_upstreams == {
+        field: [f"urn:li:schemaField:({upstream},{column})" for column in columns]
+        for field, columns in expected_fields.items()
+    }
