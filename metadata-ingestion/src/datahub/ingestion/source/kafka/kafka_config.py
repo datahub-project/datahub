@@ -158,8 +158,10 @@ class FlinkLineageConfig(ConfigModel):
     )
     include_non_running_statements: bool = Field(
         default=False,
-        description="Also emit lineage for statements that are not RUNNING (e.g. "
-        "STOPPED, FAILED, COMPLETED). Off by default so lineage reflects live pipelines.",
+        description="Also emit lineage for statements that no longer run (STOPPED, "
+        "COMPLETED, FAILED, DELETING). Off by default so lineage reflects live "
+        "pipelines; PENDING, RUNNING, DEGRADED, FAILING and STOPPING statements are "
+        "always read.",
     )
     region: Optional[str] = Field(
         default=None,

@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class _FlinkApiModel(BaseModel):
@@ -11,6 +11,11 @@ class FlinkStatementSpec(_FlinkApiModel):
     statement: Optional[str] = None
     compute_pool_id: Optional[str] = None
     properties: Dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("properties", mode="before")
+    @classmethod
+    def null_properties_are_empty(cls, value: object) -> object:
+        return {} if value is None else value
 
 
 class FlinkStatementStatus(_FlinkApiModel):
@@ -33,6 +38,11 @@ class FlinkStatementsPage(_FlinkApiModel):
     # Items stay raw so one malformed statement does not drop the whole page.
     data: List[object] = Field(default_factory=list)
     metadata: Optional[FlinkPageMetadata] = None
+
+    @field_validator("data", mode="before")
+    @classmethod
+    def null_data_is_empty(cls, value: object) -> object:
+        return [] if value is None else value
 
 
 class FlinkJob(BaseModel):
