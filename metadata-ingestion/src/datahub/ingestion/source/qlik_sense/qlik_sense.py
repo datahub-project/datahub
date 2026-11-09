@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime
+from enum import Enum
 from functools import partial
 from typing import Dict, Iterable, List, Optional, Union
 
@@ -134,6 +135,13 @@ from datahub.utilities.urns.urn import guess_entity_type
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+
+class _PartialRead(str, Enum):
+    KEPT = "kept"
+    LIMIT_REACHED = "limit_reached"
+    NOT_KEPT = "not_kept"
+
 
 # Entities per DataHub request when checking that a skipped app's entities exist.
 ENTITY_CHECK_BATCH_SIZE = 100
@@ -280,6 +288,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     exclude={
                         "stateful_ingestion": True,
                         "max_workers": True,
+                        "max_partial_reads_kept": True,
                         "on_prem": {"skip_unchanged_apps"},
                     },
                 ),
@@ -396,25 +405,35 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
         self.reporter.apps_skipped_unchanged += 1
 
-    def _keep_partly_read_app(self, app: App) -> bool:
+    def _keep_partly_read_app(self, app: App) -> _PartialRead:
         """Keeps what the app's last read produced instead of emitting a partial
-        read, which would overwrite its relationships. False when there is no
-        usable checkpoint to keep."""
+        read, which would overwrite its relationships, for up to
+        max_partial_reads_kept consecutive runs."""
         failures: List[str] = []
-        if self._usable_checkpoint(app.id, failures) is None:
-            for failure in failures:
-                self.reporter.warning(
-                    title="Unable to load the last checkpoint of a Qlik app",
-                    message="The partly read app could not keep its last read.",
-                    context=failure,
-                )
-            return False
+        previous = self._usable_checkpoint(app.id, failures)
+        for failure in failures:
+            self.reporter.warning(
+                title="Unable to load the last checkpoint of a Qlik app",
+                message="The partly read app could not keep its last read.",
+                context=failure,
+            )
+        if previous is None:
+            return _PartialRead.NOT_KEPT
+        if previous.partial_reads >= self.config.max_partial_reads_kept:
+            return _PartialRead.LIMIT_REACHED
         urns = self._keep_previous_urns(app.id)
         if not urns:
-            return False
+            return _PartialRead.NOT_KEPT
         # No fingerprint, so the next run reads the app again.
-        self.app_state.record(app.id, AppCheckpoint(fingerprint=None, urns=urns))
-        return True
+        self.app_state.record(
+            app.id,
+            AppCheckpoint(
+                fingerprint=None,
+                urns=urns,
+                partial_reads=previous.partial_reads + 1,
+            ),
+        )
+        return _PartialRead.KEPT
 
     def _gen_recorded_app_workunit(self, app: App) -> Iterable[MetadataWorkUnit]:
         fingerprint = (
@@ -1272,11 +1291,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 f"Processed app {item.qTitle} in space {space_name} "
                 f"({self.reporter.apps_read} apps read from the Engine)"
             )
-            if (
-                not item.read_complete
-                and record_state
-                and self._keep_partly_read_app(item)
-            ):
+            partial_read = (
+                self._keep_partly_read_app(item)
+                if not item.read_complete and record_state
+                else _PartialRead.NOT_KEPT
+            )
+            if partial_read == _PartialRead.KEPT:
                 self.reporter.warning(
                     title="Unable to fully read Qlik app",
                     message="Nothing from this read of the app is emitted. Its "
@@ -1285,7 +1305,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     context=self._read_errors_context(item),
                 )
                 return
-            if not item.read_complete:
+            if partial_read == _PartialRead.LIMIT_REACHED:
+                self.reporter.failure(
+                    title="Qlik app has been only partly read for too many runs",
+                    message="Its last complete read is no longer kept, so this "
+                    "partial read is ingested. Stale metadata removal is skipped "
+                    "for this run.",
+                    context=self._read_errors_context(item),
+                )
+            elif not item.read_complete:
                 # Reporting a failure also stops stale entity removal from
                 # soft-deleting what this app's last full read produced.
                 self.reporter.failure(

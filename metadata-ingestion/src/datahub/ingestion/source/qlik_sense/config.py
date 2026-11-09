@@ -262,6 +262,15 @@ class QlikSourceConfig(
         description="Connection to Qlik Sense Enterprise on Windows. Set this instead of "
         "`tenant_hostname` and `api_key` to read an on-prem site.",
     )
+    max_partial_reads_kept: int = Field(
+        default=3,
+        ge=0,
+        description="With stateful ingestion and stale metadata removal, how many "
+        "consecutive runs an app that is only partly read keeps the entities of its "
+        "last complete read. After that, its partial read is ingested and reported "
+        "as a failure, so its current state appears and stale metadata removal is "
+        "skipped for that run.",
+    )
     max_workers: Optional[int] = Field(
         default=None,
         ge=1,
