@@ -312,12 +312,7 @@ class ScriptTableLineage(BaseModel):
     upstream_urns: List[str] = []
     # Downstream column name to upstream schema field URNs.
     column_upstreams: Dict[str, List[str]] = {}
-    # Mapping tables are a separate namespace from data model tables, so a
-    # label can be both; it is only a mapping table if every load of it is.
     mapping: bool = False
-    # Columns only mapping loads of the label produce, which are not in the
-    # data model.
-    mapping_columns: List[str] = []
 
 
 class DataConnectionInfo(BaseModel):
