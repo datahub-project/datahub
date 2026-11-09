@@ -2084,7 +2084,16 @@ def test_mapping_table_does_not_hide_data_table_with_same_label(
         mock_onprem, {}, script="\n".join(["LIB CONNECT TO 'Sales SQL';", *loads])
     )
 
-    assert [table.mapping for table in tables] == [False]
+    (table,) = tables
+    assert not table.mapping
+    assert table.upstream_urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,sales_db.dbo.region_managers,PROD)"
+    ]
+    assert all(
+        "dbo.regions," not in urn
+        for urns in table.column_upstreams.values()
+        for urn in urns
+    )
     assert [
         field.name
         for fields in source._app_table_fields([], tables).values()
