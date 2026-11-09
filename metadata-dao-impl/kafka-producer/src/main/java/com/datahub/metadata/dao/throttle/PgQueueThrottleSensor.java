@@ -12,6 +12,7 @@ import com.linkedin.metadata.dao.throttle.ThrottleType;
 import com.linkedin.metadata.queue.MetadataQueueStore;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -42,6 +43,7 @@ public class PgQueueThrottleSensor implements ThrottleSensor, AutoCloseable {
 
   private static final Set<ThrottleType> SUPPORTED_THROTTLE_TYPES =
       Set.of(MCL_VERSIONED_LAG, MCL_TIMESERIES_LAG);
+  private static final Duration SHUTDOWN_TIMEOUT = Duration.ofSeconds(5);
 
   @Nonnull private final MetadataQueueStore metadataQueueStore;
   @Nonnull private final MetadataChangeProposalConfig.ThrottlesConfig config;
@@ -100,8 +102,15 @@ public class PgQueueThrottleSensor implements ThrottleSensor, AutoCloseable {
    */
   @Override
   public void close() {
-    // shutdownNow interrupts a throttle() that is sleeping through a backoff
+    // shutdownNow interrupts a throttle() sleeping through a backoff
     scheduler.shutdownNow();
+    try {
+      if (!scheduler.awaitTermination(SHUTDOWN_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
+        log.warn("MCL lag refresh did not stop within {}.", SHUTDOWN_TIMEOUT);
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   @VisibleForTesting

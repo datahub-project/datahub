@@ -98,10 +98,11 @@ public class KafkaThrottleFactoryShutdownTest {
     assertNoMoreRefreshes(queueStore);
   }
 
-  /** Waits many refresh intervals after close and checks the mock saw no new calls. */
+  /**
+   * close() waits for a refresh in flight, so once the context is closed the mock must see no new
+   * calls over many refresh intervals.
+   */
   private static void assertNoMoreRefreshes(Object refreshSource) throws InterruptedException {
-    // let a refresh that was already running when the context closed finish
-    Thread.sleep(REFRESH_INTERVAL_MS * 5);
     int callsAfterClose = mockingDetails(refreshSource).getInvocations().size();
     Thread.sleep(REFRESH_INTERVAL_MS * 20);
     assertThat(mockingDetails(refreshSource).getInvocations())

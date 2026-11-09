@@ -51,7 +51,7 @@ import org.springframework.util.backoff.ExponentialBackOff;
 public class KafkaThrottleSensor implements ThrottleSensor, AutoCloseable {
   private static final Set<ThrottleType> SUPPORTED_THROTTLE_TYPES =
       Set.of(MCL_VERSIONED_LAG, MCL_TIMESERIES_LAG);
-  private static final Duration ADMIN_CLOSE_TIMEOUT = Duration.ofSeconds(10);
+  private static final Duration SHUTDOWN_TIMEOUT = Duration.ofSeconds(5);
   @Nonnull private final EntityRegistry entityRegistry;
   @Nonnull private final Admin kafkaAdmin;
   @Nonnull private final MetadataChangeProposalConfig.ThrottlesConfig config;
@@ -112,9 +112,17 @@ public class KafkaThrottleSensor implements ThrottleSensor, AutoCloseable {
    */
   @Override
   public void close() {
-    // shutdownNow interrupts a throttle() that is sleeping through a backoff
+    // shutdownNow interrupts a throttle() sleeping through a backoff. Wait for a refresh already
+    // in flight so it is not still using the admin client when it closes.
     scheduler.shutdownNow();
-    kafkaAdmin.close(ADMIN_CLOSE_TIMEOUT);
+    try {
+      if (!scheduler.awaitTermination(SHUTDOWN_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
+        log.warn("MCL lag refresh did not stop within {}.", SHUTDOWN_TIMEOUT);
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+    kafkaAdmin.close(SHUTDOWN_TIMEOUT);
   }
 
   /**
@@ -261,7 +269,11 @@ public class KafkaThrottleSensor implements ThrottleSensor, AutoCloseable {
                 return Map.entry(mclType, Math.max(0, endOffsetMedian - offsetMedian));
               })
           .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    } catch (ExecutionException | InterruptedException e) {
+    } catch (InterruptedException e) {
+      // close() interrupts a refresh in flight; this is shutdown, not a failure
+      Thread.currentThread().interrupt();
+      return Map.of(MCL_VERSIONED_LAG, 0L, MCL_TIMESERIES_LAG, 0L);
+    } catch (ExecutionException e) {
       log.error("Error fetching consumer group offsets.", e);
       return Map.of(MCL_VERSIONED_LAG, 0L, MCL_TIMESERIES_LAG, 0L);
     }
