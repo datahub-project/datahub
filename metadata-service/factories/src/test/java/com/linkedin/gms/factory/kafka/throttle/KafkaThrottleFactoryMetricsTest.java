@@ -60,6 +60,8 @@ public class KafkaThrottleFactoryMetricsTest {
         .withPropertyValues(
             "MCP_VERSIONED_THROTTLE_ENABLED=true",
             "MCP_VERSIONED_THRESHOLD=1",
+            // the test calls throttle() itself; keep the sensor's own schedule from adding a count
+            "MCP_THROTTLE_UPDATE_INTERVAL_MS=3600000",
             "METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=" + versionedTopic,
             "METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME=" + timeseriesTopic);
   }
