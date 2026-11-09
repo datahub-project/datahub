@@ -160,6 +160,15 @@ public final class SearchFieldResolver {
         byName.put(field, direct);
       }
     }
+    if (!byName.containsKey(MappingConstants.SYSTEM_CREATED_ACTOR_FIELD)) {
+      MutableField creator = new MutableField(MappingConstants.SYSTEM_CREATED_ACTOR_FIELD);
+      creator.addRoot(
+          FieldMapping.root(Type.KEYWORD),
+          "system created actor " + MappingConstants.SYSTEM_CREATED_ACTOR_FIELD);
+      byName.put(MappingConstants.SYSTEM_CREATED_ACTOR_FIELD, creator);
+    }
+    registerSystemTime(byName, MappingConstants.SYSTEM_CREATED_TIME_FIELD);
+    registerSystemTime(byName, MappingConstants.SYSTEM_MODIFIED_TIME_FIELD);
     parsedKeywordPaths(entitySpecs)
         .forEach(
             (name, paths) -> {
@@ -216,6 +225,29 @@ public final class SearchFieldResolver {
   /** A shared-label hasValues field stores only true. False is the field being missing. */
   public boolean falseIsMissing(@Nonnull String fieldName) {
     return sharedHasValues.contains(parent(fieldName));
+  }
+
+  /**
+   * The label is indexed by {@code copy_to} and is absent from {@code _source}. Every contributor
+   * keeps a different source name, so the projector omits that root and the value lives in doc
+   * values. The label's type does not matter: a count, a timestamp, a keyword, or a URN.
+   */
+  public boolean storedViaCopyTo(@Nonnull String fieldName) {
+    Field field = fields.get(parent(fieldName));
+    if (field == null || field.getSourceFields().isEmpty()) {
+      return false;
+    }
+    String indexed = parent(fieldName);
+    return field.getSourceFields().stream().noneMatch(indexed::equals);
+  }
+
+  /**
+   * A parsed URN label clears the root string. Its keywords are copied from the aspect and are not
+   * in {@code _source}, even when a contributor uses the label as its own field name.
+   */
+  public boolean parsedKeywordLabel(@Nonnull String fieldName) {
+    Field field = fields.get(parent(fieldName));
+    return field != null && field.isParsedKeywordLabel();
   }
 
   /**
@@ -544,15 +576,13 @@ public final class SearchFieldResolver {
     }
     // The map key of a label is that label. A source renamed onto a different label must not
     // replace it, or a quoted name query follows that source (id.text) instead of name.text.
+    // A source of the same name at another degree must not copy that degree's presence field onto
+    // the label either: hasDescription would no longer answer whether the entity itself has one.
     MutableField occupant = byName.get(name);
     if (labels.contains(name)
         && occupant != null
         && occupant != indexedField
         && name.equals(occupant.path)) {
-      MutableField source = sources.get(name);
-      if (source != null) {
-        source.addSearchTarget(indexedField);
-      }
       return;
     }
     MutableField prior = aliasedTo.get(name);
@@ -570,6 +600,16 @@ public final class SearchFieldResolver {
     }
     aliasedTo.put(name, indexedField);
     byName.put(name, indexedField);
+  }
+
+  /** A date copied into a root {@code _system} object. Sort, range, and filter all read it. */
+  private static void registerSystemTime(Map<String, MutableField> byName, String field) {
+    if (byName.containsKey(field)) {
+      return;
+    }
+    MutableField time = new MutableField(field);
+    time.addRoot(FieldMapping.root(Type.DATETIME), "system time " + field);
+    byName.put(field, time);
   }
 
   private static String parent(String fieldName) {

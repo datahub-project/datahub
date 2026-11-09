@@ -775,13 +775,17 @@ plugins: Dict[str, Set[str]] = {
     # (kinesis_schema_registry imports protobuf_util at module load).
     "kinesis": aws_common | kafka_protobuf,
     "langfuse": {"requests<3.0.0"},
+    # Glue Schema Registry PROTOBUF schemas also need the kafka extra (grpc).
     "sqs": aws_common,
     "sns": aws_common,
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
     "metabase": {"requests<3.0.0"} | sqlglot_lib,
-    "microstrategy": {"requests<3.0.0"} | sqlglot_lib,
+    # usage_common: microstrategy emits no usage through it, but SQL-view lineage
+    # goes through create_lineage_from_sql_statements in sqlglot_lineage, which
+    # imports usage_common and so pulls sqlparse in via sql_formatter.
+    "microstrategy": {"requests<3.0.0"} | sqlglot_lib | usage_common,
     "mlflow": {
         "mlflow-skinny>=2.3.0,<2.21.0",
         # Pinned to avoid the breaking change introduced in MLflow 2.21.0 where search_registered_models injects an implicit filter

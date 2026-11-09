@@ -4,6 +4,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.datahub.test.TestEntityProfile;
 import com.linkedin.common.AuditStamp;
@@ -103,7 +104,25 @@ public class EnvelopedSystemAspectTest {
   public void testGetRecordTemplate() {
     RecordTemplate template = testSystemAspect.getRecordTemplate();
     assertNotNull(template);
+    assertTrue(template instanceof Status, "expected typed Status, got " + template.getClass());
     assertTrue(template.data().equals(testStatus.data()));
+  }
+
+  @Test
+  public void testGetRecordTemplateMissingAspectSpec() {
+    EnvelopedAspect unknown =
+        new EnvelopedAspect()
+            .setName("notARealAspect")
+            .setVersion(TEST_VERSION)
+            .setValue(new Aspect(testStatus.data()))
+            .setCreated(testAuditStamp);
+    EnvelopedSystemAspect aspect =
+        new EnvelopedSystemAspect(
+            testUrn, unknown, entityRegistry.getEntitySpec(testUrn.getEntityType()));
+
+    IllegalStateException thrown =
+        expectThrows(IllegalStateException.class, aspect::getRecordTemplate);
+    assertTrue(thrown.getMessage().contains("notARealAspect"));
   }
 
   @Test

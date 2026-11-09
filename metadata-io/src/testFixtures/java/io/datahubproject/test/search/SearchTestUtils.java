@@ -558,7 +558,7 @@ public class SearchTestUtils {
     List<SettingsBuilder> settingsBuilders = new ArrayList<>();
 
     if (entityIndexConfiguration.getV2().isEnabled()) {
-      settingsBuilders.add(new V2LegacySettingsBuilder(indexConfiguration, indexConvention));
+      settingsBuilders.add(new V2LegacySettingsBuilder(indexConfiguration, indexConvention, false));
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {

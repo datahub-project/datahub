@@ -186,7 +186,7 @@ public abstract class SearchLineageFixtureConfiguration {
             TEST_ES_SEARCH_CONFIG.getEntityIndex(),
             OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
             ESUtils.KEYWORD_MAXLENGTH),
-        new V2LegacySettingsBuilder(TEST_ES_SEARCH_CONFIG.getIndex(), indexConvention),
+        new V2LegacySettingsBuilder(TEST_ES_SEARCH_CONFIG.getIndex(), indexConvention, false),
         searchDAO,
         browseDAO,
         writeDAO);

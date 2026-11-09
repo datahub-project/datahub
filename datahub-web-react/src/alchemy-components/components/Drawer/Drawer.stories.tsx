@@ -30,10 +30,8 @@ const meta = {
             },
         },
         open: {
-            description: 'is the drawer opened',
-            control: {
-                type: 'boolean',
-            },
+            description: 'is the drawer opened. The stories toggle it with the Open button.',
+            control: false,
         },
         onClose: {
             description: 'The handler called when the drawer is closed',
@@ -48,7 +46,7 @@ const meta = {
             },
         },
         closable: {
-            description: 'Whether a close (x) button is visible on top left of the Drawer dialog or not',
+            description: 'Whether a close (x) button is visible on top right of the Drawer dialog or not',
             table: {
                 defaultValue: { summary: `${drawerDefault.closable}` },
             },
@@ -57,7 +55,7 @@ const meta = {
             },
         },
         maskTransparent: {
-            description: 'Whether the mask is visible',
+            description: 'Whether the mask behind the drawer is transparent instead of dimmed',
             table: {
                 defaultValue: { summary: `${drawerDefault.maskTransparent}` },
             },
