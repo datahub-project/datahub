@@ -30,7 +30,7 @@ public class CassandraSessionFactory {
   protected CqlSession createSession() {
     int port = Integer.parseInt(sessionConfig.get("port"));
     List<InetSocketAddress> addresses =
-        CassandraContactPoints.parse(sessionConfig.get("hosts"), port);
+        CassandraContactPoints.parse(sessionConfig.get("hosts"), port, "cassandra.hosts");
 
     String dc = sessionConfig.get("datacenter");
     String ks = sessionConfig.get("keyspace");

@@ -68,7 +68,7 @@ public class CassandraContactPointsTest {
 
   @Test
   public void testHostsWithNoEntriesAreRejected() {
-    assertThatThrownBy(() -> CassandraContactPoints.parse(" , ", 9042))
+    assertThatThrownBy(() -> CassandraContactPoints.parse(" , ", 9042, "cassandra.hosts"))
         .isInstanceOf(IllegalArgumentException.class);
   }
 

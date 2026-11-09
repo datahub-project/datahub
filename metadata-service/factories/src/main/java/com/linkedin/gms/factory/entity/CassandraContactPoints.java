@@ -12,14 +12,15 @@ final class CassandraContactPoints {
   private CassandraContactPoints() {}
 
   /**
-   * Trims each entry and skips blank ones, so {@code "host1, host2"} or a trailing comma do not
-   * produce a contact point with a leading space or an empty host (which resolves to localhost).
+   * Trims each entry and skips blank ones, so {@code "host1, host2"} does not produce a contact
+   * point with a leading space and {@code "host1,,host2"} does not add an empty host, which would
+   * resolve to localhost.
    *
-   * @throws IllegalArgumentException if no host is left, since the driver would otherwise fall back
-   *     to 127.0.0.1:9042 and ignore the configured port
+   * @param setting the property the hosts came from, named in the error
+   * @throws IllegalArgumentException if no host is left, rather than connecting to localhost
    */
   @Nonnull
-  static List<InetSocketAddress> parse(@Nonnull String hosts, int port) {
+  static List<InetSocketAddress> parse(@Nonnull String hosts, int port, @Nonnull String setting) {
     List<InetSocketAddress> addresses =
         Arrays.stream(hosts.split(","))
             .map(String::trim)
@@ -27,7 +28,8 @@ final class CassandraContactPoints {
             .map(host -> new InetSocketAddress(host, port))
             .collect(Collectors.toList());
     if (addresses.isEmpty()) {
-      throw new IllegalArgumentException("No Cassandra contact points in hosts: '" + hosts + "'");
+      throw new IllegalArgumentException(
+          setting + " has no hosts; set it to a comma-separated list of Cassandra hosts");
     }
     return addresses;
   }

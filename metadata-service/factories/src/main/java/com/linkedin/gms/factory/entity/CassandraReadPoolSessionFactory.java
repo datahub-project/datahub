@@ -48,7 +48,13 @@ public class CassandraReadPoolSessionFactory {
             ? readPool.getDatacenter()
             : cassandra.getDatacenter();
 
-    List<InetSocketAddress> addresses = CassandraContactPoints.parse(hosts, port);
+    List<InetSocketAddress> addresses =
+        CassandraContactPoints.parse(
+            hosts,
+            port,
+            StringUtils.hasText(readPool.getHosts())
+                ? "cassandra.readPool.hosts"
+                : "cassandra.hosts");
 
     CqlSessionBuilder csb =
         CqlSession.builder()
