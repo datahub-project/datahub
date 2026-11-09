@@ -262,6 +262,18 @@ class DataHubDocumentsSourceConfig(
         "processes all non-empty documents; set > 0 to skip short documents. "
         "Empty documents are always skipped.",
     )
+    disable_markdown_link_parsing: bool = Field(
+        default=True,
+        description="Workaround for a Python-Markdown denial of service (CVE-2019-25781): parse "
+        "Document text without Markdown link/image syntax, which is kept as literal text. "
+        "Temporary; will be removed once a fixed Python-Markdown release is pinned.",
+    )
+    partition_timeout_seconds: float = Field(
+        default=30.0,
+        description="Maximum seconds to partition one document; slower documents are skipped "
+        "and counted in the report. 0 disables the limit. Only enforced when the source runs "
+        "on the main thread of a POSIX platform.",
+    )
     # Override from base class to enable stateful ingestion by default
     # This ensures stateful ingestion is always available for:
     # - Incremental mode (document hash tracking) in batch mode

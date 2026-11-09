@@ -2,6 +2,9 @@
 
 import hashlib
 import json
+import signal
+import threading
+import time
 from pathlib import Path
 from typing import Any, Optional, Union
 from unittest.mock import Mock, patch
@@ -37,7 +40,13 @@ from datahub.ingestion.source.datahub_documents.document_chunking_state_handler 
 from datahub.ingestion.source.datahub_documents.document_embedding import (
     resolve_embed_text,
 )
-from datahub.ingestion.source.datahub_documents.text_partitioner import TextPartitioner
+from datahub.ingestion.source.datahub_documents.markdown_link_guard import (
+    NoInlineLinksExtension,
+)
+from datahub.ingestion.source.datahub_documents.text_partitioner import (
+    PartitionTimeoutError,
+    TextPartitioner,
+)
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.unstructured.chunking_config import (
     ServerEmbeddingConfig,
@@ -5314,3 +5323,217 @@ def test_datahub_documents_does_not_embed_when_only_v3_enabled():
     assert resolved.provider is None
     query = fake_graph.execute_graphql.call_args.kwargs["query"]
     assert "entityIndexV3" in query
+
+
+_LINK_PATTERN_NAMES = (
+    "reference",
+    "link",
+    "image_link",
+    "image_reference",
+    "short_reference",
+    "short_image_ref",
+)
+
+
+def _texts(elements: list[dict[str, Any]]) -> str:
+    return "\n".join(e["text"] for e in elements)
+
+
+class TestMarkdownLinkGuard:
+    """CVE-2019-25781 workaround: Markdown link parsing is off by default."""
+
+    def test_extension_removes_link_patterns(self):
+        import markdown
+
+        md = markdown.Markdown(extensions=[NoInlineLinksExtension()])
+        assert not [n for n in _LINK_PATTERN_NAMES if n in md.inlinePatterns]
+
+    @pytest.mark.parametrize("payload", ["[" * 32000, "![" * 8000, "[a](" * 4000])
+    def test_quadratic_inputs_are_fast(self, payload):
+        # Markdown directly, not partition_md: spaCy's tokenizer is separately slow
+        # on long punctuation runs, which the partition time limit covers.
+        import markdown
+
+        start = time.monotonic()
+        markdown.markdown(
+            payload, extensions=["tables", "fenced_code", NoInlineLinksExtension()]
+        )
+        assert time.monotonic() - start < 5
+
+    def test_flag_on_keeps_link_syntax_literal(self):
+        elements = TextPartitioner().partition_text(
+            "See [docs](https://x) here for the details."
+        )
+        assert "[docs](https://x)" in _texts(elements)
+
+    def test_flag_off_parses_links_as_before(self):
+        from unstructured.partition import md as unstructured_md
+
+        with patch.object(
+            unstructured_md, "partition_md", wraps=unstructured_md.partition_md
+        ) as spy:
+            elements = TextPartitioner(
+                disable_markdown_link_parsing=False
+            ).partition_text("See [docs](https://x) here for the details.")
+
+        text = _texts(elements)
+        assert "docs" in text
+        assert "[docs]" not in text
+        assert "extensions" not in spy.call_args.kwargs
+
+    def test_documents_without_links_are_unchanged(self):
+        text = (
+            "# Runbook\n\nIntro paragraph with *emphasis* and `code`.\n\n"
+            "## Steps\n\n- first item\n- second item\n\n"
+            "| col_a | col_b |\n|---|---|\n| 1 | 2 |\n\n"
+            "```python\nprint('hi')\n```\n"
+        )
+
+        def shape(elements: list[dict[str, Any]]) -> list[tuple[str, str]]:
+            return [(e["type"], e["text"]) for e in elements]
+
+        assert shape(TextPartitioner().partition_text(text)) == shape(
+            TextPartitioner(disable_markdown_link_parsing=False).partition_text(text)
+        )
+
+    def test_config_defaults(self):
+        config = _make_config()
+        assert config.disable_markdown_link_parsing
+        assert config.partition_timeout_seconds == 30.0
+
+    def test_fingerprint_only_changes_when_link_parsing_enabled(self):
+        ctx = PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            default = DataHubDocumentsSource(ctx, _make_config())
+            enabled = DataHubDocumentsSource(
+                ctx, _make_config(disable_markdown_link_parsing=False)
+            )
+            default_fp = default._get_processing_config_fingerprint()
+            enabled_fp = enabled._get_processing_config_fingerprint()
+
+        assert "markdown_link_parsing" not in default_fp
+        assert enabled_fp == {**default_fp, "markdown_link_parsing": True}
+
+
+def _slow_partition_md(**kwargs: Any) -> list:
+    time.sleep(5)
+    return []
+
+
+class TestPartitionTimeout:
+    def test_timeout_fires_and_restores_handler(self):
+        def previous(signum: int, frame: Any) -> None:
+            pass
+
+        original = signal.signal(signal.SIGALRM, previous)
+        try:
+            with patch("unstructured.partition.md.partition_md", _slow_partition_md):
+                start = time.monotonic()
+                with pytest.raises(PartitionTimeoutError):
+                    TextPartitioner(timeout_seconds=0.5).partition_text("some text")
+                assert time.monotonic() - start < 2
+            assert signal.getsignal(signal.SIGALRM) is previous
+            assert signal.getitimer(signal.ITIMER_REAL) == (0.0, 0.0)
+        finally:
+            signal.signal(signal.SIGALRM, original)
+
+    def test_no_time_limit_off_main_thread(self):
+        errors: list[BaseException] = []
+
+        def run() -> None:
+            try:
+                TextPartitioner(timeout_seconds=0.5).partition_text("some text")
+            except BaseException as e:
+                errors.append(e)
+
+        with (
+            patch(
+                "unstructured.partition.md.partition_md",
+                Mock(return_value=[]),
+            ),
+            patch(
+                "datahub.ingestion.source.datahub_documents.text_partitioner.signal.signal"
+            ) as mock_signal,
+        ):
+            thread = threading.Thread(target=run)
+            thread.start()
+            thread.join()
+
+        assert not errors
+        mock_signal.assert_not_called()
+
+    @staticmethod
+    def _run_batch_with_timeout(
+        existing_semantic_content: Union[None, Exception],
+    ) -> tuple[DataHubDocumentsSource, list, Mock, Mock]:
+        """Batch-run two documents; the first one's partition times out."""
+        ctx = PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+        text = "Document text that takes too long to partition."
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, _make_config())
+            source.config.incremental.enabled = True
+            mock_state_handler = Mock()
+            mock_state_handler.get_document_hash.return_value = "old-hash"
+            source.state_handler = mock_state_handler
+            source.graph.get_aspect = Mock(
+                side_effect=existing_semantic_content,
+                return_value=None,
+            )
+            docs = [
+                {"urn": "urn:li:document:slow", "text": text},
+                {"urn": "urn:li:document:next", "text": text},
+            ]
+            with (
+                patch.object(source, "_fetch_documents_graphql", return_value=docs),
+                patch.object(
+                    source.text_partitioner,
+                    "partition_text",
+                    side_effect=[PartitionTimeoutError("slow"), [{"text": "ok"}]],
+                ),
+                patch.object(
+                    source.chunking_source,
+                    "process_elements_inline",
+                    return_value=iter([]),
+                ) as mock_process_elements,
+            ):
+                workunits = list(source._process_batch_mode())
+        return source, workunits, mock_state_handler, mock_process_elements
+
+    def test_timed_out_document_is_marked_and_hash_recorded(self):
+        source, workunits, state_handler, process_elements = (
+            self._run_batch_with_timeout(existing_semantic_content=None)
+        )
+
+        # A skip marker replaces embeddings built from an earlier version of the text.
+        assert len(workunits) == 1
+        aspect = workunits[0].metadata.aspect
+        assert isinstance(aspect, SemanticContentClass)
+        assert aspect.skipReason == "PARTITION_TIMEOUT"
+        assert aspect.embeddings == {}
+        assert source.report.num_documents_partition_timeout == 1
+        assert source.report.num_documents_failed == 0
+        # The run continued past the timed-out document.
+        process_elements.assert_called_once()
+        recorded = [
+            c.args[0] for c in state_handler.update_document_state.call_args_list
+        ]
+        assert "urn:li:document:slow" in recorded
+
+    def test_timed_out_document_retried_when_marker_cannot_be_built(self):
+        source, workunits, state_handler, process_elements = (
+            self._run_batch_with_timeout(
+                existing_semantic_content=RuntimeError("GMS unavailable")
+            )
+        )
+
+        assert workunits == []
+        assert source.report.num_documents_failed == 1
+        process_elements.assert_called_once()
+        recorded = [
+            c.args[0] for c in state_handler.update_document_state.call_args_list
+        ]
+        assert "urn:li:document:slow" not in recorded
