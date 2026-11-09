@@ -660,7 +660,7 @@ class _ScriptParser(BaseModel):
         # Only the prefix keywords, not arguments such as Concatenate ([Mapping]).
         mapping = bool(
             prefix
-            and MAPPING_PREFIX_RE.search(re.sub(r"\([^)]*\)", "", prefix.group(0)))
+            and MAPPING_PREFIX_RE.search(re.sub(_PREFIX_ARGS, "", prefix.group(0)))
         )
         if prefix:
             statement = statement[prefix.end() :]
