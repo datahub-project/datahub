@@ -187,4 +187,18 @@ public class MLModelPropertiesTemplateTest {
     assertFalse(result.hasTrainingMetrics());
     assertFalse(result.hasHyperParams());
   }
+
+  @Test
+  public void testUnrelatedPatchKeepsStoredEmptyArrays() throws Exception {
+    MLModelProperties existing = template.getDefault();
+    existing.setTrainingMetrics(new MLMetricArray());
+    existing.setHyperParams(new MLHyperParamArray());
+
+    MLModelProperties result =
+        template.applyPatch(
+            existing, toJsonPatch(new MLModelPropertiesPatchBuilder().setDescription("desc")));
+
+    assertEquals(result.getTrainingMetrics(), new MLMetricArray());
+    assertEquals(result.getHyperParams(), new MLHyperParamArray());
+  }
 }

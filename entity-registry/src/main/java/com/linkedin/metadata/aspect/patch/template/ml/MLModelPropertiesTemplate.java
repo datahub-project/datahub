@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.patch.template.ml;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -7,7 +8,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.aspect.patch.template.Template;
 import com.linkedin.ml.metadata.MLModelProperties;
-import java.util.List;
+import jakarta.json.JsonPatch;
 import javax.annotation.Nonnull;
 
 /**
@@ -15,22 +16,17 @@ import javax.annotation.Nonnull;
  *
  * <p>{@code MLModelPropertiesPatchBuilder} appends to {@code trainingMetrics} and {@code
  * hyperParams} with {@code /<field>/-}. A JSON Patch append needs the target array to exist, and
- * both fields are optional, so the template supplies an empty array when the field is absent and
- * drops it again if it is still empty after the patch. An aspect that never had metrics therefore
- * does not gain an empty {@code trainingMetrics} array from an unrelated patch. Because the
- * template cannot tell a seeded array from a stored one, an explicitly stored empty array is also
- * dropped; for these optional fields absent and empty mean the same thing.
+ * both fields are optional, so the template supplies an empty array when the field is absent. If
+ * the field was absent before the patch and is still empty after it, it is removed again, so an
+ * unrelated patch does not add empty arrays. A stored empty array is kept as it is.
  *
  * <p>Appends are not keyed by name: adding a metric whose name already exists adds a second entry,
  * matching what {@code MLModelPropertiesPatchBuilder} asks for.
  */
 public class MLModelPropertiesTemplate implements Template<MLModelProperties> {
 
-  static final String TRAINING_METRICS_FIELD_NAME = "trainingMetrics";
-  static final String HYPER_PARAMS_FIELD_NAME = "hyperParams";
-
-  private static final List<String> APPENDABLE_ARRAY_FIELDS =
-      List.of(TRAINING_METRICS_FIELD_NAME, HYPER_PARAMS_FIELD_NAME);
+  private static final String TRAINING_METRICS_FIELD_NAME = "trainingMetrics";
+  private static final String HYPER_PARAMS_FIELD_NAME = "hyperParams";
 
   @Override
   public MLModelProperties getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
@@ -53,15 +49,35 @@ public class MLModelPropertiesTemplate implements Template<MLModelProperties> {
     return mlModelProperties;
   }
 
+  @Override
+  public MLModelProperties applyPatch(RecordTemplate recordTemplate, JsonPatch jsonPatch)
+      throws JsonProcessingException {
+    MLModelProperties original = getSubtype(recordTemplate);
+    boolean hadTrainingMetrics = original.hasTrainingMetrics();
+    boolean hadHyperParams = original.hasHyperParams();
+
+    MLModelProperties patched = Template.super.applyPatch(recordTemplate, jsonPatch);
+
+    if (!hadTrainingMetrics
+        && patched.hasTrainingMetrics()
+        && patched.getTrainingMetrics().isEmpty()) {
+      patched.removeTrainingMetrics();
+    }
+    if (!hadHyperParams && patched.hasHyperParams() && patched.getHyperParams().isEmpty()) {
+      patched.removeHyperParams();
+    }
+    return patched;
+  }
+
   @Nonnull
   @Override
   public JsonNode transformFields(JsonNode baseNode) {
     ObjectNode transformed = (ObjectNode) baseNode.deepCopy();
-    for (String field : APPENDABLE_ARRAY_FIELDS) {
-      JsonNode value = transformed.get(field);
-      if (value == null || value.isNull()) {
-        transformed.set(field, JsonNodeFactory.instance.arrayNode());
-      }
+    if (!transformed.has(TRAINING_METRICS_FIELD_NAME)) {
+      transformed.set(TRAINING_METRICS_FIELD_NAME, JsonNodeFactory.instance.arrayNode());
+    }
+    if (!transformed.has(HYPER_PARAMS_FIELD_NAME)) {
+      transformed.set(HYPER_PARAMS_FIELD_NAME, JsonNodeFactory.instance.arrayNode());
     }
     return transformed;
   }
@@ -69,13 +85,6 @@ public class MLModelPropertiesTemplate implements Template<MLModelProperties> {
   @Nonnull
   @Override
   public JsonNode rebaseFields(JsonNode patched) {
-    ObjectNode rebased = (ObjectNode) patched.deepCopy();
-    for (String field : APPENDABLE_ARRAY_FIELDS) {
-      JsonNode value = rebased.get(field);
-      if (value != null && value.isArray() && value.isEmpty()) {
-        rebased.remove(field);
-      }
-    }
-    return rebased;
+    return patched;
   }
 }
