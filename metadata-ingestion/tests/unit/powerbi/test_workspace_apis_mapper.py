@@ -309,6 +309,17 @@ def test_directlake_lineage_withheld_when_sql_endpoint_unknown() -> None:
     assert mapper._Mapper__reporter.directlake_lineage_withheld == 1  # type: ignore[attr-defined]
 
 
+def test_directlake_lineage_withheld_when_partition_source_unparsed() -> None:
+    mapper = _mapper()
+    _, kpis = _directlake_tables()
+    kpis.source_expression = None
+
+    mcps = mapper.extract_lineage(kpis, _urn(mapper, kpis), _workspace())
+
+    assert _lineage_aspect(mcps) is None
+    assert mapper._Mapper__reporter.directlake_lineage_withheld == 1  # type: ignore[attr-defined]
+
+
 def test_directlake_lineage_merges_onelake_and_model_internal_edges() -> None:
     mapper = _mapper()
     policies, kpis = _directlake_tables()
@@ -461,7 +472,8 @@ def test_page_input_fields_resolve_against_dataset_schema() -> None:
         order=0,
         field_references=[
             PageFieldReference("Policies", "State", "column"),
-            PageFieldReference("Policies", "Total", "measure"),
+            # Visual references resolve case-insensitively, as in Power BI.
+            PageFieldReference("policies", "TOTAL", "measure"),
             PageFieldReference("Policies", "Gone", "column"),
             PageFieldReference("Other", "X", "column"),
         ],

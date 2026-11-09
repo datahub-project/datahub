@@ -565,29 +565,19 @@ class Mapper:
         )
         cll_lineage: List[FineGrainedLineage] = []
         self._add_model_internal_lineage(table, ds_urn, upstreams, cll_lineage)
-        if existing is None and upstreams and table.source_expression:
+        if existing is not None:
+            existing.fineGrainedLineages = cll_lineage or None
+        elif upstreams:
             # A DirectLake table always reads a Fabric item, so a missing
-            # OneLake edge means a lookup failed this run (model expressions,
-            # Fabric item listing or SQL endpoint). An aspect with only the
-            # model-internal edges would replace the OneLake edge emitted by
-            # earlier runs, so keep the stored lineage.
+            # OneLake edge means a lookup failed this run (partition source,
+            # model expressions, Fabric item listing or SQL endpoint). An
+            # aspect with only the model-internal edges would replace the
+            # OneLake edge emitted by earlier runs, so keep the stored lineage.
             self.__reporter.directlake_lineage_withheld += 1
             self.__reporter.warning(
                 title="DirectLake Lineage Not Updated",
                 message="The OneLake source of a DirectLake table could not be resolved, so its lineage was left unchanged.",
                 context=f"table={table.full_name}",
-            )
-            return mcps
-        if existing is not None:
-            existing.fineGrainedLineages = cll_lineage or None
-        elif upstreams:
-            mcps.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=ds_urn,
-                    aspect=UpstreamLineageClass(
-                        upstreams=upstreams, fineGrainedLineages=cll_lineage or None
-                    ),
-                )
             )
         return mcps
 
@@ -1639,10 +1629,11 @@ class Mapper:
         pointing at the semantic-model tables' schema fields."""
         if not page.field_references or report.dataset is None:
             return None
-        tables_by_name = {t.name: t for t in report.dataset.tables}
+        # Power BI resolves visual field references case-insensitively.
+        tables_by_name = {t.name.casefold(): t for t in report.dataset.tables}
         fields: List[InputFieldClass] = []
         for reference in page.field_references:
-            table = tables_by_name.get(reference.table)
+            table = tables_by_name.get(reference.table.casefold())
             if table is None:
                 self.__reporter.report_field_references_unresolved += 1
                 logger.debug(
@@ -1660,7 +1651,7 @@ class Mapper:
                 (
                     model_field
                     for model_field in model_fields
-                    if model_field.name == reference.field
+                    if model_field.name.casefold() == reference.field.casefold()
                 ),
                 None,
             )
@@ -1674,7 +1665,7 @@ class Mapper:
                 )
                 continue
             field_urn = builder.make_schema_field_urn(
-                self.make_dataset_urn_for_table(table), reference.field
+                self.make_dataset_urn_for_table(table), schema_field.name
             )
             fields.append(
                 InputFieldClass(
