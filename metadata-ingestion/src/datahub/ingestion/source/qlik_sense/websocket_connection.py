@@ -409,19 +409,19 @@ class WebsocketConnection:
                 items = self.websocket_send_request(method="GetLayout")[
                     Constant.QLAYOUT
                 ]["qMeasureList"][Constant.QITEMS]
+                return {
+                    item[Constant.QINFO][Constant.QID]: item.get(Constant.QDATA, {})
+                    .get("measure", {})
+                    .get(Constant.QDEF)
+                    or ""
+                    for item in items
+                }
             except Exception as e:
                 on_fallback(
                     "Unable to list master measures, so they are read one by one. "
                     f"Exception: {e}"
                 )
                 return None
-        return {
-            item[Constant.QINFO][Constant.QID]: item.get(Constant.QDATA, {})
-            .get("measure", {})
-            .get(Constant.QDEF)
-            or ""
-            for item in items
-        }
 
     def close_websocket(self) -> None:
         if self.socket_connection:
