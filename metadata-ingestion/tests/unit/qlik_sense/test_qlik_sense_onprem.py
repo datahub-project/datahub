@@ -897,6 +897,22 @@ def test_field_names_match_in_any_case_only_for_script_tables() -> None:
     ] == [(model_a, "ID"), (script, "amount")]
 
 
+def test_exact_match_does_not_hide_script_table_in_other_case() -> None:
+    model = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.a,PROD)"
+    script = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    app_fields = QlikSenseSource._index_app_fields(
+        {model: [SchemaField(name="order_id")], script: [SchemaField(name="ORDER_ID")]},
+        script_table_urns={script},
+    )
+    chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
+    chart.field_expressions = ["Count(order_id)"]
+
+    assert [
+        (field.dataset_urn, field.field.name)
+        for field in QlikSenseSource._get_chart_input_fields(chart, app_fields)
+    ] == [(model, "order_id"), (script, "ORDER_ID")]
+
+
 def test_qualified_field_name_matches_before_derived_field() -> None:
     table = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
     app_fields = QlikSenseSource._index_app_fields(
