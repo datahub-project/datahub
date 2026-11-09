@@ -1,8 +1,19 @@
 import logging
 import sys
 from abc import ABC, abstractmethod
+from collections import deque
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Iterable, List, Optional, Sequence
+from typing import (
+    Callable,
+    Deque,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+)
 
 import requests
 
@@ -91,22 +102,29 @@ class QlikBaseAPI(ABC):
 
     def get_items(self, space_ids: Sequence[str]) -> Iterable[Item]:
         """Items of all the spaces, read by one pool of workers, so sites with
-        many small spaces or streams are read in parallel too. Each space is
-        only listed when its items are needed."""
+        many small spaces or streams are read in parallel too. Items are taken
+        from the spaces in turn, so a large space does not hold back the rest."""
         # REST and Engine reads are network-bound; the GIL is only held while
         # decoding replies.
         for future in BackpressureAwareExecutor.map(
             self._load_item_or_record,
-            (
-                (space_id, item)
-                for space_id in space_ids
-                for item in self._list_items(space_id)
-            ),
+            self._items_in_turn(space_ids),
             max_workers=self.config.resolved_max_workers(),
         ):
             item = future.result()
             if item:
                 yield item
+
+    def _items_in_turn(self, space_ids: Sequence[str]) -> Iterator[Tuple[str, Dict]]:
+        listings: Deque[Tuple[str, Iterator[Dict]]] = deque(
+            (space_id, iter(self._list_items(space_id))) for space_id in space_ids
+        )
+        while listings:
+            space_id, listing = listings.popleft()
+            item = next(listing, None)
+            if item is not None:
+                yield space_id, item
+                listings.append((space_id, listing))
 
     def _load_item_or_record(self, space_id: str, item: Dict) -> Optional[Item]:
         try:
