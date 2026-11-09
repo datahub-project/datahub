@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 from pydantic import field_validator
 from pydantic.fields import Field
@@ -212,6 +212,7 @@ def _get_lineage_mcp(
         )
         return None
 
+    existing_upstream_urns: Set[str] = set()
     # extract the old lineage and save it for the new mcp
     if preserve_upstream:
         client = get_default_graph(ClientMode.INGESTION)
@@ -224,14 +225,19 @@ def _get_lineage_mcp(
             typed=True,
         ).get("upstreamLineage")
         if isinstance(old_upstream_lineage, models.UpstreamLineageClass):
-            new_upstreams.extend(old_upstream_lineage.upstreams)
+            # Deduplicated on the way in, so copies left by earlier runs go away.
+            for upstream in old_upstream_lineage.upstreams:
+                if upstream.dataset not in existing_upstream_urns:
+                    existing_upstream_urns.add(upstream.dataset)
+                    new_upstreams.append(upstream)
             # The aspect is written whole, so column lineage that is already
             # there must be carried over or this run deletes it.
-            new_fine_grained_lineages.extend(
+            for old_fine_grained_lineage in (
                 old_upstream_lineage.fineGrainedLineages or []
-            )
+            ):
+                if old_fine_grained_lineage not in new_fine_grained_lineages:
+                    new_fine_grained_lineages.append(old_fine_grained_lineage)
 
-    existing_upstream_urns = {upstream.dataset for upstream in new_upstreams}
     for upstream_entity_node in entity_node.upstream:
         upstream_entity = upstream_entity_node.entity
         upstream_entity_urn = _get_entity_urn(upstream_entity)

@@ -245,7 +245,8 @@ def _preserved_mcp(
 
 def test_preserve_upstream_merges_without_duplicates(basic_mcp):
     """Re-running the same file keeps one edge per upstream and keeps column
-    lineage that other writers added to the entity."""
+    lineage that other writers added to the entity. Copies left by earlier runs
+    are collapsed."""
     topic1 = "urn:li:dataset:(urn:li:dataPlatform:kafka,topic1,DEV)"
     other = "urn:li:dataset:(urn:li:dataPlatform:kafka,other,DEV)"
     other_cll = FineGrainedLineageClass(
@@ -261,9 +262,15 @@ def test_preserve_upstream_merges_without_duplicates(basic_mcp):
         upstreams=[
             UpstreamClass(dataset=topic1, type="TRANSFORMED", auditStamp=stamp),
             UpstreamClass(dataset=other, type="TRANSFORMED", auditStamp=stamp),
+            UpstreamClass(dataset=topic1, type="TRANSFORMED", auditStamp=stamp),
         ],
-        # The file's own column lineage, written by an earlier run, plus another writer's.
-        fineGrainedLineages=[*basic_mcp.aspect.fineGrainedLineages, other_cll],
+        # The file's own column lineage, written by an earlier run, plus another
+        # writer's, stored twice.
+        fineGrainedLineages=[
+            *basic_mcp.aspect.fineGrainedLineages,
+            other_cll,
+            other_cll,
+        ],
     )
     lineage_config = LineageConfig.model_validate(
         yaml.safe_load(
