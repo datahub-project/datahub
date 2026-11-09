@@ -914,7 +914,11 @@ class DremioAPIOperations:
         else:
             query_template = DremioSQLQueries.QUERY_DATASETS_CE_GLOBAL
 
-        schema_field = DremioSQLQueries.SCHEMA_FILTER_FIELD
+        schema_field = (
+            DremioSQLQueries.SCHEMA_FILTER_FIELD
+            if self.edition == DremioEdition.COMMUNITY
+            else DremioSQLQueries.SYS_SCHEMA_FILTER_FIELD
+        )
 
         schema_condition = DremioSQLQueries.pattern_condition(
             self.allow_schema_pattern, schema_field
