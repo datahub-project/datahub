@@ -4,6 +4,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { RouteComponentProps } from 'react-router-dom';
 
+import analytics, { EventType } from '@app/analytics';
+import { PLATFORM_URN_TO_LOGO } from '@app/ingestV2/source/builder/constants';
 import { SearchResultList } from '@app/searchV2/SearchResultList';
 import SearchFilters from '@app/searchV2/filters/SearchFilters';
 import SearchResultSiblings, { EXPANDED_PAGE_SIZE } from '@app/searchV2/siblings/SearchResultSiblings';
@@ -148,6 +150,73 @@ describe('expanded sibling list paging', () => {
         fireEvent.click(screen.getByText('Show less'));
         expect(screen.getByText('+ 2 more siblings of orders')).toHaveFocus();
     });
+
+    it("shows the platform's bundled logo in compact rows, and the default icon if it fails", async () => {
+        const snowflakeUrn = 'urn:li:dataPlatform:snowflake';
+        const withPlatform = ALL.slice(0, 7).map((m) => ({
+            ...m,
+            entity: {
+                ...m.entity,
+                platform: { __typename: 'DataPlatform', urn: snowflakeUrn, name: 'snowflake', properties: null },
+            },
+        })) as SiblingMemberData[];
+        render(
+            <MockedProvider
+                mocks={[pageMock(0, EXPANDED_PAGE_SIZE, () => ({ data: { siblingGroups: [group(withPlatform, 7)] } }))]}
+                addTypename
+            >
+                <TestPageContainer>
+                    <SearchResultSiblings
+                        urn={RESULT_URN}
+                        resultName="orders"
+                        group={group(withPlatform.slice(0, 5), 7)}
+                    />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+        fireEvent.click(screen.getByText('+ 2 more siblings of orders'));
+        await waitFor(() => expect(screen.getAllByTestId('sibling-compact-row')).toHaveLength(7));
+        const firstRow = screen.getAllByTestId('sibling-compact-row')[0];
+        const logo = firstRow.querySelector('img') as HTMLImageElement;
+        expect(logo.getAttribute('src')).toBe(PLATFORM_URN_TO_LOGO[snowflakeUrn]);
+
+        fireEvent.error(logo);
+        expect(firstRow.querySelector('img')).toBeNull();
+    });
+
+    it('ignores a page that arrives after unmount', async () => {
+        const consoleError = vi.spyOn(console, 'error');
+        const { unmount } = render(
+            <MockedProvider
+                mocks={[
+                    {
+                        ...pageMock(0, EXPANDED_PAGE_SIZE, () => ({
+                            data: { siblingGroups: [group(ALL.slice(0, 7), 7)] },
+                        })),
+                        delay: 30,
+                    },
+                ]}
+                addTypename
+            >
+                <TestPageContainer>
+                    <SearchResultSiblings urn={RESULT_URN} resultName="orders" group={group(ALL.slice(0, 5), 7)} />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+        fireEvent.click(screen.getByText('+ 2 more siblings of orders'));
+        unmount();
+        await new Promise((resolve) => {
+            setTimeout(resolve, 60);
+        });
+        // The test providers warn about their own updates; only a warning from this component counts.
+        const ownWarning = consoleError.mock.calls.some(
+            (args) =>
+                args.some((arg) => String(arg).includes('unmounted component')) &&
+                args.some((arg) => String(arg).includes('SearchResultSiblings')),
+        );
+        expect(ownWarning).toBe(false);
+        consoleError.mockRestore();
+    });
 });
 
 describe('navigateToSearchUrl and showSiblings', () => {
@@ -256,18 +325,51 @@ describe('SearchResultList with siblings', () => {
         await waitFor(() => expect(screen.getAllByTestId('sibling-row')).toHaveLength(5));
     });
 
-    it('leaves arrow keys inside a sibling list alone', async () => {
+    it('leaves arrows inside the expanded list alone, but not Escape or keys elsewhere in the siblings', async () => {
         const setHighlightedIndex = vi.fn();
         renderList(
             '?query=orders&showSiblings=true',
-            [listMock(() => ({ data: { siblingGroups: [group(ALL.slice(0, 5), 7)] } }))],
+            [
+                listMock(() => ({ data: { siblingGroups: [group(ALL.slice(0, 5), 7)] } })),
+                pageMock(0, EXPANDED_PAGE_SIZE, () => ({ data: { siblingGroups: [group(ALL.slice(0, 7), 7)] } })),
+            ],
             setHighlightedIndex,
         );
         await waitFor(() => expect(screen.getAllByTestId('sibling-row')).toHaveLength(5));
-        fireEvent.keyDown(screen.getAllByTestId('sibling-row')[0], { key: 'ArrowDown' });
+        const more = screen.getByText('+ 2 more siblings of orders');
+        fireEvent.keyDown(more, { key: 'ArrowDown' });
+        expect(setHighlightedIndex).toHaveBeenLastCalledWith(1);
+        fireEvent.keyDown(more, { key: 'Escape' });
+        expect(setHighlightedIndex).toHaveBeenLastCalledWith(null);
+
+        fireEvent.click(more);
+        await waitFor(() => expect(screen.getAllByTestId('sibling-compact-row')).toHaveLength(7));
+        setHighlightedIndex.mockClear();
+        const list = screen.getByRole('list', { name: '7 siblings of orders' });
+        fireEvent.keyDown(list, { key: 'ArrowDown' });
+        fireEvent.keyDown(list, { key: 'ArrowUp' });
         expect(setHighlightedIndex).not.toHaveBeenCalled();
-        fireEvent.keyDown(document.body, { key: 'ArrowDown' });
-        expect(setHighlightedIndex).toHaveBeenCalledWith(1);
+        fireEvent.keyDown(list, { key: 'Escape' });
+        expect(setHighlightedIndex).toHaveBeenCalledWith(null);
+    });
+
+    it('logs a search result click for a sibling, with the parent result position', async () => {
+        const event = vi.spyOn(analytics, 'event').mockResolvedValue(undefined);
+        renderList('?query=orders&showSiblings=true', [
+            listMock(() => ({ data: { siblingGroups: [group(ALL.slice(0, 5), 7)] } })),
+        ]);
+        await waitFor(() => expect(screen.getAllByTestId('sibling-row')).toHaveLength(5));
+        fireEvent.click(screen.getByText('copy_001'));
+        expect(event).toHaveBeenCalledWith({
+            type: EventType.SearchResultClickEvent,
+            query: 'orders',
+            entityUrn: ALL[1].entity.urn,
+            entityType: EntityType.Dataset,
+            index: 0,
+            total: 2,
+            pageNumber: 1,
+        });
+        event.mockRestore();
     });
 
     it('shows no toggle and no rows in the combined-siblings view, even with showSiblings=true', async () => {

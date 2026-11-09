@@ -24,7 +24,6 @@ import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { getSearchCount } from '@app/searchV2/utils/searchUtils';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
 import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/searchV2/utils/useDownloadScrollAcrossEntitiesSearchResults';
-import { useStableValue } from '@app/sharedV2/hooks/useStableValue';
 import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useAppConfig } from '@app/useAppConfig';
 import { SearchCfg } from '@src/conf';
@@ -186,21 +185,18 @@ export const SearchPage = () => {
         }
     };
 
-    // Compared by value: a URL change that leaves the filters alone (e.g. "Show siblings") must not
-    // log another results view.
-    const analyticsFilters = useStableValue(filters);
     useEffect(() => {
         if (loading) return;
 
         const entityTypes = Array.from(
             new Set(
-                analyticsFilters
+                filters
                     .filter((filter) => ENTITY_SUB_TYPE_FILTER_FIELDS.includes(filter.field))
                     .flatMap((filter) => filter.values ?? []),
             ),
         );
 
-        const filterFields = Array.from(new Set(analyticsFilters.map((filter) => filter.field)));
+        const filterFields = Array.from(new Set(filters.map((filter) => filter.field)));
 
         analytics.event({
             type: EventType.SearchResultsViewEvent,
@@ -208,11 +204,11 @@ export const SearchPage = () => {
             total,
             entityTypes,
             filterFields,
-            filterCount: analyticsFilters.length, // Only track changes to the filters, ignore toggling the mode by itself
+            filterCount: filters.length, // Only track changes to the filters, ignore toggling the mode by itself
             filterMode: filterModeRef.current,
             searchVersion,
         });
-    }, [analyticsFilters, filterModeRef, loading, query, searchVersion, total]);
+    }, [filters, filterModeRef, loading, query, searchVersion, total]);
 
     useEffect(() => {
         // When the query changes, then clear the select mode state

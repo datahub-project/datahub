@@ -11,7 +11,7 @@ import EmptySearchResults from '@app/searchV2/EmptySearchResults';
 import { MatchContextContainer } from '@app/searchV2/matches/MatchContextContainer';
 import SearchResultSiblings, { SIBLINGS_LIST_CLASS_NAME } from '@app/searchV2/siblings/SearchResultSiblings';
 import { useShowSiblings } from '@app/searchV2/siblings/useShowSiblings';
-import { useSiblingGroups } from '@app/searchV2/siblings/useSiblingGroups';
+import { SiblingMemberData, useSiblingGroups } from '@app/searchV2/siblings/useSiblingGroups';
 import { useIsSearchV2 } from '@app/searchV2/useSearchAndBrowseVersion';
 import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearchResults';
 import { SEARCH_BAR_CLASS_NAME } from '@app/searchV2/utils/constants';
@@ -134,12 +134,17 @@ function useSearchKeyboardControls(
             const target = event.target as HTMLElement;
             if (
                 target.closest(`.${SEARCH_BAR_CLASS_NAME}`) ||
-                // the sibling lists under results handle their own keys (scrolling, links)
-                target.closest(`.${SIBLINGS_LIST_CLASS_NAME}`) ||
                 target.closest('.ProseMirror') ||
                 target.tagName === 'INPUT' ||
                 target.tagName === 'TEXTAREA' ||
                 target.isContentEditable
+            ) {
+                return null;
+            }
+            // Arrows inside an expanded sibling list scroll that list instead of moving the highlight.
+            if (
+                (event.key === 'ArrowDown' || event.key === 'ArrowUp') &&
+                target.closest(`.${SIBLINGS_LIST_CLASS_NAME}`)
             ) {
                 return null;
             }
@@ -243,6 +248,18 @@ export const SearchResultList = ({
             pageNumber,
         });
         setHighlightedIndex(index);
+    };
+
+    const onClickSibling = (sibling: SiblingMemberData, parentIndex: number) => {
+        analytics.event({
+            type: EventType.SearchResultClickEvent,
+            query,
+            entityUrn: sibling.entity.urn,
+            entityType: sibling.entity.type,
+            index: parentIndex,
+            total: totalResultCount,
+            pageNumber,
+        });
     };
 
     /**
@@ -351,6 +368,7 @@ export const SearchResultList = ({
                                     urn={item.entity.urn}
                                     resultName={entityRegistry.getDisplayName(item.entity.type, item.entity)}
                                     group={siblingGroup}
+                                    onSiblingClick={(sibling) => onClickSibling(sibling, index)}
                                 />
                             )}
                         </div>
