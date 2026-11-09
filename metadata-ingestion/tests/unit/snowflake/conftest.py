@@ -39,6 +39,9 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
+from datahub.api.entities.platformresource.platform_resource import (
+    PlatformResourceKey,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import StructuredLogEntry
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -204,11 +207,19 @@ def aspects(
 # --- Tag platform resources ---------------------------------------------------
 
 
-def managed_record(*urns: str) -> SnowflakeTagPlatformResource:
-    """A record sync-back wrote; the fake repository gives it the looked-up id."""
+def tag_record(
+    tag: SnowflakeTag,
+    *urns: str,
+    with_value: bool = True,
+    managed: bool = True,
+    platform_instance: Optional[str] = None,
+) -> SnowflakeTagPlatformResource:
+    """A stored record for ``tag``; managed means sync-back wrote it."""
     entity = SnowflakeTagPlatformResource.create_default(
-        SnowflakeTagPlatformResourceId(database="x", schema_name="x", tag_name="x"),
-        managed_by_datahub=True,
+        SnowflakeTagPlatformResourceId.from_snowflake_tag(
+            tag, platform_instance, with_value=with_value
+        ),
+        managed_by_datahub=managed,
     )
     for urn in urns:
         entity.datahub_linked_resources().add(urn)
@@ -216,33 +227,27 @@ def managed_record(*urns: str) -> SnowflakeTagPlatformResource:
 
 
 def fake_tag_repository(
-    records: Dict[str, SnowflakeTagPlatformResource],
+    records: Sequence[SnowflakeTagPlatformResource],
     value_type: Optional[str] = None,
-    lookup_error: Optional[Exception] = None,
+    load_error: Optional[Exception] = None,
+    written_meanwhile: Sequence[SnowflakeTagPlatformResource] = (),
 ) -> SnowflakeTagPlatformResourceRepository:
-    """Answers lookups from ``records`` (keyed by primary key), keeping defaults.
+    """A repository holding ``records``; ``written_meanwhile`` appear only to a
+    direct ``get``, as a record another writer created after the run started."""
+    late = {r.id.to_platform_resource_key().id: r for r in written_meanwhile}
 
-    Like the real repository's cache, the same key returns the same object, so
-    a native URN linked by one lookup is seen by the next.
-    """
-    store: Dict[str, SnowflakeTagPlatformResource] = dict(records)
+    def search_by_filter(query: object, add_to_cache: bool = True) -> List[object]:
+        if load_error is not None:
+            raise load_error
+        return [record.as_platform_resource() for record in records]
 
-    def get_entity_from_datahub(
-        entity_id: SnowflakeTagPlatformResourceId, managed_by_datahub: bool = False
-    ) -> SnowflakeTagPlatformResource:
-        if lookup_error is not None:
-            raise lookup_error
-        key = entity_id.to_platform_resource_key().primary_key
-        if key not in store:
-            store[key] = SnowflakeTagPlatformResource.create_default(
-                entity_id, managed_by_datahub
-            )
-        else:
-            store[key].id = entity_id
-        return store[key]
+    def get(key: PlatformResourceKey) -> Optional[object]:
+        record = late.get(key.id)
+        return record.as_platform_resource() if record is not None else None
 
     repository = create_autospec(SnowflakeTagPlatformResourceRepository, instance=True)
-    repository.get_entity_from_datahub.side_effect = get_entity_from_datahub
+    repository.search_by_filter.side_effect = search_by_filter
+    repository.get.side_effect = get
     repository.graph = MagicMock()
     repository.graph.get_aspect.return_value = (
         StructuredPropertyDefinitionClass(
