@@ -20,6 +20,7 @@ FLINK_STATEMENTS_PATH_TEMPLATE: Final[str] = (
     "/sql/v1/organizations/{organization_id}/environments/{environment_id}/statements"
 )
 FLINK_PAGE_SIZE_PARAM: Final[str] = "page_size"
+FLINK_COMPUTE_POOL_PARAM: Final[str] = "spec.compute_pool_id"
 FLINK_DEFAULT_PAGE_SIZE: Final[int] = 100
 # Safety valve if the API keeps returning a next link.
 FLINK_MAX_PAGES: Final[int] = 1_000

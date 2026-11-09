@@ -916,3 +916,56 @@ def test_flink_null_properties_and_page_data_are_empty() -> None:
     with requests_mock.Mocker() as m:
         client = _client(m, [{"data": None, "metadata": None}])
         assert client.list_statements() == []
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "CREATE TEMPORARY TABLE t AS SELECT * FROM orders",
+        "CREATE TEMPORARY TABLE t DISTRIBUTED BY (id) INTO 2 BUCKETS AS SELECT * FROM x",
+    ],
+)
+def test_flink_temporary_ctas_writes_no_topic(sql: str) -> None:
+    jobs, report = _extract([_statement(sql)])
+
+    assert jobs == []
+    assert not report.failures
+
+
+def test_flink_views_and_temporary_tables_read_later_are_not_topics() -> None:
+    jobs, _ = _extract(
+        [
+            _statement(
+                "EXECUTE STATEMENT SET BEGIN "
+                "CREATE TEMPORARY VIEW big AS SELECT * FROM orders WHERE amount > 10; "
+                "INSERT INTO out_t SELECT * FROM big JOIN customers ON big.cid = customers.id; "
+                "END;"
+            )
+        ]
+    )
+
+    assert [(job.input_topics, job.output_topics) for job in jobs] == [
+        (["customers"], ["out_t"])
+    ]
+
+
+def test_flink_pool_filter_runs_before_empty_sql_failures() -> None:
+    jobs, report = _extract(
+        [{"name": "other-pool", "spec": {"compute_pool_id": "pool-2"}}],
+        compute_pool_id="pool-1",
+    )
+
+    assert jobs == []
+    assert not report.failures
+
+
+def test_flink_listing_is_filtered_by_compute_pool() -> None:
+    client = build_flink_client(
+        _flink_config(compute_pool_id="lfcp-1"), KafkaSourceReport()
+    )
+
+    with requests_mock.Mocker() as m:
+        m.get(STATEMENTS_URL, json={"data": []})
+        client.list_statements()
+
+    assert m.last_request.qs["spec.compute_pool_id"] == ["lfcp-1"]

@@ -1,5 +1,5 @@
 import re
-from typing import Final, List, Optional, Tuple
+from typing import Final, List, Optional, Set, Tuple
 
 import sqlglot
 from pydantic import BaseModel
@@ -75,8 +75,16 @@ def parse_flink_statement(sql: str) -> List[FlinkDmlStatement]:
         raise FlinkSqlParseError(str(e)) from e
 
     statements: List[FlinkDmlStatement] = []
+    # Views and temporary tables created by the statement are not Kafka topics, so
+    # reads of them later in a statement set are not topic inputs.
+    non_topics: Set[str] = set()
     for expression in expressions:
         if not isinstance(expression, exp.Expression):
+            continue
+        if isinstance(expression, exp.Create) and _is_not_a_topic(expression):
+            name = expression.this.find(exp.Table) if expression.this else None
+            if name is not None:
+                non_topics.add(name.name)
             continue
         if isinstance(expression, exp.Command):
             # sqlglot falls back to a Command for syntax it cannot read. Plain DDL
@@ -90,10 +98,20 @@ def parse_flink_statement(sql: str) -> List[FlinkDmlStatement]:
             raise FlinkSqlParseError(
                 f"unsupported syntax: {expression.sql(dialect=FLINK_SQL_DIALECT)[:100]}"
             )
-        dml = _as_dml(expression)
+        dml = _as_dml(expression, non_topics)
         if dml is not None:
             statements.append(dml)
     return statements
+
+
+def _names_one_of(table: exp.Table, names: Set[str]) -> bool:
+    return not table.db and not table.catalog and table.name in names
+
+
+def _is_not_a_topic(create: exp.Create) -> bool:
+    kind = str(create.args.get("kind", "")).upper()
+    temporary = create.find(exp.TemporaryProperty) is not None
+    return kind == "VIEW" or (kind == "TABLE" and temporary)
 
 
 def table_ref(table: exp.Table) -> FlinkTableRef:
@@ -102,7 +120,9 @@ def table_ref(table: exp.Table) -> FlinkTableRef:
     )
 
 
-def _as_dml(expression: exp.Expression) -> Optional[FlinkDmlStatement]:
+def _as_dml(
+    expression: exp.Expression, non_topics: Set[str]
+) -> Optional[FlinkDmlStatement]:
     if isinstance(expression, exp.Insert) or (
         isinstance(expression, exp.Create)
         and str(expression.args.get("kind", "")).upper() == "TABLE"
@@ -114,16 +134,16 @@ def _as_dml(expression: exp.Expression) -> Optional[FlinkDmlStatement]:
         return None
 
     output = target if isinstance(target, exp.Table) else target.find(exp.Table)
-    if output is None or query is None:
+    if output is None or query is None or _names_one_of(output, non_topics):
         return None
 
-    cte_names = {cte.alias_or_name for cte in expression.find_all(exp.CTE)}
+    not_topics = non_topics | {
+        cte.alias_or_name for cte in expression.find_all(exp.CTE)
+    }
     inputs = [
         table
         for table in expression.find_all(exp.Table)
-        if table is not output
-        and table.name
-        and not (table.name in cte_names and not table.db and not table.catalog)
+        if table is not output and table.name and not _names_one_of(table, not_topics)
     ]
     return FlinkDmlStatement(expression=expression, output=output, inputs=inputs)
 
@@ -156,14 +176,15 @@ def _may_move_data(sql: str) -> bool:
     words = [word.upper() for word in _WORD_RE.findall("".join(top_level))]
     if "INSERT" in words:
         return True
-    # Only CREATE [OR REPLACE] [TEMPORARY] TABLE ... AS <query> writes a topic;
+    # Only CREATE [OR REPLACE] TABLE ... AS <query> writes a topic;
     # CREATE FUNCTION ... AS 'class' or CREATE VIEW ... AS SELECT do not.
     for i, word in enumerate(words):
         if word != "CREATE":
             continue
         rest = words[i + 1 :]
-        while rest and rest[0] in ("OR", "REPLACE", "TEMPORARY"):
+        while rest and rest[0] in ("OR", "REPLACE"):
             rest = rest[1:]
+        # A TEMPORARY table lives in the session, not in a topic.
         if rest[:1] == ["TABLE"] and "AS" in rest:
             return True
     return False
