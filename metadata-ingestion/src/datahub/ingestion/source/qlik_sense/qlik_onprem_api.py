@@ -32,20 +32,33 @@ UNPUBLISHED_APPS_NAME = "Unpublished"
 _XRFKEY_LENGTH = 16
 
 
-class _AssertHostnameAdapter(HTTPAdapter):
-    # Qlik server certificates are issued to the node name, so connecting by IP
-    # or alias fails the name check even though the chain verifies.
-    def __init__(self, assert_hostname: Union[str, Literal[False]]) -> None:
+class _QrsAdapter(HTTPAdapter):
+    def __init__(
+        self,
+        assert_hostname: Union[str, Literal[False], None],
+        key_password: Optional[str],
+    ) -> None:
         self._assert_hostname = assert_hostname
+        self._key_password = key_password
         super().__init__()
 
     def init_poolmanager(self, *args: Any, **kwargs: Any) -> None:
-        kwargs["assert_hostname"] = self._assert_hostname
+        # Qlik server certificates are issued to the node name, so connecting by
+        # IP or alias fails the name check even though the chain verifies.
+        if self._assert_hostname is not None:
+            kwargs["assert_hostname"] = self._assert_hostname
+        # requests has no setting for an encrypted client key; urllib3 does.
+        if self._key_password:
+            kwargs["key_password"] = self._key_password
         super().init_poolmanager(*args, **kwargs)
 
 
 def _presented_certificate(
-    host: str, port: int, client_cert: str, client_key: str
+    host: str,
+    port: int,
+    client_cert: str,
+    client_key: str,
+    key_password: Optional[str] = None,
 ) -> str:
     # Diagnostic only: the handshake skips verification so the certificate the
     # server actually sends can be compared with root_cert.
@@ -53,7 +66,7 @@ def _presented_certificate(
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
     try:
-        context.load_cert_chain(client_cert, client_key)
+        context.load_cert_chain(client_cert, client_key, key_password)
         with socket.create_connection((host, port), timeout=10) as sock:
             with context.wrap_socket(sock, server_hostname=host) as tls:
                 der = tls.getpeercert(binary_form=True)
@@ -88,9 +101,16 @@ class QlikOnPremAPI(QlikBaseAPI):
             }
         )
         self.qrs_url = f"https://{on_prem.server}:{on_prem.qrs_port}/qrs"
+        self.key_password = (
+            on_prem.client_key_password.get_secret_value()
+            if on_prem.client_key_password
+            else None
+        )
         assert_hostname = on_prem.tls_assert_hostname()
-        if assert_hostname is not None:
-            self.session.mount(self.qrs_url, _AssertHostnameAdapter(assert_hostname))
+        if assert_hostname is not None or self.key_password:
+            self.session.mount(
+                self.qrs_url, _QrsAdapter(assert_hostname, self.key_password)
+            )
         logger.info(f"Trying to connect to {self.qrs_url}")
         try:
             self._get("/about")
@@ -98,7 +118,7 @@ class QlikOnPremAPI(QlikBaseAPI):
             logger.warning(
                 f"TLS verification against root_cert failed. Certificate presented by "
                 f"{on_prem.server}:{on_prem.qrs_port}:\n"
-                f"{_presented_certificate(on_prem.server, on_prem.qrs_port, on_prem.client_cert, on_prem.client_key)}"
+                f"{_presented_certificate(on_prem.server, on_prem.qrs_port, on_prem.client_cert, on_prem.client_key, self.key_password)}"
             )
             raise
 
@@ -111,7 +131,10 @@ class QlikOnPremAPI(QlikBaseAPI):
         # Passed per request because REQUESTS_CA_BUNDLE / CURL_CA_BUNDLE, common
         # on executors, otherwise override session.verify and drop the Qlik CA.
         response = self.session.get(
-            f"{self.qrs_url}{path}", params=query, verify=self.session.verify
+            f"{self.qrs_url}{path}",
+            params=query,
+            verify=self.session.verify,
+            timeout=self.config.timeout_seconds,
         )
         response.raise_for_status()
         return response
@@ -122,7 +145,9 @@ class QlikOnPremAPI(QlikBaseAPI):
         owner_id = owner.get(Constant.ID)
         if not owner_id:
             return None
-        name = owner.get(Constant.NAME) or owner.get("userId")
+        # The user id, sAMAccountName for Windows directories, joins with users
+        # ingested from AD or LDAP. The display name would not.
+        name = owner.get(Constant.USERID) or owner.get(Constant.NAME)
         if name:
             self.users[owner_id] = name
         return owner_id
@@ -136,7 +161,7 @@ class QlikOnPremAPI(QlikBaseAPI):
             return None
         try:
             user = self._get(f"/user/{user_id}").json()
-            name = user.get(Constant.NAME) or user.get("userId")
+            name = user.get(Constant.USERID) or user.get(Constant.NAME)
             if name:
                 self.users[user_id] = name
             return name
@@ -214,12 +239,26 @@ class QlikOnPremAPI(QlikBaseAPI):
             client_key=self.on_prem.client_key,
             root_cert=self.on_prem.root_cert,
             assert_hostname=self.on_prem.tls_assert_hostname(),
+            key_password=self.key_password,
+            timeout=self.config.timeout_seconds,
         )
+
+    def check_engine_port(self) -> None:
+        """Raises when the Engine port is not reachable, which a firewall that
+        only opens the Repository Service port would cause."""
+        with socket.create_connection(
+            (self.on_prem.server, self.on_prem.engine_port),
+            timeout=min(self.config.timeout_seconds, 30),
+        ):
+            pass
 
     def _sheet_meta(self, meta: Dict, sheet_id: str) -> Optional[Dict]:
         # Enterprise reports the sheet owner as an object rather than ownerId.
         meta = dict(meta)
         meta.setdefault(Constant.ID, sheet_id)
+        for key in (Constant.CREATEDDATE, Constant.MODIFIEDDATE):
+            if meta.get(key):
+                meta[key] = normalize_qlik_timestamp(meta[key])
         if not meta.get(Constant.OWNERID):
             meta[Constant.OWNERID] = self._remember_owner(meta.get("owner"))
         return meta
@@ -260,7 +299,13 @@ class QlikOnPremAPI(QlikBaseAPI):
                 # Engine takes minutes per app on large sites.
                 params={"qDocName": app.id, "qNoData": True},
             )
-            app.sheets = self._get_app_sheets(websocket_connection, app.id, errors)
+            app.sheets = self._get_app_sheets(
+                websocket_connection,
+                app.id,
+                errors,
+                # Every sheet of an unpublished app is still private.
+                keep_private=app.spaceId == UNPUBLISHED_APPS_ID,
+            )
             app.script = self._read_load_script(
                 websocket_connection, app.id, on_error=errors.record
             )

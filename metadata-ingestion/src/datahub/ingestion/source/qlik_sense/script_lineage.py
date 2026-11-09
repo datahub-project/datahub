@@ -12,6 +12,8 @@ CONNECT_RE = re.compile(
 )
 DISCONNECT_RE = re.compile(r"^DISCONNECT\b", re.IGNORECASE)
 REM_RE = re.compile(r"REM\b", re.IGNORECASE)
+# `--` is a line comment only in SQL that Qlik passes to the database.
+SQL_STATEMENT_RE = re.compile(r"\b(?:SQL|SELECT)\b", re.IGNORECASE)
 # Control statements end at the line break rather than a semicolon, so they
 # lead the statement that follows them.
 # Quoted text may contain THEN, so only an unquoted THEN ends a condition.
@@ -21,11 +23,29 @@ CONTROL_RE = re.compile(
     r"|(?P<else>ELSE\b)|(?P<endif>END\s*IF\b|ENDIF\b)"
     r"|(?P<endswitch>END\s*SWITCH\b)|(?P<default>DEFAULT\b)"
     r"|(?P<switch>SWITCH\b[^\n]*)|(?P<case>CASE\b[^\n]*)"
-    r"|(?P<endsub>END\s*SUB\b)|(?P<sub>SUB\b[^\n]*)|(?:FOR|NEXT|DO|LOOP)\b[^\n]*)\s*",
+    r"|(?P<endsub>END\s*SUB\b)|(?P<sub>SUB\b[^\n]*)|(?P<forloop>FOR\b[^\n]*)"
+    r"|(?:NEXT|DO|LOOP)\b[^\n]*)\s*",
     re.IGNORECASE,
 )
-SUB_NAME_RE = re.compile(r"SUB\s+(?P<name>[^\s(]+)", re.IGNORECASE)
-CALL_RE = re.compile(r"^CALL\s+(?P<name>[^\s(]+)", re.IGNORECASE)
+SUB_NAME_RE = re.compile(
+    r"SUB\s+(?P<name>[^\s(]+)\s*(?:\((?P<params>[^)]*)\))?", re.IGNORECASE
+)
+CALL_RE = re.compile(
+    r"^CALL\s+(?P<name>[^\s(]+)\s*(?:\((?P<args>.*)\))?\s*$",
+    re.IGNORECASE | re.DOTALL,
+)
+FOR_VARIABLE_RE = re.compile(r"FOR\s+(?:EACH\s+)?(?P<name>[^\s=]+)", re.IGNORECASE)
+# Only an unconditional EXIT SCRIPT; one with WHEN or UNLESS may not run.
+EXIT_SCRIPT_RE = re.compile(r"^EXIT\s+SCRIPT\s*$", re.IGNORECASE)
+NUMBER_RE = re.compile(r"^-?\d+(?:\.\d+)?$")
+# Qlik names an unlabelled table after the table following FROM, cut to 32
+# characters.
+FROM_TABLE_RE = re.compile(
+    r"\bFROM\s+(?P<name>(?:\[[^\]]+\]|\"[^\"]+\"|`[^`]+`|[\w$#@]+)"
+    r"(?:\s*\.\s*(?:\[[^\]]+\]|\"[^\"]+\"|`[^`]+`|[\w$#@]+))*)",
+    re.IGNORECASE,
+)
+QLIK_TABLE_NAME_LENGTH = 32
 INCLUDE_RE = re.compile(r"\$\(\s*(?:Must_)?Include\s*=[^)]*\)", re.IGNORECASE)
 VARIABLE_RE = re.compile(
     r"^(?P<kind>SET|LET)\s+(?P<name>[^\s=]+)\s*=(?P<value>.*)$",
@@ -81,17 +101,19 @@ DRIVER_RE = re.compile(
     r"(?:^|[;\s\[\"'])(?:driver|provider)\s*=\s*(?P<value>\{[^}]*\}|[^;\]\"']*)",
     re.IGNORECASE,
 )
+# Properties end at a semicolon or, in hand-written strings, a line break.
 CONNECTION_PROPERTY_RE = re.compile(
-    r"(?P<key>[^;=]*)=(?P<value>\s*\{[^}]*\}|\s*\"[^\"]*\"|\s*'[^']*'|[^;]*)"
+    r"(?P<key>[^;=\n]*)=(?P<value>\s*\{[^}]*\}|\s*\"[^\"]*\"|\s*'[^']*'|[^;\n]*)"
 )
 # A quoted or braced value can hold its own property list, such as
 # Extended Properties="UID=a;PWD=b".
 NESTED_VALUE_RE = re.compile(
     r"\{(?P<braced>.*=.*)\}|\"(?P<double>.*=.*)\"|'(?P<single>.*=.*)'", re.DOTALL
 )
-URL_USERINFO_RE = re.compile(r"(?<=://)[^/@\s;\"']+@")
+# User info before a host, with or without a scheme, as in user:secret@host.
+USERINFO_RE = re.compile(r"(?:(?<=://)|^(?=\s*[^/@\s;\"']+@))\s*[^/@\s;\"']+@")
 # A query string or fragment can carry a token or signature, as in an Azure SAS URL.
-URL_QUERY_RE = re.compile(r"(?<=://)(?P<location>[^?#\s;\"']*)[?#][^\s;\"']*")
+QUERY_RE = re.compile(r"[?#][^\s;\"']*")
 # Properties that name where the data lives. Any other property may hold a
 # secret, such as Auth=Bearer ... or Passphrase=..., so it is not emitted.
 PUBLIC_CONNECTION_KEYS = {
@@ -203,6 +225,7 @@ def _strip_comments(script: str) -> str:
     # control statements also starts a statement.
     control_prefix = True
     line_begin = 0
+    statement_begin = 0
     i = 0
     while i < len(script):
         char = script[i]
@@ -222,8 +245,13 @@ def _strip_comments(script: str) -> str:
             i = len(script) if end == -1 else end + 2
             continue
         # `//` after a colon is part of a URL or `lib://` path, not a comment.
-        elif script.startswith("//", i) and not (
-            kept and (kept[-1] == ":" or kept[-1].isalnum() or kept[-1] == "_")
+        elif (
+            script.startswith("//", i)
+            and not (
+                kept and (kept[-1] == ":" or kept[-1].isalnum() or kept[-1] == "_")
+            )
+            or script.startswith("--", i)
+            and SQL_STATEMENT_RE.search("".join(kept[statement_begin:]))
         ):
             end = script.find("\n", i)
             i = len(script) if end == -1 else end
@@ -233,6 +261,7 @@ def _strip_comments(script: str) -> str:
             statement_start = True
             control_prefix = True
             line_begin = len(kept)
+            statement_begin = len(kept)
         elif not closing and char == "\n":
             if control_prefix and _is_control_only("".join(kept[line_begin:])):
                 statement_start = True
@@ -308,6 +337,11 @@ class _ControlFlowTracker(BaseModel):
             )
         elif self.blocks and (control.group("endif") or control.group("endswitch")):
             self._end_block(self.blocks.pop())
+        elif control.group("forloop"):
+            # The loop variable takes values that are not known here.
+            variable = FOR_VARIABLE_RE.match(control.group("forloop"))
+            if variable:
+                self.state.variables.pop(variable.group("name"), None)
 
     def forget_state(self) -> None:
         self.state = _BranchState()
@@ -373,10 +407,54 @@ class _Piece(BaseModel):
     control: bool = False
 
 
+class _Sub(BaseModel):
+    params: List[str] = []
+    body: List[_Piece] = []
+
+
 class _Script(BaseModel):
     pieces: List[_Piece] = []
-    # SUB bodies by lowercased name. They only run when called.
-    subs: Dict[str, List[_Piece]] = {}
+    # SUBs by lowercased name. They only run when called.
+    subs: Dict[str, _Sub] = {}
+
+
+def _split_top_level(text: str) -> List[str]:
+    items: List[str] = []
+    depth = 0
+    start = 0
+    closing: Optional[str] = None
+    for index, char in enumerate(text):
+        if closing:
+            if char == closing:
+                closing = None
+        elif char in QUOTE_PAIRS:
+            closing = QUOTE_PAIRS[char]
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        elif char == "," and depth == 0:
+            items.append(text[start:index].strip())
+            start = index + 1
+    items.append(text[start:].strip())
+    return items
+
+
+def _literal_value(text: str) -> Optional[str]:
+    literal = STRING_LITERAL_RE.fullmatch(text)
+    if literal:
+        return _first_group(literal)
+    return text if NUMBER_RE.match(text) else None
+
+
+def _from_table_name(sql: str) -> Optional[str]:
+    match = FROM_TABLE_RE.search(sql)
+    # A name cut short by an unexpanded $(variable) is not the table's name.
+    if not match or sql.startswith("(", match.end()):
+        return None
+    parts = re.split(r"\s*\.\s*", match.group("name"))
+    name = ".".join(part.strip('[]"`') for part in parts)
+    return name[:QLIK_TABLE_NAME_LENGTH]
 
 
 def _script_pieces(script: str) -> _Script:
@@ -393,10 +471,18 @@ def _script_pieces(script: str) -> _Script:
         for piece in pieces:
             control = CONTROL_RE.match(piece.text) if piece.control else None
             if control and control.group("sub"):
-                name = SUB_NAME_RE.match(control.group("sub"))
-                body: List[_Piece] = []
-                parsed.subs[name.group("name").lower() if name else ""] = body
-                defining.append(body)
+                header = SUB_NAME_RE.match(control.group("sub"))
+                sub = _Sub(
+                    params=[
+                        param
+                        for param in _split_top_level(header.group("params") or "")
+                        if param
+                    ]
+                    if header
+                    else []
+                )
+                parsed.subs[header.group("name").lower() if header else ""] = sub
+                defining.append(sub.body)
             elif control and control.group("endsub") and defining:
                 defining.pop()
             else:
@@ -405,19 +491,25 @@ def _script_pieces(script: str) -> _Script:
 
 
 class _ScriptParser(BaseModel):
-    subs: Dict[str, List[_Piece]]
+    subs: Dict[str, _Sub]
     tables: List[ScriptTable] = []
     flow: _ControlFlowTracker = Field(default_factory=_ControlFlowTracker)
     pending_label: Optional[str] = None
+    # A preceding LOAD is waiting for its SELECT. Only the top of a stack of
+    # them carries the label.
+    pending_preceding: bool = False
     # A SELECT under a preceding LOAD that adds to an unknown table.
     pending_skip: bool = False
     # The table a Concatenate or Join without a target adds to.
     last_label: Optional[str] = None
     # SUBs being run, so a SUB that calls itself is not replayed forever.
     calling: List[str] = []
+    exited: bool = False
 
     def run(self, pieces: List[_Piece]) -> None:
         for piece in pieces:
+            if self.exited:
+                return
             if piece.control:
                 control = CONTROL_RE.match(piece.text)
                 if control:
@@ -425,22 +517,42 @@ class _ScriptParser(BaseModel):
             else:
                 self._statement(piece.text)
 
+    def _clear_pending(self) -> None:
+        self.pending_label = None
+        self.pending_preceding = False
+        self.pending_skip = False
+
     def _forget(self) -> None:
         self.flow.forget_state()
         self.last_label = None
-        self.pending_label = None
-        self.pending_skip = False
+        self._clear_pending()
 
-    def _call(self, name: str) -> None:
-        body = self.subs.get(name.lower())
-        if body is None or name.lower() in self.calling:
+    def _call(self, name: str, args: Optional[str]) -> None:
+        sub = self.subs.get(name.lower())
+        if sub is None or name.lower() in self.calling:
             # The SUB may come from an include, so it could have set anything.
             self._forget()
             return
-        # The body runs with the connection and variables in effect here.
+        # The body runs with the connection and variables in effect here, and
+        # its parameters hold the arguments only for the call.
+        variables = self.flow.state.variables
+        saved = {param: variables.get(param) for param in sub.params}
+        values = _split_top_level(args) if args else []
+        for index, param in enumerate(sub.params):
+            value = _literal_value(values[index]) if index < len(values) else None
+            if value is None:
+                variables.pop(param, None)
+            else:
+                variables[param] = value
         self.calling.append(name.lower())
-        self.run(body)
+        self.run(sub.body)
         self.calling.pop()
+        variables = self.flow.state.variables
+        for param, value in saved.items():
+            if value is None:
+                variables.pop(param, None)
+            else:
+                variables[param] = value
 
     def _statement(self, statement: str) -> None:
         statement, includes = INCLUDE_RE.subn("", statement)
@@ -451,13 +563,16 @@ class _ScriptParser(BaseModel):
         statement = _expand_variables(statement, self.flow.state.variables)
         if not statement:
             return
+        if EXIT_SCRIPT_RE.match(statement) and not self.flow.blocks:
+            self.exited = True
+            return
         if self.flow.record_variable(statement):
-            self.pending_label = None
+            self._clear_pending()
             return
         call = CALL_RE.match(statement)
         if call:
-            self.pending_label = None
-            self._call(call.group("name"))
+            self._clear_pending()
+            self._call(call.group("name"), call.group("args"))
             return
         connect = CONNECT_RE.match(statement)
         if connect:
@@ -485,9 +600,11 @@ class _ScriptParser(BaseModel):
         sql = SQL_RE.match(statement)
         if sql:
             if not (skip or self.pending_skip):
-                # Qlik names an unlabelled table after the statement position.
                 table_label = (
-                    label or self.pending_label or f"table_{len(self.tables) + 1}"
+                    label
+                    or self.pending_label
+                    or _from_table_name(sql.group("sql"))
+                    or f"table_{len(self.tables) + 1}"
                 )
                 self.tables.append(
                     ScriptTable(
@@ -497,19 +614,19 @@ class _ScriptParser(BaseModel):
                     )
                 )
                 self.last_label = table_label
-            self.pending_label = None
-            self.pending_skip = False
+            self._clear_pending()
         elif LOAD_RE.match(statement) and not LOAD_SOURCE_RE.search(
             QUOTED_RE.sub("", statement)
         ):
             # A preceding LOAD names the SQL SELECT that follows it.
-            self.pending_label = label
-            self.pending_skip = skip
+            if not self.pending_preceding:
+                self.pending_label = label
+                self.pending_skip = skip
+            self.pending_preceding = True
         else:
             if LOAD_RE.match(statement):
                 self.last_label = label
-            self.pending_label = None
-            self.pending_skip = False
+            self._clear_pending()
 
 
 def parse_load_script(script: str) -> List[ScriptTable]:
@@ -566,8 +683,7 @@ def _redact_value(value: str) -> Optional[str]:
     if nested:
         inner = redact_connection(_first_group(nested))
         return f"{stripped[0]}{inner}{stripped[-1]}" if inner else None
-    value = URL_USERINFO_RE.sub("", value)
-    return URL_QUERY_RE.sub(lambda match: match.group("location"), value)
+    return QUERY_RE.sub("", USERINFO_RE.sub("", value))
 
 
 def redact_connection(connection: str) -> str:

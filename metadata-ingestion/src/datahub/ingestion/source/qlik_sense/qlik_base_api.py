@@ -142,6 +142,7 @@ class QlikBaseAPI(ABC):
         websocket_connection: WebsocketConnection,
         sheet_id: str,
         errors: ReadErrors,
+        keep_private: bool,
     ) -> Optional[Sheet]:
         try:
             websocket_connection.websocket_send_request(
@@ -151,6 +152,10 @@ class QlikBaseAPI(ABC):
             sheet_dict = response[Constant.QLAYOUT]
             meta = self._sheet_meta(sheet_dict[Constant.QMETA], sheet_id)
             if meta is None:
+                return None
+            if not keep_private and meta.get(Constant.PUBLISHED) is False:
+                # A user's own sheet in a published app, which only they see.
+                logger.debug(f"Skipping private sheet {sheet_id}")
                 return None
             sheet = Sheet.model_validate(meta)
             if Constant.QCHILDLIST not in sheet_dict:
@@ -179,6 +184,7 @@ class QlikBaseAPI(ABC):
         websocket_connection: WebsocketConnection,
         app_id: str,
         errors: ReadErrors,
+        keep_private: bool = True,
     ) -> List[Sheet]:
         sheets: List[Sheet] = []
         try:
@@ -192,6 +198,7 @@ class QlikBaseAPI(ABC):
                         websocket_connection,
                         sheet_dict[Constant.QINFO][Constant.QID],
                         errors,
+                        keep_private,
                     )
                 if sheet:
                     sheets.append(sheet)
