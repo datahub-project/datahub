@@ -64,7 +64,11 @@ import org.testng.annotations.Test;
  * that never held it, which fills it there from primary storage.
  *
  * <p>Subclasses pick the topology. The scenarios build on each other in order.
+ *
+ * <p>The class-level {@code @Test} is what makes Gradle run the subclasses: its TestNG detection
+ * ignores method annotations on abstract classes, and the subclasses declare no test of their own.
  */
+@Test
 abstract class SearchV3MigrationScenarios {
 
   /** Each system-update run is a deploy with its own version, and so its own state rows. */
