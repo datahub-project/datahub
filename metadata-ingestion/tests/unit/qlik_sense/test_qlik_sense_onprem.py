@@ -1,7 +1,6 @@
 import json
 import ssl
 import threading
-import time
 from typing import Dict, List, Optional, Tuple, Union
 from unittest.mock import MagicMock, patch
 
@@ -196,12 +195,18 @@ def test_onprem_loads_apps_in_parallel(
             return FakeResponse([{**APP, "id": app_id} for app_id in app_ids])
         return fake_qrs_get(url, params, **kwargs)
 
+    # The first read waits until a second one is running, so the reads only
+    # finish when they really overlap.
+    overlapping = threading.Event()
+
     def get_script() -> str:
         nonlocal in_flight, peak
         with lock:
             in_flight += 1
             peak = max(peak, in_flight)
-        time.sleep(0.05)
+            if in_flight > 1:
+                overlapping.set()
+        overlapping.wait(timeout=10)
         with lock:
             in_flight -= 1
         return "// script"
@@ -226,6 +231,7 @@ def test_onprem_loads_apps_in_parallel(
     items = {item.id: item for item in api.get_items("stream-1")}
 
     assert sorted(items) == app_ids
+    assert overlapping.is_set()
     assert 1 < peak <= 3
     for app_id, item in items.items():
         assert isinstance(item, App)

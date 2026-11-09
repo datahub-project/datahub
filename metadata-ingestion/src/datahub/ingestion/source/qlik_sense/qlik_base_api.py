@@ -93,21 +93,25 @@ class QlikBaseAPI(ABC):
         # REST and Engine reads are network-bound; the GIL is only held while
         # decoding replies.
         for future in BackpressureAwareExecutor.map(
-            self._load_item,
-            ((item,) for item in self._list_items(space_id)),
-            max_workers=self.config.max_workers,
+            self._load_item_or_record,
+            ((space_id, item) for item in self._list_items(space_id)),
+            max_workers=self.config.resolved_max_workers(),
         ):
-            try:
-                item = future.result()
-            except Exception as e:
-                self._record_unread(
-                    f"item of space {space_id}",
-                    f"Unable to load item. Exception: {e}",
-                    e,
-                )
-                continue
+            item = future.result()
             if item:
                 yield item
+
+    def _load_item_or_record(self, space_id: str, item: Dict) -> Optional[Item]:
+        try:
+            return self._load_item(item)
+        except Exception as e:
+            item_id = item.get(Constant.RESOURCEID) or item.get(Constant.ID)
+            self._record_unread(
+                f"item {item_id} of space {space_id}",
+                f"Unable to load item {item_id}. Exception: {e}",
+                e,
+            )
+        return None
 
     @staticmethod
     def _infer_connection(

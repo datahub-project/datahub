@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, Optional
 from urllib.parse import quote
 
 import requests
-from requests.adapters import HTTPAdapter
+from requests.adapters import DEFAULT_POOLSIZE, HTTPAdapter
 from urllib3.util.retry import Retry
 
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
@@ -61,7 +61,12 @@ class QlikAPI(QlikBaseAPI):
             allowed_methods=None,
             raise_on_status=False,
         )
-        self.session.mount("https://", HTTPAdapter(max_retries=retry))
+        # Every worker can hold a connection at once.
+        pool_size = max(DEFAULT_POOLSIZE, config.resolved_max_workers())
+        self.session.mount(
+            "https://",
+            HTTPAdapter(max_retries=retry, pool_maxsize=pool_size),
+        )
         self.rest_api_url = f"https://{self.tenant_hostname}/api/v1"
         # Test connection by fetching list of api keys
         logger.info(f"Trying to connect to {self.rest_api_url}")

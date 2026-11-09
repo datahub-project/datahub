@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 import requests_mock as requests_mock_module
+from requests.adapters import HTTPAdapter
 from urllib3.connectionpool import HTTPConnectionPool
 from urllib3.exceptions import NewConnectionError
 from urllib3.response import HTTPResponse
@@ -644,7 +645,9 @@ def test_unexpected_item_error_is_recorded_and_other_items_kept(
         items = list(api.get_items("space-1"))
 
     assert items == [app]
-    assert [unread.name for unread in api.unread_items] == ["item of space space-1"]
+    assert [unread.name for unread in api.unread_items] == [
+        "item broken of space space-1"
+    ]
 
 
 @pytest.mark.parametrize(
@@ -680,3 +683,14 @@ def test_app_table_lineage_env_falls_back_to_recipe_env(
     assert [u.dataset for u in lineage.upstreams] == [
         f"urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders,{env})"
     ]
+
+
+def test_connection_pool_fits_max_workers() -> None:
+    with patch.object(requests.Session, "get"):
+        api = QlikAPI(
+            QlikSourceConfig.model_validate({**CLOUD_CONFIG, "max_workers": 20})
+        )
+
+    adapter = api.session.get_adapter("https://tenant.example.com/api/v1")
+    assert isinstance(adapter, HTTPAdapter)
+    assert adapter.poolmanager.connection_pool_kw["maxsize"] == 20
