@@ -150,6 +150,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
   }
 
   /** Aspect names whose change log events are routed to the change event generators. */
+  @VisibleForTesting
   public static Set<String> getSupportedAspectNames() {
     return ENTITY_CHANGE_SUPPORTED_ASPECT_NAMES;
   }

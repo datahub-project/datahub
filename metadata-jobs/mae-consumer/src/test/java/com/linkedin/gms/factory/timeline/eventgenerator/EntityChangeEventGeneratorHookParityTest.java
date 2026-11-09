@@ -20,6 +20,9 @@ import org.testng.annotations.Test;
  * that {@link PlatformEventGeneratorHook} routes to them. A generator registered without a matching
  * hook entry never emits anything, and a hook entry without a generator is a no-op, so this test
  * keeps the two lists in sync.
+ *
+ * <p>The test lives in mae-consumer, which sees both the factory and the hook, and in the factory's
+ * package so it can build the real registry through the bean method.
  */
 public class EntityChangeEventGeneratorHookParityTest {
 
