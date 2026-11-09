@@ -153,7 +153,9 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     @Bean
     JettyServerCustomizer reservedPortCustomizer() {
       return server -> {
-        ServerSocketChannel channel = RESERVED_CHANNEL.getAndSet(null);
+        // Clear the reference only once Jetty owns the channel, so releaseUnclaimedPort() still
+        // closes it if the handoff fails.
+        ServerSocketChannel channel = RESERVED_CHANNEL.get();
         if (channel == null) {
           throw new IllegalStateException(
               "Reserved port " + SERVER_PORT + " was already handed to a previous Jetty server");
@@ -166,6 +168,7 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
             } catch (IOException e) {
               throw new UncheckedIOException(e);
             }
+            RESERVED_CHANNEL.compareAndSet(channel, null);
             return;
           }
         }
