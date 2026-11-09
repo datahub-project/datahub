@@ -43,7 +43,6 @@ public class PgQueueThrottleSensor implements ThrottleSensor, AutoCloseable {
 
   private static final Set<ThrottleType> SUPPORTED_THROTTLE_TYPES =
       Set.of(MCL_VERSIONED_LAG, MCL_TIMESERIES_LAG);
-  private static final Duration SHUTDOWN_TIMEOUT = Duration.ofSeconds(5);
 
   @Nonnull private final MetadataQueueStore metadataQueueStore;
   @Nonnull private final MetadataChangeProposalConfig.ThrottlesConfig config;
@@ -51,6 +50,9 @@ public class PgQueueThrottleSensor implements ThrottleSensor, AutoCloseable {
   @Nonnull private final String versionedTopicName;
   @Nonnull private final String timeseriesTopicName;
   private final MetricUtils metricUtils;
+
+  /** How long close() waits for a refresh in flight to finish */
+  @Builder.Default @Nonnull private final Duration shutdownTimeout = Duration.ofSeconds(5);
 
   @Builder.Default @Nonnull
   private final List<Function<ThrottleEvent, ThrottleControl>> throttleCallbacks =
@@ -105,8 +107,8 @@ public class PgQueueThrottleSensor implements ThrottleSensor, AutoCloseable {
     // shutdownNow interrupts a throttle() sleeping through a backoff
     scheduler.shutdownNow();
     try {
-      if (!scheduler.awaitTermination(SHUTDOWN_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
-        log.warn("MCL lag refresh did not stop within {}.", SHUTDOWN_TIMEOUT);
+      if (!scheduler.awaitTermination(shutdownTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
+        log.warn("MCL lag refresh did not stop within {}.", shutdownTimeout);
       }
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();

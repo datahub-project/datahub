@@ -51,7 +51,6 @@ import org.springframework.util.backoff.ExponentialBackOff;
 public class KafkaThrottleSensor implements ThrottleSensor, AutoCloseable {
   private static final Set<ThrottleType> SUPPORTED_THROTTLE_TYPES =
       Set.of(MCL_VERSIONED_LAG, MCL_TIMESERIES_LAG);
-  private static final Duration SHUTDOWN_TIMEOUT = Duration.ofSeconds(5);
   @Nonnull private final EntityRegistry entityRegistry;
   @Nonnull private final Admin kafkaAdmin;
   @Nonnull private final MetadataChangeProposalConfig.ThrottlesConfig config;
@@ -61,6 +60,9 @@ public class KafkaThrottleSensor implements ThrottleSensor, AutoCloseable {
   private final MetricUtils metricUtils;
 
   /** A list of throttle event listeners to execute when throttling occurs and ceases */
+  /** How long close() waits for a refresh in flight, and then for the admin client, to finish */
+  @Builder.Default @Nonnull private final Duration shutdownTimeout = Duration.ofSeconds(5);
+
   @Builder.Default @Nonnull
   private final List<Function<ThrottleEvent, ThrottleControl>> throttleCallbacks =
       new ArrayList<>();
@@ -116,13 +118,13 @@ public class KafkaThrottleSensor implements ThrottleSensor, AutoCloseable {
     // in flight so it is not still using the admin client when it closes.
     scheduler.shutdownNow();
     try {
-      if (!scheduler.awaitTermination(SHUTDOWN_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
-        log.warn("MCL lag refresh did not stop within {}.", SHUTDOWN_TIMEOUT);
+      if (!scheduler.awaitTermination(shutdownTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
+        log.warn("MCL lag refresh did not stop within {}.", shutdownTimeout);
       }
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
     }
-    kafkaAdmin.close(SHUTDOWN_TIMEOUT);
+    kafkaAdmin.close(shutdownTimeout);
   }
 
   /**

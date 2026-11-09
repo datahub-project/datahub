@@ -93,20 +93,105 @@ public class ThrottleSensorCloseTest {
   public void testPgQueueSensorCloseStopsRefresh() throws Exception {
     MetadataQueueStore store = mock(MetadataQueueStore.class);
     when(store.fetchTopic(anyString())).thenReturn(Optional.empty());
-    PgQueueThrottleSensor sensor =
-        PgQueueThrottleSensor.builder()
-            .metadataQueueStore(store)
-            .config(schedulerConfig())
-            .mclConsumerGroupId(CONSUMER_GROUP)
-            .versionedTopicName(VERSIONED_TOPIC)
-            .timeseriesTopicName(TIMESERIES_TOPIC)
-            .build()
-            .start();
+    PgQueueThrottleSensor sensor = pgQueueSensor(store).start();
     verify(store, timeout(5_000).atLeastOnce()).fetchTopic(anyString());
 
     sensor.close();
 
     assertNoMoreCalls(store);
+  }
+
+  @Test
+  public void testCloseGivesUpOnARefreshThatIgnoresInterrupts() throws Exception {
+    StuckRefresh stuck = new StuckRefresh();
+    AdminClient admin = stuckAdmin(stuck);
+    MetadataQueueStore store = stuckStore(stuck);
+    KafkaThrottleSensor kafkaSensor =
+        kafkaSensor(admin).toBuilder().shutdownTimeout(Duration.ofMillis(100)).build().start();
+    PgQueueThrottleSensor pgQueueSensor =
+        pgQueueSensor(store).toBuilder().shutdownTimeout(Duration.ofMillis(100)).build().start();
+    try {
+      assertTrue(stuck.entered.await(5, TimeUnit.SECONDS), "Expected refreshes in flight");
+
+      long startNanos = System.nanoTime();
+      kafkaSensor.close();
+      pgQueueSensor.close();
+
+      assertTrue(
+          TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos) < 4_000,
+          "Expected close() to stop waiting after its shutdown timeout");
+      verify(admin).close(Duration.ofMillis(100));
+    } finally {
+      stuck.release.set(true);
+    }
+  }
+
+  @Test
+  public void testCloseFromAnInterruptedThreadKeepsTheInterrupt() throws Exception {
+    StuckRefresh stuck = new StuckRefresh();
+    AdminClient admin = stuckAdmin(stuck);
+    MetadataQueueStore store = stuckStore(stuck);
+    KafkaThrottleSensor kafkaSensor = kafkaSensor(admin).start();
+    PgQueueThrottleSensor pgQueueSensor = pgQueueSensor(store).start();
+    try {
+      assertTrue(stuck.entered.await(5, TimeUnit.SECONDS), "Expected refreshes in flight");
+
+      Thread.currentThread().interrupt();
+      kafkaSensor.close();
+      assertTrue(Thread.currentThread().isInterrupted(), "close() must keep the interrupt");
+      pgQueueSensor.close();
+      assertTrue(Thread.interrupted(), "close() must keep the interrupt");
+
+      verify(admin).close(any(Duration.class));
+    } finally {
+      Thread.interrupted();
+      stuck.release.set(true);
+    }
+  }
+
+  /** A refresh that ignores interrupts and only returns once released. */
+  private static final class StuckRefresh {
+    final CountDownLatch entered = new CountDownLatch(2);
+    final AtomicBoolean release = new AtomicBoolean(false);
+
+    void block() {
+      entered.countDown();
+      while (!release.get()) {
+        Thread.onSpinWait();
+      }
+    }
+  }
+
+  private static AdminClient stuckAdmin(StuckRefresh stuck) {
+    AdminClient admin = mock(AdminClient.class);
+    when(admin.listConsumerGroupOffsets(anyString()))
+        .thenAnswer(
+            invocation -> {
+              stuck.block();
+              throw new IllegalStateException("released");
+            });
+    return admin;
+  }
+
+  private static MetadataQueueStore stuckStore(StuckRefresh stuck) {
+    MetadataQueueStore store = mock(MetadataQueueStore.class);
+    when(store.fetchTopic(anyString()))
+        .thenAnswer(
+            invocation -> {
+              stuck.block();
+              return Optional.empty();
+            });
+    return store;
+  }
+
+  private static PgQueueThrottleSensor pgQueueSensor(MetadataQueueStore store) {
+    return PgQueueThrottleSensor.builder()
+        .metadataQueueStore(store)
+        .config(schedulerConfig())
+        .mclConsumerGroupId(CONSUMER_GROUP)
+        .versionedTopicName(VERSIONED_TOPIC)
+        .timeseriesTopicName(TIMESERIES_TOPIC)
+        .build();
   }
 
   /** close() waits for a refresh in flight, so the mock must see no calls after it returns. */
