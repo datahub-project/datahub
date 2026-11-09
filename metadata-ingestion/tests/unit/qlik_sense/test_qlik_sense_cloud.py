@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 import requests_mock as requests_mock_module
+from requests.adapters import HTTPAdapter
 from urllib3.connectionpool import HTTPConnectionPool
 from urllib3.exceptions import NewConnectionError
 from urllib3.response import HTTPResponse
@@ -240,8 +241,9 @@ def test_only_denied_load_script_keeps_app_complete(
 
     assert app.script is None
     assert app.script_read_failed is denied
-    # The tables the script would have added are unknown either way.
-    assert app.tables_read_failed
+    # A denial lasts, so charts get the data model tables. Other failures leave
+    # the script tables unknown.
+    assert app.tables_read_failed is not denied
     assert app.read_complete is denied
 
 
@@ -643,4 +645,52 @@ def test_unexpected_item_error_is_recorded_and_other_items_kept(
         items = list(api.get_items("space-1"))
 
     assert items == [app]
-    assert [unread.name for unread in api.unread_items] == ["item of space space-1"]
+    assert [unread.name for unread in api.unread_items] == [
+        "item broken of space space-1"
+    ]
+
+
+@pytest.mark.parametrize(
+    "mapping, env",
+    [
+        pytest.param({"platform": "snowflake"}, "DEV", id="env_not_set"),
+        pytest.param({"platform": "snowflake", "env": "QA"}, "QA", id="env_set"),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_app_table_lineage_env_falls_back_to_recipe_env(
+    mock_api_cls: MagicMock, mapping: Dict[str, str], env: str
+) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(
+            {
+                **CLOUD_CONFIG,
+                "env": "DEV",
+                "data_connection_to_platform_instance": {"Warehouse": mapping},
+            }
+        ),
+        PipelineContext(run_id="test-cloud"),
+    )
+
+    workunit = source._gen_app_table_upstream_lineage(
+        "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)",
+        _blackbox_table("SELECT order_id FROM db.s.orders"),
+    )
+
+    assert workunit is not None
+    lineage = workunit.get_aspect_of_type(UpstreamLineage)
+    assert lineage is not None
+    assert [u.dataset for u in lineage.upstreams] == [
+        f"urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders,{env})"
+    ]
+
+
+def test_connection_pool_fits_max_workers() -> None:
+    with patch.object(requests.Session, "get"):
+        api = QlikAPI(
+            QlikSourceConfig.model_validate({**CLOUD_CONFIG, "max_workers": 20})
+        )
+
+    adapter = api.session.get_adapter("https://tenant.example.com/api/v1")
+    assert isinstance(adapter, HTTPAdapter)
+    assert adapter.poolmanager.connection_pool_kw["maxsize"] == 20

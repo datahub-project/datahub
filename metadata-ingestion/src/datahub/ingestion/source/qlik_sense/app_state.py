@@ -55,10 +55,30 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
         return self._job_id
 
     def is_checkpointing_enabled(self) -> bool:
+        # Kept whenever stale entity removal runs, so a partly read app keeps
+        # what its last read produced, and for skipping unchanged apps.
         return (
-            self.config.skips_unchanged_apps()
-            and self.state_provider.is_stateful_ingestion_configured()
+            self.stale_job_id is not None or self.config.skips_unchanged_apps()
+        ) and self.state_provider.is_stateful_ingestion_configured()
+
+    def is_too_large(self) -> bool:
+        """Whether this run's checkpoint is over the state size limit, in which
+        case it is not saved and the next run finds no usable checkpoint."""
+        stateful = self.state_provider.stateful_ingestion_config
+        current = (
+            self.state_provider.get_current_checkpoint(self.job_id)
+            if self.is_checkpointing_enabled()
+            else None
         )
+        if current is None or stateful is None:
+            return False
+        try:
+            current.state.to_bytes(
+                max_allowed_state_size=stateful.max_checkpoint_state_size
+            )
+        except ValueError:
+            return True
+        return False
 
     def create_checkpoint(self) -> Optional[Checkpoint[QlikAppCheckpointState]]:
         stateful = self.state_provider.stateful_ingestion_config

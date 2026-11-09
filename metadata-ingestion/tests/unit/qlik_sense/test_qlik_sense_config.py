@@ -70,3 +70,21 @@ def test_onprem_config_accepts_certificate_paths():
         "UserDirectory=INTERNAL; UserId=sa_repository"
     )
     assert config.ui_hostname() == "qlik.example.com"
+
+
+@pytest.mark.parametrize(
+    "config, workers",
+    [
+        pytest.param(
+            {"tenant_hostname": "tenant.example", "api_key": "k"}, 1, id="cloud"
+        ),
+        pytest.param({"on_prem": ON_PREM}, 4, id="on_prem"),
+        pytest.param(
+            {"tenant_hostname": "tenant.example", "api_key": "k", "max_workers": 3},
+            3,
+            id="set",
+        ),
+    ],
+)
+def test_max_workers_default_depends_on_deployment(config, workers):
+    assert QlikSourceConfig.model_validate(config).resolved_max_workers() == workers
