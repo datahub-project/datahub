@@ -967,7 +967,7 @@ def test_cloud_app_read_failure_closes_engine_session(
 
     assert (
         api._load_item(
-            {Constant.RESOURCETYPE: Constant.APP, Constant.RESOURCEID: "app-1"}
+            {Constant.RESOURCETYPE: Constant.APP, Constant.RESOURCEID: "app-1"}, None
         )
         is None
     )
