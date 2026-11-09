@@ -297,12 +297,18 @@ public class CreateGlossaryTermVersionResolver
     final String glossaryTermUrn =
         _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
+    boolean copiedOwners = false;
     if (previous != null && !Boolean.FALSE.equals(input.getCopyMetadata())) {
       copyPreviousMetadata(context, UrnUtils.getUrn(glossaryTermUrn), previous);
+      copiedOwners = previous.aspects().containsKey(OWNERSHIP_ASPECT_NAME);
     }
 
-    OwnerUtils.addCreatorAsOwner(
-        context, glossaryTermUrn, OwnerEntityType.CORP_USER, _entityService);
+    // A new version keeps the previous version's owners. Adding the creator on top would give
+    // every version an extra Technical Owner that nobody chose.
+    if (!copiedOwners) {
+      OwnerUtils.addCreatorAsOwner(
+          context, glossaryTermUrn, OwnerEntityType.CORP_USER, _entityService);
+    }
 
     return glossaryTermUrn;
   }

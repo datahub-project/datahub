@@ -630,6 +630,48 @@ public class CreateGlossaryTermVersionResolverTest {
     assertFalse(aspectNames.contains(OWNERSHIP_ASPECT_NAME));
   }
 
+  private static CreateGlossaryTermVersionResolver resolverWithEntityService(
+      EntityClient mockClient,
+      EntityVersioningService mockVersioningService,
+      EntityService<?> entityService)
+      throws Exception {
+    resolverWithPreviousMetadata(mockClient, mockVersioningService, List.of("glossaryTerm"));
+    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
+    Mockito.when(mockFlags.isEntityVersioning()).thenReturn(true);
+    return new CreateGlossaryTermVersionResolver(
+        mockClient, entityService, mockVersioningService, mockFlags);
+  }
+
+  @Test
+  public void testCopiedOwnersReplaceCreatorAsOwner() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityService<?> entityService = getMockEntityService();
+    CreateGlossaryTermVersionResolver resolver =
+        resolverWithEntityService(
+            mockClient, Mockito.mock(EntityVersioningService.class), entityService);
+
+    resolver.get(envFor(newVersionInput())).get();
+
+    // The creator is only ever added as owner through the entity service.
+    Mockito.verifyNoInteractions(entityService);
+  }
+
+  @Test
+  public void testCreatorIsOwnerWhenNothingIsCopied() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityService<?> entityService = getMockEntityService();
+    CreateGlossaryTermVersionResolver resolver =
+        resolverWithEntityService(
+            mockClient, Mockito.mock(EntityVersioningService.class), entityService);
+    CreateGlossaryTermVersionInput input = newVersionInput();
+    input.setCopyMetadata(false);
+
+    resolver.get(envFor(input)).get();
+
+    Mockito.verify(entityService, Mockito.atLeastOnce())
+        .exists(any(), any(Urn.class), anyBoolean());
+  }
+
   @Test
   public void testStartsInDraftBeforeLinking() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
