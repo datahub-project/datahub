@@ -172,5 +172,15 @@
     "sort.relevance": "Relevance (Default)",
     "sort.tooltipTitle": "Sort search results",
     "suggestions.didYouMean": "Did you mean <suggestion>{{suggestText}}</suggestion>?",
-    "viewAllResultsFor": "View all results for <strong>{{searchText}}</strong>"
+    "viewAllResultsFor": "View all results for <strong>{{searchText}}</strong>",
+    "siblings.groupTitle_one": "{{count}} sibling of {{name}}",
+    "siblings.groupTitle_other": "{{count}} siblings of {{name}}",
+    "siblings.loading": "Loading siblings…",
+    "siblings.moreSiblings_one": "+ {{count}} more sibling of {{name}}",
+    "siblings.moreSiblings_other": "+ {{count}} more siblings of {{name}}",
+    "siblings.primary": "Primary",
+    "siblings.showLess": "Show less",
+    "siblings.showSiblings": "Show siblings",
+    "siblings.siblingOf": "Sibling of {{name}}",
+    "siblings.truncated": "Showing the first {{count}} members of a larger group"
 }

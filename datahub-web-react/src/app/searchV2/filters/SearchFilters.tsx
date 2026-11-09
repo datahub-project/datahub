@@ -14,6 +14,7 @@ import SearchFilterOptions from '@app/searchV2/filters/SearchFilterOptions';
 import SelectedSearchFilters from '@app/searchV2/filters/SelectedSearchFilters';
 import { RecommendedFilters } from '@app/searchV2/recommendation/RecommendedFilters';
 import { useGetRecommendedFilters } from '@app/searchV2/recommendation/useGetRecommendedFilters';
+import ShowSiblingsToggle from '@app/searchV2/siblings/ShowSiblingsToggle';
 import SearchSortSelect from '@app/searchV2/sorting/SearchSortSelect';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
@@ -81,6 +82,13 @@ const FILTERS_TO_REMOVE = [
     PROPOSED_SCHEMA_TAGS_FILTER_NAME,
 ];
 
+const FilterOptionsContainer = styled.div`
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+`;
+
 const ControlsContainer = styled.div`
     display: flex;
     align-items: center;
@@ -107,6 +115,8 @@ interface Props {
     totalResults?: number;
     setShowSelectMode?: (showSelectMode: boolean) => any;
     downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
+    /** Show the "Show siblings" switch after the filters (the main search page only). */
+    showSiblingsToggle?: boolean;
 }
 
 export default function SearchFilters({
@@ -123,6 +133,7 @@ export default function SearchFilters({
     totalResults,
     setShowSelectMode,
     downloadSearchResults,
+    showSiblingsToggle = false,
 }: Props) {
     const { t } = useTranslation('search');
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -159,13 +170,16 @@ export default function SearchFilters({
     return (
         <Container id={SEARCH_RESULTS_FILTERS_ID} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <FiltersContainerTop>
-                <SearchFilterOptions
-                    loading={loading}
-                    availableFilters={filters}
-                    activeFilters={activeFilters}
-                    unionType={unionType}
-                    onChangeFilters={onChangeFilters}
-                />
+                <FilterOptionsContainer>
+                    <SearchFilterOptions
+                        loading={loading}
+                        availableFilters={filters}
+                        activeFilters={activeFilters}
+                        unionType={unionType}
+                        onChangeFilters={onChangeFilters}
+                    />
+                    {showSiblingsToggle && <ShowSiblingsToggle />}
+                </FilterOptionsContainer>
                 <ControlsContainer>
                     <SearchSortSelect
                         selectedSortOption={selectedSortOption}

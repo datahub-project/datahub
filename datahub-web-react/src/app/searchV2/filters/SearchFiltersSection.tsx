@@ -34,6 +34,8 @@ interface Props {
     totalResults: number;
     setShowSelectMode?: (showSelectMode: boolean) => any;
     downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
+    /** Show the "Show siblings" switch in the filter bar (the main search page only). */
+    showSiblingsToggle?: boolean;
 }
 
 export default function SearchFiltersSection({
@@ -49,6 +51,7 @@ export default function SearchFiltersSection({
     totalResults,
     setShowSelectMode,
     downloadSearchResults,
+    showSiblingsToggle = false,
 }: Props) {
     const [finalAvailableFilters, setFinalAvailableFilters] = useState(availableFilters);
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -81,6 +84,7 @@ export default function SearchFiltersSection({
                 totalResults={totalResults}
                 setShowSelectMode={setShowSelectMode}
                 downloadSearchResults={downloadSearchResults}
+                showSiblingsToggle={showSiblingsToggle}
             />
         </Section>
     );

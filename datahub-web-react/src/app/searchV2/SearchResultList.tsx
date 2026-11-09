@@ -8,6 +8,9 @@ import { EntityAndType } from '@app/entityV2/shared/types';
 import { useSearchContext } from '@app/search/context/SearchContext';
 import EmptySearchResults from '@app/searchV2/EmptySearchResults';
 import { MatchContextContainer } from '@app/searchV2/matches/MatchContextContainer';
+import SearchResultSiblings from '@app/searchV2/siblings/SearchResultSiblings';
+import { useShowSiblings } from '@app/searchV2/siblings/useShowSiblings';
+import { useSiblingGroups } from '@app/searchV2/siblings/useSiblingGroups';
 import { useIsSearchV2 } from '@app/searchV2/useSearchAndBrowseVersion';
 import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearchResults';
 import { SEARCH_BAR_CLASS_NAME } from '@app/searchV2/utils/constants';
@@ -16,7 +19,7 @@ import { PAGE_GAP_PX } from '@app/sharedV2/layouts/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
-import { SearchResult, SearchSuggestion } from '@types';
+import { EntityType, SearchResult, SearchSuggestion } from '@types';
 
 export const MATCHES_CONTAINER_HEIGHT = 52;
 /** Room around the result cards for their 1px hover / selected outline. */
@@ -242,6 +245,18 @@ export const SearchResultList = ({
     useInitializeSearchResultCards(searchResults, setUrnToExpandedSection);
     const { isFullViewCard } = useSearchContext();
 
+    // "Show siblings": one extra request for the dataset results on this page; the search request,
+    // its counts and its paging are unchanged.
+    const [showSiblings] = useShowSiblings();
+    const datasetUrns = useMemo(
+        () =>
+            searchResults
+                .filter((result) => result.entity.type === EntityType.Dataset)
+                .map((result) => result.entity.urn),
+        [searchResults],
+    );
+    const { groups: siblingGroups } = useSiblingGroups(datasetUrns, showSiblings);
+
     return (
         <ResultList<React.FC<ListProps<CombinedSearchResult>>>
             id="search-result-list"
@@ -251,6 +266,7 @@ export const SearchResultList = ({
             locale={{ emptyText: (!loading && <EmptySearchResults suggestions={suggestions} />) || <></> }}
             renderItem={(item, index) => {
                 const expandedSection = isFullViewCard ? urnToExpandedSection[item.entity.urn] : undefined;
+                const siblingGroup = showSiblings ? siblingGroups.get(item.entity.urn) : undefined;
                 return (
                     <div style={{ position: 'relative' }}>
                         <MatchContextContainer
@@ -298,6 +314,15 @@ export const SearchResultList = ({
                                 {!showSearchFiltersV2 && <ThinDivider />}
                             </ResultWrapper>
                         </MatchContextContainer>
+                        {siblingGroup && (
+                            <SearchResultSiblings
+                                // keyed by urn so expanded state never carries over to another result
+                                key={item.entity.urn}
+                                urn={item.entity.urn}
+                                resultName={entityRegistry.getDisplayName(item.entity.type, item.entity)}
+                                group={siblingGroup}
+                            />
+                        )}
                     </div>
                 );
             }}
