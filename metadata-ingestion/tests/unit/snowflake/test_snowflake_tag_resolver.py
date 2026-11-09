@@ -224,3 +224,28 @@ def test_uncastable_managed_value_blocks_the_whole_upsert_aspect() -> None:
     assert r.resolve_structured_properties([thirty, native]) is None
     assert r.report.num_structured_properties_unresolved == 1
     assert len(r.report.warnings) == 1
+
+
+def test_missing_property_definition_blocks_the_upsert_aspect() -> None:
+    # Writing a value for a property that no longer exists fails the whole write.
+    r = resolver(
+        [tag_record(_TAG, _RETENTION, with_value=False)],
+        sp_mode=StructuredPropertyWriteMode.UPSERT,
+        value_type=None,
+    )
+
+    assert r.resolve_structured_properties([_TAG]) is None
+    assert r.report.num_structured_properties_unresolved == 1
+    assert len(r.report.warnings) == 1
+
+
+def test_non_finite_number_blocks_the_upsert_aspect() -> None:
+    for value in ["nan", "inf", "-Infinity"]:
+        tag = SnowflakeTag(database="TEST_DB", schema="PUBLIC", name="PII", value=value)
+        r = resolver(
+            [tag_record(tag, _RETENTION, with_value=False)],
+            sp_mode=StructuredPropertyWriteMode.UPSERT,
+            value_type=_NUMBER,
+        )
+
+        assert r.resolve_structured_properties([tag]) is None, value

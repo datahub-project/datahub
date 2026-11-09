@@ -306,6 +306,8 @@ When DataHub writes tags, glossary terms or structured properties back to Snowfl
 
 Every other Snowflake tag is ingested as before. Records are loaded once at the start of each run, so a tag DataHub writes to Snowflake during a run is recognised from the next run. The records are looked up and written through the DataHub graph, so this needs a DataHub connection (`datahub_api`, or the `datahub-rest` sink). Without one, every Snowflake tag is ingested as a native tag.
 
+Snowflake tag names and values are matched without regard to case, so DataHub tags that differ only in case (for example `PII` and `pii`) written to the same Snowflake tag and value are treated as one.
+
 #### Materialized Views
 
 Materialized views come from `SHOW VIEWS` and are marked as materialized in their view properties. Their last-modified time comes from `SHOW MATERIALIZED VIEWS`: the newest base-table change the view holds (`refreshed_on` or `compacted_on`), or the creation time when the data has not changed since. It needs the same access as `SHOW VIEWS`, and no warehouse.
