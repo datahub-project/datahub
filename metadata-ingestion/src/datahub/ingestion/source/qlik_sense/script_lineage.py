@@ -246,6 +246,15 @@ class LoadField(BaseModel):
     name: str
     # Names the field's expression reads from the statement below it.
     sources: List[str]
+    # False for an unaliased expression, which Qlik names after its text. It
+    # is not ingested as a field but still takes its place in the field order.
+    named: bool = True
+
+
+class _FieldLineage(BaseModel):
+    # None for an unaliased expression.
+    name: Optional[str]
+    upstreams: List[str]
 
 
 class CrossTable(BaseModel):
@@ -277,9 +286,6 @@ class PrecedingLoad(BaseModel):
     fields: List[LoadField] = []
     # A $(variable) left in the field list may hold any fields.
     unreadable: bool = False
-    # An unaliased expression is a field named after its text, which is left
-    # out of `fields` but still takes a place in the field order.
-    unnamed: bool = False
 
 
 class ScriptTable(BaseModel):
@@ -876,8 +882,14 @@ def _parse_load_fields(statement: str) -> PrecedingLoad:
         # or SQL column would match.
         elif field and name is not None:
             load.fields.append(LoadField(name=name, sources=[name]))
-        else:
-            load.unnamed = True
+        elif not _is_whole_expansion(item):
+            load.fields.append(
+                LoadField(
+                    name=item,
+                    sources=expression_names(item, keywords=EXPRESSION_OPERATORS),
+                    named=False,
+                )
+            )
     return load
 
 
@@ -900,50 +912,80 @@ def apply_preceding_loads(
     """Rename SQL columns to the fields the LOAD statements above them produce,
     carrying each field's upstream columns."""
     for load in reversed(preceding_loads):
-        below = column_upstreams
         column_upstreams = {
-            # A $(variable) may hold any of the columns below, so they are kept.
-            **(below if load.keeps_all or load.unreadable else {}),
-            **{
-                field.name: list(
-                    dict.fromkeys(
-                        upstream
-                        for source in field.sources
-                        for upstream in _column_upstreams(below, source)
-                    )
-                )
-                for field in load.fields
-            },
+            field.name: field.upstreams
+            for field in _load_field_lineage(load, column_upstreams)
+            if field.name is not None
         }
     return column_upstreams
+
+
+def _load_field_lineage(
+    load: PrecedingLoad, below: Dict[str, List[str]]
+) -> List[_FieldLineage]:
+    """The fields a LOAD produces from the columns below it, in order."""
+    # A $(variable) may hold any of the columns below, so they are kept.
+    kept = (
+        [
+            _FieldLineage(name=name, upstreams=upstreams)
+            for name, upstreams in below.items()
+        ]
+        if load.keeps_all or load.unreadable
+        else []
+    )
+    return kept + [
+        _FieldLineage(
+            name=field.name if field.named else None,
+            upstreams=list(
+                dict.fromkeys(
+                    upstream
+                    for source in field.sources
+                    for upstream in _column_upstreams(below, source)
+                )
+            ),
+        )
+        for field in load.fields
+    ]
 
 
 def apply_crosstable(
     crosstable: Optional[CrossTable],
     preceding_loads: List[PrecedingLoad],
-    fields: Dict[str, List[str]],
+    sql_columns: Dict[str, List[str]],
 ) -> Optional[Dict[str, List[str]]]:
     """The fields a CrossTable load produces: its qualifier fields keep their
     upstreams, the attribute field holds column names so it has none, and the
-    data field holds the values of the other fields. None when the fields or
-    their order are not known."""
-    order_unknown = bool(preceding_loads) and (
-        preceding_loads[0].keeps_all
-        or preceding_loads[0].unreadable
-        or preceding_loads[0].unnamed
-    )
-    if crosstable is None or order_unknown or len(fields) <= crosstable.qualifiers:
+    data field holds the values of the other fields. An unaliased expression
+    keeps its place in the field order but is not ingested as a field. None
+    when the fields or their order are not known."""
+    if crosstable is None:
         return None
-    names = list(fields)
-    qualifiers = names[: crosstable.qualifiers]
+    if not preceding_loads:
+        slots = [
+            _FieldLineage(name=name, upstreams=upstreams)
+            for name, upstreams in sql_columns.items()
+        ]
+    else:
+        top = preceding_loads[0]
+        if top.keeps_all or top.unreadable:
+            return None
+        slots = _load_field_lineage(
+            top, apply_preceding_loads(preceding_loads[1:], sql_columns)
+        )
+    if len(slots) <= crosstable.qualifiers:
+        return None
     return {
-        **{name: fields[name] for name in qualifiers},
+        **{
+            slot.name: slot.upstreams
+            for slot in slots[: crosstable.qualifiers]
+            if slot.name is not None
+        },
         crosstable.attribute: [],
         crosstable.data: list(
             dict.fromkeys(
                 upstream
-                for name in names[crosstable.qualifiers :]
-                for upstream in fields[name]
+                for slot in slots[crosstable.qualifiers :]
+                for upstream in slot.upstreams
             )
         ),
     }

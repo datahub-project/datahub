@@ -943,8 +943,14 @@ def test_parse_load_script_marks_reshaped_tables(script: str) -> None:
         pytest.param(
             "T: CrossTable(Month, Sales) LOAD Upper(region), store, jan;\n"
             "SQL SELECT region, store, jan FROM db.s.t;",
-            None,
-            id="unaliased_expression",
+            {"Month": [], "Sales": ["s", "j"]},
+            id="unaliased_qualifier_keeps_its_slot",
+        ),
+        pytest.param(
+            "T: CrossTable(Month, Sales) LOAD region, Upper(store), jan;\n"
+            "SQL SELECT region, store, jan FROM db.s.t;",
+            {"region": ["r"], "Month": [], "Sales": ["s", "j"]},
+            id="unaliased_data_field",
         ),
         pytest.param(
             "T: CrossTable(Month, Sales) LOAD *;\nSQL SELECT region, jan FROM db.s.t;",
@@ -964,7 +970,8 @@ def test_crosstable_fields(
 ) -> None:
     (table,) = parse_load_script(script)
     columns = {"region": ["r"], "store": ["s"], "jan": ["j"]}
-    fields = apply_preceding_loads(table.preceding_loads, columns)
 
     assert table.reshaped
-    assert apply_crosstable(table.crosstable, table.preceding_loads, fields) == expected
+    assert (
+        apply_crosstable(table.crosstable, table.preceding_loads, columns) == expected
+    )

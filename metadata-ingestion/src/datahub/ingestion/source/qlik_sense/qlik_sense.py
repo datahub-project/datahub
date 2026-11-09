@@ -1078,7 +1078,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # otherwise the fields are not the columns and only table lineage
             # is kept.
             fields = apply_crosstable(
-                script_table.crosstable, script_table.preceding_loads, fields or {}
+                script_table.crosstable, script_table.preceding_loads, sql_columns
             )
         for field, upstreams in (fields or {}).items():
             lineage.column_upstreams.setdefault(field, []).extend(upstreams)
