@@ -123,6 +123,10 @@ public class KafkaPropertiesIsolationTest {
         .getProperties()
         .put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_SSL");
     shared.getConsumer().getProperties().put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+    shared
+        .getProducer()
+        .getProperties()
+        .put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, "spring-producer-broker:9092");
 
     Map<String, Object> producer =
         DataHubKafkaProducerFactory.buildProducerProperties(
@@ -147,6 +151,8 @@ public class KafkaPropertiesIsolationTest {
         List.of(producer, usageProducer, eventConsumer, simpleConsumer, cdcConsumer)) {
       assertEquals(config.get(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG), "SASL_SSL");
     }
+    assertEquals(
+        producer.get(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG), "spring-producer-broker:9092");
     for (Map<String, Object> config : List.of(eventConsumer, simpleConsumer, cdcConsumer)) {
       assertEquals(config.get(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG), "false");
     }
