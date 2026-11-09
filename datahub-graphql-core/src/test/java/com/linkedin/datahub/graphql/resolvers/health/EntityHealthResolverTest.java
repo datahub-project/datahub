@@ -6,8 +6,6 @@ import static org.testng.Assert.*;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.assertion.AssertionInfo;
-import com.linkedin.assertion.AssertionType;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
@@ -35,6 +33,7 @@ import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.key.AssertionKey;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -830,7 +829,11 @@ public class EntityHealthResolverTest {
                                 ImmutableList.of(TEST_ASSERTION_URN, "FAILURE", "0"))))));
     Mockito.when(
             mockEntityClient.batchGetV2(
-                any(), Mockito.eq(Constants.ASSERTION_ENTITY_NAME), any(), any()))
+                any(),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                any(),
+                any(),
+                Mockito.eq(false)))
         .thenReturn(Map.of(Urn.createFromString(TEST_ASSERTION_URN), activeAssertion()));
 
     final EntityHealthResolver resolver =
@@ -889,7 +892,11 @@ public class EntityHealthResolverTest {
     statusResponses.put(Urn.createFromString(TEST_ASSERTION_URN), activeAssertion());
     Mockito.when(
             mockEntityClient.batchGetV2(
-                any(), Mockito.eq(Constants.ASSERTION_ENTITY_NAME), any(), any()))
+                any(),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                any(),
+                any(),
+                Mockito.eq(false)))
         .thenReturn(statusResponses);
 
     // The removed assertion's latest run is still FAILURE in the timeseries index.
@@ -955,7 +962,11 @@ public class EntityHealthResolverTest {
 
     Mockito.when(
             mockEntityClient.batchGetV2(
-                any(), Mockito.eq(Constants.ASSERTION_ENTITY_NAME), any(), any()))
+                any(),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                any(),
+                any(),
+                Mockito.eq(false)))
         .thenReturn(
             Collections.singletonMap(Urn.createFromString(TEST_ASSERTION_URN), removedStatus()));
 
@@ -1006,7 +1017,11 @@ public class EntityHealthResolverTest {
 
     Mockito.when(
             mockEntityClient.batchGetV2(
-                any(), Mockito.eq(Constants.ASSERTION_ENTITY_NAME), any(), any()))
+                any(),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                any(),
+                any(),
+                Mockito.eq(false)))
         .thenThrow(new RemoteInvocationException("assertion service down"));
 
     Mockito.when(
@@ -1075,7 +1090,7 @@ public class EntityHealthResolverTest {
   /** A batchGetV2 EntityResponse for a soft-deleted (status.removed = true) assertion. */
   private static EntityResponse removedStatus() {
     final EnvelopedAspectMap aspects = new EnvelopedAspectMap();
-    aspects.put(Constants.ASSERTION_INFO_ASPECT_NAME, assertionInfoAspect());
+    aspects.put(Constants.ASSERTION_KEY_ASPECT_NAME, assertionKeyAspect());
     aspects.put(
         Constants.STATUS_ASPECT_NAME,
         new EnvelopedAspect().setValue(new Aspect(new Status().setRemoved(true).data())));
@@ -1085,13 +1100,13 @@ public class EntityHealthResolverTest {
   /** A batchGetV2 EntityResponse for an existing, non-removed assertion. */
   private static EntityResponse activeAssertion() {
     final EnvelopedAspectMap aspects = new EnvelopedAspectMap();
-    aspects.put(Constants.ASSERTION_INFO_ASPECT_NAME, assertionInfoAspect());
+    aspects.put(Constants.ASSERTION_KEY_ASPECT_NAME, assertionKeyAspect());
     return new EntityResponse().setAspects(aspects);
   }
 
-  private static EnvelopedAspect assertionInfoAspect() {
+  private static EnvelopedAspect assertionKeyAspect() {
     return new EnvelopedAspect()
-        .setValue(new Aspect(new AssertionInfo().setType(AssertionType.DATASET).data()));
+        .setValue(new Aspect(new AssertionKey().setAssertionId("test").data()));
   }
 
   /** Builds a DataFetchingEnvironment for the legacy (non-batch) resolver path. */

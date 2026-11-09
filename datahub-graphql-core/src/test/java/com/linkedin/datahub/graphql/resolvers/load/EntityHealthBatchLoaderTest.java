@@ -5,8 +5,6 @@ import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.assertion.AssertionInfo;
-import com.linkedin.assertion.AssertionType;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
@@ -29,6 +27,7 @@ import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.key.AssertionKey;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.IncidentStats;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -52,9 +51,11 @@ public class EntityHealthBatchLoaderTest {
 
   private static final String DATASET_A = "urn:li:dataset:(urn:li:dataPlatform:test,a,PROD)";
   private static final String DATASET_B = "urn:li:dataset:(urn:li:dataPlatform:test,b,PROD)";
+  private static final String DATASET_C = "urn:li:dataset:(urn:li:dataPlatform:test,c,PROD)";
   private static final String CHART_C = "urn:li:chart:(test,c)";
   private static final String ASSERTION_A = "urn:li:assertion:a";
   private static final String ASSERTION_B = "urn:li:assertion:b";
+  private static final String ASSERTION_C = "urn:li:assertion:c";
 
   /**
    * The core N+1 guarantee: two assertion-bearing URNs produce exactly ONE {@code
@@ -137,7 +138,8 @@ public class EntityHealthBatchLoaderTest {
                 Mockito.eq(Set.of(assertionA, assertionB)),
                 Mockito.eq(
                     ImmutableSet.of(
-                        Constants.STATUS_ASPECT_NAME, Constants.ASSERTION_INFO_ASPECT_NAME))))
+                        Constants.STATUS_ASPECT_NAME, Constants.ASSERTION_KEY_ASPECT_NAME)),
+                Mockito.eq(false)))
         .thenReturn(
             Map.of(
                 assertionA, removedStatus(),
@@ -167,7 +169,8 @@ public class EntityHealthBatchLoaderTest {
 
     // One call covering both assets' assertion urns, not one call per asset.
     Mockito.verify(entityClient, Mockito.times(1))
-        .batchGetV2(any(), Mockito.eq(Constants.ASSERTION_ENTITY_NAME), any(), any());
+        .batchGetV2(
+            any(), Mockito.eq(Constants.ASSERTION_ENTITY_NAME), any(), any(), Mockito.eq(false));
   }
 
   /** Every related assertion removed -> assertion health absent, same as no related assertions. */
@@ -182,7 +185,11 @@ public class EntityHealthBatchLoaderTest {
     stubActiveAssertions(graphClient, DATASET_A, ASSERTION_A);
     Mockito.when(
             entityClient.batchGetV2(
-                any(), Mockito.eq(Constants.ASSERTION_ENTITY_NAME), any(), any()))
+                any(),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                any(),
+                any(),
+                Mockito.eq(false)))
         .thenReturn(Collections.singletonMap(Urn.createFromString(ASSERTION_A), removedStatus()));
     // Stale FAILURE row still in the index: without the filter this would be a failing health.
     Mockito.when(
@@ -204,31 +211,43 @@ public class EntityHealthBatchLoaderTest {
   }
 
   /**
-   * Like {@code dataset.assertions}, health drops a related assertion that no longer exists
-   * (hard-deleted: no batchGetV2 response) or has no {@code assertionInfo}, even when stale failing
-   * runs remain in the timeseries index.
+   * A related assertion that no longer exists is dropped, even when stale failing runs remain in
+   * the timeseries index. With {@code alwaysIncludeKeyAspect=false}, {@code batchGetV2} returns a
+   * hard-deleted urn as an empty response (no synthesized key), which is what B models; A covers a
+   * urn absent from the response entirely. C keeps the test honest: an existing assertion still
+   * counts.
    */
   @Test
-  public void testAssertionHealthIgnoresMissingAndInfolessAssertions() throws Exception {
+  public void testAssertionHealthIgnoresHardDeletedAssertions() throws Exception {
     final EntityClient entityClient = Mockito.mock(EntityClient.class);
     final GraphClient graphClient = Mockito.mock(GraphClient.class);
     final TimeseriesAspectService timeseriesAspectService =
         Mockito.mock(TimeseriesAspectService.class);
     final EntitySearchService entitySearchService = Mockito.mock(EntitySearchService.class);
 
-    stubActiveAssertions(graphClient, DATASET_A, ASSERTION_A); // hard-deleted
-    stubActiveAssertions(graphClient, DATASET_B, ASSERTION_B); // no assertionInfo
+    stubActiveAssertions(graphClient, DATASET_A, ASSERTION_A); // absent from response
+    stubActiveAssertions(graphClient, DATASET_B, ASSERTION_B); // empty response (hard-deleted)
+    stubActiveAssertions(graphClient, DATASET_C, ASSERTION_C); // exists
     Mockito.when(
             entityClient.batchGetV2(
-                any(), Mockito.eq(Constants.ASSERTION_ENTITY_NAME), any(), any()))
+                any(),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                any(),
+                Mockito.eq(
+                    ImmutableSet.of(
+                        Constants.STATUS_ASPECT_NAME, Constants.ASSERTION_KEY_ASPECT_NAME)),
+                Mockito.eq(false)))
         .thenReturn(
             Map.of(
                 Urn.createFromString(ASSERTION_B),
-                new EntityResponse().setAspects(new EnvelopedAspectMap())));
+                new EntityResponse().setAspects(new EnvelopedAspectMap()),
+                Urn.createFromString(ASSERTION_C),
+                activeAssertion()));
 
     final Map<Urn, GenericTable> batchResult = new HashMap<>();
     batchResult.put(Urn.createFromString(DATASET_A), assertionRunTable(ASSERTION_A, "FAILURE"));
     batchResult.put(Urn.createFromString(DATASET_B), assertionRunTable(ASSERTION_B, "FAILURE"));
+    batchResult.put(Urn.createFromString(DATASET_C), assertionRunTable(ASSERTION_C, "FAILURE"));
     Mockito.when(
             timeseriesAspectService.batchGetAggregatedStats(
                 any(), any(), any(), any(), any(), any(), any(), any()))
@@ -240,11 +259,15 @@ public class EntityHealthBatchLoaderTest {
 
     final List<List<Health>> result =
         loader.batchLoad(
-            ImmutableList.of(assertionsOnlyKey(DATASET_A), assertionsOnlyKey(DATASET_B)),
+            ImmutableList.of(
+                assertionsOnlyKey(DATASET_A),
+                assertionsOnlyKey(DATASET_B),
+                assertionsOnlyKey(DATASET_C)),
             mockContext());
 
     assertTrue(result.get(0).isEmpty());
     assertTrue(result.get(1).isEmpty());
+    assertEquals(result.get(2).get(0).getStatus(), HealthStatus.FAIL);
   }
 
   /**
@@ -264,7 +287,11 @@ public class EntityHealthBatchLoaderTest {
     stubActiveAssertions(graphClient, DATASET_A, ASSERTION_A);
     Mockito.when(
             entityClient.batchGetV2(
-                any(), Mockito.eq(Constants.ASSERTION_ENTITY_NAME), any(), any()))
+                any(),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                any(),
+                any(),
+                Mockito.eq(false)))
         .thenThrow(new RuntimeException("boom: assertion status lookup down"));
     Mockito.when(
             timeseriesAspectService.batchGetAggregatedStats(
@@ -693,7 +720,7 @@ public class EntityHealthBatchLoaderTest {
 
   private static EntityResponse removedStatus() {
     final EnvelopedAspectMap aspects = new EnvelopedAspectMap();
-    aspects.put(Constants.ASSERTION_INFO_ASPECT_NAME, assertionInfoAspect());
+    aspects.put(Constants.ASSERTION_KEY_ASPECT_NAME, assertionKeyAspect());
     aspects.put(
         Constants.STATUS_ASPECT_NAME,
         new EnvelopedAspect().setValue(new Aspect(new Status().setRemoved(true).data())));
@@ -703,20 +730,24 @@ public class EntityHealthBatchLoaderTest {
   /** A batchGetV2 EntityResponse for an existing, non-removed assertion. */
   private static EntityResponse activeAssertion() {
     final EnvelopedAspectMap aspects = new EnvelopedAspectMap();
-    aspects.put(Constants.ASSERTION_INFO_ASPECT_NAME, assertionInfoAspect());
+    aspects.put(Constants.ASSERTION_KEY_ASPECT_NAME, assertionKeyAspect());
     return new EntityResponse().setAspects(aspects);
   }
 
-  private static EnvelopedAspect assertionInfoAspect() {
+  private static EnvelopedAspect assertionKeyAspect() {
     return new EnvelopedAspect()
-        .setValue(new Aspect(new AssertionInfo().setType(AssertionType.DATASET).data()));
+        .setValue(new Aspect(new AssertionKey().setAssertionId("test").data()));
   }
 
   /** Answers the assertion batchGetV2 with an active assertion for every requested urn. */
   private static void stubAllAssertionsActive(final EntityClient entityClient) throws Exception {
     Mockito.when(
             entityClient.batchGetV2(
-                any(), Mockito.eq(Constants.ASSERTION_ENTITY_NAME), any(), any()))
+                any(),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                any(),
+                any(),
+                Mockito.eq(false)))
         .thenAnswer(
             invocation -> {
               final Set<Urn> urns = invocation.getArgument(2);

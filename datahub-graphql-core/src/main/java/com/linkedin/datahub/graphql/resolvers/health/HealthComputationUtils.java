@@ -151,10 +151,11 @@ public final class HealthComputationUtils {
   }
 
   /**
-   * Keeps only the urns in {@code assertionUrns} that {@link
-   * com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver} would list in {@code
-   * dataset.assertions}: the assertion exists, has an {@code assertionInfo} aspect, and is not
-   * soft-deleted (status.removed == true). Uses one batched lookup of those two aspects. Shared by
+   * Keeps only the urns in {@code assertionUrns} that still exist (have a stored {@code
+   * assertionKey}) and are not soft-deleted (status.removed == true), so health agrees with {@code
+   * dataset.assertions}. Uses one batched lookup of {@code status} + {@code assertionKey} with
+   * {@code alwaysIncludeKeyAspect=false}: by default {@code batchGetV2} synthesizes a key aspect
+   * for every requested urn, which would make hard-deleted assertions look present. Shared by
    * {@link EntityHealthResolver} and {@link
    * com.linkedin.datahub.graphql.resolvers.load.EntityHealthBatchLoader}. On any lookup failure —
    * including a {@link RuntimeException}, since {@code JavaEntityClient.batchGetV2} wraps its
@@ -174,7 +175,8 @@ public final class HealthComputationUtils {
               opContext,
               Constants.ASSERTION_ENTITY_NAME,
               new HashSet<>(assertionUrns),
-              ImmutableSet.of(Constants.STATUS_ASPECT_NAME, Constants.ASSERTION_INFO_ASPECT_NAME));
+              ImmutableSet.of(Constants.STATUS_ASPECT_NAME, Constants.ASSERTION_KEY_ASPECT_NAME),
+              false);
       return assertionUrns.stream()
           .filter(urn -> isActive(entities.get(urn)))
           .collect(Collectors.toSet());
@@ -188,10 +190,8 @@ public final class HealthComputationUtils {
   }
 
   private static boolean isActive(@Nullable final EntityResponse response) {
-    // A missing response (hard-deleted) or missing assertionInfo is dropped, matching the
-    // null/info checks in EntityAssertionsResolver.
     if (response == null
-        || !response.getAspects().containsKey(Constants.ASSERTION_INFO_ASPECT_NAME)) {
+        || !response.getAspects().containsKey(Constants.ASSERTION_KEY_ASPECT_NAME)) {
       return false;
     }
     if (!response.getAspects().containsKey(Constants.STATUS_ASPECT_NAME)) {
