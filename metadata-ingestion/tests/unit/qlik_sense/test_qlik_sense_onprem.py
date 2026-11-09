@@ -1950,3 +1950,22 @@ def test_mapping_tables_are_not_chart_inputs(mock_onprem: MagicMock) -> None:
     assert list(source._app_table_fields([], tables)) == [
         "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
     ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_crosstable_script_table_keeps_only_table_lineage(
+    mock_onprem: MagicMock,
+) -> None:
+    _, tables = _script_tables(
+        mock_onprem,
+        {},
+        script="LIB CONNECT TO 'Sales SQL';\n"
+        "T: CrossTable(Month, Sales) LOAD region, jan, feb;\n"
+        "SQL SELECT region, jan, feb FROM sales_db.dbo.sales;",
+    )
+
+    (table,) = tables
+    assert table.upstream_urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,sales_db.dbo.sales,PROD)"
+    ]
+    assert table.column_upstreams == {}

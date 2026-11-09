@@ -147,6 +147,9 @@ EXPRESSION_KEYWORDS = EXPRESSION_OPERATORS | EXPRESSION_QUALIFIERS
 VARIABLE_ALIAS_RE = re.compile(r"\s+AS\s+\$\(", re.IGNORECASE)
 QUALIFIER_END_RE = re.compile(r"\s*(?:[),]|$)")
 MAPPING_PREFIX_RE = re.compile(r"\bMapping\b", re.IGNORECASE)
+# CrossTable and Generic turn columns into attribute and value fields, so the
+# field names are not the column names.
+RESHAPE_PREFIX_RE = re.compile(r"\b(?:CrossTable|Generic)\b", re.IGNORECASE)
 # Single-quoted text is a string literal in a chart expression, not a field.
 # A quoted field can carry a derived-field suffix, as in [Date].autoCalendar.Year.
 EXPRESSION_NAME_RE = re.compile(
@@ -256,6 +259,8 @@ class ScriptTable(BaseModel):
     preceding_loads: List[PrecedingLoad] = []
     # A mapping table is only used by ApplyMap and dropped from the data model.
     mapping: bool = False
+    # A CrossTable or Generic load, whose fields cannot be traced to columns.
+    reshaped: bool = False
 
 
 class ScriptTableLineage(BaseModel):
@@ -582,6 +587,7 @@ class _ScriptParser(BaseModel):
     pending_label: Optional[str] = None
     pending_loads: List[PrecedingLoad] = []
     pending_mapping: bool = False
+    pending_reshaped: bool = False
     # A SELECT under a preceding LOAD that adds to an unknown table.
     pending_skip: bool = False
     # The table a Concatenate or Join without a target adds to.
@@ -603,6 +609,7 @@ class _ScriptParser(BaseModel):
 
     def _clear_pending(self) -> None:
         self.pending_mapping = False
+        self.pending_reshaped = False
         self.pending_label = None
         self.pending_loads = []
         self.pending_skip = False
@@ -677,6 +684,7 @@ class _ScriptParser(BaseModel):
         prefix = PREFIX_RE.match(statement)
         merge = MERGE_PREFIX_RE.search(prefix.group(0)) if prefix else None
         mapping = bool(prefix and MAPPING_PREFIX_RE.search(prefix.group(0)))
+        reshaped = bool(prefix and RESHAPE_PREFIX_RE.search(prefix.group(0)))
         if prefix:
             statement = statement[prefix.end() :]
         skip = False
@@ -701,6 +709,7 @@ class _ScriptParser(BaseModel):
                         sql=sql.group("sql"),
                         preceding_loads=self.pending_loads,
                         mapping=mapping or self.pending_mapping,
+                        reshaped=reshaped or self.pending_reshaped,
                     )
                 )
                 self.last_label = table_label
@@ -714,6 +723,7 @@ class _ScriptParser(BaseModel):
                 self.pending_label = label
                 self.pending_skip = skip
                 self.pending_mapping = mapping
+            self.pending_reshaped = self.pending_reshaped or reshaped
             self.pending_loads.append(_parse_load_fields(statement))
         else:
             if LOAD_RE.match(statement):
@@ -822,24 +832,32 @@ def apply_preceding_loads(
     """Rename SQL columns to the fields the LOAD statements above them produce,
     carrying each field's upstream columns."""
     for load in reversed(preceding_loads):
-        by_name = {
-            name.lower(): upstreams for name, upstreams in column_upstreams.items()
-        }
+        below = column_upstreams
         column_upstreams = {
             # A $(variable) may hold any of the columns below, so they are kept.
-            **(column_upstreams if load.keeps_all or load.unreadable else {}),
+            **(below if load.keeps_all or load.unreadable else {}),
             **{
                 field.name: list(
                     dict.fromkeys(
                         upstream
                         for source in field.sources
-                        for upstream in by_name.get(source.lower(), [])
+                        for upstream in _column_upstreams(below, source)
                     )
                 )
                 for field in load.fields
             },
         }
     return column_upstreams
+
+
+def _column_upstreams(columns: Dict[str, List[str]], name: str) -> List[str]:
+    """The upstreams of a column named exactly, or else in any case, since the
+    SQL parser may change its case. Columns that differ only in case make a
+    name in another case ambiguous, so it gets none."""
+    if name in columns:
+        return columns[name]
+    matches = [column for column in columns if column.lower() == name.lower()]
+    return columns[matches[0]] if len(matches) == 1 else []
 
 
 def _strip_expansions(expression: str) -> str:

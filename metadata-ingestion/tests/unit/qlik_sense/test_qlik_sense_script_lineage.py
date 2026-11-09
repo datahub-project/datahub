@@ -838,3 +838,45 @@ T: SQL SELECT * FROM db.s.t;
         ("Direct", True),
         ("T", False),
     ]
+
+
+@pytest.mark.parametrize(
+    "columns, expected",
+    [
+        pytest.param(
+            {"Amount": ["exact_urn"], "amount": ["lower_urn"]},
+            ["exact_urn"],
+            id="exact",
+        ),
+        pytest.param({"AMOUNT": ["upper_urn"]}, ["upper_urn"], id="other_case"),
+        pytest.param(
+            {"AMOUNT": ["upper_urn"], "amount": ["lower_urn"]}, [], id="ambiguous"
+        ),
+    ],
+)
+def test_preceding_load_source_column_case(
+    columns: Dict[str, List[str]], expected: List[str]
+) -> None:
+    (table,) = parse_load_script(
+        "Orders:\nLOAD Amount AS Net;\nSQL SELECT * FROM dbo.orders;"
+    )
+
+    assert apply_preceding_loads(table.preceding_loads, columns)["Net"] == expected
+
+
+@pytest.mark.parametrize(
+    "script",
+    [
+        pytest.param(
+            "T: CrossTable(Month, Sales) LOAD Region, Jan, Feb;\n"
+            "SQL SELECT Region, Jan, Feb FROM dbo.sales;",
+            id="crosstable_load",
+        ),
+        pytest.param(
+            "T: Generic SQL SELECT id, attr, val FROM dbo.facts;", id="generic"
+        ),
+    ],
+)
+def test_parse_load_script_marks_reshaped_tables(script: str) -> None:
+    (table,) = parse_load_script(script)
+    assert table.reshaped

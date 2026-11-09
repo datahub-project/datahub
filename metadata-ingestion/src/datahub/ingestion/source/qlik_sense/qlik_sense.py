@@ -1043,6 +1043,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     ref for ref in column.upstreams if ref.table in upstream_urns
                 )
             )
+        if script_table.reshaped:
+            # The fields of a CrossTable or Generic load are not its columns, so
+            # only table lineage is kept.
+            return
         for field, upstreams in apply_preceding_loads(
             script_table.preceding_loads, sql_columns
         ).items():
