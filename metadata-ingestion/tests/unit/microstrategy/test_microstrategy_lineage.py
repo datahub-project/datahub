@@ -8,6 +8,7 @@ from datahub.ingestion.source.microstrategy.config import (
 from datahub.ingestion.source.microstrategy.lineage import (
     MicroStrategyLineageExtractor,
     WarehouseLineageContext,
+    bind_visualization_column_sets,
     bind_visualizations_by_derived_objects,
     consolidation_attribute_ids,
     datahub_platform_for_source_type,
@@ -15,6 +16,7 @@ from datahub.ingestion.source.microstrategy.lineage import (
     metric_attribute_ids_from_model,
     metric_consolidation_ids_from_model,
     metric_fact_ids_from_model,
+    metric_formula_references,
     metric_metric_ids_from_model,
     parse_attribute_relationships,
     qualify_table_name,
@@ -429,6 +431,31 @@ def test_bind_visualizations_ignores_shared_catalog_ids() -> None:
     assert dashboard.visualizations[1].datasets == ["ds-a"]
 
 
+def test_bind_visualizations_matches_owner_ids_ignoring_case() -> None:
+    # The Modeling document and the dossier definition can spell a dataset
+    # GUID in different case.
+    derived_id = "A" * 32
+    dashboard = DashboardDefinition.model_validate(
+        {
+            "id": "dash-1",
+            "name": "Dash",
+            "datasets": [{"id": "ds-a", "name": "A"}, {"id": "ds-b", "name": "B"}],
+            "visualizations": [
+                {
+                    "key": "viz-derived",
+                    "name": "Derived",
+                    "metrics": [{"id": derived_id, "type": "metric"}],
+                }
+            ],
+        }
+    )
+
+    bound = bind_visualizations_by_derived_objects(dashboard, {derived_id: "DS-A"})
+
+    assert bound == 1
+    assert dashboard.visualizations[0].datasets == ["ds-a"]
+
+
 def test_warehouse_upstream_urns_partial_parse_failure_keeps_good_statements() -> None:
     extractor = _extractor()
     context = WarehouseLineageContext(
@@ -456,7 +483,7 @@ def _inference_dashboard(dataset_names: List[str]) -> "DashboardDefinition":
     return DashboardDefinition.model_validate(
         {
             "id": "dash-1",
-            "name": "Salon Sales To Plan",
+            "name": "Store Sales To Plan",
             "datasets": [
                 {
                     "id": f"ds-{index}",
@@ -489,7 +516,7 @@ def test_inference_matching_all_datasets_is_treated_as_unresolved() -> None:
             "Total Sales Yesterday",
         ]
     )
-    visualization = _grid_visualization("Salon Sales Yesterday")
+    visualization = _grid_visualization("Store Sales Yesterday")
 
     inputs = extractor.visualization_inputs("project-1", dashboard, visualization)
 
@@ -506,7 +533,7 @@ def test_inference_matching_both_datasets_of_a_pair_is_kept() -> None:
     dashboard = _inference_dashboard(
         ["Retail Sales Yesterday", "Service Sales Yesterday"]
     )
-    visualization = _grid_visualization("Salon Sales Yesterday")
+    visualization = _grid_visualization("Store Sales Yesterday")
 
     inputs = extractor.visualization_inputs("project-1", dashboard, visualization)
 
@@ -1019,3 +1046,481 @@ def test_warehouse_field_upstreams_from_sql_requires_final_select() -> None:
         ).field_upstreams
         == {}
     )
+
+
+def _compound_grid_dashboard(pages: List[str]) -> DashboardDefinition:
+    """A compound-grid dossier structurally mirroring the live shape: one
+    dataset per (family x page), one visualization per page whose column sets
+    are named by family. Shared metric/dimension ids repeat across every
+    dataset; each family's plan metric also appears in the combined dataset,
+    so ids discriminate the family but never the page."""
+    datasets = []
+    visualizations = []
+    for page in pages:
+        datasets.extend(
+            [
+                {
+                    "id": f"ds-store-{page.lower()}",
+                    "name": f"STORE SALES {page}",
+                    "availableObjects": {
+                        "metrics": [
+                            {"id": "M100", "name": "Net Amount"},
+                            {"id": "M200", "name": "Store Plan Amt"},
+                        ],
+                        "attributes": [
+                            {
+                                "id": "A100",
+                                "name": "Region Number",
+                                "forms": [{"id": "F100", "name": "NUMBER"}],
+                            }
+                        ],
+                    },
+                },
+                {
+                    "id": f"ds-web-{page.lower()}",
+                    "name": f"WEB SALES {page}",
+                    "availableObjects": {
+                        "metrics": [
+                            {"id": "M100", "name": "Net Amount"},
+                            {"id": "M300", "name": "Web Plan Amt"},
+                        ],
+                        "attributes": [
+                            {
+                                "id": "A100",
+                                "name": "Region Number",
+                                "forms": [{"id": "F100", "name": "NUMBER"}],
+                            }
+                        ],
+                    },
+                },
+                {
+                    "id": f"ds-combined-{page.lower()}",
+                    "name": f"COMBINED TOTALS {page}",
+                    "availableObjects": {
+                        "metrics": [
+                            {"id": "M100", "name": "Net Amount"},
+                            {"id": "M200", "name": "Store Plan Amt"},
+                            {"id": "M300", "name": "Web Plan Amt"},
+                        ],
+                        "attributes": [
+                            {
+                                "id": "A100",
+                                "name": "Region Number",
+                                "forms": [{"id": "F100", "name": "NUMBER"}],
+                            }
+                        ],
+                    },
+                },
+            ]
+        )
+        visualizations.append(
+            {
+                "key": f"viz-{page.lower()}",
+                "name": f"Sales {page}",
+                "visualizationType": "compound_grid",
+                "runtimeDefinition": {
+                    "definition": {
+                        "grid": {
+                            "columnSets": [
+                                {
+                                    "key": f"cs-store-{page.lower()}",
+                                    "name": "STORE",
+                                    "columns": [
+                                        {
+                                            "type": "attribute",
+                                            "id": "LBL1",
+                                            "name": f"STORE {page}",
+                                        },
+                                        {
+                                            "type": "templateMetrics",
+                                            "elements": [
+                                                {
+                                                    "type": "metric",
+                                                    "id": "M100",
+                                                    "name": "Net Amount",
+                                                },
+                                                {
+                                                    "type": "metric",
+                                                    "id": "M200",
+                                                    "name": "Store Plan Amt",
+                                                },
+                                                {
+                                                    "type": "metric",
+                                                    "id": f"D100-{page}",
+                                                    "name": "Pct To Plan",
+                                                    "derived": True,
+                                                    "dataType": "double",
+                                                },
+                                            ],
+                                        },
+                                    ],
+                                },
+                                {
+                                    "key": f"cs-web-{page.lower()}",
+                                    "name": "WEB",
+                                    "columns": [
+                                        {
+                                            "type": "templateMetrics",
+                                            "elements": [
+                                                {
+                                                    "type": "metric",
+                                                    "id": "M100",
+                                                    "name": "Net Amount",
+                                                },
+                                                {
+                                                    "type": "metric",
+                                                    "id": "M300",
+                                                    "name": "Web Plan Amt",
+                                                },
+                                                {
+                                                    "type": "metric",
+                                                    "id": f"D200-{page}",
+                                                    "name": "Pct To Plan",
+                                                    "derived": True,
+                                                    "dataType": "double",
+                                                },
+                                            ],
+                                        },
+                                    ],
+                                },
+                                # "TOTAL SALES" never token- or id-matches the
+                                # "COMBINED TOTALS" dataset (TOTAL is a stop
+                                # word), so it stays unbound.
+                                {
+                                    "key": f"cs-total-{page.lower()}",
+                                    "name": "TOTAL SALES",
+                                    "columns": [
+                                        {
+                                            "type": "templateMetrics",
+                                            "elements": [
+                                                {
+                                                    "type": "metric",
+                                                    "id": "M100",
+                                                    "name": "Net Amount",
+                                                },
+                                                {
+                                                    "type": "metric",
+                                                    "id": f"D300-{page}",
+                                                    "name": "Pct To Plan",
+                                                    "derived": True,
+                                                    "dataType": "double",
+                                                },
+                                            ],
+                                        },
+                                    ],
+                                },
+                            ]
+                        }
+                    }
+                },
+            }
+        )
+    return DashboardDefinition.from_api_response(
+        object_id="dash-grid",
+        object_name="Sales Overview",
+        response={
+            "definition": {
+                "datasets": datasets,
+                "chapters": [
+                    {
+                        "key": "ch-1",
+                        "name": "SALES",
+                        "pages": [
+                            {
+                                "key": f"pg-{page.lower()}",
+                                "name": page,
+                                "visualizations": [visualization],
+                            }
+                            for page, visualization in zip(
+                                pages, visualizations, strict=True
+                            )
+                        ],
+                    }
+                ],
+            }
+        },
+    )
+
+
+def test_bind_visualization_column_sets_by_page_name_and_ids() -> None:
+    dashboard = _compound_grid_dashboard(["WTD", "MTD"])
+    visualization = next(
+        viz for viz in dashboard.visualizations if viz.key == "viz-wtd"
+    )
+
+    binding = bind_visualization_column_sets(dashboard, visualization)
+
+    # "SALES" name-matches the store and web datasets and M100 id-matches all
+    # three, so the total group's candidates are ambiguous and it stays
+    # unbound, even though one page dataset is left over.
+    assert binding.dataset_id_by_column_set == {
+        "cs-store-wtd": "ds-store-wtd",
+        "cs-web-wtd": "ds-web-wtd",
+    }
+    assert binding.unbound_column_sets == ["cs-total-wtd"]
+    assert binding.dataset_ids == ["ds-store-wtd", "ds-web-wtd"]
+
+
+def test_bind_visualization_column_sets_ambiguous_group_stays_unbound() -> None:
+    dashboard = _compound_grid_dashboard(["WTD", "MTD"])
+    visualization = Visualization.model_validate(
+        {
+            "key": "viz-lone",
+            "name": "Sales Summary",
+            # No page context and a group name matching several datasets:
+            # ambiguous.
+            "runtimeDefinition": {
+                "definition": {
+                    "grid": {
+                        "columnSets": [
+                            {
+                                "key": "cs-lone",
+                                "name": "SALES",
+                                "columns": [
+                                    {
+                                        "type": "templateMetrics",
+                                        "elements": [
+                                            {
+                                                "type": "metric",
+                                                "id": "M100",
+                                                "name": "Net Amount",
+                                            }
+                                        ],
+                                    }
+                                ],
+                            }
+                        ]
+                    }
+                }
+            },
+        }
+    )
+
+    binding = bind_visualization_column_sets(dashboard, visualization)
+
+    assert binding.dataset_id_by_column_set == {}
+    assert binding.unbound_column_sets == ["cs-lone"]
+
+
+def test_visualization_inputs_bound_by_column_sets() -> None:
+    extractor = _extractor()
+    dashboard = _compound_grid_dashboard(["WTD", "MTD"])
+    visualization = next(
+        viz for viz in dashboard.visualizations if viz.key == "viz-wtd"
+    )
+
+    inputs = extractor.visualization_inputs("project-1", dashboard, visualization)
+
+    assert [urn.split(",")[1] for urn in inputs] == [
+        "project-1.dash-grid.ds-store-wtd",
+        "project-1.dash-grid.ds-web-wtd",
+    ]
+    assert extractor.report.visualizations_bound_by_column_sets == 1
+    assert extractor.report.column_sets_unbound == 1
+
+
+def test_metric_formula_references_parses_and_dedupes() -> None:
+    assert metric_formula_references(
+        "(({Net Amount} - {Net Amount LY}) / Abs({Net Amount LY})) * 100"
+    ) == ["Net Amount", "Net Amount LY"]
+    assert metric_formula_references("Sum(NET_AMT)") == []
+    assert metric_formula_references("") == []
+
+
+def test_visualization_inputs_skip_unresolved_explicit_datasets() -> None:
+    # Named datasets that are not on the dashboard must not fall through to
+    # single-dataset or inferred binding.
+    extractor = _extractor()
+    dashboard = _inference_dashboard(["Sales"])
+    visualization = Visualization.model_validate(
+        {"key": "viz-1", "name": "Sales", "datasets": [{"id": "ds-missing"}]}
+    )
+
+    assert extractor.visualization_inputs("project-1", dashboard, visualization) == []
+
+
+def test_visualization_inputs_match_dataset_ids_ignoring_case() -> None:
+    extractor = _extractor()
+    dashboard = _inference_dashboard(["Sales", "Margin"])
+    dataset_id = dashboard.datasets[0].id
+    visualization = Visualization.model_validate(
+        {"key": "viz-1", "name": "Sales", "datasets": [{"id": dataset_id.upper()}]}
+    )
+
+    inputs = extractor.visualization_inputs("project-1", dashboard, visualization)
+
+    assert inputs == [
+        extractor.dataset_urn("project-1", dashboard.id, dashboard.datasets[0])
+    ]
+    dashboard.visualizations = [visualization]
+    assert extractor.unresolved_visualization_datasets(dashboard) == {}
+
+
+def test_column_set_name_match_contradicted_by_member_ids_stays_unbound() -> None:
+    dashboard = _compound_grid_dashboard(["WTD"])
+    visualization = Visualization.model_validate(
+        {
+            "key": "viz-1",
+            "pageName": "WTD",
+            "runtimeDefinition": {
+                "definition": {
+                    "grid": {
+                        "columnSets": [
+                            {
+                                # Names the store dataset, but its only member
+                                # metric lives in none of the page's datasets.
+                                "key": "cs-store",
+                                "name": "STORE",
+                                "columns": [
+                                    {
+                                        "type": "templateMetrics",
+                                        "elements": [
+                                            {"type": "metric", "id": "M-OTHER"}
+                                        ],
+                                    }
+                                ],
+                            }
+                        ]
+                    }
+                }
+            },
+        }
+    )
+
+    binding = bind_visualization_column_sets(dashboard, visualization)
+
+    assert binding.unbound_column_sets == ["cs-store"]
+
+
+def test_column_sets_without_dashboard_datasets_are_unbound() -> None:
+    dashboard = DashboardDefinition.from_api_response(
+        object_id="dash-1",
+        object_name="Empty",
+        response={"definition": {"datasets": []}},
+    )
+    visualization = Visualization.model_validate(
+        {
+            "key": "viz-1",
+            "runtimeDefinition": {
+                "definition": {"grid": {"columnSets": [{"key": "cs-1", "name": "A"}]}}
+            },
+        }
+    )
+
+    binding = bind_visualization_column_sets(dashboard, visualization)
+
+    assert binding.unbound_column_sets == ["cs-1"]
+
+
+def test_visualization_inputs_counts_unbound_column_sets() -> None:
+    extractor = _extractor()
+    dashboard = _compound_grid_dashboard(["WTD", "MTD"])
+    visualization = Visualization.model_validate(
+        {
+            "key": "viz-mixed",
+            "name": "Sales Mixed",
+            "pageName": "WTD",
+            "runtimeDefinition": {
+                "definition": {
+                    "grid": {
+                        "columnSets": [
+                            {
+                                "key": "cs-store",
+                                "name": "STORE",
+                                "columns": [
+                                    {
+                                        "type": "templateMetrics",
+                                        "elements": [
+                                            {
+                                                "type": "metric",
+                                                "id": "M200",
+                                                "name": "Store Plan Amt",
+                                            }
+                                        ],
+                                    }
+                                ],
+                            },
+                            # Matches nothing.
+                            {"key": "cs-zzz", "name": "ZZZ"},
+                        ]
+                    }
+                }
+            },
+        }
+    )
+
+    inputs = extractor.visualization_inputs("project-1", dashboard, visualization)
+
+    assert len(inputs) == 1
+    assert extractor.report.column_sets_unbound == 1
+    assert extractor.report.visualizations_bound_by_column_sets == 1
+
+
+def test_nameless_and_colliding_column_sets_are_unbound_not_guessed() -> None:
+    dashboard = _compound_grid_dashboard(["WTD"])
+    visualization = Visualization.model_validate(
+        {
+            "key": "viz-odd",
+            "name": "Sales Odd",
+            "pageName": "WTD",
+            "runtimeDefinition": {
+                "definition": {
+                    "grid": {
+                        "columnSets": [
+                            # No key, no name: no join identifier.
+                            {"columns": []},
+                            # Two groups sharing one name and no keys collide.
+                            {"name": "STORE"},
+                            {"name": "STORE"},
+                        ]
+                    }
+                }
+            },
+        }
+    )
+
+    binding = bind_visualization_column_sets(dashboard, visualization)
+
+    assert binding.dataset_id_by_column_set == {}
+    assert len(binding.unbound_column_sets) == 3
+
+
+def test_page_name_without_match_falls_back_to_all_datasets() -> None:
+    dashboard = _compound_grid_dashboard(["WTD"])
+    visualization = Visualization.model_validate(
+        {
+            "key": "viz-qtd",
+            "name": "Sales QTD",
+            # No dataset name contains QTD; the page filter must widen to all
+            # datasets instead of binding nothing.
+            "pageName": "QTD",
+            "runtimeDefinition": {
+                "definition": {
+                    "grid": {
+                        "columnSets": [
+                            {
+                                "key": "cs-store",
+                                "name": "STORE",
+                                "columns": [
+                                    {
+                                        "type": "templateMetrics",
+                                        "elements": [
+                                            {
+                                                "type": "metric",
+                                                "id": "M200",
+                                                "name": "Store Plan Amt",
+                                            }
+                                        ],
+                                    }
+                                ],
+                            }
+                        ]
+                    }
+                }
+            },
+        }
+    )
+
+    binding = bind_visualization_column_sets(dashboard, visualization)
+
+    assert binding.dataset_id_by_column_set == {"cs-store": "ds-store-wtd"}
