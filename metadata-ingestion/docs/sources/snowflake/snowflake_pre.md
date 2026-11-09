@@ -78,7 +78,10 @@ grant usage on all stages in database "<your-database>" to role datahub_role;
 grant usage on future stages in database "<your-database>" to role datahub_role;
 grant monitor on all tasks in database "<your-database>" to role datahub_role;
 grant monitor on future tasks in database "<your-database>" to role datahub_role;
-grant monitor on all pipes in database "<your-database>" to role datahub_role;
+// Snowflake does not allow bulk grants (ON ALL) on pipes. Grant MONITOR on each existing pipe individually:
+grant monitor on pipe "<your-database>"."<your-schema>"."<your-pipe>" to role datahub_role;
+// Alternatively, grant the account-level MONITOR EXECUTION privilege, which lets the role see all pipes (and tasks) in the account:
+// grant monitor execution on account to role datahub_role;
 grant monitor on future pipes in database "<your-database>" to role datahub_role;
 ```
 
@@ -99,7 +102,7 @@ grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 - `usage` on `streamlit` is required to show streamlits in a database. See the schema-level `usage` example above.
 - `usage` on `stages` is required to list stages via `SHOW STAGES`. Only needed if `include_stages: true` or `include_pipes: true`.
 - `monitor` on `tasks` is required to list tasks via `SHOW TASKS`. Only needed if `include_tasks: true`.
-- `monitor` on `pipes` is required to list pipes via `SHOW PIPES`. Only needed if `include_pipes: true`.
+- `monitor` on `pipes` is required to list pipes via `SHOW PIPES`. Only needed if `include_pipes: true`. Snowflake does not support bulk grants on pipes, so existing pipes need a per-pipe `grant monitor on pipe ...` (future grants are fine) or the account-level `MONITOR EXECUTION` privilege. Pipes without one of these are missing from `SHOW PIPES` and therefore not ingested.
 - `monitor` on `dynamic tables` is required for DataHub to extract their lineage, both table-level and column-level.
 
 This represents the bare minimum privileges required to extract databases, schemas, views, and tables from Snowflake.
