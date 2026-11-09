@@ -69,6 +69,7 @@ class _Qlik:
         self.engine_fails_for: Set[str] = set()
         self.objects_fail = False
         self.apps_without_sheets: Set[str] = set()
+        self.failing_streams: Set[str] = set()
 
     def qrs_get(
         self, url: str, params: Optional[Dict[str, str]] = None, **_: object
@@ -79,6 +80,11 @@ class _Qlik:
             return FakeResponse([STREAM, SECOND_STREAM])
         if url.endswith("/app/full"):
             assert params is not None
+            if any(
+                params["filter"] == f"stream.id eq {stream}"
+                for stream in self.failing_streams
+            ):
+                return FakeResponse({}, status_code=503)
             return FakeResponse(
                 [
                     app
@@ -565,7 +571,7 @@ def test_checkpoint_without_entities_is_not_trusted(
     assert qlik.engine_opens == 2
 
 
-def test_unchanged_app_whose_checkpoint_fails_to_reload_is_read_next_run(
+def test_unchanged_app_whose_checkpoint_fails_to_reload_keeps_its_last_read(
     mock_datahub_graph: MagicMock,  # noqa: F811
 ) -> None:
     qlik = _Qlik()
@@ -586,14 +592,17 @@ def test_unchanged_app_whose_checkpoint_fails_to_reload_is_read_next_run(
 
     with patch.object(QlikAppStateHandler, "previous", fails_after_skip_check):
         second, _ = _run(mock_datahub_graph, qlik, "run-2")
-    third, _ = _run(mock_datahub_graph, qlik, "run-3")
+    third, third_wus = _run(mock_datahub_graph, qlik, "run-3")
 
     assert second.reporter.apps_skipped_unchanged == 1
     assert "Unable to load the last checkpoint of a Qlik app" in [
         failure.title for failure in second.reporter.failures
     ]
-    assert third.reporter.apps_skipped_unchanged == 0
-    assert qlik.engine_opens == 2
+    # The failed run carries the app's last read forward, as it does the stale
+    # entity removal state, so the app is still unchanged.
+    assert third.reporter.apps_skipped_unchanged == 1
+    assert not _soft_deleted_urns(third_wus)
+    assert qlik.engine_opens == 1
 
 
 def test_partial_read_without_last_read_is_not_recorded(
@@ -717,3 +726,31 @@ def test_oversized_app_checkpoint_is_reported(
     assert "Qlik app checkpoint is too large to save" in [
         warning.title for warning in first.reporter.warnings
     ]
+
+
+def test_failed_run_keeps_last_read_of_apps_it_did_not_reach(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    qlik.other_apps = [{**SECOND_APP, "stream": {"id": "stream-2", "name": "Finance"}}]
+    datahub = _DataHub(mock_datahub_graph)
+
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1", skip_unchanged_apps=False)
+    datahub.write(first_wus)
+    qlik.failing_streams = {"stream-2"}
+    second, _ = _run(mock_datahub_graph, qlik, "run-2", skip_unchanged_apps=False)
+    qlik.failing_streams = set()
+    qlik.engine_fails_for = {"app-2"}
+    third, third_wus = _run(
+        mock_datahub_graph, qlik, "run-3", skip_unchanged_apps=False
+    )
+
+    assert "Unable to read from Qlik" in [
+        failure.title for failure in second.reporter.failures
+    ]
+    assert not third.reporter.failures
+    assert "Unable to fully read Qlik app" in [
+        warning.title for warning in third.reporter.warnings
+    ]
+    assert "urn:li:dashboard:(qlik-sense,sheet-of-app-2)" in _stale_urns(third)
+    assert not _soft_deleted_urns(third_wus)
