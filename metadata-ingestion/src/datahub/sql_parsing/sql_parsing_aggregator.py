@@ -107,8 +107,8 @@ _DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
 MAX_UPSTREAM_TABLES_COUNT = 300
 MAX_FINEGRAINEDLINEAGE_COUNT = 2000
 # Opt-in cap on the queries considered per downstream (0 = unlimited); see
-# _select_lineage_query_ids. The lossless protection against hot downstreams is the
-# lazy walk in _gen_lineage_for_downstream, not this cap.
+# _select_lineage_query_ids. Memory for hot downstreams is bounded by the lazy walk
+# in _gen_lineage_for_downstream, not by this cap.
 MAX_QUERIES_PER_DOWNSTREAM = get_sql_agg_max_queries_per_downstream()
 SLOW_LINEAGE_DOWNSTREAM_SECONDS = 60.0
 
@@ -1688,8 +1688,15 @@ class SqlParsingAggregator(Closeable):
                 len(upstreams) >= MAX_UPSTREAM_TABLES_COUNT
                 and num_cll_groups >= MAX_FINEGRAINEDLINEAGE_COUNT
             ):
-                # Both output caps are full. A later query can only add entries past
-                # the caps, which the truncation below drops anyway, so stop here.
+                # Both output caps are full, so stop resolving the rest of this
+                # table's queries. Upstream tables come out the same as with a full
+                # walk: later queries could only append tables past the cap. Column
+                # lineage can differ. A full walk also merges lower-precedence queries
+                # that add a second upstream to an already-seen column; those edges
+                # sit next to that column's other edges, inside the cap, and push
+                # later columns out when the list is truncated below. Stopping keeps
+                # the edges of the highest-precedence queries instead. Only tables
+                # over both caps are affected, and everything kept is real lineage.
                 self.report.num_downstreams_with_lineage_walk_stopped_early += 1
                 break
 
@@ -1729,8 +1736,9 @@ class SqlParsingAggregator(Closeable):
                     type=queries_map[query_id].lineage_type,
                     query=self._query_urn_if_emitted(queries_map[query_id]),
                     # Long-standing behaviour: `created` comes from the last query
-                    # walked, not from the query that produced this upstream. Kept
-                    # as-is so this change does not alter emitted aspects.
+                    # walked, not from the query that produced this upstream. When the
+                    # walk stops early because both caps are full, that is the last
+                    # query before the stop, not the lowest-precedence query overall.
                     created=(
                         last_query or queries_map[query_id]
                     ).make_created_audit_stamp(),
