@@ -28,7 +28,6 @@
             <!-- Container-free coverage of the entity index write path and the incremental reindex: their
                  packages are in no wired suite, so they are listed one by one. -->
             <class name="com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3StrategyTest"/>
-            <class name="com.linkedin.metadata.service.CatchUpBatchRebuilderTest"/>
             <class name="com.linkedin.metadata.service.UpdateIndicesServiceTest"/>
             <class name="com.linkedin.metadata.service.UpdateIndicesUpgradeStrategyTest"/>
             <class name="com.linkedin.metadata.service.IncrementalReindexWriteTargetsTest"/>

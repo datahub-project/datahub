@@ -483,6 +483,8 @@ public class ESUtilsTest {
             .toString();
 
     assertTrue(result.contains("\"terms\""), result);
+    assertTrue(result.contains("\"platform.keyword\""), result);
+    assertFalse(result.contains("platform_urn"), result);
     assertTrue(result.contains("urn:li:dataPlatform:hive"), result);
     assertTrue(result.contains("urn:li:dataPlatform:snowflake"), result);
   }

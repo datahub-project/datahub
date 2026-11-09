@@ -1,8 +1,10 @@
 package com.linkedin.metadata.search.elasticsearch.query.template;
 
 import com.linkedin.search.template.SearchTemplateComponentMode;
+import com.linkedin.search.template.SearchTemplateRanking;
 import java.util.Map;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * One registered template component. Implementations are registered by name and contract version.
@@ -18,13 +20,10 @@ public interface SearchTemplateComponent {
 
   /**
    * Candidate window to fetch for this request. Called before the engine query. The window can
-   * depend on the query, so it is not fixed at write time.
+   * depend on the query and resolved ranking, so it is not fixed at write time.
    */
-  int plan(@Nonnull SearchTemplateComponentRequest request, @Nonnull Map<String, String> config);
-
-  /**
-   * Ranking or retrieval for one rung. POST_PROCESS may only reorder and slice the fetched hits.
-   */
-  @Nonnull
-  SearchTemplateComponentPage execute(@Nonnull SearchTemplateComponentRequest request);
+  int plan(
+      @Nonnull SearchTemplateComponentRequest request,
+      @Nonnull Map<String, String> config,
+      @Nullable SearchTemplateRanking ranking);
 }
