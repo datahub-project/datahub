@@ -12,6 +12,15 @@ import org.codehaus.plexus.util.StringUtils;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 
 public class AdminClientFactory {
+  /**
+   * Builds an admin client against the producer-side cluster.
+   *
+   * <p>Under MSK IAM this needs the shared AWS credentials installed by {@code
+   * defaultAwsCredentialsProvider}, so the calling Spring context must load {@code
+   * AwsClientFactory} and create that bean first: either build the client after context refresh, or
+   * annotate the calling configuration with {@code @Import(AwsClientFactory.class)} and
+   * {@code @DependsOn("defaultAwsCredentialsProvider")}.
+   */
   public static AdminClient buildKafkaAdminClient(
       KafkaConfiguration kafkaConfiguration,
       final KafkaProperties kafkaProperties,
