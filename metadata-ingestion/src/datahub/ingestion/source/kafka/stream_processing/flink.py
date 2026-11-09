@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Union
 from urllib.parse import urlsplit
 
 import requests
@@ -10,6 +10,7 @@ from typing_extensions import LiteralString
 from datahub.ingestion.source.kafka.kafka_config import FlinkLineageConfig
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.stream_processing.constants import (
+    FLINK_COMPUTE_POOL_PARAM,
     FLINK_DEFAULT_PAGE_SIZE,
     FLINK_HOST_TEMPLATE,
     FLINK_LIVE_PHASES,
@@ -51,6 +52,7 @@ class FlinkStatementsClient:
         report: KafkaSourceReport,
         page_size: int = FLINK_DEFAULT_PAGE_SIZE,
         session: Optional[requests.Session] = None,
+        compute_pool_id: Optional[str] = None,
     ) -> None:
         self.statements_url = statements_url
         self.timeout_seconds = timeout_seconds
@@ -61,11 +63,17 @@ class FlinkStatementsClient:
         self.session.headers.update({"Accept": "application/json"})
         self.session.auth = credentials
         self._host = urlsplit(statements_url).netloc
+        self.compute_pool_id = compute_pool_id
 
     def list_statements(self) -> List[object]:
         statements: List[object] = []
         url: Optional[str] = self.statements_url
-        params: Optional[Dict[str, int]] = {FLINK_PAGE_SIZE_PARAM: self.page_size}
+        first_page_params: Dict[str, Union[str, int]] = {
+            FLINK_PAGE_SIZE_PARAM: self.page_size
+        }
+        if self.compute_pool_id:
+            first_page_params[FLINK_COMPUTE_POOL_PARAM] = self.compute_pool_id
+        params: Optional[Dict[str, Union[str, int]]] = first_page_params
         pages = 0
         while url and pages < FLINK_MAX_PAGES:
             page = self._fetch(url, params)
@@ -97,7 +105,9 @@ class FlinkStatementsClient:
                 f"over plain HTTP: {parts.scheme}://{parts.netloc}"
             )
 
-    def _fetch(self, url: str, params: Optional[Dict[str, int]]) -> FlinkStatementsPage:
+    def _fetch(
+        self, url: str, params: Optional[Dict[str, Union[str, int]]]
+    ) -> FlinkStatementsPage:
         # Errors propagate: the caller reports them as a failure, which stops
         # stale-entity removal from treating every Flink job as deleted. Redirects
         # are not followed, so credentials never leave the configured host.
@@ -187,13 +197,15 @@ class FlinkLineageExtractor:
             return None
         name = statement.name
         spec = statement.spec
+        # The listing is already filtered by pool; this also drops rows whose pool
+        # cannot be told, before anything about them is reported.
+        if self.config.compute_pool_id and (
+            spec is None or spec.compute_pool_id != self.config.compute_pool_id
+        ):
+            return None
         if spec is None or not spec.statement:
             # It may have had a job last run; a failure keeps it from being deleted.
             self._fail(name, "Flink statement has no SQL text in the API response")
-            return None
-        if self.config.compute_pool_id and spec.compute_pool_id != (
-            self.config.compute_pool_id
-        ):
             return None
 
         phase = statement.status.phase if statement.status else None
@@ -336,4 +348,5 @@ def build_flink_client(
         timeout_seconds=config.timeout_seconds,
         report=report,
         session=session,
+        compute_pool_id=config.compute_pool_id,
     )
