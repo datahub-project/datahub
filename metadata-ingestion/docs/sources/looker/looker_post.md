@@ -34,7 +34,9 @@ source:
         env: DEV # optional, defaults to the top-level env
 ```
 
-Keys are LookML project names. A view from an imported project is keyed by the imported project's name. Projects that are not listed keep the top-level `platform_instance` and `env`. Dashboards, charts and explores are not affected.
+Keys are LookML project names. A view from an imported project is keyed by the imported project's name. Projects that are not listed, and fields an entry leaves out, keep the top-level `platform_instance` and `env`. Dashboards, charts and explores are not affected.
+
+The `lookml` source accepts the same option. Use it there when a recipe references views of an imported project that another `lookml` recipe ingests under a different instance; the views a recipe emits and its view lineage then use the same URNs.
 
 #### Probe support
 

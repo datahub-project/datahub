@@ -269,16 +269,12 @@ class LookerViewId:
 
         dataset_name = config.view_naming_pattern.replace_variables(n_mapping)
 
-        project_instance = config.project_to_platform_instance.get(self.project_name)
+        platform_detail = config.view_platform_detail(self.project_name)
         generated_urn = builder.make_dataset_urn_with_platform_instance(
             platform=config.platform_name,
             name=dataset_name,
-            platform_instance=(
-                project_instance.platform_instance
-                if project_instance and project_instance.platform_instance is not None
-                else config.platform_instance
-            ),
-            env=(project_instance.env if project_instance else None) or config.env,
+            platform_instance=platform_detail.platform_instance,
+            env=platform_detail.env,
         )
 
         logger.debug(

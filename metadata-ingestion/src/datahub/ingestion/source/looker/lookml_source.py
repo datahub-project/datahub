@@ -743,12 +743,15 @@ class LookMLSource(StatefulIngestionSourceBase):
             looker_view
         )
 
+        platform_detail = self.source_config.view_platform_detail(
+            looker_view.id.project_name
+        )
         yield Dataset(
             platform=self.source_config.platform_name,
             name=looker_view.id.get_view_dataset_name(self.source_config),
             display_name=looker_view.id.view_name,
-            platform_instance=self.source_config.platform_instance,
-            env=self.source_config.env,
+            platform_instance=platform_detail.platform_instance,
+            env=platform_detail.env,
             subtype=DatasetSubTypes.VIEW,
             parent_container=looker_view.id.get_view_dataset_parent_container(
                 self.source_config

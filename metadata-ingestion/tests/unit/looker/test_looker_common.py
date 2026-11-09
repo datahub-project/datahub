@@ -300,11 +300,24 @@ class TestLookerViewIdProjectPlatformInstance:
             "urn:li:dataset:(urn:li:dataPlatform:looker,looker_prod.marketing.view.orders,PROD)"
         )
 
-    def test_invalid_env_is_rejected(self) -> None:
-        with pytest.raises(ValueError):
-            LookerCommonConfig.model_validate(
-                {"project_to_platform_instance": {"sales": {"env": "NOT_AN_ENV"}}}
-            )
+    def test_env_only_override_keeps_the_top_level_instance(self) -> None:
+        config = LookerCommonConfig.model_validate(
+            {
+                "platform_instance": "looker_prod",
+                "env": "DEV",
+                "project_to_platform_instance": {
+                    "sales": {"env": "QA"},
+                    "finance": {"platform_instance": "lookml_finance"},
+                },
+            }
+        )
+
+        assert self._urn("sales", config) == (
+            "urn:li:dataset:(urn:li:dataPlatform:looker,looker_prod.sales.view.orders,QA)"
+        )
+        assert self._urn("finance", config) == (
+            "urn:li:dataset:(urn:li:dataPlatform:looker,lookml_finance.finance.view.orders,DEV)"
+        )
 
 
 class TestResolveViewLocations:
@@ -543,9 +556,7 @@ class TestFromApiImportedViewProject:
         source_config.env = real_config.env
         source_config.platform_instance = real_config.platform_instance
         source_config.view_naming_pattern = real_config.view_naming_pattern
-        source_config.project_to_platform_instance = (
-            real_config.project_to_platform_instance
-        )
+        source_config.view_platform_detail = real_config.view_platform_detail
         source_config.extract_column_level_lineage = (
             real_config.extract_column_level_lineage
         )

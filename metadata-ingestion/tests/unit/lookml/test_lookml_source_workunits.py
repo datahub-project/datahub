@@ -296,6 +296,34 @@ class TestLookMLSourceEmission:
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,warehouse.analytics.orders,PROD),count)"
         ]
 
+    def test_mapped_project_emits_views_and_lineage_under_one_urn(
+        self, project: pathlib.Path
+    ) -> None:
+        run = run_source(
+            base_config(
+                project,
+                platform_instance="lookml_default",
+                project_to_platform_instance={
+                    "my_project": {"platform_instance": "lookml_sales", "env": "QA"}
+                },
+            )
+        )
+        orders_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:looker,"
+            "lookml_sales.my_project.view.orders,QA)"
+        )
+
+        assert orders_urn in run.urns_with(ViewPropertiesClass)
+        lineage = run.aspects(UpstreamLineageClass)[orders_urn]
+        assert isinstance(lineage, UpstreamLineageClass)
+        assert lineage.fineGrainedLineages
+        downstream_datasets = {
+            downstream.split("(", 1)[1].rsplit(",", 1)[0]
+            for fgl in lineage.fineGrainedLineages
+            for downstream in fgl.downstreams or []
+        }
+        assert downstream_datasets == {orders_urn}
+
     def test_derived_sql_view_lineage_and_view_logic(
         self, project: pathlib.Path
     ) -> None:

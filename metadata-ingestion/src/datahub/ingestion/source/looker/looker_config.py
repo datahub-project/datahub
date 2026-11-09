@@ -26,6 +26,7 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.source_common import (
     EnvConfigMixin,
+    PlatformDetail,
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
@@ -135,26 +136,6 @@ class LookerViewNamingPattern(NamingPattern):
 
 
 # TODO: deprecate browse_pattern configs
-class LookMLProjectPlatformInstance(ConfigModel):
-    platform_instance: Optional[str] = Field(
-        default=None,
-        description="Platform instance of the LookML recipe that ingests this "
-        "project's views.",
-    )
-    env: Optional[str] = Field(
-        default=None,
-        description="Environment of that recipe. Leave empty to use the top-level "
-        "`env`.",
-    )
-
-    @field_validator("env", mode="after")
-    @classmethod
-    def env_must_be_one_of(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            return EnvConfigMixin.env_must_be_one_of(v)
-        return v
-
-
 class LookerCommonConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
     explore_naming_pattern: LookerNamingPattern = pydantic.Field(
         description=f"Pattern for providing dataset names to explores. {LookerNamingPattern.allowed_docstring()}",
@@ -192,16 +173,33 @@ class LookerCommonConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
         True,
         description="When enabled, extracts column-level lineage from Views and Explores",
     )
-    project_to_platform_instance: Dict[str, LookMLProjectPlatformInstance] = Field(
+    project_to_platform_instance: Dict[str, PlatformDetail] = Field(
         default_factory=dict,
         description="Platform instance (and optionally env) of the views of each "
         "LookML project, keyed by project name. Use this when LookML projects "
-        "are ingested by separate `lookml` recipes with different "
-        "`platform_instance` values, so the view URNs this recipe references "
-        "match the ones those recipes emit. A view from an imported project is "
-        "keyed by the imported project's name. Projects not listed use the "
-        "top-level `platform_instance` and `env`.",
+        "are ingested under different `platform_instance` values, so view URNs "
+        "match across the `looker` and `lookml` recipes that reference them. A "
+        "view from an imported project is keyed by the imported project's name. "
+        "Projects not listed, and fields not set on an entry, use the top-level "
+        "`platform_instance` and `env`.",
     )
+
+    def view_platform_detail(self, project_name: str) -> PlatformDetail:
+        # PlatformDetail.env defaults to PROD, so only fields set explicitly on
+        # the entry override the recipe's own platform_instance and env.
+        mapped = self.project_to_platform_instance.get(project_name)
+        if mapped is None:
+            return PlatformDetail(
+                platform_instance=self.platform_instance, env=self.env
+            )
+        return PlatformDetail(
+            platform_instance=(
+                mapped.platform_instance
+                if "platform_instance" in mapped.model_fields_set
+                else self.platform_instance
+            ),
+            env=mapped.env if "env" in mapped.model_fields_set else self.env,
+        )
 
 
 def _get_bigquery_definition(

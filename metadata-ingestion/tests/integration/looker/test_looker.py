@@ -27,6 +27,7 @@ from looker_sdk.sdk.api40.models import (
     WriteQuery,
 )
 
+from datahub.configuration.source_common import PlatformDetail
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.run.pipeline import Pipeline, PipelineInitError
@@ -1457,7 +1458,9 @@ def test_upstream_cll(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         config.platform_name = "snowflake"
         config.platform_instance = "sales"
         config.env = "DEV"
-        config.project_to_platform_instance = {}
+        config.view_platform_detail.return_value = PlatformDetail(
+            platform_instance="sales", env="DEV"
+        )
 
         looker_explore: Optional[LookerExplore] = looker_common.LookerExplore.from_api(
             model="fake",
