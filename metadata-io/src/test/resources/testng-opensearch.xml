@@ -70,6 +70,8 @@
             <class name="com.linkedin.metadata.search.query.ESSearchDAORawEntityTest"/>
             <class name="com.linkedin.metadata.service.UpdateGraphIndicesServiceTest"/>
             <class name="com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilderTest"/>
+            <!-- Container-free unit test of V3 field-name/alias conflict detection. -->
+            <class name="com.linkedin.metadata.search.elasticsearch.index.entity.v3.ConflictResolverTest"/>
             <!-- Ratchet against new getEntitySpec(<urn>.getEntityType()) lookups. -->
             <class name="com.linkedin.metadata.lint.UrnDerivedRegistryLookupLintTest"/>
             <!-- Container-free unit tests for the non-entity index family migration (write mirror,
