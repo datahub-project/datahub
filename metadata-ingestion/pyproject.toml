@@ -276,7 +276,7 @@ databricks = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.22.0",
     "sqlparse>=0.6.0,<1.0.0",
-    "tzdata>=2022.7",
+    "tzdata>=2022.7,<2030",
 ]
 
 datahub = [
@@ -505,7 +505,7 @@ fivetran = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.22.0",
     "tenacity>=8.0.1,<9.0.0",
-    "tzdata>=2022.7",
+    "tzdata>=2022.7,<2030",
     "wcmatch>=10.1,<11.0.0",
 ]
 
@@ -1196,7 +1196,7 @@ unity-catalog = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.22.0",
     "sqlparse>=0.6.0,<1.0.0",
-    "tzdata>=2022.7",
+    "tzdata>=2022.7,<2030",
 ]
 
 unstructured = [
@@ -1340,7 +1340,7 @@ all = [
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
     "thrift-sasl>=0.4.3,<1.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
-    "tzdata>=2022.7",
+    "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
     "wcmatch>=10.1,<11.0.0",
     "websocket-client<2.0.0",
@@ -1535,7 +1535,7 @@ dev = [
     "types-ujson>=5.2.0,<6.0.0",
     "typing-inspect<0.10.0",
     "typing_extensions>=4.8.0,<5.0.0",
-    "tzdata>=2022.7",
+    "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
     "unstructured-ingest[confluence,notion]==1.4.28",
     "unstructured[md]==0.24.1",
@@ -1734,7 +1734,7 @@ docs = [
     "types-ujson>=5.2.0,<6.0.0",
     "typing-inspect<0.10.0",
     "typing_extensions>=4.8.0,<5.0.0",
-    "tzdata>=2022.7",
+    "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
     "unstructured-ingest[confluence,notion]==1.4.28",
     "unstructured[md]==0.24.1",

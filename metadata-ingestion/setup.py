@@ -485,9 +485,9 @@ databricks_common = {
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
     # The SQL connector returns tz-aware Arrow timestamps. pyarrow needs a tz database
     # to convert them, and slim images have no system zoneinfo, so ship IANA data via
-    # tzdata (zoneinfo's fallback). No upper bound: it is data, released every year.
-    # 2022.7 matches the floor pandas uses.
-    "tzdata>=2022.7",
+    # tzdata (zoneinfo's fallback). 2022.7 matches the floor pandas uses. Versions are
+    # year-based and carry only data, so the cap is loose to avoid yearly bumps.
+    "tzdata>=2022.7,<2030",
 }
 
 databricks = {
