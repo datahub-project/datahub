@@ -2,6 +2,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
     DBTColumnLineageInfo,
+    DBTExposure,
     DBTNode,
     make_mapping_upstream_lineage,
 )
@@ -13,6 +14,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionSourceTypeClass,
+    DashboardInfoClass,
     UpstreamLineageClass,
 )
 
@@ -169,3 +171,41 @@ def test_assertion_info_is_stable_across_emits() -> None:
     assert first.aspect.source is not None
     assert first.aspect.source.type == AssertionSourceTypeClass.EXTERNAL
     assert first.aspect.source.created is None
+
+
+def _exposure_source() -> DBTCoreSource:
+    return DBTCoreSource(
+        DBTCoreConfig.model_validate(
+            {
+                "manifest_path": "unused",
+                "catalog_path": "unused",
+                "target_platform": "redshift",
+            }
+        ),
+        PipelineContext(run_id="dbt-idempotency"),
+    )
+
+
+def _dashboard_info(source: DBTCoreSource) -> DashboardInfoClass:
+    exposure = DBTExposure(
+        name="weekly_dashboard",
+        unique_id="exposure.project.weekly_dashboard",
+        type="dashboard",
+        description="Weekly metrics",
+    )
+    mcps = list(source.create_exposure_mcps([exposure], {}))
+    infos = [mcp.aspect for mcp in mcps if isinstance(mcp.aspect, DashboardInfoClass)]
+    assert len(infos) == 1
+    return infos[0]
+
+
+def test_exposure_dashboard_info_is_stable_across_emits() -> None:
+    source = _exposure_source()
+    first = _dashboard_info(source)
+    second = _dashboard_info(source)
+
+    assert first.to_obj() == second.to_obj()
+    assert first.lastModified.created.time == 0
+    assert first.lastModified.lastModified.time == 0
+    assert first.lastModified.created.actor == "urn:li:corpuser:unknown"
+    assert first.lastModified.lastModified.actor == "urn:li:corpuser:unknown"

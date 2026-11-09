@@ -562,6 +562,25 @@ public class V2SemanticSearchMappingsBuilderTest {
   }
 
   @Test
+  public void testMixedCaseMetricMapsCanonicallyForOpenSearch() throws JsonProcessingException {
+    SemanticSearchConfiguration config = new SemanticSearchConfiguration();
+    config.setEnabled(true);
+    config.setEnabledEntities(Set.of("dataset"));
+
+    com.linkedin.metadata.config.search.ModelEmbeddingConfig model =
+        new com.linkedin.metadata.config.search.ModelEmbeddingConfig();
+    model.setVectorDimension(768);
+    model.setKnnEngine("lucene");
+    model.setSpaceType("CoSiNe");
+    model.setEfConstruction(128);
+    model.setM(16);
+    config.setModels(Map.of("test_model", model));
+
+    // Known metrics are canonicalized case-insensitively, then translated for the engine.
+    assertSpaceTypeForOpenSearch(config, "cosinesimil");
+  }
+
+  @Test
   public void testOpenSearchEngineUsesKnnVector() throws JsonProcessingException {
     Collection<IndexMapping> result =
         semanticSearchMappingsBuilder.getIndexMappings(operationContext, Collections.emptyList());
