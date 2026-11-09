@@ -4,7 +4,7 @@ import json
 import logging
 from datetime import datetime
 from functools import partial
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Collection, Dict, Iterable, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub._version import __version__
@@ -47,6 +47,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     KNOWN_DATA_PLATFORM_MAPPING,
     App,
     AppField,
+    AppFieldIndex,
     AppKey,
     BoxType,
     Chart,
@@ -557,7 +558,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self,
         charts: List[Chart],
         input_tables_urns: Optional[List[str]],
-        app_fields: Dict[str, List[AppField]],
+        app_fields: AppFieldIndex,
         has_unknown_schema: bool,
         app_id: str,
     ) -> Iterable[MetadataWorkUnit]:
@@ -646,38 +647,32 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     @staticmethod
-    def _chart_field_names(
-        expression: str, app_fields: Dict[str, List[AppField]]
-    ) -> List[str]:
+    def _chart_field_names(expression: str, app_fields: AppFieldIndex) -> List[str]:
         # A dimension is usually a bare field name, which may contain spaces.
         return (
-            [expression]
-            if expression.lower() in app_fields
-            else expression_names(expression)
+            [expression] if app_fields.get(expression) else expression_names(expression)
         )
 
     @staticmethod
-    def _app_field_key(
-        name: str, app_fields: Dict[str, List[AppField]]
-    ) -> Optional[str]:
+    def _app_field_key(name: str, app_fields: AppFieldIndex) -> Optional[str]:
         """The app field a chart name reads. A derived field such as
         Date.autoCalendar.Year reads its base field, the longest leading part
         of the name that is a field (field names can contain dots), unless a
         field of that exact name exists."""
-        key = name.lower()
-        while key not in app_fields and "." in key:
+        key = name
+        while not app_fields.get(key) and "." in key:
             key = key.rsplit(".", 1)[0]
-        return key if key in app_fields else None
+        return key if app_fields.get(key) else None
 
     @staticmethod
     def _get_chart_input_fields(
-        chart: Chart, app_fields: Dict[str, List[AppField]]
+        chart: Chart, app_fields: AppFieldIndex
     ) -> List[AppField]:
         matched: Dict[str, AppField] = {}
         for expression in chart.field_expressions:
             for name in QlikSenseSource._chart_field_names(expression, app_fields):
                 key = QlikSenseSource._app_field_key(name, app_fields)
-                for app_field in app_fields.get(key, []) if key else []:
+                for app_field in app_fields.get(key) if key else []:
                     matched.setdefault(
                         f"{app_field.dataset_urn}.{app_field.field.name}", app_field
                     )
@@ -687,7 +682,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self,
         chart: Chart,
         chart_fields: List[AppField],
-        app_fields: Dict[str, List[AppField]],
+        app_fields: AppFieldIndex,
         input_tables_urns: List[str],
         has_unknown_schema: bool,
     ) -> List[str]:
@@ -717,22 +712,22 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     @staticmethod
     def _index_app_fields(
         tables: Dict[str, List[QlikDatasetSchemaField]],
-    ) -> Dict[str, List[AppField]]:
-        # Qlik field names are case-sensitive, but the SQL parser may change the
-        # case of script table columns.
-        app_fields: Dict[str, List[AppField]] = {}
+        script_table_urns: Collection[str] = (),
+    ) -> AppFieldIndex:
+        index = AppFieldIndex()
         for dataset_urn, fields in tables.items():
             for field in fields:
-                app_fields.setdefault(field.name.lower(), []).append(
-                    AppField(dataset_urn=dataset_urn, field=field)
-                )
-        return app_fields
+                app_field = AppField(dataset_urn=dataset_urn, field=field)
+                index.exact.setdefault(field.name, []).append(app_field)
+                if dataset_urn in script_table_urns:
+                    index.folded.setdefault(field.name.lower(), []).append(app_field)
+        return index
 
     def _gen_sheets_workunit(
         self,
         app: App,
         input_tables_urns: Optional[List[str]],
-        app_fields: Dict[str, List[AppField]],
+        app_fields: AppFieldIndex,
         has_unknown_schema: bool,
     ) -> Iterable[MetadataWorkUnit]:
         """
@@ -1034,6 +1029,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 label=script_table.label,
                 identifier=f"{app_id}.{script_table.label}".lower(),
                 connection=connection_name,
+                mapping=script_table.mapping,
             ),
         )
         lineage.upstream_urns.extend(
@@ -1195,6 +1191,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     table.datasetSchema
                 )
         for script_table in script_tables:
+            # A mapping table is only used by ApplyMap and is not in the data
+            # model, so charts cannot read it.
+            if script_table.mapping:
+                continue
             table_fields[self._gen_qlik_dataset_urn(script_table.identifier)] = (
                 self._script_table_fields(script_table)
             )
@@ -1212,6 +1212,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         script_tables = self._build_script_tables(app)
         table_fields = self._app_table_fields(app.tables, script_tables)
         input_tables_urns = list(table_fields)
+        script_table_urns = {
+            self._gen_qlik_dataset_urn(table.identifier) for table in script_tables
+        }
         container_workunits = list(
             gen_containers(
                 container_key=self._gen_app_key(app.id),
@@ -1237,7 +1240,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         yield from self._gen_sheets_workunit(
             app,
             None if app.tables_read_failed else input_tables_urns,
-            self._index_app_fields(table_fields),
+            self._index_app_fields(table_fields, script_table_urns),
             any(not fields for fields in table_fields.values()),
         )
         yield from self._gen_app_tables_workunit(app.tables, app.id)

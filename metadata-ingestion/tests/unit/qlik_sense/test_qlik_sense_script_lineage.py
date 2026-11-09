@@ -497,6 +497,9 @@ def test_drop_condition_variables(sql: str, expected: str) -> None:
             id="combined_set_values",
         ),
         pytest.param(
+            "Sum(Total) + Count(DISTINCT Total)", ["Total", "Total"], id="total_field"
+        ),
+        pytest.param(
             "Sum(DISTINCT TOTAL <Region> Amount) and not Flag",
             ["Region", "Amount", "Flag"],
             id="keywords",
@@ -625,3 +628,18 @@ def test_redact_connection_scrubs_allow_listed_values(connection: str) -> None:
     assert "Hunter2Secret" not in redacted
     assert "db.example.com" in redacted
     assert "Database=d" in redacted
+
+
+def test_parse_load_script_marks_mapping_tables() -> None:
+    script = """
+LIB CONNECT TO 'A';
+Map: MAPPING LOAD k, v;
+SQL SELECT k, v FROM db.s.codes;
+Direct: Mapping SQL SELECT k, v FROM db.s.other_codes;
+T: SQL SELECT * FROM db.s.t;
+"""
+    assert [(t.label, t.mapping) for t in parse_load_script(script)] == [
+        ("Map", True),
+        ("Direct", True),
+        ("T", False),
+    ]

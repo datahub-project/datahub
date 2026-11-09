@@ -122,6 +122,11 @@ EXPRESSION_KEYWORDS = {
     "total",
     "xor",
 }
+# Aggregation qualifiers, which are field names when nothing follows them, as
+# in Sum(Total).
+EXPRESSION_QUALIFIERS = {"all", "distinct", "nodistinct", "total"}
+QUALIFIER_END_RE = re.compile(r"\s*(?:[),]|$)")
+MAPPING_PREFIX_RE = re.compile(r"\bMapping\b", re.IGNORECASE)
 # Single-quoted text is a string literal in a chart expression, not a field.
 # A quoted field can carry a derived-field suffix, as in [Date].autoCalendar.Year.
 EXPRESSION_NAME_RE = re.compile(
@@ -213,6 +218,8 @@ class ScriptTable(BaseModel):
     label: str
     connection: Optional[str] = None
     sql: str
+    # A mapping table is only used by ApplyMap and dropped from the data model.
+    mapping: bool = False
 
 
 class ScriptTableLineage(BaseModel):
@@ -222,6 +229,7 @@ class ScriptTableLineage(BaseModel):
     upstream_urns: List[str] = []
     # Downstream column name to upstream schema field URNs.
     column_upstreams: Dict[str, List[str]] = {}
+    mapping: bool = False
 
 
 class DataConnectionInfo(BaseModel):
@@ -539,6 +547,7 @@ class _ScriptParser(BaseModel):
     # A preceding LOAD is waiting for its SELECT. Only the top of a stack of
     # them carries the label.
     pending_preceding: bool = False
+    pending_mapping: bool = False
     # A SELECT under a preceding LOAD that adds to an unknown table.
     pending_skip: bool = False
     # The table a Concatenate or Join without a target adds to.
@@ -559,6 +568,7 @@ class _ScriptParser(BaseModel):
                 self._statement(piece.text)
 
     def _clear_pending(self) -> None:
+        self.pending_mapping = False
         self.pending_label = None
         self.pending_preceding = False
         self.pending_skip = False
@@ -630,6 +640,7 @@ class _ScriptParser(BaseModel):
             statement = statement[label_match.end() :].lstrip()
         prefix = PREFIX_RE.match(statement)
         merge = MERGE_PREFIX_RE.search(prefix.group(0)) if prefix else None
+        mapping = bool(prefix and MAPPING_PREFIX_RE.search(prefix.group(0)))
         if prefix:
             statement = statement[prefix.end() :]
         skip = False
@@ -652,6 +663,7 @@ class _ScriptParser(BaseModel):
                         label=table_label,
                         connection=self.flow.state.connection,
                         sql=sql.group("sql"),
+                        mapping=mapping or self.pending_mapping,
                     )
                 )
                 self.last_label = table_label
@@ -663,6 +675,7 @@ class _ScriptParser(BaseModel):
             if not self.pending_preceding:
                 self.pending_label = label
                 self.pending_skip = skip
+                self.pending_mapping = mapping
             self.pending_preceding = True
         else:
             if LOAD_RE.match(statement):
@@ -738,7 +751,13 @@ def expression_names(expression: str) -> List[str]:
     for match in EXPRESSION_NAME_RE.finditer(expression):
         bare = match.group("bare")
         if bare and (
-            bare.lower() in EXPRESSION_KEYWORDS
+            (
+                bare.lower() in EXPRESSION_KEYWORDS
+                and not (
+                    bare.lower() in EXPRESSION_QUALIFIERS
+                    and QUALIFIER_END_RE.match(expression, match.end())
+                )
+            )
             # A function call such as Year(OrderDate), even when an app field
             # has the same name.
             or FUNCTION_CALL_RE.match(expression, match.end())

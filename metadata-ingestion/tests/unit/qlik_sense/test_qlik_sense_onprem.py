@@ -875,6 +875,27 @@ def test_chart_inputs_when_fields_are_unknown(
     ] == matched_fields
 
 
+def test_field_names_match_in_any_case_only_for_script_tables() -> None:
+    model_a = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.a,PROD)"
+    model_b = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.b,PROD)"
+    script = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    app_fields = QlikSenseSource._index_app_fields(
+        {
+            model_a: [SchemaField(name="ID")],
+            model_b: [SchemaField(name="id")],
+            script: [SchemaField(name="amount")],
+        },
+        script_table_urns={script},
+    )
+    chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
+    chart.field_expressions = ["ID", "Sum(Amount)"]
+
+    assert [
+        (field.dataset_urn, field.field.name)
+        for field in QlikSenseSource._get_chart_input_fields(chart, app_fields)
+    ] == [(model_a, "ID"), (script, "amount")]
+
+
 def test_qualified_field_name_matches_before_derived_field() -> None:
     table = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
     app_fields = QlikSenseSource._index_app_fields(
@@ -882,16 +903,16 @@ def test_qualified_field_name_matches_before_derived_field() -> None:
     )
 
     assert QlikSenseSource._app_field_key("Orders.Region", app_fields) == (
-        "orders.region"
+        "Orders.Region"
     )
     assert QlikSenseSource._app_field_key("Orders.autoCalendar.Year", app_fields) == (
-        "orders"
+        "Orders"
     )
     assert QlikSenseSource._app_field_key("Customers.Region", app_fields) is None
     # A field whose own name contains a dot keeps it when a suffix is derived.
     assert (
         QlikSenseSource._app_field_key("Orders.Region.autoCalendar.Year", app_fields)
-        == "orders.region"
+        == "Orders.Region"
     )
 
 
@@ -1888,3 +1909,26 @@ def test_onprem_test_connection_checks_the_engine_port(
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable is engine_reachable
     assert mock_connect.call_args.args[0] == ("qlik.example.com", 4747)
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_mapping_tables_are_not_chart_inputs(mock_onprem: MagicMock) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(ONPREM_CONFIG),
+        PipelineContext(run_id="test-onprem"),
+    )
+    tables = [
+        ScriptTableLineage(
+            label="Map",
+            identifier="app-1.map",
+            column_upstreams={"k": []},
+            mapping=True,
+        ),
+        ScriptTableLineage(
+            label="Orders", identifier="app-1.orders", column_upstreams={"k": []}
+        ),
+    ]
+
+    assert list(source._app_table_fields([], tables)) == [
+        "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    ]
