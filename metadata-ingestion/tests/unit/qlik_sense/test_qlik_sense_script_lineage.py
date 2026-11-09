@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 import pytest
 
 from datahub.ingestion.source.qlik_sense.script_lineage import (
+    apply_crosstable,
     apply_preceding_loads,
     connection_lookup_names,
     drop_condition_variables,
@@ -731,6 +732,19 @@ U: SQL SELECT * FROM d.dbo.u1;
     ]
 
 
+def test_parse_load_script_ignores_sql_comments_in_bare_with_queries() -> None:
+    script = """
+LIB CONNECT TO 'A';
+T: WITH recent AS ( -- don't count returns
+  SELECT a FROM db.s.t1
+)
+SELECT a FROM recent;
+U: LOAD 'SELECT' AS kind, a--b AS diff RESIDENT T;
+V: SQL SELECT * FROM db.s.v1;
+"""
+    assert [t.label for t in parse_load_script(script)] == ["T", "V"]
+
+
 def test_parse_load_script_binds_sub_parameters() -> None:
     script = """
 SET vTable = 'db.s.global';
@@ -739,11 +753,13 @@ SUB LoadT(vTable)
 END SUB
 LIB CONNECT TO 'A';
 CALL LoadT('db.s.param_b');
+CALL LoadT(42);
 CALL LoadT(vOther);
 U: SQL SELECT * FROM $(vTable);
 """
     assert [t.sql for t in parse_load_script(script)] == [
         "SELECT * FROM db.s.param_b",
+        "SELECT * FROM 42",
         "SELECT * FROM $(vTable)",
         "SELECT * FROM db.s.global",
     ]
@@ -794,6 +810,19 @@ def test_parse_load_script_label_of_preceding_load_stack() -> None:
             id="cut_to_32_characters",
         ),
         pytest.param("SELECT 1 AS one", "table_1", id="no_from"),
+        pytest.param(
+            "SELECT 'x FROM y' AS note, a FROM db.s.t", "db.s.t", id="string_literal"
+        ),
+        pytest.param(
+            "SELECT * FROM (SELECT a FROM db.s.inner_t) AS sub",
+            "table_1",
+            id="subquery",
+        ),
+        pytest.param(
+            "SELECT EXTRACT(YEAR FROM d) AS y FROM db.s.dates",
+            "db.s.dates",
+            id="from_inside_function",
+        ),
     ],
 )
 def test_parse_load_script_names_unlabelled_tables_after_from(
@@ -832,11 +861,15 @@ Map: MAPPING LOAD k, v;
 SQL SELECT k, v FROM db.s.codes;
 Direct: Mapping SQL SELECT k, v FROM db.s.other_codes;
 T: SQL SELECT * FROM db.s.t;
+[Mapping]: SQL SELECT * FROM db.s.named_mapping;
+Concatenate ([Mapping]) SQL SELECT * FROM db.s.more;
 """
     assert [(t.label, t.mapping) for t in parse_load_script(script)] == [
         ("Map", True),
         ("Direct", True),
         ("T", False),
+        ("Mapping", False),
+        ("Mapping", False),
     ]
 
 
@@ -880,3 +913,35 @@ def test_preceding_load_source_column_case(
 def test_parse_load_script_marks_reshaped_tables(script: str) -> None:
     (table,) = parse_load_script(script)
     assert table.reshaped
+
+
+@pytest.mark.parametrize(
+    "script, expected",
+    [
+        pytest.param(
+            "T: CrossTable(Month, Sales, 2) SQL SELECT region, store, jan FROM db.s.t;",
+            {"region": ["r"], "store": ["s"], "Month": [], "Sales": ["j"]},
+            id="two_qualifiers",
+        ),
+        pytest.param(
+            "T: CrossTable(Month, Sales) LOAD *;\nSQL SELECT region, jan FROM db.s.t;",
+            None,
+            id="field_order_unknown",
+        ),
+        pytest.param(
+            "T: CrossTable(Month, Sales) LOAD region, jan;\n"
+            "Generic LOAD region, jan;\nSQL SELECT region, jan FROM db.s.t;",
+            None,
+            id="reshaped_below_the_top",
+        ),
+    ],
+)
+def test_crosstable_fields(
+    script: str, expected: Optional[Dict[str, List[str]]]
+) -> None:
+    (table,) = parse_load_script(script)
+    columns = {"region": ["r"], "store": ["s"], "jan": ["j"]}
+    fields = apply_preceding_loads(table.preceding_loads, columns)
+
+    assert table.reshaped
+    assert apply_crosstable(table.crosstable, table.preceding_loads, fields) == expected

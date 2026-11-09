@@ -708,7 +708,8 @@ def test_chart_input_fields_match_app_fields() -> None:
     chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
     chart.field_expressions = [
         "Net Sales",
-        "=Upper(region)",
+        "=Upper(Region)",
+        # Data model field names are case-sensitive, so ORDER_ID is not order_id.
         "Sum({<Region={\"Segment\", 'Net Sales'}>} [Net Sales]) / Count(ORDER_ID)",
         # Segment is called as a function here, not read as a field.
         "=Sum(Segment (order_id))",
@@ -888,7 +889,7 @@ def test_field_names_match_in_any_case_only_for_script_tables() -> None:
         script_table_urns={script},
     )
     chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
-    chart.field_expressions = ["ID", "Sum(Amount)"]
+    chart.field_expressions = ["ID", "Id", "Sum(Amount)"]
 
     assert [
         (field.dataset_urn, field.field.name)
@@ -1868,7 +1869,9 @@ def test_onprem_private_sheets_of_published_apps_are_skipped(
     app = api._read_app(app_dict)
 
     assert app is not None
-    assert len(app.sheets) == (2 if unpublished_app else 1)
+    assert {sheet.id for sheet in app.sheets} == (
+        {"base", "mine"} if unpublished_app else {"base"}
+    )
     assert app.read_complete
 
 
@@ -1952,20 +1955,33 @@ def test_mapping_tables_are_not_chart_inputs(mock_onprem: MagicMock) -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    "load, expected_fields",
+    [
+        pytest.param(
+            "T: CrossTable(Month, Sales) LOAD region, jan, feb;",
+            {"region": ["region"], "Month": [], "Sales": ["jan", "feb"]},
+            id="crosstable",
+        ),
+        pytest.param("T: Generic LOAD region, jan, feb;", {}, id="generic"),
+    ],
+)
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
-def test_crosstable_script_table_keeps_only_table_lineage(
-    mock_onprem: MagicMock,
+def test_reshaped_script_tables_keep_only_traceable_fields(
+    mock_onprem: MagicMock, load: str, expected_fields: Dict[str, List[str]]
 ) -> None:
     _, tables = _script_tables(
         mock_onprem,
         {},
         script="LIB CONNECT TO 'Sales SQL';\n"
-        "T: CrossTable(Month, Sales) LOAD region, jan, feb;\n"
+        f"{load}\n"
         "SQL SELECT region, jan, feb FROM sales_db.dbo.sales;",
     )
 
     (table,) = tables
-    assert table.upstream_urns == [
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,sales_db.dbo.sales,PROD)"
-    ]
-    assert table.column_upstreams == {}
+    upstream = "urn:li:dataset:(urn:li:dataPlatform:mssql,sales_db.dbo.sales,PROD)"
+    assert table.upstream_urns == [upstream]
+    assert table.column_upstreams == {
+        field: [f"urn:li:schemaField:({upstream},{column})" for column in columns]
+        for field, columns in expected_fields.items()
+    }

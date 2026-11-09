@@ -56,13 +56,14 @@ def test_stateful_ingestion_registers_stale_removal_processor(mock_qlik_api):
     assert source.get_excluded_workunit_processors() == [
         AutoStaleEntityRemovalProcessor
     ]
-    assert [
+    owned = [
         processor
         for processor in processors
         if isinstance(processor, functools.partial)
         and processor.func is auto_stale_entity_removal
         and processor.args == (source.stale_entity_removal_handler,)
     ]
+    assert len(owned) == 1
 
 
 def _onprem_run(
