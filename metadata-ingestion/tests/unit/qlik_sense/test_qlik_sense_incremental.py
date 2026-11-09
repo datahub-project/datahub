@@ -761,7 +761,7 @@ def test_partly_read_app_is_kept_for_a_limited_number_of_runs(
 ) -> None:
     qlik = _Qlik()
     datahub = _DataHub(mock_datahub_graph)
-    container = None
+    container: Optional[str] = None
 
     def run(run_id: str, engine_fails: bool) -> Tuple[str, List[MetadataWorkUnit]]:
         nonlocal container
