@@ -21,6 +21,8 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentProjector;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentWrite;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.*;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
@@ -47,6 +49,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.GetMappingsRequest;
 import org.opensearch.cluster.metadata.MappingMetadata;
+import org.opensearch.index.query.QueryBuilders;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -370,6 +373,42 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   /**
+   * Writes a V3 search document. The write's {@link V3SearchDocumentWrite.Kind} selects the index
+   * operation.
+   *
+   * @param opContext the operation context
+   * @param write the document write to apply
+   */
+  public void writeV3SearchDocument(
+      @Nonnull OperationContext opContext, @Nonnull V3SearchDocumentWrite write) {
+    log.debug(
+        "Writing V3 search document index: {}, docId: {}, kind: {}",
+        write.indexName(),
+        write.docId(),
+        write.kind());
+    esWriteDAO.writeV3SearchDocument(opContext, write);
+  }
+
+  public Optional<Map<String, Object>> getV3DocumentSourceBySearchGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String searchGroup,
+      @Nonnull final String docId)
+      throws IOException {
+    return esWriteDAO.getV3DocumentSourceBySearchGroup(opContext, searchGroup, docId);
+  }
+
+  @Nonnull
+  public ESWriteDAO.DeleteByQueryResult deleteV3Tombstones(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) {
+    log.info("Removing V3 tombstones from index '{}'", indexName);
+    return esWriteDAO.deleteByQuerySync(
+        opContext,
+        indexName,
+        QueryBuilders.termQuery(V3SearchDocumentProjector.TOMBSTONE_FIELD, true),
+        null);
+  }
+
+  /**
    * For each of {@code documentIds} present in {@code searchGroup}'s V3 index, the aspects its
    * document holds, as aspect name to the field names under it; see {@link
    * ESSearchDAO#aspectFieldNamesByDocumentId}.
@@ -470,8 +509,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   /**
    * As {@link #appendRunIdBySearchGroup}, on an index named directly rather than through its search
-   * group's alias: a fill's next physical index, or the swapped-out backing index kept current for
-   * rollback.
+   * group's alias: the swapped-out backing index kept current for rollback. A fill's next index
+   * uses {@link #appendRunIdToExistingDocument}, which does not create a document.
    */
   public void appendRunIdByIndexName(
       @Nonnull OperationContext opContext,
@@ -487,6 +526,24 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         SCRIPT_SOURCE,
         runIdScriptParams(runId),
         runIdUpsert(urn, runId));
+  }
+
+  /**
+   * Appends a run id only when the document is already there. A fill creates documents only where
+   * the index holds none, so a document created here that held only a run id would block it.
+   */
+  public void appendRunIdToExistingDocument(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull String docId,
+      @Nullable String runId) {
+    log.debug(
+        "Appending run id to existing document in index '{}', docId='{}', runId='{}'",
+        indexName,
+        docId,
+        runId);
+    esWriteDAO.applyScriptUpdateByIndexName(
+        opContext, indexName, docId, SCRIPT_SOURCE, runIdScriptParams(runId), null);
   }
 
   private static Map<String, Object> runIdUpsert(@Nonnull Urn urn, @Nullable String runId) {

@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, create_autospec, patch
 import pytest
 
 from datahub.ingestion.api.source import CapabilityReport
+from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
 from datahub.ingestion.source.confluence.confluence_config import (
     ConfluenceSourceConfig,
 )
@@ -361,6 +362,26 @@ def test_spaces_without_pages_produce_no_workunits() -> None:
     assert list(source.get_workunits_internal()) == []
 
 
+def test_server_wide_embedding_failure_stops_the_run() -> None:
+    """A server-wide embedding failure ends the run even with continue_on_failure,
+    instead of failing the same way for every remaining page."""
+    source = make_source(make_config(advanced={"continue_on_failure": True}))
+    serve_space(as_mock(source.confluence_client), [make_page("1"), make_page("2")])
+
+    with (
+        patch.object(
+            source,
+            "_create_document_entity",
+            side_effect=ServerEmbeddingRunError("embedding credits are exhausted"),
+        ) as create,
+        pytest.raises(ServerEmbeddingRunError),
+    ):
+        list(source.get_workunits_internal())
+
+    assert create.call_count == 1
+    assert not source.report.failures
+
+
 def test_duplicate_pages_across_listings_are_emitted_once() -> None:
     source = make_source()
     serve_space(as_mock(source.confluence_client), [make_page("1"), make_page("1")])
@@ -592,27 +613,18 @@ def test_semantic_search_capability_delegates_to_resolved_config() -> None:
         report = ConfluenceSource._test_semantic_search_capability(make_config())
 
     assert report is expected
-    test_capability.assert_called_once_with(resolved)
+    test_capability.assert_called_once_with(resolved, graph=None)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "Bug: _test_semantic_search_capability only builds a DataHubGraph when "
-        "`config.datahub.server` is set, but ConfluenceSourceConfig has no "
-        "`datahub` field, so the hasattr guard is always False and test_connection "
-        "resolves the embedding config without ever consulting the DataHub server."
-    ),
-)
 def test_semantic_search_capability_consults_configured_datahub_server() -> None:
-    # parse_obj_allow_extras so today's config (no `datahub` field) drops the
-    # block instead of rejecting the recipe; once the field exists it is kept.
-    config = ConfluenceSourceConfig.parse_obj_allow_extras(
+    config = ConfluenceSourceConfig.model_validate(
         cloud_config_dict(datahub={"server": "http://localhost:8080"})
     )
     with (
-        patch("datahub.ingestion.graph.client.DataHubGraph", autospec=True),
+        patch(
+            "datahub.ingestion.source.unstructured.chunking_source.DataHubGraph",
+            autospec=True,
+        ) as graph_class,
         patch.object(
             DocumentChunkingSource, "resolve_embedding_config", autospec=True
         ) as resolve,
@@ -621,9 +633,14 @@ def test_semantic_search_capability_consults_configured_datahub_server() -> None
             "test_embedding_capability",
             autospec=True,
             return_value=CapabilityReport(capable=True),
-        ),
+        ) as test_capability,
     ):
         ConfluenceSource._test_semantic_search_capability(config)
 
-    _embedding, graph = resolve.call_args.args
-    assert graph is not None
+    graph_class.assert_called_once_with(config=config.datahub)
+    graph = graph_class.return_value
+    _embedding, resolved_graph = resolve.call_args.args
+    assert resolved_graph is graph
+    assert test_capability.call_args.kwargs["graph"] is graph
+    # Created for the check, so closed after it.
+    graph.close.assert_called_once_with()

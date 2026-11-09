@@ -114,7 +114,7 @@ type Api implements EntityWithRelationships & Entity {
 """
 Properties of an API.
 """
-type ApiProperties {
+type ApiProperties implements EntityProperties {
   """
   Display name of the API
   """

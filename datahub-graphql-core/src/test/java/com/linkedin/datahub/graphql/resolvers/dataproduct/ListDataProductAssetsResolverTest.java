@@ -13,6 +13,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.dataproduct.DataProductAssociation;
@@ -35,6 +36,8 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetchingEnvironment;
@@ -42,18 +45,32 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class ListDataProductAssetsResolverTest {
 
   private static final Urn ASSET_A = Urn.createFromTuple("dataset", "urn-a");
   private static final Urn ASSET_B = Urn.createFromTuple("dataset", "urn-b");
+  private static final Urn UNKNOWN_TYPE_ASSET = UrnUtils.getUrn("urn:li:entityFromNewerBuild:x");
 
   private static ListDataProductAssetsResolver newResolver() {
     return new ListDataProductAssetsResolver(
         Mockito.mock(EntityClient.class), Mockito.mock(ViewService.class));
+  }
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test
@@ -278,5 +295,140 @@ public class ListDataProductAssetsResolverTest {
     Mockito.when(mockEnv.getArgument(eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     return mockEnv;
+  }
+
+  // Assets of entity types only a newer version knows (read after a rollback) can't be searched;
+  // naming their type in the search would fail the whole request.
+
+  @Test
+  public void testSearchesOnlyKnownAssetTypes() throws Exception {
+    EntityClient entityClient = mockSearch();
+
+    run(
+        entityClient,
+        List.of(association(ASSET_A, false), association(UNKNOWN_TYPE_ASSET, false)),
+        Map.of("query", "*"));
+
+    ArgumentCaptor<List<String>> types = ArgumentCaptor.forClass(List.class);
+    Mockito.verify(entityClient)
+        .searchAcrossEntities(
+            Mockito.any(),
+            types.capture(),
+            Mockito.anyString(),
+            Mockito.any(),
+            Mockito.anyInt(),
+            Mockito.any(),
+            Mockito.isNull());
+    assertEquals(types.getValue(), List.of("dataset"));
+  }
+
+  @Test
+  public void testOnlyUnknownAssetTypesGiveAnEmptyPageWithoutSearching() throws Exception {
+    EntityClient entityClient = Mockito.mock(EntityClient.class);
+
+    SearchResults results =
+        run(entityClient, List.of(association(UNKNOWN_TYPE_ASSET, false)), Map.of("query", "*"));
+
+    assertEquals(results.getTotal(), 0);
+    Mockito.verify(entityClient, Mockito.never())
+        .searchAcrossEntities(
+            Mockito.any(),
+            Mockito.anyList(),
+            Mockito.anyString(),
+            Mockito.any(),
+            Mockito.anyInt(),
+            Mockito.any(),
+            Mockito.any());
+  }
+
+  @Test
+  public void testOutputPortsFilterLeavesOutUnknownAssetTypes() throws Exception {
+    EntityClient entityClient = mockSearch();
+
+    run(
+        entityClient,
+        List.of(
+            association(ASSET_A, true),
+            association(ASSET_B, false),
+            association(UNKNOWN_TYPE_ASSET, true)),
+        Map.of(
+            "query",
+            "*",
+            "filters",
+            List.of(Map.of("field", "isOutputPort", "values", List.of("true")))));
+
+    ArgumentCaptor<Filter> filter = ArgumentCaptor.forClass(Filter.class);
+    Mockito.verify(entityClient)
+        .searchAcrossEntities(
+            Mockito.any(),
+            Mockito.anyList(),
+            Mockito.anyString(),
+            filter.capture(),
+            Mockito.anyInt(),
+            Mockito.any(),
+            Mockito.isNull());
+    List<String> searchedUrns =
+        filter.getValue().getOr().stream()
+            .flatMap(conjunction -> conjunction.getAnd().stream())
+            .filter(criterion -> criterion.getField().equals("urn"))
+            .flatMap(criterion -> criterion.getValues().stream())
+            .collect(Collectors.toList());
+    assertEquals(searchedUrns, List.of(ASSET_A.toString()));
+  }
+
+  private static SearchResults run(
+      EntityClient entityClient, List<DataProductAssociation> assets, Map<String, Object> input)
+      throws Exception {
+    Urn product = UrnUtils.getUrn("urn:li:dataProduct:p");
+    DataProductProperties properties =
+        new DataProductProperties().setAssets(new DataProductAssociationArray(assets));
+    Mockito.when(
+            entityClient.getV2(
+                Mockito.any(), Mockito.eq("dataProduct"), Mockito.eq(product), Mockito.any()))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(product)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        Map.of(
+                            "dataProductProperties",
+                            new EnvelopedAspect().setValue(new Aspect(properties.data()))))));
+    QueryContext context = TestUtils.getMockAllowContext();
+    Mockito.when(context.getDataHubAppConfig())
+        .thenReturn(Mockito.mock(DataHubAppConfiguration.class, Mockito.RETURNS_DEEP_STUBS));
+    DataFetchingEnvironment environment = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(environment.getContext()).thenReturn(context);
+    Mockito.when(environment.getArgument("urn")).thenReturn(product.toString());
+    Mockito.when(environment.getArgument("input")).thenReturn(input);
+
+    return new ListDataProductAssetsResolver(entityClient, Mockito.mock(ViewService.class))
+        .get(environment)
+        .get();
+  }
+
+  private static EntityClient mockSearch() throws Exception {
+    EntityClient entityClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            entityClient.searchAcrossEntities(
+                Mockito.any(),
+                Mockito.anyList(),
+                Mockito.anyString(),
+                Mockito.any(),
+                Mockito.anyInt(),
+                Mockito.any(),
+                Mockito.isNull()))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setNumEntities(0)
+                .setFrom(0)
+                .setPageSize(10)
+                .setMetadata(
+                    new SearchResultMetadata().setAggregations(new AggregationMetadataArray())));
+    return entityClient;
+  }
+
+  private static DataProductAssociation association(Urn asset, boolean outputPort) {
+    return new DataProductAssociation().setDestinationUrn(asset).setOutputPort(outputPort);
   }
 }

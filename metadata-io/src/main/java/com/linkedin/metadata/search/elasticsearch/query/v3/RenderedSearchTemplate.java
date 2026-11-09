@@ -26,6 +26,8 @@ public record RenderedSearchTemplate(
     @Nonnull String originalQuery,
     @Nonnull Map<String, NamedClause> namedClauses,
     int estimatedClauses,
+    @Nonnull List<String> sourceFields,
+    @Nonnull List<String> matchTierFields,
     @Nonnull Map<String, List<String>> queriedFieldSources,
     @Nullable SearchTemplateSearchType searchType) {
 
@@ -33,6 +35,8 @@ public record RenderedSearchTemplate(
     highlights = List.copyOf(highlights);
     queriedFields = List.copyOf(queriedFields);
     namedClauses = Map.copyOf(namedClauses);
+    sourceFields = List.copyOf(sourceFields);
+    matchTierFields = List.copyOf(matchTierFields);
     Map<String, List<String>> sources = new LinkedHashMap<>();
     queriedFieldSources.forEach((label, paths) -> sources.put(label, List.copyOf(paths)));
     queriedFieldSources = Map.copyOf(sources);

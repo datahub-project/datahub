@@ -472,7 +472,9 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
                 templates.getMaxRoutePatternLength(),
                 null,
                 null,
-                null));
+                null,
+                com.linkedin.metadata.search.elasticsearch.query.template
+                    .SearchTemplateComponentRegistry.empty()));
 
     store(SEARCH_TEMPLATE_FULLTEXT_URN, body("Fulltext", FULLTEXT_QUERY, null));
     SearchTemplateProperties parent = body("Parent", FULLTEXT_QUERY, null);
