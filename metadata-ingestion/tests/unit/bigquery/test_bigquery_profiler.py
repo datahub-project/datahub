@@ -366,7 +366,10 @@ def test_profiler_simplified_date_windowing():
     report = BigQueryV2Report()
     profiler = BigqueryProfiler(config, report)
 
-    table = create_test_table()
+    table = create_test_table(partitioned=True)
+    table.partition_info.columns = [  # type: ignore[union-attr]
+        SimpleNamespace(name="event_date", data_type="DATE")
+    ]
 
     input_filters = ["`event_date` IS NOT NULL"]  # Date column but no format to detect
     result = profiler._apply_partition_date_windowing(input_filters, table)
@@ -4042,3 +4045,31 @@ def test_hours_only_timestamp_offset_is_windowed():
 
     assert spec is not None
     assert spec.moment == datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc)
+
+
+def test_ingestion_time_partition_is_windowed():
+    # _PARTITIONDATE has no resolved column type, but BigQuery fixes it as DATE.
+    profiler = BigqueryProfiler(
+        create_test_config(partition_datetime_window_days=7), BigQueryV2Report()
+    )
+
+    filters = profiler._apply_partition_date_windowing(
+        ["`_PARTITIONDATE` = '2024-01-15'"], create_test_table()
+    )
+
+    assert filters == [
+        "`_PARTITIONDATE` >= '2024-01-08' AND `_PARTITIONDATE` <= '2024-01-15'"
+    ]
+
+
+def test_untyped_is_not_null_partition_is_not_windowed_from_today():
+    # A column matched only by name could be INT64, which rejects a string bound.
+    profiler = BigqueryProfiler(
+        create_test_config(partition_datetime_window_days=7), BigQueryV2Report()
+    )
+
+    filters = profiler._apply_partition_date_windowing(
+        ["`event_date` IS NOT NULL"], create_test_table()
+    )
+
+    assert filters == ["`event_date` IS NOT NULL"]

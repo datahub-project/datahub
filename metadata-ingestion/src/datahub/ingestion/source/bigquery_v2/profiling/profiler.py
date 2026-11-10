@@ -46,6 +46,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     PARTITION_RANGE_OPERATOR_RE,
     PARTITION_UPPER_BOUND_RE,
     PARTITIONING_COLUMN_FLAG,
+    PSEUDO_PARTITION_COLUMN_TYPES,
     STRFTIME_FORMATS,
     TEMPORAL_PARTITION_TYPES,
 )
@@ -1148,8 +1149,13 @@ class BigqueryProfiler(GenericProfiler):
 
         window_days = self.config.profiling.partition_datetime_window_days
 
+        # Ingestion-time pseudo-columns never carry a resolved type, but BigQuery fixes it.
+        column_types = {
+            **PSEUDO_PARTITION_COLUMN_TYPES,
+            **self._resolved_partition_column_types(table),
+        }
         date_columns = self._extract_date_columns_from_filters(
-            partition_filters, self._resolved_partition_column_types(table)
+            partition_filters, column_types
         )
 
         if not date_columns:
@@ -1185,7 +1191,10 @@ class BigqueryProfiler(GenericProfiler):
                     continue
                 # No pinned date and no range (e.g. an IS NOT NULL fallback): window from
                 # today using a quoted ISO literal, which BigQuery coerces for
-                # STRING/DATE/TIMESTAMP columns.
+                # STRING/DATE/TIMESTAMP columns. A column matched only by its name
+                # could be INT64, which rejects a string bound, so leave it unwindowed.
+                if col_name not in column_types:
+                    continue
                 spec = DateLiteralSpec(
                     DATE_FORMAT_YYYY_MM_DD,
                     True,
