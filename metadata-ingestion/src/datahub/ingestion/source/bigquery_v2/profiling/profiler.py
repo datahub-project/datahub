@@ -1189,7 +1189,7 @@ class BigqueryProfiler(GenericProfiler):
                     processed_requests.append(result.request)
 
         if processed_requests:
-            yield from super().generate_profile_workunits(
+            yield from self.generate_profile_workunits(
                 processed_requests,
                 max_workers=max_workers,
                 platform=platform,

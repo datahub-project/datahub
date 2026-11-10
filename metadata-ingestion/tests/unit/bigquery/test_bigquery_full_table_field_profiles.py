@@ -7,6 +7,7 @@ partitioned BigQuery table otherwise exist only on the partition profile.
 
 from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional, Tuple
+from unittest.mock import patch
 
 import pytest
 
@@ -17,6 +18,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Repor
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTable,
     ShardedTableStats,
+)
+from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
+    PartitionDiscovery,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
 from datahub.ingestion.source.profiling.common import ProfilerRequest
@@ -147,6 +151,49 @@ def test_partition_field_profiles_are_copied_onto_the_full_table_profile() -> No
     assert not report.full_table_profile_copy_skipped
 
 
+def test_partition_field_profiles_are_copied_on_the_deferred_partition_path() -> None:
+    # get_workunits profiles through generate_profile_workunits_with_deferred_partitions.
+    profiler = _StubProfiler(
+        DatasetProfileClass(
+            timestampMillis=1_000,
+            partitionSpec=_partition(),
+            fieldProfiles=_field_profiles(),
+        ),
+        copy_fields=True,
+    )
+    request = TableProfilerRequest(
+        pretty_name="test-project.ds.events",
+        batch_kwargs={},
+        table=BaseTable(
+            name="events",
+            comment=None,
+            created=None,
+            last_altered=None,
+            size_in_bytes=None,
+            rows_count=None,
+        ),
+    )
+
+    workunits = list(
+        profiler.generate_profile_workunits_with_deferred_partitions(
+            [request],
+            deferred_external=[],
+            max_workers=1,
+            platform="bigquery",
+            profiler_args={},
+        )
+    )
+
+    assert [p.partitionSpec for p in _profiles(workunits)] == [
+        _partition(),
+        PartitionSpecClass(
+            type=PartitionTypeClass.FULL_TABLE,
+            partition="FULL_TABLE_SNAPSHOT (from partition 20261010)",
+        ),
+    ]
+    assert profiler.report.num_full_table_profiles_copied_from_partition == 1
+
+
 def test_copy_is_unaffected_by_in_place_edits_to_the_yielded_partition_profile() -> (
     None
 ):
@@ -205,7 +252,10 @@ def test_sharded_table_copy_reports_totals_across_shards() -> None:
         sharded_table_stats=ShardedTableStats(rows_count=40, size_in_bytes=100),
     )
 
-    workunits = list(profiler.get_workunits("test-project", {"ds": [table]}))
+    with patch.object(
+        PartitionDiscovery, "get_required_partition_filters", return_value=[]
+    ):
+        workunits = list(profiler.get_workunits("test-project", {"ds": [table]}))
 
     partition_profile, full_table_profile = _profiles(workunits)
     assert partition_profile.partitionSpec == _partition("20261010")
