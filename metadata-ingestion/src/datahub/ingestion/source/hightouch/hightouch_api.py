@@ -172,7 +172,9 @@ class HightouchAPIClient:
 
     def _warn_pagination(self, message: str) -> None:
         if self.report is not None:
-            self.report.warning(
+            # Entities past the cap are missing from this run, so report a failure
+            # to keep stale-entity removal from soft-deleting them.
+            self.report.failure(
                 title="Paginated response may be truncated",
                 message=message,
             )
@@ -315,14 +317,22 @@ class HightouchAPIClient:
                     f"Failed to fetch Event Contracts ({detail}). Skipping contract "
                     "ingestion; the rest of the run is unaffected."
                 )
-            if self.report is not None:
+            if self.report is None:
+                logger.warning(message)
+            elif status_code == HTTP_STATUS_NOT_FOUND:
                 self.report.warning(
                     title="Could not fetch Event Contracts",
                     message=message,
                     exc=e,
                 )
             else:
-                logger.warning(message)
+                # Contracts may exist but could not be read, so this is a failure:
+                # it keeps stale-entity removal from soft-deleting them.
+                self.report.failure(
+                    title="Could not fetch Event Contracts",
+                    message=message,
+                    exc=e,
+                )
             return []
 
     def extract_field_mappings(

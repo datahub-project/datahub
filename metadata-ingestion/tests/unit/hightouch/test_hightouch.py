@@ -34,6 +34,7 @@ from datahub.metadata.schema_classes import (
     AssertionTypeClass,
     DataContractPropertiesClass,
     DataProcessInstanceRunEventClass,
+    MetadataChangeProposalClass,
     SubTypesClass,
     UpstreamLineageClass,
 )
@@ -1434,3 +1435,116 @@ def test_failed_sync_run_fetch_keeps_the_sync() -> None:
 
     assert any(isinstance(wu, DataJob) for wu in workunits)
     assert [w.title for w in source.report.warnings] == ["Failed to fetch sync runs"]
+
+
+def _customers_table_model() -> HightouchModel:
+    return HightouchModel(
+        id="10",
+        name="Customers",
+        slug="customers",
+        workspace_id="100",
+        source_id="1",
+        query_type="table",
+        table={"name": "CUSTOMERS"},
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+
+def test_table_model_is_a_sibling_of_its_table() -> None:
+    mock_client = MagicMock()
+    mock_client.get_syncs.return_value = []
+    mock_client.get_models.return_value = [_customers_table_model()]
+    source = _run_source(mock_client, include_sibling_relationships=True)
+
+    workunits = list(source.get_workunits_internal())
+
+    siblings = [
+        wu.metadata
+        for wu in workunits
+        if isinstance(wu, MetadataWorkUnit)
+        and isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == "siblings"
+    ]
+    assert [mcp.entityUrn for mcp in siblings] == [
+        "urn:li:dataset:(urn:li:dataPlatform:hightouch,customers,PROD)"
+    ]
+    assert siblings[0].aspect is not None
+    assert "urn:li:dataset:(urn:li:dataPlatform:snowflake,customers,PROD)" in str(
+        siblings[0].aspect.value
+    )
+
+
+def test_preload_error_skips_only_that_sync() -> None:
+    mock_client = MagicMock()
+    mock_client.get_syncs.return_value = [_sync_for_model("sync-a", [])]
+    mock_client.get_model_by_id.return_value = _raw_sql_model()
+    source = _run_source(
+        mock_client, emit_models_as_datasets=False, include_sync_runs=False
+    )
+    # The first source lookup (during preload) fails; the sync still ingests.
+    mock_client.get_source_by_id.side_effect = [
+        requests.exceptions.HTTPError("503"),
+        _snowflake_source(),
+    ]
+    graph = MagicMock()
+    graph.get_schema_metadata.return_value = None
+    source.graph = graph
+    source._schema_handler.graph = graph
+
+    workunits = list(source.get_workunits_internal())
+
+    assert any(isinstance(wu, DataJob) for wu in workunits)
+    assert [w.title for w in source.report.warnings] == [
+        "Could not preload schemas for SQL parsing"
+    ]
+    assert not source.report.failures
+
+
+def test_platform_resolution_does_not_change_the_recipe_mapping() -> None:
+    mapping = PlatformDetail(platform="snowflake")
+    mock_client = MagicMock()
+    source = _run_source(mock_client, sources_to_platform_instance={"1": mapping})
+    warehouse = HightouchSourceConnection(
+        id="1",
+        name="Snowflake Prod",
+        slug="snowflake-prod",
+        type="snowflake",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={"database": "ANALYTICS"},
+    )
+
+    resolved = source._get_platform_for_source(warehouse)
+
+    assert resolved.database == "ANALYTICS"
+    assert resolved.env == "PROD"
+    configured = source.config.sources_to_platform_instance["1"]
+    assert configured.database is None
+    assert configured.env is None
+
+
+def test_unknown_sync_run_status_is_not_recorded_as_success() -> None:
+    mock_client = MagicMock()
+    mock_client.get_syncs.return_value = [_sync_for_model("sync-a", [])]
+    mock_client.get_model_by_id.return_value = _raw_sql_model()
+    mock_client.get_sync_runs.return_value = [
+        HightouchSyncRun.model_validate(
+            {
+                "id": 99,
+                "status": "bogus",
+                "startedAt": "2023-01-01T00:00:00Z",
+                "finishedAt": "2023-01-01T00:05:00Z",
+                "createdAt": "2023-01-01T00:00:00Z",
+            }
+        )
+    ]
+    source = _run_source(mock_client, emit_models_as_datasets=False)
+
+    run_events = _aspects_of_type(
+        source.get_workunits_internal(), DataProcessInstanceRunEventClass
+    )
+
+    assert [e.result.type for e in run_events if e.result] == ["SKIPPED"]
+    assert dict(source.report.unknown_sync_run_statuses) == {"bogus": 1}

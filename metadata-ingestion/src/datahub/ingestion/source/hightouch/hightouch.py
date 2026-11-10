@@ -376,7 +376,9 @@ class HightouchSource(StatefulIngestionSourceBase, TestableSource):
             try:
                 yield from self._sync_handler.get_sync_workunits(sync)
             except Exception as e:
-                self.report.warning(
+                # A failure, not a warning: it keeps stale-entity removal from
+                # soft-deleting this sync, which still exists in Hightouch.
+                self.report.failure(
                     title="Failed to process sync",
                     message="The sync could not be ingested.",
                     context=f"sync_slug: {sync.slug} (sync_id: {sync.id})",
@@ -444,7 +446,8 @@ class HightouchSource(StatefulIngestionSourceBase, TestableSource):
                     model, source, referenced_columns=columns_by_model.get(model_id)
                 )
             except Exception as e:
-                self.report.warning(
+                # A failure for the same reason as a failed sync.
+                self.report.failure(
                     title="Failed to process model",
                     message="The model could not be ingested.",
                     context=f"model_id: {model_id}",

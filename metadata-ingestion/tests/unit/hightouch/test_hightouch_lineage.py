@@ -936,10 +936,8 @@ def _sibling_patches(workunits: list) -> list:
 def test_no_siblings_for_single_table_raw_sql_models(
     mock_api_client_class, pipeline_context
 ):
-    """
-    Test that siblings ARE emitted for raw_sql models with a single upstream table
-    when include_sibling_relationships=True.
-    """
+    """A raw_sql model reading one table is still a different asset from that
+    table, so it gets no sibling even with include_sibling_relationships=True."""
     config = HightouchSourceConfig(
         api_config=HightouchAPIConfig(api_key="test"),
         env="PROD",

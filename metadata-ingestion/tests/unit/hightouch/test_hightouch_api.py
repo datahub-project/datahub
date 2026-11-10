@@ -235,8 +235,9 @@ def test_get_contracts_404_handling(mock_request):
 
 @patch("requests.Session.request")
 def test_get_contracts_connection_error_does_not_abort(mock_request):
-    """A ConnectionError (not an HTTPError) on the optional contracts endpoint must
-    be downgraded to a warning + empty list, not propagated to abort the run."""
+    """A ConnectionError on the optional contracts endpoint must not abort the run,
+    but is a failure: contracts may exist, and stale-entity removal must not
+    soft-delete them."""
     mock_request.side_effect = requests.exceptions.ConnectionError("connection refused")
 
     report = HightouchSourceReport()
@@ -245,7 +246,8 @@ def test_get_contracts_connection_error_does_not_abort(mock_request):
     contracts = client.get_contracts()
 
     assert contracts == []
-    assert len(report.warnings) >= 1
+    assert [f.title for f in report.failures] == ["Could not fetch Event Contracts"]
+    assert not report.warnings
 
 
 def test_session_retry_adapter_configured():
@@ -262,7 +264,7 @@ def test_session_retry_adapter_configured():
     assert list(retry.status_forcelist) == HTTP_RETRY_STATUS_CODES
 
 
-def test_pagination_cap_truncates_and_warns(monkeypatch):
+def test_pagination_cap_truncates_and_fails(monkeypatch):
     """When the API never reports hasMore=false, pagination stops at the page cap
     and surfaces a truncation warning to the operator."""
     from datahub.ingestion.source.hightouch import hightouch_api
@@ -277,7 +279,9 @@ def test_pagination_cap_truncates_and_warns(monkeypatch):
         results = client._make_paginated_request("/test")
 
     assert len(results) == 3
-    assert len(report.warnings) >= 1
+    # Entities past the cap are missing, so this is a failure: stale-entity
+    # removal must not soft-delete them.
+    assert [f.title for f in report.failures] == ["Paginated response may be truncated"]
 
 
 def test_field_mappings_include_the_external_id_and_skip_non_column_mappings() -> None:
