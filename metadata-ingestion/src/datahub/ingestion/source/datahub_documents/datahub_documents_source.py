@@ -42,7 +42,10 @@ from datahub.ingestion.source.datahub_documents.document_chunking_state_handler 
 from datahub.ingestion.source.datahub_documents.document_indexing_lock import (
     DocumentIndexingLock,
 )
-from datahub.ingestion.source.datahub_documents.text_partitioner import TextPartitioner
+from datahub.ingestion.source.datahub_documents.text_partitioner import (
+    PartitionTimeoutError,
+    TextPartitioner,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfig,
     StatefulIngestionConfigBase,
@@ -71,6 +74,7 @@ EMBED_SOURCE_ASPECT_NAMES = ("documentInfo", "semanticText")
 # Source types whose documents DataHub owns and embeds itself. SYSTEM marks
 # documents managed by the platform rather than created by users.
 DATAHUB_OWNED_SOURCE_TYPES = ("NATIVE", "SYSTEM")
+PARTITION_TIMEOUT_SKIP_REASON = "PARTITION_TIMEOUT"
 
 
 class DocumentEnumerationError(Exception):
@@ -93,6 +97,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     num_documents_skipped_empty: int = 0
     num_documents_skipped_existing_embeddings: int = 0
     num_documents_skipped_orphaned: int = 0
+    num_documents_partition_timeout: int = 0
     num_documents_pruned_from_state: int = 0
     num_chunks_created: int = 0
     lock_skipped_run: bool = False
@@ -133,6 +138,10 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     def report_document_skipped_orphaned(self) -> None:
         """Report a URN skipped because it has no resolvable backing entity."""
         self.num_documents_skipped_orphaned += 1
+
+    def report_partition_timeout(self) -> None:
+        """Report a document skipped because partitioning exceeded the time limit."""
+        self.num_documents_partition_timeout += 1
 
     def report_embeddings_generated(self, count: int) -> None:
         self.num_embeddings_generated += count
@@ -205,7 +214,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             self.graph = DataHubGraph(config=graph_config)
 
         # Initialize text partitioner
-        self.text_partitioner = TextPartitioner()
+        self.text_partitioner = TextPartitioner(
+            timeout_seconds=self.config.partition_timeout_seconds
+        )
 
         # Initialize chunking/embedding sub-component (same pattern as NotionSource)
         chunking_config = DocumentChunkingSourceConfig(
@@ -1772,6 +1783,39 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 source_text_sha256=compute_source_text_sha256(text),
             )
 
+        except PartitionTimeoutError:
+            document_urn = doc.get("urn", "unknown")
+            self.report.report_partition_timeout()
+            self.report.warning(
+                title="Document partitioning timed out",
+                message="Partitioning exceeded partition_timeout_seconds, so the document "
+                f"was skipped (limit {self.config.partition_timeout_seconds:g}s of CPU "
+                "time). With incremental processing on, it is not retried until its "
+                "content changes.",
+                context=document_urn,
+            )
+            # The marker drops this pipeline's embeddings, which were built from an
+            # earlier version of the text; leaving them would keep search matching
+            # content the document no longer has.
+            try:
+                marker = self.chunking_source.build_skip_marker_workunit(
+                    document_urn, PARTITION_TIMEOUT_SKIP_REASON
+                )
+            except Exception as e:
+                self.report.report_document_failed()
+                self.report.warning(
+                    title="Failed to mark timed-out document",
+                    message="Could not write the partition-timeout skip marker; the "
+                    "document is retried next run.",
+                    context=document_urn,
+                    exc=e,
+                )
+                return False
+            yield marker
+            # Deterministic for this text, so return True: incremental state records the
+            # hash and the document is not retried (and does not cost another full time
+            # limit every run) until its content changes.
+            return True
         except Exception as e:
             if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True
