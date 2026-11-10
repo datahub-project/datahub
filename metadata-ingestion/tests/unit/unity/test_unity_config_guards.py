@@ -46,6 +46,13 @@ def test_information_schema_is_denied_alongside_an_explicit_schema_pattern() -> 
     assert config.schema_pattern.allowed("my_catalog.my_schema")
 
 
+def test_a_recipe_that_already_denies_information_schema_keeps_its_deny_list() -> None:
+    config = unity_config(schema_pattern={"deny": [".*\\.information_schema"]})
+
+    assert config.schema_pattern.deny == [".*\\.information_schema"]
+    assert not config.schema_pattern.allowed("my_catalog.information_schema")
+
+
 def test_building_configs_does_not_grow_the_default_schema_deny_list() -> None:
     unity_config()
     second = unity_config()
