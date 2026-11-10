@@ -20,6 +20,7 @@ import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_MAXLENGTH;
 import static com.linkedin.metadata.search.utils.ESUtils.LONG_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.OBJECT_FIELD_TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.RANK_FEATURES_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.keywordIgnoreAboveForMaxBytes;
 
 import com.linkedin.data.schema.DataSchema;
@@ -45,6 +46,12 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class FieldTypeMapper {
+  /** V3 source mapping only. The standard tokenizer caps a token at 255 characters. */
+  public static final String RICH_TEXT_ANALYZER = "rich_text_delimited";
+
+  public static final String RICH_TEXT_SEARCH_ANALYZER = "query_rich_text_delimited";
+  static final String RICH_TEXT_DELIMITER = "rich_text_delimiter";
+
   static final Map<String, String> DEFAULT_PARTIAL_NGRAM_CONFIG =
       OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG;
 
@@ -66,6 +73,8 @@ public class FieldTypeMapper {
       case TEXT:
       case TEXT_PARTIAL:
         return KEYWORD_FIELD_TYPE; // Treat text fields as keyword for simplicity
+      case RICH_TEXT:
+        return ESUtils.TEXT_FIELD_TYPE;
       case BOOLEAN:
         return BOOLEAN_FIELD_TYPE;
       case COUNT:
@@ -74,6 +83,8 @@ public class FieldTypeMapper {
         return DATE_FIELD_TYPE;
       case DOUBLE:
         return DOUBLE_FIELD_TYPE;
+      case RANK_FEATURES:
+        return RANK_FEATURES_FIELD_TYPE;
       case URN:
         return KEYWORD_FIELD_TYPE; // URN fields are treated as keyword
       case MAP_ARRAY:
@@ -234,6 +245,15 @@ public class FieldTypeMapper {
       case URN:
       case URN_PARTIAL:
         return getMappingsForSearchText();
+      case RICH_TEXT:
+        // Analyzed text with no keyword parent, so a long body is not one Lucene term.
+        return Map.of(
+            "type",
+            ESUtils.TEXT_FIELD_TYPE,
+            ANALYZER,
+            RICH_TEXT_ANALYZER,
+            SEARCH_ANALYZER,
+            RICH_TEXT_SEARCH_ANALYZER);
       case BOOLEAN:
         return Map.of("type", BOOLEAN_FIELD_TYPE);
       case COUNT:
@@ -242,6 +262,8 @@ public class FieldTypeMapper {
         return Map.of("type", DATE_FIELD_TYPE);
       case DOUBLE:
         return Map.of("type", DOUBLE_FIELD_TYPE);
+      case RANK_FEATURES:
+        return Map.of("type", RANK_FEATURES_FIELD_TYPE);
       case BROWSE_PATH:
         return getMappingsForBrowsePath();
       case BROWSE_PATH_V2:
@@ -297,6 +319,7 @@ public class FieldTypeMapper {
       case TEXT:
       case TEXT_PARTIAL:
       case WORD_GRAM:
+      case RICH_TEXT:
       case BROWSE_PATH:
       case BROWSE_PATH_V2:
         return getMappingsForKeywordWithIgnoreAbove();
@@ -688,6 +711,7 @@ public class FieldTypeMapper {
       case URN_PARTIAL:
         return 50;
       case TEXT:
+      case RICH_TEXT:
       case URN:
         return 40;
       case KEYWORD:

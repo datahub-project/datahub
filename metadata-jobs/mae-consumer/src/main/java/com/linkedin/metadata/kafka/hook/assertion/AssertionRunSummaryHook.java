@@ -51,12 +51,6 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
       ImmutableSet.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.RESTATE);
   private static final Set<String> SUPPORTED_UPDATE_ASPECTS =
       ImmutableSet.of(ASSERTION_RUN_EVENT_ASPECT_NAME);
-  private static final Set<AssertionResultType> SUPPORTED_RESULT_TYPES =
-      ImmutableSet.of(
-          AssertionResultType.SUCCESS,
-          AssertionResultType.FAILURE,
-          AssertionResultType.ERROR,
-          AssertionResultType.INIT);
 
   private final AssertionService assertionService;
   private final boolean isEnabled;
@@ -119,7 +113,9 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
     }
 
     final AssertionResultType resultType = result.getType();
-    if (!SUPPORTED_RESULT_TYPES.contains(resultType)) {
+    // $UNKNOWN is the only symbol Pegasus adds beyond the model. A future symbol is not
+    // $UNKNOWN; the switches below no-op it because the summary has no timestamp field for it yet.
+    if (resultType == null || resultType == AssertionResultType.$UNKNOWN) {
       log.warn(
           "Skipping assertion run event with unsupported result type {} for assertion urn {}",
           resultType,
@@ -139,8 +135,9 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
 
     final AssertionRunSummaryPatchBuilder patchBuilder = new AssertionRunSummaryPatchBuilder();
     patchBuilder.urn(assertionUrn);
-    if (isNewerForType) {
-      setLastAtMillis(summary, patchBuilder, resultType, runEvent.getTimestampMillis());
+    if (isNewerForType
+        && !setLastAtMillis(summary, patchBuilder, resultType, runEvent.getTimestampMillis())) {
+      return;
     }
 
     final AssertionStatus nextStatus = AssertionStatusUtils.resolveStatus(false, summary);
@@ -169,12 +166,17 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
       case INIT:
         return summary.getLastInitializedAtMillis();
       default:
-        throw new IllegalStateException(
-            String.format("Unhandled assertion result type %s", resultType));
+        log.warn("Skipping unmapped assertion result type {}", resultType);
+        return null;
     }
   }
 
-  private static void setLastAtMillis(
+  /**
+   * Records the timestamp for a known result type.
+   *
+   * @return false when {@code resultType} has no timestamp field on the summary
+   */
+  private static boolean setLastAtMillis(
       @Nonnull final AssertionRunSummary summary,
       @Nonnull final AssertionRunSummaryPatchBuilder patchBuilder,
       @Nonnull final AssertionResultType resultType,
@@ -197,9 +199,10 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
         patchBuilder.setLastInitializedAt(timestampMillis);
         break;
       default:
-        throw new IllegalStateException(
-            String.format("Unhandled assertion result type %s", resultType));
+        log.warn("Skipping unmapped assertion result type {}", resultType);
+        return false;
     }
+    return true;
   }
 
   @Nonnull

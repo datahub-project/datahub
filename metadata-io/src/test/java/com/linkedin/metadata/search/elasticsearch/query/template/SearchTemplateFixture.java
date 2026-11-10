@@ -283,6 +283,7 @@ abstract class SearchTemplateFixture {
                 new ArrayList<>(page.getEntities()),
                 List.of(),
                 false,
+                null,
                 null);
           } catch (RuntimeException e) {
             return SearchTemplateWalk.AttemptResult.failed(e);

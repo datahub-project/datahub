@@ -15,6 +15,7 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
@@ -63,9 +64,13 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFieldModel;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -803,6 +808,56 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   /**
+   * IN is a terms query on the index's keyword path whether or not a Search V3 template is
+   * selected. V2 keeps {@code .keyword}. V3 uses the resolved root. This request is built by the
+   * Java query builder: the operation has no template coordinator.
+   */
+  @Test
+  public void testInFilterKeepsV2KeywordAndV3RootWithoutATemplate() {
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform",
+                                    Condition.IN,
+                                    "urn:li:dataPlatform:hive",
+                                    "urn:li:dataPlatform:kafka")))));
+    OperationContext flags =
+        operationContext.withSearchFlags(flag -> flag.setFulltext(true).setSkipAggregates(true));
+
+    String v2 = datasetSearch(flags, testQueryConfig, filter).source().query().toString();
+    assertTrue(compact(v2).contains("\"terms\":{\"platform.keyword\":["), v2);
+    assertFalse(v2.contains("platform_urn"), v2);
+
+    String v3 = datasetSearch(flags, V3_READ_CONFIG, filter).source().query().toString();
+    assertTrue(compact(v3).contains("\"terms\":{\"platform_urn\":["), v3);
+    assertFalse(v3.contains("platform_urn.keyword"), v3);
+    assertFalse(v3.contains("platform.keyword"), v3);
+    // The Java builder's dis_max, rather than the list template's match_all.
+    assertTrue(v3.contains("dis_max"), v3);
+  }
+
+  private SearchRequest datasetSearch(
+      OperationContext context, ElasticSearchConfiguration config, Filter filter) {
+    return SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+            config,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG)
+        .getSearchRequest(context, "*", filter, null, 0, 10, List.of());
+  }
+
+  private static String compact(String query) {
+    return query.replaceAll("\\s+", "");
+  }
+
+  /**
    * V3 strips caller-supplied legacy subfields and resolves from the registry; entity type enum
    * names, as the UI sends them, still match the V3 _entityType field.
    */
@@ -1028,6 +1083,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertTrue(description.contains("\"description.text\""), description);
     assertTrue(description.contains("\"description.stemmed\""), description);
     assertTrue(description.contains("\"operator\" : \"AND\""), description);
+    assertTrue(description.contains("\"analyzer\" : \"standard\""), description);
     assertFalse(description.contains("wildcard"), description);
 
     String fieldDescriptions =
@@ -1051,6 +1107,34 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         editedFieldDescriptions.contains("\"editedFieldDescriptions.text\""),
         editedFieldDescriptions);
     assertFalse(editedFieldDescriptions.contains("wildcard"), editedFieldDescriptions);
+  }
+
+  /**
+   * A stacked identifier matches its preserved original token, so {@code fct_users_deleted} does
+   * not match {@code fct_users_created}. Its parts are also required together, so {@code fct_users}
+   * matches a description that contains {@code fct_users_deleted}.
+   */
+  @Test
+  public void testV3ContainOnStackedTokenMatchesOriginalOrAllParts() {
+    String description =
+        v3Filter(buildCriterion("description", Condition.CONTAIN, "fct_users_deleted"));
+    assertTrue(description.contains("\"description.text\""), description);
+    assertTrue(description.contains("\"query\" : \"fct_users_deleted\""), description);
+    assertTrue(description.contains("\"query\" : \"fct\""), description);
+    assertTrue(description.contains("\"query\" : \"users\""), description);
+    assertTrue(description.contains("\"query\" : \"deleted\""), description);
+    assertTrue(description.contains("\"analyzer\" : \"standard\""), description);
+    assertTrue(description.contains("\"must\""), description);
+    assertTrue(description.contains("\"operator\" : \"AND\""), description);
+    assertFalse(description.contains("wildcard"), description);
+
+    String prefix = v3Filter(buildCriterion("description", Condition.CONTAIN, "fct_users"));
+    assertTrue(prefix.contains("\"query\" : \"fct_users\""), prefix);
+    assertTrue(prefix.contains("\"query\" : \"fct\""), prefix);
+    assertTrue(prefix.contains("\"query\" : \"users\""), prefix);
+    assertTrue(prefix.contains("\"analyzer\" : \"standard\""), prefix);
+    assertTrue(prefix.contains("\"must\""), prefix);
+    assertFalse(prefix.contains("\"query\" : \"deleted\""), prefix);
   }
 
   @Test
@@ -1355,6 +1439,30 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
           "fieldGlossaryTerms",
           "editedFieldGlossaryTerms");
 
+  private Set<String> fetchedIncluding(Set<String> sources, String... fields) {
+    Set<String> fetched = new HashSet<>(Set.of(fields));
+    fetched.addAll(sources);
+    return fetched;
+  }
+
+  /** Stored paths of these queried labels, without the {@code other} sink or column arrays. */
+  private Set<String> storedSourcesOf(String... labels) {
+    Map<String, List<String>> fields =
+        V3SearchFieldModel.forSearchableEntities(operationContext.getEntityRegistry())
+            .fullTextFields();
+    Set<String> paths = new HashSet<>();
+    for (String label : labels) {
+      for (String path : fields.getOrDefault(label, List.of())) {
+        int separator = path.lastIndexOf('.');
+        String fieldName = separator < 0 ? path : path.substring(separator + 1);
+        if (!V3SearchFields.OTHER.equals(path) && !COLUMN_ARRAYS.contains(fieldName)) {
+          paths.add(path);
+        }
+      }
+    }
+    return paths;
+  }
+
   /**
    * V3 runs the Stage 1 query, with a dis_max root, where V2 runs the V2 query. V3 finds matched
    * fields from the fetched values instead of highlighting.
@@ -1415,8 +1523,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         Set.of(getDatasetSearchSource(skipped, V3_READ_CONFIG, "test").fetchSource().includes()),
         Set.of("urn"));
 
-    // Naming a column array or an aspect path does not fetch it. Selecting name fetches the
-    // stored fields copied into that shared field.
+    // Naming a column array does not fetch it. Selecting name fetches the label and every stored
+    // path that fills it, including the aspect paths.
     OperationContext custom =
         operationContext.withSearchFlags(
             flags ->
@@ -1428,7 +1536,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                             List.of("name", "notSearched", "fieldPaths", "fieldDescriptions"))));
     assertEquals(
         Set.of(getDatasetSearchSource(custom, V3_READ_CONFIG, "test").fetchSource().includes()),
-        Set.of("urn", "name", "id", "title"));
+        fetchedIncluding(storedSourcesOf("name"), "urn", "name", "id", "title"));
     // V2 highlight fields name subfields, which V3 reads from their root field
     OperationContext v2Subfields =
         operationContext.withSearchFlags(
@@ -1442,7 +1550,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(
         Set.of(
             getDatasetSearchSource(v2Subfields, V3_READ_CONFIG, "test").fetchSource().includes()),
-        Set.of("urn", "name", "id", "title", "description"));
+        fetchedIncluding(
+            storedSourcesOf("name", "description"), "urn", "name", "id", "title", "description"));
 
     CustomSearchConfiguration highlightConfig =
         CustomSearchConfiguration.builder()
@@ -1478,9 +1587,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     for (Map.Entry<String, Set<String>> expected :
         Map.of(
                 "names",
-                Set.of("urn", "name", "id", "title"),
+                fetchedIncluding(storedSourcesOf("name"), "urn", "name", "id", "title"),
                 "subfields",
-                Set.of("urn", "name", "id", "title"),
+                fetchedIncluding(storedSourcesOf("name"), "urn", "name", "id", "title"),
                 "off",
                 Set.of("urn"))
             .entrySet()) {
@@ -2539,6 +2648,45 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             "urn:li:dataset:(urn:li:dataPlatform:hdfs,valid2,PROD)"));
     // The reported total still reflects what the search engine matched.
     assertEquals(result.getNumEntities().intValue(), 3);
+  }
+
+  @Test
+  public void testScrollIdWithPitCarriesExpirationAndNextPageReusesPit() {
+    // Sliced scrolls create a PIT even when pointInTimeCreationEnabled is false, so the caller
+    // passes supportsPointInTime=false. The scrollId must still carry an expiration, or the next
+    // page opens a new PIT and leaks the previous one.
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(2L, TotalHits.Relation.EQUAL_TO));
+    SearchHit hit = mockHitWithUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,a,PROD)");
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {hit});
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    when(mockResponse.pointInTimeId()).thenReturn("test-pit-id");
+
+    ScrollResult result =
+        handler.extractScrollResult(operationContext, mockResponse, null, "5m", 1, false);
+
+    SearchAfterWrapper wrapper = SearchAfterWrapper.fromScrollId(result.getScrollId());
+    assertEquals(wrapper.getPitId(), "test-pit-id");
+    assertTrue(wrapper.getExpirationTime() > System.currentTimeMillis());
+
+    SearchClientShim<?> client = mock(SearchClientShim.class);
+    assertEquals(
+        ESUtils.computePointInTime(
+            operationContext, result.getScrollId(), "5m", client, "test-index"),
+        "test-pit-id");
+    verifyNoInteractions(client);
   }
 
   @Test

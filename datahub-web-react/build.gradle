@@ -264,7 +264,7 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLa
   // Pass DataHub version via environment variable to vite build
   environment.put('DATAHUB_APP_VERSION', project.version)
 
-  args = ['run', project.hasProperty('sourcemap') ? 'buildWithSourceMap' :'build']
+  args = ['run', project.hasProperty('sourcemap') ? 'buildViteWithSourceMap' : 'buildVite']
 
   outputs.cacheIf { true }
   // The -Psourcemap flag switches yarnBuild between build-only and buildWithSourceMap-only, which

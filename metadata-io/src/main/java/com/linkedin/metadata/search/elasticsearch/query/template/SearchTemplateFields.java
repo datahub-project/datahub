@@ -4,6 +4,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.search.template.HighlightFieldOverrides;
 import com.linkedin.search.template.SearchFieldBoost;
@@ -32,7 +33,12 @@ public final class SearchTemplateFields {
 
   private static final Set<String> TEXT_FIELDS =
       Set.of("name", "qualifiedName", "description", "other");
-  private static final Set<String> NAME_FIELDS = Set.of("name", "qualifiedName");
+
+  /**
+   * Labels that each keep their own query group, so a hit in name, qualifiedName, and id does not
+   * add those scores together. Every other label shares one group.
+   */
+  public static final Set<String> IDENTITY_FIELDS = Set.of("name", "qualifiedName", "id");
 
   private SearchTemplateFields() {}
 
@@ -77,22 +83,28 @@ public final class SearchTemplateFields {
    */
   @Nonnull
   public static List<String> withoutLabel(@Nonnull List<String> analyzed, @Nonnull String label) {
+    return withoutLabels(analyzed, Set.of(label));
+  }
+
+  /** Drops indexed labels and their degree copies from a shared best_fields list. */
+  @Nonnull
+  public static List<String> withoutLabels(
+      @Nonnull List<String> analyzed, @Nonnull Set<String> labels) {
     List<String> kept = new ArrayList<>();
     for (String entry : analyzed) {
-      if (!label.equals(textBase(analyzedRoot(entry)))) {
+      if (!labels.contains(textBase(analyzedRoot(entry)))) {
         kept.add(entry);
       }
     }
     return kept;
   }
 
-  /** Identity fields for a single word or a dotted name. */
+  /** Degree-zero identity fields for a single word or a dotted name. */
   @Nonnull
   public static List<String> identityAnalyzedFields(@Nonnull List<SearchFieldConfig> fields) {
     List<SearchFieldConfig> identity = new ArrayList<>();
     for (SearchFieldConfig field : fields) {
-      if (NAME_FIELDS.contains(textBase(field.fieldName()))
-          || NAME_FIELDS.contains(field.shortName())) {
+      if (IDENTITY_FIELDS.contains(field.shortName())) {
         identity.add(field);
       }
     }
@@ -103,6 +115,12 @@ public final class SearchTemplateFields {
   @Nonnull
   public static String keywordPath(@Nonnull String indexedName) {
     return indexedName;
+  }
+
+  /** Case-folded keyword of a name, the same value a whole-name prefix reads. */
+  @Nonnull
+  public static String lowercaseKeywordPath(@Nonnull String indexedName) {
+    return indexedName + "." + V3SearchFields.LOWERCASE;
   }
 
   @Nonnull

@@ -283,7 +283,17 @@ class UnityCatalogSourceConfig(
         description="Regex patterns for schemas to filter in ingestion. Specify regex to the full `metastore.catalog.schema` name. e.g. to match all tables in schema analytics, use the regex `^mymetastore\\.mycatalog\\.analytics$`.",
     )
 
-    table_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(
+    # also_filters: process_tables checks table_pattern first whatever the
+    # kind, so a view or metric view can be decided by it. `view_pattern` and
+    # `metric_view_pattern` stay the fields a caller edits for those kinds;
+    # this only tells the probe which patterns a verdict may have consulted.
+    table_pattern: Annotated[
+        AllowDenyPattern,
+        Filters(
+            DatasetSubTypes.TABLE,
+            also_filters=[DatasetSubTypes.VIEW, DatasetSubTypes.METRIC_VIEW],
+        ),
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables to filter in ingestion. Specify regex to match the entire table name in `catalog.schema.table` format. e.g. to match all tables starting with customer in Customer catalog and public schema, use the regex `Customer\\.public\\.customer.*`.",
     )

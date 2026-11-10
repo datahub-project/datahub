@@ -155,6 +155,8 @@ export class ViewSelectPage extends BasePage {
     const valueOption = this.getFilterValueOption(searchValue);
     await valueOption.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await valueOption.click();
+    // The option label opens the entity hover card under the pointer, over the footer; see EntityHoverCardComponent.
+    await this.entityHoverCard.dismiss(this.dropdownSearchInput, searchValue);
 
     // Update the filter
     await this.footerButtonUpdate.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });

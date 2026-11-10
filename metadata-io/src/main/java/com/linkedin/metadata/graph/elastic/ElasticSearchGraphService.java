@@ -40,7 +40,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
-import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.shared.MigratableIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -75,7 +76,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 
 @Slf4j
 @RequiredArgsConstructor
-public class ElasticSearchGraphService implements GraphService, ElasticSearchIndexed {
+public class ElasticSearchGraphService implements GraphService, MigratableIndexed {
   private final LineageRegistry lineageRegistry;
   private final ESBulkProcessor esBulkProcessor;
   private final IndexConvention indexConvention;
@@ -342,10 +343,21 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       @Nonnull final OperationContext opContext,
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties)
       throws IOException {
+    return buildReindexConfigsFor(opContext, properties, indexBuilder, UnaryOperator.identity());
+  }
+
+  @Override
+  public List<ReindexConfig> buildReindexConfigsFor(
+      @Nonnull final OperationContext opContext,
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties,
+      @Nonnull final ESIndexBuilder targetBuilder,
+      @Nonnull final UnaryOperator<String> nameRewriter)
+      throws IOException {
     return List.of(
-        indexBuilder.buildReindexState(
+        targetBuilder.buildReindexState(
             opContext,
-            indexConvention.getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME),
+            nameRewriter.apply(
+                indexConvention.getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME)),
             GraphRelationshipMappingsBuilder.getMappings(),
             Collections.emptyMap()));
   }

@@ -112,6 +112,19 @@ public class ReportAssertionResultResolver implements DataFetcher<CompletableFut
     if (assertionResult.getType() == AssertionResultType.FAILURE && input.getSeverity() != null) {
       assertionResult.setSeverity(AssertionResultSeverity.valueOf(input.getSeverity().toString()));
     }
+    // Observed values only exist when the assertion was actually evaluated, so they are
+    // ignored for ERROR and INIT results, mirroring how severity is handled above.
+    if (assertionResult.getType() == AssertionResultType.SUCCESS
+        || assertionResult.getType() == AssertionResultType.FAILURE) {
+      // actualAggValue is a float32 in the model; a double beyond its range narrows to Infinity.
+      if (input.getActualAggValue() != null && !Float.isFinite(input.getActualAggValue())) {
+        throw new IllegalArgumentException("actualAggValue must be a finite 32-bit float value");
+      }
+      assertionResult.setActualAggValue(input.getActualAggValue(), SetMode.IGNORE_NULL);
+      assertionResult.setRowCount(input.getRowCount(), SetMode.IGNORE_NULL);
+      assertionResult.setUnexpectedCount(input.getUnexpectedCount(), SetMode.IGNORE_NULL);
+      assertionResult.setMissingCount(input.getMissingCount(), SetMode.IGNORE_NULL);
+    }
     return assertionResult;
   }
 
