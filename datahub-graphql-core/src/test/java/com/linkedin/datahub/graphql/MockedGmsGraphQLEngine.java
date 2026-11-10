@@ -28,10 +28,12 @@ final class MockedGmsGraphQLEngine {
   static ExecutionResult execute(String query, QueryContext context, EntityClient entityClient)
       throws IllegalAccessException {
     EntityRegistry registry = context.getOperationContext().getEntityRegistry();
-    return new GmsGraphQLEngine(args(registry, entityClient))
-        .builder()
-        .build()
-        .execute(query, null, Map.of(), context);
+    return build(registry, entityClient).execute(query, null, Map.of(), context);
+  }
+
+  static GraphQLEngine build(EntityRegistry registry, EntityClient entityClient)
+      throws IllegalAccessException {
+    return new GmsGraphQLEngine(args(registry, entityClient)).builder().build();
   }
 
   /**
