@@ -108,6 +108,7 @@ export const IncidentFilterContainer: React.FC<IncidentAssigneeAvatarStack> = ({
                         options={INCIDENT_GROUP_BY_FILTER_OPTIONS}
                         selectedValue={selectedFilters.groupBy}
                         onSelect={handleIncidentGroupByChange}
+                        width="fit-content"
                     />
                 </div>
             </FiltersContainer>
