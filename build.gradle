@@ -494,6 +494,14 @@ project.ext.externalDependency = [
     'djlHuggingFaceTokenizers': 'ai.djl.huggingface:tokenizers:0.36.0'
 ]
 
+// Dead-suite guard opt-outs: Test task path -> reason it legitimately runs no tests. A listed task
+// may discover zero tests or be NO-SOURCE without failing the build (see the dead-suite guard in
+// tasks.withType(Test) below). Every entry is a suite that can go dead unnoticed, so add one only
+// with a reason, e.g.
+//   ':some:module:test': 'only shared test helpers, consumed by other modules\' tests',
+// Empty today: every OSS Test task with test sources runs at least one test.
+project.ext.deadSuiteGuardOptOut = [:]
+
 allprojects {
   // Gradle 9 removed Project.exec/javaexec; route build-script exec/javaexec through the injected
   // ExecOperations service exposed here as `execOps` (see buildSrc InjectedExecOps).
@@ -524,10 +532,74 @@ allprojects {
 
   tasks.withType(Test).configureEach { task ->
     environment "DATAHUB_SYSTEM_CLIENT_SECRET", "TestOnlyNotASecret"
-    // Gradle 9 flips failOnNoDiscoveredTests to true: a test task with sources but zero discovered
-    // tests now fails (Gradle 8 passed silently). Some modules legitimately have only helper/support
-    // test sources, so restore the Gradle-8 behaviour globally.
-    failOnNoDiscoveredTests = false
+    // Dead-suite guard: a Test task that runs nothing must fail, not go green. Failure modes:
+    //  1. NO-SOURCE: no test classes (e.g. a custom Test task that lost its testClassesDirs
+    //     wiring, or an include pattern matching nothing). Gradle skips the task before test
+    //     discovery, so nothing below fires; the onlyIf check runs after test compilation instead.
+    //  2. Executes but discovers no tests (wrong framework). failOnNoDiscoveredTests catches it,
+    //     but only when the task has no filters configured.
+    //  3. Executes zero tests overall: a TestNG suite XML or group selecting nothing, or case 2 on
+    //     a filtered task. Gradle passes this; the doLast count check fails it. The count is per
+    //     task, so one dead <test> block inside a suite XML that otherwise runs is not caught.
+    // Opt a task out only via deadSuiteGuardOptOut (top of this file), with a reason.
+    def deadSuiteOptOutReason = rootProject.ext.deadSuiteGuardOptOut[task.path]
+    failOnNoDiscoveredTests = deadSuiteOptOutReason == null
+    def projectSourceSets = task.project.extensions.findByName('sourceSets')
+    if (deadSuiteOptOutReason == null && projectSourceSets != null) {
+      def deadSuiteHint = "Fix the task's wiring, or add '${task.path}' to deadSuiteGuardOptOut " +
+          "in the root build.gradle with a reason."
+      task.onlyIf('dead-suite guard: test sources must produce test classes') {
+        def classesDirs = task.testClassesDirs.files
+        if (classesDirs.isEmpty()) {
+          // Gradle 9 no longer wires conventions onto custom Test tasks: an unwired one has no
+          // classes dirs at all and can never run anything.
+          def msg = "${task.path} has no testClassesDirs (it would be NO-SOURCE and pass). " +
+              deadSuiteHint
+          // Gradle hides the cause of an onlyIf failure unless run with --stacktrace.
+          task.logger.error(msg)
+          throw new GradleException(msg)
+        }
+        // Mirrors Test#getCandidateClassFiles, the input whose emptiness makes the task NO-SOURCE.
+        def candidates = task.testClassesDirs.asFileTree.matching {
+          include task.includes
+          exclude task.excludes
+        }
+        if (candidates.isEmpty()) {
+          // Check the source sets the task actually runs (e.g. a custom integration-test source
+          // set), falling back to `test` when its dirs don't belong to any source set.
+          def backing = projectSourceSets.findAll { ss ->
+            ss.output.classesDirs.files.any { classesDirs.contains(it) }
+          }
+          if (backing.isEmpty()) {
+            backing = [projectSourceSets.findByName('test')].findAll { it != null }
+          }
+          def withSources = backing.findAll { ss ->
+            !ss.allSource.matching {
+              include '**/*.java', '**/*.kt', '**/*.groovy', '**/*.scala'
+            }.isEmpty()
+          }
+          if (!withSources.isEmpty()) {
+            def msg = "${task.path} has no test classes to run (it would be NO-SOURCE and pass) " +
+                "although source set(s) ${withSources*.name} have test sources. ${deadSuiteHint}"
+            task.logger.error(msg)
+            throw new GradleException(msg)
+          }
+        }
+        true
+      }
+      long executedTests = 0
+      task.afterSuite { desc, result ->
+        if (desc.parent == null) {
+          executedTests += result.testCount
+        }
+      }
+      task.doLast {
+        if (executedTests == 0) {
+          throw new GradleException(
+              "${task.path} ran zero tests (check its suite XML, groups and filters). ${deadSuiteHint}")
+        }
+      }
+    }
     if (task.project.name != "metadata-io") {
       // https://docs.gradle.org/current/userguide/performance.html
       maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
