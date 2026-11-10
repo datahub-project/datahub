@@ -534,37 +534,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
 
   /**
    * Known gaps: fields the production engine leaves on graphql-java's property fetcher, which on a
-   * root type always returns null and on any other type ignores the field's arguments. This list
-   * may only shrink: wire a resolver in GmsGraphQLEngine, then delete the line.
+   * root type always returns null and on any other type ignores the field's arguments. Empty, and
+   * may only shrink: wire a resolver in GmsGraphQLEngine instead of adding a line.
    */
-  private static final Set<String> KNOWN_UNWIRED_FIELDS =
-      Set.of(
-          // Declared in the SDL, but no resolver exists.
-          "Mutation.deleteERModelRelationship",
-          "Mutation.updateApplication",
-          "Query.listApplicationAssets",
-          // relationships / lineage / aspects / relatedDocuments not wired for these types.
-          "AccessTokenMetadata.relationships",
-          "Assertion.lineage",
-          "BusinessAttribute.relationships",
-          "DataContract.relationships",
-          "DataHubConnection.relationships",
-          "DataHubPageModule.relationships",
-          "DataHubPageTemplate.relationships",
-          "DataHubPolicy.relationships",
-          "DataHubRole.aspects",
-          "DataPlatform.relationships",
-          "DataPlatformInstance.relationships",
-          "DataTypeEntity.relationships",
-          "ERModelRelationship.lineage",
-          "EntityTypeEntity.relationships",
-          "ExecutionRequest.relationships",
-          "Form.relationships",
-          "Post.relationships",
-          "SchemaFieldEntity.relatedDocuments",
-          "StructuredPropertyEntity.relationships",
-          "Test.relationships",
-          "VersionSet.relationships");
+  private static final Set<String> KNOWN_UNWIRED_FIELDS = Set.of();
 
   /**
    * Root fields wired only when a setting that is off by default (or in this context) is on: the
@@ -648,8 +621,9 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   /**
    * The schema generator registers graphql-java's property fetcher for every field the runtime
    * wiring leaves out, so "has a DataFetcher" means "has one other than the property fetcher". If a
-   * graphql-java upgrade changes the default fetcher's type, this stops matching and
-   * testKnownUnwiredFieldsAreStillUnwired fails, so the check cannot go silently vacuous.
+   * graphql-java upgrade changes the default fetcher's type, this stops matching and the
+   * GATED_FIELDS assertion in testEveryFieldThatNeedsADataFetcherHasOne fails, so the check cannot
+   * go silently vacuous.
    */
   private static boolean isDefaultDataFetcher(DataFetcher<?> fetcher) {
     return fetcher instanceof PropertyDataFetcher;
