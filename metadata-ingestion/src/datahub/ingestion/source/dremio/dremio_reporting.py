@@ -38,7 +38,6 @@ class DremioSourceReport(
     # "is the filter biting?" signal, not an exact edge count.
     lineage_dropped_filtered: int = 0
 
-
     api_calls_total: int = 0
     api_calls_by_method_and_path: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
