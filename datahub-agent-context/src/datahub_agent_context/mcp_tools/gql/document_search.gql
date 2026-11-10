@@ -1,5 +1,10 @@
-# GraphQL query for searching Document entities (keyword search)
-# Returns document metadata WITHOUT content to avoid context bloat
+# GraphQL query for searching Document entities via the generic cross-entity
+# search (searchAcrossEntities). This endpoint ranks by match relevance and
+# supports arbitrary orFilters, so both plain and filtered keyword searches use
+# it for consistent ordering and visibility. Returns results under a
+# `searchResults` key.
+#
+# Returns document metadata WITHOUT content to avoid context bloat.
 
 fragment DocumentSearchInfo on Document {
   urn

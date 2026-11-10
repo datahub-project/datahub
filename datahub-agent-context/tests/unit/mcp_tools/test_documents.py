@@ -28,12 +28,16 @@ def mock_client():
 
 @pytest.fixture
 def mock_doc_search_response():
-    """Sample document search response."""
+    """Sample document search response from the generic cross-entity search.
+
+    Keyword search (plain and filtered) uses searchAcrossEntities, which
+    returns hits under a ``searchResults`` key.
+    """
     return {
         "searchAcrossEntities": {
             "start": 0,
-            "count": 2,
-            "total": 2,
+            "count": 1,
+            "total": 1,
             "searchResults": [
                 {
                     "entity": {
@@ -51,7 +55,7 @@ def mock_doc_search_response():
                             },
                         },
                     }
-                },
+                }
             ],
             "facets": [],
         }
@@ -102,16 +106,167 @@ def test_search_documents_basic(mock_client, mock_doc_search_response):
     assert len(result["searchResults"]) == 1
 
 
+def test_search_documents_reads_search_results(mock_client):
+    """Test that keyword search reads `searchResults` from searchAcrossEntities.
+
+    Regression test for #19026: keyword search must return the hits it receives
+    under the documented `searchResults` contract rather than a silently empty
+    list.
+    """
+    mock_client._graph.execute_graphql.return_value = {
+        "searchAcrossEntities": {
+            "start": 0,
+            "count": 1,
+            "total": 1,
+            "searchResults": [
+                {
+                    "entity": {
+                        "urn": "urn:li:document:doc1",
+                        "subType": "Runbook",
+                        "platform": {
+                            "urn": "urn:li:dataPlatform:notion",
+                            "name": "Notion",
+                        },
+                        "info": {
+                            "title": "Deployment Guide",
+                            "source": {"sourceType": "EXTERNAL"},
+                        },
+                    }
+                }
+            ],
+            "facets": [],
+        }
+    }
+
+    with DataHubContext(mock_client):
+        result = search_documents(query="deployment")
+
+    assert result["total"] == 1
+    assert len(result["searchResults"]) == 1
+    assert result["searchResults"][0]["entity"]["urn"] == "urn:li:document:doc1"
+    call_args = mock_client._graph.execute_graphql.call_args
+    assert call_args.kwargs["operation_name"] == "documentSearch"
+
+
+def test_search_documents_malformed_response_fails_loud(mock_client):
+    """Test that a genuinely malformed response surfaces an error, not empty.
+
+    Regression test for #19026: if the response is not a search result at all
+    (e.g. a backend error payload), the tool must fail loudly rather than
+    fabricate an empty catalog that looks like "no documents".
+    """
+    mock_client._graph.execute_graphql.return_value = {
+        "searchAcrossEntities": {"message": "Internal server error"}
+    }
+
+    with DataHubContext(mock_client):
+        with pytest.raises(ValueError, match="missing SearchResults fields"):
+            search_documents(query="deployment")
+
+
+def test_search_documents_empty_without_searchresults_key(mock_client):
+    """Test that an empty page omitting `searchResults` is still a clean empty.
+
+    Some GMS versions omit the empty `searchResults` array for a zero-hit page;
+    that must be reported as a normal empty result (kept under `searchResults`)
+    rather than treated as a malformed response.
+    """
+    mock_client._graph.execute_graphql.return_value = {
+        "searchAcrossEntities": {"start": 0, "count": 0, "total": 0, "facets": []}
+    }
+
+    with DataHubContext(mock_client):
+        result = search_documents(query="zzz-no-matches")
+
+    assert result["total"] == 0
+    assert result["searchResults"] == []
+
+
+def test_search_documents_empty_results_key_present(mock_client):
+    """Test that an empty search still returns the `searchResults` key.
+
+    Regression test for #19026: an empty hit set must not strip `searchResults`
+    (empty arrays are otherwise removed during response cleaning), so callers
+    can distinguish "no matches" from a malformed response.
+    """
+    mock_client._graph.execute_graphql.return_value = {
+        "searchAcrossEntities": {
+            "start": 0,
+            "count": 0,
+            "total": 0,
+            "searchResults": [],
+            "facets": [],
+        }
+    }
+
+    with DataHubContext(mock_client):
+        result = search_documents(query="zzz-no-matches")
+
+    assert result["total"] == 0
+    assert result["searchResults"] == []
+
+
+def test_search_documents_hybrid_empty_results_key_present(monkeypatch, mock_client):
+    """Test the hybrid merge also keeps `searchResults` present when empty."""
+    # Avoid the default-view lookups issuing extra GraphQL calls so the
+    # side_effect below matches the two search calls exactly.
+    monkeypatch.setattr(
+        "datahub_agent_context.mcp_tools.documents.resolve_default_view",
+        lambda graph: None,
+    )
+    mock_client._graph.execute_graphql.side_effect = [
+        {
+            "searchAcrossEntities": {
+                "start": 0,
+                "count": 0,
+                "total": 0,
+                "searchResults": [],
+                "facets": [],
+            }
+        },
+        {
+            "semanticSearchAcrossEntities": {
+                "start": 0,
+                "count": 0,
+                "total": 0,
+                "searchResults": [],
+                "facets": [],
+            }
+        },
+    ]
+
+    with DataHubContext(mock_client):
+        result = search_documents(query="deployment", semantic_query="how to deploy")
+
+    assert result["total"] == 0
+    assert result["searchResults"] == []
+
+
 def test_search_documents_with_platforms(mock_client, mock_doc_search_response):
-    """Test filtering by platform."""
+    """Test filtering by platform.
+
+    Asserts the exact compiled orFilters sent to the query so a dropped or
+    corrupted filter cannot pass silently (regression for filtered-search
+    routing).
+    """
     mock_client._graph.execute_graphql.return_value = mock_doc_search_response
 
     with DataHubContext(mock_client):
         result = search_documents(query="*", filter="platform = notion")
 
-    assert result is not None
+    # The returned doc is the one the backend returned.
+    assert result["searchResults"][0]["entity"]["urn"] == "urn:li:document:doc1"
+    # The platform filter must actually be compiled and sent as orFilters.
     call_args = mock_client._graph.execute_graphql.call_args
-    assert call_args.kwargs["operation_name"] == "documentSearch"
+    or_filters = call_args.kwargs["variables"]["orFilters"]
+    platform_criteria = [
+        c
+        for and_group in or_filters
+        for c in and_group["and"]
+        if c["field"] == "platform.keyword"
+    ]
+    assert platform_criteria, "no platform filter compiled into orFilters"
+    assert platform_criteria[0]["values"] == ["urn:li:dataPlatform:notion"]
 
 
 def test_search_documents_with_domains(mock_client, mock_doc_search_response):
@@ -124,6 +279,8 @@ def test_search_documents_with_domains(mock_client, mock_doc_search_response):
         )
 
     assert result is not None
+    call_args = mock_client._graph.execute_graphql.call_args
+    assert call_args.kwargs["operation_name"] == "documentSearch"
 
 
 def test_search_documents_with_tags(mock_client, mock_doc_search_response):
