@@ -35,6 +35,11 @@ source:
     # Power BI Premium endpoint: server: "powerbi://api.powerbi.com/v1.0/myorg/<workspace>".
     # platform: "powerbi"
 
+    # Lowercase model and table dataset URNs so they match Power BI lineage,
+    # which lowercases upstream URNs by default. Leave unset to keep the
+    # catalog's casing. Do not change this after the first ingestion.
+    # convert_urns_to_lowercase: true
+
     stateful_ingestion:
       enabled: true
       remove_stale_metadata: true

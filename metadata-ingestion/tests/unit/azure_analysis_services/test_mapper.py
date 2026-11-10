@@ -60,6 +60,16 @@ def _mapper(**config_overrides: object) -> AasMapper:
     )
 
 
+def test_convert_urns_to_lowercase_folds_dataset_urns() -> None:
+    mapper = _mapper(convert_urns_to_lowercase=True)
+    assert mapper._cube_dataset_urn("SalesModel") == builder.make_dataset_urn(
+        "azure-analysis-services", "salesmodel"
+    )
+    assert mapper._table_dataset_urn("SalesModel", "Sales") == builder.make_dataset_urn(
+        "azure-analysis-services", "salesmodel.sales"
+    )
+
+
 def test_subtypes_query_table_is_view() -> None:
     mapper = _mapper()
     table = AasTable(
