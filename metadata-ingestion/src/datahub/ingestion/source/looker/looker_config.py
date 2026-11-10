@@ -181,8 +181,20 @@ class LookerCommonConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
         "match across the `looker` and `lookml` recipes that reference them. A "
         "view from an imported project is keyed by the imported project's name. "
         "Projects not listed, and fields not set on an entry, use the top-level "
-        "`platform_instance` and `env`.",
+        "`platform_instance` and `env`. In the `lookml` source, views of a "
+        "project mapped to another instance or env are left to the recipe that "
+        "ingests that project and are only referenced in lineage.",
     )
+
+    @field_validator("project_to_platform_instance", mode="after")
+    @classmethod
+    def project_env_must_be_one_of(
+        cls, v: Dict[str, PlatformDetail]
+    ) -> Dict[str, PlatformDetail]:
+        for detail in v.values():
+            if "env" in detail.model_fields_set:
+                detail.env = EnvConfigMixin.env_must_be_one_of(detail.env)
+        return v
 
     def view_platform_detail(self, project_name: str) -> PlatformDetail:
         # PlatformDetail.env defaults to PROD, so only fields set explicitly on

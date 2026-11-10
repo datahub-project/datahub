@@ -319,6 +319,17 @@ class TestLookerViewIdProjectPlatformInstance:
             "urn:li:dataset:(urn:li:dataPlatform:looker,lookml_finance.finance.view.orders,DEV)"
         )
 
+    def test_mapped_env_is_validated_and_uppercased(self) -> None:
+        config = LookerCommonConfig.model_validate(
+            {"project_to_platform_instance": {"sales": {"env": "dev"}}}
+        )
+        assert config.view_platform_detail("sales").env == "DEV"
+
+        with pytest.raises(ValueError):
+            LookerCommonConfig.model_validate(
+                {"project_to_platform_instance": {"sales": {"env": "NOT_AN_ENV"}}}
+            )
+
 
 class TestResolveViewLocations:
     def _field(
