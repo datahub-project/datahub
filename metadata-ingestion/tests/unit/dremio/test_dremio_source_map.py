@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock
 
 import pytest
@@ -351,7 +351,7 @@ def test_map_urn_does_not_prepend_database_already_in_path(
             id="postgres_schema_named_like_database",
         ),
         pytest.param(
-            "REDSHIFT", "redshift", "dev", "DEV", "dev.DEV.my_table", id="redshift"
+            "REDSHIFT", "redshift", "dev", "DEV", "dev.dev.my_table", id="redshift"
         ),
         pytest.param(
             "SYNAPSE",
@@ -501,6 +501,15 @@ def test_map_urn_matches_target_connector_default_casing(
             "SalesDB.dbo.My_Table",
             id="keep_case_keeps_database_case",
         ),
+        pytest.param(
+            "REDSHIFT",
+            "redshift",
+            "DEV",
+            ["my_src", "Public"],
+            False,
+            "DEV.Public.My_Table",
+            id="redshift_keep_case",
+        ),
     ],
 )
 def test_map_urn_convert_urns_to_lowercase_override(
@@ -522,6 +531,13 @@ def test_map_urn_convert_urns_to_lowercase_override(
     assert _map_to_urn(
         source_type, database_name, path, "My_Table", mappings=mappings
     ) == _urn(platform, expected_name)
+
+
+def test_map_urn_redshift_lowercases_database_like_redshift_connector() -> None:
+    # Redshift folds identifiers to lowercase, so database DEV is dev.
+    assert _map_to_urn("REDSHIFT", "DEV", ["my_src", "Public"], "My_Table") == _urn(
+        "redshift", "dev.public.my_table"
+    )
 
 
 def test_map_urn_source_mapping_platform_instance_and_env() -> None:
@@ -551,6 +567,7 @@ def test_map_urn_file_object_storage_unchanged() -> None:
 def _dremio_source(
     monkeypatch: pytest.MonkeyPatch,
     source_mappings: Optional[List[DremioSourceMapping]] = None,
+    **config: Any,
 ) -> DremioSource:
     mock_session = MagicMock()
     monkeypatch.setattr("requests.Session", MagicMock(return_value=mock_session))
@@ -565,6 +582,7 @@ def _dremio_source(
             password="p",
             env="DEV",
             source_mappings=source_mappings,
+            **config,
         ),
         ctx,
     )
@@ -603,6 +621,27 @@ def test_process_dataset_emits_mapped_copy_upstream(
     assert source.report.source_mapping_sample_upstream_urns == {"my_src": expected}
 
 
+def test_sample_upstream_urn_is_first_table_of_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _dremio_source(monkeypatch)
+    source.source_map = _source_map("POSTGRES", "my_db", "MY_SRC")
+    source.dremio_aspects = MagicMock()
+    source.dremio_aspects.populate_dataset_mcp.return_value = []
+    source.sql_parsing_aggregator = MagicMock()
+    for table in ["first_table", "second_table"]:
+        dataset = MagicMock(
+            path=["MY_SRC", "my_schema"],
+            resource_name=table,
+            dataset_type=DremioDatasetType.TABLE,
+        )
+        list(source.process_dataset(dataset))
+
+    assert source.report.source_mapping_sample_upstream_urns == {
+        "my_src": _urn("postgres", "my_db.my_schema.first_table")
+    }
+
+
 def _warning_contexts(source: DremioSource, message_prefix: str) -> List[str]:
     return [
         context
@@ -634,6 +673,60 @@ def test_platform_instance_warning_only_for_listed_mappings(
     )
     assert _warning_contexts(source, "Cross-platform source mapping") == [
         "source=listed_src, platform=mssql"
+    ]
+
+
+@pytest.mark.parametrize(
+    "config_instance,mapping_instance,expected",
+    [
+        pytest.param(None, None, ["source=remote_dremio, platform=dremio"], id="none"),
+        pytest.param("local", None, [], id="source_config_instance"),
+        pytest.param(None, "remote", [], id="mapping_instance"),
+    ],
+)
+def test_platform_instance_warning_for_dremio_to_dremio(
+    monkeypatch: pytest.MonkeyPatch,
+    config_instance: Optional[str],
+    mapping_instance: Optional[str],
+    expected: List[str],
+) -> None:
+    # Without any instance, remote and local Dremio URNs share one namespace.
+    mappings = (
+        [
+            DremioSourceMapping(
+                source_name="remote_dremio",
+                platform="dremio",
+                platform_instance=mapping_instance,
+            )
+        ]
+        if mapping_instance
+        else None
+    )
+    source = _dremio_source(monkeypatch, mappings, platform_instance=config_instance)
+    source._validate_source_mappings(
+        _source_map("DREMIOTODREMIO", None, "remote_dremio", mappings=mappings)
+    )
+    assert _warning_contexts(source, "Cross-platform source mapping") == []
+    assert _warning_contexts(source, "Dremio-to-Dremio source has no") == expected
+
+
+def test_database_in_path_on_file_object_storage_type_warns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _dremio_source(
+        monkeypatch,
+        source_type_mappings={
+            "MYFS": DremioSourceTypeOverride(
+                platform="s3", category="file_object_storage", database_in_path=True
+            ),
+            "MYDB": DremioSourceTypeOverride(
+                platform="postgres", category="database", database_in_path=True
+            ),
+        },
+    )
+    source._validate_source_mappings({})
+    assert _warning_contexts(source, "database_in_path is ignored") == [
+        "source_type=MYFS"
     ]
 
 
@@ -686,6 +779,14 @@ def test_unknown_source_category_warns_once_per_source(
             "My_Table",
             "my_schema.My_Table",
             id="hana_keeps_quoted_mixed_case",
+        ),
+        pytest.param(
+            "SAPHANA",
+            "hana",
+            ["my_hana", "MY_SCHEMA"],
+            "ORDER",
+            "my_schema.ORDER",
+            id="hana_keeps_reserved_word",
         ),
     ],
 )
@@ -758,6 +859,12 @@ def test_map_urn_dremio_to_dremio_uses_dremio_naming() -> None:
         )
         == "urn:li:dataset:(urn:li:dataPlatform:dremio,remote.dremio.my_space.my_folder.my_view,DEV)"
     )
+
+
+def test_map_urn_dremio_to_dremio_without_source_mapping() -> None:
+    assert _map_to_urn(
+        "DREMIOTODREMIO", None, ["remote_dremio", "My_Space"], "My_View"
+    ) == _urn("dremio", "dremio.my_space.my_view")
 
 
 def test_mapping_without_ingested_source_warns(

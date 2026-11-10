@@ -988,9 +988,11 @@ def test_identity_column_lineage_matches_case_insensitively():
         downstream_field_paths=["CUSTOMER_ID", "NAME", "ONLY_IN_DBX"],
         upstream_field_paths=["customer_id", "name", "only_in_ext"],
     )
-    assert all(isinstance(x, FineGrainedLineageClass) for x in cll)
-    # 2 matched (case-insensitive); unmatched dbx column dropped
-    pairs = [(x.upstreams, x.downstreams) for x in cll]
+    assert all(isinstance(x, FineGrainedLineageClass) for x in cll.lineages)
+    # 2 matched (case-insensitive); unmatched dbx column dropped and reported
+    assert cll.unmatched_downstream_paths == ["ONLY_IN_DBX"]
+    assert cll.num_original_path == 0
+    pairs = [(x.upstreams, x.downstreams) for x in cll.lineages]
     assert pairs == [
         (
             ["urn:li:schemaField:(%s,customer_id)" % ext],
@@ -1010,7 +1012,7 @@ def test_identity_column_lineage_empty_when_no_overlap():
             external_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,d.s.t,PROD)",
             downstream_field_paths=["a"],
             upstream_field_paths=["x", "y"],
-        )
+        ).lineages
         == []
     )
 
@@ -1291,3 +1293,274 @@ def test_with_federation_lineage_degrades_on_error(monkeypatch):
     result = src._with_federation_lineage(base, "urn:li:dataset:(x)", table, None)
     assert result is base
     assert src.report.num_federation_links_failed == 1
+
+
+def _seed_external_v2_schema(
+    src: UnityCatalogSource, catalog: Catalog, field_paths: List[str]
+) -> str:
+    """Seed the external schema the way the bulk fetch does: from the external
+    dataset's real field paths, here v2 paths (as e.g. the Glue source emits)."""
+    urn = _seed_external_schema(src, catalog, "my_schema", "t", {})
+    key = src._external_platform_key(catalog)
+    assert key is not None
+    resolver = src._external_schema_resolvers[key]
+    assert resolver is not None
+    resolver.add_schema_metadata(
+        urn, _external_schema([_field(p) for p in field_paths])
+    )
+    return urn
+
+
+_DBX_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:databricks,datahub_snowflake.my_schema.t,PROD)"
+)
+
+
+def _cll_pairs(aspect: Optional[UpstreamLineageClass]) -> List[tuple]:
+    assert aspect is not None and aspect.fineGrainedLineages
+    return [(x.upstreams, x.downstreams) for x in aspect.fineGrainedLineages]
+
+
+def test_federation_cll_upstream_uses_external_v2_field_path():
+    # The external dataset's schemaField URN must use its own (v2) field path, or
+    # the edge points at a schemaField that doesn't exist and column lineage stops
+    # at the external dataset.
+    src = _lineage_cll_source()
+    catalog = _foreign_catalog()
+    ext = _seed_external_v2_schema(
+        src, catalog, ["[version=2.0].[type=long].col_a", "col_b"]
+    )
+    dbx_schema = _external_schema([_field("col_a"), _field("col_b")])
+
+    aspect = src._federation_lineage(
+        _DBX_URN, _foreign_table(catalog), catalog, dbx_schema
+    )
+
+    assert _cll_pairs(aspect) == [
+        (
+            [f"urn:li:schemaField:({ext},[version=2.0].[type=long].col_a)"],
+            [f"urn:li:schemaField:({_DBX_URN},col_a)"],
+        ),
+        # A field whose path is already simple falls back to that path.
+        (
+            [f"urn:li:schemaField:({ext},col_b)"],
+            [f"urn:li:schemaField:({_DBX_URN},col_b)"],
+        ),
+    ]
+
+
+def test_federation_cll_v2_field_path_matched_case_insensitively():
+    src = _lineage_cll_source()
+    catalog = _foreign_catalog()
+    ext = _seed_external_v2_schema(src, catalog, ["[version=2.0].[type=long].col_a"])
+    dbx_schema = _external_schema([_field("COL_A")])
+
+    aspect = src._federation_lineage(
+        _DBX_URN, _foreign_table(catalog), catalog, dbx_schema
+    )
+
+    assert _cll_pairs(aspect) == [
+        (
+            [f"urn:li:schemaField:({ext},[version=2.0].[type=long].col_a)"],
+            [f"urn:li:schemaField:({_DBX_URN},COL_A)"],
+        )
+    ]
+
+
+def test_identity_column_lineage_falls_back_to_simple_path_when_original_unknown():
+    ext = "urn:li:dataset:(urn:li:dataPlatform:glue,my_db.t,PROD)"
+    cll = fed.identity_column_lineage(
+        dataset_urn=_DBX_URN,
+        external_urn=ext,
+        downstream_field_paths=["col_a", "col_b"],
+        upstream_field_paths=["col_a", "col_b"],
+        upstream_original_field_paths={"col_a": "[version=2.0].[type=long].col_a"},
+    )
+    assert cll.num_original_path == 1
+    assert [x.upstreams for x in cll.lineages] == [
+        [f"urn:li:schemaField:({ext},[version=2.0].[type=long].col_a)"],
+        [f"urn:li:schemaField:({ext},col_b)"],
+    ]
+
+
+def test_backfill_from_v2_external_schema_emits_simple_field_paths():
+    # Backfilled mirror columns are the Databricks table's own fields, so they keep
+    # the simple path (as Unity Catalog's own flat columns do); only the upstream
+    # side of the column lineage uses the external dataset's v2 path.
+    src = _snowflake_conn_source()
+    catalog = _foreign_catalog()
+    _seed_external_v2_schema(src, catalog, ["[version=2.0].[type=long].col_a"])
+
+    fields = src._resolve_external_schema_fields(_foreign_table(catalog))
+
+    assert fields is not None and [f.fieldPath for f in fields] == ["col_a"]
+
+
+def test_federation_cll_report_counters():
+    src = _lineage_cll_source()
+    catalog = _foreign_catalog()
+    _seed_external_v2_schema(src, catalog, ["[version=2.0].[type=long].col_a", "col_b"])
+    dbx_schema = _external_schema(
+        [_field("col_a"), _field("col_b"), _field("only_in_dbx")]
+    )
+
+    src._federation_lineage(_DBX_URN, _foreign_table(catalog), catalog, dbx_schema)
+
+    assert src.report.num_federation_cll_edges_emitted == 2
+    assert src.report.num_federation_cll_edges_original_path == 1
+    assert src.report.num_federation_cll_downstream_unmatched == 1
+    assert list(src.report.federation_cll_downstream_unmatched_sample) == [
+        f"urn:li:schemaField:({_DBX_URN},only_in_dbx)"
+    ]
+
+
+def test_federation_cll_through_bulk_schema_fetch_keeps_tables_apart():
+    # Drive the real bulk path: SchemaResolverProvider scroll-fetches the scope's
+    # schemas from the graph (GraphQL shape) for two v2-path tables.
+    from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
+
+    src = _lineage_cll_source()
+    catalog = _foreign_catalog()
+    table_t, table_u = _foreign_table(catalog), _foreign_table(catalog)
+    table_u.name, table_u.id = "u", "c.my_schema.u"
+    urn_t = src._external_dataset_urn(catalog, "my_schema", "t")
+    urn_u = src._external_dataset_urn(catalog, "my_schema", "u")
+    graph = MagicMock()
+    graph._bulk_fetch_schema_info_by_filter.return_value = iter(
+        [
+            (
+                urn_t,
+                {
+                    "fields": [
+                        {
+                            "fieldPath": "[version=2.0].[type=long].col_a",
+                            "nativeDataType": "bigint",
+                        }
+                    ]
+                },
+            ),
+            (
+                urn_u,
+                {
+                    "fields": [
+                        {
+                            "fieldPath": "[version=2.0].[type=string].col_a",
+                            "nativeDataType": "string",
+                        }
+                    ]
+                },
+            ),
+        ]
+    )
+    src._schema_resolver_provider = SchemaResolverProvider(graph=graph)
+    dbx_schema = _external_schema([_field("col_a")])
+
+    aspect_t = src._federation_lineage(_DBX_URN, table_t, catalog, dbx_schema)
+    aspect_u = src._federation_lineage(_DBX_URN, table_u, catalog, dbx_schema)
+
+    assert _cll_pairs(aspect_t)[0][0] == [
+        f"urn:li:schemaField:({urn_t},[version=2.0].[type=long].col_a)"
+    ]
+    assert _cll_pairs(aspect_u)[0][0] == [
+        f"urn:li:schemaField:({urn_u},[version=2.0].[type=string].col_a)"
+    ]
+    # One scroll for the whole scope, not one per table.
+    assert graph._bulk_fetch_schema_info_by_filter.call_count == 1
+
+
+def _uc_fields(name: str, type_text: str) -> List[SchemaFieldClass]:
+    # The fields Unity Catalog emits for a mirror column, from its own converter.
+    from databricks.sdk.service.catalog import ColumnTypeName
+
+    from datahub.ingestion.source.unity.proxy_types import Column
+
+    column = Column(
+        id=name,
+        name=name,
+        type_text=type_text,
+        type_name=ColumnTypeName.STRING,
+        type_scale=None,
+        type_precision=None,
+        position=None,
+        nullable=True,
+        comment=None,
+    )
+    return UnityCatalogSource._create_schema_field(column, tags=None)
+
+
+@pytest.mark.parametrize(
+    "name, type_text, external_root",
+    [
+        ("s", "struct<a:int,b:string>", "[version=2.0].[type=struct].[type=struct].s"),
+        (
+            "arr",
+            "array<int>",
+            "[version=2.0].[type=struct].[type=array].[type=int].arr",
+        ),
+        ("m", "map<string,int>", "[version=2.0].[type=struct].[type=map].[type=int].m"),
+    ],
+    ids=["struct", "array", "map"],
+)
+def test_federation_cll_complex_mirror_column_gets_root_to_root_edge(
+    name, type_text, external_root
+):
+    src = _lineage_cll_source()
+    catalog = _foreign_catalog()
+    ext = _seed_external_v2_schema(src, catalog, [external_root])
+    mirror_fields = _uc_fields(name, type_text)
+    dbx_schema = _external_schema(mirror_fields)
+
+    aspect = src._federation_lineage(
+        _DBX_URN, _foreign_table(catalog), catalog, dbx_schema
+    )
+
+    # The mirror column's own (possibly v2) root path is the downstream; nested
+    # children are not matched or counted.
+    assert _cll_pairs(aspect) == [
+        (
+            [f"urn:li:schemaField:({ext},{external_root})"],
+            [f"urn:li:schemaField:({_DBX_URN},{mirror_fields[0].fieldPath})"],
+        )
+    ]
+    assert src.report.num_federation_cll_downstream_unmatched == 0
+
+
+def test_federation_cll_all_complex_table_counts_unmatched_columns():
+    src = _lineage_cll_source()
+    catalog = _foreign_catalog()
+    _seed_external_v2_schema(src, catalog, ["[version=2.0].[type=long].other"])
+    dbx_schema = _external_schema(
+        _uc_fields("s", "struct<a:int>") + _uc_fields("arr", "array<int>")
+    )
+
+    aspect = src._federation_lineage(
+        _DBX_URN, _foreign_table(catalog), catalog, dbx_schema
+    )
+
+    assert aspect is not None and not aspect.fineGrainedLineages
+    assert src.report.num_federation_cll_edges_emitted == 0
+    assert src.report.num_federation_cll_downstream_unmatched == 2
+
+
+def test_federation_cll_counts_unknown_original_paths():
+    # A schema stored without its field paths (raw SchemaInfo) has unknown
+    # originals: lineage falls back to simple paths, and the fallback is counted.
+    src = _lineage_cll_source()
+    catalog = _foreign_catalog()
+    _seed_external_schema(src, catalog, "my_schema", "t", {"col_a": "bigint"})
+    dbx_schema = _external_schema([_field("col_a")])
+
+    src._federation_lineage(_DBX_URN, _foreign_table(catalog), catalog, dbx_schema)
+
+    assert src.report.num_federation_cll_original_paths_unknown == 1
+
+
+def test_federation_cll_known_v1_originals_are_not_counted_unknown():
+    src = _lineage_cll_source()
+    catalog = _foreign_catalog()
+    _seed_external_v2_schema(src, catalog, ["col_a"])
+    dbx_schema = _external_schema([_field("col_a")])
+
+    src._federation_lineage(_DBX_URN, _foreign_table(catalog), catalog, dbx_schema)
+
+    assert src.report.num_federation_cll_original_paths_unknown == 0

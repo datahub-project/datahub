@@ -130,21 +130,22 @@ def passes_dremio_filters(
 # The Oracle and SAP HANA connectors read names through SQLAlchemy dialects
 # whose normalize_name lowercases an ALL-UPPERCASE name unless it would then
 # need quoting (a reserved word, or a character such as `#`).
-# ponytail: HANA uses Oracle's reserved words here; a word reserved in only one
-# of them keeps the wrong case. Use the sqlalchemy-hana dialect if that matters.
+# HANA uses Oracle's reserved words here, so a word reserved in only one of
+# the two keeps the wrong case.
 _NORMALIZING_DIALECT = OracleDialect()
 
 
 def _match_connector_urn_case(
     platform: str, parts: List[str], convert_urns_to_lowercase: Optional[bool]
 ) -> List[str]:
-    """Lowercase the name parts when asked to, or by default for Snowflake.
-    By default, Oracle's and SAP HANA's ALL-UPPERCASE parts are lowercased like
-    SQLAlchemy's normalize_name. Every other platform keeps Dremio's case."""
+    """Lowercase the name parts when asked to, or by default for Snowflake and
+    Redshift (which folds identifiers to lowercase). By default, Oracle's and
+    SAP HANA's ALL-UPPERCASE parts are lowercased like SQLAlchemy's
+    normalize_name. Every other platform keeps Dremio's case."""
     platform = platform.lower()
     if convert_urns_to_lowercase is not None:
         return [p.lower() for p in parts] if convert_urns_to_lowercase else parts
-    if platform == "snowflake":  # convert_urns_to_lowercase defaults to True
+    if platform in ("snowflake", "redshift"):
         return [p.lower() for p in parts]
     if platform in ("oracle", "hana"):
         return [str(_NORMALIZING_DIALECT.normalize_name(p)) for p in parts]
@@ -196,7 +197,10 @@ def map_dremio_dataset_to_urn(
                 and (len(parts) < 2 or parts[0].lower() != database.lower())
             )
         ):
-            # The Db2 connector uppercases the database.
+            # The Db2 connector uppercases the database. The Oracle connector's
+            # normalize_db_name lowercases any ALL-UPPERCASE database, while
+            # normalize_name below keeps a reserved word (e.g. ORDER) uppercase;
+            # importing it would pull in oracledb, and the names differ only then.
             parts.insert(0, database.upper() if platform.lower() == "db2" else database)
         name = ".".join(
             _match_connector_urn_case(
@@ -422,6 +426,16 @@ class DremioSource(StatefulIngestionSourceBase):
     def _validate_source_mappings(
         self, source_map: Dict[str, DremioSourceMapEntry]
     ) -> None:
+        for source_type, override in self.config.source_type_mappings.items():
+            if (
+                override.database_in_path is not None
+                and self.source_type_mapper.lookup_category(source_type)
+                == "file_object_storage"
+            ):
+                self.report.warning(
+                    message="database_in_path is ignored for a file_object_storage source type",
+                    context=f"source_type={source_type}",
+                )
         listed = {m.source_name.lower() for m in self.config.source_mappings or []}
         for source_name in sorted(listed - source_map.keys()):
             # A schema_pattern that allows only paths below the source also
@@ -433,7 +447,16 @@ class DremioSource(StatefulIngestionSourceBase):
         for source_name, mapping in source_map.items():
             if mapping.dremio_source_category == "unknown":
                 self.report.warning(
-                    message="Dremio source type has no built-in category, so its upstream URNs may be wrong. Register it with source_type_mappings",
+                    message="Dremio source type has no built-in category, so its upstream URNs may be wrong. Register it with source_type_mappings and set its category to silence this",
+                    context=f"source={source_name}, platform={mapping.platform}",
+                )
+            if (
+                is_dremio_platform(mapping.platform)
+                and not mapping.platform_instance
+                and not self.config.platform_instance
+            ):
+                self.report.warning(
+                    message="Dremio-to-Dremio source has no platform_instance, and neither does this source, so remote and local Dremio datasets with the same path share a URN. Set platform_instance on either",
                     context=f"source={source_name}, platform={mapping.platform}",
                 )
             if (
@@ -779,8 +802,9 @@ class DremioSource(StatefulIngestionSourceBase):
                 )
 
         # Record the time window after successful processing so subsequent runs
-        # can skip or advance past it.
-        if redundant_handler is not None:
+        # can skip or advance past it. After a truncated job fetch, keep the old
+        # state so the next run re-reads the jobs that were missed.
+        if redundant_handler is not None and not self.report.query_fetch_incomplete:
             redundant_handler.update_state(
                 start_time=effective_start,
                 end_time=effective_end,
