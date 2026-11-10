@@ -11,9 +11,10 @@ _FIELD = DremioSQLQueries.SCHEMA_FILTER_FIELD
 
 def _dremio_matches(patterns: List[str], schema: str, allow: bool = True) -> bool:
     """What Dremio does with the pushed condition: REGEXP_LIKE is Java's
-    Matcher.find() against the UPPER()-ed schema path. Python's re.search stands
-    in for it, which only holds for syntax both engines share (not Unicode
-    classes, possessive quantifiers or `(?P<name>...)`)."""
+    Matcher.find() against the UPPER()-ed schema path. Python's re.search with
+    re.ASCII stands in for it: Java's `(?i)` folds ASCII letters only, and its
+    `\w`/`\d`/`\s` are ASCII. This only holds for syntax both engines share
+    (not possessive quantifiers or `(?P<name>...)`)."""
     condition = DremioSQLQueries.pattern_condition(patterns, _FIELD, allow=allow)
     operator = "REGEXP_LIKE" if allow else "NOT REGEXP_LIKE"
     match = re.fullmatch(
@@ -24,7 +25,7 @@ def _dremio_matches(patterns: List[str], schema: str, allow: bool = True) -> boo
     # A lone quote would end the SQL literal early; '' is one quote.
     assert "'" not in literal.replace("''", "")
     regex = literal.replace("''", "'")
-    found = re.search(regex, schema.upper()) is not None
+    found = re.search(regex, schema.upper(), re.ASCII) is not None
     return found if allow else not found
 
 
@@ -45,6 +46,9 @@ def _dremio_matches(patterns: List[str], schema: str, allow: bool = True) -> boo
         ("temp", "temp_x"),
         # A quote doesn't break the SQL literal.
         ("o'brien", "o'brien.sales"),
+        # Non-ASCII letters match in either case, as AllowDenyPattern does.
+        ("café", "Café.sales"),
+        (r"^\d+_café$", "12_CAFÉ"),
     ],
 )
 def test_pushed_schema_pattern_matches_like_allow_deny_pattern(

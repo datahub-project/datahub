@@ -356,9 +356,13 @@ class DremioSQLQueries:
         # re.match with IGNORECASE. Anchor at the start and match
         # case-insensitively to agree with it. Uppercasing the pattern instead
         # would also uppercase escapes (\d -> \D) and inline flags. Only the
-        # `i` flag: RE2, which some Dremio execution paths use, rejects `u`, and
-        # the field is upper-cased already.
-        alternatives = "|".join(f"({p})" for p in patterns)
+        # `i` flag: RE2, which some Dremio execution paths use, rejects `u`.
+        # Without `u`, Java folds ASCII letters only, so non-ASCII letters are
+        # upper-cased to match the upper-cased field. Escapes and flags are ASCII.
+        alternatives = "|".join(
+            "(" + "".join(c if c.isascii() else c.upper() for c in p) + ")"
+            for p in patterns
+        )
         pattern_str = f"(?i)^(?:{alternatives})".replace("'", "''")
         return f"AND {operator}({field}, '{pattern_str}')"
 
