@@ -125,6 +125,10 @@ class SoftDeletedEntitiesReport(SourceReport):
     deletion_limit_reached: bool = False
     num_soft_deleted_entity_found: int = 0
     num_soft_deleted_entity_invalid_urn: int = 0
+    num_soft_deleted_containers_retained_with_children: int = 0
+    sample_soft_deleted_containers_retained_with_children: LossyList[str] = field(
+        default_factory=LossyList
+    )
 
 
 class SoftDeletedEntitiesCleanup:
@@ -200,6 +204,37 @@ class SoftDeletedEntitiesCleanup:
         )
         self._update_report(urn.urn(), urn.entity_type)
 
+    def _has_live_children(self, urn: Urn) -> bool:
+        # Matches the `container` aspect directly rather than browsePathsV2, which
+        # entities emitted outside ingestion sources often lack.
+        children = self.graph.get_urns_by_filter(
+            status=RemovedStatusFilter.NOT_SOFT_DELETED,
+            batch_size=1,
+            extraFilters=[
+                SearchFilterRule(
+                    field="container", condition="EQUAL", values=[urn.urn()]
+                ).to_raw()
+            ],
+        )
+        return next(iter(children), None) is not None
+
+    def _retain_container_with_children(self, urn: Urn) -> None:
+        # Hard-deleting the container would make delete_references_to_urn drop the
+        # required `container` aspect from every child, orphaning the whole subtree
+        # with no way to rebuild the links. Keeping it soft-deleted leaves the tree
+        # recoverable by restoring the container.
+        with self._report_lock:
+            self.report.num_soft_deleted_containers_retained_with_children += 1
+            self.report.sample_soft_deleted_containers_retained_with_children.append(
+                urn.urn()
+            )
+            self.report.warning(
+                title="Soft-deleted container still has children",
+                message="Not hard-deleting soft-deleted containers that still hold entities "
+                "which are not soft-deleted. Restore the container or delete its children first.",
+                context=urn.urn(),
+            )
+
     def delete_soft_deleted_entity(self, urn: Urn) -> None:
         assert self.ctx.graph
 
@@ -213,6 +248,9 @@ class SoftDeletedEntitiesCleanup:
             if aspect["aspects"]["status"]["value"]["removed"] and aspect["aspects"][
                 "status"
             ]["created"]["time"] < (retention_time * 1000):
+                if urn.entity_type == "container" and self._has_live_children(urn):
+                    self._retain_container_with_children(urn)
+                    return
                 logger.debug(f"Hard deleting {urn}")
                 self.delete_entity(urn)
             else:
