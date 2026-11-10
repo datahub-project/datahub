@@ -38,6 +38,7 @@ from datahub.cli import config_utils
 from datahub.cli.cli_utils import guess_frontend_url_from_gms_url
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
+from datahub.emitter.emit_mode import EmitMode
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
@@ -2003,7 +2004,12 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             try:
                 for mcp in patch.build():
                     mcp.headers = {"If-Version-Match": version}
-                    self.emit_mcp(mcp)
+                    # The compare-and-set result has to be known before returning, so this
+                    # write is always synchronous on primary storage. Under the graph's
+                    # default emit mode an async client returns before the precondition is
+                    # evaluated, so a version conflict would surface after this call and
+                    # never be retried.
+                    self.emit_mcp(mcp, emit_mode=EmitMode.SYNC_PRIMARY)
                 return True
             except OperationalError as e:
                 if (
@@ -2022,7 +2028,14 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
     def _get_structured_properties_with_version(
         self, entity_urn: str
     ) -> Tuple[Optional[StructuredPropertiesClass], str]:
-        """Returns the structuredProperties aspect and its version, or (None, "-1") if absent."""
+        """Returns the structuredProperties aspect and the version to assert on a write.
+
+        The version mirrors the server's ``ConditionalWriteValidator.resolveAspectVersion``:
+        ``systemMetadata.version`` when the server stamped one, otherwise ``max(1, aspect
+        version)``. ``"-1"`` is returned only when the aspect is absent, where it asserts
+        that no aspect exists; sending it for an aspect that does exist would make every
+        write conflict.
+        """
         aspect_name = StructuredPropertiesClass.ASPECT_NAME
         try:
             raw = self.get_entity_raw(entity_urn, aspects=[aspect_name])
@@ -2033,7 +2046,9 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         envelope = raw.get("aspects", {}).get(aspect_name)
         if not envelope:
             return None, "-1"
-        version = (envelope.get("systemMetadata") or {}).get("version") or "-1"
+        version = (envelope.get("systemMetadata") or {}).get("version")
+        if version is None:
+            version = str(max(1, envelope.get("version") or 0))
         aspect = StructuredPropertiesClass.from_obj(
             post_json_transform(envelope["value"])
         )

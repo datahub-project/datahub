@@ -9,6 +9,7 @@ import pytest
 from requests.exceptions import HTTPError
 
 from datahub.configuration.common import OperationalError
+from datahub.emitter.emit_mode import EmitMode
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     MetadataAttributionClass,
@@ -262,10 +263,24 @@ class TestAddStructuredPropertyValues:
 
     def _written(self, graph: DataHubGraph) -> List[Dict[str, Any]]:
         (mcp,) = self._emitted(graph)
+        self._assert_emitted_synchronously(graph)
         assert mcp.aspectName == "structuredProperties"
         assert mcp.headers == {"If-Version-Match": "3"}
         assert mcp.aspect is not None
         return json.loads(mcp.aspect.value)["patch"]
+
+    @staticmethod
+    def _assert_emitted_synchronously(graph: DataHubGraph) -> None:
+        """A conditional write must not inherit an async emit mode.
+
+        Under EmitMode.ASYNC the server queues the proposal and returns before the
+        If-Version-Match precondition is evaluated, so a conflict would be raised to
+        nobody and the retry loop below would never see it.
+        """
+        emit = graph.emit_mcp
+        assert isinstance(emit, MagicMock)
+        for call in emit.call_args_list:
+            assert call.kwargs["emit_mode"] == EmitMode.SYNC_PRIMARY
 
     def _assignment(
         self, values: List[Union[str, float]], source: Optional[str] = None
@@ -388,3 +403,86 @@ class TestAddStructuredPropertyValues:
         with pytest.raises(OperationalError):
             graph.add_structured_property_values(self._ENTITY, self._PROP, ["a"])
         assert len(self._emitted(graph)) == 1
+
+
+class TestGetStructuredPropertiesWithVersion:
+    """The version sent as If-Version-Match must match what the server compares it to.
+
+    The server's ConditionalWriteValidator.resolveAspectVersion reads
+    systemMetadata.version when it is stamped and falls back to max(1, aspect version).
+    "-1" means "this aspect does not exist", so returning it for an aspect that does
+    exist makes every conditional write conflict until the retries run out.
+    """
+
+    _ENTITY = "urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)"
+
+    @staticmethod
+    def _graph_returning(payload: Any) -> DataHubGraph:
+        graph = DataHubGraph.__new__(DataHubGraph)
+        graph.get_entity_raw = MagicMock(return_value=payload)  # type: ignore[method-assign]
+        return graph
+
+    @staticmethod
+    def _envelope(
+        system_metadata: Optional[Dict[str, Any]], version: Optional[int]
+    ) -> Dict[str, Any]:
+        envelope: Dict[str, Any] = {"value": {"properties": []}}
+        if system_metadata is not None:
+            envelope["systemMetadata"] = system_metadata
+        if version is not None:
+            envelope["version"] = version
+        return {"aspects": {"structuredProperties": envelope}}
+
+    def test_stamped_system_metadata_version_is_used(self) -> None:
+        graph = self._graph_returning(self._envelope({"version": "7"}, version=2))
+
+        _, version = graph._get_structured_properties_with_version(self._ENTITY)
+
+        assert version == "7"
+
+    def test_unstamped_aspect_falls_back_to_the_row_version(self) -> None:
+        graph = self._graph_returning(self._envelope({"runId": "x"}, version=4))
+
+        aspect, version = graph._get_structured_properties_with_version(self._ENTITY)
+
+        assert version == "4"
+        assert aspect is not None
+
+    def test_unstamped_version_zero_floors_at_one(self) -> None:
+        graph = self._graph_returning(self._envelope(None, version=0))
+
+        _, version = graph._get_structured_properties_with_version(self._ENTITY)
+
+        assert version == "1"
+
+    def test_absent_aspect_asserts_no_aspect_exists(self) -> None:
+        graph = self._graph_returning({"aspects": {}})
+
+        aspect, version = graph._get_structured_properties_with_version(self._ENTITY)
+
+        assert aspect is None
+        assert version == "-1"
+
+    def test_missing_entity_asserts_no_aspect_exists(self) -> None:
+        graph = DataHubGraph.__new__(DataHubGraph)
+        response = MagicMock()
+        response.status_code = 404
+        graph.get_entity_raw = MagicMock(  # type: ignore[method-assign]
+            side_effect=HTTPError(response=response)
+        )
+
+        assert graph._get_structured_properties_with_version(self._ENTITY) == (
+            None,
+            "-1",
+        )
+
+    def test_other_http_errors_propagate(self) -> None:
+        graph = DataHubGraph.__new__(DataHubGraph)
+        response = MagicMock()
+        response.status_code = 500
+        graph.get_entity_raw = MagicMock(  # type: ignore[method-assign]
+            side_effect=HTTPError(response=response)
+        )
+
+        with pytest.raises(HTTPError):
+            graph._get_structured_properties_with_version(self._ENTITY)
