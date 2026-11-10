@@ -88,6 +88,8 @@
     "selectItems.searchForEntity": "Search for {{entityName}}...",
     "selectItems.selectedSection": "Selected",
     "switch.label": "Label",
+    "table.collapseRow": "Collapse row",
+    "table.expandRow": "Expand row",
     "table.loading": "Loading data...",
     "textArea.placeholder": "Placeholder",
     "tooltipHeader.imageAlt": "Tooltip header",
