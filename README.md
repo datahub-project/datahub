@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://datahub.com">
+  <a href="https://datahub.com/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=header-logo">
     <img alt="DataHub" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg" height="150" />
   </a>
 </p>
@@ -9,20 +9,20 @@
   <a href="https://pypi.org/project/acryl-datahub/"><img src="https://img.shields.io/pypi/v/acryl-datahub.svg" alt="PyPI Version" /></a>
   <a href="https://pypi.org/project/acryl-datahub/"><img src="https://img.shields.io/pypi/dm/acryl-datahub.svg" alt="PyPI Downloads" /></a>
   <a href="https://hub.docker.com/r/acryldata/datahub-gms"><img src="https://img.shields.io/docker/pulls/acryldata/datahub-gms.svg" alt="Docker Pulls" /></a>
-  <a href="https://datahub.com/slack"><img src="https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social" alt="Join Slack" /></a>
+  <a href="https://datahub.com/slack/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=header-slack-badge"><img src="https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social" alt="Join Slack" /></a>
   <a href="https://github.com/datahub-project/datahub/stargazers"><img src="https://img.shields.io/github/stars/datahub-project/datahub.svg?style=social&label=Star" alt="GitHub Stars" /></a>
   <a href="https://github.com/datahub-project/datahub/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License" /></a>
 </p>
 
 <p align="center">
   <a href="#quick-start"><b>Quickstart</b></a> ·
-  <a href="https://demo.datahub.com"><b>Live Demo</b></a> ·
-  <a href="https://docs.datahub.com"><b>Docs</b></a> ·
-  <a href="https://datahub.com/slack"><b>Slack Community</b></a>
+  <a href="https://demo.datahub.com/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=nav-live-demo"><b>Live Demo</b></a> ·
+  <a href="https://docs.datahub.com/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=nav-docs"><b>Docs</b></a> ·
+  <a href="https://datahub.com/slack/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=nav-slack"><b>Slack Community</b></a>
 </p>
 
 <p align="center">
-  <i>Built with ❤️ by <a href="https://datahub.com">DataHub</a> and <a href="https://engineering.linkedin.com">LinkedIn</a></i> · <a href="https://github.com/datahub-project/datahub">⭐ Star us on GitHub</a>
+  <i>Built with ❤️ by <a href="https://datahub.com/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=header-byline">DataHub</a> and <a href="https://engineering.linkedin.com">LinkedIn</a></i> · <a href="https://github.com/datahub-project/datahub">⭐ Star us on GitHub</a>
 </p>
 
 # DataHub
@@ -30,13 +30,13 @@
 DataHub transforms enterprise data into trusted context, enabling intelligent decision making by humans and AI agents. The company was founded by the creators of the popular DataHub open source product that has more than 16,000 community members and 750+ contributors and is used by thousands of organizations. The company’s flagship product, DataHub Cloud, is the leading context management platform trusted by the Global 2000 to ensure that context is always relevant, reliable and continuously refreshed across the entire data estate.
 
 <p align="center">
-  <a href="https://demo.datahub.com">
+  <a href="https://demo.datahub.com/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=intro-tour-image">
     <img width="90%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/demos/datahub-product-tour.webp" alt="DataHub Product Tour" />
   </a>
 </p>
 
 <p align="center">
-  Trusted in production by teams at Netflix, Visa, Etsy, Slack, Apple, FIS, Miro, and <a href="https://datahub.com/resources/customer-stories/">3,000+ organizations worldwide →</a> · <a href="ADOPTERS.md">See all adopters</a>
+  Trusted in production by teams at Netflix, Visa, Etsy, Slack, Apple, FIS, Miro, and <a href="https://datahub.com/resources/customer-stories/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=intro-adopters">3,000+ organizations worldwide →</a> · <a href="ADOPTERS.md">See all adopters</a>
 </p>
 
 ## Pick your path
@@ -45,13 +45,13 @@ DataHub transforms enterprise data into trusted context, enabling intelligent de
 
 Self-host on your own infrastructure. Apache 2.0 licensed. Full access to the metadata graph, 150+ integrations, column-level lineage, governance, and discovery. Best for teams that want full control and are comfortable running their own stack.
 
-[Run it locally ↓](#quick-start) · [Quickstart guide →](https://docs.datahub.com/docs/quickstart) · [Deploy on Kubernetes →](https://docs.datahub.com/docs/deploy/kubernetes)
+[Run it locally ↓](#quick-start) · [Quickstart guide →](https://docs.datahub.com/docs/quickstart?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=path-oss-quickstart) · [Deploy on Kubernetes →](https://docs.datahub.com/docs/deploy/kubernetes)
 
 ### DataHub Cloud
 
 Managed, SLA-backed, enterprise-ready. Access data observability and the full Context Platform: Context Intelligence, Context Hub, and native agent integrations out of the box. No infrastructure to run.
 
-[Start a free trial →](https://datahub.com/free-trial/) · [Compare OSS vs Cloud →](https://docs.datahub.com/docs/managed-datahub/managed-datahub-overview)
+[Start a free trial →](https://datahub.com/free-trial/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=path-cloud-trial) · [Compare OSS vs Cloud →](https://docs.datahub.com/docs/managed-datahub/managed-datahub-overview)
 
 ## Core capabilities
 
@@ -64,7 +64,7 @@ Turn your data estate into a trusted knowledge base for AI agents.
 - **Context Hub** - a workspace where domain experts review, approve, and enrich AI-proposed context before it reaches any agent
 - **Context Activation** serves validated context to any agent via Model Context Protocol (MCP), GraphQL, API, or SDK
 
-[Learn more about the Context Platform →](https://datahub.com/products/context-platform/)
+[Learn more about the Context Platform →](https://datahub.com/products/context-platform/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=capabilities-context-platform)
 
 ### Discovery
 
@@ -74,7 +74,7 @@ Find the right data, fast.
 - Column-level lineage to trace data from source to consumption
 - Data profiling: schema, statistics, ownership, usage in one place
 
-[Learn more about Discovery →](https://datahub.com/products/data-discovery/)
+[Learn more about Discovery →](https://datahub.com/products/data-discovery/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=capabilities-discovery)
 
 ### Governance
 
@@ -84,7 +84,7 @@ Make data trustworthy at scale.
 - Ownership and stewardship for every asset
 - Access policies and compliance controls
 
-[Learn more about Governance →](https://datahub.com/products/data-governance/)
+[Learn more about Governance →](https://datahub.com/products/data-governance/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=capabilities-governance)
 
 ### Observability
 
@@ -94,13 +94,13 @@ Know when something breaks before your users do.
 - Freshness checks and SLA tracking
 - Incident tracking and root cause lineage
 
-[Learn more about Observability →](https://datahub.com/products/data-observability/)
+[Learn more about Observability →](https://datahub.com/products/data-observability/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=capabilities-observability)
 
-[→ See the full product tour at datahub.com](https://datahub.com/product-tour/)
+[→ See the full product tour at datahub.com](https://datahub.com/product-tour/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=capabilities-product-tour)
 
 ## Quick start
 
-- [**Try the live demo →**](https://demo.datahub.com) No installation required.
+- [**Try the live demo →**](https://demo.datahub.com/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=quickstart-live-demo) No installation required.
 
 - **Run locally.** Requires Docker (8GB RAM) and Python 3.10+.
 
@@ -128,13 +128,13 @@ Know when something breaks before your users do.
 
 - **Battle-tested at scale.** Born at LinkedIn to handle one of the largest data estates in the world. Manages 10M+ assets in production today.
 
-- **Accuracy you can measure.** Customers report text-to-SQL accuracy improving from 50% to 90% after connecting DataHub. 119% more AI/ML models reach production when teams can trust their data. _([IDC, March 2026](https://datahub.com/roi/))_
+- **Accuracy you can measure.** Customers report text-to-SQL accuracy improving from 50% to 90% after connecting DataHub. 119% more AI/ML models reach production when teams can trust their data. _([IDC, March 2026](https://datahub.com/roi/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=why-roi-accuracy))_
 
-- **Discovery that actually works.** Business users find trusted data in five minutes, down from 50 — a 91% reduction in search time. _([IDC, March 2026](https://datahub.com/roi/))_
+- **Discovery that actually works.** Business users find trusted data in five minutes, down from 50 — a 91% reduction in search time. _([IDC, March 2026](https://datahub.com/roi/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=why-roi-discovery))_
 
 - **Open by default, extensible by design.** Apache 2.0. Built on open standards: MCP for agent delivery, GraphQL and REST APIs. Bring your own agents, your own LLM, your own stack.
 
-[Compare DataHub Core and DataHub Cloud →](https://datahub.com/products/cloud-vs-core/)
+[Compare DataHub Core and DataHub Cloud →](https://datahub.com/products/cloud-vs-core/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=why-cloud-vs-core)
 
 ## Integrations
 
@@ -173,10 +173,10 @@ Missing a source? [Build a custom connector](https://docs.datahub.com/docs/how/a
 
 DataHub has 16,000+ community members and 750+ contributors across 3,000+ organizations. Every connector, integration, and improvement you use was built by people like you.
 
-- Join [Slack](https://datahub.com/slack) community
+- Join [Slack](https://datahub.com/slack/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=community-slack) community
 - Watch demos and events on [YouTube](https://www.youtube.com/@DataHubCloud)
-- Register to [Monthly Town Hall](https://datahub.com/community/datahub-town-halls/)
-- Read our [Blog](https://datahub.com/blog/)
+- Register to [Monthly Town Hall](https://datahub.com/community/datahub-town-halls/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=community-town-hall)
+- Read our [Blog](https://datahub.com/blog/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=community-blog)
 - Learn from teams using DataHub in [case studies and talks](docs/links.md)
 - Found a bug? [Open an issue](https://github.com/datahub-project/datahub/issues)
 
@@ -184,7 +184,7 @@ Ready to contribute? See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines 
 
 ## Explore DataHub Now
 
-[Live Demo](https://demo.datahub.com) · [Docs](https://docs.datahub.com) · [Slack](https://datahub.com/slack) · [LinkedIn](https://www.linkedin.com/company/datahub-cloud/) · [X](https://x.com/DataHubCloud) · [Security](https://docs.datahub.com/docs/security) · [Feature Requests](https://datahubspace.slack.com/archives/C02FWNS2F08) · [⭐ Star us on GitHub](https://github.com/datahub-project/datahub)
+[Live Demo](https://demo.datahub.com/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=footer-live-demo) · [Docs](https://docs.datahub.com/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=footer-docs) · [Slack](https://datahub.com/slack/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=footer-slack) · [LinkedIn](https://www.linkedin.com/company/datahub-cloud/) · [X](https://x.com/DataHubCloud) · [Security](https://docs.datahub.com/docs/security) · [Feature Requests](https://datahubspace.slack.com/archives/C02FWNS2F08) · [⭐ Star us on GitHub](https://github.com/datahub-project/datahub)
 
 ## License
 

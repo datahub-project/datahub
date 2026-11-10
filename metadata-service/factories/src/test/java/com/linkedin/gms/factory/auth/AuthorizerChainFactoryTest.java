@@ -74,6 +74,10 @@ public class AuthorizerChainFactoryTest {
   /**
    * {@code AUTH_POLICIES_ENABLED=false} turns DataHubAuthorizer into ALLOW_ALL mode but also leaves
    * it out of the chain, so with no plugin authorizers the chain has nothing to ask and denies.
+   *
+   * <p>KNOWN BUG, not intended behaviour: {@code docs/authorization/policies.md} says this flag
+   * allows all actions. This test records today's wiring so the fix is a deliberate change; it is
+   * tracked as an open bug and that fix must update this assertion.
    */
   @Test
   public void testDisabledDefaultAuthorizerIsLeftOutOfTheChain() {

@@ -1,4 +1,4 @@
-import { safeUrl } from '@app/sharedV2/urlUtils';
+import { safeUrl } from '@utils/urlUtils';
 
 describe('safeUrl', () => {
     it('allows http URLs', () => {
