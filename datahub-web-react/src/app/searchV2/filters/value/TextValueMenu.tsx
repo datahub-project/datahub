@@ -1,4 +1,4 @@
-import { Button, Typography } from 'antd';
+import { Button, Heading } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -14,8 +14,9 @@ const Container = styled.div`
     border-radius: 8px;
 `;
 
-const Title = styled(Typography.Title)`
+const TitleWrapper = styled.div`
     padding-bottom: 4px;
+    margin-bottom: 8px;
 `;
 
 const UpdateButton = styled(Button)`
@@ -39,15 +40,17 @@ export default function TextValueMenu({ field, values, onChangeValues, onApply }
 
     return (
         <Container>
-            <Title level={5}>{t('filters.filterBy', { name: displayName })}</Title>
+            <TitleWrapper>
+                <Heading type="h5" size="lg" weight="semiBold" color="text">
+                    {t('filters.filterBy', { name: displayName })}
+                </Heading>
+            </TitleWrapper>
             <TextValueInput
                 name={displayName}
                 value={value}
                 onChangeValue={(v) => onChangeValues([{ value: v, entity: null }])}
             />
-            <UpdateButton type="primary" onClick={onApply}>
-                {tc('apply')}
-            </UpdateButton>
+            <UpdateButton onClick={onApply}>{tc('apply')}</UpdateButton>
         </Container>
     );
 }

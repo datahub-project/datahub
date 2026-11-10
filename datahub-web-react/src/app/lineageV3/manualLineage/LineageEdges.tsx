@@ -1,4 +1,5 @@
-import { Empty } from 'antd';
+import { EmptyState } from '@components';
+import { Tray } from '@phosphor-icons/react/dist/csr/Tray';
 import React, { useContext, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -62,8 +63,9 @@ export default function LineageEdges({
         <LineageEdgesWrapper>
             {!filteredChildren?.length && !entitiesToAdd.length && (
                 <EmptyWrapper data-testid="empty-lineage">
-                    <Empty
-                        description={
+                    <EmptyState
+                        icon={Tray}
+                        title={
                             direction === LineageDirection.Upstream
                                 ? t('edges.noUpstreamEntities')
                                 : t('edges.noDownstreamEntities')

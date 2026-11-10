@@ -1,4 +1,5 @@
-import { Empty } from 'antd';
+import { EmptyState } from '@components';
+import { Tray } from '@phosphor-icons/react/dist/csr/Tray';
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -33,7 +34,7 @@ const PlatformBrowse = ({ visible, collapsed = false, expand, hideSidebar, unhid
 
     return (
         <>
-            {isEmpty && <Empty description={t('sidebar.noMatchingPlatforms')} image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+            {isEmpty && <EmptyState size="sm" icon={Tray} title={t('sidebar.noMatchingPlatforms')} />}
             {platformAggregations
                 ?.sort((a, b) => b.count - a.count)
                 ?.map((platformAggregation, _i, lst) => (

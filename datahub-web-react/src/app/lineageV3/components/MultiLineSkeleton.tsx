@@ -1,6 +1,7 @@
-import { Skeleton } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import { Skeleton } from '@components/components/Skeleton';
 
 const Wrapper = styled.div`
     display: flex;

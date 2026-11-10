@@ -1,5 +1,4 @@
-import { Tooltip } from '@components';
-import { Typography } from 'antd';
+import { Text, Tooltip } from '@components';
 import * as QueryString from 'query-string';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -36,7 +35,7 @@ const MatchContainer = styled.div`
     white-space: nowrap;
 `;
 
-const MatchHeader = styled(Typography.Text)`
+const MatchHeader = styled(Text)`
     display: flex;
     padding: 4px 2px 4px 10px;
     align-items: center;
@@ -48,7 +47,7 @@ const MatchHeader = styled(Typography.Text)`
     line-height: normal;
 `;
 
-const MatchText = styled(Typography.Text)`
+const MatchText = styled(Text)`
     display: flex;
     justify-content: center;
     align-items: center;
@@ -123,14 +122,14 @@ export const MatchedFieldList = ({ customFieldRenderer, matchContext }: Props) =
                         }
                     >
                         <MatchContainer>
-                            <MatchHeader>
+                            <MatchHeader type="span">
                                 <b>{t('matches.matchedField.matchesLabel')}</b>
                                 {t('matches.matchedField.fieldLabelCount', {
                                     count: groupedMatch.matchedFields.length,
                                     label,
                                 })}
                             </MatchHeader>
-                            <MatchText key={groupedMatch.fieldName}>
+                            <MatchText type="span" key={groupedMatch.fieldName}>
                                 <GroupedMatch
                                     groupedMatch={groupedMatch}
                                     limit={MATCH_GROUP_LIMIT}

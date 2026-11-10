@@ -46,7 +46,7 @@ export default function SaveViewButton({ activeFilters, unionType }: Props) {
                     </>
                 }
             >
-                <TextButton type="text" onClick={toggleViewBuilder} marginTop={0} data-testid="save-as-view">
+                <TextButton onClick={toggleViewBuilder} marginTop={0} data-testid="save-as-view">
                     {t('saveAsView.label')}
                 </TextButton>
             </Tooltip>

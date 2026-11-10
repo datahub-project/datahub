@@ -1,4 +1,4 @@
-import { Skeleton } from 'antd';
+import { Skeleton } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -6,32 +6,12 @@ const CardHeader = styled.div`
     display: flex;
     gap: 16px;
     padding: 16px 0;
-
-    .ant-skeleton {
-        width: auto;
-        height: 16px;
-    }
-
-    .ant-skeleton-button {
-        height: 16px;
-        background-color: ${(props) => props.theme.colors.bgSkeleton};
-    }
 `;
 
 const CardContent = styled.div`
     display: flex;
     gap: 10px;
     flex-direction: column;
-
-    .ant-skeleton-button {
-        height: 16px;
-        background-color: ${(props) => props.theme.colors.bgSkeleton};
-    }
-
-    .ant-skeleton-avatar-square {
-        height: 24px;
-        width: 24px;
-    }
 `;
 
 const Row = styled.div`
@@ -53,36 +33,29 @@ const CardSkeleton = styled.div`
     height: 275px;
 `;
 
-const SkeletonButton = styled(Skeleton.Button)<{ width: string }>`
-    &&& {
-        height: 25px;
-        width: ${(props) => props.width};
-    }
-`;
-
 const InsightCardSkeleton = () => {
     return (
         <CardSkeleton>
             <CardHeader>
-                <SkeletonButton active size="small" shape="square" block width="8rem" />
-                <Skeleton.Avatar active size="small" shape="circle" />
+                <Skeleton.Button active size="sm" shape="square" width="8rem" height={16} />
+                <Skeleton.Avatar active size="sm" shape="circle" />
             </CardHeader>
             <CardContent>
                 <Row>
-                    <Skeleton.Avatar active size="small" shape="square" />
-                    <SkeletonButton active size="small" shape="square" block width="8rem" />
+                    <Skeleton.Avatar active size="sm" shape="square" />
+                    <Skeleton.Button active size="sm" shape="square" width="8rem" height={16} />
                 </Row>
                 <Row>
-                    <Skeleton.Avatar active size="small" shape="square" />
-                    <SkeletonButton active size="small" shape="square" block width="5rem" />
+                    <Skeleton.Avatar active size="sm" shape="square" />
+                    <Skeleton.Button active size="sm" shape="square" width="5rem" height={16} />
                 </Row>
                 <Row>
-                    <Skeleton.Avatar active size="small" shape="square" />
-                    <SkeletonButton active size="small" shape="square" block width="6rem" />
+                    <Skeleton.Avatar active size="sm" shape="square" />
+                    <Skeleton.Button active size="sm" shape="square" width="6rem" height={16} />
                 </Row>
                 <Row>
-                    <Skeleton.Avatar active size="small" shape="square" />
-                    <SkeletonButton active size="small" shape="square" block width="7rem" />
+                    <Skeleton.Avatar active size="sm" shape="square" />
+                    <Skeleton.Button active size="sm" shape="square" width="7rem" height={16} />
                 </Row>
             </CardContent>
         </CardSkeleton>

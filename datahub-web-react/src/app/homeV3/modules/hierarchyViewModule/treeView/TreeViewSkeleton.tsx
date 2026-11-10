@@ -1,4 +1,4 @@
-import { Skeleton } from 'antd';
+import { Skeleton } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -10,18 +10,12 @@ const Wrapper = styled.div`
     width: 100%;
 `;
 
-const SkeletonRow = styled(Skeleton.Input)`
-    && {
-        width: 100%;
-    }
-`;
-
 export default function TreeViewSkeleton() {
     return (
         <Wrapper>
-            <SkeletonRow active size="small" />
-            <SkeletonRow active size="small" />
-            <SkeletonRow active size="small" />
+            <Skeleton.Input active size="sm" block />
+            <Skeleton.Input active size="sm" block />
+            <Skeleton.Input active size="sm" block />
         </Wrapper>
     );
 }

@@ -1,7 +1,14 @@
-import { Button, Typography } from 'antd';
+import { Button } from '@components';
+import { Typography } from 'antd';
 import styled from 'styled-components';
 
-export const SearchFilterLabel = styled(Button)<{ $isActive: boolean }>`
+export const SearchFilterLabel = styled(Button).attrs({ variant: 'text', color: 'gray' } as const)<{
+    $isActive: boolean;
+}>`
+    height: 32px;
+    padding: 4px 15px;
+    gap: 0;
+    background-color: ${(props) => props.theme.colors.bg};
     font-size: 14px;
     font-weight: 700;
     border: none;
@@ -46,9 +53,11 @@ export const MoreFilterOptionLabel = styled.div<{ $isActive: boolean; isOpen?: b
     ${(props) => props.isOpen && `background-color: ${props.theme.colors.bgHover};`}
 `;
 
-export const TextButton = styled(Button)<{ marginTop?: number; height?: number }>`
+export const TextButton = styled(Button).attrs({ variant: 'text' } as const)<{ marginTop?: number; height?: number }>`
     color: ${(p) => p.theme.colors.textBrand};
+    height: 32px;
     padding: 0px 6px;
+    font-weight: 400;
     margin-top: ${(props) => (props.marginTop !== undefined ? `${props.marginTop}px` : '8px')};
     ${(props) => props.height !== undefined && `height: ${props.height}px;`}
 

@@ -1,4 +1,4 @@
-import SkeletonButton from 'antd/lib/skeleton/Button';
+import { Skeleton } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -32,7 +32,7 @@ type Props = {
 export default function NavSkeleton({ isCollapsed }: Props) {
     const menuItem = (
         <FlexWrapper>
-            <SkeletonButton
+            <Skeleton.Button
                 active
                 style={{ width: isCollapsed ? '24px' : '235px', height: '24px', minWidth: '24px' }}
             />

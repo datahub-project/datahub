@@ -1,4 +1,4 @@
-import { Skeleton } from 'antd';
+import { Skeleton } from '@components';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
@@ -30,9 +30,9 @@ const GreetingTextWrapper = styled.div`
 
 const SmallSkeletonButton = styled(Skeleton.Button)<{ $isShowNavBarRedesign?: boolean }>`
     &&& {
-        padding: 20px 20px 0 20px;
-        width: 100%;
-        min-height: 68px;
+        margin: 20px 20px 0 20px;
+        width: calc(100% - 40px);
+        min-height: 48px;
         border-radius: ${(props) =>
             props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '16px'};
     }
@@ -61,13 +61,7 @@ export const UserHeader = () => {
 
     if (showNavBarRedesign) {
         return isUserInitializing || !user ? (
-            <SmallSkeletonButton
-                shape="square"
-                size="large"
-                active
-                block
-                $isShowNavBarRedesign={isShowNavBarRedesign}
-            />
+            <SmallSkeletonButton shape="square" size="lg" active block $isShowNavBarRedesign={isShowNavBarRedesign} />
         ) : (
             <GreetingText role={maybeRole} />
         );
@@ -76,7 +70,7 @@ export const UserHeader = () => {
     return (
         <Container>
             {isUserInitializing || !user ? (
-                <SkeletonButton shape="square" size="large" active block $isShowNavBarRedesign={isShowNavBarRedesign} />
+                <SkeletonButton shape="square" size="lg" active block $isShowNavBarRedesign={isShowNavBarRedesign} />
             ) : (
                 <>
                     <UserHeaderImage photoUrl={photoUrl} displayName={displayName || undefined} />

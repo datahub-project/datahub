@@ -1,5 +1,5 @@
+import { Button, Checkbox } from '@components';
 import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
-import { Button, Checkbox } from 'antd';
 import React, { useState } from 'react';
 import styled, { useTheme } from 'styled-components';
 
@@ -32,32 +32,21 @@ const FilterOptionWrapper = styled.div<{ addPadding?: boolean }>`
     border-radius: 8px;
     margin: 0px 4px;
 
-    label {
-        padding: 12px;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-    }
-
     ${(props) => props.addPadding && 'padding-left: 16px;'}
     &:hover {
         background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
-const StyledCheckbox = styled(Checkbox)`
+const OptionRow = styled.div`
+    padding: 12px;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 14px;
-
-    .ant-checkbox-inner {
-        border-color: ${(props) => props.theme.colors.border};
-    }
-
-    .ant-checkbox-checked {
-        .ant-checkbox-inner {
-            border-color: ${(props) => props.theme.colors.borderBrand};
-        }
-    }
+    cursor: pointer;
 `;
 
 const CheckboxContent = styled.div`
@@ -85,7 +74,7 @@ const LabelCountWrapper = styled.div`
     align-items: baseline;
 `;
 
-const ArrowButton = styled(Button)<{ isOpen: boolean }>`
+const ArrowButton = styled(Button)<{ $isOpen: boolean }>`
     margin-left: 4px;
     background-color: transparent;
     height: 24px;
@@ -102,7 +91,7 @@ const ArrowButton = styled(Button)<{ isOpen: boolean }>`
     }
 
     ${(props) =>
-        props.isOpen &&
+        props.$isOpen &&
         `
         transform: rotate(180deg);
     `}
@@ -170,16 +159,16 @@ export default function FilterOption({
     return (
         <>
             <FilterOptionWrapper addPadding={addPadding}>
-                <StyledCheckbox
-                    checked={isFilterOptionSelected(selectedFilterOptions, value)}
-                    // show indeterminate if a nested option is selected
-                    indeterminate={isAnyOptionSelected(
-                        selectedFilterOptions,
-                        nestedOptions?.map((o) => o.value),
-                    )}
-                    onClick={updateFilterValues}
-                    data-testid={`filter-option-${label}`}
-                >
+                <OptionRow onClick={updateFilterValues} data-testid={`filter-option-${label}`}>
+                    <Checkbox
+                        isChecked={isFilterOptionSelected(selectedFilterOptions, value)}
+                        // show indeterminate if a nested option is selected
+                        isIntermediate={isAnyOptionSelected(
+                            selectedFilterOptions,
+                            nestedOptions?.map((o) => o.value),
+                        )}
+                        onCheckboxChange={updateFilterValues}
+                    />
                     <CheckboxContent>
                         <FilterEntityIcon field={field} entity={entity} icon={icon} />
                         <LabelWrapper className="test-label">
@@ -204,16 +193,21 @@ export default function FilterOption({
                                 {includeCount && <CountText>{getCountText()}</CountText>}
                                 {nestedOptions && nestedOptions.length > 0 && (
                                     <ArrowButton
-                                        icon={<CaretUp />}
-                                        type="text"
-                                        onClick={() => setAreChildrenVisible(!areChildrenVisible)}
-                                        isOpen={areChildrenVisible}
+                                        variant="text"
+                                        color="gray"
+                                        icon={{ icon: CaretUp, size: 'sm' }}
+                                        onClick={(e) => {
+                                            // The row toggles the filter on click; the arrow only expands children.
+                                            e.stopPropagation();
+                                            setAreChildrenVisible(!areChildrenVisible);
+                                        }}
+                                        $isOpen={areChildrenVisible}
                                     />
                                 )}
                             </LabelCountWrapper>
                         </LabelWrapper>
                     </CheckboxContent>
-                </StyledCheckbox>
+                </OptionRow>
             </FilterOptionWrapper>
             {areChildrenVisible && (
                 <>

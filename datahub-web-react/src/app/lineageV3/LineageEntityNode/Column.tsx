@@ -1,7 +1,7 @@
 import { Tooltip } from '@components';
 import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
-import { Spin, Typography } from 'antd';
+import { Typography } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -114,9 +114,13 @@ const ColumnText = styled(Typography.Text)`
     }
 `;
 
+// Sized and colored like the antd Spin wrapper it used to sit in, without the extra element in this hot path.
 const StyledLoadingIndicator = styled(CircleNotch)`
     display: flex;
-    font-size: inherit;
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    color: ${(props) => props.theme.colors.text};
     animation: ${spin} 1s linear infinite;
 `;
 
@@ -262,7 +266,7 @@ export default function Column({
                     </TypeWrapper>
                 )}
                 <ColumnText ellipsis={{ tooltip: { showArrow: false } }}>{columnName}</ColumnText>
-                {loading && !hasLineage && <Spin indicator={<StyledLoadingIndicator />} />}
+                {loading && !hasLineage && <StyledLoadingIndicator />}
                 {config.featureFlags.schemaFieldCLLEnabled && (
                     <ColumnLinkWrapper
                         to={lineageUrl}

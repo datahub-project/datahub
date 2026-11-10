@@ -1,7 +1,7 @@
-import { Icon, Popover } from '@components';
+import { Icon, Popover, Skeleton } from '@components';
 import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { Tilde } from '@phosphor-icons/react/dist/csr/Tilde';
-import { Skeleton, Spin } from 'antd';
+import { Spin } from 'antd';
 import React, { useContext, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import { Handle, NodeProps, Position } from 'reactflow';
@@ -146,7 +146,12 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
                     permanent Skeleton.Avatar. */}
                 {!icon && !isQuery && entity && entityRegistry.getIcon(type, 18)}
                 {!icon && !isQuery && !entity && (
-                    <Skeleton.Avatar active shape="circle" size={TRANSFORMATION_NODE_SIZE} />
+                    <Skeleton.Avatar
+                        active
+                        shape="circle"
+                        size={TRANSFORMATION_NODE_SIZE}
+                        data-testid="transformation-node-skeleton"
+                    />
                 )}
             </IconWrapper>
             {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (

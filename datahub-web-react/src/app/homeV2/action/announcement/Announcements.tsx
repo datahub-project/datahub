@@ -1,7 +1,7 @@
-import { Tooltip } from '@components';
+import { Button, Tooltip } from '@components';
 import { Bell } from '@phosphor-icons/react/dist/csr/Bell';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import { Button, Carousel } from 'antd';
+import { Carousel } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -44,11 +44,6 @@ const Icon = styled(Bell)`
     font-size: 16px;
 `;
 
-const StyledCloseOutlined = styled(X)`
-    color: ${(props) => props.theme.colors.textSecondary};
-    font-size: 12px;
-`;
-
 const StyledCarousel = styled(Carousel)`
     padding: 12px 0px 20px 0px;
     font-weight: 600;
@@ -67,6 +62,7 @@ const StyledCarousel = styled(Carousel)`
 const CloseButton = styled(Button)`
     margin: 0px;
     padding: 2px;
+    height: 32px;
 `;
 
 type Props = {
@@ -121,9 +117,12 @@ export const Announcements = ({ setHasAnnouncements }: Props) => {
                     <Icon /> {t('announcements.title')}
                 </Title>
                 <Tooltip placement="left" showArrow={false} title={t('announcements.hideTooltip')}>
-                    <CloseButton type="text" onClick={hideAnnouncements}>
-                        <StyledCloseOutlined />
-                    </CloseButton>
+                    <CloseButton
+                        variant="text"
+                        color="gray"
+                        icon={{ icon: X, size: 'sm' }}
+                        onClick={hideAnnouncements}
+                    />
                 </Tooltip>
             </Header>
             <StyledCarousel autoplaySpeed={8000} autoplay>

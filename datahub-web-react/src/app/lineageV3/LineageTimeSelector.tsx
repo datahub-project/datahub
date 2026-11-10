@@ -1,7 +1,6 @@
-import { Tooltip } from '@components';
+import { Button, Tooltip } from '@components';
 import { CalendarBlank } from '@phosphor-icons/react/dist/csr/CalendarBlank';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
-import { Button, Space } from 'antd';
 import i18next from 'i18next';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -40,7 +39,17 @@ const ConfirmButtonWrapper = styled.div`
     width: 100%;
 `;
 
+const PickerStack = styled.div`
+    display: inline-flex;
+    flex-direction: column;
+    gap: 12px;
+`;
+
 const ConfirmButton = styled(Button)`
+    height: 32px;
+    padding: 4px 15px;
+    font-weight: 400;
+    color: ${(props) => props.theme.colors.text};
     border-radius: 15px;
     border: 1px solid ${(props) => props.theme.colors.text};
 
@@ -52,6 +61,7 @@ const ConfirmButton = styled(Button)`
     :hover {
         border-color: ${(props) => props.theme.colors.hyperlinks};
         color: ${(props) => props.theme.colors.hyperlinks};
+        background-color: transparent;
     }
 `;
 
@@ -115,7 +125,7 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
                     </TimeRangeTrigger>
                 </Tooltip>
             ) : (
-                <Space direction="vertical" size={12}>
+                <PickerStack>
                     <RangePicker
                         ref={ref}
                         open={isOpen}
@@ -128,7 +138,7 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
                         }}
                         renderExtraFooter={() => (
                             <ConfirmButtonWrapper>
-                                <ConfirmButton type="text" onClick={() => handleOpenChange(false)}>
+                                <ConfirmButton variant="text" onClick={() => handleOpenChange(false)}>
                                     {tcAction('confirm')}
                                 </ConfirmButton>
                             </ConfirmButtonWrapper>
@@ -141,7 +151,7 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
                         onOpenChange={handleOpenChange}
                         onCalendarChange={() => handleOpenChange(true)}
                     />
-                </Space>
+                </PickerStack>
             )}
         </>
     );

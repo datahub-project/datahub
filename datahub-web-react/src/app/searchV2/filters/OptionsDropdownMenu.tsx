@@ -1,5 +1,4 @@
-import { Loader } from '@components';
-import { Button } from 'antd';
+import { Button, Loader } from '@components';
 import React, { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
@@ -12,7 +11,11 @@ const STYLE_NO_SHADOW: CSSProperties = { boxShadow: 'none' };
 
 const StyledButton = styled(Button)`
     width: 100%;
-    text-align: center;
+    height: 32px;
+    padding: 4px 15px;
+    justify-content: center;
+    border: none;
+    font-weight: 400;
     background-color: ${(p) => p.theme.colors.buttonFillBrand};
     color: ${(props) => props.theme.colors.textOnFillBrand};
     border-radius: 0;
@@ -109,7 +112,7 @@ export default function OptionsDropdownMenu({
                     </LoadingWrapper>
                 )}
             </ScrollableContent>
-            <StyledButton id="updateFiltersButton" type="text" onClick={updateFilters} data-testid="update-filters">
+            <StyledButton id="updateFiltersButton" onClick={updateFilters} data-testid="update-filters">
                 {tc('update')}
             </StyledButton>
         </DropdownMenu>

@@ -1,4 +1,4 @@
-import { Button } from 'antd';
+import { Button } from '@components';
 import React from 'react';
 import { useHistory } from 'react-router';
 import styled, { useTheme } from 'styled-components';
@@ -11,7 +11,8 @@ import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
 
 import { QuickFilter as QuickFilterType } from '@types';
 
-const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
+const QuickFilterWrapper = styled(Button)<{ $selected: boolean }>`
+    height: 32px;
     border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 16px;
     box-shadow: none;
@@ -20,6 +21,7 @@ const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
     cursor: pointer;
     display: flex;
     align-items: center;
+    gap: 0;
     padding: 2px 10px;
     font-size: 14px;
     margin: 4px;
@@ -29,7 +31,7 @@ const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
     }
 
     ${(props) =>
-        props.selected &&
+        props.$selected &&
         `
         border: 1px solid ${props.theme.colors.borderBrand};
         background-color: ${props.theme.colors.bgSurfaceBrand};
@@ -90,8 +92,10 @@ export default function QuickFilter({ quickFilter, searchQuery, setIsDropdownVis
 
     return (
         <QuickFilterWrapper
+            variant="outline"
+            color="gray"
             onClick={handleClick}
-            selected={isSelected}
+            $selected={isSelected}
             data-testid={`quick-filter-${quickFilter.value}`}
         >
             {icon}

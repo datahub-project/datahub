@@ -1,4 +1,4 @@
-import { Alert, Button } from 'antd';
+import { Alert } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -17,16 +17,10 @@ const SidebarLoadingError = ({ onClickRetry }: Props) => {
 
     return (
         <StyledAlert
-            message={t('sidebar.loadingError')}
-            showIcon
-            type="error"
-            action={
-                onClickRetry && (
-                    <Button size="small" danger onClick={onClickRetry}>
-                        {tc('retry')}
-                    </Button>
-                )
-            }
+            variant="error"
+            title={t('sidebar.loadingError')}
+            action={onClickRetry && { label: tc('retry'), onClick: onClickRetry }}
+            actionPlacement="topRight"
         />
     );
 };
