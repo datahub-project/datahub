@@ -465,6 +465,17 @@ def test_upper_load_reads_unaliased_expression_of_load_below() -> None:
     }
 
 
+def test_preceding_load_distinct_qualifier_is_not_a_column() -> None:
+    (table,) = parse_load_script(
+        "Orders:\nLOAD Count(DISTINCT customer_id) AS Customers, distinct AS Flag;\n"
+        "SQL SELECT customer_id, distinct FROM dbo.orders;"
+    )
+
+    assert apply_preceding_loads(
+        table.preceding_loads, {"customer_id": ["c"], "DISTINCT": ["d"]}
+    ) == {"Customers": ["c"], "Flag": ["d"]}
+
+
 def test_preceding_load_function_is_not_a_column() -> None:
     (table,) = parse_load_script(
         "Orders:\nLOAD Year(order_date) AS OrderYear;\n"
@@ -969,6 +980,8 @@ def test_preceding_load_stacks_only_on_the_statement_below(
         ("SELECT region, Sum(jan, feb), 'a, b' FROM db.s.t", 3),
         ("SELECT DISTINCT TOP 10 region, jan FROM (SELECT * FROM db.s.t) x", 2),
         ("SELECT t.*, jan FROM db.s.t t", None),
+        ("SELECT `a,b`, jan FROM db.s.t", 2),
+        ("SELECT `from`, jan FROM db.s.t", 2),
         ("WITH x AS (SELECT 1 AS a) SELECT a FROM x", None),
     ],
 )
