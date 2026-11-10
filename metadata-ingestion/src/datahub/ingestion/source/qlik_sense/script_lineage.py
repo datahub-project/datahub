@@ -141,11 +141,13 @@ EXPRESSION_OPERATORS = {
     "precedes",
     "xor",
 }
-# Aggregation qualifiers only exist in chart expressions, so in a LOAD they
-# are column names. In a chart they are field names when nothing follows them,
-# as in Sum(Total).
+# Aggregation qualifiers. They are field names when nothing follows them, as
+# in Sum(Total).
 EXPRESSION_QUALIFIERS = {"all", "distinct", "nodistinct", "total"}
 EXPRESSION_KEYWORDS = EXPRESSION_OPERATORS | EXPRESSION_QUALIFIERS
+# Only DISTINCT, as in Count(DISTINCT customer_id), is a qualifier in a LOAD;
+# the others only exist in chart expressions, so in a LOAD they are names.
+LOAD_EXPRESSION_KEYWORDS = EXPRESSION_OPERATORS | {"distinct"}
 # A field named by a variable, as in amount AS $(vName), which LOAD_ALIAS_RE
 # does not read as a name.
 VARIABLE_ALIAS_RE = re.compile(r"\s+AS\s+\$\(", re.IGNORECASE)
@@ -214,6 +216,9 @@ QUALIFIED_NAME_PARTS: Dict[str, int] = {
     "snowflake": 3,
 }
 QUOTE_PAIRS = {"'": "'", '"': '"', "[": "]"}
+# SQL dialects such as MySQL, Databricks and BigQuery also quote with backticks.
+SQL_QUOTE_PAIRS = {**QUOTE_PAIRS, "`": "`"}
+SQL_QUOTED_RE = re.compile(r"'[^']*'|\"[^\"]*\"|\[[^\]]*\]|`[^`]*`")
 STATEMENT_SEPARATOR = ";"
 SPACE_SEPARATOR = ":"
 
@@ -553,7 +558,7 @@ class _Script(BaseModel):
     subs: Dict[str, _Sub] = {}
 
 
-def _split_top_level(text: str) -> List[str]:
+def _split_top_level(text: str, quote_pairs: Dict[str, str] = QUOTE_PAIRS) -> List[str]:
     items: List[str] = []
     depth = 0
     start = 0
@@ -562,8 +567,8 @@ def _split_top_level(text: str) -> List[str]:
         if closing:
             if char == closing:
                 closing = None
-        elif char in QUOTE_PAIRS:
-            closing = QUOTE_PAIRS[char]
+        elif char in quote_pairs:
+            closing = quote_pairs[char]
         elif char == "(":
             depth += 1
         elif char == ")":
@@ -595,7 +600,7 @@ def select_list_size(sql: str) -> Optional[int]:
     select = SELECT_LIST_RE.match(sql)
     if not select:
         return None
-    masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), sql)
+    masked = SQL_QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), sql)
     end = next(
         (
             match.start()
@@ -605,7 +610,7 @@ def select_list_size(sql: str) -> Optional[int]:
         ),
         len(sql),
     )
-    items = _split_top_level(sql[select.end() : end])
+    items = _split_top_level(sql[select.end() : end], SQL_QUOTE_PAIRS)
     if any(not item or item.endswith("*") for item in items):
         return None
     return len(items)
@@ -907,7 +912,7 @@ def _parse_load_fields(statement: str) -> PrecedingLoad:
                 LoadField(
                     name=name,
                     sources=expression_names(
-                        alias.group("expr"), keywords=EXPRESSION_OPERATORS
+                        alias.group("expr"), keywords=LOAD_EXPRESSION_KEYWORDS
                     ),
                 )
             )
@@ -919,7 +924,7 @@ def _parse_load_fields(statement: str) -> PrecedingLoad:
             load.fields.append(
                 LoadField(
                     name=item,
-                    sources=expression_names(item, keywords=EXPRESSION_OPERATORS),
+                    sources=expression_names(item, keywords=LOAD_EXPRESSION_KEYWORDS),
                     named=False,
                 )
             )
