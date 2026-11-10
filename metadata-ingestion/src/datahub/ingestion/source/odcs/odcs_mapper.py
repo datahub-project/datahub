@@ -22,6 +22,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_data_product_urn,
     make_dataset_urn_with_platform_instance,
+    make_domain_urn,
     make_schema_field_urn,
     make_tag_urn,
     make_user_urn,
@@ -146,7 +147,7 @@ from datahub.metadata.schema_classes import (
     VolumeAssertionInfoClass,
     VolumeAssertionTypeClass,
 )
-from datahub.metadata.urns import DataProductUrn, DatasetUrn
+from datahub.metadata.urns import DataProductUrn, DatasetUrn, DomainUrn
 from datahub.specific.dataproduct import DataProductPatchBuilder
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.error import InvalidUrnError
@@ -2015,6 +2016,22 @@ def odcs_to_data_product_urn(data_product: str) -> str:
     """
     urn = make_data_product_urn(data_product.strip())
     DataProductUrn.from_string(urn)
+    return urn
+
+
+def odcs_to_domain_urn(domain: str) -> str:
+    """The Domain urn a contract's `domain` value names, read as an id.
+
+    Raises `InvalidUrnError` when the value cannot form a urn, or is a urn that
+    is not a plain Domain urn (another entity's, odd casing, or a urn nested in
+    the id), which `make_domain_urn` would otherwise wrap into a bogus Domain id.
+    """
+    value = domain.strip()
+    if value.lower().startswith("urn:") and not value.startswith("urn:li:domain:"):
+        raise InvalidUrnError(f"Not a Domain urn: {value}")
+    urn = make_domain_urn(value)
+    if DomainUrn.from_string(urn).id.lower().startswith("urn:"):
+        raise InvalidUrnError(f"Not a Domain urn: {value}")
     return urn
 
 

@@ -306,6 +306,12 @@ describe('utils', () => {
             const matchedFieldNames = getMatchedFieldNames(EntityType.Chart, 'fieldPaths');
             expect(matchedFieldNames).toContain('fieldPaths');
         });
+
+        it('should group an id match with name', () => {
+            const matchedFieldNames = getMatchedFieldNames(EntityType.SchemaField, 'name');
+            expect(matchedFieldNames).toContain('id');
+            expect(matchedFieldNames).toContain('name');
+        });
     });
 
     describe('getMatchedFieldsByNames', () => {

@@ -33,6 +33,24 @@ public class EntitySearchIndexResolverTest {
   }
 
   @Test
+  public void viewCreatorFieldFollowsTheIndexFamily() {
+    EntityIndexConfiguration v3Only =
+        EntityIndexConfiguration.builder()
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+    assertEquals(
+        EntitySearchIndexResolver.viewCreatorField(v3Only),
+        MappingConstants.SYSTEM_CREATED_ACTOR_FIELD);
+
+    EntityIndexConfiguration v2 =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+    assertEquals(EntitySearchIndexResolver.viewCreatorField(v2), "createdBy");
+    assertEquals(EntitySearchIndexResolver.viewCreatorField(null), "createdBy");
+  }
+
+  @Test
   public void shouldNotReadV3DuringDualWriteWithoutKeywordRead() {
     EntityIndexConfiguration cfg =
         EntityIndexConfiguration.builder()

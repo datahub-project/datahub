@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled, { useTheme } from 'styled-components';
 
-import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
 import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
 
 import analytics, { EventType } from '@app/analytics';
@@ -15,6 +14,7 @@ import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { ROLES_INTRO_ID } from '@app/onboarding/config/RolesOnboardingConfig';
 import RoleDetailsModal from '@app/permissions/roles/RoleDetailsModal';
 import { getRolePolicies, getRoleUsers } from '@app/permissions/roles/roles.utils';
+import AvatarStackWithHover from '@app/sharedV2/avatar/AvatarStackWithHover';
 import { DEBOUNCE_SEARCH_MS } from '@app/sharedV2/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

@@ -7,11 +7,11 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { mapEntityTypeToAvatarType } from '@components/components/Avatar/utils';
-import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
 
 import { AssertionListTableRow } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import { OwnerLabel } from '@app/sharedV2/OwnerLabel';
+import AvatarStackWithHover from '@app/sharedV2/avatar/AvatarStackWithHover';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useGetRecommendations } from '@app/sharedV2/recommendation';
 import { useEntityRegistry } from '@app/useEntityRegistry';

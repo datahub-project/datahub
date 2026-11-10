@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
-import { EntityAndType } from '@app/entity/shared/types';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import CompactContext from '@app/sharedV2/CompactContext';
 import EntitySidebarContext, { SearchResultLineageCounts } from '@app/sharedV2/EntitySidebarContext';
-import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
+import useEntitySidebarWidth from '@app/sharedV2/sidebar/useEntitySidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const SidebarContainer = styled.div<{ height: string }>`
@@ -32,7 +32,7 @@ export const SearchEntitySidebarContainer = ({
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [isClosed, setIsClosed] = useState(false);
-    const width = useSidebarWidth();
+    const { width, setWidth } = useEntitySidebarWidth();
 
     if (highlightedIndex === null) {
         return null;
@@ -42,6 +42,7 @@ export const SearchEntitySidebarContainer = ({
         <EntitySidebarContext.Provider
             value={{
                 width,
+                setWidth,
                 isClosed,
                 setSidebarClosed: setIsClosed,
                 searchResultLineage,

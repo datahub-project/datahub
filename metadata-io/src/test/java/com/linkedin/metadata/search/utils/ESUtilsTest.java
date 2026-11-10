@@ -31,7 +31,10 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
@@ -58,6 +61,8 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
+import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.sort.FieldSortBuilder;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -433,6 +438,55 @@ public class ESUtilsTest {
             + "}";
 
     assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testGetQueryBuilderFromCriterionIn() {
+    final Criterion inCriterion =
+        buildCriterion("myTestField", Condition.IN, "value1", "value2", "value3");
+
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            inCriterion,
+            false,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            QueryFilterRewriteChain.EMPTY);
+
+    assertTrue(result instanceof TermsQueryBuilder, result.toString());
+    TermsQueryBuilder termsQuery = (TermsQueryBuilder) result;
+    assertEquals(termsQuery.fieldName(), "myTestField.keyword");
+    assertEquals(termsQuery.values(), List.of("value1", "value2", "value3"));
+    assertEquals(termsQuery.queryName(), "myTestField");
+  }
+
+  /** A saved View or search filter using IN goes through buildFilterQuery and must not throw. */
+  @Test
+  public void testBuildFilterQueryWithInCondition() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform",
+                                    Condition.IN,
+                                    "urn:li:dataPlatform:hive",
+                                    "urn:li:dataPlatform:snowflake")))));
+
+    String result =
+        ESUtils.buildFilterQuery(
+                filter, false, new HashMap<>(), opContext, QueryFilterRewriteChain.EMPTY)
+            .toString();
+
+    assertTrue(result.contains("\"terms\""), result);
+    assertTrue(result.contains("\"platform.keyword\""), result);
+    assertFalse(result.contains("platform_urn"), result);
+    assertTrue(result.contains("urn:li:dataPlatform:hive"), result);
+    assertTrue(result.contains("urn:li:dataPlatform:snowflake"), result);
   }
 
   @Test
@@ -1131,6 +1185,69 @@ public class ESUtilsTest {
         result.toString().contains("structuredProperties.steward.lowercase"), result.toString());
     assertTrue(result.toString().contains("urn:li:corpuser:jose"), result.toString());
     assertFalse(result.toString().contains("case_insensitive"), result.toString());
+  }
+
+  @Test
+  public void testV3KeywordSuffixResolvesToTheRoot() {
+    assertEquals(ESUtils.toV3KeywordField(null, "domains.keyword", null), "domains");
+    assertEquals(ESUtils.toKeywordField(null, "domains.keyword", false, null), "domains.keyword");
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    when(retriever.getEntityRegistry()).thenReturn(TestOperationContexts.defaultEntityRegistry());
+    when(retriever.getLatestAspectObjects(any(), any(), any())).thenReturn(Map.of());
+    assertEquals(
+        ESUtils.toV3KeywordField(
+            null, "structuredProperties.certification_status.keyword", retriever),
+        "structuredProperties.certification_status");
+  }
+
+  @Test
+  public void testV3SortReadsStructuredPropertyKeywordRoot() {
+    SearchFieldResolver resolver = mock(SearchFieldResolver.class);
+    OperationFingerprint opContext = mock(OperationFingerprint.class);
+
+    assertEquals(
+        sortField("structuredProperties.ab.fgh.ten.keyword", resolver, opContext, aspectRetriever),
+        "structuredProperties.ab_fgh_ten");
+    assertEquals(
+        sortField(
+            "structuredProperties.ab.fgh.ten.keyword", resolver, opContext, aspectRetrieverV1),
+        "structuredProperties._versioned.ab_fgh_ten.00000000000001.string");
+    assertEquals(
+        sortField(
+            "structuredProperties.date_here.with_dot.keyword",
+            resolver,
+            opContext,
+            aspectRetriever),
+        "structuredProperties.date_here_with_dot");
+    assertEquals(
+        sortField("structuredProperties.steward.keyword", resolver, opContext, aspectRetriever),
+        "structuredProperties.steward");
+    assertEquals(
+        sortField("sourceCreatedAt", resolver, opContext, aspectRetriever), "sourceCreatedAt");
+
+    when(resolver.contains("name.keyword")).thenReturn(true);
+    when(resolver.exactPath("name.keyword", Intent.SORT)).thenReturn("name");
+    assertEquals(sortField("name.keyword", resolver, opContext, aspectRetriever), "name");
+
+    assertEquals(
+        sortField("structuredProperties.ab.fgh.ten.keyword", null, opContext, aspectRetriever),
+        "structuredProperties.ab.fgh.ten.keyword");
+  }
+
+  private static String sortField(
+      String field,
+      SearchFieldResolver resolver,
+      OperationFingerprint opContext,
+      AspectRetriever retriever) {
+    SearchSourceBuilder source = new SearchSourceBuilder();
+    ESUtils.buildSortOrder(
+        source,
+        List.of(new SortCriterion().setField(field).setOrder(SortOrder.ASCENDING)),
+        List.of(),
+        resolver,
+        opContext,
+        retriever);
+    return ((FieldSortBuilder) source.sorts().get(0)).getFieldName();
   }
 
   @Test

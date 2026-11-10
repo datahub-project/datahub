@@ -1,3 +1,4 @@
+import { User } from '@phosphor-icons/react/dist/csr/User';
 import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,8 +8,6 @@ import { AvatarProps } from '@components/components/Avatar/types';
 import getAvatarColorScheme, { getNameInitials } from '@components/components/Avatar/utils';
 import { AvatarType } from '@components/components/AvatarStack/types';
 import { Icon } from '@components/components/Icon';
-
-import { mapRoleIcon } from '@app/identity/user/UserUtils';
 
 export const avatarDefaults: AvatarProps = {
     name: 'User name',
@@ -26,6 +25,8 @@ export const Avatar = ({
     type = avatarDefaults.type,
     showInPill = avatarDefaults.showInPill,
     isOutlined = avatarDefaults.isOutlined,
+    avatar,
+    icon,
 }: AvatarProps) => {
     const { t } = useTranslation('alchemy');
     const resolvedName = name ?? t('avatar.defaultName');
@@ -34,24 +35,28 @@ export const Avatar = ({
 
     return (
         <Container onClick={onClick} $hasOnClick={!!onClick} $showInPill={showInPill}>
-            {(type === AvatarType.user || imageUrl) && (
-                <AvatarImageWrapper $scheme={scheme} $size={size} $isOutlined={isOutlined}>
-                    {!hasError && imageUrl ? (
-                        <AvatarImage src={imageUrl} onError={() => setHasError(true)} />
-                    ) : (
-                        type === AvatarType.user && getNameInitials(resolvedName)
+            {avatar ?? (
+                <>
+                    {(type === AvatarType.user || imageUrl) && (
+                        <AvatarImageWrapper $scheme={scheme} $size={size} $isOutlined={isOutlined}>
+                            {!hasError && imageUrl ? (
+                                <AvatarImage src={imageUrl} onError={() => setHasError(true)} />
+                            ) : (
+                                type === AvatarType.user && (icon ?? getNameInitials(resolvedName))
+                            )}
+                        </AvatarImageWrapper>
                     )}
-                </AvatarImageWrapper>
-            )}
-            {type === AvatarType.group && !imageUrl && (
-                <AvatarImageWrapper $scheme={scheme} $size={size} $isOutlined={isOutlined}>
-                    <Icon icon={UsersThree} size="lg" />
-                </AvatarImageWrapper>
-            )}
-            {type === AvatarType.role && !imageUrl && (
-                <AvatarImageWrapper $scheme={scheme} $size={size} $isOutlined={isOutlined}>
-                    {mapRoleIcon(resolvedName)}
-                </AvatarImageWrapper>
+                    {type === AvatarType.group && !imageUrl && (
+                        <AvatarImageWrapper $scheme={scheme} $size={size} $isOutlined={isOutlined}>
+                            {icon ?? <Icon icon={UsersThree} size="lg" />}
+                        </AvatarImageWrapper>
+                    )}
+                    {type === AvatarType.role && !imageUrl && (
+                        <AvatarImageWrapper $scheme={scheme} $size={size} $isOutlined={isOutlined}>
+                            {icon ?? <User />}
+                        </AvatarImageWrapper>
+                    )}
+                </>
             )}
             {showInPill && <AvatarText $size={size}>{resolvedName}</AvatarText>}
         </Container>

@@ -8,8 +8,8 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-:::caution Public Beta
-Scoped MCP servers are part of the DataHub Cloud **Context** add-on and are in Public Beta.
+:::info Context add-on
+Scoped MCP servers are part of the DataHub Cloud **Context** add-on.
 :::
 
 ## Overview

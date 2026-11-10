@@ -11,28 +11,37 @@ import lombok.NoArgsConstructor;
 @Builder(toBuilder = true)
 public class StructuredPropertiesConfiguration {
 
-  /** Whether structured properties mappings are applied */
+  /**
+   * Whether structured properties mappings are applied. When true, system-update also builds index
+   * mapping targets from the active structured property definitions.
+   */
   private boolean enabled;
 
   /** Whether structured property values can be written */
   private boolean writeEnabled;
 
-  /** Whether structured property mappings are applied in system update job */
+  /**
+   * Whether system-update may reindex an entity search index because its structured-property
+   * mappings differ from the definitions: a removed property, or a type or {@code copy_to}
+   * mismatch. Necessary but not sufficient: the reindex also needs mappings reindex enabled, and a
+   * type or {@code copy_to} mismatch also needs {@link #typeMismatchReindexEnabled} or {@link
+   * #copyToMismatchReindexEnabled}. Without them the difference waits for an explicit reindex.
+   */
   private boolean systemUpdateEnabled;
 
   /**
-   * When true (and {@link #systemUpdateEnabled} is also true), system-update reindexes entity
-   * search indices whose structured-property field Elasticsearch types differ from the
-   * definition-driven target (e.g. dynamic {@code float}/{@code long} vs intended {@code double}
-   * for NUMBER). Both flags must be enabled for type-mismatch reindex to run.
+   * When true, and {@link #systemUpdateEnabled} and mappings reindex are also enabled,
+   * system-update reindexes entity search indices whose structured-property field Elasticsearch
+   * types differ from the definition-driven target (e.g. dynamic {@code float}/{@code long} vs
+   * intended {@code double} for NUMBER).
    */
   private boolean typeMismatchReindexEnabled;
 
   /**
-   * When true (and {@link #systemUpdateEnabled} is also true), system-update reindexes entity
-   * search indices whose structured-property {@code copy_to} targets differ from the
-   * definition-driven mapping. A put-mapping does not backfill already-indexed documents, so the
-   * difference requires a full reindex.
+   * When true, and {@link #systemUpdateEnabled} and mappings reindex are also enabled,
+   * system-update reindexes entity search indices whose structured-property {@code copy_to} targets
+   * differ from the definition-driven mapping. A put-mapping does not backfill already-indexed
+   * documents, so the difference requires a full reindex.
    */
   private boolean copyToMismatchReindexEnabled;
 

@@ -1,12 +1,12 @@
 import React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import DomainEntitiesSnippet from '@app/entityV2/domain/preview/DomainEntitiesSnippet';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { useHandleDeprecateDomain } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import EntityCount from '@app/entityV2/shared/containers/profile/header/EntityCount';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
