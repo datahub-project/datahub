@@ -71,6 +71,7 @@
     "resizablePills.moreHiddenCount_many": "Скрыто ещё {{count}} элементов",
     "resizablePills.moreHiddenCount_other": "Скрыто ещё {{count}} элементов",
     "search.placeholder": "Поиск...",
+    "select.noResults.description": "Попробуйте изменить запрос, чтобы найти то, что вы ищете",
     "select.placeholder": "Выберите значение",
     "selectItems.addMoreSection": "Добавить ещё",
     "selectItems.entitiesLabel": "объекты",
