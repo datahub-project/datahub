@@ -2,13 +2,16 @@
 
 This connector extracts the following metadata from Hightouch:
 
+- **Workspaces** — One container per Hightouch workspace, holding its models and syncs
 - **Sources** — Database and warehouse connections (as DataHub Dataset references)
 - **Models** — SQL queries and transformations (optionally as DataHub Datasets)
-- **Syncs** — Data pipelines from models to destinations (as DataHub DataJobs)
+- **Syncs** — One DataFlow per workspace, with a DataJob per sync from its model to its destination
 - **Destinations** — Target systems like Salesforce, HubSpot, etc. (as DataHub Dataset references)
 - **Sync Runs** — Execution history with detailed statistics (as DataHub DataProcessInstances)
 - **Lineage** — Complete data flow from sources through models and syncs to destinations
 - **Column-level Lineage** — Field mappings between source and destination systems
+- **Ownership** — The user who created a model or sync, as its technical owner
+- **Tags** — Model and sync tags, as `key:value` tags
 - **Event Contracts** — Event schema definitions emitted as Datasets, each with a DataHub DataContract housing a schema assertion, plus lineage from the contract's Event Sources
 
 #### Model Ingestion Options
@@ -35,9 +38,9 @@ The connector extracts comprehensive lineage:
 3. **Multi-hop Lineage**: Complete path from source databases through models to destinations
 
 SQL parsing is supported for `raw_sql` models, automatically extracting upstream table
-dependencies and creating column-level lineage. With `include_schema_in_urn: false` the lineage
-from raw SQL models is table-level only. When the upstream tables are already in DataHub, their
-names are matched with the casing they were ingested with. Column casing is normalized to match upstream
+dependencies and creating column-level lineage. The model's schema is the query's output columns.
+When the upstream tables are already in DataHub, their names are matched with the casing they
+were ingested with. Column casing is normalized to match upstream
 table schemas (e.g., Snowflake lowercasing). For best results:
 
 - Ensure upstream source tables are already ingested into DataHub
@@ -62,7 +65,8 @@ table if it already exists in DataHub, preventing the creation of "ghost" entiti
 #### Event Contracts
 
 Hightouch [Event Contracts](https://hightouch.com/docs/events/contracts) define the schemas used to
-validate incoming events. When `include_contracts: true` (default), the connector ingests them as:
+validate incoming events. Event Contracts are not available on every Hightouch plan, so they are
+off by default. With `include_contracts: true`, the connector ingests them as:
 
 - one **Dataset** per event, whose schema is the event's JSON Schema and whose custom properties
   capture the enforcement rules (`on_schema_violation`, `on_undeclared_fields`, `on_undeclared_schema`),
@@ -70,7 +74,7 @@ validate incoming events. When `include_contracts: true` (default), the connecto
 - **lineage** from the contract's Event Sources (emitted as datasets) to each event dataset.
 
 ```yaml
-include_contracts: true # default: true
+include_contracts: true # default: false
 contract_patterns:
   allow:
     - ".*"
@@ -140,7 +144,7 @@ include_sync_runs: true
 max_sync_runs_per_sync: 10 # last 10 runs per sync
 ```
 
-Set `include_sync_runs: false` or `max_sync_runs_per_sync: 0` to skip sync run history entirely.
+Set `include_sync_runs: false` to skip sync run history entirely.
 A run that has not finished (queued, querying, processing or reporting) is recorded with its
 start only.
 
@@ -155,15 +159,17 @@ to the [Hightouch documentation](https://hightouch.com/docs/destinations/overvie
 
 ### Limitations
 
-- **Ownership**: The API returns the creator and last editor of models and syncs, but the
-  connector does not extract ownership yet.
+- **Ownership**: The creator of a model or sync becomes its technical owner, with their email
+  address as the DataHub user id. Set `extract_owners: false` if your DataHub users are keyed
+  differently.
 - **Destination lineage**: Lineage to a destination is carried by the sync's DataJob. Nothing is
   written onto destination datasets, so their own connector's lineage is left as it is. A sync
   whose configuration names no destination object the connector recognises has no outlet, and is
   listed under `unresolved_destinations` in the report.
 - **Model schemas**: The API returns no column list for a model. A table or dbt model takes its
-  schema from the table it reads, when that table is already in DataHub; otherwise the schema is
-  the union of the columns its syncs reference, typed as strings.
+  schema from the table it reads, when that table is already in DataHub, and a raw SQL model
+  from its query's output columns. Otherwise the schema is the union of the columns its syncs
+  reference, without types.
 - **API Rate Limits**: The Hightouch API has rate limits. The connector implements retry logic
   with exponential backoff, but very large workspaces with thousands of syncs may need to be
   ingested in batches.

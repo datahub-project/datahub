@@ -1,436 +1,320 @@
-import logging
-from typing import Dict, Iterable, List, Union
+import dataclasses
+import json
+from typing import Dict, Iterable, List, Optional, Union
 
-from datahub.api.entities.datajob import DataJob as DataJobV1
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
+from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.ingestion.api.source import StructuredLogCategory
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DataJobSubTypes
 from datahub.ingestion.source.hightouch.config import (
     HightouchSourceConfig,
     HightouchSourceReport,
 )
-from datahub.ingestion.source.hightouch.constants import (
-    HIGHTOUCH_PLATFORM,
-    SYNC_CONFIG_DEST_TABLE_KEYS,
-    SYNC_CONFIG_KEY_EVENT_NAME,
-    SYNC_CONFIG_KEY_TYPE,
-    SYNC_CONFIG_TYPE_EVENT,
-    SYNC_CONFIG_VALUE_KEY_FROM,
-    SYNC_CONFIG_VALUE_KEY_NAME,
-    SYNC_RUN_ROW_KEY_ADDED,
-    SYNC_RUN_ROW_KEY_CHANGED,
-    SYNC_RUN_ROW_KEY_REMOVED,
-)
+from datahub.ingestion.source.hightouch.constants import HIGHTOUCH_PLATFORM
 from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
-from datahub.ingestion.source.hightouch.hightouch_container import (
-    HightouchContainerHandler,
-)
-from datahub.ingestion.source.hightouch.hightouch_lineage import (
-    HightouchLineageHandler,
-)
+from datahub.ingestion.source.hightouch.hightouch_model import owners_of, tags_of
 from datahub.ingestion.source.hightouch.models import (
     HightouchDestination,
     HightouchModel,
     HightouchSync,
     HightouchSyncRun,
 )
-from datahub.ingestion.source.hightouch.protocols import (
-    GetDestination,
-    GetModel,
-    GetSource,
+from datahub.ingestion.source.hightouch.resolver import HightouchResolver, match_field
+from datahub.ingestion.source.hightouch.sync_config import (
+    destination_object,
+    field_mappings,
 )
-from datahub.ingestion.source.hightouch.urn_builder import HightouchUrnBuilder
-from datahub.metadata.schema_classes import SchemaFieldClass
-from datahub.metadata.urns import DataFlowUrn, DatasetUrn
+from datahub.metadata.schema_classes import (
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+)
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.entity import Entity
 
-logger = logging.getLogger(__name__)
-
-# Maps a finished Hightouch sync-run status to a DataHub run result. Unknown
-# statuses are intentionally absent so they get a neutral result instead of a
-# misleading SUCCESS.
-_SYNC_RUN_STATUS_MAP = {
+# Unknown statuses are deliberately absent so they are never recorded as SUCCESS.
+_FINISHED_RUN_RESULTS = {
     "success": InstanceRunResult.SUCCESS,
+    "warning": InstanceRunResult.SUCCESS,
     "failed": InstanceRunResult.FAILURE,
     "cancelled": InstanceRunResult.SKIPPED,
     "interrupted": InstanceRunResult.SKIPPED,
-    "warning": InstanceRunResult.SUCCESS,
 }
-# Statuses of a run that has not finished: only its start is recorded.
-_SYNC_RUN_IN_PROGRESS_STATUSES = {"queued", "querying", "processing", "reporting"}
+# A run with one of these statuses has not finished: only its start is recorded.
+_IN_PROGRESS_RUN_STATUSES = {"queued", "querying", "processing", "reporting"}
 
 
-class HightouchSyncHandler:
+@dataclasses.dataclass
+class SyncUpstreams:
+    inlets: List[str]
+    # Columns of the single inlet the field mappings read from, when known.
+    field_paths: Optional[List[str]] = None
+
+
+class HightouchSyncEmitter:
     def __init__(
         self,
-        config: "HightouchSourceConfig",
-        report: "HightouchSourceReport",
-        api_client: "HightouchAPIClient",
-        urn_builder: "HightouchUrnBuilder",
-        lineage_handler: "HightouchLineageHandler",
-        container_handler: "HightouchContainerHandler",
-        model_schema_fields_cache: Dict[str, List[SchemaFieldClass]],
-        get_model: GetModel,
-        get_source: GetSource,
-        get_destination: GetDestination,
+        config: HightouchSourceConfig,
+        report: HightouchSourceReport,
+        resolver: HightouchResolver,
+        api_client: HightouchAPIClient,
     ):
         self.config = config
         self.report = report
+        self.resolver = resolver
         self.api_client = api_client
-        self.urn_builder = urn_builder
-        self.lineage_handler = lineage_handler
-        self.container_handler = container_handler
-        self.model_schema_fields_cache = model_schema_fields_cache
-        self.get_model = get_model
-        self.get_source = get_source
-        self.get_destination = get_destination
-        self._outlets: Dict[str, Union[str, DatasetUrn, None]] = {}
 
-    def generate_dataflow_from_sync(self, sync: HightouchSync) -> DataFlow:
-        return DataFlow(
-            platform=HIGHTOUCH_PLATFORM,
-            name=sync.id,
-            env=self.config.env,
-            display_name=sync.slug,
-            platform_instance=self.config.platform_instance,
-        )
-
-    def emits_model_dataset(self, model: HightouchModel) -> bool:
+    def emits_model(self, model: HightouchModel) -> bool:
         return (
             self.config.emit_models_as_datasets
             and self.config.model_patterns.allowed(model.name)
         )
 
-    def get_inlet_urns_for_model(
-        self, model: HightouchModel, sync: HightouchSync
-    ) -> List[Union[str, DatasetUrn]]:
-        # An emitted model is the inlet whatever its source; only the source-table
-        # fallback below needs the source.
-        if self.emits_model_dataset(model):
-            return [self.urn_builder.make_model_urn(model)]
+    def emit(
+        self, sync: HightouchSync, flow: DataFlow
+    ) -> Iterable[Union[Entity, MetadataWorkUnit]]:
+        self.report.syncs_scanned += 1
+        model = self.resolver.models.get(sync.model_id)
+        destination = self.resolver.destinations.get(sync.destination_id)
+        object_name = destination_object(sync)
 
-        source = self.get_source(model.source_id)
-        if not source:
+        upstreams = SyncUpstreams(inlets=[])
+        if model:
+            upstreams = self._upstreams(sync, model)
+        else:
             self.report.warning(
-                title="Failed to get source for model",
-                message="Could not retrieve source information for lineage creation.",
-                context=f"sync_slug: {sync.slug} (source_id: {model.source_id})",
+                title="Sync model not found",
+                message="The sync's model was not returned by the Hightouch API, so "
+                "the sync has no upstream lineage.",
+                context=f"sync_slug: {sync.slug}, model_id: {sync.model_id}",
+                log_category=StructuredLogCategory.LINEAGE,
             )
-            return []
 
-        # A model denied by model_patterns is never emitted, so lineage goes to its
-        # source tables instead of to a model dataset that would not exist.
-        table_urn = self.urn_builder.source_table_urn(model, source)
-        if table_urn:
-            return [table_urn]
-
-        # For non-table (raw SQL) models there is no intermediate model dataset,
-        # so resolve the SQL's upstream tables directly and use them as inlets.
-        sql_upstreams = self.lineage_handler.sql_upstream_urns(model, source)
-        if sql_upstreams:
-            return list(sql_upstreams)
-
-        self.report.report_lineage_resolution_failure(
-            f"sync_slug: {sync.slug} (model_slug: {model.slug})"
+        outlet = (
+            self.resolver.destination_urn(object_name, destination)
+            if destination and object_name
+            else None
         )
-        self.report.warning(
-            title="No upstream lineage for non-table model",
-            message="The model is not emitted as a dataset and its SQL upstream "
-            "tables could not be resolved, so no upstream lineage can be "
-            "emitted for this sync.",
-            context=f"sync_slug: {sync.slug} (query_type: {model.query_type})",
-        )
-        return []
-
-    def get_outlet_urn_for_sync(
-        self, sync: HightouchSync, destination: HightouchDestination
-    ) -> Union[str, DatasetUrn, None]:
-        # Resolved once per sync: preload and emission both ask, and an unresolved
-        # destination must be reported once.
-        if sync.id not in self._outlets:
-            self._outlets[sync.id] = self._resolve_outlet_urn(sync, destination)
-        return self._outlets[sync.id]
-
-    def _resolve_outlet_urn(
-        self, sync: HightouchSync, destination: HightouchDestination
-    ) -> Union[str, DatasetUrn, None]:
-        dest_table = None
-
-        if sync.configuration:
-            sync_type = sync.configuration.get(SYNC_CONFIG_KEY_TYPE)
-
-            if sync_type == SYNC_CONFIG_TYPE_EVENT:
-                event_name_value = sync.configuration.get(SYNC_CONFIG_KEY_EVENT_NAME)
-                if isinstance(event_name_value, dict):
-                    dest_table = event_name_value.get(SYNC_CONFIG_VALUE_KEY_FROM)
-                elif isinstance(event_name_value, str):
-                    dest_table = event_name_value
-            else:
-                for key in SYNC_CONFIG_DEST_TABLE_KEYS:
-                    value = sync.configuration.get(key)
-                    if value:
-                        if isinstance(value, str):
-                            dest_table = value
-                        elif isinstance(value, dict):
-                            dest_table = value.get(
-                                SYNC_CONFIG_VALUE_KEY_FROM
-                            ) or value.get(SYNC_CONFIG_VALUE_KEY_NAME)
-
-                        if dest_table:
-                            break
-
-        if not dest_table:
-            # No outlet rather than an invented one: a guessed name would create a
-            # dataset that does not exist and never joins the destination's own.
-            # Common for webhook-style destinations, so info rather than a warning;
-            # every such sync is listed in unresolved_destinations.
-            self.report.report_unresolved_destination(sync.slug)
+        if destination and not object_name:
+            # Common for webhook-style destinations, so info rather than a warning.
+            self.report.unresolved_destinations.append(sync.slug)
             self.report.info(
                 title="Could not resolve sync destination object",
                 message="The sync configuration names no destination table or object "
                 "the connector recognises, so the sync has no outlet.",
                 context=f"sync_slug: {sync.slug}, destination_type: {destination.type}",
             )
-            return None
 
-        return self.urn_builder.make_destination_urn(dest_table, destination)
-
-    def generate_datajob_from_sync(self, sync: HightouchSync) -> DataJob:
-        dataflow_urn = DataFlowUrn.create_from_ids(
-            orchestrator=HIGHTOUCH_PLATFORM,
-            flow_id=sync.id,
-            env=self.config.env,
-            platform_instance=self.config.platform_instance,
+        fine_grained = (
+            self._column_lineage(
+                sync, upstreams.inlets[0], upstreams.field_paths, outlet
+            )
+            if outlet
+            and upstreams.field_paths is not None
+            and len(upstreams.inlets) == 1
+            else []
         )
 
         datajob = DataJob(
             name=sync.id,
-            flow_urn=dataflow_urn,
-            platform_instance=self.config.platform_instance,
+            flow=flow,
             display_name=sync.slug,
+            subtype=DataJobSubTypes.HIGHTOUCH_SYNC,
+            created=sync.created_at,
+            last_modified=sync.updated_at,
+            custom_properties=self._custom_properties(
+                sync, model, destination, object_name
+            ),
+            inlets=list(upstreams.inlets),
+            outlets=[outlet] if outlet else [],
+            fine_grained_lineages=fine_grained or None,
+            owners=owners_of(self.config, sync.created_by),
+            tags=tags_of(sync.tags),
         )
+        yield datajob
 
-        model = self.get_model(sync.model_id)
-        destination = self.get_destination(sync.destination_id)
+        if self.config.include_sync_runs:
+            yield from self._runs(sync, datajob)
 
-        inlets: List[Union[str, DatasetUrn]] = []
-        if model:
-            inlets = self.get_inlet_urns_for_model(model, sync)
-
-        datajob.set_inlets(inlets)
-
-        outlet_urn = None
-        if destination:
-            outlet_urn = self.get_outlet_urn_for_sync(sync, destination)
-
-        if outlet_urn:
-            datajob.set_outlets([outlet_urn])
-
-        # Column-level lineage maps the model's output columns to a single upstream.
-        # It is only sound when that upstream actually carries the model's output
-        # fields: an emitted model dataset (whose schema is the model output) or a
-        # table-type model (output columns == source columns). For a raw-SQL model
-        # with emit_models_as_datasets=False the single inlet is the parsed *source
-        # table*, whose schema does not match the model's aliased/transformed output
-        # columns, so field mappings would point at nonexistent source fields — emit
-        # only table-level lineage there.
-        cll_upstream_is_model_output = model is not None and (
-            self.emits_model_dataset(model) or model.table_name is not None
-        )
-        if model and outlet_urn and len(inlets) == 1 and cll_upstream_is_model_output:
-            model_schema_fields = self.model_schema_fields_cache.get(model.id)
-            fine_grained_lineages = self.lineage_handler.generate_column_lineage(
-                sync, model, inlets[0], outlet_urn, model_schema_fields
+    def _upstreams(self, sync: HightouchSync, model: HightouchModel) -> SyncUpstreams:
+        if self.emits_model(model):
+            fields = self.resolver.model_fields.get(model.id) or []
+            return SyncUpstreams(
+                inlets=[self.resolver.model_urn(model)],
+                field_paths=[f.fieldPath for f in fields],
             )
-            if fine_grained_lineages:
-                datajob.set_fine_grained_lineages(fine_grained_lineages)
 
-        custom_properties: Dict[str, str] = {
+        source = self.resolver.sources.get(model.source_id)
+        if source:
+            # The model itself is not emitted, so the sync reads the tables the
+            # model reads.
+            table_urn = self.resolver.source_table_urn(model, source)
+            if table_urn:
+                fields = self.resolver.schema_fields(table_urn) or []
+                return SyncUpstreams(
+                    inlets=[table_urn], field_paths=[f.fieldPath for f in fields]
+                )
+            parsed = self.resolver.parse_model_sql(model, source)
+            if parsed and parsed.upstream_urns:
+                # The model's output columns are not those of the tables it
+                # queries, so there is no column lineage.
+                return SyncUpstreams(inlets=parsed.upstream_urns)
+
+        self.report.warning(
+            title="No upstream lineage for sync",
+            message="The sync's model is not emitted and the tables it reads could "
+            "not be resolved.",
+            context=f"sync_slug: {sync.slug}, query_type: {model.query_type}",
+            log_category=StructuredLogCategory.LINEAGE,
+        )
+        return SyncUpstreams(inlets=[])
+
+    def _column_lineage(
+        self,
+        sync: HightouchSync,
+        inlet: str,
+        upstream_field_paths: List[str],
+        outlet: str,
+    ) -> List[FineGrainedLineageClass]:
+        destination_paths = [
+            f.fieldPath for f in self.resolver.schema_fields(outlet) or []
+        ]
+        lineage = []
+        for mapping in field_mappings(sync, self.report):
+            # Mappings use the names as typed in Hightouch; adopt the casing of
+            # schemas DataHub already has so the field URNs join.
+            source_field = (
+                match_field(mapping.source_field, upstream_field_paths)
+                or mapping.source_field
+            )
+            destination_field = (
+                match_field(mapping.destination_field, destination_paths)
+                or mapping.destination_field
+            )
+            lineage.append(
+                FineGrainedLineageClass(
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=[make_schema_field_urn(inlet, source_field)],
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=[make_schema_field_urn(outlet, destination_field)],
+                )
+            )
+        self.report.column_lineage_emitted += len(lineage)
+        return lineage
+
+    def _custom_properties(
+        self,
+        sync: HightouchSync,
+        model: Optional[HightouchModel],
+        destination: Optional[HightouchDestination],
+        object_name: Optional[str],
+    ) -> Dict[str, str]:
+        properties = {
             "sync_id": sync.id,
             "model_id": sync.model_id,
             "destination_id": sync.destination_id,
-            "disabled": str(sync.disabled),
+            "disabled": str(sync.disabled).lower(),
         }
-
         if sync.schedule:
-            custom_properties["schedule"] = str(sync.schedule)
-
+            properties["schedule"] = json.dumps(sync.schedule, sort_keys=True)
         if model:
-            custom_properties["model_name"] = model.name
-            custom_properties["model_slug"] = model.slug
-            custom_properties["query_type"] = model.query_type
-            if model.description:
-                custom_properties["model_description"] = model.description
-
+            properties["model_name"] = model.name
         if destination:
-            custom_properties["destination_name"] = destination.name
-            custom_properties["destination_type"] = destination.type
+            properties["destination_name"] = destination.name
+            properties["destination_type"] = destination.type
+        if object_name:
+            properties["destination_object"] = object_name
+        return properties
 
-        if sync.tags:
-            tag_list = [
-                f"{key}:{value}" for key, value in sync.tags.items() if key and value
-            ]
-            if tag_list:
-                custom_properties["hightouch_tags"] = ", ".join(tag_list)
-                self.report.tags_emitted += len(tag_list)
-
-        datajob.set_custom_properties(custom_properties)
-
-        return datajob
-
-    def generate_dpi_from_sync_run(
-        self, sync_run: HightouchSyncRun, datajob: DataJob, sync_id: str
-    ) -> DataProcessInstance:
-        datajob_v1 = DataJobV1(
-            id=datajob.name,
-            flow_urn=datajob.flow_urn,
-            platform_instance=self.config.platform_instance,
-            name=datajob.name,
-            inlets=datajob.inlets,
-            outlets=datajob.outlets,
-        )
-
-        dpi = DataProcessInstance.from_datajob(
-            datajob=datajob_v1,
-            id=sync_run.id,
-            clone_inlets=True,
-            clone_outlets=True,
-        )
-
-        custom_props = {
-            "sync_run_id": sync_run.id,
-            "sync_id": sync_id,
-            "status": sync_run.status,
-        }
-        for prefix, rows in (
-            ("planned_rows", sync_run.planned_rows),
-            ("successful_rows", sync_run.successful_rows),
-            ("failed_rows", sync_run.failed_rows),
-        ):
-            if not rows:
-                continue
-            custom_props[f"{prefix}_added"] = str(rows.get(SYNC_RUN_ROW_KEY_ADDED, 0))
-            custom_props[f"{prefix}_changed"] = str(
-                rows.get(SYNC_RUN_ROW_KEY_CHANGED, 0)
-            )
-            custom_props[f"{prefix}_removed"] = str(
-                rows.get(SYNC_RUN_ROW_KEY_REMOVED, 0)
-            )
-            custom_props[f"{prefix}_total"] = str(sum(rows.values()))
-
-        if sync_run.query_size:
-            custom_props["query_size_bytes"] = str(sync_run.query_size)
-
-        if sync_run.completion_ratio is not None:
-            custom_props["completion_ratio"] = f"{sync_run.completion_ratio * 100:.1f}%"
-
-        if sync_run.error:
-            if isinstance(sync_run.error, str):
-                custom_props["error_message"] = sync_run.error
-            else:
-                custom_props["error_message"] = sync_run.error.get(
-                    "message", "Unknown error"
-                )
-                if "code" in sync_run.error:
-                    custom_props["error_code"] = sync_run.error["code"]
-
-        dpi.properties.update(custom_props)
-
-        return dpi
-
-    def get_dpi_workunits(
-        self, sync_run: HightouchSyncRun, dpi: DataProcessInstance
-    ) -> Iterable[MetadataWorkUnit]:
-        start_timestamp_millis = int(sync_run.started_at.timestamp() * 1000)
-
-        for mcp in dpi.generate_mcp(
-            created_ts_millis=start_timestamp_millis, materialize_iolets=False
-        ):
-            yield mcp.as_workunit()
-
-        for mcp in dpi.start_event_mcp(start_timestamp_millis):
-            yield mcp.as_workunit()
-
-        if sync_run.status.lower() in _SYNC_RUN_IN_PROGRESS_STATUSES:
-            return
-
-        status = _SYNC_RUN_STATUS_MAP.get(sync_run.status.lower())
-        if status is None:
-            # Never coerce an unrecognized status to SUCCESS — that would silently
-            # record a failed/aborted run as a success. Fall back to a neutral result.
-            self.report.report_unknown_sync_run_status(sync_run.status)
-            self.report.warning(
-                title="Unknown sync run status",
-                message="Encountered a sync-run status that is not recognized; "
-                "recording it as SKIPPED rather than assuming success.",
-                context=f"sync_run_id: {sync_run.id}, status: {sync_run.status}",
-            )
-            status = InstanceRunResult.SKIPPED
-
-        end_timestamp_millis = (
-            int(sync_run.finished_at.timestamp() * 1000)
-            if sync_run.finished_at
-            else start_timestamp_millis
-        )
-
-        for mcp in dpi.end_event_mcp(
-            end_timestamp_millis=end_timestamp_millis,
-            result=status,
-            result_type=HIGHTOUCH_PLATFORM,
-        ):
-            yield mcp.as_workunit()
-
-    def get_sync_workunits(
-        self, sync: HightouchSync
-    ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
-        self.report.report_syncs_scanned()
-
-        destination = self.get_destination(sync.destination_id)
-        if destination and self.get_outlet_urn_for_sync(sync, destination):
-            self.report.report_destinations_emitted()
-
-        dataflow = self.generate_dataflow_from_sync(sync)
-        yield dataflow
-
-        yield from self.container_handler.add_dataflow_to_container(str(dataflow.urn))
-
-        datajob = self.generate_datajob_from_sync(sync)
-        yield datajob
-
-        yield from self.container_handler.add_datajob_browse_path(
-            datajob_urn=str(datajob.urn),
-            dataflow_urn=str(dataflow.urn),
-            pipeline_name=sync.slug,
-        )
-
-        if self.config.include_sync_runs and self.config.max_sync_runs_per_sync > 0:
-            yield from self._sync_run_workunits(sync, datajob)
-
-    def _sync_run_workunits(
+    def _runs(
         self, sync: HightouchSync, datajob: DataJob
     ) -> Iterable[MetadataWorkUnit]:
         # Run history is extra detail on a sync already emitted, so a failure here
-        # is reported on its own and does not discard the sync.
+        # is a warning and does not discard the sync.
         try:
-            self.report.report_api_call()
-            sync_runs = self.api_client.get_sync_runs(
+            runs = self.api_client.get_sync_runs(
                 sync.id, limit=self.config.max_sync_runs_per_sync
             )
         except Exception as e:
             self.report.warning(
                 title="Failed to fetch sync runs",
-                message="Run history for this sync could not be read from the "
-                "Hightouch API and is missing; the sync itself was ingested.",
-                context=f"sync_slug: {sync.slug} (sync_id: {sync.id})",
+                message="Run history for this sync is missing; the sync itself was "
+                "ingested.",
+                context=f"sync_slug: {sync.slug}",
                 exc=e,
             )
             return
+        for run in runs:
+            yield from self._run_workunits(sync, run, datajob)
+            self.report.sync_runs_emitted += 1
 
-        for sync_run in sync_runs:
-            self.report.report_sync_runs_scanned()
-            dpi = self.generate_dpi_from_sync_run(sync_run, datajob, sync.id)
-            yield from self.get_dpi_workunits(sync_run, dpi)
+    def _run_workunits(
+        self, sync: HightouchSync, run: HightouchSyncRun, datajob: DataJob
+    ) -> Iterable[MetadataWorkUnit]:
+        dpi = DataProcessInstance(
+            id=run.id,
+            orchestrator=HIGHTOUCH_PLATFORM,
+            cluster=self.config.env,
+            template_urn=datajob.urn,
+            data_platform_instance=self.config.platform_instance,
+            inlets=list(datajob.inlets),
+            outlets=list(datajob.outlets),
+            properties=_run_properties(sync, run),
+        )
+        started = int(run.started_at.timestamp() * 1000)
+        for mcp in dpi.generate_mcp(
+            created_ts_millis=started, materialize_iolets=False
+        ):
+            yield mcp.as_workunit()
+        for mcp in dpi.start_event_mcp(started):
+            yield mcp.as_workunit()
+
+        status = run.status.lower()
+        if status in _IN_PROGRESS_RUN_STATUSES:
+            return
+        result = _FINISHED_RUN_RESULTS.get(status)
+        if result is None:
+            self.report.unknown_sync_run_statuses[status] = (
+                self.report.unknown_sync_run_statuses.get(status, 0) + 1
+            )
+            self.report.warning(
+                title="Unknown sync run status",
+                message="The run is recorded as SKIPPED rather than assuming success.",
+                context=f"sync_slug: {sync.slug}, run: {run.id}, status: {run.status}",
+            )
+            result = InstanceRunResult.SKIPPED
+        finished = (
+            int(run.finished_at.timestamp() * 1000) if run.finished_at else started
+        )
+        for mcp in dpi.end_event_mcp(
+            end_timestamp_millis=finished,
+            result=result,
+            result_type=HIGHTOUCH_PLATFORM,
+        ):
+            yield mcp.as_workunit()
+
+
+def _run_properties(sync: HightouchSync, run: HightouchSyncRun) -> Dict[str, str]:
+    properties = {"sync_id": sync.id, "status": run.status}
+    for prefix, rows in (
+        ("planned_rows", run.planned_rows),
+        ("successful_rows", run.successful_rows),
+        ("failed_rows", run.failed_rows),
+    ):
+        for kind in ("added", "changed", "removed"):
+            if rows and f"{kind}Count" in rows:
+                properties[f"{prefix}_{kind}"] = str(rows[f"{kind}Count"])
+    if run.query_size is not None:
+        properties["query_size"] = str(run.query_size)
+    if run.completion_ratio is not None:
+        properties["completion_ratio"] = str(run.completion_ratio)
+    if isinstance(run.error, str):
+        properties["error"] = run.error
+    elif run.error:
+        properties["error"] = str(run.error.get("message") or run.error)
+    return properties

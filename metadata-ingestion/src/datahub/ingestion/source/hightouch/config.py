@@ -1,12 +1,16 @@
 import dataclasses
 import logging
-from typing import Dict, Optional
+from typing import Annotated, Dict, Optional
 from urllib.parse import urlparse
 
 from pydantic import ConfigDict, Field, SecretStr, field_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.ingestion.source.common.subtypes import (
+    DataJobSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -18,9 +22,10 @@ from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 logger = logging.getLogger(__name__)
 
+MAX_SYNC_RUNS_WARNING_THRESHOLD = 100
 
-class Constant:
-    MAX_SYNC_RUNS_WARNING_THRESHOLD = 100
+# Platforms whose DataHub connector lowercases dataset URNs by default.
+_PLATFORMS_WITH_LOWERCASE_URNS = {"snowflake"}
 
 
 class HightouchAPIConfig(ConfigModel):
@@ -43,7 +48,7 @@ class HightouchAPIConfig(ConfigModel):
     @classmethod
     def validate_api_key(cls, v: SecretStr) -> SecretStr:
         # A blank secret passes pydantic's type check but produces an unusable
-        # "Authorization: Bearer " header, so reject it before ingestion starts.
+        # "Authorization: Bearer " header.
         if not v.get_secret_value().strip():
             raise ValueError("api_key cannot be empty")
         return v
@@ -51,62 +56,53 @@ class HightouchAPIConfig(ConfigModel):
     @field_validator("base_url")
     @classmethod
     def validate_base_url(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("base_url cannot be empty")
         # The API key is sent as a Bearer token on every request, so require TLS
-        # unconditionally — even a loopback HTTP endpoint would put the token on
-        # the wire in plaintext.
-        parsed = urlparse(v)
-        if parsed.scheme != "https":
+        # even for a loopback endpoint.
+        if urlparse(v.strip()).scheme != "https":
             raise ValueError(
                 "base_url must use https:// so the API key is not sent over plaintext"
             )
-        return v.rstrip("/")
+        return v.strip().rstrip("/")
 
     @field_validator("request_timeout_sec")
     @classmethod
     def validate_request_timeout(cls, v: int) -> int:
         if v <= 0:
             raise ValueError("request_timeout_sec must be positive")
-        if v > 300:
-            logger.warning(
-                f"request_timeout_sec is {v} seconds (>5min). This may cause timeouts for large API responses."
-            )
         return v
-
-
-# Platforms whose DataHub connector lowercases dataset URNs by default.
-_PLATFORMS_WITH_LOWERCASE_URNS = {"snowflake"}
 
 
 class PlatformDetail(ConfigModel):
     platform: Optional[str] = Field(
         default=None,
-        description="Override the platform type detection.",
+        description="DataHub platform of the source or destination. Detected from "
+        "the Hightouch type when unset.",
     )
     platform_instance: Optional[str] = Field(
         default=None,
-        description="The instance of the platform that all assets produced by this recipe belong to",
+        description="Platform instance used by the connector that ingests this "
+        "source or destination.",
     )
     env: Optional[str] = Field(
         default=None,
-        description="The environment that all assets produced by this mapping belong to. "
-        "When unset, the connector-level `env` is used.",
+        description="Environment of the source or destination datasets. When unset, "
+        "the connector-level `env` is used.",
     )
     database: Optional[str] = Field(
         default=None,
-        description="The database that all assets produced belong to.",
+        description="Database used to qualify table names. Defaults to the "
+        "`database` in the Hightouch source configuration.",
     )
     include_schema_in_urn: bool = Field(
         default=True,
-        description="Include schema in the dataset URN.",
+        description="Include the schema in dataset URNs. Turn off for platforms "
+        "whose connector emits two-part `database.table` names.",
     )
     convert_urns_to_lowercase: Optional[bool] = Field(
         default=None,
-        description="Lowercase the table name, including database and schema, in "
-        "upstream dataset URNs so they match the source platform's connector. "
-        "Defaults to true for Snowflake, whose connector lowercases URNs by default, "
-        "and false otherwise.",
+        description="Lowercase table names, including database and schema, so they "
+        "match the platform connector's URNs. Defaults to true for Snowflake, whose "
+        "connector lowercases URNs by default, and false otherwise.",
     )
 
     @property
@@ -118,13 +114,10 @@ class PlatformDetail(ConfigModel):
 
 @dataclasses.dataclass
 class HightouchSourceReport(StaleEntityRemovalSourceReport):
+    api_calls: int = 0
     syncs_scanned: int = 0
-    models_scanned: int = 0
     models_emitted: int = 0
-    sources_scanned: int = 0
-    destinations_scanned: int = 0
-    sync_runs_scanned: int = 0
-    contracts_scanned: int = 0
+    sync_runs_emitted: int = 0
     contracts_emitted: int = 0
     contract_events_emitted: int = 0
     contract_assertions_emitted: int = 0
@@ -132,36 +125,19 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
     filtered_syncs: LossyList[str] = dataclasses.field(default_factory=LossyList)
     filtered_models: LossyList[str] = dataclasses.field(default_factory=LossyList)
     filtered_contracts: LossyList[str] = dataclasses.field(default_factory=LossyList)
-    api_calls_count: int = 0
-    sql_parsing_attempts: int = 0
     sql_parsing_successes: int = 0
     sql_parsing_failures: int = 0
-    model_schemas_emitted: int = 0
-    model_schemas_skipped: int = 0
-    model_schemas_skip_reasons: LossyDict[str, int] = dataclasses.field(
-        default_factory=LossyDict
-    )
     model_schemas_from_datahub: int = 0
-    model_schemas_datahub_not_found: LossyList[str] = dataclasses.field(
-        default_factory=LossyList
-    )
-    destinations_emitted: int = 0
-    schemas_from_referenced_columns: int = 0
+    model_schemas_from_sql: int = 0
+    model_schemas_from_referenced_columns: int = 0
     column_lineage_emitted: int = 0
-    tags_emitted: int = 0
     entity_parse_failures: LossyDict[str, int] = dataclasses.field(
         default_factory=LossyDict
-    )
-    referenced_entities_inaccessible: LossyList[str] = dataclasses.field(
-        default_factory=LossyList
     )
     unknown_sync_run_statuses: LossyDict[str, int] = dataclasses.field(
         default_factory=LossyDict
     )
     field_mappings_dropped: int = 0
-    lineage_resolution_failures: LossyList[str] = dataclasses.field(
-        default_factory=LossyList
-    )
     unresolved_destinations: LossyList[str] = dataclasses.field(
         default_factory=LossyList
     )
@@ -169,96 +145,11 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
         default_factory=LossyDict
     )
 
-    def report_syncs_scanned(self, count: int = 1) -> None:
-        self.syncs_scanned += count
-
-    def report_models_scanned(self, count: int = 1) -> None:
-        self.models_scanned += count
-
-    def report_models_emitted(self, count: int = 1) -> None:
-        self.models_emitted += count
-
-    def report_sources_scanned(self, count: int = 1) -> None:
-        self.sources_scanned += count
-
-    def report_destinations_scanned(self, count: int = 1) -> None:
-        self.destinations_scanned += count
-
-    def report_sync_runs_scanned(self, count: int = 1) -> None:
-        self.sync_runs_scanned += count
-
-    def report_contracts_scanned(self, count: int = 1) -> None:
-        self.contracts_scanned += count
-
-    def report_contracts_emitted(self, count: int = 1) -> None:
-        self.contracts_emitted += count
-
-    def report_contract_events_emitted(self, count: int = 1) -> None:
-        self.contract_events_emitted += count
-
-    def report_contract_assertions_emitted(self, count: int = 1) -> None:
-        self.contract_assertions_emitted += count
-
-    def report_event_sources_emitted(self, count: int = 1) -> None:
-        self.event_sources_emitted += count
-
-    def report_syncs_dropped(self, sync: str) -> None:
-        self.filtered_syncs.append(sync)
-
-    def report_models_dropped(self, model: str) -> None:
-        self.filtered_models.append(model)
-
-    def report_contracts_dropped(self, contract: str) -> None:
-        self.filtered_contracts.append(contract)
-
-    def report_api_call(self) -> None:
-        self.api_calls_count += 1
-
-    def report_model_schemas_emitted(self, count: int = 1) -> None:
-        self.model_schemas_emitted += count
-
-    def report_model_schemas_skipped(self, reason: str) -> None:
-        self.model_schemas_skipped += 1
-        self.model_schemas_skip_reasons[reason] = (
-            self.model_schemas_skip_reasons.get(reason, 0) + 1
-        )
-
-    def report_model_schema_from_datahub(self, count: int = 1) -> None:
-        self.model_schemas_from_datahub += count
-
-    def report_model_schema_datahub_not_found(self, model_name: str) -> None:
-        self.model_schemas_datahub_not_found.append(model_name)
-
-    def report_destinations_emitted(self, count: int = 1) -> None:
-        self.destinations_emitted += count
-
-    def report_entity_parse_failure(self, entity_name: str) -> None:
-        self.entity_parse_failures[entity_name] = (
-            self.entity_parse_failures.get(entity_name, 0) + 1
-        )
-
-    def report_referenced_entity_inaccessible(self, reference: str) -> None:
-        self.referenced_entities_inaccessible.append(reference)
-
-    def report_unknown_sync_run_status(self, status: str) -> None:
-        self.unknown_sync_run_statuses[status] = (
-            self.unknown_sync_run_statuses.get(status, 0) + 1
-        )
-
-    def report_field_mappings_dropped(self, count: int = 1) -> None:
-        self.field_mappings_dropped += count
-
-    def report_lineage_resolution_failure(self, context: str) -> None:
-        self.lineage_resolution_failures.append(context)
-
-    def report_unresolved_destination(self, sync_slug: str) -> None:
-        self.unresolved_destinations.append(sync_slug)
-
     def report_datahub_lookup_failure(
         self, category: str, context: str, exc: Exception
     ) -> None:
-        """A read from DataHub that the connector uses to align schemas or lineage
-        failed. Counted per category, and reported once per category."""
+        """Counted per category; only the first failure of each category becomes a
+        report warning so a DataHub outage does not flood the report."""
         first = category not in self.datahub_lookup_failures
         self.datahub_lookup_failures[category] = (
             self.datahub_lookup_failures.get(category, 0) + 1
@@ -279,69 +170,82 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
 
     api_config: HightouchAPIConfig = Field(description="Hightouch API configuration")
 
-    sync_patterns: AllowDenyPattern = Field(
+    sync_patterns: Annotated[
+        AllowDenyPattern, Filters(DataJobSubTypes.HIGHTOUCH_SYNC)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns matched against each sync's slug.",
     )
 
-    model_patterns: AllowDenyPattern = Field(
+    model_patterns: Annotated[
+        AllowDenyPattern, Filters(DatasetSubTypes.HIGHTOUCH_MODEL)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns matched against each model's display name.",
     )
 
+    contract_patterns: Annotated[
+        AllowDenyPattern, Filters(DatasetSubTypes.HIGHTOUCH_EVENT_CONTRACT)
+    ] = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns matched against each event contract's name.",
+    )
+
     emit_models_as_datasets: bool = Field(
         default=True,
-        description="Whether to emit Hightouch models as Dataset entities. "
-        "When enabled, models are emitted as datasets with the platform 'hightouch', "
-        "and lineage is created from source tables to models, and from models to syncs.",
+        description="Emit Hightouch models as datasets on the `hightouch` platform, "
+        "with lineage from the warehouse tables they read. When disabled, syncs read "
+        "directly from those warehouse tables.",
     )
 
     include_sync_runs: bool = Field(
         default=True,
-        description="Whether to ingest sync run history as DataProcessInstances.",
+        description="Ingest each sync's recent runs as DataProcessInstances.",
     )
 
     max_sync_runs_per_sync: int = Field(
         default=10,
-        description="Maximum number of sync runs to ingest per sync. 0 skips "
-        "sync runs, like include_sync_runs: false.",
+        description="Maximum number of runs to ingest per sync. Must be at least 1; "
+        "set include_sync_runs: false to skip runs.",
     )
 
     parse_model_sql: bool = Field(
         default=True,
-        description="Whether to parse raw SQL from models to extract upstream table lineage. "
-        "When enabled, SQL queries in models are parsed to identify source tables and create lineage.",
+        description="Parse raw SQL models to derive table and column lineage from "
+        "the tables they query.",
     )
 
     include_contracts: bool = Field(
-        default=True,
-        description="Whether to ingest Hightouch Event Contracts. Each event is "
-        "emitted as a dataset with its JSON Schema, a DataContract housing a schema "
-        "assertion, and lineage from the contract's event sources.",
+        default=False,
+        description="Ingest Hightouch Event Contracts. Each event becomes a dataset "
+        "with its JSON Schema, a DataContract holding a schema assertion, and lineage "
+        "from the contract's event sources. Event Contracts are not available on "
+        "every Hightouch plan.",
     )
 
-    contract_patterns: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Filtering regex patterns for contract names.",
+    extract_owners: bool = Field(
+        default=True,
+        description="Set the user who created a model or sync as its technical "
+        "owner, using their email address as the DataHub user id.",
     )
 
     sources_to_platform_instance: Dict[str, PlatformDetail] = Field(
         default={},
-        description="A mapping from source id to its platform/instance/env/database details.",
+        description="Platform details keyed by Hightouch source id, so upstream "
+        "dataset URNs match those of the source platform's connector.",
     )
 
     destination_to_platform_instance: Dict[str, PlatformDetail] = Field(
         default={},
-        description="A mapping of destination id to its platform/instance/env details.",
+        description="Platform details keyed by Hightouch destination id, so "
+        "destination dataset URNs match those of the destination's connector.",
     )
 
     include_sibling_relationships: bool = Field(
         default=True,
-        description="Controls sibling relationship between Hightouch table models and their source warehouse tables. "
-        "When True (default), the Hightouch model is designated as primary and the source warehouse table "
-        "(e.g., Snowflake, BigQuery) as secondary. The sibling aspect on the source table is only emitted if "
-        "the source table already exists in DataHub. Configure sources_to_platform_instance to ensure URNs "
-        "match your source platform connector settings for proper sibling linking.",
+        description="Make each table model a sibling of the warehouse table it "
+        "reads, with the Hightouch model as the primary sibling. The warehouse table "
+        "only gets the back-link when it already exists in DataHub.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
@@ -351,12 +255,14 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
     @field_validator("max_sync_runs_per_sync")
     @classmethod
     def validate_max_sync_runs(cls, v: int) -> int:
-        if v < 0:
-            raise ValueError("max_sync_runs_per_sync must be non-negative")
-        if v > Constant.MAX_SYNC_RUNS_WARNING_THRESHOLD:
+        if v < 1:
+            raise ValueError(
+                "max_sync_runs_per_sync must be at least 1; set include_sync_runs: "
+                "false to skip sync runs"
+            )
+        if v > MAX_SYNC_RUNS_WARNING_THRESHOLD:
             logger.warning(
-                f"max_sync_runs_per_sync is set to {v}, which is quite high. "
-                f"This may result in many API calls and slower ingestion. "
-                f"Consider using a value below {Constant.MAX_SYNC_RUNS_WARNING_THRESHOLD}."
+                f"max_sync_runs_per_sync is {v}; runs are fetched per sync, so a high "
+                "value slows ingestion."
             )
         return v

@@ -3,13 +3,9 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from datahub.metadata.schema_classes import (
-    SchemaFieldClass,
-)
-from datahub.sdk.dataset import Dataset
-
 
 class _HightouchBaseModel(BaseModel):
+    # Hightouch ids are numbers in the API but strings in recipes and URNs.
     model_config = ConfigDict(
         populate_by_name=True,
         coerce_numbers_to_str=True,
@@ -17,11 +13,10 @@ class _HightouchBaseModel(BaseModel):
     )
 
 
-class HightouchSchemaField(_HightouchBaseModel):
-    name: str
-    type: str
-    description: Optional[str] = None
-    is_primary_key: bool = False
+class HightouchUserReference(_HightouchBaseModel):
+    id: str
+    name: Optional[str] = None
+    email: Optional[str] = None
 
 
 class HightouchSourceConnection(_HightouchBaseModel):
@@ -30,8 +25,6 @@ class HightouchSourceConnection(_HightouchBaseModel):
     slug: str
     type: str
     workspace_id: str = Field(alias="workspaceId")
-    created_at: datetime = Field(alias="createdAt")
-    updated_at: datetime = Field(alias="updatedAt")
     configuration: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -58,13 +51,14 @@ class HightouchModel(_HightouchBaseModel):
     query_type: str = Field(alias="queryType")
     created_at: datetime = Field(alias="createdAt")
     updated_at: datetime = Field(alias="updatedAt")
+    created_by: Optional[HightouchUserReference] = Field(
+        default=None, alias="createdBy"
+    )
     primary_key: Optional[str] = Field(default=None, alias="primaryKey")
     description: Optional[str] = None
     is_schema: bool = Field(default=False, alias="isSchema")
     tags: Optional[Dict[str, str]] = None
-    folder_id: Optional[str] = Field(default=None, alias="folderId")
-    # At most one of these is set, matching queryType; custom and visual models
-    # set none. `name` above is the display
+    # At most one of these is set, matching queryType. `name` above is the display
     # name; the warehouse table of a table model is `table.name`.
     table: Optional[HightouchTableQuery] = None
     raw: Optional[HightouchRawQuery] = None
@@ -95,8 +89,6 @@ class HightouchDestination(_HightouchBaseModel):
     slug: str
     type: str
     workspace_id: str = Field(alias="workspaceId")
-    created_at: datetime = Field(alias="createdAt")
-    updated_at: datetime = Field(alias="updatedAt")
     configuration: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -108,6 +100,9 @@ class HightouchSync(_HightouchBaseModel):
     destination_id: str = Field(alias="destinationId")
     created_at: datetime = Field(alias="createdAt")
     updated_at: datetime = Field(alias="updatedAt")
+    created_by: Optional[HightouchUserReference] = Field(
+        default=None, alias="createdBy"
+    )
     configuration: Dict[str, Any] = Field(default_factory=dict)
     schedule: Optional[Dict[str, Any]] = None
     disabled: bool = False
@@ -120,11 +115,9 @@ class HightouchSync(_HightouchBaseModel):
 
 class HightouchSyncRun(_HightouchBaseModel):
     id: str
-    sync_id: Optional[str] = Field(default=None, alias="syncId")
     status: str
     started_at: datetime = Field(alias="startedAt")
     finished_at: Optional[datetime] = Field(default=None, alias="finishedAt")
-    created_at: datetime = Field(alias="createdAt")
     error: Optional[Union[str, Dict[str, Any]]] = None
     completion_ratio: Optional[float] = Field(default=None, alias="completionRatio")
     planned_rows: Optional[Dict[str, int]] = Field(default=None, alias="plannedRows")
@@ -136,12 +129,6 @@ class HightouchSyncRun(_HightouchBaseModel):
 
 
 class HightouchFieldMapping(_HightouchBaseModel):
-    source_field: str
-    destination_field: str
-    is_primary_key: bool = False
-
-
-class HightouchColumnPair(_HightouchBaseModel):
     source_field: str
     destination_field: str
 
@@ -168,7 +155,7 @@ class HightouchContract(_HightouchBaseModel):
     name: str
     slug: Optional[str] = None
     description: Optional[str] = None
-    workspace_id: Optional[str] = Field(default=None, alias="workspaceId")
+    workspace_id: str = Field(alias="workspaceId")
     on_undeclared_schema: Optional[str] = Field(
         default=None, alias="onUndeclaredSchema"
     )
@@ -176,10 +163,3 @@ class HightouchContract(_HightouchBaseModel):
     event_sources: List[HightouchEventSource] = Field(
         default_factory=list, alias="eventSources"
     )
-
-
-class HightouchModelDatasetResult(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    dataset: Dataset
-    schema_fields: List[SchemaFieldClass] = Field(default_factory=list)

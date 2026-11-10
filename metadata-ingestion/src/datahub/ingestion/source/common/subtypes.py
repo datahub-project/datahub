@@ -77,6 +77,7 @@ class GenericContainerSubTypes(StrEnum):
     FABRIC_WORKSPACE = "Fabric Workspace"
     # AWS region containers (kinesis, sqs, sns, lambda, eventbridge, eventbridge-pipes).
     AWS_REGION = "Region"
+    HIGHTOUCH_WORKSPACE = "Workspace"
 
 
 class DatasetContainerSubTypes(StrEnum):
@@ -306,7 +307,8 @@ class DataJobSubTypes(StrEnum):
     ADF_SQL_POOL_STORED_PROCEDURE = "SQL Pool Stored Procedure"
     ADF_FAIL_ACTIVITY = "Fail Activity"
 
-    # Hightouch Sync Types
+    # Hightouch
+    HIGHTOUCH_SYNC = "Sync"
 
     # Fabric Data Factory Activity Types (Fabric-specific, not in ADF)
     FABRIC_SPARK_JOB_DEFINITION = "Spark Job Definition"

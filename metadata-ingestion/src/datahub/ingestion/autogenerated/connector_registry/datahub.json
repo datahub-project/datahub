@@ -2048,8 +2048,14 @@
     "hightouch": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default, one per workspace",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default, emitting column-level lineage from field mappings",
+          "description": "Enabled by default, from parsed model SQL and sync field mappings",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2060,14 +2066,38 @@
           "supported": true
         },
         {
+          "capability": "OWNERSHIP",
+          "description": "Enabled by default via `extract_owners`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
         },
         {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default for models",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default, showing data flow from source -> model -> sync -> destination",
+          "description": "Enabled by default, from warehouse tables through models and syncs to destinations",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
         }

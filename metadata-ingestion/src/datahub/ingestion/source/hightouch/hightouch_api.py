@@ -10,37 +10,9 @@ from datahub.ingestion.source.hightouch.config import (
     HightouchAPIConfig,
     HightouchSourceReport,
 )
-from datahub.ingestion.source.hightouch.constants import (
-    API_ENDPOINT_CONTRACTS,
-    API_ENDPOINT_DESTINATIONS,
-    API_ENDPOINT_MODELS,
-    API_ENDPOINT_SOURCES,
-    API_ENDPOINT_SYNCS,
-    API_PAGINATION_DEFAULT_LIMIT,
-    API_PAGINATION_INITIAL_OFFSET,
-    API_PAGINATION_MAX_PAGES,
-    API_RESPONSE_FIELD_DATA,
-    API_RESPONSE_FIELD_HAS_MORE,
-    ENTITY_NAME_CONTRACT,
-    ENTITY_NAME_DESTINATION,
-    ENTITY_NAME_MODEL,
-    ENTITY_NAME_SOURCE,
-    ENTITY_NAME_SYNC,
-    ENTITY_NAME_SYNC_RUN,
-    HTTP_CONTENT_TYPE_JSON,
-    HTTP_HEADER_AUTHORIZATION,
-    HTTP_HEADER_CONTENT_TYPE,
-    HTTP_METHOD_GET,
-    HTTP_PROTOCOL_HTTPS,
-    HTTP_RETRY_ALLOWED_METHODS,
-    HTTP_RETRY_BACKOFF_FACTOR,
-    HTTP_RETRY_MAX_ATTEMPTS,
-    HTTP_RETRY_STATUS_CODES,
-)
 from datahub.ingestion.source.hightouch.models import (
     HightouchContract,
     HightouchDestination,
-    HightouchFieldMapping,
     HightouchModel,
     HightouchSourceConnection,
     HightouchSync,
@@ -51,290 +23,144 @@ T = TypeVar("T", bound=BaseModel)
 
 logger = logging.getLogger(__name__)
 
-HTTP_STATUS_NOT_FOUND = 404
+PAGE_SIZE = 100
+# Guards against an API that never signals the last page.
+MAX_PAGES = 10_000
 # The workspace or key has no access to Events: there are no contracts to keep.
-HTTP_STATUSES_CONTRACTS_UNAVAILABLE = {401, 403, HTTP_STATUS_NOT_FOUND}
+CONTRACTS_UNAVAILABLE_STATUSES = {401, 403, 404}
 
 
 class HightouchAPIClient:
-    def __init__(
-        self,
-        config: HightouchAPIConfig,
-        report: Optional[HightouchSourceReport] = None,
-    ):
+    def __init__(self, config: HightouchAPIConfig, report: HightouchSourceReport):
         self.config = config
-        # The report is optional so the client can be constructed standalone (e.g. in
-        # unit tests); when present, skips and parse failures are surfaced to operators.
         self.report = report
-        self.session = self._create_session()
-
-    def _report_parse_failure(
-        self, entity_name: str, detail: str, drops_entity: bool = True
-    ) -> None:
-        if self.report is None:
-            logger.warning(f"Failed to parse {entity_name}: {detail}")
-            return
-        self.report.report_entity_parse_failure(entity_name)
-        # A skipped sync, model or contract is missing from this run, so it is a
-        # failure: that keeps stale-entity removal from soft-deleting it.
-        log = self.report.failure if drops_entity else self.report.warning
-        log(
-            title="Failed to parse Hightouch entity",
-            message="An entity returned by the Hightouch API could not be parsed "
-            "and was skipped.",
-            context=f"{entity_name}: {detail}",
+        self.session = requests.Session()
+        self.session.mount(
+            "https://",
+            HTTPAdapter(
+                max_retries=Retry(
+                    total=3,
+                    backoff_factor=1,
+                    status_forcelist=[429, 500, 502, 503, 504],
+                    allowed_methods=["GET"],
+                )
+            ),
         )
-
-    def _create_session(self) -> requests.Session:
-        session = requests.Session()
-
-        retry_strategy = Retry(
-            total=HTTP_RETRY_MAX_ATTEMPTS,
-            backoff_factor=HTTP_RETRY_BACKOFF_FACTOR,
-            status_forcelist=HTTP_RETRY_STATUS_CODES,
-            allowed_methods=HTTP_RETRY_ALLOWED_METHODS,
-        )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        session.mount(HTTP_PROTOCOL_HTTPS, adapter)
-
-        session.headers.update(
+        self.session.headers.update(
             {
-                HTTP_HEADER_AUTHORIZATION: f"Bearer {self.config.api_key.get_secret_value()}",
-                HTTP_HEADER_CONTENT_TYPE: HTTP_CONTENT_TYPE_JSON,
+                "Authorization": f"Bearer {config.api_key.get_secret_value()}",
+                "Content-Type": "application/json",
             }
         )
 
-        return session
-
-    def _make_request(
-        self, method: str, endpoint: str, **kwargs: Any
-    ) -> Dict[str, Any]:
-        url = f"{self.config.base_url}/{endpoint}"
-
-        try:
-            response = self.session.request(
-                method, url, timeout=self.config.request_timeout_sec, **kwargs
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error making request to {url}: {e}")
-            raise
-
-    def _make_paginated_request(
-        self, endpoint: str, params: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
-        all_items: List[Dict[str, Any]] = []
-        offset = API_PAGINATION_INITIAL_OFFSET
-        limit = (
-            params.get("limit", API_PAGINATION_DEFAULT_LIMIT)
-            if params
-            else API_PAGINATION_DEFAULT_LIMIT
+    def _get(self, endpoint: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        self.report.api_calls += 1
+        response = self.session.get(
+            f"{self.config.base_url}/{endpoint}",
+            params=params,
+            timeout=self.config.request_timeout_sec,
         )
+        response.raise_for_status()
+        return response.json()
 
-        request_params = params.copy() if params else {}
-        request_params["limit"] = limit
-
-        page = 0
-        while True:
-            request_params["offset"] = offset
-
-            response = self._make_request(
-                HTTP_METHOD_GET, endpoint, params=request_params
+    def _get_all(self, endpoint: str) -> List[Dict[str, Any]]:
+        items: List[Dict[str, Any]] = []
+        for _ in range(MAX_PAGES):
+            response = self._get(
+                endpoint, params={"limit": PAGE_SIZE, "offset": len(items)}
             )
+            page_items = response.get("data", [])
+            items.extend(page_items)
+            # Only some list endpoints return hasMore; for the others a short page
+            # is the last one.
+            has_more = response.get("hasMore")
+            if not page_items or has_more is False:
+                return items
+            if has_more is None and len(page_items) < PAGE_SIZE:
+                return items
+        # Entities past the cap are missing from this run, so this is a failure:
+        # it keeps stale-entity removal from soft-deleting them.
+        self.report.failure(
+            title="Paginated response truncated",
+            message=f"Stopped after {MAX_PAGES} pages, so some entities are missing.",
+            context=f"endpoint: {endpoint}, items: {len(items)}",
+        )
+        return items
 
-            items = response.get(API_RESPONSE_FIELD_DATA, [])
-            all_items.extend(items)
-            page += 1
-            logger.debug(
-                f"{endpoint}: fetched page {page} (offset={offset}, "
-                f"items={len(items)}, total_so_far={len(all_items)})"
-            )
-
-            if len(items) == 0:
-                break
-
-            # Distinguish an explicit hasMore=false from an omitted field. When the
-            # flag is omitted we infer more data from a full page (a short page
-            # signals the end); dropping a full page would silently truncate.
-            has_more = response.get(API_RESPONSE_FIELD_HAS_MORE)
-            page_full = len(items) == limit
-            if has_more is None:
-                if not page_full:
-                    break
-            elif not has_more:
-                break
-
-            offset += len(items)
-
-            if page >= API_PAGINATION_MAX_PAGES:
-                self._warn_pagination(
-                    f"{endpoint}: hit the pagination cap of "
-                    f"{API_PAGINATION_MAX_PAGES} pages; results are truncated at "
-                    f"{len(all_items)} items."
-                )
-                break
-
-        return all_items
-
-    def _warn_pagination(self, message: str) -> None:
-        if self.report is not None:
-            # Entities past the cap are missing from this run, so report a failure
-            # to keep stale-entity removal from soft-deleting them.
-            self.report.failure(
-                title="Paginated response may be truncated",
-                message=message,
-            )
-        else:
-            logger.warning(message)
-
-    def _report_field_mappings_dropped(self, message: str) -> None:
-        if self.report is not None:
-            self.report.report_field_mappings_dropped()
-            self.report.warning(
-                title="Dropped sync field mappings",
-                message="Some field mappings could not be interpreted and were "
-                "skipped, so column-level lineage may be incomplete.",
-                context=message,
-            )
-        else:
-            logger.warning(message)
-
-    def _fetch_entities(
-        self, endpoint: str, model_class: Type[T], entity_name: str
+    def _parse_all(
+        self, items: List[Dict[str, Any]], model_class: Type[T], entity_name: str
     ) -> List[T]:
-        all_data = self._make_paginated_request(endpoint)
-        entities = []
-
-        for item_data in all_data:
+        parsed = []
+        for item in items:
             try:
-                entity = model_class.model_validate(item_data)
-                entities.append(entity)
+                parsed.append(model_class.model_validate(item))
             except ValidationError as e:
-                self._report_parse_failure(entity_name, str(e))
-                continue
-
-        return entities
-
-    def _fetch_entity_by_id(
-        self, endpoint: str, entity_id: str, model_class: Type[T], entity_name: str
-    ) -> Optional[T]:
-        try:
-            response = self._make_request(HTTP_METHOD_GET, f"{endpoint}/{entity_id}")
-            return model_class.model_validate(response)
-        except requests.exceptions.HTTPError as e:
-            # A referenced entity may have been deleted after the sync/model that
-            # points at it was read; a 404 must not abort the whole run.
-            if (
-                e.response is not None
-                and e.response.status_code == HTTP_STATUS_NOT_FOUND
-            ):
-                reference = f"{entity_name} {entity_id}"
-                if self.report is not None:
-                    self.report.report_referenced_entity_inaccessible(reference)
-                    self.report.warning(
-                        title="Referenced Hightouch entity not found",
-                        message="A referenced entity could not be fetched (404) and "
-                        "was skipped. Lineage or metadata that depends on it may be "
-                        "incomplete.",
-                        context=reference,
-                    )
-                else:
-                    logger.warning(f"{reference} not found (404); skipping.")
-                return None
-            raise
-        except ValidationError as e:
-            self._report_parse_failure(f"{entity_name} {entity_id}", str(e))
-            return None
+                self.report.entity_parse_failures[entity_name] = (
+                    self.report.entity_parse_failures.get(entity_name, 0) + 1
+                )
+                # A skipped entity is missing from this run, so this is a failure:
+                # it keeps stale-entity removal from soft-deleting it.
+                self.report.failure(
+                    title="Failed to parse Hightouch entity",
+                    message="An entity returned by the Hightouch API could not be "
+                    "parsed and was skipped.",
+                    context=f"{entity_name} {item.get('id')}",
+                    exc=e,
+                )
+        return parsed
 
     def check_access(self) -> None:
-        """One cheap, documented call that fails the way ingestion would: bad key,
+        """One cheap documented call that fails the way ingestion would: bad key,
         missing permission or no network."""
-        self._make_request(HTTP_METHOD_GET, API_ENDPOINT_SOURCES, params={"limit": 1})
+        self._get("sources", params={"limit": 1})
 
-    def get_source_by_id(self, source_id: str) -> Optional[HightouchSourceConnection]:
-        return self._fetch_entity_by_id(
-            API_ENDPOINT_SOURCES,
-            source_id,
-            HightouchSourceConnection,
-            ENTITY_NAME_SOURCE,
+    def get_sources(self) -> List[HightouchSourceConnection]:
+        return self._parse_all(
+            self._get_all("sources"), HightouchSourceConnection, "source"
         )
 
     def get_models(self) -> List[HightouchModel]:
-        return self._fetch_entities(
-            API_ENDPOINT_MODELS, HightouchModel, ENTITY_NAME_MODEL
-        )
+        return self._parse_all(self._get_all("models"), HightouchModel, "model")
 
-    def get_model_by_id(self, model_id: str) -> Optional[HightouchModel]:
-        return self._fetch_entity_by_id(
-            API_ENDPOINT_MODELS, model_id, HightouchModel, ENTITY_NAME_MODEL
-        )
-
-    def get_destination_by_id(
-        self, destination_id: str
-    ) -> Optional[HightouchDestination]:
-        return self._fetch_entity_by_id(
-            API_ENDPOINT_DESTINATIONS,
-            destination_id,
-            HightouchDestination,
-            ENTITY_NAME_DESTINATION,
+    def get_destinations(self) -> List[HightouchDestination]:
+        return self._parse_all(
+            self._get_all("destinations"), HightouchDestination, "destination"
         )
 
     def get_syncs(self) -> List[HightouchSync]:
-        return self._fetch_entities(API_ENDPOINT_SYNCS, HightouchSync, ENTITY_NAME_SYNC)
+        return self._parse_all(self._get_all("syncs"), HightouchSync, "sync")
 
-    def get_sync_runs(self, sync_id: str, limit: int = 10) -> List[HightouchSyncRun]:
-        response = self._make_request(
-            HTTP_METHOD_GET,
-            f"{API_ENDPOINT_SYNCS}/{sync_id}/runs",
-            params={"limit": limit},
-        )
+    def get_sync_runs(self, sync_id: str, limit: int) -> List[HightouchSyncRun]:
         runs = []
-
-        for run_data in response.get(API_RESPONSE_FIELD_DATA, []):
+        response = self._get(f"syncs/{sync_id}/runs", params={"limit": limit})
+        for item in response.get("data", []):
             try:
-                run = HightouchSyncRun.model_validate(run_data)
-                runs.append(run)
+                runs.append(HightouchSyncRun.model_validate(item))
             except ValidationError as e:
-                # Run history is not tracked for stale removal, so a skipped run
-                # is only a warning.
-                self._report_parse_failure(
-                    ENTITY_NAME_SYNC_RUN, str(e), drops_entity=False
+                # Runs are not tracked for stale removal, so a skipped run is only
+                # a warning.
+                self.report.warning(
+                    title="Failed to parse Hightouch sync run",
+                    message="A sync run could not be parsed and was skipped.",
+                    context=f"sync_id: {sync_id}, run: {item.get('id')}",
+                    exc=e,
                 )
-                continue
-
         return runs
 
-    def get_contracts(self) -> List[HightouchContract]:
-        # Contracts are optional (plan-gated), so a request error never aborts the
-        # run: no access is a warning, and anything else is a failure that keeps
-        # stale-entity removal from soft-deleting contracts it could not read.
+    def get_contracts(self) -> Optional[List[HightouchContract]]:
+        """Event contracts, or None when they could not be read. Contracts are
+        plan-gated, so a request error never aborts the run."""
         try:
-            return self._fetch_entities(
-                API_ENDPOINT_CONTRACTS, HightouchContract, ENTITY_NAME_CONTRACT
-            )
+            items = self._get_all("events/contracts")
         except requests.exceptions.RequestException as e:
             response = getattr(e, "response", None)
-            status_code = response.status_code if response is not None else None
-            if status_code in HTTP_STATUSES_CONTRACTS_UNAVAILABLE:
-                message = (
-                    f"Event Contracts are not available to this API key (HTTP "
-                    f"{status_code}); they may not be enabled for the workspace. "
-                    "Skipping contracts; set include_contracts: false to stop "
-                    "requesting them."
-                )
-            else:
-                detail = f"HTTP {status_code}" if status_code else type(e).__name__
-                message = (
-                    f"Failed to fetch Event Contracts ({detail}). Skipping contract "
-                    "ingestion; the rest of the run is unaffected."
-                )
-            if self.report is None:
-                logger.warning(message)
-            elif status_code in HTTP_STATUSES_CONTRACTS_UNAVAILABLE:
+            status = response.status_code if response is not None else None
+            if status in CONTRACTS_UNAVAILABLE_STATUSES:
                 self.report.warning(
-                    title="Could not fetch Event Contracts",
-                    message=message,
+                    title="Event Contracts are not available",
+                    message=f"The API key cannot read Event Contracts (HTTP {status}); "
+                    "they may not be enabled for the workspace. Set "
+                    "include_contracts: false to stop requesting them.",
                     exc=e,
                 )
             else:
@@ -342,138 +168,9 @@ class HightouchAPIClient:
                 # it keeps stale-entity removal from soft-deleting them.
                 self.report.failure(
                     title="Could not fetch Event Contracts",
-                    message=message,
+                    message="Contract ingestion was skipped; the rest of the run is "
+                    "unaffected.",
                     exc=e,
                 )
-            return []
-
-    def extract_field_mappings(
-        self, sync: HightouchSync
-    ) -> List[HightouchFieldMapping]:
-        field_mappings: List[HightouchFieldMapping] = []
-        config = sync.configuration if sync.configuration else {}
-
-        if not config:
-            return field_mappings
-
-        raw_mappings = self._normalize_raw_field_mappings(sync, config)
-
-        for i, raw in enumerate(raw_mappings):
-            source = raw.get("source")
-            dest = raw.get("dest")
-
-            if not source or not dest:
-                self._report_field_mappings_dropped(
-                    f"Sync {sync.id}: mapping at index {i} is missing a source or "
-                    "destination field; column-level lineage for this column will "
-                    "be missing."
-                )
-                continue
-
-            if not isinstance(source, str) or not isinstance(dest, str):
-                logger.warning(
-                    f"Sync {sync.id}: Field names must be strings, got "
-                    f"source={type(source).__name__}, dest={type(dest).__name__}. "
-                    "Converting to strings."
-                )
-                source = str(source)
-                dest = str(dest)
-
-            field_mappings.append(
-                HightouchFieldMapping(
-                    source_field=source,
-                    destination_field=dest,
-                    is_primary_key=bool(raw.get("is_pk", False)),
-                )
-            )
-
-        return field_mappings
-
-    def _normalize_raw_field_mappings(
-        self, sync: HightouchSync, config: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
-        mappings = self._listed_field_mappings(sync, config)
-        # The field Hightouch matches records on is mapped separately from the
-        # other columns, as a single {from, to} object.
-        external_id = config.get("externalIdMapping")
-        if isinstance(external_id, dict):
-            mappings.append(
-                {
-                    "source": external_id.get("from"),
-                    "dest": external_id.get("to"),
-                    "is_pk": True,
-                    "type": external_id.get("type"),
-                }
-            )
-        # Only a standard mapping copies a model column; other types (static
-        # values, templates) have no source column to draw lineage from.
-        return [m for m in mappings if m.get("type") in (None, "standard")]
-
-    def _listed_field_mappings(
-        self, sync: HightouchSync, config: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
-        # Hightouch encodes column mappings in three shapes depending on the
-        # destination: a `mappings` list ({from,to}), a `fieldMappings` list
-        # ({sourceField,destinationField}), and a `columnMappings` dict keyed by
-        # destination field. Normalize all three to {source,dest,is_pk} so column
-        # lineage is emitted regardless of destination type.
-        list_shapes = [
-            ("mappings", "from", "to"),
-            ("fieldMappings", "sourceField", "destinationField"),
-        ]
-        for key, source_key, dest_key in list_shapes:
-            raw = config.get(key)
-            if raw is None:
-                continue
-            if not isinstance(raw, list):
-                self._report_field_mappings_dropped(
-                    f"Sync {sync.id}: expected '{key}' to be a list, got "
-                    f"{type(raw).__name__}; column-level lineage will be missing."
-                )
-                return []
-            return self._normalize_list_mappings(sync, raw, source_key, dest_key)
-
-        column_mappings = config.get("columnMappings")
-        if column_mappings is not None:
-            if not isinstance(column_mappings, dict):
-                self._report_field_mappings_dropped(
-                    f"Sync {sync.id}: expected 'columnMappings' to be a dict, got "
-                    f"{type(column_mappings).__name__}; column-level lineage will be missing."
-                )
-                return []
-            # columnMappings maps destination field -> source field.
-            return [
-                {"source": source, "dest": dest}
-                for dest, source in column_mappings.items()
-            ]
-
-        return []
-
-    def _normalize_list_mappings(
-        self,
-        sync: HightouchSync,
-        raw: List[Any],
-        source_key: str,
-        dest_key: str,
-    ) -> List[Dict[str, Any]]:
-        normalized: List[Dict[str, Any]] = []
-        for i, mapping in enumerate(raw):
-            if not isinstance(mapping, dict):
-                self._report_field_mappings_dropped(
-                    f"Sync {sync.id}: skipping non-dict mapping at index {i} "
-                    f"({type(mapping).__name__}); column-level lineage will be missing."
-                )
-                continue
-            # Accept both the shape-specific keys and the generic from/to aliases.
-            source = mapping.get(source_key, mapping.get("from"))
-            dest = mapping.get(dest_key, mapping.get("to"))
-            is_pk = mapping.get("isPrimaryKey", mapping.get("is_primary_key", False))
-            normalized.append(
-                {
-                    "source": source,
-                    "dest": dest,
-                    "is_pk": is_pk,
-                    "type": mapping.get("type"),
-                }
-            )
-        return normalized
+            return None
+        return self._parse_all(items, HightouchContract, "contract")
