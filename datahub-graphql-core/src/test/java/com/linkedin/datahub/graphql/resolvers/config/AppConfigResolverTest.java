@@ -476,6 +476,9 @@ public class AppConfigResolverTest {
     assertEquals(
         entityTypeByResourceType.get(PoliciesConfig.APPLICATION_PRIVILEGES.getResourceType()),
         EntityType.APPLICATION);
+    assertEquals(
+        entityTypeByResourceType.get(PoliciesConfig.ASSERTION_PRIVILEGES.getResourceType()),
+        EntityType.ASSERTION);
   }
 
   @Test
