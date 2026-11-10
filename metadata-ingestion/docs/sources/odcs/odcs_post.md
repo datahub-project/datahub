@@ -4,6 +4,29 @@ Use the **Important Capabilities** table above as the source of truth for which 
 features this source emits. The notes below cover ODCS-specific behavior that the table
 does not capture.
 
+#### Descriptions
+
+The source owns the descriptions of the logical `odcs` dataset and its fields and rebuilds
+them from the contract on every run, so re-running never duplicates text and removing a
+field from the contract removes its text. Descriptions edited in DataHub are kept and shown
+instead.
+
+- **Dataset:** the table's `description`, then `**Grain:**` with its
+  `dataGranularityDescription`, then the contract `description` (purpose, usage,
+  limitations). A contract with several tables repeats the contract description on each.
+- **Field:** the property's `description`, then a `**Derivation:**` section with its
+  `transformDescription` and its `transformLogic` as a SQL block, then `**Allowed values:**`
+  from the v3.2 `enum` (each value with its `label` and `description`). Values are shown as
+  text in JSON spelling (`true`, `null`, `1.5`), dates as `2024-01-01`, and a value a single line
+  can't show exactly (empty, extra blanks, a line break) quoted as JSON, e.g. `""`. An entry with no `value` is dropped and reported.
+- **v3.2 `context`:** contract-level and then table-level `context` is appended to the dataset
+  description as a `**Guidance for AI and analysts:**` section: the instructions (or the string
+  form), a `**Constraints:**` list from `constraints` and a `**Verified Q&A:**` list from
+  `verifiedStatements`. Datasets have no AI context aspect, so the description is where people
+  and Ask DataHub read it. `${VAR}` references in it are kept as written. Entry `id`, `tags`,
+  `customProperties` and `authoritativeDefinitions` on context entries and enum values are not
+  recorded.
+
 #### Quality rule mapping
 
 Each entry in a `schema[]` (table-level) or `properties[]` (column-level) `quality[]` array
@@ -33,6 +56,22 @@ severity / businessImpact when present), a `dataPlatformInstance` aspect attribu
 the `odcs` platform, and an `externalUrl` from the rule's `authoritativeDefinitions` when
 provided. Assertion URNs are seeded from the spec's `quality.id` when present, so renames
 and reordering do not churn identities.
+
+When a table binds to a physical dataset, `{object}` and `${object}` in a rule's `query`
+are replaced with the bound table's name, for example `my_catalog.my_schema.orders`, without
+the platform instance. The name is not quoted. A name derived from `servers[]` is lowercased
+when `lowercase_physical_urns` lowercases the URN. A `physical_urn_overrides` URN's dataset
+name is used as written, minus the platform instance of the contract's server when that
+server's `server_overrides` entry sets one on the same platform. If the name may instead start
+with a `server_overrides` instance that the contract's server doesn't account for (any case,
+on the same platform or one left unset), its SQL name is unknown, so the placeholder is kept
+and reported. With `verify_physical_urns_exist`, a table that is
+not found in DataHub is not substituted. A table that is not bound or not found keeps the
+placeholder and gets a warning, unless it was unbound on purpose with an empty
+`physical_urn_overrides` entry. An override value that is not a dataset URN with a known env (`PROD`, not
+`prod`), or that contains `${VAR}`, leaves the table unbound with a warning (a `${VAR}` value is reported, and counted,
+as an unresolved variable). Placeholders in `implementation` are not
+replaced and are reported as unresolved variables. `{{object}}` is left as written.
 
 :::warning Routing is exact; nothing is approximated
 
@@ -68,7 +107,8 @@ on it. Resolution per `schema[]` entry, in priority order:
 
 1. `physical_urn_overrides[<contract id>][<schema entry name>]` — an explicit URN, or an
    empty string to deliberately leave the entry unbound. Entries absent from the map fall
-   back to derivation; keys that match no schema entry warn.
+   back to derivation; keys that match no schema entry warn. A value that is not a dataset
+   URN leaves the entry unbound and is reported as a warning.
 2. The contract's first mappable `servers[]` entry. The platform comes from the
    spec-required `servers[].type` (or a matching `server_overrides` entry), and the table
    name (`physicalName`, falling back to `name`) is qualified with the server's own fields
@@ -157,6 +197,44 @@ never clears assets it did not add and the product is never stale-removed — dr
 via the DataProduct SDK. An asset the product already carries is promoted to an output port
 in place.
 
+#### Domains
+
+ODCS names a contract's data domain in the free-text `domain` field (there is no sub-domain
+field). With `emit_domain_association: true` the source sets that DataHub Domain on the
+contract's **logical `odcs` datasets**. Physical datasets are never touched, because their
+domain is often set by another connector or by hand.
+
+The value is resolved against DataHub in order:
+
+1. the value as an id: a full `urn:li:domain:...` value, or `urn:li:domain:<value>`, when a
+   domain exists under that urn;
+2. an exact, case-insensitive match on a domain's **name**. Domains created in the UI get
+   generated ids, so this is how a value like `Sales` finds them.
+
+A name carried by more than one domain (for example, same-named sub-domains under different
+parents) is ambiguous and skipped with a warning; set `domain` to the intended domain's id. A
+value that is a urn but not a plain Domain urn (another entity's urn, odd casing) is never
+read as an id.
+
+When nothing matches, ODCS **creates** the domain at `urn:li:domain:<value>`, named after its
+id (the value itself, or the id part of a full urn), with a description noting that the ODCS
+connector created it (`report.domains_created`). Creation needs a DataHub graph that has
+confirmed the domain is absent, and a value that forms a valid id. A value that cannot (for
+example, one containing commas or parentheses) must match an existing domain by name.
+Values that differ only in case reuse the domain created earlier in the same run. Set
+`verify_domain_exists: true` to report a missing domain instead of creating it. Unlike
+`verify_data_product_exists`, it defaults to `false`, because a domain is a simple grouping
+that is safe to create from a contract.
+
+ODCS never rewrites the name or description of an existing domain and never stale-removes a
+domain, even one it created. A failed lookup is reported (`report.domains_unresolved`),
+creates nothing, and leaves the datasets' current domain in place, so a transient error can
+neither produce a duplicate nor replace a domain. With a file sink there is no graph: the
+id-derived urn is set unverified with a warning, and nothing is created.
+
+With the option on, the contract owns the logical dataset's domain: dropping `domain` from a
+contract clears it on the next run. An unresolved value leaves the current domain in place.
+
 ### Limitations
 
 - ODCS v3.0, v3.1 and v3.2 only. Contracts reporting v2.x in `apiVersion` are skipped with a
@@ -172,6 +250,10 @@ in place.
   keys); `unique: true` is not mapped and is not checked by the schema-compliance assertion.
   Express uniqueness as a `quality[]` rule (`metric: duplicateValues` with `mustBe: 0`) to get
   a typed field assertion.
+- `authoritativeDefinitions` URLs that DataHub can't store as links (relative paths such as
+  `../docs/orders.md`, schemes other than http, https, ftp and mailto, or URLs containing
+  spaces or characters such as `|`, `{` and `}`) are skipped and reported in one warning per
+  file.
 - File loading is capped at 5 MB by default (`max_input_file_bytes`). Larger YAML files
   are skipped with a warning before parsing.
 - Out of scope: SLA (`slaProperties`), `support`, `price`, v3.1 `relationships` (foreign
@@ -185,10 +267,10 @@ in place.
   objects, `contractCreatedTs`, quality-rule `method` / `schedule` / `scheduler`,
   team-member `dateIn` / `replacedByUsername`, and server `environment` / `location` /
   `region`. These may land in a follow-up.
-- **Lossy mappings are reported.** Besides the info above: off-spec v3.2 values that were
-  dropped, and `${VAR}` references in quality `query` text, are warnings; team roles defaulted
-  to Technical Owner, and a contract `description` not applied to tables that have their own,
-  are infos.
+- **Lossy mappings are reported.** Besides the info above: off-spec values that were
+  dropped, `${VAR}` references in quality `query` text, `{object}` placeholders on a table
+  that is not bound or not found in DataHub, and `physical_urn_overrides` values that are not
+  dataset URNs, are warnings; team roles defaulted to Technical Owner are infos.
 - **ODCS v3.2 coverage is partial.** v3.2 contracts are accepted and validated; only the
   mappings below are implemented. `logicalType: vector` maps to an array type (dimensions and
   element type are not recorded); `deprecated: true` on a schema object or property emits a
@@ -210,8 +292,9 @@ in place.
   `synonyms` or `semanticType` values are dropped and reported as a warning rather than
   rejecting the contract; with `strict_validation: true` the contract fails JSON Schema
   validation instead.
-  Accepted but not yet mapped: `context`, schema-object `synonyms`, `enum`, other
-  `semanticType` uses, and the server fields `encoding` and `workgroup`. These may land in a
+  `context` and `enum` go into descriptions (see [Descriptions](#descriptions)). Accepted but not
+  yet mapped: schema-object `synonyms`, other `semanticType` uses, and the server fields
+  `encoding` and `workgroup`. These may land in a
   follow-up.
 - **Variables are not resolved.** v3.2 `${VAR}` / `${VAR:-default}` references are kept
   verbatim. A server `type`, a name-composing server field, an Iceberg `catalogUrl` (or, on a

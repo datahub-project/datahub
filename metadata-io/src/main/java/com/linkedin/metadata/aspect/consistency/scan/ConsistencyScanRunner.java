@@ -9,6 +9,7 @@ import com.linkedin.metadata.utils.progress.ProgressTracker;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -77,12 +78,12 @@ public class ConsistencyScanRunner {
         break;
       }
 
-      if (request.getLimit() > 0 && scanned >= request.getLimit()) {
+      if (entityLimitReached(request, scanned, scrollId)) {
         break;
       }
 
       int batchSize = request.getBatchSize();
-      if (request.getLimit() > 0) {
+      if (entityLimitApplies(request, scrollId)) {
         long remaining = request.getLimit() - scanned;
         batchSize = (int) Math.min(batchSize, remaining);
       }
@@ -104,13 +105,20 @@ public class ConsistencyScanRunner {
                   .build(),
               batchContext);
 
-      if (checkResult.getEntitiesScanned() == 0) {
+      // An index continuation reports no SQL entities and must not consume the entity limit.
+      // A page with neither SQL entities nor a further scroll is the end of the scan, except when
+      // that page itself found issues (the last index page).
+      if (checkResult.getEntitiesScanned() == 0
+          && checkResult.getScrollId() == null
+          && checkResult.getIssuesFound() == 0) {
         break;
       }
 
-      scanned += checkResult.getEntitiesScanned();
+      if (checkResult.getEntitiesScanned() > 0) {
+        scanned += checkResult.getEntitiesScanned();
+        tracker.record(checkResult.getEntitiesScanned());
+      }
       issues += checkResult.getIssuesFound();
-      tracker.record(checkResult.getEntitiesScanned());
 
       if (request.getOnBatch() != null) {
         BatchHandleResult handleResult = request.getOnBatch().handle(checkResult);
@@ -140,7 +148,7 @@ public class ConsistencyScanRunner {
         tracker.maybeReport(request.getOnProgress());
       }
 
-      if (request.getLimit() > 0 && scanned >= request.getLimit()) {
+      if (entityLimitReached(request, scanned, scrollId)) {
         break;
       }
 
@@ -171,6 +179,20 @@ public class ConsistencyScanRunner {
     }
 
     return result;
+  }
+
+  /**
+   * The entity limit counts SQL pages. A scroll a check owns is drained after that limit, at the
+   * configured batch size.
+   */
+  private boolean entityLimitApplies(
+      @Nonnull ConsistencyScanRequest request, @Nullable String scrollId) {
+    return request.getLimit() > 0 && !consistencyService.isCheckOwnedScroll(scrollId);
+  }
+
+  private boolean entityLimitReached(
+      @Nonnull ConsistencyScanRequest request, long scanned, @Nullable String scrollId) {
+    return entityLimitApplies(request, scrollId) && scanned >= request.getLimit();
   }
 
   @javax.annotation.Nullable

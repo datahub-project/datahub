@@ -276,4 +276,24 @@ public class BootstrapMCPUtilTest {
     assertFalse(rendered.contains("lightQuery:"));
     assertEquals(mcps.get(0).get("changeType").asText(), "UPSERT");
   }
+
+  @Test
+  public void testLifecycleStagesDoNotOverwriteExistingStages() throws IOException {
+    BootstrapMCPConfigFile.MCPTemplate template =
+        BootstrapMCPConfigFile.MCPTemplate.builder()
+            .name("lifecycle-stages")
+            .version("v3")
+            .mcps_location("bootstrap_mcps/lifecycle-stages.yaml")
+            .build();
+
+    AspectsBatch batch =
+        BootstrapMCPUtil.generateAspectBatch(
+            OP_CONTEXT, template, "testLifecycleStagesDoNotOverwriteExistingStages");
+
+    assertFalse(batch.getMCPItems().isEmpty());
+    for (MCPItem item : batch.getMCPItems()) {
+      assertEquals(item.getChangeType(), ChangeType.CREATE);
+      assertEquals(item.getHeader("If-None-Match").orElse(null), "*");
+    }
+  }
 }

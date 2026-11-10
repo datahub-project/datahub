@@ -2,11 +2,25 @@ package com.linkedin.metadata.search.elasticsearch.update;
 
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
+import org.opensearch.action.DocWriteRequest;
 import org.opensearch.core.rest.RestStatus;
 
 /** Classifies bulk item / transport failures for requeue vs LWW vs unrecovered transfer. */
 public final class BulkItemFailureClassifier {
   private BulkItemFailureClassifier() {}
+
+  /**
+   * A create-only write found the document already there. Unlike an update conflict, a retry
+   * conflicts again, so it must not be requeued.
+   */
+  public static boolean isCreateConflict(
+      @Nullable DocWriteRequest<?> request,
+      @Nullable RestStatus status,
+      @Nullable String failureTypeOrMessage) {
+    return request != null
+        && request.opType() == DocWriteRequest.OpType.CREATE
+        && (status == RestStatus.CONFLICT || isVersionConflict(failureTypeOrMessage));
+  }
 
   public static boolean isVersionConflict(@Nullable String failureTypeOrMessage) {
     if (failureTypeOrMessage == null) {

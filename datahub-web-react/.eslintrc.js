@@ -48,12 +48,6 @@ const COLOR_ENFORCEMENT_RULES = {
                         'Do not import the raw color palette. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
                 },
                 {
-                    name: '@app/entity/shared/constants',
-                    importNames: ['ANTD_GRAY', 'ANTD_GRAY_V2', 'REDESIGN_COLORS'],
-                    message:
-                        'ANTD_GRAY / REDESIGN_COLORS are deprecated. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`.',
-                },
-                {
                     name: '@app/entityV2/shared/constants',
                     importNames: ['ANTD_GRAY', 'ANTD_GRAY_V2', 'REDESIGN_COLORS', 'LINEAGE_COLORS'],
                     message:
@@ -190,13 +184,11 @@ const COLOR_RULE_EXCLUDED_FILES = [
     'src/alchemy-components/theme/**',
     // Legacy v1 UI superseded by the V2 redesign (entityV2/searchV2/lineageV3/glossaryV2/…).
     // Migration is deferred here because live and dead code interleave (no clean glob).
-    // NOTE: app/entity is mostly dead v1 pages, but its `shared/**` layer is still imported and
-    // rendered by V2, so do not assume app/entity is fully dead.
-    'src/app/entity/**',
     'src/app/search/**',
-    'src/app/lineage/**',
-    'src/app/glossary/**',
-    'src/app/analyticsDashboard/**',
+    // Moved from the old analyticsDashboard folder; chart crosshair color not yet migrated.
+    'src/app/analyticsDashboardV2/components/TimeSeriesChart.tsx',
+    // Moved from app/entity; colors not yet migrated to semantic tokens.
+    'src/app/entityV2/shared/tabs/Dataset/Governance/TestResultsSummary.tsx',
     'src/app/ingest/**',
     // Tests and Storybook demos — never production UI.
     '**/*.test.ts',
@@ -207,6 +199,72 @@ const COLOR_RULE_EXCLUDED_FILES = [
     //  - dataviz: chart series palette → charts* tokens needs design sign-off.
     'src/app/dataviz/**',
 ];
+
+// --------------------------------------------------------------------------
+// alchemy-components must not depend on application code
+//
+// src/alchemy-components is a standalone component library; it must not
+// import from src/app or the generated GraphQL code (src/graphql,
+// src/types.generated). ALCHEMY_APP_IMPORT_EXCLUDED_FILES lists the existing
+// violations: remove an entry once its file is fixed, never add new ones.
+// --------------------------------------------------------------------------
+const ALCHEMY_APP_IMPORT_EXCLUDED_FILES = [
+    'src/alchemy-components/components/Avatar/Avatar.tsx',
+    'src/alchemy-components/components/Avatar/AvatarPillWithLinkAndHover.tsx',
+    'src/alchemy-components/components/Avatar/utils.ts',
+    'src/alchemy-components/components/AvatarStack/AvatarStackWithHover.tsx',
+    'src/alchemy-components/components/AvatarStack/HoverSectionContent.tsx',
+    'src/alchemy-components/components/Editor/Editor.stories.tsx',
+    'src/alchemy-components/components/Editor/EditorImpl.tsx',
+    'src/alchemy-components/components/Editor/extensions/fileDragDrop/FileNodeView.tsx',
+    'src/alchemy-components/components/Editor/extensions/mentions/MentionsComponent.tsx',
+    'src/alchemy-components/components/Editor/extensions/mentions/MentionsDropdown.tsx',
+    'src/alchemy-components/components/Editor/extensions/mentions/MentionsNodeView.tsx',
+    'src/alchemy-components/components/Editor/readOnlyContent.tsx',
+    'src/alchemy-components/components/Editor/toolbar/Toolbar.tsx',
+    'src/alchemy-components/components/FileNode/FileNode.tsx',
+    'src/alchemy-components/components/IncidentStagePill/IncidentStagePill.tsx',
+    'src/alchemy-components/components/IncidentStagePill/constant.ts',
+    'src/alchemy-components/components/LineageCard/LineageCard.stories.tsx',
+    'src/alchemy-components/components/Modal/Modal.tsx',
+    'src/alchemy-components/components/SelectItemsPopover/SelectItemPopover.tsx',
+    'src/alchemy-components/components/SelectItemsPopover/SelectItems.stories.tsx',
+    'src/alchemy-components/components/SelectItemsPopover/SelectItems.tsx',
+    'src/alchemy-components/components/SelectItemsPopover/__mock.data.ts',
+    'src/alchemy-components/components/SelectItemsPopover/hooks.tsx',
+    'src/alchemy-components/components/Timeline/types.ts',
+];
+
+// Base `@typescript-eslint/no-restricted-imports` paths. The alchemy override
+// sets the same rule, which replaces these options, so it repeats them.
+const TS_RESTRICTED_IMPORT_PATHS = [
+    {
+        name: '@monaco-editor/react',
+        importNames: ['loader'],
+        message:
+            "Configure Monaco's loader path via `import '@conf/monaco'` instead of calling loader.config() directly.",
+    },
+    {
+        name: 'lodash',
+        message:
+            "Import lodash functions individually for tree-shaking: import x from 'lodash/x' instead of import { x } from 'lodash'. Type-only imports from 'lodash' are allowed.",
+        allowTypeImports: true,
+    },
+];
+
+// App code renders Tabs through the app wrapper, which contains a crashing tab with the app error boundary.
+const ALCHEMY_TABS_IMPORT_PATHS = [
+    '@components',
+    '@components/components/Tabs',
+    '@components/components/Tabs/Tabs',
+    '@src/alchemy-components',
+    '@src/alchemy-components/components/Tabs',
+    '@src/alchemy-components/components/Tabs/Tabs',
+].map((name) => ({
+    name,
+    importNames: ['Tabs'],
+    message: "Import Tabs from '@app/sharedV2/tabs/Tabs': it adds the app error boundary to every tab.",
+}));
 
 module.exports = {
     parser: '@typescript-eslint/parser',
@@ -260,25 +318,7 @@ module.exports = {
         'import/no-extraneous-dependencies': 'off',
         'import/no-relative-packages': 'error',
         'import/prefer-default-export': 'off', // TODO: remove this lint rule
-        '@typescript-eslint/no-restricted-imports': [
-            'error',
-            {
-                paths: [
-                    {
-                        name: '@monaco-editor/react',
-                        importNames: ['loader'],
-                        message:
-                            "Configure Monaco's loader path via `import '@conf/monaco'` instead of calling loader.config() directly.",
-                    },
-                    {
-                        name: 'lodash',
-                        message:
-                            "Import lodash functions individually for tree-shaking: import x from 'lodash/x' instead of import { x } from 'lodash'. Type-only imports from 'lodash' are allowed.",
-                        allowTypeImports: true,
-                    },
-                ],
-            },
-        ],
+        '@typescript-eslint/no-restricted-imports': ['error', { paths: TS_RESTRICTED_IMPORT_PATHS }],
         'rulesdir/no-phosphor-generic-imports': 'error',
         'no-console': 'off',
         'no-plusplus': 'off',
@@ -354,6 +394,54 @@ module.exports = {
             files: ['src/**/*.ts', 'src/**/*.tsx'],
             excludedFiles: COLOR_RULE_EXCLUDED_FILES,
             rules: COLOR_ENFORCEMENT_RULES,
+        },
+        // alchemy-components → src/app and generated GraphQL code ban. Uses the typescript-eslint rule so it
+        // doesn't collide with the `no-restricted-imports` color override above.
+        {
+            files: ['src/alchemy-components/**/*.ts', 'src/alchemy-components/**/*.tsx'],
+            excludedFiles: ALCHEMY_APP_IMPORT_EXCLUDED_FILES,
+            rules: {
+                '@typescript-eslint/no-restricted-imports': [
+                    'error',
+                    {
+                        paths: TS_RESTRICTED_IMPORT_PATHS,
+                        patterns: [
+                            {
+                                group: [
+                                    // src/app
+                                    '@app',
+                                    '@app/**',
+                                    '@src/app',
+                                    '@src/app/**',
+                                    // generated GraphQL code: src/graphql, src/types.generated
+                                    '@graphql/**',
+                                    '@src/graphql/**',
+                                    '@types',
+                                    '@src/types.generated',
+                                    // relative paths (import-alias is off in theme files)
+                                    '**/app',
+                                    '**/app/**',
+                                    '../**/graphql/**',
+                                    '**/types.generated',
+                                ],
+                                message:
+                                    'alchemy-components must not depend on application code (src/app) or generated GraphQL code (src/graphql, src/types.generated). Move the dependency into alchemy-components or pass it in via props/context.',
+                            },
+                        ],
+                    },
+                ],
+            },
+        },
+        // App code uses the app Tabs wrapper. Sets the typescript-eslint rule, so it repeats the base paths.
+        {
+            files: ['src/**/*.ts', 'src/**/*.tsx'],
+            excludedFiles: ['src/alchemy-components/**', 'src/app/sharedV2/tabs/Tabs.tsx'],
+            rules: {
+                '@typescript-eslint/no-restricted-imports': [
+                    'error',
+                    { paths: [...TS_RESTRICTED_IMPORT_PATHS, ...ALCHEMY_TABS_IMPORT_PATHS] },
+                ],
+            },
         },
         // antd → alchemy. New files and first-time antd imports error.
         {

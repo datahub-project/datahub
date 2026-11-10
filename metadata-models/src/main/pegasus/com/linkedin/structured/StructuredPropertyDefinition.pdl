@@ -6,7 +6,7 @@ import com.linkedin.datahub.DataHubSearchConfig
 
 @Aspect = {
    "name": "propertyDefinition",
-   "schemaVersion": 3
+   "schemaVersion": 4
 }
 record StructuredPropertyDefinition {
     /**
@@ -19,6 +19,7 @@ record StructuredPropertyDefinition {
       "v3": {
         "queryByDefault": true,
         "searchLabel": "qualifiedName",
+        "lowercase": true,
         "mappings": [
           { "type": "KEYWORD" },
           { "subfield": "text", "type": "TEXT" },
@@ -38,6 +39,7 @@ record StructuredPropertyDefinition {
       "v3": {
         "queryByDefault": true,
         "searchLabel": "name",
+        "lowercase": true,
         "mappings": [
           { "type": "KEYWORD" },
           { "subfield": "text", "type": "TEXT" },
@@ -144,6 +146,13 @@ record StructuredPropertyDefinition {
     * from the logical type.
     */
     searchConfiguration: optional DataHubSearchConfig
+
+    /**
+     * Range a search template uses when it scores this property and omits an extent.
+     * Setting this does not score the property. The template's {@code fieldValueScores}
+     * entry is what turns scoring on, and a value set there replaces the one here.
+     */
+    score: optional StructuredPropertyScore
 
     /**
      * Whether the structured property value is immutable once applied to an entity.

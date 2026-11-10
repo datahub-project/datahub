@@ -3493,10 +3493,7 @@
                   "type" : "boolean",
                   "doc" : "Whether the view is materialized",
                   "Searchable" : {
-                    "fieldType" : "BOOLEAN",
-                    "weightsPerFieldValue" : {
-                      "true" : 0.5
-                    }
+                    "fieldType" : "BOOLEAN"
                   }
                 }, {
                   "name" : "viewLogic",

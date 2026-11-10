@@ -14,6 +14,8 @@ public class Constants {
   // Use on specific MCP to request an synchronous index update avoid the kafka lag.
   public static final String SYNC_INDEX_UPDATE_HEADER_NAME = "X-DataHub-Sync-Index-Update";
   public static final String DATAHUB_LOGIN_SOURCE_HEADER_NAME = "X-DataHubLoginSource";
+  // MCP header carrying the caller of a queued write; only trusted from system writers.
+  public static final String ATTRIBUTED_ACTOR_HEADER_NAME = "X-DataHub-Attributed-Actor";
 
   public static final String URN_LI_PREFIX = "urn:li:";
 
@@ -553,6 +555,7 @@ public class Constants {
   public static final String DOCUMENT_KEY_ASPECT_NAME = "documentKey";
   public static final String DOCUMENT_INFO_ASPECT_NAME = "documentInfo";
   public static final String DOCUMENT_SETTINGS_ASPECT_NAME = "documentSettings";
+  public static final String OKF_PROPERTIES_ASPECT_NAME = "okfProperties";
   // Curated embedding-source text. A common aspect so any entity type can register it.
   public static final String SEMANTIC_TEXT_ASPECT_NAME = "semanticText";
 

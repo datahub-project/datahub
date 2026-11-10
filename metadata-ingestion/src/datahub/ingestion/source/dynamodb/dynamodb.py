@@ -226,6 +226,12 @@ class DynamoDBSourceReport(StaleEntityRemovalSourceReport, ClassificationReportM
     # Caveat counter, not a success metric: identity-mapped column edges emitted when the S3
     # export dataset isn't in DataHub, so they're unvalidated against a real schema.
     s3_export_column_lineage_inferred: int = 0
+    # Destinations with no ingested dataset (no datasetProperties) in DataHub, checked
+    # only when the recipe has a DataHub connection. Their lineage lands on an S3
+    # entity that only carries these edges.
+    s3_export_destinations_not_in_datahub: LossyList[str] = field(
+        default_factory=LossyList
+    )
 
     def report_dropped(self, name: str) -> None:
         self.filtered.append(name)
@@ -1098,11 +1104,35 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             )
         return fine_grained
 
+    def _check_s3_export_destination_exists(self, s3_urn: str) -> None:
+        if not self.ctx.graph:
+            return
+        try:
+            # graph.exists is true for the lineage-only entity this patch creates on
+            # the previous run, so look for datasetProperties, which the S3 source
+            # writes and the lineage patch does not.
+            exists = (
+                self.ctx.graph.get_aspect(s3_urn, DatasetPropertiesClass) is not None
+            )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to check S3 export destination in DataHub",
+                message="Could not check whether the S3 export dataset was ingested into DataHub. "
+                "Lineage is still emitted.",
+                context=s3_urn,
+                exc=e,
+                log=False,
+            )
+            return
+        if not exists:
+            self.report.s3_export_destinations_not_in_datahub.append(s3_urn)
+
     def _emit_s3_export_lineage(self) -> Iterable[MetadataWorkUnit]:
         # Count distinct destinations, not (table, destination) pairs: two tables exporting to the
         # same prefix are one location.
         self.report.s3_export_locations_found = len(self._s3_export_lineage)
         for s3_urn, upstreams_by_urn in self._s3_export_lineage.items():
+            self._check_s3_export_destination_exists(s3_urn)
             upstreams = [
                 UpstreamClass(
                     dataset=upstream_urn,
@@ -1131,3 +1161,15 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                     mcp_raw=mcp,
                     is_primary_source=False,
                 )
+
+        missing = self.report.s3_export_destinations_not_in_datahub
+        if missing:
+            # The LossyList only shows in the raw report; one aggregated entry also
+            # surfaces it in the UI's structured logs.
+            self.report.info(
+                title="S3 export destinations not ingested in DataHub",
+                message="These export destinations have no dataset ingested by another "
+                "source, so their lineage lands on a lineage-only S3 entity. Check the S3 "
+                "source's path_spec and platform_instance, or ingest the bucket.",
+                context=", ".join(missing),
+            )

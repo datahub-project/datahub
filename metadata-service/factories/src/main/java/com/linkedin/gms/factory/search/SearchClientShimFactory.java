@@ -147,6 +147,7 @@ public class SearchClientShimFactory {
         String.valueOf(cluster.getRegion()),
         shim == null ? "auto" : String.valueOf(shim.getEngineType()),
         shim == null ? "auto" : String.valueOf(shim.getAutoDetectEngine()),
+        shim == null ? "" : String.valueOf(shim.getEngineVersion()),
         sslIdentity(ssl),
         proxyIdentity(cluster.getProxy()));
   }
@@ -270,6 +271,9 @@ public class SearchClientShimFactory {
                     proxy.getPassword()));
 
     ShimSettings shim = cluster.getShim();
+    if (shim != null) {
+      configBuilder.withEngineVersionOverride(shim.getEngineVersion());
+    }
     SearchClientShim<?> client;
     if (shim == null || shim.isAutoDetectEnabled()) {
       log.info(

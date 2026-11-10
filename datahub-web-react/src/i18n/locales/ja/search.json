@@ -142,7 +142,6 @@
     "searchBar.noResults.clearFilters": "フィルターをクリア",
     "searchBar.noResults.clearFiltersAndView": "フィルターと選択したビューをクリア",
     "searchBar.noResults.clearView": "選択したビューをクリア",
-    "searchBar.noResults.defaultMessage": "検索条件を調整してお試しください",
     "searchBar.noResults.orClearSuggestion": "、または<clickable>{{clearText}}</clickable>してください。",
     "searchBar.placeholder": "テーブル、Dashboard、ユーザーなどを検索",
     "searchBar.placeholderWithShortcut": "{{message}} ({{shortcut}})",

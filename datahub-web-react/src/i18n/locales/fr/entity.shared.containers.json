@@ -131,7 +131,7 @@
     "sidebar.domain.setModalTitle": "Définir le domaine",
     "sidebar.domain.updatedSuccess": "Domaine mis à jour!",
     "sidebar.entityTypeCount_one": "{{count}} {{type}}",
-    "sidebar.entityTypeCount_other": "{{count}} {{type}}s",
+    "sidebar.entityTypeCount_other": "{{count}} {{type}}",
     "sidebar.formInfo.assignedBodyText": "Merci de répondre à un ensemble d'exigences pour cette entité.",
     "sidebar.formInfo.awaitingDocumentationTitle": "Documentation en attente",
     "sidebar.formInfo.awaitingVerificationTitle": "Vérification en attente",

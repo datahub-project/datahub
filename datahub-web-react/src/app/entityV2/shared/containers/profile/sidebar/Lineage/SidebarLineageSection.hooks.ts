@@ -1,11 +1,11 @@
 import { useContext } from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import {
     LineageDirectionSummary,
     getDirectDownstreamSummary,
     getDirectUpstreamSummary,
 } from '@app/entityV2/shared/containers/profile/sidebar/Lineage/utils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import EntitySidebarContext, { SearchResultLineageCounts } from '@app/sharedV2/EntitySidebarContext';
 
 import {

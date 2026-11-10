@@ -42,6 +42,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.looker.looker_config import (
     LookerCommonConfig,
@@ -75,7 +76,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     UpstreamClass,
     UpstreamLineage,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -100,7 +100,6 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     TagAssociationClass,
     TagPropertiesClass,
-    TagSnapshotClass,
     ViewPropertiesClass,
 )
 from datahub.metadata.urns import TagUrn
@@ -270,11 +269,12 @@ class LookerViewId:
 
         dataset_name = config.view_naming_pattern.replace_variables(n_mapping)
 
+        platform_detail = config.view_platform_detail(self.project_name)
         generated_urn = builder.make_dataset_urn_with_platform_instance(
             platform=config.platform_name,
             name=dataset_name,
-            platform_instance=config.platform_instance,
-            env=config.env,
+            platform_instance=platform_detail.platform_instance,
+            env=platform_detail.env,
         )
 
         logger.debug(
@@ -852,7 +852,7 @@ class LookerUtil:
     GROUP_LABEL_TAG_PATTERN = re.compile(r"^looker\:group_label\:(.+)$")
 
     @staticmethod
-    def _get_tag_mce_for_urn(tag_urn: str) -> MetadataChangeEvent:
+    def _get_tag_properties(tag_urn: str) -> TagPropertiesClass:
         # Check if this is a group_label tag
         tag_name = tag_urn[len("urn:li:tag:") :]
         match = LookerUtil.GROUP_LABEL_TAG_PATTERN.match(tag_name)
@@ -860,34 +860,19 @@ class LookerUtil:
         if match:
             # This is a group_label tag, create tag definition on the fly
             group_label_value = match.group(1)
-            tag_properties = TagPropertiesClass(
+            return TagPropertiesClass(
                 name=f"looker:group_label:{group_label_value}",
                 description=f"Fields with Looker group label: {group_label_value}",
             )
-
-            return MetadataChangeEvent(
-                proposedSnapshot=TagSnapshotClass(urn=tag_urn, aspects=[tag_properties])
-            )
         elif tag_urn in LookerUtil.tag_definitions:
             # This is a predefined tag
-            return MetadataChangeEvent(
-                proposedSnapshot=TagSnapshotClass(
-                    urn=tag_urn, aspects=[LookerUtil.tag_definitions[tag_urn]]
-                )
-            )
+            return LookerUtil.tag_definitions[tag_urn]
         else:
             # Should not happen, but handle gracefully
             logger.warning(f"No tag definition found for tag URN: {tag_urn}")
-            return MetadataChangeEvent(
-                proposedSnapshot=TagSnapshotClass(
-                    urn=tag_urn,
-                    aspects=[
-                        TagPropertiesClass(
-                            name=tag_name,
-                            description=f"Tag: {tag_name}",
-                        )
-                    ],
-                )
+            return TagPropertiesClass(
+                name=tag_name,
+                description=f"Tag: {tag_name}",
             )
 
     @staticmethod
@@ -927,12 +912,11 @@ class LookerUtil:
         return None
 
     @staticmethod
-    def get_tag_mces() -> Iterable[MetadataChangeEvent]:
-        # Emit tag MCEs for measures and dimensions:
-        return [
-            LookerUtil._get_tag_mce_for_urn(tag_urn)
-            for tag_urn in LookerUtil.tag_definitions
-        ]
+    def gen_tag_workunits() -> Iterable[MetadataWorkUnit]:
+        for tag_urn in LookerUtil.tag_definitions:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=tag_urn, aspect=LookerUtil._get_tag_properties(tag_urn)
+            ).as_workunit()
 
     @staticmethod
     def view_field_to_schema_field(
@@ -2000,11 +1984,13 @@ class LookerDashboard:
 class LookerUserRegistry:
     looker_api_wrapper: LookerAPI
     fields: str = ",".join(["id", "email", "display_name", "first_name", "last_name"])
-    _user_cache: Dict[str, LookerUser] = {}
 
     def __init__(self, looker_api: LookerAPI, report: LookerDashboardSourceReport):
         self.looker_api_wrapper = looker_api
         self.report = report
+        # Per-instance: a class-level dict would be shared by every registry in
+        # the process, leaking user ids cached by one ingestion run into the next.
+        self._user_cache: Dict[str, LookerUser] = {}
         self._initialize_user_cache()
 
     def _initialize_user_cache(self) -> None:

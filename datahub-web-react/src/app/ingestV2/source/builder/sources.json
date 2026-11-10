@@ -218,6 +218,26 @@
         "isPopular": true
     },
     {
+        "urn": "urn:li:dataPlatform:sns",
+        "name": "sns",
+        "displayName": "Amazon SNS",
+        "description": "Import Topics, tags, and subscription lineage from Amazon SNS.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sns",
+        "recipe": "source:\n  type: sns\n  config:\n    aws_config:\n      aws_region: \"us-east-1\"\n    # Use the same env and platform_instance as the sqs recipe so topic-to-queue lineage joins.\n    env: \"PROD\"\n    extract_tags: true\n    stateful_ingestion:\n      enabled: true\n",
+        "category": "ETL / ELT",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:sqs",
+        "name": "sqs",
+        "displayName": "Amazon SQS",
+        "description": "Import Queues, tags, and dead-letter queue lineage from Amazon SQS.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sqs",
+        "recipe": "source:\n  type: sqs\n  config:\n    aws_config:\n      aws_region: \"us-east-1\"\n    # Use the same env and platform_instance in the sns recipe so topic-to-queue lineage joins.\n    env: \"PROD\"\n    extract_tags: true\n    stateful_ingestion:\n      enabled: true\n",
+        "category": "ETL / ELT",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:matillion",
         "name": "matillion-dpc",
         "displayName": "Matillion",
@@ -491,7 +511,7 @@
         "displayName": "Qlik Sense",
         "description": "Import Spaces, Apps, Sheets, Charts, and Datasets from Qlik Sense.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/qlik-sense/",
-        "recipe": "source:\n    type: qlik-sense\n    config:\n        # Coordinates\n        tenant_hostname: https://xyz12xz.us.qlikcloud.com\n        # Coordinates\n        api_key: QLIK_API_KEY\n\n        # Optional - filter for certain space names instead of ingesting everything.\n        # space_pattern:\n\n        #   allow:\n        #     - space_name\n        ingest_owner: true",
+        "recipe": "source:\n    type: qlik-sense\n    config:\n        # Qlik Cloud tenant hostname, without https://\n        tenant_hostname: example.us.qlikcloud.com\n        # Add the API key in the Secrets tab\n        api_key: '${QLIK_API_KEY}'\n\n        # Qlik Sense Enterprise on Windows: set on_prem instead of tenant_hostname and api_key.\n        # Certificate paths are files on the machine that runs ingestion.\n        # on_prem:\n        #     server: qlik.example.com\n        #     client_cert: /secrets/client.pem\n        #     client_key: /secrets/client_key.pem\n        #     root_cert: /secrets/root.pem\n\n        # Optional - only ingest certain spaces (Qlik Cloud) or streams (on-prem).\n        # space_pattern:\n        #     allow:\n        #         - space_name\n        ingest_owner: true\n        stateful_ingestion:\n            enabled: true",
         "category": "BI & Analytics",
         "isPopular": false
     },

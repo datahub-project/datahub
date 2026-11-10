@@ -9,8 +9,38 @@ query getBrowseResults($input: BrowseInput!) {
         entities {
             urn
             type
-            ... on Dataset {
+            ... on HasName {
                 name
+            }
+            ... on HasPlatform {
+                platform {
+                    ...platformFields
+                }
+            }
+            ... on HasOwnership {
+                ownership {
+                    ...ownershipFields
+                }
+            }
+            ... on HasGlossaryTerms {
+                glossaryTerms {
+                    ...glossaryTerms
+                }
+            }
+            ... on HasSubTypes {
+                subTypes {
+                    typeNames
+                }
+            }
+            ... on HasDomain {
+                domain {
+                    ...entityDomain
+                }
+            }
+            ... on HasDescription {
+                description
+            }
+            ... on Dataset {
                 origin
                 properties {
                     name
@@ -20,23 +50,8 @@ query getBrowseResults($input: BrowseInput!) {
                     name
                     description
                 }
-                platform {
-                    ...platformFields
-                }
-                ownership {
-                    ...ownershipFields
-                }
                 globalTags {
                     ...globalTagsFields
-                }
-                glossaryTerms {
-                    ...glossaryTerms
-                }
-                subTypes {
-                    typeNames
-                }
-                domain {
-                    ...entityDomain
                 }
                 ...entityDataProduct
             }
@@ -54,33 +69,15 @@ query getBrowseResults($input: BrowseInput!) {
                         time
                     }
                 }
-                editableProperties {
-                    description
-                }
-                ownership {
-                    ...ownershipFields
-                }
                 globalTags {
                     ...globalTagsFields
                 }
-                glossaryTerms {
-                    ...glossaryTerms
-                }
-                platform {
-                    ...platformFields
-                }
-                domain {
-                    ...entityDomain
-                }
                 ...entityDataProduct
-                subTypes {
-                    typeNames
+                editableProperties {
+                    description
                 }
             }
             ... on GlossaryTerm {
-                ownership {
-                    ...ownershipFields
-                }
                 properties {
                     name
                     description
@@ -109,28 +106,13 @@ query getBrowseResults($input: BrowseInput!) {
                         time
                     }
                 }
-                editableProperties {
-                    description
-                }
-                ownership {
-                    ...ownershipFields
-                }
                 globalTags {
                     ...globalTagsFields
                 }
-                glossaryTerms {
-                    ...glossaryTerms
-                }
-                platform {
-                    ...platformFields
-                }
-                domain {
-                    ...entityDomain
-                }
-                subTypes {
-                    typeNames
-                }
                 ...entityDataProduct
+                editableProperties {
+                    description
+                }
             }
             ... on DataFlow {
                 urn
@@ -143,25 +125,13 @@ query getBrowseResults($input: BrowseInput!) {
                     description
                     project
                 }
-                editableProperties {
-                    description
-                }
-                ownership {
-                    ...ownershipFields
-                }
                 globalTags {
                     ...globalTagsFields
                 }
-                glossaryTerms {
-                    ...glossaryTerms
-                }
-                platform {
-                    ...platformFields
-                }
-                domain {
-                    ...entityDomain
-                }
                 ...entityDataProduct
+                editableProperties {
+                    description
+                }
             }
             ... on DataJob {
                 urn
@@ -170,9 +140,6 @@ query getBrowseResults($input: BrowseInput!) {
                     ...nonRecursiveDataFlowFields
                 }
                 jobId
-                ownership {
-                    ...ownershipFields
-                }
                 properties {
                     name
                     description
@@ -180,25 +147,14 @@ query getBrowseResults($input: BrowseInput!) {
                 globalTags {
                     ...globalTagsFields
                 }
-                glossaryTerms {
-                    ...glossaryTerms
-                }
+                ...entityDataProduct
                 editableProperties {
                     description
                 }
-                domain {
-                    ...entityDomain
-                }
-                subTypes {
-                    typeNames
-                }
-                ...entityDataProduct
             }
             ... on MLFeatureTable {
                 urn
                 type
-                name
-                description
                 featureTableProperties {
                     description
                     mlFeatures {
@@ -208,37 +164,15 @@ query getBrowseResults($input: BrowseInput!) {
                         urn
                     }
                 }
-                ownership {
-                    ...ownershipFields
-                }
-                platform {
-                    ...platformFields
-                }
             }
             ... on MLModel {
-                name
                 origin
-                description
-                ownership {
-                    ...ownershipFields
-                }
                 globalTags {
                     ...globalTagsFields
                 }
-                platform {
-                    ...platformFields
-                }
             }
             ... on MLModelGroup {
-                name
                 origin
-                description
-                ownership {
-                    ...ownershipFields
-                }
-                platform {
-                    ...platformFields
-                }
             }
         }
         groups {
