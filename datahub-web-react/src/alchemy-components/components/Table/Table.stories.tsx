@@ -241,13 +241,13 @@ const groupByColumns = [
         title: 'Name',
         width: '30%',
         render: (record) => <div>{record.name}</div>,
-        sorter: (a: any, b: any) => a - b,
+        sorter: (a: any, b: any) => a.name.localeCompare(b.name),
     },
     {
         key: 'status',
         title: 'Status',
         width: '20%',
-        sorter: (a: any, b: any) => a - b,
+        sorter: (a: any, b: any) => a.status.localeCompare(b.status),
         render: (record) => <div>{record.status}</div>,
     },
     {
@@ -331,8 +331,8 @@ export const WithGroupByFunctionality = () => {
 
         const sortFunctions = {
             status: {
-                [SortingState.ASCENDING]: (a, b) => a.name.localeCompare(b.name),
-                [SortingState.DESCENDING]: (a, b) => b.name.localeCompare(a.name),
+                [SortingState.ASCENDING]: (a, b) => a.status.localeCompare(b.status),
+                [SortingState.DESCENDING]: (a, b) => b.status.localeCompare(a.status),
             },
             name: {
                 [SortingState.ASCENDING]: (a, b) => a.name.localeCompare(b.name),

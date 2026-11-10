@@ -419,13 +419,6 @@ jobs:
             echo "Building: $IMAGE_BUILD_MODULES"
           fi
 
-      - name: Set up JDK 25
-        if: ${{ env.IMAGE_BUILD_MODULES != '' }}
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "temurin"
-          java-version: 25
-
       # Unconditional: the `uses: ./...` steps below are local actions, which
       # can only be resolved out of a checked-out workspace.
       - name: Check out the repo
@@ -459,18 +452,15 @@ jobs:
       # build-cache-1 is excluded: task outputs come from the Depot remote build
       # cache (cache.depot.dev), and including it here is what has been reported to
       # exhaust the repo's 10GB Actions cache budget.
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          gradle-home-cache-excludes: caches/build-cache-1
+          java: ${{ env.IMAGE_BUILD_MODULES != '' }}
+          python: ${{ env.IMAGE_BUILD_MODULES != '' }}
 
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.IMAGE_BUILD_MODULES != '' }}
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
-
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        if: ${{ env.IMAGE_BUILD_MODULES != '' }}
-        with:
-          python-version: "3.11"
 
       - name: Login to DockerHub
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
@@ -698,11 +688,10 @@ jobs:
           # them in-job (yarnInstall), so only they need the ~1.7 GB yarn restore.
           restore_yarn: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
-      - name: Set up JDK 25
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          distribution: "temurin"
-          java-version: 25
+          gradle: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
@@ -710,15 +699,6 @@ jobs:
       - name: Set up Depot CLI
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
-
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.11"
-
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
-        with:
-          gradle-home-cache-excludes: caches/build-cache-1
 
       - name: Login to DockerHub
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
@@ -890,19 +870,8 @@ jobs:
           # No yarn install runs in this job; skip the ~1.7 GB yarn restore.
           restore_yarn: "false"
 
-      - name: Set up JDK 25
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "temurin"
-          java-version: 25
-
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.11"
-
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        with:
-          gradle-home-cache-excludes: caches/build-cache-1
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Run stack-free pytest
         run: ./gradlew :smoke-test:stackFreePytest
@@ -954,22 +923,12 @@ jobs:
           # them in-job (yarnInstall), so only they need the ~1.7 GB yarn restore.
           restore_yarn: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
-      - name: Set up JDK 25
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "temurin"
-          java-version: 25
-
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
 
       - name: Set up Depot CLI
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
-
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.11"
 
       - name: Parse previous results for retry
         id: retry-check
@@ -981,10 +940,10 @@ jobs:
           run_id: ${{ github.run_id }}
           github_token: ${{ github.token }}
 
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        if: ${{ needs.setup.outputs.use_depot_cache != 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          gradle-home-cache-excludes: caches/build-cache-1
+          gradle: ${{ needs.setup.outputs.use_depot_cache != 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
 
       - name: Login to DockerHub
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
@@ -1247,11 +1206,10 @@ jobs:
           # them in-job (yarnInstall), so only they need the ~1.7 GB yarn restore.
           restore_yarn: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
-      - name: Set up JDK 25
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          distribution: "temurin"
-          java-version: 25
+          gradle: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
@@ -1259,15 +1217,6 @@ jobs:
       - name: Set up Depot CLI
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
-
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.11"
-
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
-        with:
-          gradle-home-cache-excludes: caches/build-cache-1
 
       - name: Login to DockerHub
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0

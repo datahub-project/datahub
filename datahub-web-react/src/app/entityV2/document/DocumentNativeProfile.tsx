@@ -22,6 +22,7 @@ import CompactContext from '@app/sharedV2/CompactContext';
 import { EntityHead } from '@app/sharedV2/EntityHead';
 import EntitySidebarContext, { entitySidebarContextDefaults } from '@app/sharedV2/EntitySidebarContext';
 import { DiscardUnsavedChangesConfirmationProvider } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
+import useEntitySidebarWidth from '@app/sharedV2/sidebar/useEntitySidebarWidth';
 
 import { EntityType, PageTemplateSurfaceType } from '@types';
 
@@ -44,7 +45,6 @@ const ContentArea = styled.div`
 `;
 
 const ContentWrapper = styled.div`
-    padding: 4px 8px 4px 4px;
     height: 100%;
     overflow: hidden;
     display: flex;
@@ -60,9 +60,8 @@ const ContentCard = styled.div`
     flex-direction: column;
     flex: 1;
     /* shadowSm matches what other entity-profile cards use (glossary, domain).
-       shadowMd has a 24px blur that gets clipped by the parent's
-       overflow:hidden + 4-8px padding, producing visible "shadow stripes" on
-       the top/right edges of the document card. */
+       shadowMd has a 24px blur that gets clipped by the shell's 8px inset,
+       producing visible "shadow stripes" on the top/right edges of the document card. */
     box-shadow: ${(props) => props.theme.colors.shadowSm};
     height: 100%;
     overflow: hidden;
@@ -138,6 +137,9 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
     const { t } = useTranslation('entity.types');
     const [sidebarClosed, setSidebarClosed] = useState(true); // Start closed by default
     const isCompact = useContext(CompactContext);
+    // Compact mode renders inside a host (search, lineage, ...) that owns the sidebar width.
+    const { width: hostSidebarWidth } = useContext(EntitySidebarContext);
+    const { width: sidebarWidth, setWidth: setSidebarWidth } = useEntitySidebarWidth();
 
     const sidebarTabs = [
         {
@@ -152,11 +154,8 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
         },
     ];
 
-    const finalSidebarTabs = useFinalSidebarTabs(
-        sidebarTabs,
-        sidebarSections,
-        isCompact ? TabContextType.SEARCH_SIDEBAR : TabContextType.PROFILE_SIDEBAR,
-    );
+    const sidebarContextType = isCompact ? TabContextType.SEARCH_SIDEBAR : TabContextType.PROFILE_SIDEBAR;
+    const finalSidebarTabs = useFinalSidebarTabs(sidebarTabs, sidebarSections, sidebarContextType);
 
     if (!document) {
         return null;
@@ -183,7 +182,13 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
                     lineage: undefined,
                 }}
             >
-                <EntityProfileSidebar tabs={finalSidebarTabs} type="card" focused width={400} />
+                <EntityProfileSidebar
+                    tabs={finalSidebarTabs}
+                    type="card"
+                    focused
+                    contextType={sidebarContextType}
+                    width={hostSidebarWidth}
+                />
             </EntityContext.Provider>
         );
     }
@@ -209,6 +214,8 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
                         ...entitySidebarContextDefaults,
                         isClosed: sidebarClosed,
                         setSidebarClosed,
+                        width: sidebarWidth,
+                        setWidth: setSidebarWidth,
                     }}
                 >
                     <EntityHead />
@@ -231,7 +238,7 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
                                 </ContentCard>
                             </ContentWrapper>
                         </ContentArea>
-                        <EntityProfileSidebar tabs={finalSidebarTabs} type="card" width={400} />
+                        <EntityProfileSidebar tabs={finalSidebarTabs} type="card" width={sidebarWidth} />
                     </Container>
                 </EntitySidebarContext.Provider>
             </PageTemplateProvider>
