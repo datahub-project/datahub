@@ -295,7 +295,7 @@ Set `path_spec.enable_compression` to `false` to skip compressed files; they are
 
 #### Multiple AWS accounts
 
-`ListBuckets` only returns buckets owned by the account of the calling credentials, so a bucket wildcard such as `s3://*/` discovers one account's buckets. To catalog several accounts from one recipe, list them under `aws_accounts`. For each account the source assumes that account's role, runs every path spec, and sets the account as the `platform_instance` of what it ingests, so the browse tree shows S3, then the account, then its buckets.
+`ListBuckets` only returns buckets owned by the account of the calling credentials, so a bucket wildcard such as `s3://*/` discovers one account's buckets. To catalog several accounts from one recipe, list them under `aws_accounts`. For each account the source assumes that account's role and runs every path spec. What it ingests gets the account ID as its `platform_instance`, or the account's own `platform_instance` if set, so the browse tree shows S3, then the account, then its buckets. Set up each role's trust policy as described in [Cross-Account Access](#cross-account-access).
 
 ```yaml
 source:
@@ -316,12 +316,13 @@ source:
         emit_folders_only: true
 ```
 
-- Roles in `aws_config.aws_role` are assumed first, so a hub role can chain into each account's role.
-- Credentials must come from the default AWS credential chain (environment variables, or the instance or pod role). `aws_access_key_id` and `aws_profile` are rejected with `aws_accounts`, because roles are not assumed from them.
-- A top-level `platform_instance` cannot be combined with `aws_accounts`.
-- With `emit_folders_only`, each account role needs `s3:ListAllMyBuckets` and `s3:ListBucket`, and no `s3:GetObject`.
-- If an account fails, for example because its role cannot be assumed, the run reports a failure and moves on to the next account. The failure also stops stale-metadata removal for that run, so nothing already ingested from the failed account is soft-deleted.
-- `datahub recipe probe` does not support `aws_accounts`. Probe one account at a time by setting its role in `aws_config.aws_role`.
+Credentials must come from the default AWS credential chain: environment variables, or the instance or pod role. `aws_access_key_id` and `aws_profile` are rejected with `aws_accounts`, because roles are not assumed from them. Roles in `aws_config.aws_role` are assumed before each account's role, so a hub role can chain into every account. Do not list the role the executor already runs as, since assuming a role from itself fails unless the role trusts itself.
+
+Every path spec runs in every account, so the bucket name in each `include` must be a wildcard. A top-level `platform_instance` cannot be combined with `aws_accounts`. With `emit_folders_only`, each account's role needs `s3:ListAllMyBuckets` and `s3:ListBucket`, but not `s3:GetObject`.
+
+If an account or one of its path specs fails, for example because the role cannot be assumed, the run reports a failure and carries on with the rest. One failure turns off stale-metadata removal for the whole run, so nothing is soft-deleted from any account. An account that works but matches nothing is reported as a warning.
+
+`datahub recipe probe` does not support `aws_accounts`. Probe one account at a time by setting its role in `aws_config.aws_role`.
 
 #### S3-specific mapping details
 

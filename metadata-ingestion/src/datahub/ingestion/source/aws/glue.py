@@ -75,6 +75,7 @@ from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import (
+    ROLE_ARN_PATTERN,
     AwsSourceConfig,
     make_dynamodb_dataset_name,
 )
@@ -250,8 +251,7 @@ DYNAMODB_STS_ROLE_ARN = "dynamodb.sts.roleArn"
 DYNAMODB_TABLE_ARN_PATTERN = re.compile(
     r"^arn:aws[a-z-]*:dynamodb:([^:\s]+):(\d{12}):table/([^/\s]+)$"
 )
-# arn:{partition}:iam::{account}:role/{name}
-DYNAMODB_STS_ROLE_ARN_PATTERN = re.compile(r"^arn:aws[a-z-]*:iam::(\d{12}):role/.+$")
+DYNAMODB_STS_ROLE_ARN_PATTERN = ROLE_ARN_PATTERN
 # Cap STS GetCallerIdentity retries: building a session + client is expensive (~seconds with an
 # SSO profile) and _aws_config() already retries internally, so don't re-attempt once per node for
 # a persistent failure (AccessDenied) or sustained throttling across an unbounded node count.

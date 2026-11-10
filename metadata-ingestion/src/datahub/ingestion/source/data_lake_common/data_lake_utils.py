@@ -88,15 +88,13 @@ class ContainerWUCreator:
         platform: str,
         platform_instance: Optional[str],
         env: str,
+        *,
         root_browse_path_under_instance: bool = False,
     ) -> None:
         self.processed_containers = []
         self.platform = platform
         self.instance = platform_instance
         self.env = env
-        # The browse-path processor only prefixes the recipe's platform_instance.
-        # A source that varies the instance within one run sets this so root
-        # containers carry their own instance, and their children inherit it.
         self.root_browse_path_under_instance = root_browse_path_under_instance
 
     def create_emit_containers(
@@ -118,6 +116,10 @@ class ContainerWUCreator:
             self.processed_containers.append(container_key.guid())
             logger.debug(f"Creating container with key: {container_key}")
             yield from container_wus
+            # The browse-path processor only prefixes the recipe's platform_instance.
+            # A source that varies the instance within one run roots each top-level
+            # container under its own instance; children inherit it. This must stay
+            # in the same batch as the container's other aspects.
             if (
                 self.root_browse_path_under_instance
                 and parent_container_key is None

@@ -1,3 +1,4 @@
+import contextlib
 import dataclasses
 import functools
 import io
@@ -8,9 +9,20 @@ import re
 import time
 from datetime import datetime
 from pathlib import PurePath
-from typing import IO, TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+)
 
 import smart_open.compression as so_compression
+from botocore.exceptions import BotoCoreError, ClientError
 from smart_open import open as smart_open
 
 from datahub.emitter.mce_builder import (
@@ -230,11 +242,7 @@ class S3Source(StatefulIngestionSourceBase):
         self.source_config = config
         self.report = DataLakeSourceReport()
         self.profiling_times_taken = []
-        self.container_WU_creator = ContainerWUCreator(
-            self.source_config.platform,
-            self.source_config.platform_instance,
-            self.source_config.env,
-        )
+        self.container_WU_creator = self._new_container_wu_creator()
 
         # Create an object store adapter for handling external URLs and paths
         if self.is_s3_platform():
@@ -317,6 +325,16 @@ class S3Source(StatefulIngestionSourceBase):
                     "S3/GCS profiling. Please install with profiling support: "
                     "pip install 'acryl-datahub[s3]' or 'acryl-datahub[gcs]'"
                 ) from e
+
+    def _new_container_wu_creator(
+        self, root_browse_path_under_instance: bool = False
+    ) -> ContainerWUCreator:
+        return ContainerWUCreator(
+            self.source_config.platform,
+            self.source_config.platform_instance,
+            self.source_config.env,
+            root_browse_path_under_instance=root_browse_path_under_instance,
+        )
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -1170,90 +1188,140 @@ class S3Source(StatefulIngestionSourceBase):
                         partitions=[],
                     )
 
-    def _ingest_account(self, account: S3AccountConfig) -> Iterable[MetadataWorkUnit]:
+    @contextlib.contextmanager
+    def _account_scope(self, account: S3AccountConfig) -> Iterator[None]:
+        """Point the source at one account for the duration of the block.
+
+        The listing, tagging and profiling helpers all read self.source_config,
+        so the account's config is swapped in rather than threaded through them.
+        """
         recipe_config = self.source_config
+        recipe_container_wu_creator = self.container_WU_creator
+        profiling = recipe_config.is_profiling_enabled()
+        recipe_profiler_aws_config = self.profiler.aws_config if profiling else None
         account_aws_config = recipe_config.aws_config_for_account(account)
-        self.source_config = recipe_config.model_copy(
-            update={
-                "aws_config": account_aws_config,
-                "platform_instance": account.platform_instance,
-            }
-        )
-        self.container_WU_creator = ContainerWUCreator(
-            self.source_config.platform,
-            self.source_config.platform_instance,
-            self.source_config.env,
-            root_browse_path_under_instance=True,
-        )
-        if recipe_config.is_profiling_enabled():
-            self.profiler.aws_config = account_aws_config
         try:
-            yield from self._ingest_path_specs()
-            self.report.aws_accounts_ingested += 1
-        except Exception as e:
-            # One account's denied role or missing permission must not stop the
-            # others. The failure also keeps stale-entity removal from running, so
-            # this account's existing metadata is not soft-deleted.
-            self.report.aws_accounts_failed.append(str(account.platform_instance))
-            self.report.failure(
-                title="Failed to ingest AWS account",
-                message="Ingestion stopped for this account; other accounts continue.",
-                context=f"platform_instance={account.platform_instance}, role={account.role.RoleArn}",
-                exc=e,
+            self.source_config = recipe_config.model_copy(
+                update={
+                    "aws_config": account_aws_config,
+                    "platform_instance": account.resolved_platform_instance,
+                    "aws_accounts": [],
+                }
             )
+            self.container_WU_creator = self._new_container_wu_creator(
+                root_browse_path_under_instance=True
+            )
+            if profiling:
+                self.profiler.aws_config = account_aws_config
+            yield
         finally:
             account_aws_config.close_cached_s3_clients()
             self.source_config = recipe_config
+            self.container_WU_creator = recipe_container_wu_creator
+            if profiling:
+                self.profiler.aws_config = recipe_profiler_aws_config
+
+    def _ingest_account(self, account: S3AccountConfig) -> Iterable[MetadataWorkUnit]:
+        # A failure is reported and the next path spec or account carries on. Any
+        # reported failure also keeps stale-entity removal from running, so no
+        # account's existing metadata is soft-deleted after a partial run.
+        instance = account.resolved_platform_instance
+        context = f"platform_instance={instance}, role={account.aws_role.RoleArn}"
+        failed = False
+        emitted = 0
+        try:
+            with self._account_scope(account):
+                for path_spec in self.source_config.path_specs:
+                    spec_context = f"{context}, path_spec={path_spec.include}"
+                    try:
+                        for wu in self._ingest_path_spec(path_spec):
+                            emitted += 1
+                            yield wu
+                    except (BotoCoreError, ClientError) as e:
+                        failed = True
+                        self.report.failure(
+                            title="Failed to read an AWS account",
+                            message="Could not assume the account's role or list its "
+                            "S3 data. Check the role's trust policy and S3 permissions.",
+                            context=spec_context,
+                            exc=e,
+                        )
+                    except Exception as e:
+                        failed = True
+                        self.report.failure(
+                            title="Unexpected error while ingesting an AWS account",
+                            message="Ingestion of this path spec stopped for the account.",
+                            context=spec_context,
+                            exc=e,
+                        )
+        except Exception as e:
+            failed = True
+            self.report.failure(
+                title="Could not set up AWS account",
+                message="The account's AWS configuration could not be built.",
+                context=context,
+                exc=e,
+            )
+
+        if failed:
+            self.report.aws_accounts_failed.append(instance)
+            return
+        self.report.aws_accounts_ingested += 1
+        if not emitted:
+            self.report.warning(
+                title="AWS account produced no metadata",
+                message="The account's role worked but nothing matched the path specs. "
+                "Check the role belongs to the intended account.",
+                context=context,
+            )
 
     def _ingest_path_specs(self) -> Iterable[MetadataWorkUnit]:
         assert self.source_config.path_specs
         for path_spec in self.source_config.path_specs:
-            if path_spec.emit_folders_only:
-                yield from self._process_folders(path_spec)
-                continue
+            yield from self._ingest_path_spec(path_spec)
 
-            file_browser = (
-                self.s3_browser(path_spec, self.source_config.number_of_files_to_sample)
-                if self.is_s3_platform()
-                else self.local_browser(path_spec)
+    def _ingest_path_spec(self, path_spec: PathSpec) -> Iterable[MetadataWorkUnit]:
+        if path_spec.emit_folders_only:
+            yield from self._process_folders(path_spec)
+            return
+
+        file_browser = (
+            self.s3_browser(path_spec, self.source_config.number_of_files_to_sample)
+            if self.is_s3_platform()
+            else self.local_browser(path_spec)
+        )
+        table_dict: Dict[str, TableData] = {}
+        for browse_path in file_browser:
+            # Normalize URI for pattern matching
+            normalized_file_path = self._normalize_uri_for_pattern_matching(
+                browse_path.file
             )
-            table_dict: Dict[str, TableData] = {}
-            for browse_path in file_browser:
-                # Normalize URI for pattern matching
-                normalized_file_path = self._normalize_uri_for_pattern_matching(
-                    browse_path.file
+
+            if not path_spec.allowed(
+                normalized_file_path,
+                ignore_ext=self.is_s3_platform()
+                and self.source_config.use_s3_content_type,
+            ):
+                continue
+            table_data = self.extract_table_data(path_spec, browse_path)
+            if table_data.table_path not in table_dict:
+                table_dict[table_data.table_path] = table_data
+            else:
+                table_dict[table_data.table_path].number_of_files = (
+                    table_dict[table_data.table_path].number_of_files + 1
                 )
+                table_dict[table_data.table_path].size_in_bytes = (
+                    table_dict[table_data.table_path].size_in_bytes
+                    + table_data.size_in_bytes
+                )
+                if (
+                    table_dict[table_data.table_path].timestamp < table_data.timestamp
+                ) and (table_data.size_in_bytes > 0):
+                    table_dict[table_data.table_path].full_path = table_data.full_path
+                    table_dict[table_data.table_path].timestamp = table_data.timestamp
 
-                if not path_spec.allowed(
-                    normalized_file_path,
-                    ignore_ext=self.is_s3_platform()
-                    and self.source_config.use_s3_content_type,
-                ):
-                    continue
-                table_data = self.extract_table_data(path_spec, browse_path)
-                if table_data.table_path not in table_dict:
-                    table_dict[table_data.table_path] = table_data
-                else:
-                    table_dict[table_data.table_path].number_of_files = (
-                        table_dict[table_data.table_path].number_of_files + 1
-                    )
-                    table_dict[table_data.table_path].size_in_bytes = (
-                        table_dict[table_data.table_path].size_in_bytes
-                        + table_data.size_in_bytes
-                    )
-                    if (
-                        table_dict[table_data.table_path].timestamp
-                        < table_data.timestamp
-                    ) and (table_data.size_in_bytes > 0):
-                        table_dict[
-                            table_data.table_path
-                        ].full_path = table_data.full_path
-                        table_dict[
-                            table_data.table_path
-                        ].timestamp = table_data.timestamp
-
-            for _, table_data in table_dict.items():
-                yield from self.ingest_table(table_data, path_spec)
+        for _, table_data in table_dict.items():
+            yield from self.ingest_table(table_data, path_spec)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         with PerfTimer() as timer:

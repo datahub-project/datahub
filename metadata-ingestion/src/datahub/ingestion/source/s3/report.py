@@ -1,5 +1,6 @@
 import dataclasses
 from dataclasses import field as dataclass_field
+from typing import List
 
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -23,7 +24,7 @@ class DataLakeSourceReport(StaleEntityRemovalSourceReport):
     listing_time_taken_secs: float = 0.0
     schema_inference_time_taken_secs: float = 0.0
     aws_accounts_ingested: int = 0
-    aws_accounts_failed: LossyList[str] = dataclass_field(default_factory=LossyList)
+    aws_accounts_failed: List[str] = dataclass_field(default_factory=list)
 
     def report_file_scanned(self) -> None:
         self.files_scanned += 1
