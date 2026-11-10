@@ -1,11 +1,12 @@
 import logging
+import re
 from typing import Any, Dict, List, Optional, Union
 
 from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic.fields import Field
 from typing_extensions import Annotated
 
-from datahub.configuration.common import AllowDenyPattern, FiltersByRule
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, FiltersByRule
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -17,7 +18,10 @@ from datahub.ingestion.agent.verdicts import (
     Verdict,
     VerdictContext,
 )
-from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.aws.aws_common import (
+    AwsAssumeRoleConfig,
+    AwsConnectionConfig,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -36,6 +40,39 @@ from datahub.ingestion.source_config.operation_config import is_profiling_enable
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
+
+_ROLE_ARN_ACCOUNT_RE = re.compile(r"^arn:aws[a-z-]*:iam::(\d{12}):role/")
+
+
+class S3AccountConfig(ConfigModel):
+    aws_role: Union[str, AwsAssumeRoleConfig] = Field(
+        description="Role to assume in this account, as a role ARN or an object with "
+        "`RoleArn` and optional `ExternalId`. It is assumed after any roles in "
+        "`aws_config.aws_role`, so a hub role can chain into each account."
+    )
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="Platform instance for everything ingested from this account. "
+        "Defaults to the account ID in the role ARN.",
+    )
+
+    @property
+    def role(self) -> AwsAssumeRoleConfig:
+        if isinstance(self.aws_role, str):
+            return AwsAssumeRoleConfig(RoleArn=self.aws_role)
+        return self.aws_role
+
+    @model_validator(mode="after")
+    def default_platform_instance_to_account_id(self) -> "S3AccountConfig":
+        if self.platform_instance is None:
+            match = _ROLE_ARN_ACCOUNT_RE.match(self.role.RoleArn)
+            if not match:
+                raise ValueError(
+                    f"Cannot read an account ID from role ARN {self.role.RoleArn!r}; "
+                    "set platform_instance for this account."
+                )
+            self.platform_instance = match.group(1)
+        return self
 
 
 class DataLakeSourceConfig(
@@ -63,6 +100,17 @@ class DataLakeSourceConfig(
     )
     aws_config: Optional[AwsConnectionConfig] = Field(
         default=None, description="AWS configuration"
+    )
+    aws_accounts: List[S3AccountConfig] = Field(
+        default_factory=list,
+        description="Ingest the same path_specs from several AWS accounts in one run. "
+        "For each account the source assumes its role and stamps its platform_instance, "
+        "so `s3://*/` discovers that account's buckets. `aws_config` supplies the "
+        "settings for every account, and its roles are assumed before each account's "
+        "role. Credentials must come from the default AWS credential chain, not "
+        "`aws_access_key_id` or `aws_profile`. Cannot be combined with a top-level "
+        "`platform_instance`. If any account fails, the run reports a failure and "
+        "stale metadata is not removed for any account.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -153,6 +201,14 @@ class DataLakeSourceConfig(
         default=True,
         description="Whether to generate partition aspects for partitioned tables. On older servers for backward compatibility, this should be set to False. This flag will be removed in future versions.",
     )
+
+    def aws_config_for_account(self, account: S3AccountConfig) -> AwsConnectionConfig:
+        # Built fresh rather than copied so no credentials or clients cached on the
+        # shared aws_config leak into another account.
+        base = self.aws_config or AwsConnectionConfig()
+        fields = {name: getattr(base, name) for name in base.model_fields_set}
+        fields["aws_role"] = [*base._normalized_aws_roles(), account.role]
+        return AwsConnectionConfig.model_validate(fields)
 
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
@@ -288,4 +344,37 @@ class DataLakeSourceConfig(
                 "because partition columns are part of the inferred schema. Remove one of the two settings."
             )
 
+        return self
+
+    @model_validator(mode="after")
+    def validate_aws_accounts(self) -> "DataLakeSourceConfig":
+        # Runs after validate_platform_and_config_consistency, which infers platform.
+        if not self.aws_accounts:
+            return self
+        if self.platform != "s3":
+            raise ValueError("aws_accounts can only be used with s3:// path_specs.")
+        if self.platform_instance:
+            raise ValueError(
+                "aws_accounts sets a platform_instance per account; remove the "
+                "top-level platform_instance."
+            )
+        if self.aws_config and (
+            self.aws_config.aws_access_key_id or self.aws_config.aws_profile
+        ):
+            # AwsConnectionConfig only assumes roles from the default credential
+            # chain. With keys or a profile every account would silently list
+            # the base identity's buckets under its own platform_instance.
+            raise ValueError(
+                "aws_accounts needs credentials from the default AWS credential "
+                "chain (environment variables, instance or pod role), because "
+                "roles are not assumed from aws_access_key_id or aws_profile. "
+                "Remove them from aws_config."
+            )
+        # Set on every account by S3AccountConfig's own validator.
+        instances = [str(account.platform_instance) for account in self.aws_accounts]
+        duplicates = sorted({i for i in instances if instances.count(i) > 1})
+        if duplicates:
+            raise ValueError(
+                f"aws_accounts platform_instance values must be unique: {duplicates}"
+            )
         return self

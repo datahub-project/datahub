@@ -22,6 +22,8 @@ class DataLakeSourceReport(StaleEntityRemovalSourceReport):
     # folder accumulation), not pure network I/O.
     listing_time_taken_secs: float = 0.0
     schema_inference_time_taken_secs: float = 0.0
+    aws_accounts_ingested: int = 0
+    aws_accounts_failed: LossyList[str] = dataclass_field(default_factory=LossyList)
 
     def report_file_scanned(self) -> None:
         self.files_scanned += 1

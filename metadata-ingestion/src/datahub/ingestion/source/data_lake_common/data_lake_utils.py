@@ -1,6 +1,8 @@
 import logging
 from typing import Iterable, List, Optional, Tuple
 
+from datahub.emitter.mce_builder import make_dataplatform_instance_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     BucketKey,
     ContainerKey,
@@ -31,6 +33,8 @@ from datahub.ingestion.source.gcs.gcs_utils import (
     is_gcs_uri,
 )
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     StringTypeClass,
@@ -79,11 +83,21 @@ def add_partition_columns_to_schema(
 class ContainerWUCreator:
     processed_containers: List[str]
 
-    def __init__(self, platform, platform_instance, env):
+    def __init__(
+        self,
+        platform: str,
+        platform_instance: Optional[str],
+        env: str,
+        root_browse_path_under_instance: bool = False,
+    ) -> None:
         self.processed_containers = []
         self.platform = platform
         self.instance = platform_instance
         self.env = env
+        # The browse-path processor only prefixes the recipe's platform_instance.
+        # A source that varies the instance within one run sets this so root
+        # containers carry their own instance, and their children inherit it.
+        self.root_browse_path_under_instance = root_browse_path_under_instance
 
     def create_emit_containers(
         self,
@@ -104,6 +118,20 @@ class ContainerWUCreator:
             self.processed_containers.append(container_key.guid())
             logger.debug(f"Creating container with key: {container_key}")
             yield from container_wus
+            if (
+                self.root_browse_path_under_instance
+                and parent_container_key is None
+                and self.instance
+            ):
+                instance_urn = make_dataplatform_instance_urn(
+                    self.platform, self.instance
+                )
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=container_key.as_urn(),
+                    aspect=BrowsePathsV2Class(
+                        path=[BrowsePathEntryClass(id=instance_urn, urn=instance_urn)]
+                    ),
+                ).as_workunit()
 
     def gen_folder_key(self, abs_path):
         return FolderKey(

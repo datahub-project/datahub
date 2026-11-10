@@ -293,6 +293,36 @@ For `.zip` archives:
 
 Set `path_spec.enable_compression` to `false` to skip compressed files; they are not ingested.
 
+#### Multiple AWS accounts
+
+`ListBuckets` only returns buckets owned by the account of the calling credentials, so a bucket wildcard such as `s3://*/` discovers one account's buckets. To catalog several accounts from one recipe, list them under `aws_accounts`. For each account the source assumes that account's role, runs every path spec, and sets the account as the `platform_instance` of what it ingests, so the browse tree shows S3, then the account, then its buckets.
+
+```yaml
+source:
+  type: s3
+  config:
+    aws_config:
+      aws_region: us-east-1
+    aws_accounts:
+      - aws_role: "arn:aws:iam::111111111111:role/DataHubS3Reader"
+      - aws_role:
+          RoleArn: "arn:aws:iam::222222222222:role/DataHubS3Reader"
+          ExternalId: "<external id>"
+        platform_instance: analytics-prod # defaults to the account ID
+    path_specs:
+      - include: "s3://*/" # every bucket, including empty ones
+        emit_folders_only: true
+      - include: "s3://*/*/" # first level of folders in each bucket
+        emit_folders_only: true
+```
+
+- Roles in `aws_config.aws_role` are assumed first, so a hub role can chain into each account's role.
+- Credentials must come from the default AWS credential chain (environment variables, or the instance or pod role). `aws_access_key_id` and `aws_profile` are rejected with `aws_accounts`, because roles are not assumed from them.
+- A top-level `platform_instance` cannot be combined with `aws_accounts`.
+- With `emit_folders_only`, each account role needs `s3:ListAllMyBuckets` and `s3:ListBucket`, and no `s3:GetObject`.
+- If an account fails, for example because its role cannot be assumed, the run reports a failure and moves on to the next account. The failure also stops stale-metadata removal for that run, so nothing already ingested from the failed account is soft-deleted.
+- `datahub recipe probe` does not support `aws_accounts`. Probe one account at a time by setting its role in `aws_config.aws_role`.
+
 #### S3-specific mapping details
 
 This ingestion source maps the following source system concepts to DataHub concepts:
