@@ -38,6 +38,8 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class EntityClient {
+  private static final String DATA_PLATFORM_INSTANCE_ASPECT = "dataPlatformInstance";
+
   private final RestEmitter emitter;
   private final DataHubClientConfigV2 config;
   private final ObjectMapper objectMapper;
@@ -97,7 +99,22 @@ public class EntityClient {
     List<MetadataChangeProposalWrapper> mcps = entity.toMCPs();
     if (!mcps.isEmpty()) {
       log.debug("Entity has {} cached aspects, emitting as upserts", mcps.size());
+      // Write dataPlatformInstance first and wait for it, so a new entity is created with its
+      // platform instance stored. Otherwise another aspect may create the entity first, and
+      // policies scoped by platform instance cannot authorize the entity's later writes.
       for (MetadataChangeProposalWrapper mcp : mcps) {
+        if (DATA_PLATFORM_INSTANCE_ASPECT.equals(mcp.getAspectName())) {
+          MetadataWriteResponse response = emitter.emit(mcp).get();
+          if (!response.isSuccess()) {
+            throw new IOException(
+                "Failed to emit dataPlatformInstance: " + response.getResponseContent());
+          }
+        }
+      }
+      for (MetadataChangeProposalWrapper mcp : mcps) {
+        if (DATA_PLATFORM_INSTANCE_ASPECT.equals(mcp.getAspectName())) {
+          continue;
+        }
         log.debug("Emitting MCP for aspect: {}", mcp.getAspect().getClass().getSimpleName());
         futures.add(emitter.emit(mcp));
       }
