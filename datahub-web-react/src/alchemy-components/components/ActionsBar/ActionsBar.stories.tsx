@@ -6,7 +6,6 @@ import styled from 'styled-components';
 
 import { ActionsBar, ActionsBarProps } from '@components/components/ActionsBar/ActionsBar';
 import { Button } from '@components/components/Button';
-import { Drawer } from '@components/components/Drawer/Drawer';
 import { Icon } from '@components/components/Icon';
 
 // Auto Docs
@@ -28,7 +27,7 @@ const meta = {
 
     // Define default args
     args: {},
-} satisfies Meta<typeof Drawer>;
+} satisfies Meta<typeof ActionsBar>;
 
 export default meta;
 

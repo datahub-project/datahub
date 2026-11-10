@@ -660,7 +660,7 @@ class TestEnhanceWithActualValues:
         execute, _ = recording_execute(lambda q: [])
 
         result = discovery._enhance_partition_filters_with_actual_values(
-            make_table(name="bad name"),
+            make_table(name="bad`name"),
             PROJECT,
             SCHEMA,
             ["dt"],

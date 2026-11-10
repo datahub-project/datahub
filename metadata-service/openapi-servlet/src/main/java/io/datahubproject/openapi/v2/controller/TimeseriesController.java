@@ -2,6 +2,7 @@ package io.datahubproject.openapi.v2.controller;
 
 import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
@@ -92,6 +93,12 @@ public class TimeseriesController {
     }
 
     AspectSpec aspectSpec = entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName);
+    if (aspectSpec == null && handling().toleratesUnknownEntityAspect()) {
+      // An aspect only a newer version knows (e.g. after a rollback) is a bad request (400), not
+      // a NullPointerException (500).
+      throw new IllegalArgumentException(
+          String.format("Unknown aspect %s for entity %s", aspectName, entityName));
+    }
     if (!aspectSpec.isTimeseries()) {
       throw new IllegalArgumentException("Only timeseries aspects are supported.");
     }

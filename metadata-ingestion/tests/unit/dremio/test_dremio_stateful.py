@@ -10,6 +10,8 @@ Tests for stateful and incremental features added to the Dremio connector:
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, Mock, patch
 
+import pytest
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -19,6 +21,8 @@ from datahub.ingestion.source.dremio.dremio_api import (
     DremioEdition,
 )
 from datahub.ingestion.source.dremio.dremio_entities import DremioCatalog
+from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
+from datahub.ingestion.source.dremio.dremio_source import DremioSource
 from datahub.ingestion.workunit_processors.auto_incremental_properties import (
     AutoIncrementalPropertiesProcessor,
 )
@@ -134,3 +138,40 @@ class TestTimeWindowOverride:
         mock_api.extract_all_queries.assert_called_once_with(
             start_time=override_start, end_time=override_end
         )
+
+
+@pytest.mark.parametrize("fetch_incomplete", [False, True])
+def test_time_window_not_advanced_after_incomplete_job_fetch(fetch_incomplete):
+    """A truncated job-history fetch must not record the window as processed,
+    otherwise the next run starts after the jobs that were never read. Queries
+    that were read are still processed."""
+    source = DremioSource.__new__(DremioSource)
+    source.config = Mock(
+        enable_stateful_time_window=True,
+        start_time=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        end_time=datetime(2024, 1, 2, tzinfo=timezone.utc),
+    )
+    source.ctx = Mock()
+    source.report = DremioSourceReport()
+    source.process_query = Mock()  # type: ignore[method-assign]
+
+    def fetch_queries(start_time, end_time):
+        yield Mock()
+        source.report.query_fetch_incomplete = fetch_incomplete
+
+    source.dremio_catalog = Mock()
+    source.dremio_catalog.get_queries.side_effect = fetch_queries
+
+    with patch(
+        "datahub.ingestion.source.dremio.dremio_source.RedundantQueriesRunSkipHandler"
+    ) as handler_cls:
+        handler = handler_cls.return_value
+        handler.should_skip_this_run.return_value = False
+        handler.suggest_run_time_window.return_value = (
+            source.config.start_time,
+            source.config.end_time,
+        )
+        source.get_query_lineage_workunits()
+
+    source.process_query.assert_called_once()
+    assert handler.update_state.called is not fetch_incomplete
