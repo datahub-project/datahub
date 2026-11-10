@@ -22,6 +22,7 @@ x-datahub-actions-service-dev: &datahub-actions-service-dev
   <<: *datahub-actions-service
   volumes:
     - ./datahub-actions/start.sh:/start_datahub_actions.sh
+    - ./datahub-actions/install_extra_packages.sh:/install_extra_packages.sh
     - ../../metadata-ingestion/src:/metadata-ingestion/src
     - ../../datahub-actions/src:/datahub-actions/src
     - ${HOME}/.aws:/home/datahub/.aws:ro
