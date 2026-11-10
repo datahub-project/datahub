@@ -132,7 +132,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -240,7 +245,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -352,7 +362,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -686,7 +701,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -798,7 +818,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -892,7 +917,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -927,7 +957,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -1035,7 +1070,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {

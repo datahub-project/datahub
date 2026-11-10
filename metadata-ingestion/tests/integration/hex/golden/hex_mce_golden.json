@@ -2451,7 +2451,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1737651607922,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -2468,7 +2473,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1742222640614,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -2485,7 +2495,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1734132178183,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -2502,7 +2517,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1724270645879,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -2519,7 +2539,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1729718764682,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -2536,7 +2561,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1724260569567,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -2553,7 +2583,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1733232677016,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -2570,7 +2605,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1734511083873,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -2587,7 +2627,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1724262286875,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
@@ -2604,7 +2649,12 @@
     "aspectName": "status",
     "aspect": {
         "json": {
-            "removed": false
+            "removed": false,
+            "lifecycleStage": "urn:li:lifecycleStageType:PUBLISHED",
+            "lifecycleLastUpdated": {
+                "time": 1724349579864,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
     },
     "systemMetadata": {
