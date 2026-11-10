@@ -518,7 +518,8 @@ public abstract class GlossaryRootEquivalenceTestBase extends AbstractTestNGSpri
         TEST_ES_SEARCH_CONFIG,
         new V2MappingsBuilder(
             TEST_ES_SEARCH_CONFIG.getEntityIndex(),
-            OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
+            OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+            ESUtils.KEYWORD_MAXLENGTH),
         new V2LegacySettingsBuilder(TEST_ES_SEARCH_CONFIG.getIndex(), mockIndexConvention, false),
         searchDAO,
         browseDAO,
