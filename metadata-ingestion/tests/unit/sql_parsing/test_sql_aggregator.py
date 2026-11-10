@@ -3060,6 +3060,7 @@ def test_lineage_walk_stops_once_output_caps_are_full(
     assert lineage.fineGrainedLineages is not None
     assert len(lineage.fineGrainedLineages) == 2
     assert aggregator.report.num_downstreams_with_lineage_walk_stopped_early == 1
+    assert aggregator.report.lineage_walk_stopped_early_downstreams == {downstream: 6}
 
 
 @pytest.mark.parametrize(
