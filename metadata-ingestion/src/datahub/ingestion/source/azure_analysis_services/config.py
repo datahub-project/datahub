@@ -5,6 +5,7 @@ from pydantic import Field, SecretStr, field_validator, model_validator
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.source_common import (
     EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
     PlatformDetail,
     PlatformInstanceConfigMixin,
 )
@@ -37,6 +38,7 @@ class AzureAnalysisServicesConfig(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     server: str = Field(
         description=(
@@ -47,6 +49,18 @@ class AzureAnalysisServicesConfig(
     )
     platform: HiddenFromDocs[Literal["azure-analysis-services", "powerbi"]] = Field(
         default=constants.PLATFORM_AAS
+    )
+    convert_urns_to_lowercase: bool = Field(
+        default=False,
+        description=(
+            "Lowercase model and table dataset URNs. Set this when those URNs must "
+            "match another connector that lowercases names, including Power BI "
+            "lineage (``convert_lineage_urns_to_lowercase`` defaults to true). This "
+            "value is part of each dataset's URN identity. Changing it after "
+            "ingestion re-keys every dataset; with stateful ingestion the "
+            "old-cased URNs are soft-deleted. Pick one value before the first run "
+            "and leave it unchanged."
+        ),
     )
     include_workspace_name_in_dataset_urn: bool = Field(
         default=False,

@@ -119,6 +119,8 @@ class AasMapper:
         return f"{catalog}.{table_name}"
 
     def _dataset_urn(self, name: str) -> str:
+        if self.config.convert_urns_to_lowercase:
+            name = name.lower()
         return builder.make_dataset_urn_with_platform_instance(
             platform=self.config.platform,
             name=name,

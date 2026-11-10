@@ -34,6 +34,14 @@ def test_service_principal_valid():
     config = AzureAnalysisServicesConfig.model_validate(_service_principal())
     assert config.platform == constants.PLATFORM_AAS
     assert config.client_id == "c"
+    assert config.convert_urns_to_lowercase is False
+
+
+def test_convert_urns_to_lowercase_is_accepted():
+    config = AzureAnalysisServicesConfig.model_validate(
+        _service_principal(convert_urns_to_lowercase=True)
+    )
+    assert config.convert_urns_to_lowercase is True
 
 
 def test_username_password_requires_fields():
