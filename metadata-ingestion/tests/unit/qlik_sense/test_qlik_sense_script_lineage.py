@@ -1,10 +1,11 @@
-from typing import Optional
+from typing import List, Optional
 
 import pytest
 
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     connection_lookup_names,
     drop_condition_variables,
+    expression_names,
     has_qualified_name,
     infer_data_connection,
     is_connector_sql,
@@ -458,6 +459,71 @@ def test_drop_condition_variables(sql: str, expected: str) -> None:
     assert drop_condition_variables(sql) == expected
 
 
+@pytest.mark.parametrize(
+    "expression, names",
+    [
+        pytest.param("=Sum(Year(OrderDate))", ["OrderDate"], id="nested_functions"),
+        pytest.param("=Year (OrderDate)", ["OrderDate"], id="space_before_call"),
+        pytest.param(
+            "Sum(Amount) // excludes Returns\n+ Sum([Tax]) /* Returns */",
+            ["Amount", "Tax"],
+            id="comments",
+        ),
+        pytest.param(
+            "Count({<Url={'http://example.com'}>} [a/*b])",
+            ["Url", "a/*b"],
+            id="comment_markers_in_quotes",
+        ),
+        pytest.param(
+            "=Date#(OrderDate, 'YYYYMMDD') + Num# (Amount)",
+            ["OrderDate", "Amount"],
+            id="interpretation_functions",
+        ),
+        pytest.param(
+            "=[Year] + Year", ["Year", "Year"], id="field_named_like_function"
+        ),
+        pytest.param("Count({<Year={2024}>} Region)", ["Year", "Region"], id="set"),
+        pytest.param(
+            "Sum($(vSales)) + Sum($(=Max(Year))) + Sum(Amount)",
+            ["Amount"],
+            id="expansions",
+        ),
+        pytest.param(
+            "={$<Year={2024}, [Sales Region]-={'East'}>} Sum(Sales)",
+            ["Year", "Sales Region", "Sales"],
+            id="set_after_leading_equals",
+        ),
+        pytest.param(
+            "Count({<Region={'A'}+{\"B*\"}-{$(vSkip)}>} Amount)",
+            ["Region", "Amount"],
+            id="combined_set_values",
+        ),
+        pytest.param(
+            "Sum(Total) + Count(DISTINCT Total)", ["Total", "Total"], id="total_field"
+        ),
+        pytest.param(
+            "Sum(DISTINCT TOTAL <Region> Amount) and not Flag",
+            ["Region", "Amount", "Flag"],
+            id="keywords",
+        ),
+        pytest.param(
+            'Count({<Region={"A)"}, Year={"}"}>} Store) + Sum($(=Concat(")", ","))) + Amount',
+            ["Region", "Year", "Store", "Amount"],
+            id="delimiters_inside_quotes",
+        ),
+        pytest.param(
+            "Count([Date].autoCalendar.Year)",
+            ["Date.autoCalendar.Year"],
+            id="bracketed_derived_field",
+        ),
+    ],
+)
+def test_expression_names_skip_function_calls(
+    expression: str, names: List[str]
+) -> None:
+    assert expression_names(expression) == names
+
+
 def test_parse_load_script_ignores_sql_line_comments() -> None:
     script = """
 LIB CONNECT TO 'A';
@@ -592,3 +658,26 @@ def test_redact_connection_scrubs_allow_listed_values(connection: str) -> None:
     assert "Hunter2Secret" not in redacted
     assert "db.example.com" in redacted
     assert "Database=d" in redacted
+
+
+def test_parse_load_script_marks_mapping_tables() -> None:
+    script = """
+LIB CONNECT TO 'A';
+Map: MAPPING LOAD k, v;
+SQL SELECT k, v FROM db.s.codes;
+Direct: Mapping SQL SELECT k, v FROM db.s.other_codes;
+T: SQL SELECT * FROM db.s.t;
+[Mapping]: SQL SELECT * FROM db.s.named_mapping;
+Concatenate ([Mapping]) SQL SELECT * FROM db.s.more;
+[Mapping (old)]: SQL SELECT * FROM db.s.old;
+Concatenate ([Mapping (old)]) SQL SELECT * FROM db.s.older;
+"""
+    assert [(t.label, t.mapping) for t in parse_load_script(script)] == [
+        ("Map", True),
+        ("Direct", True),
+        ("T", False),
+        ("Mapping", False),
+        ("Mapping", False),
+        ("Mapping (old)", False),
+        ("Mapping (old)", False),
+    ]

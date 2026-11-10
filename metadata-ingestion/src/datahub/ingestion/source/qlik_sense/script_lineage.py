@@ -100,6 +100,44 @@ DATABASE_RE = re.compile(
     r"(?P<db>[^;\]\"']+)",
     re.IGNORECASE,
 )
+# The values in a set modifier, such as {"Net*"} in {<Region={"Net*"}>}, are
+# search strings even when double-quoted. They follow a field name, so the = that
+# starts an expression such as ={$<Year={2024}>} Sum(Sales) is not one.
+SET_VALUES_START_RE = re.compile(r"(?<=[\w\]\"])\s*[-+*/]?=\s*\{")
+# Further element lists combined with the first, as in Region={"A"}+{"B"}.
+SET_VALUES_NEXT_RE = re.compile(r"\s*[-+*/]\s*\{")
+# Interpretation functions such as Date#(OrderDate) end their name with #.
+FUNCTION_CALL_RE = re.compile(r"\s*#?\s*\(")
+# Operators and aggregation qualifiers, as in Sum(DISTINCT TOTAL Amount).
+EXPRESSION_KEYWORDS = {
+    "all",
+    "and",
+    "bitand",
+    "bitnot",
+    "bitor",
+    "bitxor",
+    "distinct",
+    "follows",
+    "like",
+    "nodistinct",
+    "not",
+    "or",
+    "precedes",
+    "total",
+    "xor",
+}
+# Aggregation qualifiers, which are field names when nothing follows them, as
+# in Sum(Total).
+EXPRESSION_QUALIFIERS = {"all", "distinct", "nodistinct", "total"}
+QUALIFIER_END_RE = re.compile(r"\s*(?:[),]|$)")
+MAPPING_PREFIX_RE = re.compile(r"\bMapping\b", re.IGNORECASE)
+# Single-quoted text is a string literal in a chart expression, not a field.
+# A quoted field can carry a derived-field suffix, as in [Date].autoCalendar.Year.
+EXPRESSION_NAME_RE = re.compile(
+    r"\[(?P<bracket>[^\]]+)\](?P<bracket_suffix>(?:\.\w+)*)"
+    r"|\"(?P<double>[^\"]+)\"(?P<double_suffix>(?:\.\w+)*)"
+    r"|'[^']*'|(?P<bare>[^\W\d][\w.]*)"
+)
 # A driver or provider names the engine, whatever the rest of the string says.
 DRIVER_RE = re.compile(
     r"(?:^|[;\s\[\"'])(?:driver|provider)\s*=\s*(?P<value>\{[^}]*\}|[^;\]\"']*)",
@@ -184,6 +222,8 @@ class ScriptTable(BaseModel):
     label: str
     connection: Optional[str] = None
     sql: str
+    # A mapping table is only used by ApplyMap and dropped from the data model.
+    mapping: bool = False
 
 
 class ScriptTableLineage(BaseModel):
@@ -193,6 +233,7 @@ class ScriptTableLineage(BaseModel):
     upstream_urns: List[str] = []
     # Downstream column name to upstream schema field URNs.
     column_upstreams: Dict[str, List[str]] = {}
+    mapping: bool = False
 
 
 class DataConnectionInfo(BaseModel):
@@ -221,7 +262,9 @@ def _is_control_only(text: str) -> bool:
     return True
 
 
-def _strip_comments(script: str) -> str:
+def _strip_comments(script: str, expression: bool = False) -> str:
+    """Drops comments outside quotes. Chart expressions have no REM comments,
+    and no lib:// paths, so any // starts a comment there."""
     kept: List[str] = []
     closing: Optional[str] = None
     statement_start = True
@@ -238,7 +281,7 @@ def _strip_comments(script: str) -> str:
                 closing = None
         # A REM comment runs to the next semicolon, and an apostrophe in it
         # does not open a quote.
-        elif statement_start and REM_RE.match(script, i):
+        elif not expression and statement_start and REM_RE.match(script, i):
             end = script.find(STATEMENT_SEPARATOR, i)
             i = len(script) if end == -1 else end + 1
             continue
@@ -247,14 +290,20 @@ def _strip_comments(script: str) -> str:
         elif script.startswith("/*", i):
             end = script.find("*/", i + 2)
             i = len(script) if end == -1 else end + 2
+            # So the text on both sides does not run together.
+            kept.append(" ")
             continue
         # `//` after a colon is part of a URL or `lib://` path, not a comment.
         elif (
             script.startswith("//", i)
-            and not (
-                kept and (kept[-1] == ":" or kept[-1].isalnum() or kept[-1] == "_")
+            and (
+                expression
+                or not (
+                    kept and (kept[-1] == ":" or kept[-1].isalnum() or kept[-1] == "_")
+                )
             )
-            or script.startswith("--", i)
+            or not expression
+            and script.startswith("--", i)
             # Quoted text such as 'SELECT' in a LOAD does not make it SQL.
             and SQL_STATEMENT_RE.search(
                 QUOTED_RE.sub("", "".join(kept[statement_begin:]))
@@ -515,6 +564,7 @@ class _ScriptParser(BaseModel):
     # A preceding LOAD is waiting for its SELECT. Only the top of a stack of
     # them carries the label.
     pending_preceding: bool = False
+    pending_mapping: bool = False
     # A SELECT under a preceding LOAD that adds to an unknown table.
     pending_skip: bool = False
     # The table a Concatenate or Join without a target adds to.
@@ -535,6 +585,7 @@ class _ScriptParser(BaseModel):
                 self._statement(piece.text)
 
     def _clear_pending(self) -> None:
+        self.pending_mapping = False
         self.pending_label = None
         self.pending_preceding = False
         self.pending_skip = False
@@ -606,6 +657,11 @@ class _ScriptParser(BaseModel):
             statement = statement[label_match.end() :].lstrip()
         prefix = PREFIX_RE.match(statement)
         merge = MERGE_PREFIX_RE.search(prefix.group(0)) if prefix else None
+        # Only the prefix keywords, not arguments such as Concatenate ([Mapping]).
+        mapping = bool(
+            prefix
+            and MAPPING_PREFIX_RE.search(re.sub(_PREFIX_ARGS, "", prefix.group(0)))
+        )
         if prefix:
             statement = statement[prefix.end() :]
         skip = False
@@ -628,6 +684,7 @@ class _ScriptParser(BaseModel):
                         label=table_label,
                         connection=self.flow.state.connection,
                         sql=sql.group("sql"),
+                        mapping=mapping or self.pending_mapping,
                     )
                 )
                 self.last_label = table_label
@@ -639,6 +696,7 @@ class _ScriptParser(BaseModel):
             if not self.pending_preceding:
                 self.pending_label = label
                 self.pending_skip = skip
+                self.pending_mapping = mapping
             self.pending_preceding = True
         else:
             if LOAD_RE.match(statement):
@@ -651,6 +709,90 @@ def parse_load_script(script: str) -> List[ScriptTable]:
     parser = _ScriptParser(subs=parsed.subs)
     parser.run(parsed.pieces)
     return parser.tables
+
+
+def _block_end(text: str, position: int, opening: str, closing: str) -> int:
+    """Index just past the closing delimiter of a block opened right before
+    position, counting nested blocks. Delimiters inside quotes, such as the
+    search string in {<Name={"A)"}>}, do not count."""
+    depth = 1
+    quote_closing: Optional[str] = None
+    while position < len(text) and depth:
+        char = text[position]
+        if quote_closing:
+            if char == quote_closing:
+                quote_closing = None
+        elif char in QUOTE_PAIRS:
+            quote_closing = QUOTE_PAIRS[char]
+        else:
+            depth += {opening: 1, closing: -1}.get(char, 0)
+        position += 1
+    return position
+
+
+def strip_set_values(expression: str) -> str:
+    """Drop set modifier values, which can nest braces as in {$(=Only({1} Year))}."""
+    kept: List[str] = []
+    position = 0
+    while match := SET_VALUES_START_RE.search(expression, position):
+        kept.append(expression[position : match.start()])
+        while match:
+            position = _block_end(expression, match.end(), "{", "}")
+            match = SET_VALUES_NEXT_RE.match(expression, position)
+    kept.append(expression[position:])
+    return "".join(kept)
+
+
+def _strip_expansions(expression: str) -> str:
+    """Drop $(...) expansions, which can nest parentheses as in $(=Max(Year))."""
+    kept: List[str] = []
+    position = 0
+    while (start := expression.find("$(", position)) != -1:
+        kept.append(expression[position:start])
+        position = _block_end(expression, start + 2, "(", ")")
+        kept.append(" ")
+    kept.append(expression[position:])
+    return "".join(kept)
+
+
+def reads_unknown_fields(expression: str) -> bool:
+    """Whether a $(variable) expansion outside comments and set modifier values
+    may stand for fields the expression reads."""
+    return "$(" in strip_set_values(_strip_comments(expression, expression=True))
+
+
+def expression_names(expression: str) -> List[str]:
+    """Names an expression may read as fields. Not every name is a field, so
+    callers keep only names that are fields of the app."""
+    # The fields behind an expansion are unknown, and its name is not a field.
+    expression = _strip_expansions(
+        strip_set_values(_strip_comments(expression, expression=True))
+    )
+    names: List[str] = []
+    for match in EXPRESSION_NAME_RE.finditer(expression):
+        bare = match.group("bare")
+        if bare and (
+            (
+                bare.lower() in EXPRESSION_KEYWORDS
+                and not (
+                    bare.lower() in EXPRESSION_QUALIFIERS
+                    and QUALIFIER_END_RE.match(expression, match.end())
+                )
+            )
+            # A function call such as Year(OrderDate), even when an app field
+            # has the same name.
+            or FUNCTION_CALL_RE.match(expression, match.end())
+        ):
+            continue
+        if match.group("bracket"):
+            name = match.group("bracket") + match.group("bracket_suffix")
+        elif match.group("double"):
+            name = match.group("double") + match.group("double_suffix")
+        else:
+            name = bare
+        if name:
+            names.append(name)
+    return names
 
 
 def _platform_in(text: str) -> Optional[str]:
