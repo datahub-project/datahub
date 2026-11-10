@@ -138,8 +138,9 @@ _LONG_MAX = 2**63 - 1
 # with jittered exponential backoff between them (capped at _APPEND_MAX_BACKOFF_S).
 _APPEND_MAX_ATTEMPTS = 8
 _APPEND_MAX_BACKOFF_S = 2.0
-# A failed If-Version-Match precondition. The server reports it as 412 with an error of
-# "Precondition Error" (OpenAPI) or a 412 status in the body (restli).
+# A failed If-Version-Match precondition. The OpenAPI ingest path reports it as 412 with an
+# error of "Precondition Error". The restli path reports every failed validation as 422,
+# preconditions included, so there the status alone cannot identify a conflict.
 _PRECONDITION_FAILED = 412
 
 # Disk cache for entity/aspect specs, keyed by server URL + commit hash so it
@@ -1929,9 +1930,12 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
     def _is_version_conflict(error: OperationalError) -> bool:
         """Whether a write failed its If-Version-Match precondition and can be retried.
 
-        Classified by status rather than by the server's error prose, so rewording a message
-        does not turn a retryable conflict into a hard failure. The text check is a fallback
-        for servers that predate the structured precondition response.
+        The OpenAPI ingest path is identified by status, so rewording the server's message
+        does not turn a retryable conflict into a hard failure. The restli path reports a
+        precondition failure as 422, the same status it uses for every other rejected write,
+        so there the message is the only thing that separates the two: the text check below
+        is load-bearing for that transport, not a legacy fallback. It also covers servers
+        that predate the structured precondition response.
         """
         info = error.info
         if info.get("status") == _PRECONDITION_FAILED:
@@ -1961,9 +1965,11 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         conditional headers on patches apply the write unconditionally, so on those a
         parallel append can still drop values.
 
-        The merged list is written as a manual edit, the same way an edit in the UI is. If
-        the property's current value was written by an automation (for example
-        propagation), its attribution is removed and the property keeps all of its values.
+        When there is something to append, the merged list is written as a manual edit, the
+        same way an edit in the UI is: if the property's current value was written by an
+        automation (for example propagation), its attribution is removed and the property
+        keeps all of its values. When every value is already present nothing is written at
+        all, so an automation's attribution is left as it is.
         The server still enforces the property definition, so appending to a single-value
         property that already has a value fails.
 
@@ -1971,6 +1977,9 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             entity_urn: The entity to update. It must already exist.
             property: The structured property, as a bare qualified name or a urn.
             values: A value or a list of values to append.
+
+        Repeated values are collapsed: if the entity somehow holds the same value twice,
+        the merged list keeps one of them.
 
         Returns:
             True if values were written, False if all of them were already present.

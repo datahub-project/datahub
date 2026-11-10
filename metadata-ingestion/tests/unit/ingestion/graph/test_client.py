@@ -424,6 +424,39 @@ class TestAddStructuredPropertyValues:
         assert graph.add_structured_property_values(self._ENTITY, self._PROP, ["b"])
         assert len(self._emitted(graph)) == 2
 
+    def test_restli_reports_a_conflict_as_422_with_the_version_message(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The restli ingest path uses 422 for every rejected write, so the message decides."""
+        monkeypatch.setattr("datahub.ingestion.graph.client.time.sleep", lambda _: None)
+        graph = self._graph_with(
+            StructuredPropertiesClass(properties=[self._assignment(["a"])]),
+            emit_side_effect=[
+                OperationalError(
+                    "Expected version 3, actual version 4",
+                    {"status": 422, "message": "Expected version 3, actual version 4"},
+                ),
+                None,
+            ],
+        )
+
+        assert graph.add_structured_property_values(self._ENTITY, self._PROP, ["b"])
+        assert len(self._emitted(graph)) == 2
+
+    def test_other_422_rejections_are_not_retried(self) -> None:
+        """A 422 that is not a precondition failure must fail immediately, not retry eight times."""
+        graph = self._graph_with(
+            None,
+            version="-1",
+            emit_side_effect=[
+                OperationalError("has cardinality 1", {"status": 422}),
+            ],
+        )
+
+        with pytest.raises(OperationalError):
+            graph.add_structured_property_values(self._ENTITY, self._PROP, ["a"])
+        assert len(self._emitted(graph)) == 1
+
     def test_conflicts_stop_after_the_attempt_limit(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
