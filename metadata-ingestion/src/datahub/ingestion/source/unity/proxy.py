@@ -1383,22 +1383,42 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     for column_name, future in zip(column_names, futures, strict=False)
                 }
 
+            # Databricks column names are case-insensitive, and lineage reports
+            # them in the case the query used, not the case the table stores.
+            lineage_by_column = {
+                name.casefold(): items for name, items in lineage.items()
+            }
             for column_name in column_names:
-                for item in lineage.get(column_name) or []:
+                for item in lineage_by_column.get(column_name.casefold()) or []:
                     table_ref = TableReference.create_from_lineage(
                         item,
                         table.schema.catalog.metastore,
                     )
                     if table_ref:
+                        upstream_column = self._table_column_names(
+                            table_ref.qualified_table_name
+                        ).get(item["name"].casefold(), item["name"])
                         table.upstreams.setdefault(table_ref, {}).setdefault(
                             column_name, []
-                        ).append(item["name"])
+                        ).append(upstream_column)
 
         except Exception as e:
             logger.warning(
                 f"Error getting column lineage on table {table.ref}: {e}",
                 exc_info=True,
             )
+
+    @cached(cachetools.LRUCache(maxsize=10_000))
+    def _table_column_names(self, full_name: str) -> Dict[str, str]:
+        """{casefolded name: stored name} for the columns of `full_name`, so
+        column lineage uses the names the table's schema is emitted with. Empty
+        when the table can't be read; lineage then keeps the reported names."""
+        try:
+            columns = self._workspace_client.tables.get(full_name=full_name).columns
+        except Exception as e:
+            logger.debug(f"Unable to read columns of {full_name}: {e}")
+            return {}
+        return {c.name.casefold(): c.name for c in columns or [] if c.name}
 
     @staticmethod
     def _escape_sequence(value: str) -> str:
