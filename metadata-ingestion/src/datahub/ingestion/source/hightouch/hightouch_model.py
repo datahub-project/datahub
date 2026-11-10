@@ -2,6 +2,7 @@ import logging
 from typing import Dict, Iterable, List, Optional, Union
 
 from datahub.emitter.mce_builder import make_tag_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.hightouch.config import (
@@ -10,7 +11,6 @@ from datahub.ingestion.source.hightouch.config import (
 )
 from datahub.ingestion.source.hightouch.constants import (
     HIGHTOUCH_PLATFORM,
-    QUERY_TYPE_TABLE,
 )
 from datahub.ingestion.source.hightouch.hightouch_container import (
     HightouchContainerHandler,
@@ -51,7 +51,6 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DatasetUrn
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
-from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 
 logger = logging.getLogger(__name__)
 
@@ -189,8 +188,10 @@ class HightouchModelHandler:
             )
         except Exception as e:
             reraise_if_programming_error(e, f"registering schema for {model.slug}")
-            logger.debug(
-                f"Failed to register model schema for {model.slug} with aggregator (optional SQL parsing feature): {e}"
+            self.report.report_datahub_lookup_failure(
+                "model schema registration for SQL parsing",
+                f"model_slug: {model.slug}",
+                e,
             )
 
     def setup_table_model_upstream(
@@ -199,14 +200,14 @@ class HightouchModelHandler:
         source: Optional[HightouchSourceConnection],
         custom_properties: Dict[str, str],
     ) -> Optional[Union[str, DatasetUrn]]:
-        if not source or model.query_type != QUERY_TYPE_TABLE or not model.name:
+        if not source:
             return None
-
-        table_name = self.urn_builder.qualified_table_name(model, source)
-        upstream_urn = self.urn_builder.make_upstream_table_urn(table_name, source)
+        upstream_urn = self.urn_builder.source_table_urn(model, source)
+        if not upstream_urn:
+            return None
         custom_properties["table_lineage"] = "true"
-        custom_properties["upstream_table"] = table_name
-        custom_properties["source_table_urn"] = str(upstream_urn)
+        custom_properties["upstream_table"] = DatasetUrn.from_string(upstream_urn).name
+        custom_properties["source_table_urn"] = upstream_urn
 
         return upstream_urn
 
@@ -239,9 +240,9 @@ class HightouchModelHandler:
                 model, str(dataset.urn), source, schema_field_classes
             )
 
-        upstream_urn = self.setup_table_model_upstream(model, source, custom_properties)
-        if upstream_urn:
-            dataset.set_upstreams([upstream_urn])
+        # The table model's UpstreamLineage, with its column lineage, is emitted
+        # once in emit_model_aspects; setting it here too would be overwritten.
+        self.setup_table_model_upstream(model, source, custom_properties)
 
         dataset.set_custom_properties(custom_properties)
 
@@ -259,14 +260,10 @@ class HightouchModelHandler:
         source: Optional[HightouchSourceConnection] = None,
         schema_fields: Optional[List[SchemaFieldClass]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        from datahub.emitter.mcp import MetadataChangeProposalWrapper
-
         dataset_urn = str(model_dataset.urn)
 
         subtypes: List[str] = [str(DatasetSubTypes.HIGHTOUCH_MODEL)]
-        if model.raw_sql:
-            subtypes.append(str(DatasetSubTypes.VIEW))
-        elif model.query_type == QUERY_TYPE_TABLE:
+        if model.table_name and not model.raw_sql:
             subtypes.append(str(DatasetSubTypes.TABLE))
         else:
             subtypes.append(str(DatasetSubTypes.VIEW))
@@ -299,46 +296,59 @@ class HightouchModelHandler:
                 ).as_workunit()
                 self.report.tags_emitted += len(tags_to_emit)
 
-        source_table_urn = None
+        if not source:
+            return
 
-        if model.query_type == QUERY_TYPE_TABLE and model.name and source:
-            table_name = self.urn_builder.qualified_table_name(model, source)
-            source_table_urn = self.urn_builder.make_upstream_table_urn(
-                table_name, source
-            )
-        elif model.raw_sql and source:
-            sql_table_urns = self.extract_table_urns_from_sql(model, source)
-            if len(sql_table_urns) == 1:
-                source_table_urn = sql_table_urns[0]
-
+        # Only a table or dbt model is the same asset as the table it reads, so only
+        # those get a sibling. A query over a table is a different asset.
+        source_table_urn = self.urn_builder.source_table_urn(model, source)
         if source_table_urn:
             if self.config.include_sibling_relationships:
                 yield from self.lineage_handler.emit_sibling_aspects(
-                    dataset_urn, str(source_table_urn)
+                    dataset_urn, source_table_urn
                 )
 
             # Table-model lineage is emitted only here, not through the SQL
             # aggregator: the aggregator's own UpstreamLineage for this URN would
             # replace this aspect and drop its column-level lineage.
-            if model.query_type == QUERY_TYPE_TABLE:
-                fine_grained_lineages = (
-                    self.lineage_handler.generate_table_model_column_lineage(
-                        model, dataset_urn, str(source_table_urn), schema_fields or []
-                    )
+            fine_grained_lineages = (
+                self.lineage_handler.generate_table_model_column_lineage(
+                    model, dataset_urn, source_table_urn, schema_fields or []
                 )
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=UpstreamLineageClass(
+                    upstreams=[
+                        UpstreamClass(
+                            dataset=source_table_urn,
+                            type=DatasetLineageTypeClass.COPY,
+                        )
+                    ],
+                    fineGrainedLineages=fine_grained_lineages or None,
+                ),
+            ).as_workunit()
+            self.report.column_lineage_emitted += len(fine_grained_lineages or [])
+        elif (
+            model.raw_sql
+            and not self.get_platform_for_source(source).include_schema_in_urn
+        ):
+            # The SQL aggregator would build upstream URNs with the schema segment
+            # the source's own URNs drop, so emit the normalized upstreams here.
+            # Table-level only: column lineage needs the aggregator.
+            upstream_urns = self.lineage_handler.sql_upstream_urns(model, source)
+            if upstream_urns:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn,
                     aspect=UpstreamLineageClass(
                         upstreams=[
                             UpstreamClass(
-                                dataset=str(source_table_urn),
-                                type=DatasetLineageTypeClass.COPY,
+                                dataset=urn, type=DatasetLineageTypeClass.VIEW
                             )
-                        ],
-                        fineGrainedLineages=fine_grained_lineages or None,
+                            for urn in upstream_urns
+                        ]
                     ),
                 ).as_workunit()
-                self.report.column_lineage_emitted += len(fine_grained_lineages or [])
 
     def emit_model(
         self,
@@ -369,52 +379,9 @@ class HightouchModelHandler:
                 self.get_aggregator_for_platform,
             )
 
-    def get_model_workunits(
-        self, model: HightouchModel, source: Optional[HightouchSourceConnection]
-    ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
-        self.report.report_models_scanned()
-        yield from self.emit_model(model, source)
-
     def extract_table_urns_from_sql(
         self,
         model: HightouchModel,
         source: HightouchSourceConnection,
     ) -> List[str]:
-        if not self.config.parse_model_sql:
-            return []
-
-        if not model.raw_sql:
-            return []
-
-        source_platform = self.get_platform_for_source(source)
-        if not source_platform.platform:
-            return []
-
-        try:
-            sql_result = create_lineage_sql_parsed_result(
-                query=model.raw_sql,
-                default_db=source_platform.database,
-                platform=source_platform.platform,
-                platform_instance=source_platform.platform_instance,
-                env=source_platform.env or self.config.env,
-                graph=None,
-                schema_aware=False,
-            )
-
-            if sql_result.in_tables:
-                # Normalize parser output to the connector's own URN scheme so
-                # raw-SQL upstreams match the source platform's emitted entities
-                # (honors include_schema_in_urn).
-                return [
-                    self.urn_builder.normalize_parsed_upstream_urn(urn, source)
-                    for urn in sql_result.in_tables
-                ]
-        except Exception as e:
-            reraise_if_programming_error(
-                e, f"extracting tables from SQL for model {model.id}"
-            )
-            logger.debug(
-                f"SQL parsing failed for model {model.id} (continuing without extracted lineage): {e}"
-            )
-
-        return []
+        return self.lineage_handler.sql_upstream_urns(model, source)

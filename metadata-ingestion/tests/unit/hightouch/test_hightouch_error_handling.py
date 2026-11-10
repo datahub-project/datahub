@@ -9,7 +9,6 @@ from datahub.ingestion.source.hightouch.config import (
     HightouchAPIConfig,
     HightouchSourceConfig,
 )
-from datahub.ingestion.source.hightouch.constants import DESTINATION_FALLBACK_SUFFIX
 from datahub.ingestion.source.hightouch.hightouch import HightouchSource
 from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
 
@@ -29,7 +28,7 @@ class TestHightouchAPIFailures:
             patch.object(api_client.session, "request", return_value=mock_response),
             pytest.raises(HTTPError),
         ):
-            api_client.get_workspaces()
+            api_client.get_syncs()
 
     def test_api_429_rate_limit(self):
         api_config = HightouchAPIConfig(
@@ -45,7 +44,7 @@ class TestHightouchAPIFailures:
             patch.object(api_client.session, "request", return_value=mock_response),
             pytest.raises(HTTPError),
         ):
-            api_client.get_workspaces()
+            api_client.get_syncs()
 
     def test_api_500_server_error(self):
         api_config = HightouchAPIConfig(
@@ -61,7 +60,7 @@ class TestHightouchAPIFailures:
             patch.object(api_client.session, "request", return_value=mock_response),
             pytest.raises(HTTPError),
         ):
-            api_client.get_workspaces()
+            api_client.get_syncs()
 
     def test_api_timeout(self):
         api_config = HightouchAPIConfig(
@@ -75,7 +74,7 @@ class TestHightouchAPIFailures:
             ),
             pytest.raises(Timeout),
         ):
-            api_client.get_workspaces()
+            api_client.get_syncs()
 
     def test_api_connection_error(self):
         api_config = HightouchAPIConfig(
@@ -91,7 +90,7 @@ class TestHightouchAPIFailures:
             ),
             pytest.raises(ConnectionError),
         ):
-            api_client.get_workspaces()
+            api_client.get_syncs()
 
     def test_api_malformed_json_response(self):
         api_config = HightouchAPIConfig(
@@ -108,7 +107,7 @@ class TestHightouchAPIFailures:
             patch.object(api_client.session, "request", return_value=mock_response),
             pytest.raises(ValueError),
         ):
-            api_client.get_workspaces()
+            api_client.get_syncs()
 
 
 class TestHightouchLargeDatasets:
@@ -132,6 +131,7 @@ class TestHightouchLargeDatasets:
             sync_mock.id = f"sync_{i}"
             sync_mock.slug = f"sync_slug_{i}"
             sync_mock.model_id = f"model_{i % 100}"
+            sync_mock.referenced_columns = None
             sync_mock.destination_id = f"dest_{i % 50}"
             sync_mock.disabled = False
             sync_mock.schedule = None
@@ -148,7 +148,7 @@ class TestHightouchLargeDatasets:
                 model_mock.source_id = f"source_{i % 20}"
                 model_mock.query_type = "table"
                 model_mock.raw_sql = None
-                model_mock.query_schema = []
+                model_mock.table_name = None
                 model_mock.primary_key = "id"
                 model_mock.workspace_id = None
                 model_mock.folder_id = None
@@ -177,7 +177,6 @@ class TestHightouchLargeDatasets:
 
         mock_client_instance.get_syncs.return_value = syncs
         mock_client_instance.get_models.return_value = []
-        mock_client_instance.get_workspaces.return_value = []
         mock_client_instance.get_folders.return_value = []
         mock_client_instance.get_contracts.return_value = []
         mock_client_instance.get_model_by_id.side_effect = lambda mid: models_map.get(
@@ -220,7 +219,7 @@ class TestHightouchLargeDatasets:
             model_mock.source_id = f"source_{i % 20}"
             model_mock.query_type = "table"
             model_mock.raw_sql = None
-            model_mock.query_schema = []
+            model_mock.table_name = None
             model_mock.primary_key = "id"
             model_mock.workspace_id = f"workspace_{i % 5}"
             model_mock.folder_id = None
@@ -233,7 +232,6 @@ class TestHightouchLargeDatasets:
 
         mock_client_instance.get_models.return_value = models
         mock_client_instance.get_syncs.return_value = []
-        mock_client_instance.get_workspaces.return_value = []
         mock_client_instance.get_folders.return_value = []
         mock_client_instance.get_contracts.return_value = []
 
@@ -266,7 +264,6 @@ class TestHightouchMalformedAPIResponses:
         malformed_sync.destination_id = None
 
         mock_client_instance.get_syncs.return_value = [malformed_sync]
-        mock_client_instance.get_workspaces.return_value = []
         mock_client_instance.get_folders.return_value = []
         mock_client_instance.get_contracts.return_value = []
 
@@ -278,56 +275,6 @@ class TestHightouchMalformedAPIResponses:
 
             with pytest.raises((AttributeError, TypeError, ValueError)):
                 list(source.get_workunits())
-
-    @patch("datahub.ingestion.source.hightouch.hightouch_api.HightouchAPIClient")
-    def test_model_with_invalid_query_schema(self, mock_api_client):
-        config = HightouchSourceConfig(
-            api_config={"api_key": "test_key", "base_url": "https://api.hightouch.com"},
-            emit_models_as_datasets=True,
-        )
-        ctx = PipelineContext(run_id="test_run")
-
-        mock_client_instance = Mock()
-        mock_api_client.return_value = mock_client_instance
-
-        malformed_model = Mock()
-        malformed_model.id = "model_1"
-        malformed_model.slug = "malformed_model"
-        malformed_model.name = "Malformed Model"
-        malformed_model.source_id = "source_1"
-        malformed_model.query_type = "raw_sql"
-        malformed_model.raw_sql = "SELECT * FROM table"
-        malformed_model.query_schema = [{"invalid_field": "value"}]
-        malformed_model.primary_key = None
-        malformed_model.workspace_id = "workspace_1"
-        malformed_model.folder_id = None
-        malformed_model.tags = {}
-        malformed_model.is_schema = False
-        malformed_model.created_at = None
-        malformed_model.updated_at = None
-        malformed_model.description = None
-
-        mock_source = Mock()
-        mock_source.id = "source_1"
-        mock_source.name = "Test Source"
-        mock_source.type = "snowflake"
-        mock_source.configuration = {}
-
-        mock_client_instance.get_models.return_value = [malformed_model]
-        mock_client_instance.get_syncs.return_value = []
-        mock_client_instance.get_workspaces.return_value = []
-        mock_client_instance.get_folders.return_value = []
-        mock_client_instance.get_source_by_id.return_value = mock_source
-        mock_client_instance.get_contracts.return_value = []
-
-        with patch(
-            "datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient",
-            return_value=mock_client_instance,
-        ):
-            source = HightouchSource(config, ctx)
-            list(source.get_workunits())
-
-            assert source.report.model_schemas_skipped > 0
 
     @patch("datahub.ingestion.source.hightouch.hightouch_api.HightouchAPIClient")
     def test_destination_with_missing_configuration(self, mock_api_client):
@@ -358,7 +305,7 @@ class TestHightouchMalformedAPIResponses:
         model_mock.source_id = "source_1"
         model_mock.query_type = "table"
         model_mock.raw_sql = None
-        model_mock.query_schema = []
+        model_mock.table_name = None
         model_mock.primary_key = "id"
         model_mock.workspace_id = None
         model_mock.folder_id = None
@@ -376,7 +323,6 @@ class TestHightouchMalformedAPIResponses:
 
         mock_client_instance.get_syncs.return_value = [sync_mock]
         mock_client_instance.get_models.return_value = []
-        mock_client_instance.get_workspaces.return_value = []
         mock_client_instance.get_folders.return_value = []
         mock_client_instance.get_model_by_id.return_value = model_mock
         mock_client_instance.get_destination_by_id.return_value = dest_mock
@@ -397,9 +343,8 @@ class TestHightouchMalformedAPIResponses:
             source = HightouchSource(config, ctx)
             workunits = list(source.get_workunits())
 
-            # The destination has no configuration, so the outlet table URN must
-            # fall back to "<sync_slug>_destination". Assert the missing-config
-            # branch actually drives the emitted dataJob lineage.
+            # The destination has no configuration, so no destination object can
+            # be resolved: the sync gets no outlet rather than an invented one.
             outlet_urns = [
                 urn
                 for wu in workunits
@@ -412,10 +357,8 @@ class TestHightouchMalformedAPIResponses:
                     or []
                 )
             ]
-            assert any(
-                f"{sync_mock.slug}{DESTINATION_FALLBACK_SUFFIX}" in urn
-                for urn in outlet_urns
-            )
+            assert outlet_urns == []
+            assert list(source.report.unresolved_destinations) == [sync_mock.slug]
 
 
 class TestHightouchConfigValidation:

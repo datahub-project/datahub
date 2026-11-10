@@ -44,8 +44,9 @@ table schemas (e.g., Snowflake lowercasing). For best results:
 
 #### Sibling Relationships
 
-For table-type models and simple raw_sql models, you can establish sibling relationships between
-the Hightouch model and its upstream source table:
+For table and dbt models, which expose a warehouse table as is, you can establish sibling
+relationships between the Hightouch model and that table. Raw SQL models get lineage to the tables
+they read but no sibling, because a query over a table is a different asset from the table:
 
 ```yaml
 include_sibling_relationships: true # default: true
@@ -89,8 +90,11 @@ sources_to_platform_instance:
     platform_instance: "prod-snowflake"
     env: "PROD"
     database: "analytics"
+    # Lowercase upstream table names to match the source connector's URNs.
+    # Defaults to true for Snowflake and false otherwise.
+    convert_urns_to_lowercase: true
 
-destinations_to_platform_instance:
+destination_to_platform_instance:
   # Key is the Hightouch destination ID
   "dest_123":
     platform: "salesforce"
@@ -107,7 +111,8 @@ curl -H "Authorization: Bearer YOUR_API_KEY" https://api.hightouch.com/api/v1/so
 
 #### Filtering
 
-Control which syncs and models are ingested using regex patterns:
+Control which syncs and models are ingested using regex patterns. `sync_patterns` match each
+sync's slug, and `model_patterns` match each model's display name:
 
 ```yaml
 sync_patterns:
@@ -133,7 +138,9 @@ include_sync_runs: true
 max_sync_runs_per_sync: 10 # last 10 runs per sync
 ```
 
-Set `include_sync_runs: false` to skip sync run history entirely.
+Set `include_sync_runs: false` or `max_sync_runs_per_sync: 0` to skip sync run history entirely.
+A run that has not finished (queued, querying, processing or reporting) is recorded with its
+start only.
 
 #### Supported Source and Destination Types
 
@@ -141,19 +148,26 @@ This connector supports 30+ data source types and 50+ destination types. Platfor
 works automatically for major sources including Snowflake, BigQuery, Redshift, Databricks,
 PostgreSQL, MySQL, SQL Server, and common SaaS destinations. For sources or destinations not
 automatically recognized, configure the mapping manually using `sources_to_platform_instance`
-and `destinations_to_platform_instance`. For the complete list of supported integrations, refer
+and `destination_to_platform_instance`. For the complete list of supported integrations, refer
 to the [Hightouch documentation](https://hightouch.com/docs/destinations/overview/).
 
 ### Limitations
 
-- **User Ownership**: The Hightouch API does not expose creator/owner information for syncs, so
-  ownership metadata is not extracted.
+- **Ownership**: The API returns the creator and last editor of models and syncs, but the
+  connector does not extract ownership yet.
+- **Destination lineage**: Lineage to a destination is carried by the sync's DataJob. Nothing is
+  written onto destination datasets, so their own connector's lineage is left as it is. A sync
+  whose configuration names no destination object the connector recognises has no outlet, and is
+  listed under `unresolved_destinations` in the report.
+- **Model schemas**: The API returns no column list for a model. A table or dbt model takes its
+  schema from the table it reads, when that table is already in DataHub; otherwise the schema is
+  the union of the columns its syncs reference, typed as strings.
 - **API Rate Limits**: The Hightouch API has rate limits. The connector implements retry logic
   with exponential backoff, but very large workspaces with thousands of syncs may need to be
   ingested in batches.
 - **Platform Detection**: Automatic platform mapping works for major databases and SaaS tools.
   Custom or less common source/destination types may need manual platform mapping via
-  `sources_to_platform_instance` or `destinations_to_platform_instance`.
+  `sources_to_platform_instance` or `destination_to_platform_instance`.
 - **Complex SQL Queries**: SQL parsing works best for simple queries. Complex multi-table JOINs,
   CTEs, and subqueries may not produce complete column-level lineage.
 
@@ -172,7 +186,7 @@ new key from **Settings** → **API Keys** in the Hightouch UI if needed.
 If lineage is not appearing correctly:
 
 1. Verify source and destination IDs are configured in `sources_to_platform_instance` /
-   `destinations_to_platform_instance`
+   `destination_to_platform_instance`
 2. Check that `emit_models_as_datasets` is set to your preferred mode
 3. Ensure source and destination datasets already exist in DataHub (or ingest them separately)
 

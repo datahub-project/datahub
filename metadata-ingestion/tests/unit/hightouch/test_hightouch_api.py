@@ -278,3 +278,41 @@ def test_pagination_cap_truncates_and_warns(monkeypatch):
 
     assert len(results) == 3
     assert len(report.warnings) >= 1
+
+
+def test_field_mappings_include_the_external_id_and_skip_non_column_mappings() -> None:
+    client = HightouchAPIClient(HightouchAPIConfig(api_key="test"))
+    sync = HightouchSync.model_validate(
+        {
+            "id": 1,
+            "slug": "contacts",
+            "workspaceId": 1,
+            "modelId": 2,
+            "destinationId": 3,
+            "createdAt": "2023-01-01T00:00:00Z",
+            "updatedAt": "2023-01-01T00:00:00Z",
+            # Shaped like the configuration example in Hightouch's API spec.
+            "configuration": {
+                "mode": "upsert",
+                "object": "contacts",
+                "mappings": [
+                    {"to": "email", "from": "email", "type": "standard"},
+                    {"to": "source", "from": "hightouch", "type": "static"},
+                ],
+                "externalIdMapping": {
+                    "to": "firstname",
+                    "from": "test_id",
+                    "type": "standard",
+                },
+            },
+        }
+    )
+
+    mappings = client.extract_field_mappings(sync)
+
+    assert [
+        (m.source_field, m.destination_field, m.is_primary_key) for m in mappings
+    ] == [
+        ("email", "email", False),
+        ("test_id", "firstname", True),
+    ]

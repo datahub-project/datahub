@@ -16,8 +16,6 @@ from datahub.ingestion.source.hightouch.constants import (
     API_ENDPOINT_MODELS,
     API_ENDPOINT_SOURCES,
     API_ENDPOINT_SYNCS,
-    API_ENDPOINT_USERS,
-    API_ENDPOINT_WORKSPACES,
     API_PAGINATION_DEFAULT_LIMIT,
     API_PAGINATION_INITIAL_OFFSET,
     API_PAGINATION_MAX_PAGES,
@@ -29,13 +27,10 @@ from datahub.ingestion.source.hightouch.constants import (
     ENTITY_NAME_SOURCE,
     ENTITY_NAME_SYNC,
     ENTITY_NAME_SYNC_RUN,
-    ENTITY_NAME_USER,
-    ENTITY_NAME_WORKSPACE,
     HTTP_CONTENT_TYPE_JSON,
     HTTP_HEADER_AUTHORIZATION,
     HTTP_HEADER_CONTENT_TYPE,
     HTTP_METHOD_GET,
-    HTTP_PROTOCOL_HTTP,
     HTTP_PROTOCOL_HTTPS,
     HTTP_RETRY_ALLOWED_METHODS,
     HTTP_RETRY_BACKOFF_FACTOR,
@@ -50,8 +45,6 @@ from datahub.ingestion.source.hightouch.models import (
     HightouchSourceConnection,
     HightouchSync,
     HightouchSyncRun,
-    HightouchUser,
-    HightouchWorkspace,
 )
 
 T = TypeVar("T", bound=BaseModel)
@@ -96,11 +89,6 @@ class HightouchAPIClient:
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
         session.mount(HTTP_PROTOCOL_HTTPS, adapter)
-        # The API key is sent as a Bearer token, so plaintext HTTP is only mounted
-        # for the loopback base URLs the config validator allows (local tests);
-        # production base URLs are required to be https.
-        if self.config.base_url.startswith(HTTP_PROTOCOL_HTTP):
-            session.mount(HTTP_PROTOCOL_HTTP, adapter)
 
         session.headers.update(
             {
@@ -250,23 +238,10 @@ class HightouchAPIClient:
             self._report_parse_failure(f"{entity_name} {entity_id}", str(e))
             return None
 
-    def get_workspaces(self) -> List[HightouchWorkspace]:
-        return self._fetch_entities(
-            API_ENDPOINT_WORKSPACES, HightouchWorkspace, ENTITY_NAME_WORKSPACE
-        )
-
-    def get_workspace_by_id(self, workspace_id: str) -> Optional[HightouchWorkspace]:
-        return self._fetch_entity_by_id(
-            API_ENDPOINT_WORKSPACES,
-            workspace_id,
-            HightouchWorkspace,
-            ENTITY_NAME_WORKSPACE,
-        )
-
-    def get_sources(self) -> List[HightouchSourceConnection]:
-        return self._fetch_entities(
-            API_ENDPOINT_SOURCES, HightouchSourceConnection, ENTITY_NAME_SOURCE
-        )
+    def check_access(self) -> None:
+        """One cheap, documented call that fails the way ingestion would: bad key,
+        missing permission or no network."""
+        self._make_request(HTTP_METHOD_GET, API_ENDPOINT_SOURCES, params={"limit": 1})
 
     def get_source_by_id(self, source_id: str) -> Optional[HightouchSourceConnection]:
         return self._fetch_entity_by_id(
@@ -286,11 +261,6 @@ class HightouchAPIClient:
             API_ENDPOINT_MODELS, model_id, HightouchModel, ENTITY_NAME_MODEL
         )
 
-    def get_destinations(self) -> List[HightouchDestination]:
-        return self._fetch_entities(
-            API_ENDPOINT_DESTINATIONS, HightouchDestination, ENTITY_NAME_DESTINATION
-        )
-
     def get_destination_by_id(
         self, destination_id: str
     ) -> Optional[HightouchDestination]:
@@ -303,11 +273,6 @@ class HightouchAPIClient:
 
     def get_syncs(self) -> List[HightouchSync]:
         return self._fetch_entities(API_ENDPOINT_SYNCS, HightouchSync, ENTITY_NAME_SYNC)
-
-    def get_sync_by_id(self, sync_id: str) -> Optional[HightouchSync]:
-        return self._fetch_entity_by_id(
-            API_ENDPOINT_SYNCS, sync_id, HightouchSync, ENTITY_NAME_SYNC
-        )
 
     def get_sync_runs(self, sync_id: str, limit: int = 10) -> List[HightouchSyncRun]:
         response = self._make_request(
@@ -326,11 +291,6 @@ class HightouchAPIClient:
                 continue
 
         return runs
-
-    def get_user_by_id(self, user_id: str) -> Optional[HightouchUser]:
-        return self._fetch_entity_by_id(
-            API_ENDPOINT_USERS, user_id, HightouchUser, ENTITY_NAME_USER
-        )
 
     def get_contracts(self) -> List[HightouchContract]:
         # Contracts are optional (plan-gated) and a failure here must never abort the
@@ -410,6 +370,26 @@ class HightouchAPIClient:
     def _normalize_raw_field_mappings(
         self, sync: HightouchSync, config: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
+        mappings = self._listed_field_mappings(sync, config)
+        # The field Hightouch matches records on is mapped separately from the
+        # other columns, as a single {from, to} object.
+        external_id = config.get("externalIdMapping")
+        if isinstance(external_id, dict):
+            mappings.append(
+                {
+                    "source": external_id.get("from"),
+                    "dest": external_id.get("to"),
+                    "is_pk": True,
+                    "type": external_id.get("type"),
+                }
+            )
+        # Only a standard mapping copies a model column; other types (static
+        # values, templates) have no source column to draw lineage from.
+        return [m for m in mappings if m.get("type") in (None, "standard")]
+
+    def _listed_field_mappings(
+        self, sync: HightouchSync, config: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
         # Hightouch encodes column mappings in three shapes depending on the
         # destination: a `mappings` list ({from,to}), a `fieldMappings` list
         # ({sourceField,destinationField}), and a `columnMappings` dict keyed by
@@ -466,5 +446,12 @@ class HightouchAPIClient:
             source = mapping.get(source_key, mapping.get("from"))
             dest = mapping.get(dest_key, mapping.get("to"))
             is_pk = mapping.get("isPrimaryKey", mapping.get("is_primary_key", False))
-            normalized.append({"source": source, "dest": dest, "is_pk": is_pk})
+            normalized.append(
+                {
+                    "source": source,
+                    "dest": dest,
+                    "is_pk": is_pk,
+                    "type": mapping.get("type"),
+                }
+            )
         return normalized

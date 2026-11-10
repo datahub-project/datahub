@@ -12,8 +12,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400597,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -30,8 +30,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400599,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -46,8 +46,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400600,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -64,8 +64,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400800,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -82,8 +82,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400800,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -98,14 +98,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400800,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -114,32 +114,33 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400803,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
             "customProperties": {
-                "model_id": "model_1",
-                "query_type": "raw_sql",
+                "model_id": "201",
+                "query_type": "table",
                 "is_schema": "False",
-                "primary_key": "customer_id",
-                "source_id": "source_1",
-                "source_name": "Production Snowflake",
+                "primary_key": "event_id",
+                "source_id": "101",
+                "source_name": "Analytics Warehouse",
                 "source_type": "snowflake",
                 "tag_team": "growth",
-                "tag_priority": "high",
-                "raw_sql": "SELECT customer_id, email, first_name FROM customers"
+                "table_lineage": "true",
+                "upstream_table": "analytics.public.product_events",
+                "source_table_urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.product_events,PROD)"
             },
-            "name": "Customer 360 Model",
-            "description": "Unified customer view from multiple sources",
+            "name": "Product Events",
+            "description": "One row per product interaction.",
             "created": {
                 "time": 1672531200000
             },
@@ -150,14 +151,243 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400803,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:hightouch",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "event_id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "user_email",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "event_name",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "event_timestamp",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Hightouch Model",
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:ht_team_growth"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.product_events,PROD)",
+                    "type": "COPY"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:4c7f1cf0728e87d41be5a300d48f8d6a"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Models"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,active-customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hightouch"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,active-customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "model_id": "202",
+                "query_type": "raw_sql",
+                "is_schema": "False",
+                "primary_key": "customer_id",
+                "source_id": "101",
+                "source_name": "Analytics Warehouse",
+                "source_type": "snowflake",
+                "raw_sql": "SELECT customer_id, email, lifetime_value FROM analytics.public.customers WHERE is_active = TRUE"
+            },
+            "name": "Active Customers",
+            "created": {
+                "time": 1672531200000
+            },
+            "lastModified": {
+                "time": 1672617600000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,active-customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -183,10 +413,10 @@
                     "nullable": false,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NumberType": {}
+                            "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "INTEGER",
+                    "nativeDataType": "STRING",
                     "recursive": false,
                     "isPartOfKey": true
                 },
@@ -203,7 +433,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "first_name",
+                    "fieldPath": "lifetime_value",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -218,14 +448,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400803,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,active-customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -237,55 +467,32 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400804,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,active-customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "SELECT customer_id, email, first_name FROM customers",
+            "viewLogic": "SELECT customer_id, email, lifetime_value FROM analytics.public.customers WHERE is_active = TRUE",
             "viewLanguage": "SQL"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400804,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:ht_team_growth"
-                },
-                {
-                    "tag": "urn:li:tag:ht_priority_high"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400804,
-        "runId": "hightouch-test-run",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,active-customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -294,14 +501,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400804,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,active-customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -314,14 +521,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400804,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(hightouch,sync_1,PROD)",
+    "entityUrn": "urn:li:dataFlow:(hightouch,401,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -330,32 +537,32 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400804,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(hightouch,sync_1,PROD)",
+    "entityUrn": "urn:li:dataFlow:(hightouch,401,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": "customers-to-salesforce",
+            "name": "product-events-to-leads",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400805,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(hightouch,sync_1,PROD)",
+    "entityUrn": "urn:li:dataFlow:(hightouch,401,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -364,14 +571,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400805,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(hightouch,sync_1,PROD)",
+    "entityUrn": "urn:li:dataFlow:(hightouch,401,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -384,14 +591,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400805,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,sync_1,PROD),sync_1)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,401,PROD),401)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -400,88 +607,90 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400805,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,sync_1,PROD),sync_1)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,401,PROD),401)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
         "json": {
             "customProperties": {
-                "sync_id": "sync_1",
-                "model_id": "model_1",
-                "destination_id": "dest_1",
+                "sync_id": "401",
+                "model_id": "201",
+                "destination_id": "301",
                 "disabled": "False",
-                "model_name": "Customer 360 Model",
-                "model_slug": "customer-360-model",
-                "query_type": "raw_sql",
-                "model_description": "Unified customer view from multiple sources",
-                "destination_name": "Salesforce Production",
-                "destination_type": "salesforce"
+                "schedule": "{'type': 'interval', 'schedule': {'interval': {'unit': 'hour', 'quantity': 1}}}",
+                "model_name": "Product Events",
+                "model_slug": "product-events",
+                "query_type": "table",
+                "model_description": "One row per product interaction.",
+                "destination_name": "CRM",
+                "destination_type": "salesforce",
+                "hightouch_tags": "owner:growth"
             },
-            "name": "customers-to-salesforce",
+            "name": "product-events-to-leads",
             "type": {
                 "string": "COMMAND"
             },
-            "flowUrn": "urn:li:dataFlow:(hightouch,sync_1,PROD)",
+            "flowUrn": "urn:li:dataFlow:(hightouch,401,PROD)",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400805,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,sync_1,PROD),sync_1)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,401,PROD),401)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Contact,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Lead,PROD)"
             ],
             "fineGrainedLineages": [
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD),customer_id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD),user_email)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Contact,PROD),External_ID__c)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Lead,PROD),Email)"
                     ],
                     "confidenceScore": 1.0
                 },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD),email)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD),event_name)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Contact,PROD),Email)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Lead,PROD),Last_Event__c)"
                     ],
                     "confidenceScore": 1.0
                 },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD),first_name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD),event_id)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Contact,PROD),FirstName)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Lead,PROD),External_Id__c)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -489,14 +698,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400806,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,sync_1,PROD),sync_1)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,401,PROD),401)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -506,45 +715,158 @@
                     "id": "Syncs"
                 },
                 {
-                    "id": "customers-to-salesforce",
-                    "urn": "urn:li:dataFlow:(hightouch,sync_1,PROD)"
+                    "id": "product-events-to-leads",
+                    "urn": "urn:li:dataFlow:(hightouch,401,PROD)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400806,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:2fb64d74a2309c2bab37d8511439dece",
+    "entityUrn": "urn:li:dataProcessInstance:80bf95afd7d897bb42de8327f50948af",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
         "json": {
             "customProperties": {
-                "sync_run_id": "run_1",
-                "sync_id": "sync_1",
-                "status": "success",
-                "planned_rows_added": "50",
-                "planned_rows_changed": "30",
-                "planned_rows_removed": "5",
-                "planned_rows_total": "85",
-                "successful_rows_added": "50",
-                "successful_rows_changed": "30",
-                "successful_rows_removed": "5",
-                "successful_rows_total": "85",
+                "sync_run_id": "5002",
+                "sync_id": "401",
+                "status": "querying",
+                "planned_rows_added": "0",
+                "planned_rows_changed": "0",
+                "planned_rows_removed": "0",
+                "planned_rows_total": "0",
+                "successful_rows_added": "0",
+                "successful_rows_changed": "0",
+                "successful_rows_removed": "0",
+                "successful_rows_total": "0",
                 "failed_rows_added": "0",
                 "failed_rows_changed": "0",
                 "failed_rows_removed": "0",
                 "failed_rows_total": "0",
-                "query_size_bytes": "1000",
+                "completion_ratio": "0.0%"
+            },
+            "name": "5002",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1701428400000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:80bf95afd7d897bb42de8327f50948af",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,401,PROD),401)",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:80bf95afd7d897bb42de8327f50948af",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:80bf95afd7d897bb42de8327f50948af",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Lead,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:80bf95afd7d897bb42de8327f50948af",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1701428400000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:5c710a32500949111dffc7d8d0ecbe5f",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "sync_run_id": "5001",
+                "sync_id": "401",
+                "status": "success",
+                "planned_rows_added": "50",
+                "planned_rows_changed": "30",
+                "planned_rows_removed": "0",
+                "planned_rows_total": "80",
+                "successful_rows_added": "50",
+                "successful_rows_changed": "30",
+                "successful_rows_removed": "0",
+                "successful_rows_total": "80",
+                "failed_rows_added": "0",
+                "failed_rows_changed": "0",
+                "failed_rows_removed": "0",
+                "failed_rows_total": "0",
+                "query_size_bytes": "1200",
                 "completion_ratio": "100.0%"
             },
-            "name": "run_1",
+            "name": "5001",
             "type": "BATCH_SCHEDULED",
             "created": {
                 "time": 1701424800000,
@@ -553,67 +875,67 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400806,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:2fb64d74a2309c2bab37d8511439dece",
+    "entityUrn": "urn:li:dataProcessInstance:5c710a32500949111dffc7d8d0ecbe5f",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
         "json": {
-            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,sync_1,PROD),sync_1)",
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,401,PROD),401)",
             "upstreamInstances": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400806,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:2fb64d74a2309c2bab37d8511439dece",
+    "entityUrn": "urn:li:dataProcessInstance:5c710a32500949111dffc7d8d0ecbe5f",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceInput",
     "aspect": {
         "json": {
             "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400806,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:2fb64d74a2309c2bab37d8511439dece",
+    "entityUrn": "urn:li:dataProcessInstance:5c710a32500949111dffc7d8d0ecbe5f",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceOutput",
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Contact,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Lead,PROD)"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400807,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:2fb64d74a2309c2bab37d8511439dece",
+    "entityUrn": "urn:li:dataProcessInstance:5c710a32500949111dffc7d8d0ecbe5f",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
@@ -627,14 +949,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400807,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:2fb64d74a2309c2bab37d8511439dece",
+    "entityUrn": "urn:li:dataProcessInstance:5c710a32500949111dffc7d8d0ecbe5f",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
@@ -652,14 +974,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400807,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(hightouch,402,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -668,189 +990,32 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400807,
-        "runId": "hightouch-test-run",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "model_id": "model_2",
-                "query_type": "table",
-                "is_schema": "False",
-                "primary_key": "event_id",
-                "source_id": "source_1",
-                "source_name": "Production Snowflake",
-                "source_type": "snowflake",
-                "table_lineage": "true",
-                "upstream_table": "analytics.Product Events",
-                "source_table_urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-snowflake.analytics.Product Events,PROD)"
-            },
-            "name": "Product Events",
-            "description": "Product usage events",
-            "created": {
-                "time": 1672531200000
-            },
-            "lastModified": {
-                "time": 1672617600000
-            },
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400807,
-        "runId": "hightouch-test-run",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-snowflake.analytics.Product Events,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400808,
-        "runId": "hightouch-test-run",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Hightouch Model",
-                "Table"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400808,
-        "runId": "hightouch-test-run",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-snowflake.analytics.Product Events,PROD)",
-                    "type": "COPY"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400808,
-        "runId": "hightouch-test-run",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:4c7f1cf0728e87d41be5a300d48f8d6a"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400808,
-        "runId": "hightouch-test-run",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Models"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400808,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(hightouch,sync_2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:hightouch"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110400808,
-        "runId": "hightouch-test-run",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(hightouch,sync_2,PROD)",
+    "entityUrn": "urn:li:dataFlow:(hightouch,402,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": "events-to-hubspot",
+            "name": "product-events-to-contacts",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400808,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(hightouch,sync_2,PROD)",
+    "entityUrn": "urn:li:dataFlow:(hightouch,402,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -859,14 +1024,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400809,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(hightouch,sync_2,PROD)",
+    "entityUrn": "urn:li:dataFlow:(hightouch,402,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -879,14 +1044,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400809,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,sync_2,PROD),sync_2)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,402,PROD),402)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -895,47 +1060,47 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400809,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,sync_2,PROD),sync_2)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,402,PROD),402)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
         "json": {
             "customProperties": {
-                "sync_id": "sync_2",
-                "model_id": "model_2",
-                "destination_id": "dest_2",
+                "sync_id": "402",
+                "model_id": "201",
+                "destination_id": "301",
                 "disabled": "False",
                 "model_name": "Product Events",
                 "model_slug": "product-events",
                 "query_type": "table",
-                "model_description": "Product usage events",
-                "destination_name": "HubSpot Marketing",
-                "destination_type": "hubspot"
+                "model_description": "One row per product interaction.",
+                "destination_name": "CRM",
+                "destination_type": "salesforce"
             },
-            "name": "events-to-hubspot",
+            "name": "product-events-to-contacts",
             "type": {
                 "string": "COMMAND"
             },
-            "flowUrn": "urn:li:dataFlow:(hightouch,sync_2,PROD)",
+            "flowUrn": "urn:li:dataFlow:(hightouch,402,PROD)",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400809,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,sync_2,PROD),sync_2)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,402,PROD),402)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -944,7 +1109,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hubspot,contacts,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Contact,PROD)"
             ],
             "fineGrainedLineages": [
                 {
@@ -954,18 +1119,18 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hubspot,contacts,PROD),email)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Contact,PROD),Email)"
                     ],
                     "confidenceScore": 1.0
                 },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD),event_type)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD),event_timestamp)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hubspot,contacts,PROD),event_name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Contact,PROD),Last_Activity__c)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -973,14 +1138,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400809,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,sync_2,PROD),sync_2)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,402,PROD),402)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -990,110 +1155,428 @@
                     "id": "Syncs"
                 },
                 {
-                    "id": "events-to-hubspot",
-                    "urn": "urn:li:dataFlow:(hightouch,sync_2,PROD)"
+                    "id": "product-events-to-contacts",
+                    "urn": "urn:li:dataFlow:(hightouch,402,PROD)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400810,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Contact,PROD)",
-    "changeType": "PATCH",
-    "aspectName": "upstreamLineage",
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4834dc53836a4641592b01054f6309a8",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
-                "value": {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
-                    "type": "COPY"
-                }
+        "json": {
+            "customProperties": {
+                "sync_run_id": "5101",
+                "sync_id": "402",
+                "status": "failed",
+                "planned_rows_added": "0",
+                "planned_rows_changed": "40",
+                "planned_rows_removed": "0",
+                "planned_rows_total": "40",
+                "successful_rows_added": "0",
+                "successful_rows_changed": "20",
+                "successful_rows_removed": "0",
+                "successful_rows_total": "20",
+                "failed_rows_added": "0",
+                "failed_rows_changed": "20",
+                "failed_rows_removed": "0",
+                "failed_rows_total": "20",
+                "query_size_bytes": "1200",
+                "completion_ratio": "50.0%",
+                "error_message": "Destination rejected 20 rows: required field missing"
             },
-            {
-                "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Contact,PROD),External_ID__c)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD),customer_id)",
-                "value": {
-                    "confidenceScore": 1.0
-                }
-            },
-            {
-                "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Contact,PROD),Email)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD),email)",
-                "value": {
-                    "confidenceScore": 1.0
-                }
-            },
-            {
-                "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Contact,PROD),FirstName)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD),first_name)",
-                "value": {
-                    "confidenceScore": 1.0
-                }
+            "name": "5101",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1701421200000,
+                "actor": "urn:li:corpuser:datahub"
             }
-        ]
+        }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400810,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hubspot,contacts,PROD)",
-    "changeType": "PATCH",
-    "aspectName": "upstreamLineage",
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4834dc53836a4641592b01054f6309a8",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
-                "value": {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
-                    "type": "COPY"
-                }
-            },
-            {
-                "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hubspot,contacts,PROD),email)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD),user_email)",
-                "value": {
-                    "confidenceScore": 1.0
-                }
-            },
-            {
-                "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hubspot,contacts,PROD),event_name)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD),event_type)",
-                "value": {
-                    "confidenceScore": 1.0
-                }
-            }
-        ]
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,402,PROD),402)",
+            "upstreamInstances": []
+        }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400812,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4834dc53836a4641592b01054f6309a8",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4834dc53836a4641592b01054f6309a8",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Contact,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4834dc53836a4641592b01054f6309a8",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1701421200000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4834dc53836a4641592b01054f6309a8",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1701421320000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResultType": "hightouch"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(hightouch,403,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hightouch"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(hightouch,403,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "active-customers-to-accounts",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(hightouch,403,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:d6ca148424733f6cf53699febd51af75"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(hightouch,403,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Syncs"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,403,PROD),403)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hightouch"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,403,PROD),403)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "sync_id": "403",
+                "model_id": "202",
+                "destination_id": "301",
+                "disabled": "True",
+                "schedule": "{'type': 'cron', 'schedule': {'expression': '0 6 * * *'}}",
+                "model_name": "Active Customers",
+                "model_slug": "active-customers",
+                "query_type": "raw_sql",
+                "destination_name": "CRM",
+                "destination_type": "salesforce"
+            },
+            "name": "active-customers-to-accounts",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(hightouch,403,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,403,PROD),403)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hightouch,active-customers,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Account,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,active-customers,PROD),email)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Account,PROD),Email__c)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,active-customers,PROD),lifetime_value)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Account,PROD),Lifetime_Value__c)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,active-customers,PROD),customer_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:salesforce,prod-salesforce.Account,PROD),Customer_Id__c)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,403,PROD),403)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Syncs"
+                },
+                {
+                    "id": "active-customers-to-accounts",
+                    "urn": "urn:li:dataFlow:(hightouch,403,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,event_source.event-source-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hightouch"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,event_source.event-source-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "Website SDK",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,event_source.event-source-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Event Source"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,web-events.track-product-viewed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hightouch"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,web-events.track-product-viewed,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -1101,14 +1584,277 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1704110400812,
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hightouch,event_source.event-source-1,PROD)",
+                    "type": "COPY"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,web-events.track-product-viewed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "contract_id": "contract-1",
+                "contract_name": "Web Events",
+                "event_type": "track",
+                "contract_slug": "web-events",
+                "on_undeclared_schema": "ALLOW_EVENT",
+                "event_name": "Product Viewed",
+                "event_version": "default",
+                "on_schema_violation": "BLOCK_EVENT",
+                "on_undeclared_fields": "OMIT_FIELDS"
+            },
+            "name": "Product Viewed",
+            "description": "Events sent from the website.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,web-events.track-product-viewed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Event Contract"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,web-events.track-product-viewed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:hightouch",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=object].[type=string].product_id",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"required\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=object].[type=number].price",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"required\": false}"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:f0c3743f6c4ed4bc57a9e8a266d44869",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "type": "DATA_SCHEMA",
+            "schemaAssertion": {
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:hightouch,web-events.track-product-viewed,PROD)",
+                "schema": {
+                    "schemaName": "",
+                    "platform": "urn:li:dataPlatform:datahub",
+                    "version": 0,
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "lastModified": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "hash": "",
+                    "platformSchema": {
+                        "com.linkedin.schema.Schemaless": {}
+                    },
+                    "fields": [
+                        {
+                            "fieldPath": "[version=2.0].[type=object].[type=string].product_id",
+                            "nullable": false,
+                            "description": "",
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.StringType": {}
+                                }
+                            },
+                            "nativeDataType": "string",
+                            "recursive": false,
+                            "isPartOfKey": false,
+                            "jsonProps": "{\"required\": true}"
+                        },
+                        {
+                            "fieldPath": "[version=2.0].[type=object].[type=number].price",
+                            "nullable": false,
+                            "description": "",
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.NumberType": {}
+                                }
+                            },
+                            "nativeDataType": "number",
+                            "recursive": false,
+                            "isPartOfKey": false,
+                            "jsonProps": "{\"required\": false}"
+                        }
+                    ]
+                },
+                "compatibility": "EXACT_MATCH"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1704110400000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "Hightouch event contract 'Web Events' (onSchemaViolation=BLOCK_EVENT, onUndeclaredFields=OMIT_FIELDS, onUndeclaredSchema=ALLOW_EVENT)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:5a68e58797632a11fb1b2b60a5baa73e",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractProperties",
+    "aspect": {
+        "json": {
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:hightouch,web-events.track-product-viewed,PROD)",
+            "schema": [
+                {
+                    "assertion": "urn:li:assertion:f0c3743f6c4ed4bc57a9e8a266d44869"
+                }
+            ],
+            "dataQuality": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:5a68e58797632a11fb1b2b60a5baa73e",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:5a68e58797632a11fb1b2b60a5baa73e",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractStatus",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "state": "PENDING"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,active-customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1704110400000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
                         "time": 0,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-snowflake.analytics.customers,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.customers,PROD)",
                     "type": "VIEW"
                 }
             ],
@@ -1116,11 +1862,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-snowflake.analytics.customers,PROD),customer_id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.customers,PROD),customer_id)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD),customer_id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,active-customers,PROD),customer_id)"
                     ],
                     "transformOperation": "COPY: \"CUSTOMERS\".\"CUSTOMER_ID\" AS \"CUSTOMER_ID\"",
                     "confidenceScore": 0.2
@@ -1128,11 +1874,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-snowflake.analytics.customers,PROD),email)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.customers,PROD),email)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD),email)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,active-customers,PROD),email)"
                     ],
                     "transformOperation": "COPY: \"CUSTOMERS\".\"EMAIL\" AS \"EMAIL\"",
                     "confidenceScore": 0.2
@@ -1140,21 +1886,37 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-snowflake.analytics.customers,PROD),first_name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.customers,PROD),lifetime_value)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD),first_name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,active-customers,PROD),lifetime_value)"
                     ],
-                    "transformOperation": "COPY: \"CUSTOMERS\".\"FIRST_NAME\" AS \"FIRST_NAME\"",
+                    "transformOperation": "COPY: \"CUSTOMERS\".\"LIFETIME_VALUE\" AS \"LIFETIME_VALUE\"",
                     "confidenceScore": 0.2
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400815,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:f0c3743f6c4ed4bc57a9e8a266d44869",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1169,8 +1931,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400815,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1185,14 +1947,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400815,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(hightouch,sync_1,PROD)",
+    "entityUrn": "urn:li:dataFlow:(hightouch,401,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1201,14 +1963,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400815,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(hightouch,sync_2,PROD)",
+    "entityUrn": "urn:li:dataFlow:(hightouch,402,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1217,14 +1979,30 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400815,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(hightouch,403,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,sync_1,PROD),sync_1)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,401,PROD),401)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1233,14 +2011,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400815,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,sync_2,PROD),sync_2)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,402,PROD),402)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1249,14 +2027,30 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400816,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hightouch,403,PROD),403)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:2fb64d74a2309c2bab37d8511439dece",
+    "entityUrn": "urn:li:dataProcessInstance:4834dc53836a4641592b01054f6309a8",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1265,14 +2059,46 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400816,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:5c710a32500949111dffc7d8d0ecbe5f",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:80bf95afd7d897bb42de8327f50948af",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,active-customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1281,8 +2107,24 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400816,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,event_source.event-source-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1297,24 +2139,24 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400816,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:ht_priority_high",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,web-events.track-product-viewed,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "tagKey",
+    "aspectName": "status",
     "aspect": {
         "json": {
-            "name": "ht_priority_high"
+            "removed": false
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400816,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1329,8 +2171,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400816,
-        "runId": "hightouch-test-run",
+        "lastObserved": 1704110400000,
+        "runId": "hightouch-test",
         "lastRunId": "no-run-id-provided"
     }
 }

@@ -1,4 +1,3 @@
-import json
 from datetime import datetime
 from unittest.mock import MagicMock, Mock, patch
 
@@ -32,6 +31,11 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+
+
+def _model_workunits(source_instance, model):
+    source = source_instance._get_source(model.source_id)
+    return source_instance._model_handler.emit_model(model, source)
 
 
 @pytest.fixture
@@ -78,9 +82,10 @@ def test_column_lineage_emission(mock_api_client_class, pipeline_context):
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
         configuration={
+            "object": "Contact",
             "fieldMappings": [
                 {"sourceField": "user_id", "destinationField": "UserId"},
-            ]
+            ],
         },
     )
 
@@ -148,7 +153,7 @@ def test_tags_emission_for_model(mock_api_client_class, pipeline_context):
 
     source_instance._sources_cache["source_1"] = source
 
-    workunits = list(source_instance._get_model_workunits(model))
+    workunits = list(_model_workunits(source_instance, model))
 
     tag_workunits = [
         wu
@@ -189,7 +194,7 @@ def test_view_emission_for_raw_sql_model(mock_api_client_class, pipeline_context
         query_type="raw_sql",
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
-        raw_sql="SELECT * FROM customers WHERE active = true",
+        raw={"sql": "SELECT * FROM customers WHERE active = true"},
     )
 
     source = HightouchSourceConnection(
@@ -204,7 +209,7 @@ def test_view_emission_for_raw_sql_model(mock_api_client_class, pipeline_context
 
     source_instance._sources_cache["source_1"] = source
 
-    workunits = list(source_instance._get_model_workunits(model))
+    workunits = list(_model_workunits(source_instance, model))
 
     subtype_workunits = [
         wu
@@ -262,6 +267,7 @@ def test_table_subtype_for_table_model(mock_api_client_class, pipeline_context):
         workspace_id="workspace_1",
         source_id="source_1",
         query_type="table",
+        table={"name": "Customer Model"},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -278,7 +284,7 @@ def test_table_subtype_for_table_model(mock_api_client_class, pipeline_context):
 
     source_instance._sources_cache["source_1"] = source
 
-    workunits = list(source_instance._get_model_workunits(model))
+    workunits = list(_model_workunits(source_instance, model))
 
     subtype_workunits = [
         wu
@@ -336,7 +342,7 @@ def test_subtypes_always_emitted_for_all_models(
 
     source_instance._sources_cache["source_1"] = source
 
-    workunits = list(source_instance._get_model_workunits(model_without_sql))
+    workunits = list(_model_workunits(source_instance, model_without_sql))
 
     subtype_workunits = [
         wu
@@ -707,7 +713,9 @@ def test_column_lineage_with_fuzzy_matching_integration(
         destination_id="dest_1",
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
-        configuration={},
+        configuration={
+            "object": "Contact",
+        },
     )
 
     destination = HightouchDestination(
@@ -785,6 +793,7 @@ def test_table_model_column_lineage_matches_case_insensitively(
         workspace_id="workspace_1",
         source_id="source_1",
         query_type="table",
+        table={"name": "customers"},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -825,6 +834,7 @@ def test_table_model_column_lineage_empty_without_graph(
         workspace_id="workspace_1",
         source_id="source_1",
         query_type="table",
+        table={"name": "customers"},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -861,9 +871,9 @@ def test_table_model_column_lineage_emitted_end_to_end(
     mock_graph = Mock()
     upstream_schema = Mock()
     upstream_schema.fields = [
-        Mock(fieldPath="CUSTOMER_ID"),
-        Mock(fieldPath="EMAIL"),
-        Mock(fieldPath="UNMAPPED_COL"),
+        Mock(fieldPath="CUSTOMER_ID", nativeDataType="VARCHAR", description=None),
+        Mock(fieldPath="EMAIL", nativeDataType="VARCHAR", description=None),
+        Mock(fieldPath="UNMAPPED_COL", nativeDataType="VARCHAR", description=None),
     ]
     mock_graph.get_schema_metadata.return_value = upstream_schema
     source_instance.graph = mock_graph
@@ -877,12 +887,9 @@ def test_table_model_column_lineage_emitted_end_to_end(
         workspace_id="workspace_1",
         source_id="source_1",
         query_type="table",
+        table={"name": "customers"},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
-        query_schema=[
-            {"name": "customer_id", "type": "INTEGER"},
-            {"name": "email", "type": "STRING"},
-        ],
     )
 
     source_instance._sources_cache["source_1"] = HightouchSourceConnection(
@@ -896,7 +903,7 @@ def test_table_model_column_lineage_emitted_end_to_end(
         configuration={"database": "analytics"},
     )
 
-    workunits = list(source_instance._get_model_workunits(model))
+    workunits = list(_model_workunits(source_instance, model))
 
     upstream_lineages = [
         wu.metadata.aspect
@@ -909,8 +916,10 @@ def test_table_model_column_lineage_emitted_end_to_end(
     assert len(upstream_lineages) == 1
     fine_grained = upstream_lineages[0].fineGrainedLineages
     assert fine_grained is not None
-    assert len(fine_grained) == 2
-    assert source_instance.report.column_lineage_emitted == 2
+    # The API gives no column list, so the model's schema is the upstream
+    # table's and every column maps 1:1.
+    assert len(fine_grained) == 3
+    assert source_instance.report.column_lineage_emitted == 3
 
 
 def _sibling_patches(workunits: list) -> list:
@@ -924,7 +933,7 @@ def _sibling_patches(workunits: list) -> list:
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_siblings_emission_for_single_table_raw_sql_models(
+def test_no_siblings_for_single_table_raw_sql_models(
     mock_api_client_class, pipeline_context
 ):
     """
@@ -950,7 +959,7 @@ def test_siblings_emission_for_single_table_raw_sql_models(
         workspace_id="workspace_1",
         source_id="source_1",
         query_type="raw_sql",
-        raw_sql="SELECT * FROM customers WHERE status = 'active'",
+        raw={"sql": "SELECT * FROM customers WHERE status = 'active'"},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -967,19 +976,13 @@ def test_siblings_emission_for_single_table_raw_sql_models(
     )
     mock_client.get_source_by_id.return_value = source_connection
 
-    workunits = list(source_instance._get_model_workunits(model))
+    workunits = list(_model_workunits(source_instance, model))
 
     siblings_workunits = _sibling_patches(workunits)
 
-    # A patch on the Hightouch model (primary) adds the upstream table as a
-    # sibling without replacing siblings that other sources already wrote.
-    assert len(siblings_workunits) == 1
-    ops = json.loads(siblings_workunits[0].metadata.aspect.value)
-    sibling_values = [op["value"] for op in ops if op["path"].startswith("/siblings/")]
-    assert {"op": "add", "path": "/primary", "value": True} in ops
-    assert len(sibling_values) == 1
-    assert "snowflake" in sibling_values[0]
-    assert "customers" in sibling_values[0]
+    # A query over a table is a different asset from the table, so even a
+    # single-table SQL model gets no sibling.
+    assert siblings_workunits == []
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -1009,7 +1012,9 @@ def test_no_siblings_for_multi_table_raw_sql_models(
         workspace_id="workspace_1",
         source_id="source_1",
         query_type="raw_sql",
-        raw_sql="SELECT c.*, o.* FROM customers c JOIN orders o ON c.id = o.customer_id",
+        raw={
+            "sql": "SELECT c.*, o.* FROM customers c JOIN orders o ON c.id = o.customer_id"
+        },
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -1026,7 +1031,7 @@ def test_no_siblings_for_multi_table_raw_sql_models(
     )
     mock_client.get_source_by_id.return_value = source_connection
 
-    workunits = list(source_instance._get_model_workunits(model))
+    workunits = list(_model_workunits(source_instance, model))
 
     siblings_workunits = _sibling_patches(workunits)
 
@@ -1060,6 +1065,7 @@ def test_no_siblings_when_include_sibling_relationships_false(
         workspace_id="workspace_1",
         source_id="source_1",
         query_type="table",
+        table={"name": "customers"},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -1076,7 +1082,7 @@ def test_no_siblings_when_include_sibling_relationships_false(
     )
     mock_client.get_source_by_id.return_value = source_connection
 
-    workunits = list(source_instance._get_model_workunits(model))
+    workunits = list(_model_workunits(source_instance, model))
 
     siblings_workunits = _sibling_patches(workunits)
 
@@ -1084,9 +1090,7 @@ def test_no_siblings_when_include_sibling_relationships_false(
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_resolve_sql_model_upstream_urns_success(
-    mock_api_client_class, pipeline_context
-):
+def test_sql_upstream_urns_success(mock_api_client_class, pipeline_context):
     config = HightouchSourceConfig(
         api_config=HightouchAPIConfig(api_key="test"),
         env="PROD",
@@ -1104,7 +1108,7 @@ def test_resolve_sql_model_upstream_urns_success(
         workspace_id="workspace_1",
         source_id="source_1",
         query_type="raw_sql",
-        raw_sql="SELECT id, email FROM raw_data.public.customers",
+        raw={"sql": "SELECT id, email FROM raw_data.public.customers"},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -1118,9 +1122,7 @@ def test_resolve_sql_model_upstream_urns_success(
         updated_at=datetime(2023, 1, 2),
     )
 
-    urns = source_instance._lineage_handler.resolve_sql_model_upstream_urns(
-        model, source_connection
-    )
+    urns = source_instance._lineage_handler.sql_upstream_urns(model, source_connection)
 
     assert len(urns) == 1
     assert "snowflake" in urns[0]
@@ -1129,9 +1131,7 @@ def test_resolve_sql_model_upstream_urns_success(
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_resolve_sql_model_upstream_urns_parse_failure(
-    mock_api_client_class, pipeline_context
-):
+def test_sql_upstream_urns_parse_failure(mock_api_client_class, pipeline_context):
     config = HightouchSourceConfig(
         api_config=HightouchAPIConfig(api_key="test"),
         env="PROD",
@@ -1149,7 +1149,7 @@ def test_resolve_sql_model_upstream_urns_parse_failure(
         workspace_id="workspace_1",
         source_id="source_1",
         query_type="raw_sql",
-        raw_sql="this is not valid SQL @@@ ;;;",
+        raw={"sql": "this is not valid SQL @@@ ;;;"},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -1163,9 +1163,7 @@ def test_resolve_sql_model_upstream_urns_parse_failure(
         updated_at=datetime(2023, 1, 2),
     )
 
-    urns = source_instance._lineage_handler.resolve_sql_model_upstream_urns(
-        model, source_connection
-    )
+    urns = source_instance._lineage_handler.sql_upstream_urns(model, source_connection)
 
     assert urns == []
     assert source_instance.report.sql_parsing_failures >= 1
@@ -1199,7 +1197,7 @@ def test_extract_table_urns_from_sql_normalizes_schema_off(
         workspace_id="workspace_1",
         source_id="source_1",
         query_type="raw_sql",
-        raw_sql="SELECT id, email FROM raw_data.public.customers",
+        raw={"sql": "SELECT id, email FROM raw_data.public.customers"},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -1249,7 +1247,7 @@ def test_extract_table_urns_from_sql_keeps_schema_on(
         workspace_id="workspace_1",
         source_id="source_1",
         query_type="raw_sql",
-        raw_sql="SELECT id FROM raw_data.public.customers",
+        raw={"sql": "SELECT id FROM raw_data.public.customers"},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -1294,7 +1292,7 @@ def test_extract_table_urns_from_sql_returns_empty_on_parse_failure(
         workspace_id="workspace_1",
         source_id="source_1",
         query_type="raw_sql",
-        raw_sql="this is not valid SQL @@@ ;;;",
+        raw={"sql": "this is not valid SQL @@@ ;;;"},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )

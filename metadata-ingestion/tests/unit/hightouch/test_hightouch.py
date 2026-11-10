@@ -1,8 +1,10 @@
 from datetime import datetime
+from typing import List, Optional
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import requests
+import requests_mock
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -25,15 +27,18 @@ from datahub.ingestion.source.hightouch.models import (
     HightouchModel,
     HightouchSourceConnection,
     HightouchSync,
+    HightouchSyncRun,
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionTypeClass,
     DataContractPropertiesClass,
+    DataProcessInstanceRunEventClass,
     SubTypesClass,
     UpstreamLineageClass,
 )
 from datahub.metadata.urns import DatasetUrn
+from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
 
 
@@ -70,37 +75,43 @@ def pipeline_context():
     return PipelineContext(run_id="test_run")
 
 
-@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_test_connection_success(mock_api_client_class):
-    mock_client = MagicMock()
-    mock_api_client_class.return_value = mock_client
-    mock_client.get_workspaces.return_value = []
+_SOURCES_URL = "https://api.hightouch.com/api/v1/sources"
 
-    report = HightouchIngestionSource.test_connection(
-        {"api_config": {"api_key": "test_api_key"}}
-    )
+
+def test_test_connection_success() -> None:
+    with requests_mock.Mocker() as mocker:
+        mocker.get(_SOURCES_URL, json={"data": []})
+        report = HightouchIngestionSource.test_connection(
+            {"api_config": {"api_key": "test_api_key"}}
+        )
 
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable is True
-    mock_client.get_workspaces.assert_called_once()
+    assert mocker.last_request.qs == {"limit": ["1"]}
 
 
-@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_test_connection_failure(mock_api_client_class):
-    mock_client = MagicMock()
-    mock_api_client_class.return_value = mock_client
-    mock_client.get_workspaces.side_effect = requests.exceptions.ConnectionError(
-        "unreachable"
-    )
-
-    report = HightouchIngestionSource.test_connection(
-        {"api_config": {"api_key": "test_api_key"}}
-    )
+def test_test_connection_reports_a_rejected_key() -> None:
+    with requests_mock.Mocker() as mocker:
+        mocker.get(_SOURCES_URL, status_code=401)
+        report = HightouchIngestionSource.test_connection(
+            {"api_config": {"api_key": "bad_key"}}
+        )
 
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable is False
-    assert report.basic_connectivity.failure_reason is not None
-    assert "unreachable" in report.basic_connectivity.failure_reason
+    assert "rejected the API key" in (report.basic_connectivity.failure_reason or "")
+
+
+def test_test_connection_reports_an_unreachable_api() -> None:
+    with requests_mock.Mocker() as mocker:
+        mocker.get(_SOURCES_URL, exc=requests.exceptions.ConnectionError)
+        report = HightouchIngestionSource.test_connection(
+            {"api_config": {"api_key": "test_api_key"}}
+        )
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable is False
+    assert "Could not reach" in (report.basic_connectivity.failure_reason or "")
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -164,7 +175,7 @@ def test_get_platform_for_destination_with_mapping(
 ):
     config = HightouchSourceConfig(
         api_config=HightouchAPIConfig(api_key="test"),
-        destinations_to_platform_instance={
+        destination_to_platform_instance={
             "dest1": PlatformDetail(
                 platform="custom_dest",
                 platform_instance="custom_instance",
@@ -386,7 +397,9 @@ def test_sql_parsing_with_valid_query(
         workspace_id="100",
         source_id="1",
         query_type="raw_sql",
-        raw_sql="SELECT * FROM analytics.customers JOIN analytics.orders ON customers.id = orders.customer_id",
+        raw={
+            "sql": "SELECT * FROM analytics.customers JOIN analytics.orders ON customers.id = orders.customer_id"
+        },
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -427,7 +440,7 @@ def test_sql_parsing_with_no_upstream_tables(
         workspace_id="100",
         source_id="1",
         query_type="raw_sql",
-        raw_sql="SELECT 1 as id, 'test' as name",
+        raw={"sql": "SELECT 1 as id, 'test' as name"},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -468,7 +481,7 @@ def test_sql_parsing_with_invalid_sql(
         workspace_id="100",
         source_id="1",
         query_type="raw_sql",
-        raw_sql="SELECT * FROM WHERE INVALID SYNTAX!!!",
+        raw={"sql": "SELECT * FROM WHERE INVALID SYNTAX!!!"},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -509,7 +522,7 @@ def test_sql_parsing_with_no_raw_sql(
         workspace_id="100",
         source_id="1",
         query_type="table",
-        raw_sql=None,
+        table={"name": "CUSTOMERS"},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -534,12 +547,12 @@ def test_sql_parsing_with_no_raw_sql(
     assert result.dataset.urn.name == "table-model"
     assert source_instance.report.sql_parsing_attempts == 0
 
-    # Table-type models should have upstream lineage to the source table
-    upstream_lineage = result.dataset.upstreams
-    assert upstream_lineage is not None
-    assert len(upstream_lineage.upstreams) == 1
-    # The upstream should be the table name from the model
-    assert "Table Model" in str(upstream_lineage.upstreams[0].dataset)
+    # The table model's upstream (emitted with its column lineage in
+    # emit_model_aspects) is its table, lowercased for Snowflake, not its
+    # display name.
+    assert result.dataset.custom_properties["source_table_urn"].endswith(
+        ",customers,PROD)"
+    )
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -557,7 +570,7 @@ def test_sql_parsing_with_unknown_platform(
         workspace_id="100",
         source_id="1",
         query_type="raw_sql",
-        raw_sql="SELECT * FROM customers",
+        raw={"sql": "SELECT * FROM customers"},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -584,12 +597,14 @@ def test_sql_parsing_with_cte(
         workspace_id="100",
         source_id="1",
         query_type="raw_sql",
-        raw_sql="""
+        raw={
+            "sql": """
             WITH active_customers AS (
                 SELECT * FROM analytics.customers WHERE status = 'active'
             )
             SELECT * FROM active_customers JOIN analytics.orders USING (customer_id)
-        """,
+        """
+        },
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -623,7 +638,7 @@ def _raw_sql_model():
         workspace_id="100",
         source_id="1",
         query_type="raw_sql",
-        raw_sql="SELECT * FROM analytics.customers",
+        raw={"sql": "SELECT * FROM analytics.customers"},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -1007,293 +1022,6 @@ def test_contracts_404_handling(mock_api_client_class, pipeline_context):
 # Tests for Schema Emission Feature
 
 
-@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_parse_model_schema_with_no_schema(
-    mock_api_client_class, hightouch_config, pipeline_context
-):
-    """Test schema parsing when query_schema is None."""
-    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
-
-    model = HightouchModel(
-        id="10",
-        name="Test Model",
-        slug="test-model",
-        workspace_id="100",
-        source_id="1",
-        query_type="raw_sql",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        query_schema=None,
-    )
-
-    result = source_instance._schema_handler._parse_model_schema(model)
-    assert result is None
-
-
-@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_parse_model_schema_with_list_format(
-    mock_api_client_class, hightouch_config, pipeline_context
-):
-    """Test schema parsing with direct list format."""
-    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
-
-    model = HightouchModel(
-        id="10",
-        name="Test Model",
-        slug="test-model",
-        workspace_id="100",
-        source_id="1",
-        query_type="raw_sql",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        query_schema=[
-            {"name": "user_id", "type": "INTEGER"},
-            {"name": "email", "type": "STRING", "description": "User email address"},
-            {"name": "created_at", "type": "TIMESTAMP"},
-        ],
-    )
-
-    result = source_instance._schema_handler._parse_model_schema(model)
-
-    assert result is not None
-    assert len(result) == 3
-    assert (
-        result[0].name == "user_id"
-        and result[0].type == "INTEGER"
-        and result[0].description is None
-    )
-    assert (
-        result[1].name == "email"
-        and result[1].type == "STRING"
-        and result[1].description == "User email address"
-    )
-    assert (
-        result[2].name == "created_at"
-        and result[2].type == "TIMESTAMP"
-        and result[2].description is None
-    )
-    assert source_instance.report.model_schemas_emitted == 1
-
-
-@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_parse_model_schema_with_dict_format(
-    mock_api_client_class, hightouch_config, pipeline_context
-):
-    """Test schema parsing with dict containing 'columns' key."""
-    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
-
-    model = HightouchModel(
-        id="10",
-        name="Test Model",
-        slug="test-model",
-        workspace_id="100",
-        source_id="1",
-        query_type="raw_sql",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        query_schema={
-            "columns": [
-                {"name": "order_id", "dataType": "BIGINT"},
-                {"fieldName": "amount", "type": "DECIMAL"},
-            ]
-        },
-    )
-
-    result = source_instance._schema_handler._parse_model_schema(model)
-
-    assert result is not None
-    assert len(result) == 2
-    assert (
-        result[0].name == "order_id"
-        and result[0].type == "BIGINT"
-        and result[0].description is None
-    )
-    assert (
-        result[1].name == "amount"
-        and result[1].type == "DECIMAL"
-        and result[1].description is None
-    )
-
-
-@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_parse_model_schema_with_json_string(
-    mock_api_client_class, hightouch_config, pipeline_context
-):
-    """Test schema parsing when query_schema is a JSON string."""
-    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
-
-    model = HightouchModel(
-        id="10",
-        name="Test Model",
-        slug="test-model",
-        workspace_id="100",
-        source_id="1",
-        query_type="raw_sql",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        query_schema='{"columns": [{"name": "id", "type": "INT"}, {"name": "name", "type": "VARCHAR"}]}',
-    )
-
-    result = source_instance._schema_handler._parse_model_schema(model)
-
-    assert result is not None
-    assert len(result) == 2
-    assert (
-        result[0].name == "id"
-        and result[0].type == "INT"
-        and result[0].description is None
-    )
-    assert (
-        result[1].name == "name"
-        and result[1].type == "VARCHAR"
-        and result[1].description is None
-    )
-
-
-@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_parse_model_schema_with_invalid_json_string(
-    mock_api_client_class, hightouch_config, pipeline_context
-):
-    """Test schema parsing with invalid JSON string."""
-    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
-
-    model = HightouchModel(
-        id="10",
-        name="Test Model",
-        slug="test-model",
-        workspace_id="100",
-        source_id="1",
-        query_type="raw_sql",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        query_schema='{"invalid json',
-    )
-
-    result = source_instance._schema_handler._parse_model_schema(model)
-    assert result is None
-    assert source_instance.report.model_schemas_skipped >= 1
-
-
-@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_parse_model_schema_with_field_variations(
-    mock_api_client_class, hightouch_config, pipeline_context
-):
-    """Test schema parsing handles various field name variations."""
-    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
-
-    model = HightouchModel(
-        id="10",
-        name="Test Model",
-        slug="test-model",
-        workspace_id="100",
-        source_id="1",
-        query_type="raw_sql",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        query_schema=[
-            {"fieldName": "col1", "fieldType": "INT"},  # fieldName, fieldType
-            {"column_name": "col2", "data_type": "VARCHAR"},  # snake_case
-            {
-                "name": "col3",
-                "columnType": "BOOLEAN",
-                "comment": "Boolean flag",
-            },  # comment
-        ],
-    )
-
-    result = source_instance._schema_handler._parse_model_schema(model)
-
-    assert result is not None
-    assert len(result) == 3
-    assert (
-        result[0].name == "col1"
-        and result[0].type == "INT"
-        and result[0].description is None
-    )
-    assert (
-        result[1].name == "col2"
-        and result[1].type == "VARCHAR"
-        and result[1].description is None
-    )
-    assert (
-        result[2].name == "col3"
-        and result[2].type == "BOOLEAN"
-        and result[2].description == "Boolean flag"
-    )
-
-
-@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_parse_model_schema_with_incomplete_columns(
-    mock_api_client_class, hightouch_config, pipeline_context
-):
-    """Test schema parsing skips incomplete column definitions."""
-    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
-
-    model = HightouchModel(
-        id="10",
-        name="Test Model",
-        slug="test-model",
-        workspace_id="100",
-        source_id="1",
-        query_type="raw_sql",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        query_schema=[
-            {"name": "valid_col", "type": "INT"},
-            {"name": "no_type_col"},  # Missing type
-            {"type": "STRING"},  # Missing name
-            {"name": "another_valid", "type": "VARCHAR"},
-        ],
-    )
-
-    result = source_instance._schema_handler._parse_model_schema(model)
-
-    assert result is not None
-    assert len(result) == 2  # Only 2 valid columns
-    assert (
-        result[0].name == "valid_col"
-        and result[0].type == "INT"
-        and result[0].description is None
-    )
-    assert (
-        result[1].name == "another_valid"
-        and result[1].type == "VARCHAR"
-        and result[1].description is None
-    )
-
-
-@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_schema_emission_enabled_and_applied(
-    mock_api_client_class, hightouch_config, pipeline_context
-):
-    """Test that schema is actually applied to dataset when enabled."""
-    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
-
-    model = HightouchModel(
-        id="10",
-        name="Test Model",
-        slug="test-model",
-        workspace_id="100",
-        source_id="1",
-        query_type="raw_sql",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        query_schema=[
-            {"name": "user_id", "type": "BIGINT"},
-            {"name": "email", "type": "VARCHAR"},
-        ],
-    )
-
-    result = source_instance._model_handler.generate_model_dataset(model, None)
-
-    assert source_instance.report.model_schemas_emitted == 1
-
-    schema_fields = result.dataset.schema
-    assert len(schema_fields) == 2
-    assert schema_fields[0].field_path == "user_id"
-    assert schema_fields[1].field_path == "email"
-
-
 # Tests for Outlet URN Generation with Various Configuration Keys
 
 
@@ -1347,14 +1075,6 @@ def test_schema_emission_enabled_and_applied(
             "CustomObject",
             None,
             "crm_objectName_key",
-        ),
-        (
-            {"someOtherKey": "value"},
-            "salesforce",
-            "Salesforce",
-            "my-sync_destination",
-            None,
-            "fallback_no_config_key",
         ),
         (
             {"type": "event", "eventName": "page_view"},
@@ -1483,24 +1203,6 @@ def test_outlet_urn_priority_of_config_keys(
                 "slug": "test-model",
                 "workspaceId": "456",
                 "sourceId": "789",
-                "queryType": "raw_sql",
-                "createdAt": "2023-01-01T00:00:00Z",
-                "updatedAt": "2023-01-02T00:00:00Z",
-                "primaryKey": "id",
-                "isSchema": False,
-                "rawSql": "SELECT * FROM table WHERE id = 2",
-            },
-            "SELECT * FROM table WHERE id = 2",
-            "raw_sql",
-            "direct_rawSql_field",
-        ),
-        (
-            {
-                "id": "123",
-                "name": "Test Model",
-                "slug": "test-model",
-                "workspaceId": "456",
-                "sourceId": "789",
                 "queryType": "table",
                 "createdAt": "2023-01-01T00:00:00Z",
                 "updatedAt": "2023-01-02T00:00:00Z",
@@ -1521,3 +1223,214 @@ def test_model_raw_sql_extraction(
 
     assert model.raw_sql == expected_sql
     assert model.query_type == expected_query_type
+
+
+def _sync_for_model(slug: str, referenced_columns: List[str]) -> HightouchSync:
+    return HightouchSync(
+        id=f"{slug}-id",
+        slug=slug,
+        workspace_id="100",
+        model_id="10",
+        destination_id="20",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={"object": "Contact"},
+        referenced_columns=referenced_columns,
+    )
+
+
+def _salesforce_destination() -> HightouchDestination:
+    return HightouchDestination(
+        id="20",
+        name="Salesforce",
+        slug="salesforce",
+        type="salesforce",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+
+def _run_source(mock_client: MagicMock, **config: object) -> HightouchIngestionSource:
+    mock_client.get_source_by_id.return_value = _snowflake_source()
+    mock_client.get_destination_by_id.return_value = _salesforce_destination()
+    mock_client.get_contracts.return_value = []
+    mock_client.extract_field_mappings.return_value = []
+    with patch(
+        "datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient",
+        return_value=mock_client,
+    ):
+        return HightouchIngestionSource(
+            HightouchSourceConfig(
+                api_config=HightouchAPIConfig(api_key="test"), env="PROD", **config
+            ),
+            PipelineContext(run_id="test"),
+        )
+
+
+def test_model_shared_by_syncs_is_emitted_once_with_all_their_columns() -> None:
+    mock_client = MagicMock()
+    mock_client.get_syncs.return_value = [
+        _sync_for_model("sync-a", ["user_id", "email"]),
+        _sync_for_model("sync-b", ["email", "plan"]),
+    ]
+    mock_client.get_models.return_value = [_raw_sql_model()]
+    source = _run_source(mock_client, include_sync_runs=False)
+
+    workunits = list(source.get_workunits_internal())
+
+    model_datasets = [
+        wu
+        for wu in workunits
+        if isinstance(wu, Dataset)
+        and wu.urn.platform == "urn:li:dataPlatform:hightouch"
+    ]
+    assert len(model_datasets) == 1
+    assert [f.field_path for f in model_datasets[0].schema] == [
+        "user_id",
+        "email",
+        "plan",
+    ]
+    # The model list already had the model, so no per-sync fetch was needed.
+    mock_client.get_model_by_id.assert_not_called()
+
+
+def test_models_not_emitted_link_syncs_to_their_source_tables() -> None:
+    mock_client = MagicMock()
+    mock_client.get_syncs.return_value = [_sync_for_model("sync-a", ["user_id"])]
+    mock_client.get_model_by_id.return_value = _raw_sql_model()
+    source = _run_source(
+        mock_client, emit_models_as_datasets=False, include_sync_runs=False
+    )
+
+    workunits = list(source.get_workunits_internal())
+
+    assert not any(
+        isinstance(wu, Dataset) and wu.urn.platform == "urn:li:dataPlatform:hightouch"
+        for wu in workunits
+    )
+    datajob = next(wu for wu in workunits if isinstance(wu, DataJob))
+    assert [str(urn) for urn in datajob.inlets] == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.customers,PROD)"
+    ]
+    mock_client.get_models.assert_not_called()
+
+
+def test_denied_model_inlet_is_source_table_not_model() -> None:
+    mock_client = MagicMock()
+    table_model = HightouchModel(
+        id="10",
+        name="Customers",
+        slug="customers",
+        workspace_id="100",
+        source_id="1",
+        query_type="table",
+        table={"name": "CUSTOMERS"},
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+    source = _run_source(
+        mock_client,
+        emit_models_as_datasets=True,
+        model_patterns=AllowDenyPattern(deny=["Customers"]),
+    )
+
+    inlets = source._sync_handler.get_inlet_urns_for_model(
+        table_model, _sync_for_model("sync-a", [])
+    )
+
+    assert [str(urn) for urn in inlets] == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,customers,PROD)"
+    ]
+
+
+def test_pattern_filtered_syncs_and_models_are_reported() -> None:
+    mock_client = MagicMock()
+    mock_client.get_syncs.return_value = [
+        _sync_for_model("kept-sync", []),
+        _sync_for_model("denied-sync", []),
+    ]
+    mock_client.get_models.return_value = [_raw_sql_model()]
+    source = _run_source(
+        mock_client,
+        include_sync_runs=False,
+        sync_patterns=AllowDenyPattern(deny=["denied-sync"]),
+        model_patterns=AllowDenyPattern(deny=["Test Model"]),
+    )
+
+    list(source.get_workunits_internal())
+
+    assert list(source.report.filtered_syncs) == ["denied-sync"]
+    assert list(source.report.filtered_models) == ["Test Model"]
+
+
+@pytest.mark.parametrize(
+    "status, expected_events, expected_result",
+    [
+        ("success", ["STARTED", "COMPLETE"], "SUCCESS"),
+        ("warning", ["STARTED", "COMPLETE"], "SUCCESS"),
+        ("failed", ["STARTED", "COMPLETE"], "FAILURE"),
+        ("cancelled", ["STARTED", "COMPLETE"], "SKIPPED"),
+        ("interrupted", ["STARTED", "COMPLETE"], "SKIPPED"),
+        ("queued", ["STARTED"], None),
+        ("querying", ["STARTED"], None),
+        ("processing", ["STARTED"], None),
+        ("reporting", ["STARTED"], None),
+    ],
+)
+def test_sync_run_status_maps_to_run_events(
+    status: str, expected_events: List[str], expected_result: Optional[str]
+) -> None:
+    mock_client = MagicMock()
+    mock_client.get_syncs.return_value = [_sync_for_model("sync-a", [])]
+    mock_client.get_model_by_id.return_value = _raw_sql_model()
+    mock_client.get_sync_runs.return_value = [
+        HightouchSyncRun.model_validate(
+            {
+                "id": 99,
+                "status": status,
+                "startedAt": "2023-01-01T00:00:00Z",
+                "finishedAt": None
+                if expected_result is None
+                else "2023-01-01T00:05:00Z",
+                "createdAt": "2023-01-01T00:00:00Z",
+            }
+        )
+    ]
+    source = _run_source(mock_client, emit_models_as_datasets=False)
+
+    run_events = _aspects_of_type(
+        source.get_workunits_internal(), DataProcessInstanceRunEventClass
+    )
+
+    assert [event.status for event in run_events] == expected_events
+    results = [e.result.type for e in run_events if e.result is not None]
+    assert results == ([expected_result] if expected_result else [])
+    # Every status in the API's SyncRunStatus enum is known to the connector.
+    assert not source.report.unknown_sync_run_statuses
+
+
+def test_sync_runs_are_skipped_when_the_limit_is_zero() -> None:
+    mock_client = MagicMock()
+    mock_client.get_syncs.return_value = [_sync_for_model("sync-a", [])]
+    mock_client.get_model_by_id.return_value = _raw_sql_model()
+    source = _run_source(
+        mock_client, emit_models_as_datasets=False, max_sync_runs_per_sync=0
+    )
+
+    list(source.get_workunits_internal())
+
+    mock_client.get_sync_runs.assert_not_called()
+
+
+def test_failed_sync_run_fetch_keeps_the_sync() -> None:
+    mock_client = MagicMock()
+    mock_client.get_syncs.return_value = [_sync_for_model("sync-a", [])]
+    mock_client.get_model_by_id.return_value = _raw_sql_model()
+    mock_client.get_sync_runs.side_effect = requests.exceptions.HTTPError("503")
+    source = _run_source(mock_client, emit_models_as_datasets=False)
+
+    workunits = list(source.get_workunits_internal())
+
+    assert any(isinstance(wu, DataJob) for wu in workunits)
+    assert [w.title for w in source.report.warnings] == ["Failed to fetch sync runs"]

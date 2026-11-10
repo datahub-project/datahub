@@ -75,6 +75,10 @@ class HightouchAPIConfig(ConfigModel):
         return v
 
 
+# Platforms whose DataHub connector lowercases dataset URNs by default.
+_PLATFORMS_WITH_LOWERCASE_URNS = {"snowflake"}
+
+
 class PlatformDetail(ConfigModel):
     platform: Optional[str] = Field(
         default=None,
@@ -97,6 +101,19 @@ class PlatformDetail(ConfigModel):
         default=True,
         description="Include schema in the dataset URN.",
     )
+    convert_urns_to_lowercase: Optional[bool] = Field(
+        default=None,
+        description="Lowercase the table name, including database and schema, in "
+        "upstream dataset URNs so they match the source platform's connector. "
+        "Defaults to true for Snowflake, whose connector lowercases URNs by default, "
+        "and false otherwise.",
+    )
+
+    @property
+    def lowercase_urns(self) -> bool:
+        if self.convert_urns_to_lowercase is not None:
+            return self.convert_urns_to_lowercase
+        return self.platform in _PLATFORMS_WITH_LOWERCASE_URNS
 
 
 @dataclasses.dataclass
@@ -144,6 +161,12 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
     field_mappings_dropped: int = 0
     lineage_resolution_failures: LossyList[str] = dataclasses.field(
         default_factory=LossyList
+    )
+    unresolved_destinations: LossyList[str] = dataclasses.field(
+        default_factory=LossyList
+    )
+    datahub_lookup_failures: LossyDict[str, int] = dataclasses.field(
+        default_factory=LossyDict
     )
 
     def report_syncs_scanned(self, count: int = 1) -> None:
@@ -228,6 +251,28 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
     def report_lineage_resolution_failure(self, context: str) -> None:
         self.lineage_resolution_failures.append(context)
 
+    def report_unresolved_destination(self, sync_slug: str) -> None:
+        self.unresolved_destinations.append(sync_slug)
+
+    def report_datahub_lookup_failure(
+        self, category: str, context: str, exc: Exception
+    ) -> None:
+        """A read from DataHub that the connector uses to align schemas or lineage
+        failed. Counted per category, and reported once per category."""
+        first = category not in self.datahub_lookup_failures
+        self.datahub_lookup_failures[category] = (
+            self.datahub_lookup_failures.get(category, 0) + 1
+        )
+        if first:
+            self.warning(
+                title="Could not read metadata from DataHub",
+                message="A lookup the connector uses to align schemas or lineage "
+                "failed, so that detail may be missing. Later failures of the same "
+                "kind are counted in datahub_lookup_failures.",
+                context=f"{category}: {context}",
+                exc=exc,
+            )
+
 
 class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     model_config = ConfigDict(protected_namespaces=())
@@ -236,12 +281,12 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
 
     sync_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Filtering regex patterns for sync names.",
+        description="Regex patterns matched against each sync's slug.",
     )
 
     model_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Filtering regex patterns for model names.",
+        description="Regex patterns matched against each model's display name.",
     )
 
     emit_models_as_datasets: bool = Field(
@@ -258,7 +303,8 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
 
     max_sync_runs_per_sync: int = Field(
         default=10,
-        description="Maximum number of sync runs to ingest per sync.",
+        description="Maximum number of sync runs to ingest per sync. 0 skips "
+        "sync runs, like include_sync_runs: false.",
     )
 
     parse_model_sql: bool = Field(
@@ -284,7 +330,7 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
         description="A mapping from source id to its platform/instance/env/database details.",
     )
 
-    destinations_to_platform_instance: Dict[str, PlatformDetail] = Field(
+    destination_to_platform_instance: Dict[str, PlatformDetail] = Field(
         default={},
         description="A mapping of destination id to its platform/instance/env details.",
     )

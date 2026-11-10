@@ -1,6 +1,8 @@
 import logging
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
+import requests
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -48,11 +50,9 @@ from datahub.ingestion.source.hightouch.hightouch_utils import (
 )
 from datahub.ingestion.source.hightouch.models import (
     HightouchDestination,
-    HightouchDestinationLineageInfo,
     HightouchModel,
     HightouchSourceConnection,
     HightouchSync,
-    HightouchUser,
 )
 from datahub.ingestion.source.hightouch.urn_builder import HightouchUrnBuilder
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -104,7 +104,8 @@ class HightouchSource(StatefulIngestionSourceBase, TestableSource):
         self._sources_cache: Dict[str, HightouchSourceConnection] = {}
         self._models_cache: Dict[str, HightouchModel] = {}
         self._destinations_cache: Dict[str, HightouchDestination] = {}
-        self._users_cache: Dict[str, HightouchUser] = {}
+        self._source_platforms: Dict[str, PlatformDetail] = {}
+        self._destination_platforms: Dict[str, PlatformDetail] = {}
         self._registered_urns: Set[str] = set()
         self._model_schema_fields_cache: Dict[str, List[SchemaFieldClass]] = {}
         self._schema_metadata_cache: SchemaMetadataCache = {}
@@ -117,7 +118,6 @@ class HightouchSource(StatefulIngestionSourceBase, TestableSource):
         self._sql_aggregators: Dict[
             AggregatorCacheKey, Optional[SqlParsingAggregator]
         ] = {}
-        self._destination_lineage: Dict[str, HightouchDestinationLineageInfo] = {}
 
         self._container_handler = HightouchContainerHandler(config=self.config)
 
@@ -136,7 +136,6 @@ class HightouchSource(StatefulIngestionSourceBase, TestableSource):
             graph=self.graph,
             registered_urns=self._registered_urns,
             model_schema_fields_cache=self._model_schema_fields_cache,
-            destination_lineage=self._destination_lineage,
             sql_aggregators=self._sql_aggregators,
             schema_metadata_cache=self._schema_metadata_cache,
         )
@@ -160,7 +159,6 @@ class HightouchSource(StatefulIngestionSourceBase, TestableSource):
             urn_builder=self._urn_builder,
             lineage_handler=self._lineage_handler,
             container_handler=self._container_handler,
-            model_handler=self._model_handler,
             model_schema_fields_cache=self._model_schema_fields_cache,
             get_model=self._get_model,
             get_source=self._get_source,
@@ -240,103 +238,96 @@ class HightouchSource(StatefulIngestionSourceBase, TestableSource):
                 self._destinations_cache[destination_id] = destination
         return self._destinations_cache.get(destination_id)
 
-    def _get_user(self, user_id: str) -> Optional[HightouchUser]:
-        if user_id not in self._users_cache:
-            self.report.report_api_call()
-            user = self.api_client.get_user_by_id(user_id)
-            if user:
-                self._users_cache[user_id] = user
-        return self._users_cache.get(user_id)
-
     def _get_platform_for_source(
         self, source: HightouchSourceConnection
     ) -> PlatformDetail:
-        source_details = self.config.sources_to_platform_instance.get(
-            source.id, PlatformDetail()
-        )
+        # Resolved once per source, on a copy: the recipe's own PlatformDetail must
+        # not be filled in, and the unknown-platform message is reported once.
+        if source.id in self._source_platforms:
+            return self._source_platforms[source.id]
+        configured = self.config.sources_to_platform_instance.get(source.id)
+        details = configured.model_copy() if configured else PlatformDetail()
 
-        if source_details.platform is None:
+        if details.platform is None:
             if source.type.lower() in KNOWN_SOURCE_PLATFORM_MAPPING:
-                source_details.platform = KNOWN_SOURCE_PLATFORM_MAPPING[
-                    source.type.lower()
-                ]
+                details.platform = KNOWN_SOURCE_PLATFORM_MAPPING[source.type.lower()]
             else:
                 self.report.info(
                     title="Unknown source platform type",
-                    message=f"Source type '{source.type}' is not in the known platform mapping. "
-                    f"Using source type as platform name. To fix this, add a mapping in your recipe:\n\n"
-                    f"sources_to_platform_instance:\n"
-                    f'  "{source.id}":\n'
-                    f'    platform: "your_platform_name"  # e.g., snowflake, bigquery, postgres\n'
-                    f'    platform_instance: "your_instance"  # optional\n'
-                    f'    env: "PROD"  # optional',
+                    message="The source type is not in the known platform mapping, so "
+                    "it is used as the platform name. Map the source id in "
+                    "sources_to_platform_instance to set the platform.",
                     context=f"source_name: {source.name} (source_id: {source.id}, type: {source.type})",
                     log_category=StructuredLogCategory.LINEAGE,
                 )
-                source_details.platform = source.type.lower()
+                details.platform = source.type.lower()
 
-        if source_details.env is None:
-            source_details.env = self.config.env
+        if details.env is None:
+            details.env = self.config.env
 
-        if source_details.database is None and source.configuration:
-            source_details.database = source.configuration.get("database")
+        if details.database is None and source.configuration:
+            details.database = source.configuration.get("database")
 
-        return source_details
+        self._source_platforms[source.id] = details
+        return details
 
     def _get_platform_for_destination(
         self, destination: HightouchDestination
     ) -> PlatformDetail:
-        destination_details = self.config.destinations_to_platform_instance.get(
-            destination.id, PlatformDetail()
-        )
+        if destination.id in self._destination_platforms:
+            return self._destination_platforms[destination.id]
+        configured = self.config.destination_to_platform_instance.get(destination.id)
+        details = configured.model_copy() if configured else PlatformDetail()
 
-        if destination_details.platform is None:
+        if details.platform is None:
             if destination.type.lower() in KNOWN_DESTINATION_PLATFORM_MAPPING:
-                destination_details.platform = KNOWN_DESTINATION_PLATFORM_MAPPING[
+                details.platform = KNOWN_DESTINATION_PLATFORM_MAPPING[
                     destination.type.lower()
                 ]
             else:
                 self.report.info(
                     title="Unknown destination platform type",
-                    message=f"Destination type '{destination.type}' is not in the known platform mapping. "
-                    f"Using destination type as platform name. To fix this, add a mapping in your recipe:\n\n"
-                    f"destinations_to_platform_instance:\n"
-                    f'  "{destination.id}":\n'
-                    f'    platform: "your_platform_name"  # e.g., salesforce, hubspot, postgres\n'
-                    f'    platform_instance: "your_instance"  # optional\n'
-                    f'    env: "PROD"  # optional',
+                    message="The destination type is not in the known platform "
+                    "mapping, so it is used as the platform name. Map the destination "
+                    "id in destination_to_platform_instance to set the platform.",
                     context=f"destination_name: {destination.name} (destination_id: {destination.id}, type: {destination.type})",
                     log_category=StructuredLogCategory.LINEAGE,
                 )
-                destination_details.platform = destination.type.lower()
+                details.platform = destination.type.lower()
 
-        if destination_details.env is None:
-            destination_details.env = self.config.env
+        if details.env is None:
+            details.env = self.config.env
 
-        return destination_details
-
-    def _get_sync_workunits(
-        self, sync: HightouchSync
-    ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
-        yield from self._sync_handler.get_sync_workunits(sync)
-
-    def _get_model_workunits(
-        self, model: HightouchModel
-    ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
-        source = self._get_source(model.source_id)
-        yield from self._model_handler.get_model_workunits(model, source)
+        self._destination_platforms[destination.id] = details
+        return details
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
             config = HightouchSourceConfig.parse_obj_allow_extras(config_dict)
-            HightouchAPIClient(config.api_config).get_workspaces()
+            HightouchAPIClient(config.api_config).check_access()
             test_report.basic_connectivity = CapabilityReport(capable=True)
-        except Exception as e:
+        except requests.exceptions.HTTPError as e:
+            status = e.response.status_code if e.response is not None else None
+            reason = (
+                f"Hightouch rejected the API key (HTTP {status}). Check that the key "
+                "is valid and belongs to the workspace to ingest."
+                if status in (401, 403)
+                else f"The Hightouch API returned an error: {e}"
+            )
+            test_report.basic_connectivity = CapabilityReport(
+                capable=False, failure_reason=reason
+            )
+        except requests.exceptions.RequestException as e:
             test_report.basic_connectivity = CapabilityReport(
                 capable=False,
-                failure_reason=f"Failed to connect to Hightouch API: {e}",
+                failure_reason=f"Could not reach the Hightouch API at the configured "
+                f"base_url: {e}",
+            )
+        except Exception as e:
+            test_report.basic_connectivity = CapabilityReport(
+                capable=False, failure_reason=f"Invalid configuration: {e}"
             )
         return test_report
 
@@ -345,8 +336,6 @@ class HightouchSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         yield from self._container_handler.emit_models_container()
         yield from self._container_handler.emit_syncs_container()
-
-        emitted_model_ids = set()
 
         self.report.report_api_call()
         syncs = self.api_client.get_syncs()
@@ -358,10 +347,13 @@ class HightouchSource(StatefulIngestionSourceBase, TestableSource):
             else:
                 self.report.report_syncs_dropped(sync.slug)
 
-        all_models = []
+        all_models: List[HightouchModel] = []
         if self.config.emit_models_as_datasets:
             self.report.report_api_call()
             all_models = self.api_client.get_models()
+            # The bulk list already carries every field, so syncs read their model
+            # from here instead of fetching it again.
+            self._models_cache.update({model.id: model for model in all_models})
 
         if self.graph and (filtered_syncs or all_models):
             self._schema_handler.preload_schemas_for_sql_parsing(
@@ -377,42 +369,19 @@ class HightouchSource(StatefulIngestionSourceBase, TestableSource):
                 get_outlet_urn_for_sync=self._sync_handler.get_outlet_urn_for_sync,
             )
 
+        if self.config.emit_models_as_datasets:
+            yield from self._get_models_workunits(all_models, filtered_syncs)
+
         for sync in filtered_syncs:
             try:
-                yield from self._get_sync_workunits(sync)
-                # Only suppress the model from the standalone pass once the sync
-                # workunits were produced without error; a failed sync must not
-                # silently drop its model.
-                if self.config.emit_models_as_datasets:
-                    emitted_model_ids.add(sync.model_id)
+                yield from self._sync_handler.get_sync_workunits(sync)
             except Exception as e:
                 self.report.warning(
                     title="Failed to process sync",
-                    message=f"An error occurred while processing sync: {str(e)}",
+                    message="The sync could not be ingested.",
                     context=f"sync_slug: {sync.slug} (sync_id: {sync.id})",
                     exc=e,
                 )
-
-        if self.config.emit_models_as_datasets and all_models:
-            standalone_models: List[HightouchModel] = []
-            for model in all_models:
-                if model.id in emitted_model_ids:
-                    continue
-                if self.config.model_patterns.allowed(model.name):
-                    standalone_models.append(model)
-                else:
-                    self.report.report_models_dropped(model.name)
-
-            for model in standalone_models:
-                try:
-                    yield from self._get_model_workunits(model)
-                except Exception as e:
-                    self.report.warning(
-                        title="Failed to process model",
-                        message=f"An error occurred while processing model: {str(e)}",
-                        context=f"model_name: {model.name} (model_id: {model.id})",
-                        exc=e,
-                    )
 
         if self.config.include_contracts:
             self.report.report_api_call()
@@ -420,9 +389,6 @@ class HightouchSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._contract_handler.get_contract_workunits(
                 contracts=contracts
             )
-
-        if self._destination_lineage:
-            yield from self._lineage_handler.emit_all_destination_lineage()
 
         active_aggregators = {
             cache_key: aggregator
@@ -445,6 +411,45 @@ class HightouchSource(StatefulIngestionSourceBase, TestableSource):
                 )
             finally:
                 aggregator.close()
+
+    def _get_models_workunits(
+        self, all_models: List[HightouchModel], syncs: List[HightouchSync]
+    ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
+        """Emit each model once, before the syncs that read it.
+
+        A model's schema may come only from the columns its syncs reference, so it
+        is built from the union of every sync's columns rather than per sync.
+        """
+        columns_by_model: Dict[str, List[str]] = {}
+        for sync in syncs:
+            columns = columns_by_model.setdefault(sync.model_id, [])
+            for column in sync.referenced_columns or []:
+                if column not in columns:
+                    columns.append(column)
+
+        model_ids = [model.id for model in all_models]
+        model_ids += [m for m in columns_by_model if m not in set(model_ids)]
+
+        for model_id in model_ids:
+            try:
+                model = self._get_model(model_id)
+                if not model:
+                    continue
+                if not self.config.model_patterns.allowed(model.name):
+                    self.report.report_models_dropped(model.name)
+                    continue
+                self.report.report_models_scanned()
+                source = self._get_source(model.source_id)
+                yield from self._model_handler.emit_model(
+                    model, source, referenced_columns=columns_by_model.get(model_id)
+                )
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to process model",
+                    message="The model could not be ingested.",
+                    context=f"model_id: {model_id}",
+                    exc=e,
+                )
 
     def get_report(self) -> SourceReport:
         return self.report

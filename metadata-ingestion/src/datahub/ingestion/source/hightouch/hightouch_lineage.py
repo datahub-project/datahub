@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -10,7 +10,6 @@ from datahub.ingestion.source.hightouch.config import (
 )
 from datahub.ingestion.source.hightouch.constants import (
     QUERY_TYPE_RAW_SQL,
-    QUERY_TYPE_TABLE,
 )
 from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
 from datahub.ingestion.source.hightouch.hightouch_utils import (
@@ -21,7 +20,6 @@ from datahub.ingestion.source.hightouch.hightouch_utils import (
 )
 from datahub.ingestion.source.hightouch.models import (
     HightouchColumnPair,
-    HightouchDestinationLineageInfo,
     HightouchModel,
     HightouchSourceConnection,
     HightouchSync,
@@ -32,12 +30,10 @@ from datahub.ingestion.source.hightouch.protocols import (
 )
 from datahub.ingestion.source.hightouch.urn_builder import HightouchUrnBuilder
 from datahub.metadata.schema_classes import (
-    DatasetLineageTypeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     SchemaFieldClass,
-    UpstreamClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
@@ -57,7 +53,6 @@ class HightouchLineageHandler:
         graph: Optional[DataHubGraph],
         registered_urns: Set[str],
         model_schema_fields_cache: Dict[str, List[SchemaFieldClass]],
-        destination_lineage: Dict[str, HightouchDestinationLineageInfo],
         sql_aggregators: Dict[
             Tuple[str, Optional[str], str], Optional[SqlParsingAggregator]
         ],
@@ -70,7 +65,8 @@ class HightouchLineageHandler:
         self.graph = graph
         self._registered_urns = registered_urns
         self._model_schema_fields_cache = model_schema_fields_cache
-        self._destination_lineage = destination_lineage
+        # Upstream table URNs parsed from each raw-SQL model, by model id.
+        self._sql_upstreams: Dict[str, List[str]] = {}
         self._sql_aggregators = sql_aggregators
         self._schema_metadata_cache = schema_metadata_cache
 
@@ -85,8 +81,8 @@ class HightouchLineageHandler:
                 return [f.fieldPath for f in metadata.fields]
         except Exception as e:
             reraise_if_programming_error(e, f"fetching {kind} schema")
-            logger.debug(
-                f"Could not fetch {kind} schema for column matching (optional): {e}"
+            self.report.report_datahub_lookup_failure(
+                f"{kind} schema for column matching", urn, e
             )
         return None
 
@@ -104,11 +100,9 @@ class HightouchLineageHandler:
 
         upstream_urn = None
 
-        if model.query_type == QUERY_TYPE_TABLE and model.name:
-            table_name = self.urn_builder.qualified_table_name(model, source)
-            upstream_urn = self.urn_builder.make_upstream_table_urn(table_name, source)
-            if not upstream_urn:
-                return {}
+        table_urn = self.urn_builder.source_table_urn(model, source)
+        if table_urn:
+            upstream_urn = table_urn
 
         # For SQL models (raw_sql, custom, dbt, etc.), upstream casing only makes
         # sense when the SQL references exactly one table.
@@ -138,8 +132,8 @@ class HightouchLineageHandler:
             reraise_if_programming_error(
                 e, f"fetching field casing for model {model.slug}"
             )
-            logger.debug(
-                f"Could not fetch upstream field casing for model {model.slug} from {upstream_urn} (optional feature): {e}"
+            self.report.report_datahub_lookup_failure(
+                "upstream field casing", f"model_slug: {model.slug}", e
             )
             return {}
 
@@ -235,10 +229,13 @@ class HightouchLineageHandler:
         # Table models emit their own UpstreamLineage in the model handler. For
         # raw_sql models, register the view definition for SQL parsing (skipped when
         # SQL parsing is disabled so no lineage is derived from the model's SQL).
+        # Without the schema in URNs the model handler emits the lineage instead,
+        # because the aggregator would keep the schema segment.
         if (
             self.config.parse_model_sql
             and model.raw_sql
             and model.query_type == QUERY_TYPE_RAW_SQL
+            and source_platform.include_schema_in_urn
         ):
             self.report.sql_parsing_attempts += 1
 
@@ -264,17 +261,21 @@ class HightouchLineageHandler:
                     exc=e,
                 )
 
-    def resolve_sql_model_upstream_urns(
+    def sql_upstream_urns(
         self, model: HightouchModel, source: HightouchSourceConnection
     ) -> List[str]:
-        # Parse a raw-SQL model's query to resolve the upstream table URNs it reads
-        # from. Used to build sync lineage when models are not emitted as datasets,
-        # where there is no intermediate model dataset to hang lineage from.
-        if not (
-            self.config.parse_model_sql
-            and model.raw_sql
-            and model.query_type == QUERY_TYPE_RAW_SQL
-        ):
+        """Upstream tables of a raw-SQL model, parsed once per model and normalized
+        to the source platform's URN scheme (honoring include_schema_in_urn)."""
+        if model.id in self._sql_upstreams:
+            return self._sql_upstreams[model.id]
+        upstreams = self._parse_sql_upstreams(model, source)
+        self._sql_upstreams[model.id] = upstreams
+        return upstreams
+
+    def _parse_sql_upstreams(
+        self, model: HightouchModel, source: HightouchSourceConnection
+    ) -> List[str]:
+        if not (self.config.parse_model_sql and model.raw_sql):
             return []
 
         source_platform = self.urn_builder.get_platform_for_source(source)
@@ -289,8 +290,8 @@ class HightouchLineageHandler:
             platform=source_platform.platform,
             platform_instance=source_platform.platform_instance,
             env=source_platform.env or self.config.env,
-            graph=self.graph,
-            schema_aware=self.graph is not None,
+            graph=None,
+            schema_aware=False,
         )
 
         if result.debug_info.table_error:
@@ -301,16 +302,13 @@ class HightouchLineageHandler:
             self.report.warning(
                 title="Could not parse model SQL for upstream lineage",
                 message="Upstream table lineage could not be derived from the "
-                "model's SQL and will be missing for syncs using this model.",
+                "model's SQL and will be missing for this model and its syncs.",
                 context=f"model_slug: {model.slug}",
                 exc=result.debug_info.table_error,
             )
             return []
 
         self.report.sql_parsing_successes += 1
-        # Normalize parser output to the connector's own URN scheme so raw-SQL
-        # upstreams match the source platform's emitted entities (honors
-        # include_schema_in_urn) rather than always keeping the schema segment.
         return [
             self.urn_builder.normalize_parsed_upstream_urn(urn, source)
             for urn in result.in_tables
@@ -407,54 +405,6 @@ class HightouchLineageHandler:
             self.report.column_lineage_emitted += len(fine_grained_lineages)
 
         return fine_grained_lineages
-
-    def accumulate_destination_lineage(
-        self,
-        destination_urn: str,
-        upstreams: Sequence[Union[str, DatasetUrn]],
-        fine_grained_lineages: Optional[List[FineGrainedLineageClass]],
-    ) -> None:
-        """Accumulate lineage across syncs to avoid overwriting when multiple syncs target same destination."""
-        if destination_urn not in self._destination_lineage:
-            self._destination_lineage[destination_urn] = (
-                HightouchDestinationLineageInfo()
-            )
-
-        for inlet_urn in upstreams:
-            self._destination_lineage[destination_urn].upstreams.add(str(inlet_urn))
-
-        if fine_grained_lineages:
-            self._destination_lineage[destination_urn].fine_grained_lineages.extend(
-                fine_grained_lineages
-            )
-
-    def emit_all_destination_lineage(self) -> Iterable[MetadataWorkUnit]:
-        """Called after all syncs processed to emit consolidated lineage.
-
-        Destinations are usually owned by another connector (a warehouse table or
-        an ingested SaaS object), so lineage is added as a patch rather than
-        replacing their UpstreamLineage, and the workunits are not primary so
-        stateful ingestion never soft-deletes those datasets.
-        """
-        for destination_urn, lineage_data in self._destination_lineage.items():
-            if not lineage_data.upstreams:
-                continue
-            patch_builder = DatasetPatchBuilder(destination_urn)
-            for upstream_urn in sorted(lineage_data.upstreams):
-                patch_builder.add_upstream_lineage(
-                    UpstreamClass(
-                        dataset=upstream_urn,
-                        type=DatasetLineageTypeClass.COPY,
-                    )
-                )
-            for fine_grained_lineage in lineage_data.fine_grained_lineages:
-                patch_builder.add_fine_grained_lineage(fine_grained_lineage)
-            for mcp in patch_builder.build():
-                yield MetadataWorkUnit(
-                    id=MetadataWorkUnit.generate_workunit_id(mcp),
-                    mcp_raw=mcp,
-                    is_primary_source=False,
-                )
 
     def emit_sibling_aspects(
         self, model_urn: str, source_table_urn: str

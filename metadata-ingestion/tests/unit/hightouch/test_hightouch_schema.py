@@ -172,6 +172,7 @@ def test_fetch_schema_from_datahub_table_model(
         workspace_id="workspace_1",
         source_id="source_1",
         query_type="table",
+        table={"name": "customers"},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -227,6 +228,7 @@ def test_fetch_schema_from_datahub_not_found(
         workspace_id="workspace_1",
         source_id="source_1",
         query_type="table",
+        table={"name": "customers"},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -246,34 +248,6 @@ def test_fetch_schema_from_datahub_not_found(
 
     assert result is None
     assert report.model_schemas_datahub_not_found
-
-
-def test_resolve_schema_from_query_schema(report, mock_urn_builder):
-    handler = HightouchSchemaHandler(
-        report=report, graph=None, urn_builder=mock_urn_builder
-    )
-
-    model = HightouchModel(
-        id="model_1",
-        name="Test Model",
-        slug="test-model",
-        workspace_id="workspace_1",
-        source_id="source_1",
-        query_type="raw_sql",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        query_schema=[
-            {"name": "id", "type": "INTEGER"},
-            {"name": "email", "type": "STRING"},
-        ],
-    )
-
-    result = handler.resolve_schema(model, source=None)
-
-    assert result is not None
-    assert len(result) == 2
-    assert result[0].name == "id"
-    assert result[0].type == "INTEGER"
 
 
 def test_resolve_schema_fallback_to_referenced_columns(report, mock_urn_builder):
@@ -319,19 +293,14 @@ def test_resolve_schema_with_primary_key_marking(report, mock_urn_builder):
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
         primary_key="id",
-        query_schema=[
-            {"name": "id", "type": "INTEGER"},
-            {"name": "email", "type": "STRING"},
-        ],
     )
 
-    result = handler.resolve_schema(model, source=None)
+    result = handler.resolve_schema(
+        model, source=None, referenced_columns=["ID", "email"]
+    )
 
     assert result is not None
-    assert len(result) == 2
-    assert result[0].is_primary_key is True
-    assert result[0].description is None
-    assert result[1].is_primary_key is False
+    assert [f.is_primary_key for f in result] == [True, False]
 
 
 def test_resolve_schema_returns_none_when_no_schema_available(report, mock_urn_builder):
@@ -352,27 +321,6 @@ def test_resolve_schema_returns_none_when_no_schema_available(report, mock_urn_b
 
     result = handler.resolve_schema(model, source=None)
 
-    assert result is None
-
-
-def test_get_first_value_helper(report, mock_graph, mock_urn_builder):
-    handler = HightouchSchemaHandler(
-        report=report, graph=mock_graph, urn_builder=mock_urn_builder
-    )
-
-    data = {
-        "fieldName": "user_id",
-        "name": "id",
-        "column_name": "col_id",
-    }
-
-    result = handler._get_first_value(data, ["name", "fieldName", "column_name"])
-    assert result == "id"
-
-    result = handler._get_first_value(data, ["missing", "fieldName"])
-    assert result == "user_id"
-
-    result = handler._get_first_value(data, ["missing1", "missing2"])
     assert result is None
 
 

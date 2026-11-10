@@ -3,7 +3,6 @@ HIGHTOUCH_PLATFORM = "hightouch"
 
 # HTTP configuration
 HTTP_METHOD_GET = "GET"
-HTTP_PROTOCOL_HTTP = "http://"
 HTTP_PROTOCOL_HTTPS = "https://"
 HTTP_HEADER_AUTHORIZATION = "Authorization"
 HTTP_HEADER_CONTENT_TYPE = "Content-Type"
@@ -46,8 +45,6 @@ SYNC_CONFIG_DEST_TABLE_KEYS = [
 # Nested keys used when a destination-table value is itself an object
 SYNC_CONFIG_VALUE_KEY_FROM = "from"
 SYNC_CONFIG_VALUE_KEY_NAME = "name"
-# Suffix for the synthesized fallback destination name when none can be resolved
-DESTINATION_FALLBACK_SUFFIX = "_destination"
 
 # API response field names
 API_RESPONSE_FIELD_DATA = "data"
@@ -64,22 +61,18 @@ CONTAINER_TYPE_MODELS = "Models"
 CONTAINER_TYPE_SYNCS = "Syncs"
 
 # API endpoints
-API_ENDPOINT_WORKSPACES = "workspaces"
 API_ENDPOINT_SOURCES = "sources"
 API_ENDPOINT_MODELS = "models"
 API_ENDPOINT_DESTINATIONS = "destinations"
 API_ENDPOINT_SYNCS = "syncs"
-API_ENDPOINT_USERS = "users"
 API_ENDPOINT_CONTRACTS = "events/contracts"
 
 # Entity names for logging
-ENTITY_NAME_WORKSPACE = "workspace"
 ENTITY_NAME_SOURCE = "source"
 ENTITY_NAME_MODEL = "model"
 ENTITY_NAME_DESTINATION = "destination"
 ENTITY_NAME_SYNC = "sync"
 ENTITY_NAME_SYNC_RUN = "sync run"
-ENTITY_NAME_USER = "user"
 ENTITY_NAME_CONTRACT = "contract"
 
 # Mapping of Hightouch source types to DataHub platform names

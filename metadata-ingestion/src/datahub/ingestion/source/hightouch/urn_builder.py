@@ -93,10 +93,12 @@ class HightouchUrnBuilder:
 
     def qualified_table_name(
         self, model: HightouchModel, source: HightouchSourceConnection
-    ) -> str:
+    ) -> Optional[str]:
         # Qualify with database/schema (honoring include_schema_in_urn) so the name
         # matches the URN produced by the upstream platform's own connector.
-        table_name = model.name
+        table_name = model.table_name
+        if not table_name:
+            return None
         configuration = source.configuration or {}
         schema = configuration.get(SOURCE_CONFIG_KEY_SCHEMA, "")
 
@@ -110,6 +112,16 @@ class HightouchUrnBuilder:
         # qualification down to the bare table name so the option actually removes
         # the schema segment, then prepend the configured database.
         return self._strip_to_database_qualified(table_name, database)
+
+    def source_table_urn(
+        self, model: HightouchModel, source: HightouchSourceConnection
+    ) -> Optional[str]:
+        """URN of the warehouse table a table or dbt model reads as is, or None for
+        a query model."""
+        table_name = self.qualified_table_name(model, source)
+        if not table_name:
+            return None
+        return str(self.make_upstream_table_urn(table_name, source))
 
     def make_model_urn(
         self,
@@ -131,6 +143,8 @@ class HightouchUrnBuilder:
 
         if database and "." not in table_name:
             table_name = f"{database}.{table_name}"
+        if source_details.lowercase_urns:
+            table_name = table_name.lower()
 
         return DatasetUrn.create_from_ids(
             platform_id=source_details.platform or source.type.lower(),

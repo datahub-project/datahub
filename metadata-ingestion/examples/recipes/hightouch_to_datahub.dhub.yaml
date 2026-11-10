@@ -44,7 +44,7 @@ source:
         database: "analytics"
 
     # Optional: Map Hightouch destinations to DataHub platforms
-    destinations_to_platform_instance:
+    destination_to_platform_instance:
       # Key is the Hightouch destination ID
       "67890":
         platform: "salesforce"

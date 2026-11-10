@@ -307,7 +307,6 @@ class DataJobSubTypes(StrEnum):
     ADF_FAIL_ACTIVITY = "Fail Activity"
 
     # Hightouch Sync Types
-    HIGHTOUCH_SYNC = "Hightouch Sync"
 
     # Fabric Data Factory Activity Types (Fabric-specific, not in ADF)
     FABRIC_SPARK_JOB_DEFINITION = "Spark Job Definition"

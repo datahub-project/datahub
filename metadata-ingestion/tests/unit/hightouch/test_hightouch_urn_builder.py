@@ -243,7 +243,7 @@ def test_urn_builder_make_destination_urn(mock_api_client_class, pipeline_contex
     config = HightouchSourceConfig(
         api_config=HightouchAPIConfig(api_key="test"),
         env="PROD",
-        destinations_to_platform_instance={
+        destination_to_platform_instance={
             "dest_1": PlatformDetail(
                 platform="salesforce",
                 platform_instance="salesforce-prod",
@@ -285,7 +285,7 @@ def test_urn_builder_make_destination_urn_with_database(
     config = HightouchSourceConfig(
         api_config=HightouchAPIConfig(api_key="test"),
         env="PROD",
-        destinations_to_platform_instance={
+        destination_to_platform_instance={
             "dest_1": PlatformDetail(
                 platform="snowflake",
                 platform_instance="snowflake-prod",
@@ -424,14 +424,15 @@ def _urn_builder_for_schema_flag(pipeline_context, include_schema_in_urn):
     return urn_builder, source_connection
 
 
-def _model(name: str) -> HightouchModel:
+def _model(table_name: str) -> HightouchModel:
     return HightouchModel(
         id="model_1",
-        name=name,
-        slug="raw-sql-model",
+        name="Display Name",
+        slug="table-model",
         workspace_id="workspace_1",
         source_id="source_1",
-        query_type="raw_sql",
+        query_type="table",
+        table={"name": table_name},
         created_at=datetime(2023, 1, 1),
         updated_at=datetime(2023, 1, 2),
     )
@@ -502,3 +503,131 @@ def test_normalize_parsed_upstream_urn_strips_schema_when_flag_false(
     # the configured database, matching the connector's own source URNs.
     assert "public" not in result
     assert "raw_data.customers" in result
+
+
+@pytest.mark.parametrize(
+    "name, database, schema, expected",
+    [
+        pytest.param("orders", "db", "sch", "db.sch.orders", id="bare-name"),
+        pytest.param(
+            "sch.orders", "db", "other", "db.sch.orders", id="schema-qualified"
+        ),
+        pytest.param(
+            "db2.sch.orders", "db", "sch", "db2.sch.orders", id="fully-qualified"
+        ),
+        pytest.param("DB.orders", "db", "", "DB.orders", id="database-qualified"),
+        pytest.param("orders", "", "", "orders", id="nothing-configured"),
+    ],
+)
+def test_qualify_adds_only_missing_parts(
+    name: str, database: str, schema: str, expected: str
+) -> None:
+    assert HightouchUrnBuilder._qualify(name, database, schema) == expected
+
+
+def _warehouse_source(platform: str, configuration: dict) -> HightouchSourceConnection:
+    return HightouchSourceConnection(
+        id="source_1",
+        name="Warehouse",
+        slug="warehouse",
+        type=platform,
+        workspace_id="workspace_1",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration=configuration,
+    )
+
+
+@pytest.mark.parametrize(
+    "platform, convert_urns_to_lowercase, expected_name",
+    [
+        pytest.param(
+            "snowflake", None, "analytics.public.product_events", id="snowflake-default"
+        ),
+        pytest.param(
+            "snowflake", False, "ANALYTICS.PUBLIC.PRODUCT_EVENTS", id="snowflake-off"
+        ),
+        pytest.param(
+            "bigquery", None, "ANALYTICS.PUBLIC.PRODUCT_EVENTS", id="other-default"
+        ),
+        pytest.param(
+            "bigquery", True, "analytics.public.product_events", id="other-on"
+        ),
+    ],
+)
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_table_model_upstream_uses_table_name_not_display_name(
+    mock_api_client_class,
+    pipeline_context,
+    platform,
+    convert_urns_to_lowercase,
+    expected_name,
+):
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test_api_key"),
+        sources_to_platform_instance={
+            "source_1": PlatformDetail(
+                platform=platform, convert_urns_to_lowercase=convert_urns_to_lowercase
+            )
+        },
+    )
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+    model = HightouchModel.model_validate(
+        {
+            "id": 1,
+            "name": "Product Events",
+            "slug": "product-events",
+            "workspaceId": 1,
+            "sourceId": 1,
+            "queryType": "table",
+            "table": {"name": "PRODUCT_EVENTS"},
+            "createdAt": "2023-01-01T00:00:00Z",
+            "updatedAt": "2023-01-02T00:00:00Z",
+        }
+    )
+
+    urn = source_instance._urn_builder.source_table_urn(
+        model,
+        _warehouse_source(platform, {"database": "ANALYTICS", "schema": "PUBLIC"}),
+    )
+
+    assert urn is not None
+    assert DatasetUrn.from_string(urn).name == expected_name
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_dbt_model_upstream_is_its_generated_table(
+    mock_api_client_class, pipeline_context
+):
+    source_instance = HightouchIngestionSource(
+        HightouchSourceConfig(api_config=HightouchAPIConfig(api_key="test_api_key")),
+        pipeline_context,
+    )
+    model = HightouchModel.model_validate(
+        {
+            "id": 2,
+            "name": "Orders (dbt)",
+            "slug": "orders-dbt",
+            "workspaceId": 1,
+            "sourceId": 1,
+            "queryType": "dbt",
+            "dbt": {
+                "dbtUniqueId": "model.shop.orders",
+                "compiledSql": "select 1",
+                "rawSql": "select 1",
+                "database": "ANALYTICS",
+                "schema": "MARTS",
+                "name": "ORDERS",
+                "modelId": 7,
+            },
+            "createdAt": "2023-01-01T00:00:00Z",
+            "updatedAt": "2023-01-02T00:00:00Z",
+        }
+    )
+
+    urn = source_instance._urn_builder.source_table_urn(
+        model, _warehouse_source("snowflake", {"database": "OTHER_DB"})
+    )
+
+    assert urn is not None
+    assert DatasetUrn.from_string(urn).name == "analytics.marts.orders"

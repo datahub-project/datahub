@@ -1,10 +1,9 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from datahub.metadata.schema_classes import (
-    FineGrainedLineageClass,
     SchemaFieldClass,
 )
 from datahub.sdk.dataset import Dataset
@@ -25,14 +24,6 @@ class HightouchSchemaField(_HightouchBaseModel):
     is_primary_key: bool = False
 
 
-class HightouchWorkspace(_HightouchBaseModel):
-    id: str
-    name: str
-    slug: str
-    created_at: datetime = Field(alias="createdAt")
-    updated_at: datetime = Field(alias="updatedAt")
-
-
 class HightouchSourceConnection(_HightouchBaseModel):
     id: str
     name: str
@@ -42,6 +33,21 @@ class HightouchSourceConnection(_HightouchBaseModel):
     created_at: datetime = Field(alias="createdAt")
     updated_at: datetime = Field(alias="updatedAt")
     configuration: Dict[str, Any] = Field(default_factory=dict)
+
+
+class HightouchTableQuery(_HightouchBaseModel):
+    name: str
+
+
+class HightouchRawQuery(_HightouchBaseModel):
+    sql: str
+
+
+class HightouchDbtQuery(_HightouchBaseModel):
+    database: Optional[str] = None
+    schema_name: Optional[str] = Field(default=None, alias="schema")
+    name: Optional[str] = None
+    compiled_sql: Optional[str] = Field(default=None, alias="compiledSql")
 
 
 class HightouchModel(_HightouchBaseModel):
@@ -58,24 +64,29 @@ class HightouchModel(_HightouchBaseModel):
     is_schema: bool = Field(default=False, alias="isSchema")
     tags: Optional[Dict[str, str]] = None
     folder_id: Optional[str] = Field(default=None, alias="folderId")
-    raw_sql: Optional[str] = Field(default=None, alias="rawSql")
-    query_schema: Optional[Union[str, Dict[str, Any], List[Any]]] = Field(
-        default=None, alias="querySchema"
-    )
+    # Exactly one of these is set, matching queryType. `name` above is the display
+    # name; the warehouse table of a table model is `table.name`.
+    table: Optional[HightouchTableQuery] = None
+    raw: Optional[HightouchRawQuery] = None
+    dbt: Optional[HightouchDbtQuery] = None
 
-    @model_validator(mode="before")
-    @classmethod
-    def extract_raw_sql(cls, data: Any) -> Any:
-        if not isinstance(data, dict):
-            return data
+    @property
+    def raw_sql(self) -> Optional[str]:
+        return self.raw.sql if self.raw else None
 
-        if "rawSql" in data or "raw_sql" in data:
-            return data
-
-        if "raw" in data and isinstance(data["raw"], dict) and "sql" in data["raw"]:
-            data["rawSql"] = data["raw"]["sql"]
-
-        return data
+    @property
+    def table_name(self) -> Optional[str]:
+        """The warehouse table a table or dbt model reads, qualified as far as the
+        API qualifies it."""
+        if self.table:
+            return self.table.name
+        if self.dbt and self.dbt.name:
+            return ".".join(
+                part
+                for part in (self.dbt.database, self.dbt.schema_name, self.dbt.name)
+                if part
+            )
+        return None
 
 
 class HightouchDestination(_HightouchBaseModel):
@@ -124,13 +135,6 @@ class HightouchSyncRun(_HightouchBaseModel):
     query_size: Optional[int] = Field(default=None, alias="querySize")
 
 
-class HightouchUser(_HightouchBaseModel):
-    id: str
-    email: str
-    name: Optional[str] = None
-    created_at: Optional[datetime] = Field(default=None, alias="createdAt")
-
-
 class HightouchFieldMapping(_HightouchBaseModel):
     source_field: str
     destination_field: str
@@ -172,13 +176,6 @@ class HightouchContract(_HightouchBaseModel):
     event_sources: List[HightouchEventSource] = Field(
         default_factory=list, alias="eventSources"
     )
-
-
-class HightouchDestinationLineageInfo(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    upstreams: Set[str] = Field(default_factory=set)
-    fine_grained_lineages: List[FineGrainedLineageClass] = Field(default_factory=list)
 
 
 class HightouchModelDatasetResult(BaseModel):

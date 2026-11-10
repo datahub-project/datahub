@@ -1,12 +1,10 @@
-import json
 import logging
-from typing import Any, Dict, List, Optional, Set
+from typing import List, Optional, Set
 
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.hightouch.config import HightouchSourceReport
 from datahub.ingestion.source.hightouch.constants import (
     QUERY_TYPE_RAW_SQL,
-    QUERY_TYPE_TABLE,
 )
 from datahub.ingestion.source.hightouch.hightouch_utils import (
     SchemaMetadataCache,
@@ -52,24 +50,17 @@ class HightouchSchemaHandler:
             schema_metadata_cache if schema_metadata_cache is not None else {}
         )
 
-    @staticmethod
-    def _get_first_value(d: Dict[str, Any], keys: List[str]) -> Optional[Any]:
-        """Get first non-None value from dict for any of the given keys."""
-        for key in keys:
-            value = d.get(key)
-            if value is not None:
-                return value
-        return None
-
     def resolve_schema(
         self,
         model: HightouchModel,
         source: Optional[HightouchSourceConnection],
         referenced_columns: Optional[List[str]] = None,
     ) -> Optional[List[HightouchSchemaField]]:
-        schema_fields = self._parse_model_schema(model)
-
-        if not schema_fields and source and self.graph:
+        # The API returns no column list for a model, so the schema comes from the
+        # table the model reads, as ingested into DataHub, or failing that from the
+        # columns its syncs reference.
+        schema_fields: Optional[List[HightouchSchemaField]] = None
+        if source and self.graph:
             schema_fields = self._fetch_schema_from_datahub(model=model, source=source)
 
         if not schema_fields and referenced_columns:
@@ -83,98 +74,6 @@ class HightouchSchemaHandler:
             )
 
         return schema_fields
-
-    def _parse_model_schema(
-        self, model: HightouchModel
-    ) -> Optional[List[HightouchSchemaField]]:
-        if not model.query_schema:
-            return None
-
-        try:
-            schema_data = model.query_schema
-
-            if isinstance(schema_data, str):
-                try:
-                    schema_data = json.loads(schema_data)
-                except json.JSONDecodeError as e:
-                    logger.warning(
-                        f"Model {model.id}: query_schema is a string but not valid JSON: {e}"
-                    )
-                    self.report.report_model_schemas_skipped("invalid_json")
-                    return None
-
-            columns = None
-            if isinstance(schema_data, list):
-                columns = schema_data
-            elif isinstance(schema_data, dict):
-                columns = (
-                    schema_data.get("columns")
-                    or schema_data.get("fields")
-                    or schema_data.get("schema")
-                    or schema_data.get("properties")
-                )
-            else:
-                logger.warning(
-                    f"Model {model.id}: Unexpected query_schema type: {type(schema_data).__name__}"
-                )
-                return None
-
-            if not columns:
-                return None
-
-            if not isinstance(columns, list):
-                logger.warning(
-                    f"Model {model.id}: Columns is not a list: {type(columns).__name__}"
-                )
-                return None
-
-            schema_fields = []
-            for col in columns:
-                if not isinstance(col, dict):
-                    continue
-
-                name = self._get_first_value(
-                    col,
-                    ["name", "fieldName", "field_name", "columnName", "column_name"],
-                )
-                data_type = self._get_first_value(
-                    col,
-                    [
-                        "type",
-                        "dataType",
-                        "data_type",
-                        "fieldType",
-                        "field_type",
-                        "columnType",
-                        "column_type",
-                    ],
-                )
-                description = self._get_first_value(
-                    col, ["description", "comment", "doc"]
-                )
-
-                if name and data_type:
-                    schema_fields.append(
-                        HightouchSchemaField(
-                            name=str(name), type=str(data_type), description=description
-                        )
-                    )
-
-            if schema_fields:
-                self.report.report_model_schemas_emitted()
-                return schema_fields
-            else:
-                self.report.report_model_schemas_skipped("no_valid_fields")
-                return None
-
-        except Exception as e:
-            reraise_if_programming_error(e, f"Model {model.id}: parsing schema")
-            logger.warning(
-                f"Model {model.id}: Could not parse schema from query_schema (malformed data): {e}",
-                exc_info=True,
-            )
-            self.report.report_model_schemas_skipped(f"parse_error: {str(e)}")
-            return None
 
     def _mark_primary_key_in_schema(
         self, schema_fields: List[HightouchSchemaField], primary_key: str
@@ -224,14 +123,7 @@ class HightouchSchemaHandler:
             return None
 
         try:
-            upstream_urn = None
-
-            if model.query_type == QUERY_TYPE_TABLE and model.name:
-                table_name = self.urn_builder.qualified_table_name(model, source)
-                upstream_urn = self.urn_builder.make_upstream_table_urn(
-                    table_name, source
-                )
-
+            upstream_urn = self.urn_builder.source_table_urn(model, source)
             if not upstream_urn:
                 return None
 
@@ -257,15 +149,10 @@ class HightouchSchemaHandler:
 
             return schema_fields
 
-        except (KeyError, AttributeError, TypeError) as e:
-            logger.error(
-                f"Model {model.id} ({model.slug}): Failed to fetch schema from DataHub - {type(e).__name__}: {e}",
-                exc_info=True,
-            )
-            raise
         except Exception as e:
-            logger.warning(
-                f"Model {model.id} ({model.slug}): Could not fetch schema from DataHub (continuing without it): {e}"
+            reraise_if_programming_error(e, f"fetching schema of model {model.slug}")
+            self.report.report_datahub_lookup_failure(
+                "model schema from the upstream table", f"model_slug: {model.slug}", e
             )
             return None
 
@@ -291,8 +178,8 @@ class HightouchSchemaHandler:
                 return True
         except Exception as e:
             reraise_if_programming_error(e, f"preloading schema for {urn}")
-            logger.debug(
-                f"Could not preload schema for {urn} (optional optimization): {e}"
+            self.report.report_datahub_lookup_failure(
+                "schema preload for SQL parsing", urn, e
             )
 
         return False
@@ -305,11 +192,8 @@ class HightouchSchemaHandler:
         registered_urns: Set[str],
         extract_table_urns_fn: ExtractTableUrns,
     ) -> None:
-        if model.query_type == QUERY_TYPE_TABLE and model.name:
-            table_name = self.urn_builder.qualified_table_name(model, source)
-            upstream_urn = str(
-                self.urn_builder.make_upstream_table_urn(table_name, source)
-            )
+        upstream_urn = self.urn_builder.source_table_urn(model, source)
+        if upstream_urn:
             self.fetch_and_register_schema(upstream_urn, aggregator, registered_urns)
 
         if model.raw_sql and model.query_type == QUERY_TYPE_RAW_SQL:
@@ -373,31 +257,50 @@ class HightouchSchemaHandler:
 
         registered_urns.clear()
 
+        # Preloading only improves SQL parsing and sibling links, so an API or
+        # DataHub error here skips that one model or sync instead of the run.
         for model in models:
-            source = get_source(model.source_id)
-            if not source:
-                continue
+            try:
+                source = get_source(model.source_id)
+                if not source:
+                    continue
 
-            source_platform = get_platform_for_source(source)
-            if not source_platform.platform:
-                continue
+                source_platform = get_platform_for_source(source)
+                if not source_platform.platform:
+                    continue
 
-            aggregator = get_aggregator_for_platform(source_platform)
-            if not aggregator:
-                continue
+                aggregator = get_aggregator_for_platform(source_platform)
+                if not aggregator:
+                    continue
 
-            self.preload_model_schemas(
-                model, source, aggregator, registered_urns, extract_table_urns_fn
-            )
+                self.preload_model_schemas(
+                    model, source, aggregator, registered_urns, extract_table_urns_fn
+                )
+            except Exception as e:
+                reraise_if_programming_error(e, f"preloading model {model.slug}")
+                self._report_preload_failure(f"model_slug: {model.slug}", e)
 
         for sync in syncs:
-            self.preload_sync_schemas(
-                sync,
-                registered_urns,
-                get_model,
-                get_source,
-                get_destination,
-                get_platform_for_source,
-                get_aggregator_for_platform,
-                get_outlet_urn_for_sync,
-            )
+            try:
+                self.preload_sync_schemas(
+                    sync,
+                    registered_urns,
+                    get_model,
+                    get_source,
+                    get_destination,
+                    get_platform_for_source,
+                    get_aggregator_for_platform,
+                    get_outlet_urn_for_sync,
+                )
+            except Exception as e:
+                reraise_if_programming_error(e, f"preloading sync {sync.slug}")
+                self._report_preload_failure(f"sync_slug: {sync.slug}", e)
+
+    def _report_preload_failure(self, context: str, exc: Exception) -> None:
+        self.report.warning(
+            title="Could not preload schemas for SQL parsing",
+            message="Reading this entity before ingestion failed, so its SQL lineage "
+            "and sibling links may be less complete. It is still ingested.",
+            context=context,
+            exc=exc,
+        )

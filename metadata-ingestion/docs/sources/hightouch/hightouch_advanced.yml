@@ -102,7 +102,7 @@ source:
         database: "my-gcp-project"
 
     # Map Hightouch destinations to your DataHub platform instances
-    destinations_to_platform_instance:
+    destination_to_platform_instance:
       "dest_123": # Replace with your actual Hightouch destination ID
         platform: "salesforce"
         platform_instance: "prod-salesforce"
