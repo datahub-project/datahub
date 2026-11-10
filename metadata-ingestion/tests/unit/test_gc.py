@@ -414,13 +414,17 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
         self.mock_graph.delete_entity.assert_not_called()
         self.assertEqual(len(self.report.warnings), 1)
 
-    def test_child_check_falls_back_when_lifecycle_flags_are_unsupported(self):
+    def test_child_check_drops_only_the_unsupported_search_flag(self):
         container_urn = Urn.from_string("urn:li:container:root")
         self._expire_soft_delete()
 
         def search(**kwargs):
+            # As on servers whose SearchFlags have no includeDraft field.
             if kwargs.get("include_draft"):
-                raise ValueError("SearchFlags.includeDraft is not supported")
+                raise ValueError(
+                    "SearchFlags.includeDraft is not supported by this DataHub server. "
+                    "Upgrade GMS or disable the corresponding option."
+                )
             return iter(["urn:li:container:child"])
 
         self.mock_graph.get_urns_by_filter.side_effect = search
@@ -432,8 +436,33 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
         self.assertEqual(
             self.report.num_soft_deleted_containers_retained_with_children, 2
         )
-        # The unsupported flags are tried, and warned about, only once.
-        self.assertEqual(self.mock_graph.get_urns_by_filter.call_count, 3)
+        # Hidden children are still searched for; the draft flag is tried once.
+        searches = [c.kwargs for c in self.mock_graph.get_urns_by_filter.call_args_list]
+        self.assertEqual(len(searches), 3)
+        for retried in searches[1:]:
+            self.assertFalse(retried["include_draft"])
+            self.assertTrue(retried["include_hidden_lifecycle_stages"])
+        self.assertIn(
+            "includeDraft",
+            str(
+                [
+                    i.context
+                    for i in self.report.infos
+                    if i.title
+                    == "Container child check runs without an unsupported search flag"
+                ]
+            ),
+        )
+
+    def test_unrelated_search_error_keeps_the_container(self):
+        self._expire_soft_delete()
+        self.mock_graph.get_urns_by_filter.side_effect = ValueError("bad filter")
+
+        self.cleanup.delete_soft_deleted_entity(
+            Urn.from_string("urn:li:container:root")
+        )
+
+        self.mock_graph.delete_entity.assert_not_called()
         self.assertEqual(len(self.report.warnings), 1)
 
     def test_dry_run_reports_containers_it_would_keep(self):

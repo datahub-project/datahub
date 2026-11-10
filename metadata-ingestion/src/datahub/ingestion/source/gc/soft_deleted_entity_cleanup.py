@@ -23,6 +23,12 @@ from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)
 
+# get_urns_by_filter argument -> the GraphQL SearchFlags field it sets.
+_CHILD_SEARCH_FLAGS = {
+    "include_draft": "includeDraft",
+    "include_hidden_lifecycle_stages": "includeHiddenLifecycleStages",
+}
+
 
 class SoftDeletedEntitiesCleanupConfig(ConfigModel):
     enabled: bool = Field(
@@ -153,8 +159,10 @@ class SoftDeletedEntitiesCleanup:
         self.start_time = time.time()
         self._report_lock: Lock = Lock()
         self.last_print_time = 0.0
-        # Cleared once if the server rejects the lifecycle search flags.
-        self._search_lifecycle_children = True
+        # A flag is turned off once the server reports it does not support it.
+        self._child_search_flags: Dict[str, bool] = {
+            flag: True for flag in _CHILD_SEARCH_FLAGS
+        }
 
     def _increment_retained_count(self) -> None:
         """Thread-safe method to update report fields"""
@@ -220,23 +228,42 @@ class SoftDeletedEntitiesCleanup:
                 ).to_raw()
             ],
         )
-        if self._search_lifecycle_children:
+        while True:
+            flags = [flag for flag, on in self._child_search_flags.items() if on]
             try:
                 return any(
-                    search(include_draft=True, include_hidden_lifecycle_stages=True)
+                    search(
+                        include_draft="include_draft" in flags,
+                        include_hidden_lifecycle_stages="include_hidden_lifecycle_stages"
+                        in flags,
+                    )
                 )
             except ValueError as e:
-                # Older servers do not support these search flags.
-                self._search_lifecycle_children = False
-                with self._report_lock:
-                    self.report.warning(
-                        title="Container child check skips draft and hidden entities",
-                        message="This DataHub server does not support searching draft or "
-                        "hidden entities, so containers holding only those may still be "
-                        "hard-deleted.",
-                        exc=e,
-                    )
-        return any(search())
+                # get_urns_by_filter raises this before searching when the server's
+                # SearchFlags lack a field: includeDraft is not in every edition, and
+                # older servers lack includeHiddenLifecycleStages.
+                unsupported = [
+                    flag
+                    for flag in flags
+                    if f"SearchFlags.{_CHILD_SEARCH_FLAGS[flag]} " in str(e)
+                ]
+                if not unsupported:
+                    raise
+                self._disable_child_search_flags(unsupported)
+
+    def _disable_child_search_flags(self, flags: List[str]) -> None:
+        with self._report_lock:
+            for flag in flags:
+                if not self._child_search_flags[flag]:
+                    continue
+                self._child_search_flags[flag] = False
+                self.report.info(
+                    title="Container child check runs without an unsupported search flag",
+                    message="This DataHub server does not support the search flag, so "
+                    "children it covers are not counted when deciding whether a "
+                    "soft-deleted container can be hard-deleted.",
+                    context=_CHILD_SEARCH_FLAGS[flag],
+                )
 
     def _report_container_retained(self, urn: Urn) -> None:
         with self._report_lock:
