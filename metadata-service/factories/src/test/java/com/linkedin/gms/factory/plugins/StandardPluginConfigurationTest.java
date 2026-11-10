@@ -40,6 +40,7 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.TestPropertySource;
@@ -427,5 +428,33 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
     assertEquals(
         sideEffect.getConfig().getClassName(), PropertyDefinitionDeleteSideEffect.class.getName());
     assertEquals(sideEffect.getConfig().getSupportedOperations(), List.of("DELETE"));
+  }
+
+  @Test
+  public void testDataPlatformInstanceWriteAuthorizationValidatorRegisteredByDefault() {
+    AspectPayloadValidator validator =
+        context.getBean(
+            "dataPlatformInstanceWriteAuthorizationValidator", AspectPayloadValidator.class);
+    assertTrue(validator instanceof DataPlatformInstanceWriteAuthorizationValidator);
+    assertTrue(validator.getConfig().isEnabled());
+    assertEquals(
+        validator.getConfig().getSupportedOperations(),
+        List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"));
+  }
+
+  @Test
+  public void testDataPlatformInstanceWriteAuthorizationValidatorToggleOff() {
+    new ApplicationContextRunner()
+        .withUserConfiguration(SpringStandardPluginConfiguration.class, PluginTestBeans.class)
+        .withBean(StructuredPropertyMappingLookup.class, () -> structuredPropertyMappingLookup)
+        .withBean(MeterRegistry.class, () -> meterRegistry)
+        .withBean(ObjectMapper.class, () -> objectMapper)
+        .withPropertyValues(
+            "metadataChangeProposal.validation.ignoreUnknown=true",
+            "metadataChangeProposal.validation.extensions.enabled=false",
+            "metadataChangeProposal.validation.aspectAuthorization.dataPlatformInstance.enabled=false")
+        .run(
+            ctx ->
+                assertFalse(ctx.containsBean("dataPlatformInstanceWriteAuthorizationValidator")));
   }
 }

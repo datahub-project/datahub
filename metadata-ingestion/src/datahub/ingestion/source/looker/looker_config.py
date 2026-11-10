@@ -26,6 +26,7 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.source_common import (
     EnvConfigMixin,
+    PlatformDetail,
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
@@ -172,6 +173,45 @@ class LookerCommonConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
         True,
         description="When enabled, extracts column-level lineage from Views and Explores",
     )
+    project_to_platform_instance: Dict[str, PlatformDetail] = Field(
+        default_factory=dict,
+        description="Platform instance (and optionally env) of the views of each "
+        "LookML project, keyed by project name. Use this when LookML projects "
+        "are ingested under different `platform_instance` values, so view URNs "
+        "match across the `looker` and `lookml` recipes that reference them. A "
+        "view from an imported project is keyed by the imported project's name. "
+        "Projects not listed, and fields not set on an entry, use the top-level "
+        "`platform_instance` and `env`. In the `lookml` source, views of a "
+        "project mapped to another instance or env are left to the recipe that "
+        "ingests that project and are only referenced in lineage.",
+    )
+
+    @field_validator("project_to_platform_instance", mode="after")
+    @classmethod
+    def project_env_must_be_one_of(
+        cls, v: Dict[str, PlatformDetail]
+    ) -> Dict[str, PlatformDetail]:
+        for detail in v.values():
+            if "env" in detail.model_fields_set:
+                detail.env = EnvConfigMixin.env_must_be_one_of(detail.env)
+        return v
+
+    def view_platform_detail(self, project_name: str) -> PlatformDetail:
+        # PlatformDetail.env defaults to PROD, so only fields set explicitly on
+        # the entry override the recipe's own platform_instance and env.
+        mapped = self.project_to_platform_instance.get(project_name)
+        if mapped is None:
+            return PlatformDetail(
+                platform_instance=self.platform_instance, env=self.env
+            )
+        return PlatformDetail(
+            platform_instance=(
+                mapped.platform_instance
+                if "platform_instance" in mapped.model_fields_set
+                else self.platform_instance
+            ),
+            env=mapped.env if "env" in mapped.model_fields_set else self.env,
+        )
 
 
 def _get_bigquery_definition(

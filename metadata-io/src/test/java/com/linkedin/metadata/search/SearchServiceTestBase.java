@@ -207,7 +207,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             TEST_ES_SEARCH_CONFIG,
             new V2MappingsBuilder(
                 TEST_ES_SEARCH_CONFIG.getEntityIndex(),
-                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
+                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+                ESUtils.KEYWORD_MAXLENGTH),
             settingsBuilder,
             searchDAO,
             browseDAO,
@@ -242,7 +243,9 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             TEST_SEARCH_SERVICE_CONFIG,
             esConfig,
             new V2MappingsBuilder(
-                esConfig.getEntityIndex(), OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
+                esConfig.getEntityIndex(),
+                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+                ESUtils.KEYWORD_MAXLENGTH),
             settingsBuilder,
             searchDAO,
             browseDAO,
