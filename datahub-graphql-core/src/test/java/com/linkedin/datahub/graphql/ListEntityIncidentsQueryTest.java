@@ -48,7 +48,7 @@ public class ListEntityIncidentsQueryTest {
         expectedTypes.stream()
             .map(ListEntityIncidentsQueryTest::renderFragment)
             .collect(Collectors.joining());
-    String query = Files.readString(QUERY_FILE);
+    String query = readQuery();
 
     List<String> actualTypes = new ArrayList<>();
     Matcher matcher = FRAGMENT_TYPE.matcher(query);
@@ -72,9 +72,14 @@ public class ListEntityIncidentsQueryTest {
 
     assertEquals(
         ParseAndValidate.parseAndValidate(
-                schema, ExecutionInput.newExecutionInput(Files.readString(QUERY_FILE)).build())
+                schema, ExecutionInput.newExecutionInput(readQuery()).build())
             .getErrors(),
         List.of());
+  }
+
+  /** Normalizes line endings so a CRLF checkout compares equal to the rendered fragments. */
+  private static String readQuery() throws IOException {
+    return Files.readString(QUERY_FILE).replace("\r\n", "\n");
   }
 
   private static List<String> orderTypes(List<String> types) {
