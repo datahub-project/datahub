@@ -97,7 +97,6 @@ query appConfig {
             showManageTags
             showIntroducePage
             showIngestionPageRedesign
-            viewIngestionSourcePrivilegesEnabled
             showLineageExpandMore
             showLineageFilterNodes
             showStatsTabRedesign

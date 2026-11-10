@@ -79,9 +79,7 @@ export const ManageIngestionPage = () => {
     const { platformPrivileges, loaded: loadedPlatformPrivileges } = useUserContext();
     const { config, loaded: loadedAppConfig } = useAppConfig();
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
-    const showIngestionTab =
-        isIngestionEnabled &&
-        (platformPrivileges?.manageIngestion || config?.featureFlags?.viewIngestionSourcePrivilegesEnabled);
+    const showIngestionTab = isIngestionEnabled && platformPrivileges?.manageIngestion;
     const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
 
     // undefined == not loaded, null == no permissions
@@ -158,7 +156,6 @@ export const ManageIngestionPage = () => {
                             onClick={handleCreateSource}
                             data-testid="create-ingestion-source-button"
                             icon={{ icon: Plus }}
-                            disabled={!platformPrivileges?.manageIngestion}
                         >
                             Create new source
                         </Button>
