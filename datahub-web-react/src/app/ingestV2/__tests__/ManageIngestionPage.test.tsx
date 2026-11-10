@@ -50,7 +50,6 @@ function setup({
             featureFlags: {
                 ...DEFAULT_APP_CONFIG.featureFlags,
                 viewIngestionSourcePrivilegesEnabled,
-                showIngestionPageRedesign: true,
             },
         },
     });

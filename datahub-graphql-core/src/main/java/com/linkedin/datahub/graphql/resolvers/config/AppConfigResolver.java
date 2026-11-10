@@ -291,6 +291,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
                   .setShowIntroducePage(_featureFlags.isShowIntroducePage())
                   // Deprecated in app.graphql; always true.
                   .setShowIngestionPageRedesign(true)
+                  .setViewIngestionSourcePrivilegesEnabled(
+                      _featureFlags.isViewIngestionSourcePrivilegesEnabled())
                   .setShowLineageExpandMore(_featureFlags.isShowLineageExpandMore())
                   .setShowLineageFilterNodes(_featureFlags.isShowLineageFilterNodes())
                   .setShowStatsTabRedesign(_featureFlags.isShowStatsTabRedesign())
