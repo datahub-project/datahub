@@ -160,6 +160,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -227,6 +233,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -374,6 +386,12 @@
           "supported": false
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -483,6 +501,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -581,6 +605,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -798,6 +828,12 @@
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
           "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Checks semantic embedding availability",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubDocumentsSource",
@@ -863,6 +899,12 @@
           "description": "Project containers are generated instead",
           "subtype_modifier": null,
           "supported": false
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
@@ -934,6 +976,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1134,7 +1182,7 @@
         },
         {
           "capability": "DESCRIPTIONS",
-          "description": "Enabled by default",
+          "description": "Table and column comments, read from information_schema",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1153,6 +1201,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1308,6 +1362,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -1336,6 +1396,12 @@
     "dynamodb": {
       "capabilities": [
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Optionally enabled via `include_s3_export_lineage` with `include_s3_export_column_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
@@ -1350,6 +1416,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "By default, platform_instance will use the AWS account id",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Optionally enabled via `include_s3_export_lineage` for DynamoDB Export to S3 destinations",
           "subtype_modifier": null,
           "supported": true
         }
@@ -1482,6 +1554,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -1564,6 +1642,12 @@
           "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.fivetran.fivetran.FivetranSource",
@@ -1621,6 +1705,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -1664,7 +1754,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Support via the `emit_storage_lineage` config field",
+          "description": "Enabled by default via `include_column_lineage` for Lake Formation resource links; storage column lineage also needs `emit_storage_lineage` in the upstream direction",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1693,6 +1783,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -1703,6 +1799,44 @@
       "platform_id": "glue",
       "platform_name": "Glue",
       "support_status": "GA"
+    },
+    "google-drive": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled by default via `extract_owners`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.google_drive.google_drive_source.GoogleDriveSource",
+      "platform_id": "google_drive",
+      "platform_name": "Google Drive",
+      "support_status": "ALPHA"
     },
     "grafana": {
       "capabilities": [
@@ -1810,6 +1944,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -1888,6 +2028,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default via queriedTables API (Hex Enterprise workspaces) or SQL parsing from cells (all Hex tiers). Applied to both projects and components. Unpublished entities always use SQL parsing. No warehouse ingestion dependency required.",
           "subtype_modifier": null,
@@ -1940,6 +2086,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2082,6 +2234,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Optionally enabled via configuration, an Iceberg instance represents the catalog name where the table is stored.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         }
@@ -2255,9 +2413,9 @@
       "capabilities": [
         {
           "capability": "LINEAGE_FINE",
-          "description": "Not supported",
+          "description": "Optionally emits column-level lineage from Confluent Cloud Flink SQL statements (`stream_processing_lineage.flink.enabled`, with `stream_processing_lineage.include_column_lineage`).",
           "subtype_modifier": null,
-          "supported": false
+          "supported": true
         },
         {
           "capability": "DATA_PROFILING",
@@ -2290,6 +2448,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Schemas associated with each topic are extracted from the schema registry. Avro and Protobuf (certified), JSON (incubating). Schema references are supported.",
           "subtype_modifier": null,
@@ -2297,9 +2461,9 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Not supported. If you use Kafka Connect, the kafka-connect source can generate lineage.",
+          "description": "Optionally emits topic-to-topic lineage from Stream Catalog cluster links / mirror topics via `confluent_catalog.include_lineage`, and from Confluent Cloud Flink SQL via `stream_processing_lineage.flink.enabled`. For source/sink lineage to external systems, use the kafka-connect source.",
           "subtype_modifier": null,
-          "supported": false
+          "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
@@ -2330,6 +2494,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2395,6 +2565,32 @@
       "platform_name": "Amazon Kinesis Data Streams",
       "support_status": "ALPHA"
     },
+    "langfuse": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default (Project container)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled for Prompts only (fully enumerated each run). NOT enabled for Traces/Generations, which are retrieved through a rolling time window and are excluded from stale-entity tracking to avoid incorrectly soft-deleting entities that simply aged out of the window.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default: Generation -> Prompt version lineage via DataProcessInstanceInput",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.langfuse.langfuse.LangfuseSource",
+      "platform_id": "langfuse",
+      "platform_name": "Langfuse",
+      "support_status": "ALPHA"
+    },
     "ldap": {
       "capabilities": [
         {
@@ -2453,6 +2649,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Use the `platform_instance` field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2567,6 +2769,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2695,7 +2903,7 @@
         },
         {
           "capability": "TAGS",
-          "description": "Metric, attribute, and temporal field tags",
+          "description": "Metric, attribute, temporal, and derived-metric field tags",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2802,6 +3010,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
           "subtype_modifier": null,
@@ -2900,6 +3114,12 @@
           "supported": true
         },
         {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_query_lineage` with `include_query_usage_statistics` (per-query) and `include_usage_statistics` (per-table); users are attributed with `query_history_source: audit_log` or `extended_events`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -2920,6 +3140,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -3003,6 +3229,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -3296,6 +3528,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -3410,6 +3648,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -3485,6 +3729,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -3605,6 +3855,12 @@
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4010,6 +4266,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -4065,6 +4327,12 @@
         {
           "capability": "OPERATION_CAPTURE",
           "description": "Enabled by default as UPDATE operations from object timestamps",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4444,6 +4712,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -4510,6 +4784,80 @@
       "platform_id": "snowplow",
       "platform_name": "Snowplow",
       "support_status": "BETA"
+    },
+    "sns": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Region containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Opt-in: topic to raw-delivery queue, when both have schemas",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "SNS has no description",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "From AWS resource tags, added without removing UI tags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "GLOSSARY_TERMS",
+          "description": "Opt-in, from data protection policy identifiers you map to existing terms",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Defaults to the AWS account id",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Opt-in: AWS Glue Schema Registry schemas listed in `glue_schema_registry.topic_schema_map`, or found by `use_naming_convention`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Subscribed queues and dead-letter queues, Lambda, EventBridge rules and Pipes",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.aws_messaging.sns_source.SnsSource",
+      "platform_id": "sns",
+      "platform_name": "Amazon SNS",
+      "support_status": "ALPHA"
     },
     "sql-queries": {
       "capabilities": [
@@ -4581,6 +4929,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -4636,6 +4990,74 @@
       "classname": "datahub.ingestion.source.sqlmesh.sqlmesh_source.SqlmeshSource",
       "platform_id": "sqlmesh",
       "platform_name": "SQLMesh",
+      "support_status": "ALPHA"
+    },
+    "sqs": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Region containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Queue to dead-letter queue, when both have schemas",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "SQS has no description",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "From AWS resource tags, added without removing UI tags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Defaults to the AWS account id",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Opt-in: AWS Glue Schema Registry schemas listed in `glue_schema_registry.queue_schema_map`, or found by `use_naming_convention`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Dead-letter queues, Lambda triggers and destinations, EventBridge rules and Pipes",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.aws_messaging.sqs_source.SqsSource",
+      "platform_id": "sqs",
+      "platform_name": "Amazon SQS",
       "support_status": "ALPHA"
     },
     "starburst-trino-usage": {
@@ -4698,6 +5120,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4823,6 +5251,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -4901,6 +5335,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -5053,6 +5493,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -5124,6 +5570,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -5190,6 +5642,12 @@
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -5282,6 +5740,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -5393,6 +5857,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
           "subtype_modifier": null,
           "supported": true
         },

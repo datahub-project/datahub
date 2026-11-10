@@ -7,6 +7,7 @@
 
 import { test } from '../../fixtures/base-test';
 import { ServiceAccountsPage } from '../../pages/settings/service-accounts.page';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 function getUniqueTestId(): number {
   return Math.floor(Math.random() * 100000);
@@ -25,7 +26,7 @@ test.describe('manage service accounts', () => {
     await serviceAccountsPage.navigate();
   });
 
-  test('create, generate token, and delete service account', async () => {
+  test('create, generate token, and delete service account', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     const id = getUniqueTestId();
     const name = `Test Service Account New UI ${id}`;
 

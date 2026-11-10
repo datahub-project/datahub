@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
-import BusinessAttributeGroup from '@app/shared/businessAttribute/BusinessAttributeGroup';
+import BusinessAttributeGroup from '@app/sharedV2/businessAttribute/BusinessAttributeGroup';
 import { useBusinessAttributesFlag } from '@app/useAppConfig';
 
 import { EntityType, SchemaField } from '@types';

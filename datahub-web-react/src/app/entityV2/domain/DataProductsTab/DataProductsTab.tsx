@@ -6,21 +6,26 @@ import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import { DomainsPaginationContainer } from '@app/domain/DomainsList';
-import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import CreateDataProductModal from '@app/entityV2/domain/DataProductsTab/CreateDataProductModal';
 import DataProductResult from '@app/entityV2/domain/DataProductsTab/DataProductResult';
+import { useEntityContext, useEntityData } from '@app/entityV2/shared/EntityContext';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { SearchBar } from '@app/search/SearchBar';
 import { DOMAINS_FILTER_NAME } from '@app/search/utils/constants';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { DataProduct, Domain, EntityType } from '@types';
 
-const DataProductsPaginationWrapper = styled(DomainsPaginationContainer)`
+const DataProductsPaginationWrapper = styled.div`
+    display: flex;
     justify-content: center;
+    align-items: center;
+    padding: 12px;
+    padding-left: 16px;
+    border-bottom: 1px solid;
+    border-color: ${(props) => props.theme.colors.border};
 `;
 
 const ResultsWrapper = styled.div`

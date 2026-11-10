@@ -30,6 +30,8 @@ import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
+import com.linkedin.metadata.service.UpdateIndicesService;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
@@ -166,9 +168,10 @@ public class IncrementalReindexFlowTest {
             entityService,
             aspectDao,
             List.of(),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
-            new BuildIndicesConfiguration());
+            new BuildIndicesConfiguration(),
+            mock(UpdateIndicesService.class));
 
     UpgradeStepResult catchUpResult = catchUpStep.executable().apply(upgradeContext);
     assertEquals(catchUpResult.result(), DataHubUpgradeState.SUCCEEDED);
@@ -231,8 +234,7 @@ public class IncrementalReindexFlowTest {
               }
             });
 
-    when(entityService.alwaysProduceMCLAsync(
-            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+    when(entityService.alwaysProduceMCLAsync(any(), any(), any(), any(MetadataChangeLog.class)))
         .thenReturn(Pair.of(CompletableFuture.completedFuture(null), true));
 
     when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
@@ -245,6 +247,7 @@ public class IncrementalReindexFlowTest {
               } else {
                 when(mockAspect.getUrn()).thenReturn("urn:li:chart:ch1");
               }
+              when(mockAspect.getAspect()).thenReturn("testAspect");
               when(mockAspect.getMetadata()).thenReturn("{}");
               PartitionedStream<EbeanAspectV2> mockStream = mock(PartitionedStream.class);
               when(mockStream.partition(anyInt())).thenReturn(Stream.of(Stream.of(mockAspect)));
@@ -259,9 +262,10 @@ public class IncrementalReindexFlowTest {
             entityService,
             aspectDao,
             List.of(),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
-            new BuildIndicesConfiguration());
+            new BuildIndicesConfiguration(),
+            mock(UpdateIndicesService.class));
 
     UpgradeStepResult result = catchUpStep.executable().apply(upgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);

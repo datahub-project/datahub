@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -17,6 +18,7 @@ import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingTaskType;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.Test;
 
@@ -83,6 +85,53 @@ public class HybridQueryEmbeddingServiceTest {
     service.embed("revenue", inSeconds(60));
     service.embed("revenue", inSeconds(60));
 
+    verify(provider, times(1))
+        .embed(eq("revenue"), isNull(), eq(EmbeddingTaskType.QUERY), any(Duration.class));
+  }
+
+  @Test
+  public void testRecordsWhenTheProviderLastAnswered() {
+    EmbeddingProvider provider = mock(EmbeddingProvider.class);
+    when(provider.embed(eq("revenue"), isNull(), eq(EmbeddingTaskType.QUERY), any(Duration.class)))
+        .thenThrow(new IllegalStateException("provider down"))
+        .thenReturn(new float[] {0.1f, 0.2f});
+    HybridQueryEmbeddingService service =
+        new HybridQueryEmbeddingService(provider, null, "text_embedding_3_small", 2);
+    long before = System.nanoTime();
+
+    assertFalse(service.providerSucceededSince(before));
+    assertThrows(IllegalStateException.class, () -> service.embed("revenue", inSeconds(60)));
+    // A failed call is no answer
+    assertFalse(service.providerSucceededSince(before));
+    service.embed("revenue", inSeconds(60));
+    assertTrue(service.providerSucceededSince(before));
+    // A cached embedding makes no call
+    long afterLoad = System.nanoTime() + 1;
+    service.embed("revenue", inSeconds(60));
+    assertFalse(service.providerSucceededSince(afterLoad));
+  }
+
+  @Test
+  public void testAnswerAfterTheDeadlineIsCachedButNotRecorded() {
+    AtomicLong nanoTime = new AtomicLong(1);
+    long deadlineNanos = nanoTime.get() + TimeUnit.MILLISECONDS.toNanos(50);
+    EmbeddingProvider provider = mock(EmbeddingProvider.class);
+    when(provider.embed(eq("revenue"), isNull(), eq(EmbeddingTaskType.QUERY), any(Duration.class)))
+        .thenAnswer(
+            invocation -> {
+              nanoTime.set(deadlineNanos + 1);
+              return new float[] {0.1f, 0.2f};
+            });
+    HybridQueryEmbeddingService service =
+        new HybridQueryEmbeddingService(provider, null, "text_embedding_3_small", 2, nanoTime::get);
+    // Construction seeds last success to this instant, and the check is inclusive.
+    long before = nanoTime.get() + 1;
+
+    service.embed("revenue", deadlineNanos);
+    service.embed("revenue", nanoTime.get() + TimeUnit.SECONDS.toNanos(60));
+
+    // Too slow to say the provider is healthy, but kept for the repeat query
+    assertFalse(service.providerSucceededSince(before));
     verify(provider, times(1))
         .embed(eq("revenue"), isNull(), eq(EmbeddingTaskType.QUERY), any(Duration.class));
   }

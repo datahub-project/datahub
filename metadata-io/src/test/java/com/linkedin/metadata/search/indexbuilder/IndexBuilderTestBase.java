@@ -48,6 +48,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.opensearch.OpenSearchException;
@@ -1211,24 +1212,14 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     Map<String, Object> aspectsProperties = (Map<String, Object>) aspects.get("properties");
     assertNotNull(aspectsProperties, "_aspects should have properties");
 
-    // Verify that structuredProperties is NOT in _aspects (it should be at root level)
-    assertNull(
-        aspectsProperties.get("structuredProperties"),
-        "structuredProperties should not be in _aspects, it should be at root level");
+    // Values stay at the root. The aspect holds only parsed-name sources that copy_to can clear.
+    assertOnlyParsedUrnSources(aspectsProperties.get("structuredProperties"));
 
     // Check that structuredProperties exists at root level
     @SuppressWarnings("unchecked")
     Map<String, Object> structuredProps =
         (Map<String, Object>) properties.get("structuredProperties");
     assertNotNull(structuredProps, "structuredProperties should exist at root level");
-
-    // Verify that other aspects are properly nested under _aspects
-    // This is a basic check - in a real scenario, you'd have actual aspect names
-    assertTrue(
-        aspectsProperties.isEmpty()
-            || aspectsProperties.keySet().stream()
-                .noneMatch(key -> "structuredProperties".equals(key)),
-        "No aspect in _aspects should be named 'structuredProperties'");
   }
 
   /**
@@ -1394,11 +1385,127 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
       @SuppressWarnings("unchecked")
       Map<String, Object> aspectsProperties = (Map<String, Object>) aspects.get("properties");
       if (aspectsProperties != null) {
-        assertNull(
-            aspectsProperties.get("structuredProperties"),
-            "structuredProperties should not be in _aspects");
+        assertOnlyParsedUrnSources(aspectsProperties.get("structuredProperties"));
       }
     }
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testEngineRejectionOfNewStructuredPropertyFields() throws Exception {
+    // The engine's own total-fields rejection: system-update applies the rest of the change and
+    // leaves the new structured property fields out, and a fill into the index fails on it.
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            testDefaultConfig,
+            StructuredPropertiesConfiguration.builder()
+                .enabled(true)
+                .systemUpdateEnabled(false)
+                .build(),
+            Map.of(),
+            new GitVersion("0.0.0-test", "123456", Optional.empty()));
+    // field1 and the structured property container take two of the three fields allowed.
+    Map<String, Object> settings = Map.of("mapping", Map.of("total_fields", Map.of("limit", 3)));
+    buildIndex(builder, TEST_INDEX_NAME, structuredPropertyTestMappings(false, Map.of()), settings);
+    Map<String, Object> target =
+        structuredPropertyTestMappings(
+            true, Map.of("propA", Map.of("type", "keyword"), "propB", Map.of("type", "keyword")));
+
+    ReindexConfig withNewField =
+        builder.buildReindexState(opContext, TEST_INDEX_NAME, target, settings);
+    assertTrue(withNewField.isPureMappingsAddition());
+    builder.buildIndex(opContext, withNewField);
+
+    ReindexConfig onlyStructuredPropertiesMissing =
+        builder.buildReindexState(opContext, TEST_INDEX_NAME, target, settings);
+    Map<String, Object> properties =
+        (Map<String, Object>) onlyStructuredPropertiesMissing.currentMappings().get("properties");
+    assertTrue(properties.containsKey("field2"));
+    assertEquals(structuredPropertyFieldNames(properties), Set.of());
+    assertFalse(onlyStructuredPropertiesMissing.requiresApplyMappings());
+    assertFalse(onlyStructuredPropertiesMissing.requiresApplySettings());
+
+    assertEquals(
+        builder.buildIndex(opContext, onlyStructuredPropertiesMissing),
+        ReindexResult.NOT_REINDEXED_NOTHING_APPLIED);
+    assertThrows(
+        Exception.class,
+        () ->
+            builder.addUnmappedStructuredPropertyFields(
+                opContext, onlyStructuredPropertiesMissing));
+    assertEquals(
+        structuredPropertyFieldNames(
+            (Map<String, Object>)
+                builder
+                    .buildReindexState(opContext, TEST_INDEX_NAME, target, settings)
+                    .currentMappings()
+                    .get("properties")),
+        Set.of());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testReindexFallsBackToLiveStructuredPropertyFieldsOnRejection() throws Exception {
+    // The engine rejects a destination with the definitions' fields; the reindex completes with
+    // the fields the index maps now instead of failing with its writes blocked.
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            testDefaultConfig.toBuilder()
+                .index(testDefaultConfig.getIndex().toBuilder().enableMappingsReindex(true).build())
+                .build(),
+            StructuredPropertiesConfiguration.builder()
+                .enabled(true)
+                .systemUpdateEnabled(false)
+                .build(),
+            Map.of(),
+            new GitVersion("0.0.0-test", "123456", Optional.empty()));
+    // field1, the container and propLive fill the limit.
+    Map<String, Object> settings = Map.of("mapping", Map.of("total_fields", Map.of("limit", 3)));
+    Map<String, Object> keyword = Map.of(ESUtils.TYPE, ESUtils.KEYWORD);
+    buildIndex(
+        builder,
+        TEST_INDEX_NAME,
+        structuredPropertyTestMappings(false, Map.of("propLive", keyword)),
+        settings);
+    // Only a reindex changes field1's type; propA and propB take the destination past the limit.
+    Map<String, Object> target =
+        structuredPropertyTestMappings(
+            false, Map.of("propLive", keyword, "propA", keyword, "propB", keyword));
+    ((Map<String, Object>) target.get("properties")).put("field1", Map.of(ESUtils.TYPE, "text"));
+
+    ReindexConfig config = builder.buildReindexState(opContext, TEST_INDEX_NAME, target, settings);
+    assertTrue(config.requiresReindex());
+    builder.buildIndex(opContext, config);
+
+    Map<String, Object> properties =
+        (Map<String, Object>)
+            builder
+                .buildReindexState(opContext, TEST_INDEX_NAME, target, settings)
+                .currentMappings()
+                .get("properties");
+    assertEquals(((Map<String, Object>) properties.get("field1")).get(ESUtils.TYPE), "text");
+    assertEquals(structuredPropertyFieldNames(properties), Set.of("propLive"));
+  }
+
+  private static Map<String, Object> structuredPropertyTestMappings(
+      boolean withField2, Map<String, Object> structuredPropertyFields) {
+    Map<String, Object> properties = new HashMap<>();
+    properties.put("field1", Map.of(ESUtils.TYPE, ESUtils.KEYWORD));
+    if (withField2) {
+      properties.put("field2", Map.of(ESUtils.TYPE, ESUtils.KEYWORD));
+    }
+    properties.put(
+        STRUCTURED_PROPERTY_MAPPING_FIELD,
+        Map.of("type", "object", "dynamic", false, "properties", structuredPropertyFields));
+    return Map.of("properties", properties);
+  }
+
+  private static Set<?> structuredPropertyFieldNames(Map<String, Object> properties) {
+    Object container = properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+    Object fields = container instanceof Map<?, ?> map ? map.get("properties") : null;
+    return fields instanceof Map<?, ?> fieldMap ? fieldMap.keySet() : Set.of();
   }
 
   // --- Incremental reindex integration tests ---
@@ -1570,5 +1677,26 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 new GetIndexRequest(result.nextIndexName()),
                 RequestOptions.DEFAULT),
         "Next index should exist even when source is empty");
+  }
+
+  /**
+   * Structured-property values stay at the document root. Under {@code _aspects} the aspect, when
+   * present, stores only the parsed URN name keywords a later update clears.
+   */
+  @SuppressWarnings("unchecked")
+  private static void assertOnlyParsedUrnSources(Object structuredPropertiesAspect) {
+    if (structuredPropertiesAspect == null) {
+      return;
+    }
+    Map<String, Object> aspect = (Map<String, Object>) structuredPropertiesAspect;
+    Map<String, Object> properties = (Map<String, Object>) aspect.get("properties");
+    assertNotNull(properties, "structuredProperties aspect sources should declare properties");
+    assertFalse(properties.isEmpty(), "parsed URN sources should be present");
+    for (String fieldName : properties.keySet()) {
+      assertTrue(
+          fieldName.endsWith("__urn_name"),
+          "structuredProperties under _aspects should only store parsed URN names, found "
+              + fieldName);
+    }
   }
 }

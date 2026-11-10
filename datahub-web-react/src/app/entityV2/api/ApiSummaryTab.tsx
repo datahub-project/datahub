@@ -1,17 +1,18 @@
-import { ApiOutlined, LinkOutlined } from '@ant-design/icons';
+import { Link as LinkIcon } from '@phosphor-icons/react/dist/csr/Link';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import SignatureTab from '@app/entityV2/api/SignatureTab';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 import {
     SectionContainer,
     SummaryTabHeaderTitle,
     SummaryTabWrapper,
 } from '@app/entityV2/shared/summary/HeaderComponents';
 import SummaryAboutSection from '@app/entityV2/shared/summary/SummaryAboutSection';
-import { safeUrl } from '@app/shared/urlUtils';
+import { safeUrl } from '@app/sharedV2/urlUtils';
 
 import { GetApiQuery } from '@graphql/api.generated';
 
@@ -79,16 +80,16 @@ export const ApiSummaryTab = () => {
             </FactsStrip>
 
             <SectionContainer>
-                <SummaryTabHeaderTitle icon={<ApiOutlined />} title={t('api.summary.signature')} />
+                <SummaryTabHeaderTitle icon={<Plugs />} title={t('api.summary.signature')} />
                 <SignatureTab />
             </SectionContainer>
 
             {externalUrl && (
                 <SectionContainer>
-                    <SummaryTabHeaderTitle icon={<LinkOutlined />} title={t('api.summary.reference')} />
+                    <SummaryTabHeaderTitle icon={<LinkIcon />} title={t('api.summary.reference')} />
                     <RefRow>
                         <RefLink href={safeUrl(externalUrl)} target="_blank" rel="noopener noreferrer">
-                            <LinkOutlined />
+                            <LinkIcon />
                             {t('api.summary.viewDocs')}
                         </RefLink>
                     </RefRow>

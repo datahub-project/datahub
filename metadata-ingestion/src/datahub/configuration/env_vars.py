@@ -405,8 +405,11 @@ def get_disable_agent_probe_raw_access() -> bool:
 
     On most connectors the typed listings keep working, so recipe diagnosis
     still functions -- this said so unconditionally and was wrong about the
-    two that matter most. Snowflake and BigQuery expose `sql` as their ONLY
-    probe command, so setting this withholds their probe entirely. The
+    two that matter most. Snowflake exposes `sql` as its ONLY probe command, so
+    setting this withholds its probe entirely. BigQuery also declares
+    `projects`, which takes no caller-supplied query or path, so its probe is
+    narrowed rather than withheld: `projects` still authenticates and lists
+    what the recipe would consider. The
     refusal message names what is left for the connector in hand rather than
     promising something in general.
 
@@ -455,6 +458,21 @@ def get_probe_disabled() -> bool:
     return os.getenv("DATAHUB_PROBE_DISABLED", "").lower() in ("true", "1")
 
 
+def get_probe_verbose_logs() -> bool:
+    """The local-debugging switch for probes: reused code's logs as logged,
+    and the withheld text of its errors.
+
+    Off by default: during a probe, every log record the framework did not
+    write is scrubbed and loses its traceback, and a provider's silenced
+    loggers are dropped (see agent.log_guard); an error the framework does
+    not trust is named by class and code only (see agent.error_policy),
+    because both quote connection strings and request URLs. When on, logs
+    pass through and each withheld error text is appended to its label,
+    still scrubbed. For a person debugging a connector, not for an agent.
+    """
+    return os.getenv("DATAHUB_PROBE_VERBOSE_LOGS", "").lower() in ("true", "1")
+
+
 # ============================================================================
 # Data Processing Configuration
 # ============================================================================
@@ -483,6 +501,17 @@ def get_sql_lineage_timeout_seconds() -> int:
     queries that are merely slow to parse rather than pathological.
     """
     return _get_int_env("SQL_LINEAGE_TIMEOUT_SECONDS", 10)
+
+
+def get_max_transform_operation_length() -> Optional[int]:
+    """Characters of transformOperation kept before "..." in fine-grained lineage; None when unset."""
+    var = "DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH"
+    if not os.getenv(var, "").strip():
+        return None
+    length = _get_int_env(var, 1)
+    if length < 1:
+        raise ValueError(f"Environment variable {var}={length} must be at least 1.")
+    return length
 
 
 def get_dataset_urn_to_lower() -> str:

@@ -28,7 +28,7 @@ from bundled_venv_config import (
 )
 
 _UNSTRUCTURED_EXTRAS = frozenset(
-    {"unstructured", "notion", "confluence", "datahub-documents"}
+    {"unstructured", "notion", "confluence", "google-drive", "datahub-documents"}
 )
 
 

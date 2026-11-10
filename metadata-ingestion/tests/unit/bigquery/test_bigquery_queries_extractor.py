@@ -23,18 +23,24 @@ Security Tests:
 
 import re
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
-from unittest.mock import MagicMock, patch
+from typing import Dict, Iterator, List, Optional, Set, Tuple
+from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
 from pydantic import ValidationError
 
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryFilterConfig,
     BigQueryIdentifierConfig,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQueryQueriesExtractorReport,
+    BigQueryV2Report,
+)
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    BigqueryProject,
+    BigQuerySchemaApi,
 )
 from datahub.ingestion.source.bigquery_v2.common import (
     BigQueryFilter,
@@ -49,11 +55,18 @@ from datahub.ingestion.source.bigquery_v2.queries_extractor import (
     _build_enriched_query_log_query,
     _build_user_filter,
     _escape_for_sql_like,
+    _extract_query_text,
     _is_allow_all_pattern,
     _normalize_location_to_region_qualifier,
     _resolve_region_qualifiers,
 )
-from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
+from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery, PreparsedQuery
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.sql_parsing.tool_meta_extractor import (
+    ToolMetaExtractor,
+    ToolMetaExtractorReport,
+)
 from datahub.utilities.file_backed_collections import FileBackedList
 
 
@@ -1315,6 +1328,336 @@ class TestQueriesExtractorUsageConfigWiring:
             assert getattr(kwargs["usage_config"], field) == value
 
 
+_SOURCE = "my-project.my_dataset.source_table"
+_DESTINATION = "my-project.my_dataset.derived_table"
+_TEMP_FUNCTION = "CREATE TEMP FUNCTION add_one(x INT64) AS (x + 1);\n"
+_MAIN_SELECT = f"SELECT add_one(a) AS a FROM `{_SOURCE}`"
+
+
+def _job(
+    query: str,
+    statement_type: str = "SELECT",
+    table_id: str = "derived_table",
+    dataset_id: str = "my_dataset",
+) -> BigQueryJob:
+    return {
+        "job_id": "job-1",
+        "project_id": "my-project",
+        "creation_time": datetime(2026, 9, 1, tzinfo=timezone.utc),
+        "user_email": "etl@example.com",
+        "query": query,
+        "session_id": None,
+        "query_hash": None,
+        "statement_type": statement_type,
+        "destination_table": {
+            "project_id": "my-project",
+            "dataset_id": dataset_id,
+            "table_id": table_id,
+        },
+        "referenced_tables": [],
+    }
+
+
+def _wrapped(query: str) -> str:
+    return f"""CREATE TABLE `{_DESTINATION}` AS
+                (
+                    {query}
+                )"""
+
+
+def _table_lineage(row: BigQueryJob) -> Tuple[Set[str], Set[str]]:
+    result = create_lineage_sql_parsed_result(
+        _extract_query_text(row),
+        default_db="my-project",
+        platform="bigquery",
+        platform_instance=None,
+        env="PROD",
+        schema_aware=False,
+    )
+    assert result.debug_info.table_error is None
+    return set(result.in_tables), set(result.out_tables)
+
+
+_EXPECTED_LINEAGE = (
+    {make_dataset_urn("bigquery", _SOURCE)},
+    {make_dataset_urn("bigquery", _DESTINATION)},
+)
+
+
+class TestExtractQueryText:
+    """Job text rewriting before parsing: temp-function preambles and trailing semicolons."""
+
+    @pytest.mark.parametrize("ending", [";", ";;"], ids=["single", "double"])
+    def test_select_with_destination_trailing_semicolons(self, ending):
+        assert _table_lineage(_job(_MAIN_SELECT + ending)) == _EXPECTED_LINEAGE
+
+    def test_select_with_destination_semicolon_then_comment(self):
+        row = _job(_MAIN_SELECT + "; -- note\n")
+        assert _extract_query_text(row) == _wrapped(_MAIN_SELECT + " -- note\n")
+        assert _table_lineage(row) == _EXPECTED_LINEAGE
+
+    @pytest.mark.parametrize("ending", ["", ";"], ids=["plain", "trailing-semicolon"])
+    def test_select_with_destination_temp_function_preamble(self, ending):
+        row = _job(_TEMP_FUNCTION + _MAIN_SELECT + ending)
+        assert _table_lineage(row) == _EXPECTED_LINEAGE
+
+    def test_temp_function_preamble_with_offset_not_split(self):
+        main = (
+            f"SELECT e.x FROM `{_SOURCE}` AS t CROSS JOIN UNNEST(t.events) AS e\n"
+            "  WITH OFFSET AS o"
+        )
+        row = _job(_TEMP_FUNCTION + main)
+        assert _extract_query_text(row) == _wrapped("\n" + main)
+        assert _table_lineage(row) == _EXPECTED_LINEAGE
+
+    def test_js_temp_function_body_semicolon(self):
+        js_function = (
+            "CREATE TEMP FUNCTION add_suffix(x STRING)\n"
+            "RETURNS STRING\n"
+            "LANGUAGE js\n"
+            'AS r"""\n'
+            '  return x + ";";\n'
+            '""";\n'
+        )
+        query = js_function + f"SELECT add_suffix(a) AS a FROM `{_SOURCE}`"
+        assert _table_lineage(_job(query)) == _EXPECTED_LINEAGE
+
+    @pytest.mark.parametrize(
+        "statement_type,main_statement",
+        [
+            (
+                "INSERT",
+                f"INSERT INTO `{_DESTINATION}` SELECT add_one(a) AS a FROM `{_SOURCE}`",
+            ),
+            (
+                "MERGE",
+                f"MERGE `{_DESTINATION}` AS t USING (SELECT add_one(a) AS a FROM `{_SOURCE}`) AS s "
+                "ON t.a = s.a WHEN NOT MATCHED THEN INSERT (a) VALUES (s.a)",
+            ),
+            (
+                "CREATE_TABLE_AS_SELECT",
+                f"CREATE OR REPLACE TABLE `{_DESTINATION}` AS SELECT add_one(a) AS a FROM `{_SOURCE}`",
+            ),
+        ],
+        ids=["insert", "merge", "ctas"],
+    )
+    def test_dml_temp_function_preamble(self, statement_type, main_statement):
+        row = _job(_TEMP_FUNCTION + main_statement, statement_type=statement_type)
+        assert _table_lineage(row) == _EXPECTED_LINEAGE
+
+    def test_lowercase_preamble_on_unwrapped_job(self):
+        query = (
+            "create temp aggregate function total(x INT64) as (sum(x));\n"
+            f"insert into `{_DESTINATION}` select total(a) as a from `{_SOURCE}`"
+        )
+        assert _table_lineage(_job(query, "INSERT")) == _EXPECTED_LINEAGE
+
+    @pytest.mark.parametrize(
+        "preamble",
+        [
+            "CREATE OR REPLACE TEMP FUNCTION add_one(x INT64) AS (x + 1);\n",
+            "CREATE TEMPORARY FUNCTION add_one(x INT64) AS (x + 1);\n",
+            "CREATE TEMP AGGREGATE FUNCTION total(x INT64) RETURNS INT64 AS (SUM(x));\n",
+            "CREATE OR REPLACE TEMP AGGREGATE FUNCTION total(x INT64) AS (SUM(x));\n",
+        ],
+        ids=["or-replace", "temporary", "aggregate", "or-replace-aggregate"],
+    )
+    def test_temp_function_variants(self, preamble):
+        assert _table_lineage(_job(preamble + _MAIN_SELECT)) == _EXPECTED_LINEAGE
+
+    @pytest.mark.parametrize(
+        "row,expected",
+        [
+            (_job(_MAIN_SELECT), _wrapped(_MAIN_SELECT)),
+            (
+                _job(f"-- note\nSELECT 'a;b' AS x FROM `{_SOURCE}`"),
+                _wrapped(f"-- note\nSELECT 'a;b' AS x FROM `{_SOURCE}`"),
+            ),
+            (
+                _job(
+                    f"INSERT INTO `{_DESTINATION}` SELECT a FROM `{_SOURCE}`", "INSERT"
+                ),
+                f"INSERT INTO `{_DESTINATION}` SELECT a FROM `{_SOURCE}`",
+            ),
+        ],
+        ids=["select", "semicolon-in-string", "insert"],
+    )
+    def test_plain_query_text_unchanged(self, row, expected):
+        assert _extract_query_text(row) == expected
+
+    def test_only_temp_functions_unchanged(self):
+        query = _TEMP_FUNCTION + "CREATE TEMP FUNCTION two() AS (2);"
+        assert _extract_query_text(_job(query)) == _wrapped(query)
+
+    def test_tokenizer_error_falls_back(self):
+        query = f"SELECT 'unterminated FROM `{_SOURCE}`;"
+        assert _extract_query_text(_job(query)) == _wrapped(query)
+
+    def test_anon_destination_preamble_not_wrapped(self):
+        row = _job(_TEMP_FUNCTION + _MAIN_SELECT, table_id="anon1a2b3c")
+        assert _extract_query_text(row) == "\n" + _MAIN_SELECT
+
+    @pytest.mark.parametrize(
+        "row",
+        [
+            _job(f"SELECT a FROM `{_SOURCE}`;\n-- run by analyst\n", table_id="anon1"),
+            _job(
+                f"INSERT INTO `{_DESTINATION}` SELECT a FROM `{_SOURCE}`; -- nightly",
+                "INSERT",
+            ),
+        ],
+        ids=["anonymous-select", "insert"],
+    )
+    def test_unwrapped_single_statement_unchanged(self, row):
+        assert _extract_query_text(row) == row["query"]
+
+    def test_preamble_removal_keeps_other_text(self):
+        query = (
+            "-- header\n"
+            + _TEMP_FUNCTION
+            + "-- between\n"
+            + "CREATE TEMP FUNCTION two() AS (2); -- after two\n"
+            + _MAIN_SELECT
+            + "\n-- footer"
+        )
+        assert _extract_query_text(_job(query, table_id="anon1")) == (
+            "-- header\n\n-- between\n -- after two\n" + _MAIN_SELECT + "\n-- footer"
+        )
+
+    def test_several_statements_unchanged(self):
+        query = (
+            _TEMP_FUNCTION + f"DELETE FROM `{_DESTINATION}` WHERE TRUE;\n"
+            f"INSERT INTO `{_DESTINATION}` SELECT a FROM `{_SOURCE}`;"
+        )
+        assert _extract_query_text(_job(query, "INSERT")) == query
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            f"CREATE TEMP TABLE function AS SELECT a FROM `{_SOURCE}`;\n"
+            "SELECT a FROM function",
+            "CREATE FUNCTION my_dataset.add_one(x INT64) AS (x + 1);\n"
+            f"SELECT a FROM `{_SOURCE}`",
+        ],
+        ids=["temp-table-named-function", "persistent-function"],
+    )
+    def test_non_temp_function_statement_not_stripped(self, query):
+        assert _extract_query_text(_job(query, table_id="anon1")) == query
+
+    @pytest.mark.parametrize(
+        "query,origin",
+        [
+            (
+                _TEMP_FUNCTION + f"SELECT a FROM `{_SOURCE}`;\n"
+                '-- {"user":"@analyst","email":"analyst@example.com",'
+                '"url":"https://modeanalytics.com/example/reports/1/runs/2"}',
+                "urn:li:dataPlatform:mode",
+            ),
+            (
+                '-- Hex query metadata: {"project_id": "p1"}\n'
+                + _TEMP_FUNCTION
+                + _MAIN_SELECT,
+                "urn:li:dataPlatform:hex",
+            ),
+        ],
+        ids=["mode-preamble", "hex-preamble"],
+    )
+    def test_bi_attribution_kept(self, query, origin):
+        entry = PreparsedQuery(
+            query_id=None,
+            query_text=_extract_query_text(_job(query, table_id="anon1")),
+            upstreams=[],
+        )
+        assert ToolMetaExtractor(ToolMetaExtractorReport()).extract_bi_metadata(entry)
+        assert entry.origin is not None and entry.origin.urn() == origin
+
+
+_ETL_SQL = """-- generated
+CREATE TEMP FUNCTION pairs_to_json(input ARRAY<STRUCT<key STRING, value STRING>>)
+RETURNS JSON AS (
+  (SELECT JSON_OBJECT(ARRAY_AGG(key), ARRAY_AGG(value)) FROM UNNEST(input))
+);
+
+CREATE TEMP FUNCTION clean_json(payload JSON)
+RETURNS JSON AS (
+  JSON_STRIP_NULLS(payload, remove_empty => TRUE)
+);
+
+WITH base AS (
+  SELECT
+    *,
+    meta.user_id AS user_id,
+  FROM
+    `my-project.{app}.events`
+  WHERE
+    DATE(event_timestamp) = @run_date
+)
+--
+SELECT
+  base.* EXCEPT (events),
+  event.category AS event_category,
+  pairs_to_json(event.attributes) AS event_attributes,
+  (event_offset + 1) AS event_number,
+FROM
+  base
+CROSS JOIN
+  UNNEST(events) AS event
+  WITH OFFSET AS event_offset
+"""
+
+
+class TestExtractQueryTextEndToEnd:
+    """ETL-generated jobs with temp-function preambles produce lineage through the aggregator."""
+
+    def _etl_job(self, app: str) -> BigQueryJob:
+        return _job(
+            _ETL_SQL.format(app=app),
+            table_id="event_log$20260915",
+            dataset_id=f"{app}_reports",
+        )
+
+    def test_etl_job_with_temp_functions_lineage(self, tmp_path):
+        rows = [self._etl_job("app_a"), self._etl_job("app_b")]
+        extractor = BigQueryQueriesExtractor(
+            connection=MagicMock(),
+            schema_api=MagicMock(),
+            config=BigQueryQueriesExtractorConfig(local_temp_path=tmp_path),
+            structured_report=MagicMock(),
+            filters=BigQueryFilter(BigQueryFilterConfig(), MagicMock()),
+            identifiers=BigQueryIdentifierBuilder(
+                BigQueryIdentifierConfig(), MagicMock()
+            ),
+        )
+
+        def fake_fetch(project: BigqueryProject) -> Iterator[ObservedQuery]:
+            for row in rows:
+                yield extractor._parse_audit_log_row(row)
+
+        lineage: Dict[str, Set[str]] = {}
+        try:
+            with (
+                patch(
+                    "datahub.ingestion.source.bigquery_v2.queries_extractor.get_projects",
+                    return_value=[BigqueryProject(id="my-project", name="my-project")],
+                ),
+                patch.object(extractor, "fetch_query_log", side_effect=fake_fetch),
+            ):
+                for wu in extractor.get_workunits_internal():
+                    aspect = wu.get_aspect_of_type(UpstreamLineageClass)
+                    if aspect:
+                        lineage[wu.get_urn()] = {u.dataset for u in aspect.upstreams}
+        finally:
+            extractor.close()
+
+        for app in ("app_a", "app_b"):
+            downstream = make_dataset_urn(
+                "bigquery", f"my-project.{app}_reports.event_log"
+            )
+            assert lineage[downstream] == {
+                make_dataset_urn("bigquery", f"my-project.{app}.events")
+            }
+
+
 class TestJobLabelsAsQueryProperties:
     def _build_extractor(self, enabled: bool) -> BigQueryQueriesExtractor:
         extractor = BigQueryQueriesExtractor.__new__(BigQueryQueriesExtractor)
@@ -1431,3 +1774,81 @@ class TestJobLabelsAsQueryProperties:
         assert query.custom_properties == expected_labels
         assert query.timestamp == datetime(2024, 1, 1, expected_ts, tzinfo=timezone.utc)
         assert query.extra_info == {"job_id": f"job_{expected_ts}"}
+
+
+class TestTableClassification:
+    """is_temp_table / is_allowed_table decide which parsed references the
+    aggregator keeps, using the set of tables discovered during schema extraction."""
+
+    def _extractor(
+        self, discovered: Optional[Set[str]] = None
+    ) -> BigQueryQueriesExtractor:
+        report = BigQueryV2Report()
+        return BigQueryQueriesExtractor(
+            connection=MagicMock(),
+            schema_api=create_autospec(BigQuerySchemaApi, instance=True),
+            config=BigQueryQueriesExtractorConfig(temp_table_dataset_prefix="_"),
+            structured_report=report,
+            filters=BigQueryFilter(
+                BigQueryFilterConfig(dataset_pattern={"deny": [".*denied.*"]}),
+                report,
+            ),
+            identifiers=BigQueryIdentifierBuilder(BigQueryIdentifierConfig(), report),
+            discovered_tables=discovered,
+        )
+
+    def test_temp_dataset_prefix_marks_table_as_temporary(self) -> None:
+        extractor = self._extractor()
+        assert extractor.is_temp_table("my-project._scratch.t")
+        assert not extractor.is_temp_table("my-project.sales.t")
+
+    def test_undiscovered_but_allowed_table_is_inferred_temporary(self) -> None:
+        extractor = self._extractor(
+            discovered={"projects/my-project/datasets/sales/tables/known"}
+        )
+
+        assert extractor.is_temp_table("my-project.sales.unknown")
+        assert "my-project.sales.unknown" in extractor.report.inferred_temp_tables
+        assert not extractor.is_temp_table("my-project.sales.known")
+        # Denied by pattern: not an inferred temp table, just filtered.
+        assert not extractor.is_temp_table("my-project.denied.unknown")
+
+    def test_allowed_table_requires_discovery_and_pattern_match(self) -> None:
+        extractor = self._extractor(
+            discovered={"projects/my-project/datasets/sales/tables/known"}
+        )
+
+        assert extractor.is_allowed_table("my-project.sales.known")
+        assert not extractor.is_allowed_table("my-project.sales.unknown")
+        assert not extractor.is_allowed_table("my-project.denied.known")
+
+    def test_unparseable_names_are_neither_temporary_nor_allowed(self) -> None:
+        extractor = self._extractor()
+        assert not extractor.is_temp_table("not-a-table-name")
+        assert not extractor.is_allowed_table("not-a-table-name")
+
+
+def test_unparseable_query_log_rows_are_reported_and_skipped() -> None:
+    """One malformed JOBS row must not lose the rest of the region's query log."""
+    report = BigQueryV2Report()
+    connection = MagicMock()
+    extractor = BigQueryQueriesExtractor(
+        connection=connection,
+        schema_api=create_autospec(BigQuerySchemaApi, instance=True),
+        config=BigQueryQueriesExtractorConfig(),
+        structured_report=report,
+        filters=BigQueryFilter(BigQueryFilterConfig(), report),
+        identifiers=BigQueryIdentifierBuilder(BigQueryIdentifierConfig(), report),
+    )
+    good = _job("select * from `my_dataset`.`a`")
+    connection.query.return_value = [good, object(), good]
+    extractor.start_time, extractor.end_time = extractor._get_time_window()
+
+    entries = list(
+        extractor.fetch_region_query_log(
+            BigqueryProject(id="my-project", name="my-project"), "region-us"
+        )
+    )
+
+    assert len(entries) == 2
+    assert "Error parsing query log row" in {w.message for w in report.warnings}

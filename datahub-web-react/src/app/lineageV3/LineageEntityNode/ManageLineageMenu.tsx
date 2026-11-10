@@ -65,9 +65,18 @@ interface Props {
     isGhost: boolean;
     isOpen: boolean;
     setDisplayedMenuNode: Dispatch<SetStateAction<string | null>>;
+    onManageLineage?: (direction: LineageDirection) => void;
 }
 
-export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, isOpen, setDisplayedMenuNode }: Props) {
+export default function ManageLineageMenu({
+    node,
+    refetch,
+    isRootUrn,
+    isGhost,
+    isOpen,
+    setDisplayedMenuNode,
+    onManageLineage,
+}: Props) {
     const { t } = useTranslation('lineage');
     const theme = useTheme();
     const [isModalVisible, setIsModalVisible] = useState(false);
@@ -75,6 +84,18 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
     const location = useLocation();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
+
+    const manageLineage = useCallback(
+        (direction: LineageDirection) => {
+            if (onManageLineage) {
+                onManageLineage(direction);
+                return;
+            }
+            setLineageDirection(direction);
+            setIsModalVisible(true);
+        },
+        [onManageLineage],
+    );
 
     // Check for lineageEditDirection URL parameter when component mounts
     useEffect(() => {
@@ -103,17 +124,10 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
                     return;
                 }
 
-                // Open the modal with the specified direction
-                setLineageDirection(direction);
-                setIsModalVisible(true);
+                manageLineage(direction);
             }
         }
-    }, [isRootUrn, location, history, node.type]);
-
-    function manageLineage(direction: LineageDirection) {
-        setLineageDirection(direction);
-        setIsModalVisible(true);
-    }
+    }, [isRootUrn, location, history, node.type, manageLineage]);
 
     function handleMenuClick(e: React.MouseEvent<HTMLElement, MouseEvent>) {
         onClickPreventSelect(e);

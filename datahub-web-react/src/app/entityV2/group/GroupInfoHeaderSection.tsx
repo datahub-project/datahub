@@ -1,5 +1,5 @@
-import { LockOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
 import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -42,10 +42,9 @@ const GroupName = styled(Typography.Title)`
     }
 `;
 
-const ExternalGroupLock = styled(LockOutlined)`
+const ExternalGroupLock = styled(Lock).attrs({ size: 11 })`
     flex-shrink: 0;
     color: ${(props) => props.theme.colors.bg};
-    font-size: 11px;
     opacity: 0.85;
 `;
 

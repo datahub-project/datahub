@@ -15,6 +15,7 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.utils.SearchOperation;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import io.datahubproject.metadata.context.OperationContext;
@@ -95,7 +96,11 @@ public class ESSearchDAOSearchClusterAccessTest {
             TestOperationContexts.systemContextNoSearchAuthorization(), access);
 
     ESSearchDAO dao = dao(v2, false);
-    dao.raw(opContext, "datahub_usage_event", "{\"query\":{\"match_all\":{}}}");
+    dao.raw(
+        opContext,
+        "datahub_usage_event",
+        "{\"query\":{\"match_all\":{}}}",
+        SearchOperation.DATAHUB_USAGE);
 
     verify(usage).search(any(), any(), any());
     verify(v2, never()).search(any(), any(), any());
@@ -115,7 +120,10 @@ public class ESSearchDAOSearchClusterAccessTest {
         IllegalArgumentException.class,
         () ->
             dao.raw(
-                opContext, "datahub_usage_event_index_template", "{\"query\":{\"match_all\":{}}}"));
+                opContext,
+                "datahub_usage_event_index_template",
+                "{\"query\":{\"match_all\":{}}}",
+                SearchOperation.DATAHUB_USAGE));
     verify(usage, never()).search(any(), any(), any());
   }
 

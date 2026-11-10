@@ -6,7 +6,8 @@ import com.linkedin.common.Urn
  * Key for a Metric
  */
 @Aspect = {
-  "name": "metricKey"
+  "name": "metricKey",
+  "schemaVersion": 2
 }
 record MetricKey {
   /**
@@ -23,7 +24,11 @@ record MetricKey {
     "fieldType": "URN",
     "enableAutocomplete": true,
     "addToFilters": true,
-    "filterNameOverride": "Platform"
+    "filterNameOverride": "Platform",
+    "v3": {
+      "searchLabel": "platform",
+      "copyToOther": true
+    }
   }
   platform: Urn
 
@@ -33,6 +38,12 @@ record MetricKey {
    * same `id` on the same platform without colliding.
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": false,
+      "searchLabel": "location",
+      "copyToOther": true,
+      "boostScore": 1.0
+    },
     "fieldType": "TEXT_PARTIAL",
     "addToFilters": true,
     "filterNameOverride": "Path"
@@ -42,5 +53,20 @@ record MetricKey {
   /**
    * Unique identifier for the metric within its platform and path.
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": false,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "id",
+      "boostScore": 2.0,
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   id: string
 }

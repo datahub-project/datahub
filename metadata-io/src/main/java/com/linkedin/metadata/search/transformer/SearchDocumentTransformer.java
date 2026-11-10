@@ -22,6 +22,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.client.EntityClientAspectRetriever;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -31,6 +32,7 @@ import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
+import com.linkedin.metadata.models.annotation.SearchableRefAnnotation;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -47,13 +49,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -90,6 +95,62 @@ public class SearchDocumentTransformer {
   public static final Set<String> SEMANTIC_DATA_ASPECTS = Set.of("semanticContent");
 
   private static final String BROWSE_PATH_V2_DELIMITER = "␟";
+
+  /**
+   * Set while a Search V3 document is projected. That path reads structured-property definitions
+   * through the entity-client cache.
+   */
+  private static final ThreadLocal<Integer> V3_PROJECTION_DEPTH = ThreadLocal.withInitial(() -> 0);
+
+  /**
+   * Search V3 copies a business attribute's searchable fields only when this is set. The default
+   * stores the URN from the event. V2 expansion does not read this flag.
+   */
+  @Setter private boolean v3BusinessAttributeExpansionEnabled;
+
+  private List<SearchDocumentEnricher> enrichers = List.of();
+
+  public void setEnrichers(@Nullable List<SearchDocumentEnricher> enrichers) {
+    this.enrichers = enrichers == null ? List.of() : List.copyOf(enrichers);
+  }
+
+  public SearchDocumentTransformer(
+      final int maxArrayLength, final int maxObjectKeys, final int maxValueLength) {
+    this(maxArrayLength, maxObjectKeys, maxValueLength, false, ESUtils.KEYWORD_MAXLENGTH);
+  }
+
+  public static boolean v3ProjectionActive() {
+    return V3_PROJECTION_DEPTH.get() > 0;
+  }
+
+  public static void beginV3Projection() {
+    V3_PROJECTION_DEPTH.set(V3_PROJECTION_DEPTH.get() + 1);
+  }
+
+  public static void endV3Projection() {
+    int depth = V3_PROJECTION_DEPTH.get();
+    if (depth <= 1) {
+      V3_PROJECTION_DEPTH.remove();
+    } else {
+      V3_PROJECTION_DEPTH.set(depth - 1);
+    }
+  }
+
+  private static boolean v3Projection() {
+    return V3_PROJECTION_DEPTH.get() > 0;
+  }
+
+  @Nonnull
+  private static AspectRetriever structuredPropertyRetriever(
+      @Nonnull final OperationContext opContext) {
+    if (v3Projection() && opContext.getRetrieverContext() != null) {
+      AspectRetriever caching = opContext.getRetrieverContext().getCachingAspectRetriever();
+      if (caching instanceof EntityClientAspectRetriever) {
+        return caching;
+      }
+    }
+    return opContext.getAspectRetriever();
+  }
 
   public Optional<String> transformSnapshot(
       final RecordTemplate snapshot, final EntitySpec entitySpec, final Boolean forDelete) {
@@ -186,8 +247,17 @@ public class SearchDocumentTransformer {
       JsonNode currentValue = current.get(fieldName);
 
       if (currentValue == null) {
-        // Field was removed, set it to null
-        current.set(fieldName, JsonNodeFactory.instance.nullNode());
+        if ("structuredPropertyRankFeatures".equals(fieldName) && prevValue.isObject()) {
+          // rank_features rejects a null field and accepts nulls for individual feature keys.
+          ObjectNode removedFeatures = JsonNodeFactory.instance.objectNode();
+          prevValue
+              .fieldNames()
+              .forEachRemaining(
+                  feature -> removedFeatures.set(feature, JsonNodeFactory.instance.nullNode()));
+          current.set(fieldName, removedFeatures);
+        } else {
+          current.set(fieldName, JsonNodeFactory.instance.nullNode());
+        }
       } else if (currentValue.isObject() && prevValue.isObject()) {
         // Both are objects, recurse into them
         processFieldsForRemoval((ObjectNode) currentValue, prevValue);
@@ -242,8 +312,12 @@ public class SearchDocumentTransformer {
     }
 
     if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
-      setStructuredPropertiesSearchValue(
-          opContext, new StructuredProperties(aspect.data()), searchDocument, forDelete);
+      // A delete MCL carries no record. The projector removes fields from the previous document,
+      // so there is nothing to read here. Dereferencing the record aborts the whole batch.
+      if (aspect != null) {
+        setStructuredPropertiesSearchValue(
+            opContext, new StructuredProperties(aspect.data()), searchDocument, forDelete);
+      }
       result = Optional.of(searchDocument);
     }
 
@@ -253,6 +327,12 @@ public class SearchDocumentTransformer {
       result = Optional.of(searchDocument);
     }
 
+    if (result.isPresent()) {
+      for (SearchDocumentEnricher enricher : enrichers) {
+        enricher.enrich(
+            opContext, urn, aspectSpec, aspect, searchDocument, Boolean.TRUE.equals(forDelete));
+      }
+    }
     return result;
   }
 
@@ -287,7 +367,14 @@ public class SearchDocumentTransformer {
                 } else {
                   hasValue = !fieldValues.isEmpty();
                 }
-                searchDocument.set(fieldName, JsonNodeFactory.instance.booleanNode(hasValue));
+                // Several fields in one aspect share this boolean. An empty source must not
+                // clear a true another source in this same aspect already published. A later
+                // aspect is its own document, so this guard cannot see it. Inline column
+                // documentation also declares hasDescription; Search V3 indexes that copy as
+                // hasDescription_1, and this write keeps the declared name.
+                if (hasValue || !searchDocument.path(fieldName).asBoolean(false)) {
+                  searchDocument.set(fieldName, JsonNodeFactory.instance.booleanNode(hasValue));
+                }
               }
             });
 
@@ -333,7 +420,10 @@ public class SearchDocumentTransformer {
           JsonNodeFactory.instance.numberNode((Long) mclCreatedAuditStamp.getTime()));
     }
 
-    if (isArray || (valueType == DataSchema.Type.MAP && !OBJECT_FIELD_TYPES.contains(fieldType))) {
+    if (isArray
+        || (valueType == DataSchema.Type.MAP
+            && !OBJECT_FIELD_TYPES.contains(fieldType)
+            && fieldType != FieldType.RANK_FEATURES)) {
       if (fieldType == FieldType.BROWSE_PATH_V2) {
         String browsePathV2Value = getBrowsePathV2Value(fieldValues);
         searchDocument.set(fieldName, JsonNodeFactory.instance.textNode(browsePathV2Value));
@@ -372,10 +462,22 @@ public class SearchDocumentTransformer {
           .subList(0, Math.min(fieldValues.size(), maxObjectKeys))
           .forEach(
               fieldValue -> {
-                String[] keyValues = fieldValue.toString().split("=");
+                String entry = fieldValue.toString();
+                String[] keyValues = entry.split("=");
                 String key = keyValues[0], value = "";
                 if (keyValues.length > 1) {
                   value = keyValues[1];
+                  if (fieldType == FieldType.RANK_FEATURES) {
+                    // A feature key may itself contain '='. The weight is the part after the last
+                    // '='. Split there, then keep only a key and weight the rank_features mapper
+                    // can index.
+                    int separator = entry.lastIndexOf('=');
+                    key = indexableRankFeatureKey(entry.substring(0, separator));
+                    value = entry.substring(separator + 1);
+                    if (key == null || !isIndexableRankFeatureWeight(value)) {
+                      return;
+                    }
+                  }
                   if (((MapDataSchema) fieldSpec.getPegasusSchema())
                       .getValues()
                       .getType()
@@ -483,6 +585,22 @@ public class SearchDocumentTransformer {
             && fieldSpec.getSearchableAnnotation().isSanitizeRichText()) {
           value = SearchDocumentSanitizer.sanitizeForIndexing(value);
         }
+        // Analyzed text is stored under a keyword parent. A term longer than Lucene's limit
+        // rejects the whole document, so the indexed value is cut on a UTF-8 boundary.
+        if (fieldType == FieldType.TEXT
+            || fieldType == FieldType.TEXT_PARTIAL
+            || fieldType == FieldType.WORD_GRAM) {
+          String truncated =
+              SearchDocumentSanitizer.truncateForIndexing(value, ESUtils.KEYWORD_MAXLENGTH);
+          if (truncated != null && !truncated.equals(value)) {
+            log.warn(
+                "Truncated field '{}' from {} bytes to fit the {}-byte OpenSearch term limit",
+                fieldSpec.getSearchableAnnotation().getFieldName(),
+                value.getBytes(StandardCharsets.UTF_8).length,
+                ESUtils.KEYWORD_MAXLENGTH);
+            value = truncated;
+          }
+        }
         return value.isEmpty()
             ? Optional.of(JsonNodeFactory.instance.nullNode())
             : Optional.of(JsonNodeFactory.instance.textNode(value));
@@ -525,8 +643,7 @@ public class SearchDocumentTransformer {
                     StructuredPropertyValueAssignment::getPropertyUrn, Collectors.toSet()));
 
     Map<Urn, Map<String, Aspect>> definitions =
-        opContext
-            .getAspectRetriever()
+        structuredPropertyRetriever(opContext)
             .getLatestAspectObjects(
                 opContext,
                 propertyMap.keySet(),
@@ -546,11 +663,10 @@ public class SearchDocumentTransformer {
         .entrySet()
         .forEach(
             propertyEntry -> {
+              Map<String, Aspect> propertyAspects = definitions.get(propertyEntry.getKey());
               Optional<StructuredPropertyDefinition> definition =
-                  Optional.ofNullable(
-                          definitions
-                              .get(propertyEntry.getKey())
-                              .get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
+                  Optional.ofNullable(propertyAspects)
+                      .map(aspects -> aspects.get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
                       .map(def -> new StructuredPropertyDefinition(def.data()));
 
               LogicalValueType logicalValueType =
@@ -694,7 +810,7 @@ public class SearchDocumentTransformer {
       searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
       return;
     }
-    int depth = searchableRefFieldSpec.getSearchableRefAnnotation().getDepth();
+    int depth = refDepth(searchableRefFieldSpec);
     if (isArray) {
       ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
       fieldValues
@@ -711,6 +827,20 @@ public class SearchDocumentTransformer {
     } else {
       searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
     }
+  }
+
+  /**
+   * Depth to walk for this reference. Search V3 leaves a business attribute as the URN on the event
+   * unless expansion is enabled, so indexing that reference does not read the attribute.
+   */
+  private int refDepth(@Nonnull final SearchableRefFieldSpec searchableRefFieldSpec) {
+    SearchableRefAnnotation annotation = searchableRefFieldSpec.getSearchableRefAnnotation();
+    if (v3Projection()
+        && !v3BusinessAttributeExpansionEnabled
+        && BUSINESS_ATTRIBUTE_ENTITY_NAME.equals(annotation.getRefType())) {
+      return 0;
+    }
+    return annotation.getDepth();
   }
 
   private Optional<JsonNode> getNodeForRef(
@@ -778,7 +908,7 @@ public class SearchDocumentTransformer {
                 String fieldName = spec.getSearchableRefAnnotation().getFieldName();
                 boolean isArray = spec.isArray();
                 if (!value.isEmpty()) {
-                  int newDepth = Math.min(depth - 1, spec.getSearchableRefAnnotation().getDepth());
+                  int newDepth = Math.min(depth - 1, refDepth(spec));
                   if (isArray) {
                     ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
                     value
@@ -822,5 +952,32 @@ public class SearchDocumentTransformer {
       }
     }
     return Optional.empty();
+  }
+
+  private static final Pattern RANK_FEATURE_KEY_SEPARATORS =
+      Pattern.compile("[.\\s\\u200b\\ufeff]+", Pattern.UNICODE_CHARACTER_CLASS);
+
+  @Nullable
+  private static String indexableRankFeatureKey(@Nonnull String rawTerm) {
+    String feature =
+        RANK_FEATURE_KEY_SEPARATORS
+            .matcher(rawTerm.strip())
+            .replaceAll(" ")
+            .strip()
+            .toLowerCase(Locale.ROOT);
+    if (feature.isEmpty()
+        || feature.getBytes(StandardCharsets.UTF_8).length > ESUtils.KEYWORD_MAXLENGTH) {
+      return null;
+    }
+    return feature;
+  }
+
+  private static boolean isIndexableRankFeatureWeight(@Nonnull String rawWeight) {
+    try {
+      float weight = Float.parseFloat(rawWeight);
+      return Float.isFinite(weight) && weight >= Float.MIN_NORMAL;
+    } catch (NumberFormatException e) {
+      return false;
+    }
   }
 }

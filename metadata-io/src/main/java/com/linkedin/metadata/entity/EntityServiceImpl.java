@@ -7,6 +7,7 @@ import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
 import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 import static com.linkedin.metadata.utils.metrics.ExceptionUtils.collectMetrics;
 import static com.linkedin.metadata.utils.metrics.MetricUtils.BATCH_SIZE_ATTR;
 import static io.datahubproject.metadata.context.SystemTelemetryContext.EVENT_SOURCE_KEY;
@@ -53,6 +54,7 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
+import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
 import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.dao.throttle.APIThrottle;
@@ -72,6 +74,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
+import com.linkedin.metadata.entity.semantic.SemanticNoOpComparator;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
@@ -91,6 +94,8 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.SyncSearchIndexUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.UnknownDataGuard;
+import com.linkedin.metadata.utils.UnknownReferenceMerger;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -169,6 +174,14 @@ import org.apache.commons.lang3.StringUtils;
  */
 @Slf4j
 public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
+  private static final UnknownDataGuard UNKNOWN_MCL =
+      UnknownDataGuard.forSite(EntityServiceImpl.class, "MCL");
+  private static final UnknownDataGuard UNKNOWN_READ =
+      UnknownDataGuard.forSite(EntityServiceImpl.class, "read of");
+  private static final UnknownDataGuard KEPT_REFERENCES =
+      UnknownDataGuard.forSite(EntityServiceImpl.class, "stored references in aspect write");
+  private static final UnknownDataGuard UNKNOWN_ROLLBACK_ROW =
+      UnknownDataGuard.forSite(EntityServiceImpl.class, "rollback row (left in place)");
 
   /**
    * As described above, the latest version of an aspect should <b>always</b> take the value 0, with
@@ -203,6 +216,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private final boolean syncIngestStampingEnabled;
 
+  /**
+   * Compiled at startup. Disabled until {@link #setSemanticNoOpComparator} installs rules, so
+   * unconfigured writes stay on {@code DataTemplateUtil.areEqual}.
+   */
+  @Nonnull
+  private SemanticNoOpComparator semanticNoOpComparator = SemanticNoOpComparator.disabled();
+
   @Getter
   private final Map<Set<ThrottleType>, ThrottleEvent> throttleEvents = new ConcurrentHashMap<>();
 
@@ -236,6 +256,16 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    */
   public void setEntityWriteLock(@Nonnull final EntityWriteLock entityWriteLock) {
     this.entityWriteLock = entityWriteLock;
+  }
+
+  /** Installed by {@code EntityServiceFactory} after startup validation. */
+  public void setSemanticNoOpComparator(@Nonnull SemanticNoOpComparator semanticNoOpComparator) {
+    this.semanticNoOpComparator = semanticNoOpComparator;
+  }
+
+  @VisibleForTesting
+  SemanticNoOpComparator getSemanticNoOpComparator() {
+    return semanticNoOpComparator;
   }
 
   /** Shared no-op handle for the non-scoped path — avoids null-guarding every gate call site. */
@@ -313,8 +343,29 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull List<com.linkedin.metadata.aspect.SystemAspectValidator> systemAspectValidators,
       @Nullable com.linkedin.metadata.config.AspectSizeValidationConfiguration validationConfig,
       @Nullable io.datahubproject.metadata.context.OperationContext opContext) {
+    return applyUpsert(
+        changeMCP,
+        latestAspect,
+        systemAspectValidators,
+        validationConfig,
+        opContext,
+        SemanticNoOpComparator.disabled());
+  }
+
+  static SystemAspect applyUpsert(
+      ChangeMCP changeMCP,
+      SystemAspect latestAspect,
+      @Nonnull List<com.linkedin.metadata.aspect.SystemAspectValidator> systemAspectValidators,
+      @Nullable com.linkedin.metadata.config.AspectSizeValidationConfiguration validationConfig,
+      @Nullable io.datahubproject.metadata.context.OperationContext opContext,
+      @Nonnull SemanticNoOpComparator semanticNoOpComparator) {
 
     try {
+      // Before the no-op check, so writing back what was read changes nothing.
+      if (opContext != null && changeMCP.getRecordTemplate() != null) {
+        mergeStoredReferences(opContext, changeMCP, latestAspect);
+      }
+
       // This is the proposed version for this MCP, it can never be 0 (even if stored with row
       // version 0)
       long rowNextVersion = Math.max(1, changeMCP.getNextAspectVersion());
@@ -354,8 +405,60 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         latestSystemMetadata.setSchemaVersion(
             changeSystemMetadata.getSchemaVersion(), SetMode.IGNORE_NULL);
 
-        if (!DataTemplateUtil.areEqual(
-            latestAspect.getRecordTemplate(), changeMCP.getRecordTemplate())) {
+        // A write hook can change the proposal after the pre-merge comparison. That decision is
+        // marked stale, including the version it collapsed and the metrics it counted.
+        int rememberedMask = changeMCP.getSemanticNoOpStrategyMask();
+        if ((rememberedMask & ChangeMCP.SEMANTIC_NO_OP_REWIND) != 0) {
+          semanticNoOpComparator.rewindSuppression(
+              changeMCP.getAspectName(), rememberedMask & ~ChangeMCP.SEMANTIC_NO_OP_REWIND);
+          changeMCP.setSemanticNoOpStrategyMask(0);
+        }
+
+        // The pre-merge comparison runs before write hooks. A hook can fill in server-managed
+        // fields (ownership.ownerTypes, for example) so the final body equals the stored row after
+        // this write already advanced the in-memory row to its own version. Restore the stored
+        // state so the comparison below keeps the stored version and no history row is written.
+        latestAspect
+            .getDatabaseAspect()
+            .filter(
+                databaseAspect ->
+                    advancedByThisWrite(
+                        latestSystemMetadata, databaseAspect.getSystemMetadata(), rowNextVersion))
+            .filter(
+                databaseAspect ->
+                    DataTemplateUtil.areEqual(
+                        databaseAspect.getRecordTemplate(), changeMCP.getRecordTemplate()))
+            .ifPresent(
+                databaseAspect ->
+                    restoreStoredState(latestAspect, latestSystemMetadata, databaseAspect));
+
+        // Check strict equality first. Besides avoiding a needless walk, this distinguishes a
+        // semantic suppression from the persist-time rematch after a real update has already
+        // copied the incoming body onto latestAspect.
+        boolean bodiesEqual =
+            DataTemplateUtil.areEqual(
+                latestAspect.getRecordTemplate(), changeMCP.getRecordTemplate());
+        boolean keepStoredVersion = bodiesEqual || changeMCP.isSemanticNoOp();
+        if (!keepStoredVersion && semanticNoOpComparator.hasRules(changeMCP.getAspectName())) {
+          int decision =
+              semanticNoOpComparator.decide(
+                  changeMCP.getAspectName(),
+                  latestAspect.getRecordTemplate().data(),
+                  changeMCP.getRecordTemplate().data());
+          keepStoredVersion = decision >= 0;
+          changeMCP.setSemanticNoOp(keepStoredVersion);
+          if (keepStoredVersion) {
+            changeMCP.setSemanticNoOpStrategyMask(decision);
+            if (changeMCP.getSemanticNoOpProposedVersion() == 0) {
+              changeMCP.setSemanticNoOpProposedVersion(rowNextVersion);
+            }
+          } else {
+            changeMCP.setSemanticNoOpStrategyMask(0);
+            changeMCP.setSemanticNoOpProposedVersion(0);
+          }
+        }
+
+        if (!keepStoredVersion) {
 
           // update aspect, version, and audit info
           latestAspect.setRecordTemplate(changeMCP.getRecordTemplate());
@@ -397,6 +500,120 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       }
     } catch (CloneNotSupportedException e) {
       throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * True when the in-memory row carries this write's proposed version rather than the stored one,
+   * meaning an earlier pass of this same write advanced it.
+   */
+  private static boolean advancedByThisWrite(
+      @Nonnull SystemMetadata latestSystemMetadata,
+      @Nullable SystemMetadata storedSystemMetadata,
+      long rowNextVersion) {
+    String storedVersion =
+        storedSystemMetadata == null ? null : storedSystemMetadata.getVersion(GetMode.NULL);
+    String latestVersion = latestSystemMetadata.getVersion(GetMode.NULL);
+    return storedVersion != null
+        && !storedVersion.equals(latestVersion)
+        && String.valueOf(rowNextVersion).equals(latestVersion);
+  }
+
+  /**
+   * True when a later write in this batch already advanced the in-memory row past this item's
+   * version. A row rewound below this item's version (by {@link #restoreStoredState}) is not
+   * obsolete: this item must still apply its run metadata.
+   */
+  static boolean isObsoleteWrite(
+      @Nullable SystemAspect latestAspect, @Nonnull ChangeMCP writeItem) {
+    if (latestAspect == null) {
+      return false;
+    }
+    String latestVersion = latestAspect.getSystemMetadata().getVersion();
+    String itemVersion = writeItem.getSystemMetadata().getVersion();
+    if (Objects.equals(latestVersion, itemVersion)) {
+      return false;
+    }
+    try {
+      return Long.parseLong(latestVersion) > Long.parseLong(itemVersion);
+    } catch (NumberFormatException e) {
+      return true;
+    }
+  }
+
+  /**
+   * Puts the stored body, audit stamp and version back on the in-memory row. Run metadata from the
+   * incoming write (lastObserved, runId, lastRunId) is kept.
+   */
+  private static void restoreStoredState(
+      @Nonnull SystemAspect latestAspect,
+      @Nonnull SystemMetadata latestSystemMetadata,
+      @Nonnull SystemAspect databaseAspect) {
+    SystemMetadata storedSystemMetadata = databaseAspect.getSystemMetadata();
+    latestAspect.setRecordTemplate(databaseAspect.getRecordTemplate());
+    latestAspect.setAuditStamp(databaseAspect.getAuditStamp());
+    latestSystemMetadata.setVersion(storedSystemMetadata.getVersion());
+    latestSystemMetadata.setAspectModified(
+        storedSystemMetadata.getAspectModified(GetMode.NULL), SetMode.REMOVE_IF_NULL);
+    latestSystemMetadata.setAspectCreated(
+        storedSystemMetadata.getAspectCreated(GetMode.NULL), SetMode.REMOVE_IF_NULL);
+  }
+
+  /**
+   * Puts back, in the version a rollback makes the latest, the references to entity types this
+   * version doesn't know (written by a newer version before a rollback), which reads drop: the
+   * older row is deleted after the copy, so they would be lost. The rest stays as read, so the
+   * restored record matches the system metadata copied with it (e.g. after a schema migration on
+   * read).
+   */
+  private static void restoreStoredReferences(
+      @Nonnull OperationContext opContext, @Nonnull final SystemAspect surviving) {
+    // Lazy: getDatabaseAspect() parses the stored row, which only tolerant handling needs.
+    handling()
+        .mergeStoredReferences(
+            surviving.getRecordTemplate(),
+            () -> surviving.getDatabaseAspect().map(SystemAspect::getRecordTemplate).orElse(null),
+            opContext.getEntityRegistry());
+  }
+
+  /**
+   * Keeps the stored references to entity types this version doesn't know (written by a newer
+   * version before a rollback), which reads drop, in the aspect being written, and rejects a write
+   * that adds one; a typo stays a client error. Compared with the stored row as written, not the
+   * in-memory latest aspect, so applying it again changes nothing.
+   */
+  private static void mergeStoredReferences(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final ChangeMCP changeMCP,
+      @Nullable final SystemAspect latestAspect) {
+    // Lazy: getDatabaseAspect() parses the stored row, which only tolerant handling needs.
+    final UnknownReferenceMerger.MergeResult result =
+        handling()
+            .mergeStoredReferences(
+                changeMCP.getRecordTemplate(),
+                () ->
+                    latestAspect == null
+                        ? null
+                        : latestAspect
+                            .getDatabaseAspect()
+                            .map(SystemAspect::getRecordTemplate)
+                            .orElse(null),
+                opContext.getEntityRegistry());
+    if (!result.added().isEmpty()) {
+      throw new ValidationException(
+          String.format(
+              "Aspect %s of %s references entity types this version doesn't know: %s",
+              changeMCP.getAspectName(), changeMCP.getUrn(), result.added()));
+    }
+    if (result.preserved() > 0) {
+      KEPT_REFERENCES.kept(
+          opContext.getMetricUtils(),
+          changeMCP.getAspectName(),
+          result.preserved(),
+          result.preserved()
+              + " stored references to entity types this version doesn't know in "
+              + changeMCP.getAspectName(),
+          changeMCP.getUrn());
     }
   }
 
@@ -450,8 +667,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     if (alwaysIncludeKeyAspect) {
       // Add "key" aspects for each urn. TODO: Replace this with a materialized key aspect.
-      urnToAspects
-          .keySet()
+      // Urns of entity types unknown to this build (after a version rollback) have no key spec,
+      // so they keep an empty result instead of failing the whole batch.
+      urnToAspects.keySet().stream()
+          .filter(key -> admitRead(opContext, key))
           .forEach(
               key -> {
                 final RecordTemplate keyAspect =
@@ -478,6 +697,20 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     .add(systemAspect.getRecordTemplate()));
 
     return urnToAspects;
+  }
+
+  @Nonnull
+  @Override
+  public Optional<SystemAspect> getLatestSystemAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName) {
+    return EntityUtils.toSystemAspects(
+            opContext,
+            opContext.getRetrieverContext(),
+            getLatestAspect(opContext, Set.of(urn), Set.of(aspectName), false).values())
+        .stream()
+        .findFirst();
   }
 
   @Nonnull
@@ -537,7 +770,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     return Pair.of(
         EntityUtils.toSystemAspect(
-                opContext, opContext.getRetrieverContext(), maybeAspect.orElse(null), false)
+                opContext, opContext.getRetrieverContext(), maybeAspect.orElse(null))
             .map(SystemAspect::getRecordTemplate)
             .orElse(null),
         version);
@@ -791,11 +1024,28 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       Set<EntityAspectIdentifier> dbKeys,
       boolean alwaysIncludeKeyAspect) {
 
+    // Urns of entity types unknown to this build (after a version rollback) are left out of the
+    // result, as if not found, instead of failing the whole batch.
+    final Set<EntityAspectIdentifier> knownDbKeys =
+        dbKeys.stream()
+            .filter(
+                dbKey ->
+                    handling()
+                        .admitUrn(
+                            UNKNOWN_READ,
+                            opContext.getEntityRegistry(),
+                            opContext.getMetricUtils(),
+                            dbKey.getUrn(),
+                            null))
+            .collect(Collectors.toSet());
+
     Set<Urn> urns =
-        dbKeys.stream().map(dbKey -> UrnUtils.getUrn(dbKey.getUrn())).collect(Collectors.toSet());
+        knownDbKeys.stream()
+            .map(dbKey -> UrnUtils.getUrn(dbKey.getUrn()))
+            .collect(Collectors.toSet());
 
     final Map<EntityAspectIdentifier, EnvelopedAspect> envelopedAspectMap =
-        getEnvelopedAspects(opContext, dbKeys);
+        getEnvelopedAspects(opContext, knownDbKeys);
 
     // Group result by Urn
     final Map<String, List<EnvelopedAspect>> urnToAspects =
@@ -1074,7 +1324,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   /**
    * Builds retention contexts from upsert results. Previous version existence is implied by
-   * oldValue != null.
+   * oldValue != null. Results that wrote no history row (maxVersion == 0) and left the body
+   * unchanged are skipped: there is nothing new to trim.
    *
    * @param updatedLatestAspects when non-null (legacy in-transaction path), restricts retention to
    *     urn/aspect pairs actually present in the post-upsert latest-aspect snapshot; when null
@@ -1092,11 +1343,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                         && updatedLatestAspects
                             .get(r.getUrn().toString())
                             .containsKey(r.getRequest().getAspectName())))
-        .filter(
-            r -> {
-              RecordTemplate oldAspect = r.getOldValue();
-              return oldAspect != r.getNewValue() && oldAspect != null;
-            })
+        .filter(r -> !r.isSemanticNoOp())
+        // Trim when this write added a history row, or changed the body. Body equality alone is not
+        // enough: a write hook can make the final body equal after a history row was written. A
+        // time-only policy writes no history row (maxVersion 0) but still ages out old rows.
+        .filter(r -> r.getOldValue() != null && (r.getMaxVersion() > 0 || !r.isNoOp()))
         .map(
             r ->
                 RetentionService.RetentionContext.builder()
@@ -1689,7 +1940,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                               systemAspect,
                                               aspectDao.getSystemAspectValidators(),
                                               aspectDao.getValidationConfig(),
-                                              opContext));
+                                              opContext,
+                                              semanticNoOpComparator));
 
                               // Fetch additional information if needed
                               final List<ChangeMCP> changeMCPs;
@@ -1739,7 +1991,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                                             sysAspect,
                                                             aspectDao.getSystemAspectValidators(),
                                                             aspectDao.getValidationConfig(),
-                                                            opContext));
+                                                            opContext,
+                                                            semanticNoOpComparator));
                                               }
                                             })
                                         .collect(Collectors.toList());
@@ -1814,9 +2067,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               }
 
                               // Database Upsert successfully validated results
-                              log.debug(
-                                  "Ingesting aspects batch to database: {}",
-                                  AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
+                              if (log.isDebugEnabled()) {
+                                log.debug(
+                                    "Ingesting aspects batch to database: {}",
+                                    AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
+                              }
 
                               List<UpdateAspectResult> upsertResults =
                                   exceptions
@@ -1837,10 +2092,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                             // latest
                                             // aspect
                                             // doesn't match this ChangeMCP
-                                            if (latestAspect != null
-                                                && !Objects.equals(
-                                                    latestAspect.getSystemMetadata().getVersion(),
-                                                    writeItem.getSystemMetadata().getVersion())) {
+                                            if (isObsoleteWrite(latestAspect, writeItem)) {
                                               log.debug(
                                                   "Skipping obsolete write: urn: {} aspect: {} version: {}",
                                                   writeItem.getUrn(),
@@ -2117,11 +2369,21 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   .filter(
                       result -> { // only versioned MCLs
                         MetadataChangeLog mcl = result.getMetadataChangeLog();
-                        return !opContext
-                            .getEntityRegistry()
-                            .getEntitySpec(mcl.getEntityType())
-                            .getAspectSpec(mcl.getAspectName())
-                            .isTimeseries();
+                        if (!handling().toleratesUnknownEntityAspect()) {
+                          // Strict handling throws for an unknown entity type, as before.
+                          return !handling()
+                              .entitySpecForData(opContext.getEntityRegistry(), mcl.getEntityType())
+                              .orElseThrow()
+                              .getAspectSpec(mcl.getAspectName())
+                              .isTimeseries();
+                        }
+                        return handling()
+                            .aspectSpecForData(
+                                opContext.getEntityRegistry(),
+                                mcl.getEntityType(),
+                                mcl.getAspectName())
+                            .map(spec -> !spec.isTimeseries())
+                            .orElse(false);
                       })
                   .map(MCLEmitResult::getMetadataChangeLog)
                   .collect(Collectors.toList()));
@@ -2619,6 +2881,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return aspectDao.countAspect(opContext, args);
   }
 
+  @Override
+  public int countUrnRows(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    // Same store the delete ceiling is read from; a lagging replica would under-count.
+    return aspectDao.countUrnRows(primaryRead(opContext), urn.toString());
+  }
+
   @Nonnull
   @Override
   public List<RestoreIndicesResult> restoreIndices(
@@ -2898,9 +3166,21 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     log.debug(
         "Invoked listUrns with entityName: {}, start: {}, count: {}", entityName, start, count);
 
+    final Optional<EntitySpec> entitySpec =
+        handling().entitySpecForData(opContext.getEntityRegistry(), entityName);
+    if (entitySpec.isEmpty()) {
+      // An entity type this registry doesn't know (e.g. added by a newer version before a
+      // rollback) has no urns this version can list.
+      UNKNOWN_READ.skipped(opContext.getMetricUtils(), entityName, null, "listUrns");
+      return new ListUrnsResult()
+          .setStart(start)
+          .setCount(0)
+          .setTotal(0)
+          .setEntities(new UrnArray());
+    }
+
     // If a keyAspect exists, the entity exists.
-    final String keyAspectName =
-        opContext.getEntityRegistry().getEntitySpec(entityName).getKeyAspectSpec().getName();
+    final String keyAspectName = entitySpec.get().getKeyAspectSpec().getName();
     final ListResult<String> keyAspectList =
         aspectDao.listUrns(opContext, entityName, keyAspectName, start, count);
 
@@ -3100,13 +3380,29 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return mcls.stream()
         .map(
             mcl -> {
-              Urn entityUrn = mcl.getEntityUrn();
-              AspectSpec aspectSpec =
-                  opContext
-                      .getEntityRegistry()
-                      .getEntitySpec(mcl.getEntityType())
-                      .getAspectSpec(mcl.getAspectName());
-              return conditionallyProduceMCLAsync(opContext, aspectSpec, mcl);
+              if (!handling().toleratesUnknownEntityAspect()) {
+                Urn entityUrn = mcl.getEntityUrn();
+                // Strict handling throws for an unknown entity type, as before.
+                AspectSpec aspectSpec =
+                    handling()
+                        .entitySpecForData(opContext.getEntityRegistry(), mcl.getEntityType())
+                        .orElseThrow()
+                        .getAspectSpec(mcl.getAspectName());
+                return conditionallyProduceMCLAsync(opContext, aspectSpec, mcl);
+              }
+              Optional<AspectSpec> aspectSpec =
+                  handling()
+                      .aspectSpecForData(
+                          opContext.getEntityRegistry(), mcl.getEntityType(), mcl.getAspectName());
+              if (aspectSpec.isEmpty()) {
+                UNKNOWN_MCL.skipped(
+                    opContext.getMetricUtils(),
+                    mcl.getEntityType(),
+                    mcl.getAspectName(),
+                    mcl.getEntityUrn());
+                return MCLEmitResult.builder().metadataChangeLog(mcl).build();
+              }
+              return conditionallyProduceMCLAsync(opContext, aspectSpec.get(), mcl);
             })
         .collect(Collectors.toList());
   }
@@ -3259,6 +3555,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return getLatestAspectUnions(opContext, urns, aspectNames, alwaysIncludeKeyAspect)
         .entrySet()
         .stream()
+        // A urn of an entity type this registry doesn't know (e.g. after a rollback) has no
+        // snapshot; leave it out, as the V2 reads do, instead of failing the whole batch.
+        .filter(entry -> admitRead(opContext, entry.getKey()))
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,
@@ -3438,6 +3737,20 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         aspectRows.stream()
             .map(
                 aspectToRemove -> {
+                  // After a rollback, a run can include rows the newer build wrote for entities or
+                  // aspects this build does not know. They cannot be deleted here (no spec to emit
+                  // the MCL with), so leave them in place for the newer build instead of failing
+                  // the whole rollback on the first one.
+                  if (deletePurpose == DeletePurpose.ROLLBACK
+                      && !handling()
+                          .admitUrn(
+                              UNKNOWN_ROLLBACK_ROW,
+                              opContext.getEntityRegistry(),
+                              opContext.getMetricUtils(),
+                              aspectToRemove.getUrn(),
+                              aspectToRemove.getAspectName())) {
+                    return null;
+                  }
                   RollbackResult result =
                       deleteAspectWithoutMCL(
                           opContext,
@@ -3447,10 +3760,18 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           hardDelete,
                           deletePurpose);
                   if (result != null) {
+                    // Strict handling keeps the original lookup, which logs and skips an unknown
+                    // aspect below instead of throwing.
                     Optional<AspectSpec> aspectSpec =
-                        opContext
-                            .getEntityRegistryContext()
-                            .getAspectSpec(result.entityName, result.aspectName);
+                        handling().toleratesUnknownEntityAspect()
+                            ? handling()
+                                .aspectSpecForData(
+                                    opContext.getEntityRegistry(),
+                                    result.entityName,
+                                    result.aspectName)
+                            : opContext
+                                .getEntityRegistryContext()
+                                .getAspectSpec(result.entityName, result.aspectName);
                     if (!aspectSpec.isPresent()) {
                       log.error(
                           "Issue while rolling back: unknown aspect {} for entity {}",
@@ -3473,8 +3794,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               result.getNewValue(),
                               result.getOldSystemMetadata(),
                               result.getNewSystemMetadata(),
-                              // TODO: use properly attributed audit stamp.
-                              createSystemAuditStamp(),
+                              // The caller's stamp, so the changelog names who removed it.
+                              opContext.getAuditStamp(),
                               result.getChangeType())
                           .getFirst();
                     } else {
@@ -3500,8 +3821,26 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         removedAspects, rowsDeletedFromEntityDeletion.get(), removedAspectResults);
   }
 
+  /** False, counted and logged, for a urn of an entity type the registry doesn't know. */
+  private static boolean admitRead(@Nonnull OperationContext opContext, @Nonnull final Urn urn) {
+    return handling()
+        .admitEvent(
+            UNKNOWN_READ,
+            opContext.getEntityRegistry(),
+            opContext.getMetricUtils(),
+            urn,
+            urn.getEntityType(),
+            null);
+  }
+
   @Override
   public RollbackRunResult deleteUrn(@Nonnull OperationContext opContext, Urn urn) {
+    return deleteUrn(opContext, urn, null);
+  }
+
+  @Override
+  public RollbackRunResult deleteUrn(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable DeleteCeiling ceiling) {
     // No write gate is taken here. It is acquired inside deleteAspectWithoutMCL (the shared
     // DB-delete primitive), which scopes the lock to just the DB transaction and keeps the async
     // MCL
@@ -3512,7 +3851,19 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     Integer rowsDeletedFromEntityDeletion = 0;
 
     final EntitySpec spec =
-        opContext.getEntityRegistry().getEntitySpec(PegasusUtils.urnToEntityName(urn));
+        handling().toleratesUnknownEntityAspect()
+            ? opContext
+                .getEntityRegistry()
+                .findEntitySpec(PegasusUtils.urnToEntityName(urn))
+                .orElseThrow(
+                    () ->
+                        new IllegalArgumentException(
+                            String.format(
+                                "Cannot delete %s: its entity type is not in the entity registry",
+                                urn)))
+            : handling()
+                .entitySpecForData(opContext.getEntityRegistry(), PegasusUtils.urnToEntityName(urn))
+                .orElseThrow();
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     String keyAspectName = opContext.getKeyAspectName(urn);
 
@@ -3523,7 +3874,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             keyAspectName,
             Collections.emptyMap(),
             true,
-            DeletePurpose.ORDINARY);
+            DeletePurpose.ORDINARY,
+            ceiling);
 
     if (result != null) {
       AspectRowSummary summary = new AspectRowSummary();
@@ -3570,10 +3922,73 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           throw new RuntimeException(e);
         }
       }
+    } else if (ceiling != null) {
+      // Written to since the capture, so the entity stays: delete what was captured, aspect by
+      // aspect. Rows newer than the ceiling survive, and nothing is deleted from an entity
+      // recreated since the capture.
+      ceiling
+          .aspectVersions()
+          .forEach(
+              (aspectName, version) -> {
+                if (!aspectName.equals(keyAspectName)) {
+                  deleteAspect(
+                          opContext,
+                          urn.toString(),
+                          aspectName,
+                          Map.of(
+                              DELETE_CONDITION_MAX_VERSION,
+                              String.valueOf(version),
+                              DELETE_CONDITION_KEY_CREATED_ON,
+                              String.valueOf(ceiling.keyCreatedOnMillis())),
+                          true)
+                      .ifPresent(removedAspectResults::add);
+                }
+              });
     }
 
     return new RollbackRunResult(
         removedAspects, rowsDeletedFromEntityDeletion, removedAspectResults);
+  }
+
+  @Override
+  @Nonnull
+  public Optional<DeleteCeiling> captureDeleteCeiling(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    final OperationContext primary = opContext.withReadPreference(ReadPreference.PRIMARY);
+    final Map<String, SystemAspect> latest;
+    try {
+      latest =
+          aspectDao
+              .getLatestAspects(
+                  primary, Map.of(urn.toString(), opContext.getEntityAspectNames(urn)), false)
+              .getOrDefault(urn.toString(), Map.of());
+    } catch (EntityNotFoundException e) {
+      return Optional.empty();
+    }
+    if (!latest.containsKey(opContext.getKeyAspectName(urn))) {
+      return Optional.empty();
+    }
+    final Map<String, Long> versions = new HashMap<>();
+    latest.forEach(
+        (aspectName, row) -> {
+          // A legacy latest row has no systemMetadata.version (it counts as 1) while its history
+          // rows may be numbered higher: bound it by its highest row version instead, or those
+          // older rows would survive a bounded aspect delete and be restored as the latest.
+          final long version =
+              row.getSystemMetadataVersion()
+                  .orElseGet(
+                      () ->
+                          Math.max(
+                              1L,
+                              Optional.ofNullable(
+                                      aspectDao
+                                          .getVersionRange(primary, urn.toString(), aspectName)
+                                          .getSecond())
+                                  .orElse(0L)));
+          versions.put(aspectName, version);
+        });
+    return Optional.of(
+        new DeleteCeiling(versions, createdOnMillis(latest.get(opContext.getKeyAspectName(urn)))));
   }
 
   @Override
@@ -3583,8 +3998,16 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nullable String aspectName,
       boolean includeSoftDeleted,
       boolean forUpdate) {
+    // After a rollback, urns of entity types this build does not know (e.g. graph edges written by
+    // a newer build) are reported as non-existent instead of failing the whole lookup.
+    final List<Urn> knownUrns =
+        urns.stream().filter(urn -> admitRead(opContext, urn)).collect(Collectors.toList());
+    if (knownUrns.isEmpty() && handling().toleratesUnknownEntityAspect()) {
+      return new HashSet<>();
+    }
+
     final Set<EntityAspectIdentifier> dbKeys =
-        urns.stream()
+        knownUrns.stream()
             .map(
                 urn ->
                     new EntityAspectIdentifier(
@@ -3607,7 +4030,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .collect(Collectors.toSet());
 
     Set<Urn> existing =
-        urns.stream()
+        knownUrns.stream()
             .filter(urn -> existingUrnStrings.contains(urn.toString()))
             .collect(Collectors.toSet());
 
@@ -3680,10 +4103,27 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull Map<String, String> conditions,
       boolean hardDelete,
       DeletePurpose deletePurpose) {
-    final AuditStamp auditStamp =
-        new AuditStamp()
-            .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
-            .setTime(System.currentTimeMillis());
+    return deleteAspectWithoutMCL(
+        opContext, urn, aspectName, conditions, hardDelete, deletePurpose, null);
+  }
+
+  /**
+   * @param ceiling with a key-aspect hard delete: the entity goes only when every latest row of it,
+   *     read under lock in the delete transaction, is at or below its captured version and none is
+   *     new since the capture; otherwise nothing is deleted
+   */
+  @Nullable
+  private RollbackResult deleteAspectWithoutMCL(
+      @Nonnull OperationContext opContext,
+      String urn,
+      String aspectName,
+      @Nonnull Map<String, String> conditions,
+      boolean hardDelete,
+      DeletePurpose deletePurpose,
+      @Nullable DeleteCeiling ceiling) {
+    // The caller's stamp, as on the delete changelog: the soft-delete status and the side-effect
+    // changelogs name who removed it, and the system only when the system runs it.
+    final AuditStamp auditStamp = opContext.getAuditStamp();
 
     // Validate pre-conditions before running queries
     Urn entityUrn = UrnUtils.getUrn(urn);
@@ -3702,7 +4142,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             opContext, List.of(deleteItem), opContext.getRetrieverContext(), opContext);
     if (!exceptions.isEmpty()) {
       throw new ValidationException(
-          collectMetrics(opContext.getMetricUtils().orElse(null), exceptions).toString());
+          collectMetrics(opContext.getMetricUtils().orElse(null), exceptions));
     }
 
     // Hard delete wipes all aspects in one shot; capture aspects needed by post-commit side
@@ -3791,7 +4231,33 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     // 1. Fetch the latest existing version of the aspect.
                     SystemAspect latest = null;
                     try {
-                      latest = aspectDao.getLatestAspect(opContext, urn, aspectName, false);
+                      final String keyCreatedOn = conditions.get(DELETE_CONDITION_KEY_CREATED_ON);
+                      if (conditions.containsKey(DELETE_CONDITION_MAX_VERSION)
+                          || keyCreatedOn != null) {
+                        // Bounded by version or by entity: lock the rows (the key row with the
+                        // aspect, in one ordered read) so a write cannot land between the check
+                        // and the delete.
+                        final String keyAspectName = opContext.getKeyAspectName(entityUrn);
+                        final Set<String> lockedAspectNames = new HashSet<>();
+                        lockedAspectNames.add(aspectName);
+                        if (keyCreatedOn != null) {
+                          lockedAspectNames.add(keyAspectName);
+                        }
+                        final Map<String, SystemAspect> locked =
+                            aspectDao
+                                .getLatestAspectsLocked(opContext, Map.of(urn, lockedAspectNames))
+                                .getOrDefault(urn, Map.of());
+                        // 1.0 A different key row: the entity was deleted, or recreated, since.
+                        if (keyCreatedOn != null
+                            && (locked.get(keyAspectName) == null
+                                || createdOnMillis(locked.get(keyAspectName))
+                                    != Long.parseLong(keyCreatedOn))) {
+                          return TransactionResult.rollback();
+                        }
+                        latest = locked.get(aspectName);
+                      } else {
+                        latest = aspectDao.getLatestAspect(opContext, urn, aspectName, false);
+                      }
                     } catch (EntityNotFoundException e) {
                       log.debug("Delete non-existing aspect. urn {} aspect {}", urn, aspectName);
                       opContext
@@ -3809,12 +4275,39 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                     // 2. Compare the match conditions, if they don't match, ignore.
                     SystemMetadata latestSystemMetadata = latest.getSystemMetadata();
-                    if (!filterMatch(latestSystemMetadata, conditions)) {
+                    if (!filterMatch(
+                        latestSystemMetadata,
+                        ConditionalWriteValidator.resolveAspectVersion(latest),
+                        conditions)) {
                       return TransactionResult.rollback();
                     }
 
                     // 3. Check if this is a key aspect
                     Boolean isKeyAspect = opContext.getKeyAspectName(entityUrn).equals(aspectName);
+
+                    // 3.1 A bounded entity delete: anything written since the capture keeps it.
+                    if (isKeyAspect
+                        && hardDelete
+                        && ceiling != null
+                        && !withinCeiling(opContext, entityUrn, ceiling)) {
+                      return TransactionResult.rollback();
+                    }
+
+                    // 3.2 Rolling back a run deletes an entity only while the run still owns all
+                    // of it. If anything else was written to it since, keep it and what was
+                    // written; the run's other rows are rolled back one by one, each only while
+                    // it is still the run's. Checked before any row is touched.
+                    if (isKeyAspect
+                        && hardDelete
+                        && deletePurpose == DeletePurpose.ROLLBACK
+                        && conditions.containsKey("runId")
+                        && !ownedOnlyByRun(opContext, entityUrn, conditions.get("runId"))) {
+                      log.debug(
+                          "Rollback of run {} keeps {}: it has aspects written by others",
+                          conditions.get("runId"),
+                          urn);
+                      return TransactionResult.rollback();
+                    }
 
                     // 4. Fetch all preceding aspects, that match
                     List<SystemAspect> aspectsToDelete = new ArrayList<>();
@@ -3842,14 +4335,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               EntityUtils.toSystemAspect(
                                       opContext,
                                       opContext.getRetrieverContext(),
-                                      aspectDao.getAspect(opContext, urn, aspectName, maxVersion),
-                                      true)
+                                      aspectDao.getAspect(opContext, urn, aspectName, maxVersion))
                                   .orElse(null);
                       SystemMetadata previousSysMetadata =
                           candidateAspect != null ? candidateAspect.getSystemMetadata() : null;
                       filterMatch =
                           previousSysMetadata != null
-                              && filterMatch(previousSysMetadata, conditions);
+                              && filterMatch(previousSysMetadata, maxVersion, conditions);
                       if (filterMatch) {
                         aspectsToDelete.add(candidateAspect);
                       } else if (candidateAspect == null) {
@@ -3879,8 +4371,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     if (!preCommitExceptions.isEmpty()) {
                       throw new ValidationException(
                           collectMetrics(
-                                  opContext.getMetricUtils().orElse(null), preCommitExceptions)
-                              .toString());
+                              opContext.getMetricUtils().orElse(null), preCommitExceptions));
                     }
 
                     // 5. Apply deletes and fix up latest row
@@ -3898,6 +4389,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       // aspect
                       // as a result we copy information from survivingAspect to latest and delete
                       // survivingAspect
+                      restoreStoredReferences(opContext, survivingAspect);
                       latest.setRecordTemplate(survivingAspect.getRecordTemplate());
                       latest.setSystemMetadata(survivingAspect.getSystemMetadata());
                       latest.setAuditStamp(survivingAspect.getAuditStamp());
@@ -3971,7 +4463,26 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                   urn);
                             }
                           }
-                          additionalRowsDeleted = aspectDao.deleteUrn(opContext, txContext, urn);
+                          if (ceiling == null) {
+                            additionalRowsDeleted = aspectDao.deleteUrn(opContext, txContext, urn);
+                          } else {
+                            // Only what was captured, locked by withinCeiling: an aspect created
+                            // since (its first row was not there to lock) is left in place, and
+                            // then so is the entity.
+                            final Set<String> notCaptured =
+                                opContext.getEntityAspectNames(entityUrn).stream()
+                                    .filter(a -> !ceiling.aspectVersions().containsKey(a))
+                                    .collect(Collectors.toSet());
+                            additionalRowsDeleted =
+                                aspectDao.deleteUrnExcept(opContext, txContext, urn, notCaptured);
+                            if (!notCaptured.isEmpty()
+                                && !aspectDao
+                                    .getLatestAspectsLocked(opContext, Map.of(urn, notCaptured))
+                                    .getOrDefault(urn, Map.of())
+                                    .isEmpty()) {
+                              return TransactionResult.rollback();
+                            }
+                          }
                         } else if (deleteItem
                             .getEntitySpec()
                             .hasAspect(Constants.STATUS_ASPECT_NAME)) {
@@ -4116,8 +4627,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return result;
   }
 
+  /**
+   * @param version the row's version: the latest row's {@code systemMetadata.version}, a history
+   *     row's row version
+   */
   protected boolean filterMatch(
-      @Nonnull SystemMetadata systemMetadata, Map<String, String> conditions) {
+      @Nonnull SystemMetadata systemMetadata, long version, Map<String, String> conditions) {
     String runIdCondition = conditions.getOrDefault("runId", null);
     if (runIdCondition != null) {
       if (!runIdCondition.equals(systemMetadata.getRunId())) {
@@ -4136,7 +4651,67 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         return false;
       }
     }
+    String maxVersionCondition = conditions.getOrDefault(DELETE_CONDITION_MAX_VERSION, null);
+    if (maxVersionCondition != null) {
+      if (version > Long.parseLong(maxVersionCondition)) {
+        return false;
+      }
+    }
     return true;
+  }
+
+  /**
+   * Whether every latest row of {@code urn}, read with {@code forUpdate}, is at or below its
+   * captured version: none was written, or created, since the capture.
+   */
+  private boolean withinCeiling(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull DeleteCeiling ceiling) {
+    final Map<String, SystemAspect> latest =
+        aspectDao
+            .getLatestAspectsLocked(
+                opContext, Map.of(urn.toString(), opContext.getEntityAspectNames(urn)))
+            .getOrDefault(urn.toString(), Map.of());
+    // Versions restart at 1 when an entity is deleted and recreated; its key row then differs.
+    final SystemAspect key = latest.get(opContext.getKeyAspectName(urn));
+    if (key == null || createdOnMillis(key) != ceiling.keyCreatedOnMillis()) {
+      return false;
+    }
+    return latest.entrySet().stream()
+        .allMatch(
+            row -> {
+              final Long bound = ceiling.aspectVersions().get(row.getKey());
+              return bound != null
+                  && ConditionalWriteValidator.resolveAspectVersion(row.getValue()) <= bound;
+            });
+  }
+
+  /**
+   * Whether every latest aspect of the entity, other than its status, was last written by {@code
+   * runId}. A write by anyone else, another run or a write with no run id such as a UI edit, means
+   * rolling back the run must not delete the entity. Locks the rows, like {@link #withinCeiling}.
+   */
+  private boolean ownedOnlyByRun(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull String runId) {
+    final Map<String, SystemAspect> latest =
+        aspectDao
+            .getLatestAspectsLocked(
+                opContext, Map.of(urn.toString(), opContext.getEntityAspectNames(urn)))
+            .getOrDefault(urn.toString(), Map.of());
+    // The key being rolled back must be among the rows read; reading nothing proves nothing, so
+    // keep the entity (as withinCeiling does) rather than delete it on an empty match.
+    if (!latest.containsKey(opContext.getKeyAspectName(urn))) {
+      return false;
+    }
+    return latest.entrySet().stream()
+        .filter(row -> !STATUS_ASPECT_NAME.equals(row.getKey()))
+        .allMatch(
+            row ->
+                row.getValue().getSystemMetadata() != null
+                    && runId.equals(row.getValue().getSystemMetadata().getRunId(GetMode.NULL)));
+  }
+
+  private static long createdOnMillis(@Nonnull SystemAspect row) {
+    return row.getCreatedOn() == null ? 0L : row.getCreatedOn().getTime();
   }
 
   protected AuditStamp createSystemAuditStamp() {
@@ -4378,7 +4953,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 systemAspect,
                 aspectDao.getSystemAspectValidators(),
                 aspectDao.getValidationConfig(),
-                opContext);
+                opContext,
+                semanticNoOpComparator);
 
     // 1. Convert patches to full upserts 2. Run any entity/aspect level hooks 3. Capture derived
     // (urn, aspect) -> parent base URN(s) so a conflict on a derived MCP recomputes exactly its
@@ -4493,9 +5069,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
 
     // Database Upsert successfully validated results
-    log.debug(
-        "Ingesting aspects batch to database: {}",
-        AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "Ingesting aspects batch to database: {}",
+          AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
+    }
 
     final List<AspectWriteResult> writeResults = new ArrayList<>();
     final List<UpdateAspectResult> upsertResults = new ArrayList<>();
@@ -4556,10 +5134,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
       // eliminate unneeded writes within a batch if the latest aspect doesn't match this
       // ChangeMCP
-      if (latestAspect != null
-          && !Objects.equals(
-              latestAspect.getSystemMetadata().getVersion(),
-              writeItem.getSystemMetadata().getVersion())) {
+      if (isObsoleteWrite(latestAspect, writeItem)) {
         log.debug(
             "Skipping obsolete write: urn: {} aspect: {} version: {}",
             writeItem.getUrn(),
@@ -4589,7 +5164,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     latestAspect,
                     aspectDao.getSystemAspectValidators(),
                     aspectDao.getValidationConfig(),
-                    opContext);
+                    opContext,
+                    semanticNoOpComparator);
             int maxVersionsToKeep = resolveMaxVersionsToKeep(opContext, writeItem);
             ConditionalWritePlan plan =
                 aspectDao.planConditionalWrite(
@@ -4847,7 +5423,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             latestAspect,
             aspectDao.getSystemAspectValidators(),
             aspectDao.getValidationConfig(),
-            opContext);
+            opContext,
+            semanticNoOpComparator);
 
     int maxVersionsToKeep = resolveMaxVersionsToKeep(opContext, writeItem);
 
@@ -4968,7 +5545,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   return UpdateAspectResult.builder()
                       .urn(writeItem.getUrn())
                       .oldValue(writeItem.getPreviousRecordTemplate())
-                      .newValue(writeItem.getRecordTemplate())
+                      .newValue(persistedAspectValue(writeItem, upsertAspect))
+                      .semanticNoOp(writeItem.isSemanticNoOp())
                       .oldSystemMetadata(
                           writeItem.getPreviousSystemAspect() == null
                               ? null
@@ -5017,7 +5595,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             latestAspect,
             aspectDao.getSystemAspectValidators(),
             aspectDao.getValidationConfig(),
-            opContext);
+            opContext,
+            semanticNoOpComparator);
 
     // Resolve maxVersionsToKeep from retention policy (per aspect): <= 1 means do not write a new
     // history row (version != 0); we still update the existing version 0 row. When retention
@@ -5094,7 +5673,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               return UpdateAspectResult.builder()
                   .urn(writeItem.getUrn())
                   .oldValue(writeItem.getPreviousRecordTemplate())
-                  .newValue(writeItem.getRecordTemplate())
+                  .newValue(persistedAspectValue(writeItem, upsertAspect))
+                  .semanticNoOp(writeItem.isSemanticNoOp())
                   .oldSystemMetadata(
                       writeItem.getPreviousSystemAspect() == null
                           ? null
@@ -5107,6 +5687,19 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   .build();
             })
         .orElse(null);
+  }
+
+  /**
+   * Semantic no-ops persist the previously stored body. The MCL and retention result must describe
+   * that body, not the incoming clock stamp that was ignored.
+   */
+  @Nonnull
+  private static RecordTemplate persistedAspectValue(
+      @Nonnull ChangeMCP writeItem, @Nonnull SystemAspect upsertAspect) {
+    if (writeItem.isSemanticNoOp() && upsertAspect.getRecordTemplate() != null) {
+      return upsertAspect.getRecordTemplate();
+    }
+    return writeItem.getRecordTemplate();
   }
 
   private static boolean shouldAspectEmitChangeLog(@Nonnull final AspectSpec aspectSpec) {

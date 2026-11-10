@@ -4,7 +4,7 @@
     "announcements.title": "Announcements",
     "dataProducts.title": "Data Products",
     "documents.deleteConfirmButton": "Delete",
-    "documents.deleteText": "Are you sure you want to delete this document? This will also delete all child documents.",
+    "documents.deleteText": "Are you sure you want to delete this document? This will also delete every nested document under it.",
     "documents.deleteTitle": "Delete Document(s)",
     "documents.moveToRoot": "Move to Root",
     "documents.newDocumentTooltip": "New document",

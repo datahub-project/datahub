@@ -11,11 +11,11 @@ import CreateBusinessAttributeModal from '@app/businessAttribute/CreateBusinessA
 import useDescriptionRenderer from '@app/businessAttribute/utils/useDescriptionRenderer';
 import useTagsAndTermsRenderer from '@app/businessAttribute/utils/useTagsAndTermsRenderer';
 import { useUserContext } from '@app/context/useUserContext';
-import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { SearchBar } from '@app/search/SearchBar';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { Message } from '@app/sharedV2/Message';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListBusinessAttributesQuery } from '@graphql/businessAttribute.generated';

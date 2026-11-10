@@ -5,7 +5,7 @@ import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { PreviewType } from '@app/entityV2/Entity';
-import { navigateToLineageUrl } from '@app/lineage/utils/navigateToLineageUrl';
+import { navigateToLineageUrl } from '@app/lineageV3/utils/navigateToLineageUrl';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DownstreamEntityRelationships, EntityType, UpstreamEntityRelationships } from '@types';

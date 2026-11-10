@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.resolvers.BatchLoadUtils;
@@ -37,6 +39,12 @@ public class BatchGetEntitiesResolver implements DataFetcher<CompletableFuture<L
     Map<String, List<Integer>> entityIndexMap = new HashMap<>();
     int index = 0;
     for (Entity entity : entities) {
+      if (entity == null && handling().toleratesUnknownEntityAspect()) {
+        // The urn's entity type is unknown to this build, so no typed placeholder exists. Leave its
+        // slot null instead of failing the whole batch.
+        index++;
+        continue;
+      }
       List<Integer> indexList = new ArrayList<>();
       if (entityIndexMap.containsKey(entity.getUrn())) {
         indexList = entityIndexMap.get(entity.getUrn());

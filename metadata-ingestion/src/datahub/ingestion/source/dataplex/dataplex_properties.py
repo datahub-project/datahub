@@ -18,6 +18,16 @@ class AspectFilterReporter(Protocol):
     def report_filtered_aspect(self, aspect_type: str) -> None: ...
 
 
+def aspect_type_short_name(aspect_key: str) -> str:
+    """The bare aspect type aspect_type_pattern is matched against.
+
+    Dataplex aspect keys arrive as "<project>.<location>.<aspect_type>" (and
+    occasionally as a ".../aspectTypes/<aspect_type>" path); the final segment
+    is the type either way.
+    """
+    return aspect_key.replace("/", ".").split(".")[-1]
+
+
 def extract_aspects_to_custom_properties(
     aspects: Mapping[Any, Any],
     custom_properties: dict[str, str],
@@ -34,10 +44,7 @@ def extract_aspects_to_custom_properties(
         report: Optional reporter notified of each dropped aspect type
     """
     for aspect_key, aspect_value in aspects.items():
-        # Dataplex aspect keys arrive as "<project>.<location>.<aspect_type>"
-        # (and occasionally as a ".../aspectTypes/<aspect_type>" path); take the
-        # final segment either way so the pattern matches the bare aspect type.
-        aspect_type = aspect_key.replace("/", ".").split(".")[-1]
+        aspect_type = aspect_type_short_name(aspect_key)
         if not aspect_type_pattern.allowed(aspect_type):
             if report is not None:
                 report.report_filtered_aspect(aspect_type)

@@ -8,7 +8,7 @@ import {
 } from '@app/searchV2/filters/utils';
 import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
 import { ENTITY_FILTER_NAME } from '@app/searchV2/utils/constants';
-import usePrevious from '@app/shared/usePrevious';
+import usePrevious from '@app/sharedV2/usePrevious';
 import { useAggregateAcrossEntitiesLazyQuery } from '@src/graphql/search.generated';
 
 import { EntityType, FacetFilterInput, FacetMetadata } from '@types';

@@ -2,6 +2,7 @@ import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
+import { beforeAll } from 'vitest';
 
 import { SetApplicationModal } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SetApplicationModal';
 import CustomThemeProvider from '@src/CustomThemeProvider';
@@ -9,6 +10,36 @@ import CustomThemeProvider from '@src/CustomThemeProvider';
 import { useBatchSetApplicationMutation, useGetApplicationsListLazyQuery } from '@graphql/application.generated';
 
 vi.mock('@graphql/application.generated');
+
+// SimpleSelect only mounts its trigger once IntersectionObserver reports it as visible.
+// The global test stub never fires the callback, so install one that reports intersecting.
+beforeAll(() => {
+    vi.stubGlobal(
+        'IntersectionObserver',
+        class {
+            private readonly callback: IntersectionObserverCallback;
+
+            constructor(callback: IntersectionObserverCallback) {
+                this.callback = callback;
+            }
+
+            observe(target: Element) {
+                this.callback(
+                    [{ isIntersecting: true, target } as IntersectionObserverEntry],
+                    this as unknown as IntersectionObserver,
+                );
+            }
+
+            unobserve() {}
+
+            disconnect() {}
+
+            takeRecords() {
+                return [];
+            }
+        },
+    );
+});
 
 const mockUseGetApplicationsListLazyQuery = vi.mocked(useGetApplicationsListLazyQuery);
 const mockUseBatchSetApplicationMutation = vi.mocked(useBatchSetApplicationMutation);
@@ -93,8 +124,8 @@ describe('SetApplicationModal', () => {
     it('calls server search with typed query when user types in the select', async () => {
         renderModal();
 
-        const select = screen.getByRole('combobox');
-        fireEvent.change(select, { target: { value: 'Alpha' } });
+        fireEvent.click(screen.getByTestId('application-select-base'));
+        fireEvent.change(screen.getByTestId('dropdown-search-input'), { target: { value: 'Alpha' } });
 
         await waitFor(
             () => {
@@ -127,18 +158,13 @@ describe('SetApplicationModal', () => {
         expect(screen.getByText(/Failed to load applications/)).toBeInTheDocument();
     });
 
-    it('calls batchSetApplication mutation with selected application urn on OK', async () => {
+    it('calls batchSetApplication mutation with selected application urn on Add', async () => {
         mockBatchSetApplication.mockResolvedValue({});
         renderModal();
 
-        const select = screen.getByRole('combobox');
-        fireEvent.mouseDown(select);
-
-        await waitFor(() => screen.getByText('App Alpha'));
-        fireEvent.click(screen.getByText('App Alpha'));
-
-        const okButton = screen.getByText('OK');
-        fireEvent.click(okButton);
+        fireEvent.click(screen.getByTestId('application-select-base'));
+        fireEvent.click(await screen.findByTestId('application-option-urn:li:application:1'));
+        fireEvent.click(screen.getByTestId('set-application-modal-add-button'));
 
         await waitFor(() => {
             expect(mockBatchSetApplication).toHaveBeenCalledWith(
@@ -157,8 +183,9 @@ describe('SetApplicationModal', () => {
     it('does not call mutation when no application is selected', () => {
         renderModal();
 
-        const okButton = screen.getByText('OK');
-        fireEvent.click(okButton);
+        const addButton = screen.getByTestId('set-application-modal-add-button');
+        expect(addButton).toBeDisabled();
+        fireEvent.click(addButton);
 
         expect(mockBatchSetApplication).not.toHaveBeenCalled();
     });
