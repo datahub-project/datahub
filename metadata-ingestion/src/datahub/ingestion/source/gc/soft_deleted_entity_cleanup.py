@@ -1,3 +1,4 @@
+import functools
 import logging
 import time
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
@@ -14,6 +15,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import RemovedStatusFilter, SearchFilterRule
+from datahub.metadata.urns import ContainerUrn
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.stats_collections import TopKDict
 from datahub.utilities.urns._urn_base import Urn
@@ -126,9 +128,6 @@ class SoftDeletedEntitiesReport(SourceReport):
     num_soft_deleted_entity_found: int = 0
     num_soft_deleted_entity_invalid_urn: int = 0
     num_soft_deleted_containers_retained_with_children: int = 0
-    sample_soft_deleted_containers_retained_with_children: LossyList[str] = field(
-        default_factory=LossyList
-    )
 
 
 class SoftDeletedEntitiesCleanup:
@@ -154,6 +153,8 @@ class SoftDeletedEntitiesCleanup:
         self.start_time = time.time()
         self._report_lock: Lock = Lock()
         self.last_print_time = 0.0
+        # Cleared once if the server rejects the lifecycle search flags.
+        self._search_lifecycle_children = True
 
     def _increment_retained_count(self) -> None:
         """Thread-safe method to update report fields"""
@@ -204,11 +205,14 @@ class SoftDeletedEntitiesCleanup:
         )
         self._update_report(urn.urn(), urn.entity_type)
 
-    def _has_live_children(self, urn: Urn) -> bool:
-        # Matches the `container` aspect directly rather than browsePathsV2, which
-        # entities emitted outside ingestion sources often lack.
-        children = self.graph.get_urns_by_filter(
-            status=RemovedStatusFilter.NOT_SOFT_DELETED,
+    def _has_children(self, urn: Urn) -> bool:
+        # Children in any state count, soft-deleted, draft and hidden ones included:
+        # each still holds a `container` link that hard-deleting this container
+        # would strip. The `container` field is matched rather than browsePathsV2,
+        # which entities emitted outside ingestion sources often lack.
+        search = functools.partial(
+            self.graph.get_urns_by_filter,
+            status=RemovedStatusFilter.ALL,
             batch_size=1,
             extraFilters=[
                 SearchFilterRule(
@@ -216,22 +220,31 @@ class SoftDeletedEntitiesCleanup:
                 ).to_raw()
             ],
         )
-        return next(iter(children), None) is not None
+        if self._search_lifecycle_children:
+            try:
+                return any(
+                    search(include_draft=True, include_hidden_lifecycle_stages=True)
+                )
+            except ValueError as e:
+                # Older servers do not support these search flags.
+                self._search_lifecycle_children = False
+                with self._report_lock:
+                    self.report.warning(
+                        title="Container child check skips draft and hidden entities",
+                        message="This DataHub server does not support searching draft or "
+                        "hidden entities, so containers holding only those may still be "
+                        "hard-deleted.",
+                        exc=e,
+                    )
+        return any(search())
 
-    def _retain_container_with_children(self, urn: Urn) -> None:
-        # Hard-deleting the container would make delete_references_to_urn drop the
-        # required `container` aspect from every child, orphaning the whole subtree
-        # with no way to rebuild the links. Keeping it soft-deleted leaves the tree
-        # recoverable by restoring the container.
+    def _report_container_retained(self, urn: Urn) -> None:
         with self._report_lock:
             self.report.num_soft_deleted_containers_retained_with_children += 1
-            self.report.sample_soft_deleted_containers_retained_with_children.append(
-                urn.urn()
-            )
-            self.report.warning(
+            self.report.info(
                 title="Soft-deleted container still has children",
-                message="Not hard-deleting soft-deleted containers that still hold entities "
-                "which are not soft-deleted. Restore the container or delete its children first.",
+                message="Not hard-deleting soft-deleted containers that still have "
+                "children. Restore the container, or delete its children first.",
                 context=urn.urn(),
             )
 
@@ -248,9 +261,28 @@ class SoftDeletedEntitiesCleanup:
             if aspect["aspects"]["status"]["value"]["removed"] and aspect["aspects"][
                 "status"
             ]["created"]["time"] < (retention_time * 1000):
-                if urn.entity_type == "container" and self._has_live_children(urn):
-                    self._retain_container_with_children(urn)
-                    return
+                if urn.entity_type == ContainerUrn.ENTITY_TYPE:
+                    if self._deletion_limit_reached() or self._times_up():
+                        return
+                    # Hard-deleting a container makes delete_references_to_urn drop
+                    # the required `container` aspect from every child, orphaning the
+                    # subtree with no way to rebuild the links. While children remain
+                    # it stays soft-deleted, so restoring it brings the tree back.
+                    try:
+                        has_children = self._has_children(urn)
+                    except Exception as e:
+                        with self._report_lock:
+                            self.report.warning(
+                                title="Could not check children of soft-deleted container",
+                                message="Skipped hard-deleting the container because its "
+                                "children could not be searched.",
+                                context=urn.urn(),
+                                exc=e,
+                            )
+                        return
+                    if has_children:
+                        self._report_container_retained(urn)
+                        return
                 logger.debug(f"Hard deleting {urn}")
                 self.delete_entity(urn)
             else:
@@ -266,6 +298,7 @@ class SoftDeletedEntitiesCleanup:
 
     def _process_futures(self, futures: Dict[Future, Urn]) -> Dict[Future, Urn]:
         done, not_done = wait(futures, return_when=FIRST_COMPLETED)
+        submitted = futures
         futures = {future: urn for future, urn in futures.items() if future in not_done}
 
         for future in done:
@@ -274,7 +307,7 @@ class SoftDeletedEntitiesCleanup:
                 self.report.failure(
                     title="Failed to delete entity",
                     message="Failed to delete entity",
-                    context=futures[future].urn(),
+                    context=submitted[future].urn(),
                     exc=future.exception(),
                 )
             self.report.num_soft_deleted_entity_processed += 1
