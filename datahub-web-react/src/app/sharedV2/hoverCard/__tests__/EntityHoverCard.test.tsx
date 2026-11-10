@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { hexToRgb } from '@app/sharedV2/colors/colorUtils';
 import EntityHoverCard from '@app/sharedV2/hoverCard/EntityHoverCard';
 import lightTheme from '@conf/theme/colorThemes/light';
+import possibleTypesResult from '@src/possibleTypes.generated';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 import { GetSearchResultsForMultipleCardsDocument } from '@graphql/search.generated';
@@ -238,7 +239,7 @@ describe('EntityHoverCard freshness clock for rows of the home asset modules', (
     // The home asset modules load their rows with this query and pass each row to the hover card.
     // Apollo returns only the fields that the query selects.
     const loadWithCardQuery = (materialized: boolean): Dataset => {
-        const cache = new InMemoryCache({ possibleTypes: { Entity: ['Dataset'] } });
+        const cache = new InMemoryCache({ possibleTypes: possibleTypesResult.possibleTypes });
         const variables = { input: { query: '*', start: 0, count: 10 }, skipSiblingsSearch: true };
         const entity = {
             __typename: 'Dataset',
