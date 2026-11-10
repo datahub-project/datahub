@@ -243,6 +243,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authorization.defaultAuthorizer.cachePolicyFetchSize",
           "authorization.defaultAuthorizer.cacheRefreshIntervalSecs",
           "authorization.restApiAuthorization",
+          "authorization.registryApi.authenticatedReadEnabled",
           "authorization.view.recommendations.peerGroupEnabled",
           "defaultAuthorizer",
           "restApiAuthorization",
