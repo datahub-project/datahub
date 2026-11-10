@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import { Tab, Tabs } from '@components/components/Tabs/Tabs';
+import { Tab } from '@components/components/Tabs/Tabs';
 
 import analytics, { EventType } from '@app/analytics';
 import { getIngestionSourceStatus } from '@app/ingest/source/utils';
@@ -20,6 +20,7 @@ import {
     getExecutionRequestStatusIcon,
 } from '@app/ingestV2/executions/utils';
 import { Message } from '@app/sharedV2/Message';
+import { Tabs } from '@app/sharedV2/tabs/Tabs';
 import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';

@@ -78,6 +78,7 @@
     "resizablePills.moreHiddenCount_one": "{{count}} kohde piilossa",
     "resizablePills.moreHiddenCount_other": "{{count}} kohdetta piilossa",
     "search.placeholder": "Hae...",
+    "select.noResults.description": "Kokeile muuttaa hakuasi löytääksesi etsimäsi",
     "select.placeholder": "Valitse vaihtoehto",
     "selectItems.addMoreSection": "Lisää muita",
     "selectItems.entitiesLabel": "kohteita",

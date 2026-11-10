@@ -148,7 +148,6 @@
     "searchBar.noResults.clearFilters": "szűrők törlése",
     "searchBar.noResults.clearFiltersAndView": "szűrők és a kiválasztott nézet törlése",
     "searchBar.noResults.clearView": "a kiválasztott nézet törlése",
-    "searchBar.noResults.defaultMessage": "Próbálja módosítani a keresést, hogy megtalálja, amit keres",
     "searchBar.noResults.orClearSuggestion": ", vagy <clickable>{{clearText}}</clickable>.",
     "searchBar.placeholder": "Táblák, irányítópultok, személyek és továbbiak keresése",
     "searchBar.placeholderWithShortcut": "{{message}} ({{shortcut}})",

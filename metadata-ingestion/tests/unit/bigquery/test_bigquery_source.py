@@ -36,6 +36,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_queries import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    _LIST_TABLES_PAGE_SIZE,
     BigqueryColumn,
     BigqueryDataset,
     BigqueryProject,
@@ -1430,7 +1431,7 @@ def test_list_tables_uses_large_page_size() -> None:
     list(schema_api.list_tables("test-dataset", "test-project"))
 
     client.list_tables.assert_called_once()
-    assert client.list_tables.call_args.kwargs["page_size"] == 1000
+    assert client.list_tables.call_args.kwargs["page_size"] == _LIST_TABLES_PAGE_SIZE
 
 
 def _column_row(table_name: str, column_name: str, ordinal_position: int) -> Row:
