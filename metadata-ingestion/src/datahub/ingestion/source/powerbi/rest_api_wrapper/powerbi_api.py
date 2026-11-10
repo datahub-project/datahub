@@ -38,6 +38,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Table,
     User,
     Workspace,
+    analysis_services_models_from_scan,
     new_powerbi_dashboards,
     new_powerbi_dataset,
     new_powerbi_reports,
@@ -653,6 +654,9 @@ class PowerBiAPI:
         for dataset_dict in datasets:
             dataset_id = dataset_dict[Constant.ID]
             dataset_instance = new_powerbi_dataset(workspace, dataset_dict)
+            dataset_instance.analysis_services_models = (
+                analysis_services_models_from_scan(scan_result, dataset_dict)
+            )
 
             # fetch + set dataset parameters
             try:

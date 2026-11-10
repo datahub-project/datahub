@@ -108,6 +108,24 @@ def test_datasource_urns_skips_pbi_dataset_binding() -> None:
     assert mapper.paginated_report_datasource_urns(report) == []
 
 
+def test_datasource_urns_for_external_analysis_services_model() -> None:
+    # The model dataset is the catalog, matching the AAS connector cube URN.
+    mapper = _mapper(_config())
+    report = _paginated_report(
+        [
+            ReportDatasource(
+                "AnalysisServices",
+                "asazure://northeurope.asazure.windows.net/finance-server",
+                "finance-model",
+            )
+        ]
+    )
+    assert mapper.paginated_report_datasource_urns(report) == [
+        "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,"
+        "finance-model,PROD)"
+    ]
+
+
 def test_datasource_urns_skips_unmapped_platform() -> None:
     reporter = PowerBiDashboardSourceReport()
     config = _config()

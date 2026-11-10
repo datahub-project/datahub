@@ -2,7 +2,7 @@ import dataclasses
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
@@ -231,6 +231,11 @@ class PowerBIDataset:
     # From relations[].dependentOnArtifactId
     dependent_on_artifact_id: Optional[str] = None
 
+    # External Azure Analysis Services models, as (server, database). The
+    # database is the model catalog name. Internal Power BI dataset bindings
+    # (pbiazure + sobe_wowvirtualserver-) are not included.
+    analysis_services_models: List[Tuple[str, str]] = field(default_factory=list)
+
     def get_urn_part(self):
         return f"datasets.{self.id}"
 
@@ -358,6 +363,51 @@ class ReportDatasource:
         ):
             return self.database[len(PBI_DATASET_CATALOG_PREFIX) :]
         return None
+
+
+def analysis_services_models_from_scan(
+    scan_result: Optional[dict], dataset_raw: dict
+) -> List[Tuple[str, str]]:
+    """External AAS models a scanned dataset is connected to.
+
+    The admin scan lists workspace datasources separately from datasets and
+    links them with ``datasourceUsages[].datasourceInstanceId``. A live
+    connection to Azure Analysis Services has no M expression, so this is the
+    only place the model name is available.
+    """
+    if not scan_result:
+        return []
+
+    usage_ids = {
+        usage.get("datasourceInstanceId")
+        for usage in dataset_raw.get("datasourceUsages") or []
+        if isinstance(usage, dict) and usage.get("datasourceInstanceId")
+    }
+    if not usage_ids:
+        return []
+
+    models: List[Tuple[str, str]] = []
+    seen: Set[Tuple[str, str]] = set()
+    for raw in scan_result.get("datasources") or []:
+        if not isinstance(raw, dict):
+            continue
+        datasource_id = raw.get("datasourceId") or raw.get("datasourceInstanceId")
+        if datasource_id not in usage_ids:
+            continue
+        parsed = ReportDatasource.from_raw(raw)
+        if (
+            parsed is None
+            or parsed.powerbi_dataset_id is not None
+            or parsed.datasource_type.replace(" ", "") != "AnalysisServices"
+            or not parsed.database
+        ):
+            continue
+        key = (parsed.server, parsed.database)
+        if key in seen:
+            continue
+        seen.add(key)
+        models.append(key)
+    return models
 
 
 @dataclass

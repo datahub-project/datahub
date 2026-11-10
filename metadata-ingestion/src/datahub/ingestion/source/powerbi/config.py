@@ -261,6 +261,13 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="fabric-onelake",
     )
 
+    # External Azure Analysis Services. The upstream dataset name is the
+    # catalog (connection database), matching the AAS connector's model dataset.
+    AZURE_ANALYSIS_SERVICES = DataPlatformPair(
+        powerbi_data_platform_name="AnalysisServices",
+        datahub_data_platform_name="azure-analysis-services",
+    )
+
 
 @dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):

@@ -6,12 +6,24 @@ PowerBI API returns without a usable `datasourceType` or `server`.
 
 from unittest.mock import MagicMock
 
+from datahub.ingestion.source.powerbi.config import (
+    PowerBiDashboardSourceConfig,
+    PowerBiDashboardSourceReport,
+)
+from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
+    create_dataplatform_instance_resolver,
+)
+from datahub.ingestion.source.powerbi.powerbi import Mapper
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    PowerBIDataset,
     ReportDatasource,
+    Table,
+    analysis_services_models_from_scan,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
 )
+from datahub.metadata.schema_classes import DatasetPropertiesClass, StatusClass
 
 
 def test_from_raw_happy_path() -> None:
@@ -96,6 +108,118 @@ def test_powerbi_dataset_id_none_for_analysisservices_without_pbi_catalog() -> N
     )
     assert ds is not None
     assert ds.powerbi_dataset_id is None
+
+
+def test_analysis_services_models_from_scan() -> None:
+    scan = {
+        "datasources": [
+            {
+                "datasourceType": "AnalysisServices",
+                "datasourceId": "ds-aas",
+                "connectionDetails": {
+                    "server": "asazure://northeurope.asazure.windows.net/finance-server",
+                    "database": "finance-model",
+                },
+            },
+            {
+                "datasourceType": "AnalysisServices",
+                "datasourceId": "ds-pbi",
+                "connectionDetails": {
+                    "server": "pbiazure://api.powerbi.com/",
+                    "database": "sobe_wowvirtualserver-a8149dea-aa76-44e7-b6a2-cb888b71443f",
+                },
+            },
+            {
+                "datasourceType": "Sql",
+                "datasourceId": "ds-sql",
+                "connectionDetails": {"server": "sql.internal", "database": "sales"},
+            },
+        ]
+    }
+    dataset = {
+        "datasourceUsages": [
+            {"datasourceInstanceId": "ds-aas"},
+            {"datasourceInstanceId": "ds-pbi"},
+            {"datasourceInstanceId": "ds-sql"},
+        ]
+    }
+    assert analysis_services_models_from_scan(scan, dataset) == [
+        ("asazure://northeurope.asazure.windows.net/finance-server", "finance-model")
+    ]
+
+
+def _finance_mapper(*, graph: object) -> Mapper:
+    config = PowerBiDashboardSourceConfig.parse_obj(
+        {
+            "client_id": "foo",
+            "client_secret": "bar",
+            "tenant_id": "0B0C960B-FCDF-4D0F-8C45-2E03BB59DDEB",
+            "convert_lineage_urns_to_lowercase": False,
+        }
+    )
+    ctx = MagicMock()
+    ctx.graph = graph
+    return Mapper(
+        ctx=ctx,
+        config=config,
+        reporter=PowerBiDashboardSourceReport(),
+        dataplatform_instance_resolver=create_dataplatform_instance_resolver(config),
+    )
+
+
+def _finance_table() -> Table:
+    dataset = PowerBIDataset(
+        id="dataset-1",
+        name="Finance",
+        description="",
+        webUrl=None,
+        workspace_id="workspace-1",
+        workspace_name="Finance",
+        parameters={},
+        tables=[],
+        tags=[],
+        analysis_services_models=[
+            (
+                "asazure://northeurope.asazure.windows.net/finance-server",
+                "finance-model",
+            )
+        ],
+    )
+    return Table(name="Sales", full_name="Finance.Sales", dataset=dataset)
+
+
+def test_extract_lineage_adds_analysis_services_model() -> None:
+    mapper = _finance_mapper(graph=None)
+    mcps = mapper.extract_lineage(
+        _finance_table(), "urn:li:dataset:downstream", MagicMock()
+    )
+    assert len(mcps) == 1
+    upstreams = mcps[0].aspect.upstreams
+    assert [upstream.dataset for upstream in upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,"
+        "finance-model,PROD)"
+    ]
+
+
+def test_missing_analysis_services_model_is_hidden_dataset() -> None:
+    mapper = _finance_mapper(graph=None)
+    mapper.extract_lineage(_finance_table(), "urn:li:dataset:downstream", MagicMock())
+    workunits = list(mapper.hidden_analysis_services_model_workunits())
+    assert workunits
+    assert all(workunit.is_primary_source is False for workunit in workunits)
+    aspects = [workunit.metadata.aspect for workunit in workunits]
+    assert StatusClass(removed=True) in aspects
+    assert DatasetPropertiesClass(name="finance-model") in aspects
+
+
+def test_existing_analysis_services_model_is_not_replaced() -> None:
+    class _Graph:
+        def exists(self, urn: str) -> bool:
+            return True
+
+    mapper = _finance_mapper(graph=_Graph())
+    mapper.extract_lineage(_finance_table(), "urn:li:dataset:downstream", MagicMock())
+    assert list(mapper.hidden_analysis_services_model_workunits()) == []
 
 
 def test_admin_resolver_report_datasources_is_empty() -> None:

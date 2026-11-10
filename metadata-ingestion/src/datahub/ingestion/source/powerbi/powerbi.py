@@ -6,7 +6,7 @@
 import functools
 import logging
 from datetime import datetime
-from typing import Iterable, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import more_itertools
 
@@ -142,6 +142,9 @@ class Mapper:
         self.__reporter = reporter
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
         self.workspace_key: Optional[ContainerKey] = None
+        # AAS models referenced by lineage. Empty list means the model is
+        # already in DataHub and must not be overwritten.
+        self._hidden_aas_models: Dict[str, List[MetadataChangeProposalWrapper]] = {}
 
     @staticmethod
     def urn_to_lowercase(value: str, flag: bool) -> str:
@@ -409,6 +412,19 @@ class Mapper:
                     )
                 )
 
+        if table.dataset:
+            known = {upstream_table.dataset for upstream_table in upstream}
+            for server, database in table.dataset.analysis_services_models:
+                model_urn = self._register_analysis_services_model(server, database)
+                if model_urn and model_urn not in known:
+                    known.add(model_urn)
+                    upstream.append(
+                        UpstreamClass(
+                            dataset=model_urn,
+                            type=DatasetLineageTypeClass.TRANSFORMED,
+                        )
+                    )
+
         if len(upstream) > 0:
             upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(
                 upstreams=upstream,
@@ -652,6 +668,104 @@ class Mapper:
 
         return dataset_mcps
 
+    def _analysis_services_model_urn(self, server: str, database: str) -> Optional[str]:
+        """Dataset URN of an AAS model, matching the AAS connector's cube dataset.
+
+        The model users know is the catalog. The AAS connector emits that as a
+        dataset named by the catalog on platform ``azure-analysis-services``.
+        """
+        if not self.__config.is_platform_in_dataset_type_mapping("AnalysisServices"):
+            return None
+        pair = SupportedDataPlatform.AZURE_ANALYSIS_SERVICES.value
+        platform_detail = self.__dataplatform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=pair,
+                data_platform_server=server,
+            )
+        )
+        return self.lineage_urn_to_lowercase(
+            builder.make_dataset_urn_with_platform_instance(
+                platform=pair.datahub_data_platform_name,
+                name=database,
+                platform_instance=platform_detail.platform_instance,
+                env=platform_detail.env or self.__config.env,
+            )
+        )
+
+    def _dataset_exists(self, urn: str) -> bool:
+        graph = self.__ctx.graph
+        if graph is None:
+            return False
+        exists = getattr(graph, "exists", None)
+        if not callable(exists):
+            return False
+        try:
+            return exists(urn) is True
+        except Exception:
+            logger.debug("Could not check whether %s exists", urn, exc_info=True)
+            return False
+
+    def _register_analysis_services_model(
+        self, server: str, database: str
+    ) -> Optional[str]:
+        """Remember an AAS model so a missing one is emitted as a hidden dataset.
+
+        Lineage search drops neighbors that have never been written. A model
+        the Analysis Services connector has not ingested yet is written with
+        ``status.removed`` so it stays on the graph as a hidden dataset and is
+        not owned by this source. An existing model is left unchanged.
+        """
+        urn = self._analysis_services_model_urn(server, database)
+        if urn is None or urn in self._hidden_aas_models:
+            return urn
+        if self._dataset_exists(urn):
+            self._hidden_aas_models[urn] = []
+            return urn
+
+        pair = SupportedDataPlatform.AZURE_ANALYSIS_SERVICES.value
+        platform_detail = self.__dataplatform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=pair,
+                data_platform_server=server,
+            )
+        )
+        mcps = [
+            MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=StatusClass(removed=True),
+            ),
+            MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=DatasetPropertiesClass(name=database),
+            ),
+        ]
+        if platform_detail.platform_instance:
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=urn,
+                    aspect=DataPlatformInstanceClass(
+                        platform=builder.make_data_platform_urn(
+                            pair.datahub_data_platform_name
+                        ),
+                        instance=builder.make_dataplatform_instance_urn(
+                            pair.datahub_data_platform_name,
+                            platform_detail.platform_instance,
+                        ),
+                    ),
+                )
+            )
+        self._hidden_aas_models[urn] = mcps
+        return urn
+
+    def hidden_analysis_services_model_workunits(self) -> Iterable[MetadataWorkUnit]:
+        pending = self._hidden_aas_models
+        self._hidden_aas_models = {}
+        for mcps in pending.values():
+            for mcp in mcps:
+                # Non-primary so stateful ingestion does not soft-delete the
+                # model once the Analysis Services connector ingests it.
+                yield mcp.as_workunit(is_primary_source=False)
+
     def paginated_report_datasource_urns(
         self,
         report: powerbi_data_classes.Report,
@@ -697,6 +811,26 @@ class Mapper:
                     "in dataset_type_mapping.",
                     ds.datasource_type,
                 )
+                continue
+
+            # The AAS connector's model dataset is named by catalog, not
+            # server.database. An internal pbiazure binding was already skipped.
+            if pair.datahub_data_platform_name == "azure-analysis-services":
+                if not ds.database:
+                    self.__reporter.info(
+                        title="Analysis Services Model Name Missing",
+                        message=(
+                            "AnalysisServices datasource has no database; "
+                            "model lineage skipped."
+                        ),
+                        context=f"report={report.name}, server={ds.server}",
+                    )
+                    continue
+                model_urn = self._register_analysis_services_model(
+                    ds.server, ds.database
+                )
+                if model_urn:
+                    urns.append(model_urn)
                 continue
 
             platform_detail = (
@@ -2009,6 +2143,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     yield wu
 
         yield from self.extract_independent_datasets(workspace)
+        yield from self.mapper.hidden_analysis_services_model_workunits()
 
     def _get_dashboard_patch_work_unit(
         self, work_unit: MetadataWorkUnit
