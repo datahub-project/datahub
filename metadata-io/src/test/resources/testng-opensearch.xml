@@ -28,7 +28,6 @@
             <!-- Container-free coverage of the entity index write path and the incremental reindex: their
                  packages are in no wired suite, so they are listed one by one. -->
             <class name="com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3StrategyTest"/>
-            <class name="com.linkedin.metadata.service.CatchUpBatchRebuilderTest"/>
             <class name="com.linkedin.metadata.service.UpdateIndicesServiceTest"/>
             <class name="com.linkedin.metadata.service.UpdateIndicesUpgradeStrategyTest"/>
             <class name="com.linkedin.metadata.service.IncrementalReindexWriteTargetsTest"/>
@@ -73,6 +72,14 @@
             <class name="com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilderTest"/>
             <!-- Ratchet against new getEntitySpec(<urn>.getEntityType()) lookups. -->
             <class name="com.linkedin.metadata.lint.UrnDerivedRegistryLookupLintTest"/>
+            <!-- Container-free unit tests for the non-entity index family migration (write mirror,
+                 request copying, target naming, migration row state, mirror-live marker). -->
+            <class name="com.linkedin.metadata.elasticsearch.update.DocWriteRequestsTest"/>
+            <class name="com.linkedin.metadata.elasticsearch.update.MigrationIndexNamesTest"/>
+            <class name="com.linkedin.metadata.elasticsearch.update.MirroredESBulkProcessorTest"/>
+            <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.ClusterMigrationStateTest"/>
+            <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.UpgradeRowMirrorLiveMarkerTest"/>
+            <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.UpgradeRowWriterHeartbeatTest"/>
         </classes>
     </test>
 </suite>

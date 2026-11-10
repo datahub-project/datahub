@@ -135,10 +135,14 @@ export class LineageBasePage extends BasePage {
     await expect(this.page.getByText(datasetName).first()).toBeVisible({ timeout: 15000 });
   }
 
-  /** Navigate to a dataset entity page and open the Lineage tab. */
+  /**
+   * Open a dataset's Lineage tab by deep link (see LineageV3Page.navigateToDatasetLineage for
+   * why this avoids landing on the Summary tab first).
+   */
   async goToDatasetLineage(urn: string, name: string): Promise<void> {
-    await this.goToDataset(urn, name);
-    await this.clickLineageTab();
+    await this.navigate(`/dataset/${urn}/Lineage`);
+    await this.page.waitForLoadState('domcontentloaded');
+    await expect(this.page.getByText(name).first()).toBeVisible({ timeout: 15000 });
   }
 
   // ── Node existence checks ───────────────────────────────────────────────────

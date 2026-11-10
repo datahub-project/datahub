@@ -34,8 +34,8 @@ const PlatformIconWrapper = styled.div`
     align-items: center;
     justify-content: center;
     padding: 4px;
-    background-color: #f5f5f5;
-    border: 1px solid #d9d9d9;
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 4px;
 `;
 
@@ -51,9 +51,20 @@ const TooltipTitle = styled.div`
     margin-bottom: 4px;
 `;
 
+const Hint = styled.p`
+    margin-top: 16px;
+    font-size: 12px;
+    color: ${(props) => props.theme.colors.textSecondary};
+`;
+
+const DashedBox = styled.div`
+    padding: 16px;
+    border: 2px dashed ${(props) => props.theme.colors.border};
+`;
+
 const ResizableContainer = styled.div<{ width: string }>`
     width: ${(props) => props.width};
-    border: 2px dashed #ccc;
+    border: 2px dashed ${(props) => props.theme.colors.border};
     padding: 16px;
     resize: horizontal;
     overflow: auto;
@@ -99,9 +110,7 @@ export const IconPills: Story = {
                 )}
                 minContainerWidthForOne={60}
             />
-            <p style={{ marginTop: '16px', fontSize: '12px', color: '#666' }}>
-                Resize this container to see pills adapt
-            </p>
+            <Hint>Resize this container to see pills adapt</Hint>
         </ResizableContainer>
     ),
 };
@@ -124,9 +133,7 @@ export const TextPills: Story = {
                 )}
                 keyExtractor={(group) => group.id}
             />
-            <p style={{ marginTop: '16px', fontSize: '12px', color: '#666' }}>
-                Resize this container to see pills adapt
-            </p>
+            <Hint>Resize this container to see pills adapt</Hint>
         </ResizableContainer>
     ),
 };
@@ -159,9 +166,7 @@ export const HybridPills: Story = {
                 )}
                 keyExtractor={(platform) => platform.id}
             />
-            <p style={{ marginTop: '16px', fontSize: '12px', color: '#666' }}>
-                Resize this container to see pills adapt
-            </p>
+            <Hint>Resize this container to see pills adapt</Hint>
         </ResizableContainer>
     ),
 };
@@ -176,9 +181,7 @@ export const WithoutTooltip: Story = {
                 renderPill={(group) => <Pill variant="filled" label={group.name} size="sm" color="blue" />}
                 keyExtractor={(group) => group.id}
             />
-            <p style={{ marginTop: '16px', fontSize: '12px', color: '#666' }}>
-                The +X button appears without a tooltip
-            </p>
+            <Hint>The +X button appears without a tooltip</Hint>
         </ResizableContainer>
     ),
 };
@@ -201,9 +204,7 @@ export const CustomOverflowLabel: Story = {
                 overflowLabel={(count) => `${count} more`}
                 keyExtractor={(platform) => platform.id}
             />
-            <p style={{ marginTop: '16px', fontSize: '12px', color: '#666' }}>
-                Shows &quot;2 more&quot; instead of &quot;+2&quot;
-            </p>
+            <Hint>Shows &quot;2 more&quot; instead of &quot;+2&quot;</Hint>
         </ResizableContainer>
     ),
 };
@@ -234,9 +235,7 @@ export const LargeDataset: Story = {
                     )}
                     keyExtractor={(group) => group.id}
                 />
-                <p style={{ marginTop: '16px', fontSize: '12px', color: '#666' }}>
-                    Resize to test performance with many items
-                </p>
+                <Hint>Resize to test performance with many items</Hint>
             </ResizableContainer>
         );
     },
@@ -244,12 +243,10 @@ export const LargeDataset: Story = {
 
 export const EmptyState: Story = {
     render: () => (
-        <div style={{ padding: '16px', border: '2px dashed #ccc' }}>
+        <DashedBox>
             <h3>Empty Items Array</h3>
             <ResizablePills items={[]} getItemWidth={() => 50} renderPill={() => <div>Should not appear</div>} />
-            <p style={{ marginTop: '16px', fontSize: '12px', color: '#666' }}>
-                Component returns null when items is empty
-            </p>
-        </div>
+            <Hint>Component returns null when items is empty</Hint>
+        </DashedBox>
     ),
 };

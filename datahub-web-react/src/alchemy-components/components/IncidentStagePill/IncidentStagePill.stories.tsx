@@ -22,13 +22,12 @@ const meta: Meta<typeof IncidentStagePill> = {
             options: ['TRIAGE', 'INVESTIGATION', 'WORK_IN_PROGRESS', 'FIXED', 'NO_ACTION_REQUIRED'],
             table: {
                 type: { summary: 'string' },
-                defaultValue: { summary: 'TRIAGE' },
             },
         },
         showLabel: {
             description: 'Controls whether the label should be displayed.',
             table: {
-                defaultValue: { summary: 'true' }, // Assuming true is the default
+                defaultValue: { summary: 'false' },
             },
             control: {
                 type: 'boolean',
@@ -53,7 +52,7 @@ export const sandbox: Story = {};
 // Example Stories
 export const triageStage: Story = {
     args: {
-        stage: 'FIXED',
+        stage: 'TRIAGE',
     },
 };
 
