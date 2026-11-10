@@ -265,9 +265,10 @@ def test_missing_analysis_services_model_is_hidden_dataset() -> None:
         )
         in aspects
     )
-    assert SubTypesClass(
-        typeNames=[DatasetSubTypes.CUBE, DatasetSubTypes.SEMANTIC_MODEL]
-    ) in aspects
+    assert (
+        SubTypesClass(typeNames=[DatasetSubTypes.CUBE, DatasetSubTypes.SEMANTIC_MODEL])
+        in aspects
+    )
 
 
 def test_existing_analysis_services_model_is_not_replaced() -> None:
@@ -307,9 +308,10 @@ def test_hidden_analysis_services_model_is_refreshed_with_connection_details() -
         )
         in aspects
     )
-    assert SubTypesClass(
-        typeNames=[DatasetSubTypes.CUBE, DatasetSubTypes.SEMANTIC_MODEL]
-    ) in aspects
+    assert (
+        SubTypesClass(typeNames=[DatasetSubTypes.CUBE, DatasetSubTypes.SEMANTIC_MODEL])
+        in aspects
+    )
 
 
 def test_live_connection_without_tables_links_the_report_to_the_model() -> None:
