@@ -16,6 +16,9 @@ from datahub.errors import SdkUsageError
 from datahub.metadata.urns import CorpUserUrn, DocumentUrn
 from datahub.sdk.document import Document
 
+PUBLISHED_STAGE = "urn:li:lifecycleStageType:PUBLISHED"
+DRAFT_STAGE = "urn:li:lifecycleStageType:DRAFT"
+
 
 class TestDocumentCreation:
     """Tests for document creation methods."""
@@ -233,6 +236,48 @@ class TestDocumentLifecycle:
 
         doc.set_status(models.DocumentStateClass.PUBLISHED)
         assert doc.status == models.DocumentStateClass.PUBLISHED
+
+    def test_create_sets_lifecycle_stage(self):
+        """A published document gets the PUBLISHED stage; an unpublished one gets none,
+        so the legacy UNPUBLISHED state decides visibility."""
+        doc = Document.create_document(id="stage-doc", title="Stage", text="Content")
+        status = doc._get_aspect(models.StatusClass)
+        assert status is not None
+        assert status.removed is False
+        assert doc.lifecycle_stage == PUBLISHED_STAGE
+
+        unpublished = Document.create_document(
+            id="stage-doc-2", title="Stage", text="Content", status="UNPUBLISHED"
+        )
+        unpublished_status = unpublished._get_aspect(models.StatusClass)
+        assert unpublished_status is not None
+        assert unpublished_status.removed is False
+        assert unpublished.lifecycle_stage is None
+
+    def test_status_changes_keep_lifecycle_stage_in_sync(self):
+        doc = Document.create_document(
+            id="stage-sync-doc", title="Stage", text="Content", status="UNPUBLISHED"
+        )
+        doc.publish(actor="urn:li:corpuser:alice")
+        assert doc.lifecycle_stage == PUBLISHED_STAGE
+        status = doc._get_aspect(models.StatusClass)
+        assert status is not None and status.lifecycleLastUpdated is not None
+        assert status.lifecycleLastUpdated.actor == "urn:li:corpuser:alice"
+
+        # Unpublishing clears the PUBLISHED stage instead of leaving it to win.
+        doc.unpublish()
+        assert doc.lifecycle_stage is None
+        assert doc.status == models.DocumentStateClass.UNPUBLISHED
+
+    def test_unpublish_keeps_existing_non_published_stage(self):
+        doc = Document.create_document(id="draft-doc", title="Stage", text="Content")
+        doc._set_aspect(models.StatusClass(removed=False, lifecycleStage=DRAFT_STAGE))
+
+        doc.unpublish()
+        assert doc.lifecycle_stage == DRAFT_STAGE
+
+        doc.publish()
+        assert doc.lifecycle_stage == PUBLISHED_STAGE
 
 
 class TestDocumentRelationships:
@@ -522,6 +567,7 @@ class TestDocumentAspects:
 
         # Should have documentInfo aspect
         assert "documentInfo" in aspect_names
+        assert "status" in aspect_names
         # Should have tags and ownership from mixins
         assert "globalTags" in aspect_names
         assert "ownership" in aspect_names
