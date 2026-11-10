@@ -12,6 +12,10 @@ function TabErrorBoundary({ resetKeys, children }: TabErrorBoundaryProps) {
     );
 }
 
+/**
+ * The Tabs for app code: alchemy Tabs with each tab's content in the app ErrorBoundary, so a crashing tab
+ * shows an error state instead of taking the page down. Import this one, not Tabs from '@components'.
+ */
 export function Tabs(props: Omit<Props, 'tabErrorBoundary'>) {
     return <AlchemyTabs {...props} tabErrorBoundary={TabErrorBoundary} />;
 }

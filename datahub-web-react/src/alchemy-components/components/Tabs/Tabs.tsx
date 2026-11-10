@@ -418,6 +418,10 @@ export interface Props extends Pick<TabsProps, 'tabBarExtraContent'> {
     tabErrorBoundary?: ComponentType<TabErrorBoundaryProps>;
 }
 
+/**
+ * Outside alchemy-components, import Tabs from '@app/sharedV2/tabs/Tabs' instead: it passes the app
+ * error boundary, so a crashing tab shows an error state instead of taking the page down.
+ */
 export function Tabs({
     tabs,
     selectedTab,
