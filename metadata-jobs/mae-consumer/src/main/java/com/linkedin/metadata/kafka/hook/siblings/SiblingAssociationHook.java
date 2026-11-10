@@ -40,6 +40,8 @@ import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.Getter;
@@ -214,9 +216,12 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
         Urn sourceTableUrn = upstreams.get(0).getDataset();
 
-        // Skip if siblings already exist to avoid conflicts with dbt patch-based management
-        Siblings dbtSiblings = getSiblingsFromEntityClient(operationContext, datasetUrn);
-        Siblings sourceSiblings = getSiblingsFromEntityClient(operationContext, sourceTableUrn);
+        // Skip if siblings already exist to avoid conflicts with dbt patch-based management.
+        // Both reads are for the SIBLINGS aspect of two datasets, so fetch them in one batch call.
+        final Map<Urn, Siblings> siblingsByUrn =
+            getSiblingsForUrns(operationContext, ImmutableSet.of(datasetUrn, sourceTableUrn));
+        Siblings dbtSiblings = siblingsByUrn.get(datasetUrn);
+        Siblings sourceSiblings = siblingsByUrn.get(sourceTableUrn);
 
         if (dbtSiblings != null || sourceSiblings != null) {
           log.debug(
@@ -280,8 +285,11 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   private void setSiblingsAndSoftDeleteSibling(
       OperationContext operationContext, Urn dbtUrn, Urn sourceUrn, boolean isDbtSource) {
-    Siblings existingDbtSiblingAspect = getSiblingsFromEntityClient(operationContext, dbtUrn);
-    Siblings existingSourceSiblingAspect = getSiblingsFromEntityClient(operationContext, sourceUrn);
+    // Both reads are for the SIBLINGS aspect of two datasets, so fetch them in one batch call.
+    final Map<Urn, Siblings> siblingsByUrn =
+        getSiblingsForUrns(operationContext, ImmutableSet.of(dbtUrn, sourceUrn));
+    Siblings existingDbtSiblingAspect = siblingsByUrn.get(dbtUrn);
+    Siblings existingSourceSiblingAspect = siblingsByUrn.get(sourceUrn);
 
     if (existingDbtSiblingAspect != null
         && existingSourceSiblingAspect != null
@@ -321,12 +329,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     dbtSiblingProposal.setChangeType(ChangeType.UPSERT);
     dbtSiblingProposal.setEntityUrn(dbtUrn);
 
-    try {
-      systemEntityClient.ingestProposal(operationContext, dbtSiblingProposal, true);
-    } catch (RemoteInvocationException e) {
-      log.error("Error while associating {} with {}: {}", dbtUrn, sourceUrn, e.toString());
-      throw new RuntimeException("Error ingesting sibling proposal. Skipping processing.", e);
-    }
+    // Build the source proposal first (it needs the existence-filtered sibling list); both are then
+    // ingested together in a single batchIngestProposals call below.
 
     // set dbt as a sibling of source
 
@@ -341,18 +345,20 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
       newSiblingsUrnArray.add(dbtUrn);
     }
 
-    // clean up any references to stale siblings that have been deleted
+    // Clean up any references to stale siblings that have been deleted, using a single batch
+    // existence check instead of one round trip per urn.
+    final Set<Urn> existingSiblingUrns;
+    try {
+      existingSiblingUrns =
+          systemEntityClient.filterExistingUrns(operationContext, newSiblingsUrnArray);
+    } catch (RemoteInvocationException e) {
+      log.error(
+          "Error while checking existence of siblings {}: {}", newSiblingsUrnArray, e.toString());
+      throw new RuntimeException("Error checking existence. Skipping processing.", e);
+    }
     List<Urn> filteredNewSiblingsArray =
         newSiblingsUrnArray.stream()
-            .filter(
-                urn -> {
-                  try {
-                    return systemEntityClient.exists(operationContext, urn);
-                  } catch (RemoteInvocationException e) {
-                    log.error("Error while checking existence of {}: {}", urn, e.toString());
-                    throw new RuntimeException("Error checking existence. Skipping processing.", e);
-                  }
-                })
+            .filter(existingSiblingUrns::contains)
             .collect(Collectors.toList());
 
     sourceSiblingAspect.setSiblings(new UrnArray(filteredNewSiblingsArray));
@@ -368,11 +374,14 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     sourceSiblingProposal.setChangeType(ChangeType.UPSERT);
     sourceSiblingProposal.setEntityUrn(sourceUrn);
 
+    // Ingest both proposals in a single batch call: one round trip that succeeds or fails together,
+    // so the two sides can never end up half-linked (no need to fan out on a pool).
     try {
-      systemEntityClient.ingestProposal(operationContext, sourceSiblingProposal, true);
+      systemEntityClient.batchIngestProposals(
+          operationContext, ImmutableList.of(dbtSiblingProposal, sourceSiblingProposal), true);
     } catch (RemoteInvocationException e) {
       log.error("Error while associating {} with {}: {}", dbtUrn, sourceUrn, e.toString());
-      throw new RuntimeException("Error ingesting sibling proposal. Skipping processing.", e);
+      throw new RuntimeException("Error ingesting sibling proposals. Skipping processing.", e);
     }
   }
 
@@ -526,22 +535,36 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     }
   }
 
-  private Siblings getSiblingsFromEntityClient(
-      final OperationContext operationContext, final Urn urn) {
+  /**
+   * Batch-fetches the SIBLINGS aspect for the given dataset urns in a single call. Returns a map
+   * containing only the urns that have a siblings aspect; callers treat an absent key as "no
+   * siblings" (equivalent to the previous per-urn null return).
+   */
+  private Map<Urn, Siblings> getSiblingsForUrns(
+      final OperationContext operationContext, final Set<Urn> urns) {
     try {
-      EntityResponse entityResponse =
-          systemEntityClient.getV2(operationContext, urn, ImmutableSet.of(SIBLINGS_ASPECT_NAME));
-
-      if (entityResponse != null
-          && entityResponse.hasAspects()
-          && entityResponse.getAspects().containsKey(Constants.SIBLINGS_ASPECT_NAME)) {
-        return new Siblings(
-            entityResponse.getAspects().get(Constants.SIBLINGS_ASPECT_NAME).getValue().data());
-      } else {
-        return null;
-      }
+      final Map<Urn, EntityResponse> responses =
+          systemEntityClient.batchGetV2(
+              operationContext, urns, ImmutableSet.of(SIBLINGS_ASPECT_NAME));
+      return responses.entrySet().stream()
+          .filter(
+              entry ->
+                  entry.getValue() != null
+                      && entry.getValue().hasAspects()
+                      && entry.getValue().getAspects().containsKey(SIBLINGS_ASPECT_NAME))
+          .collect(
+              Collectors.toMap(
+                  Map.Entry::getKey,
+                  entry ->
+                      new Siblings(
+                          entry
+                              .getValue()
+                              .getAspects()
+                              .get(SIBLINGS_ASPECT_NAME)
+                              .getValue()
+                              .data())));
     } catch (RemoteInvocationException | URISyntaxException e) {
-      throw new RuntimeException("Failed to retrieve UpstreamLineage", e);
+      throw new RuntimeException("Failed to retrieve Siblings", e);
     }
   }
 }
