@@ -404,6 +404,9 @@ public class RequestContext implements ContextInterface {
             .setAttribute(REQUEST_API_ATTR, this.requestAPI.toString())
             .setAttribute(REQUEST_ID_ATTR, this.requestID);
       }
+      // Request attribution (off by default): pin the span that receives datahub.* attributes and
+      // remember actor/request id for the OpenSearch opaque id. No-op when not enabled.
+      RequestStats.current().ifPresent(s -> s.attach(currentSpan, this.actorUrn, this.requestID));
       Optional.ofNullable(Context.current().get(SystemTelemetryContext.EVENT_SOURCE_CONTEXT_KEY))
           .ifPresent(eventSource -> eventSource.set(requestAPI.toString()));
       Optional.ofNullable(Context.current().get(SystemTelemetryContext.SOURCE_IP_CONTEXT_KEY))
@@ -442,6 +445,7 @@ public class RequestContext implements ContextInterface {
         withWireInput(request);
       }
       readEnrichmentBundle(request);
+      RequestStats.current().ifPresent(s -> s.recordGraphqlVariables(variables));
       return this;
     }
 
