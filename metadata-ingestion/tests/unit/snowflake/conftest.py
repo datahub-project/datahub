@@ -39,6 +39,9 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
+from datahub.api.entities.platformresource.platform_resource import (
+    PlatformResourceKey,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import StructuredLogEntry
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -76,13 +79,21 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
+from datahub.ingestion.source.snowflake.snowflake_tag_entities import (
+    SnowflakeTagPlatformResource,
+    SnowflakeTagPlatformResourceId,
+    SnowflakeTagPlatformResourceRepository,
+)
+from datahub.ingestion.source.snowflake.snowflake_tag_resolver import (
+    SnowflakeTagResolver,
+)
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeFilter,
     SnowflakeIdentifierBuilder,
 )
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
-from datahub.metadata.schema_classes import _Aspect
+from datahub.metadata.schema_classes import StructuredPropertyDefinitionClass, _Aspect
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 # --- preserve_column_case sweep -----------------------------------------------
@@ -191,6 +202,61 @@ def aspects(
         if aspect is not None:
             found[wu.get_urn()] = aspect
     return found
+
+
+# --- Tag platform resources ---------------------------------------------------
+
+
+def tag_record(
+    tag: SnowflakeTag,
+    *urns: str,
+    with_value: bool = True,
+    managed: bool = True,
+    platform_instance: Optional[str] = None,
+) -> SnowflakeTagPlatformResource:
+    """A stored record for ``tag``; managed means sync-back wrote it."""
+    entity = SnowflakeTagPlatformResource.create_default(
+        SnowflakeTagPlatformResourceId.from_snowflake_tag(
+            tag, platform_instance, with_value=with_value
+        ),
+        managed_by_datahub=managed,
+    )
+    for urn in urns:
+        entity.datahub_linked_resources().add(urn)
+    return entity
+
+
+def fake_tag_repository(
+    records: Sequence[SnowflakeTagPlatformResource],
+    value_type: Optional[str] = None,
+    load_error: Optional[Exception] = None,
+    written_meanwhile: Sequence[SnowflakeTagPlatformResource] = (),
+) -> SnowflakeTagPlatformResourceRepository:
+    """A repository holding ``records``; ``written_meanwhile`` appear only to a
+    direct ``get``, as a record another writer created after the run started."""
+    late = {r.id.to_platform_resource_key().id: r for r in written_meanwhile}
+
+    def search_by_filter(query: object, add_to_cache: bool = True) -> List[object]:
+        if load_error is not None:
+            raise load_error
+        return [record.as_platform_resource() for record in records]
+
+    def get(key: PlatformResourceKey) -> Optional[object]:
+        record = late.get(key.id)
+        return record.as_platform_resource() if record is not None else None
+
+    repository = create_autospec(SnowflakeTagPlatformResourceRepository, instance=True)
+    repository.search_by_filter.side_effect = search_by_filter
+    repository.get.side_effect = get
+    repository.graph = MagicMock()
+    repository.graph.get_aspect.return_value = (
+        StructuredPropertyDefinitionClass(
+            qualifiedName="q", valueType=value_type, entityTypes=[]
+        )
+        if value_type
+        else None
+    )
+    return repository
 
 
 def make_v2_config(**overrides: object) -> SnowflakeV2Config:
@@ -368,7 +434,9 @@ def tag(name: str = "PII", value: str = "yes") -> SnowflakeTag:
 
 
 def make_gen(
-    aggregator: Optional[NonCallableMock] = None, **config_overrides: object
+    aggregator: Optional[NonCallableMock] = None,
+    tag_repository: Optional[SnowflakeTagPlatformResourceRepository] = None,
+    **config_overrides: object,
 ) -> SnowflakeSchemaGenerator:
     """A ``SnowflakeSchemaGenerator`` over an autospecced data dictionary.
 
@@ -387,18 +455,26 @@ def make_gen(
         }
     )
     report = SnowflakeV2Report()
+    identifiers = SnowflakeIdentifierBuilder(
+        identifier_config=config, structured_reporter=report
+    )
     gen = SnowflakeSchemaGenerator(
         config=config,
         report=report,
         connection=fake_connection(lambda _sql: []),
         filters=SnowflakeFilter(filter_config=config, structured_reporter=report),
-        identifiers=SnowflakeIdentifierBuilder(
-            identifier_config=config, structured_reporter=report
-        ),
+        identifiers=identifiers,
         domain_registry=None,
         profiler=None,
         aggregator=aggregator,
         snowsight_url_builder=None,
+        tag_resolver=SnowflakeTagResolver(
+            repository=tag_repository,
+            config=config,
+            report=report,
+            identifiers=identifiers,
+            platform_instance=None,
+        ),
     )
     data_dictionary = create_autospec(SnowflakeDataDictionary, instance=True)
     data_dictionary.get_pk_constraints_for_schema.return_value = {}

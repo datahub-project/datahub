@@ -8,6 +8,7 @@ lineage registered with the aggregator rather than row parsing.
 import pytest
 
 from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.emitter.mcp_builder import StructuredPropertyWriteMode
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.constants import GENERIC_PERMISSION_ERROR_KEY
 from datahub.ingestion.source.snowflake.snowflake_connection import (
@@ -23,9 +24,11 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     GlobalTagsClass,
+    PlatformResourceInfoClass,
     SchemaMetadataClass,
     StatusClass,
     StructuredPropertiesClass,
+    StructuredPropertyDefinitionClass,
     SubTypesClass,
     TagPropertiesClass,
 )
@@ -40,6 +43,7 @@ from tests.unit.snowflake.conftest import (
     column,
     database,
     dataset_urn,
+    fake_tag_repository,
     log_keys,
     make_aggregator,
     make_gen,
@@ -47,6 +51,7 @@ from tests.unit.snowflake.conftest import (
     schema,
     stream,
     table,
+    tag_record,
     view,
 )
 
@@ -214,6 +219,126 @@ def test_tags_are_emitted_once_as_tag_entities_or_as_structured_properties() -> 
     dataset_props = structured[dataset_urn(sp_gen, "T1")]
     assert [(p.propertyUrn, p.values) for p in dataset_props.properties] == [
         ("urn:li:structuredProperty:snowflake.test_db.public.pii", ["HIGH"])
+    ]
+
+
+def test_managed_tag_maps_back_on_dataset_and_is_skipped_on_columns() -> None:
+    # Dataset GlobalTags is the UI's copy and is written whole, so the DataHub tag
+    # is written back; a column's schemaMetadata tags are ingestion's own copy.
+    gen = make_gen(
+        tag_repository=fake_tag_repository([tag_record(_PII, "urn:li:tag:pii")])
+    )
+
+    workunits = list(gen.gen_dataset_workunits(_tagged_table(), SCHEMA, DB))
+
+    assert aspects(workunits, TagPropertiesClass) == {}
+    dataset_tags = aspects(workunits, GlobalTagsClass)[dataset_urn(gen, "T1")]
+    assert [t.tag for t in dataset_tags.tags] == ["urn:li:tag:pii"]
+    schema_metadata = aspects(workunits, SchemaMetadataClass)[dataset_urn(gen, "T1")]
+    assert schema_metadata.fields[0].globalTags is None
+
+
+def test_managed_term_is_left_out_of_dataset_and_column_tags() -> None:
+    gen = make_gen(
+        tag_repository=fake_tag_repository(
+            [tag_record(_PII, "urn:li:glossaryTerm:abc")]
+        )
+    )
+
+    workunits = list(gen.gen_dataset_workunits(_tagged_table(), SCHEMA, DB))
+
+    assert aspects(workunits, TagPropertiesClass) == {}
+    assert aspects(workunits, GlobalTagsClass) == {}
+    schema_metadata = aspects(workunits, SchemaMetadataClass)[dataset_urn(gen, "T1")]
+    assert schema_metadata.fields[0].globalTags is None
+
+
+def test_managed_structured_property_maps_back_in_upsert_mode() -> None:
+    gen = make_gen(
+        tag_repository=fake_tag_repository(
+            [tag_record(_PII, "urn:li:structuredProperty:pii_level", with_value=False)],
+            value_type="urn:li:dataType:datahub.string",
+        ),
+        extract_tags_as_structured_properties=True,
+        structured_properties_write_mode=StructuredPropertyWriteMode.UPSERT,
+    )
+
+    workunits = list(gen.gen_dataset_workunits(_tagged_table(), SCHEMA, DB))
+
+    dataset_props = aspects(workunits, StructuredPropertiesClass)[
+        dataset_urn(gen, "T1")
+    ]
+    assert [(p.propertyUrn, p.values) for p in dataset_props.properties] == [
+        ("urn:li:structuredProperty:pii_level", ["HIGH"])
+    ]
+
+
+def test_managed_structured_property_has_no_template() -> None:
+    gen = make_gen(
+        tag_repository=fake_tag_repository(
+            [tag_record(_PII, "urn:li:structuredProperty:pii_level", with_value=False)]
+        ),
+        extract_tags_as_structured_properties=True,
+    )
+    as_mock(gen.data_dictionary.get_all_tags).return_value = [_PII]
+
+    templates = list(gen.tag_extractor.create_structured_property_templates())
+
+    assert aspects(templates, StructuredPropertyDefinitionClass) == {}
+
+
+def test_native_tags_unchanged_and_record_emitted() -> None:
+    gen = make_gen(tag_repository=fake_tag_repository([]))
+
+    workunits = list(gen.gen_dataset_workunits(_tagged_table(), SCHEMA, DB))
+
+    assert list(aspects(workunits, TagPropertiesClass)) == [_PII_TAG_URN]
+    dataset_tags = aspects(workunits, GlobalTagsClass)[dataset_urn(gen, "T1")]
+    assert [t.tag for t in dataset_tags.tags] == [_PII_TAG_URN]
+    records = aspects(
+        gen.tag_resolver.platform_resource_workunits(), PlatformResourceInfoClass
+    )
+    assert [r.secondaryKeys for r in records.values()] == [[_PII_TAG_URN]]
+
+
+def test_unresolvable_managed_property_leaves_upsert_aspect_unwritten() -> None:
+    gen = make_gen(
+        tag_repository=fake_tag_repository(
+            [tag_record(_PII, "urn:li:structuredProperty:retention", with_value=False)],
+            value_type="urn:li:dataType:datahub.number",
+        ),
+        extract_tags_as_structured_properties=True,
+        structured_properties_write_mode=StructuredPropertyWriteMode.UPSERT,
+    )
+
+    workunits = list(gen.gen_dataset_workunits(_tagged_table(), SCHEMA, DB))
+
+    assert dataset_urn(gen, "T1") not in aspects(workunits, StructuredPropertiesClass)
+
+
+def test_only_skipped_properties_emit_no_upsert_aspect() -> None:
+    gen = make_gen(
+        tag_repository=fake_tag_repository([tag_record(_PII, "urn:li:tag:pii")]),
+        extract_tags_as_structured_properties=True,
+    )
+
+    workunits = list(gen.gen_dataset_workunits(_tagged_table(), SCHEMA, DB))
+
+    assert aspects(workunits, StructuredPropertiesClass) == {}
+
+
+def test_container_tags_use_mapped_names() -> None:
+    gen = make_gen(
+        tag_repository=fake_tag_repository([tag_record(_PII, "urn:li:tag:pii")])
+    )
+    db = database()
+    db.tags = [_PII]
+
+    workunits = list(gen.gen_database_containers(db))
+
+    container_tags = list(aspects(workunits, GlobalTagsClass).values())
+    assert [[t.tag for t in tags.tags] for tags in container_tags] == [
+        ["urn:li:tag:pii"]
     ]
 
 

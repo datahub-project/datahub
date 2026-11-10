@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Mapping, Optional, Union
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
@@ -77,7 +77,9 @@ def gen_schema_container(
     created: Optional[int] = None,
     last_modified: Optional[int] = None,
     extra_properties: Optional[Dict[str, str]] = None,
-    structured_properties: Optional[Dict[StructuredPropertyUrn, str]] = None,
+    structured_properties: Optional[
+        Mapping[StructuredPropertyUrn, Union[str, float]]
+    ] = None,
 ) -> Iterable[MetadataWorkUnit]:
     domain_urn: Optional[str] = None
     if domain_registry:
@@ -138,7 +140,9 @@ def gen_database_container(
     created: Optional[int] = None,
     last_modified: Optional[int] = None,
     extra_properties: Optional[Dict[str, str]] = None,
-    structured_properties: Optional[Dict[StructuredPropertyUrn, str]] = None,
+    structured_properties: Optional[
+        Mapping[StructuredPropertyUrn, Union[str, float]]
+    ] = None,
 ) -> Iterable[MetadataWorkUnit]:
     domain_urn: Optional[str] = None
     if domain_registry:
