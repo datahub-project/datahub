@@ -45,7 +45,7 @@ import { TableCellMenu } from '@components/components/Editor/toolbar/TableCellMe
 import { Toolbar } from '@components/components/Editor/toolbar/Toolbar';
 import { EditorProps } from '@components/components/Editor/types';
 
-import { notEmpty } from '@app/entityV2/shared/utils';
+import isPresent from '@utils/isPresent';
 
 // CSS class applied to the editor surface for antd typography styling.
 const EDITOR_CLASS_NAMES = ['ant-typography'];
@@ -68,6 +68,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     const {
         content,
         readOnly,
+        editingDisabled,
         onChange,
         className,
         placeholder,
@@ -138,7 +139,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     }, [manager, syntaxTheme]);
 
     useEffect(() => {
-        if (readOnly && notEmpty(content)) {
+        if (readOnly && isPresent(content)) {
             manager.store.commands.setContent(content);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -159,7 +160,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                 <RemirrorLocaleProvider>
                     <Remirror
                         classNames={EDITOR_CLASS_NAMES}
-                        editable={!readOnly}
+                        editable={!readOnly && !editingDisabled}
                         manager={manager}
                         initialContent={state}
                         placeholder={placeholder || ''}

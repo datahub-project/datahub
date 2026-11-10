@@ -6,11 +6,13 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFieldModel;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.HighlightCarry;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.MatchEvidence;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.MatchedFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchHighlightSelection;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchHighlightSelection.FieldSources;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.StageMatchedFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateJson;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMatchReport;
@@ -206,6 +208,8 @@ public final class SearchTemplateRequestApplier {
             : opContext.getSearchContext().getCallerOptionalFilterFields();
     boolean explain = explains(opContext);
     boolean deferred = HighlightCarry.isDeferred();
+    Map<String, String> labels =
+        deferred ? V3SearchFieldModel.of(entitySpecs).storedParsedNameLabels() : Map.of();
     return hit -> {
       if (!deferred) {
         return matchFields(
@@ -220,14 +224,15 @@ public final class SearchTemplateRequestApplier {
       }
       Map<String, Object> source = hit.getSourceAsMap();
       Object urn = source == null ? null : source.get("urn");
-      if (urn != null) {
+      if (source != null && urn != null) {
+        Map<String, Object> fetched = source;
         String[] matchedQueries =
             hit.getMatchedQueries() != null ? hit.getMatchedQueries() : new String[0];
         HighlightCarry.stash(
             urn.toString(),
             requested ->
                 matchFields(
-                    source,
+                    fetched,
                     matchedQueries,
                     template,
                     query,
@@ -236,6 +241,7 @@ public final class SearchTemplateRequestApplier {
                     highlightFields,
                     callerOptionalFilterFields,
                     requested));
+        StageMatchedFields.stash(urn.toString(), fetched, matcher, labels);
       }
       return SearchHitMatches.EMPTY;
     };

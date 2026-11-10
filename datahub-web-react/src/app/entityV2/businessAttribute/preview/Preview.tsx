@@ -2,8 +2,8 @@ import { Hexagon } from '@phosphor-icons/react/dist/csr/Hexagon';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

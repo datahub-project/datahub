@@ -42,6 +42,12 @@ public class DomainExpansionRewriter extends BaseQueryFilterRewriter {
 
   @Nonnull
   @Override
+  protected Set<String> rewriterFieldNames(@Nonnull OperationContext opContext) {
+    return withSearchV3FilterField(opContext, "domains", getRewriterFieldNames());
+  }
+
+  @Nonnull
+  @Override
   protected Optional<EntityGraphBinding> resolveEntityGraphBinding(
       @Nonnull OperationContext opContext) {
     Optional<HierarchyReadSpec> spec =

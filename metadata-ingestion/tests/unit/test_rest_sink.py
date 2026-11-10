@@ -348,6 +348,26 @@ def test_resolve_gms_emit_mode(sink_mode, configured_emit_mode, expected_emit_mo
     assert _resolve_gms_emit_mode(sink_mode, configured_emit_mode) == expected_emit_mode
 
 
+def test_configured_gms_emit_mode_reads_env_set_after_import(monkeypatch):
+    """The datapack loader sets DATAHUB_EMIT_MODE per file, after rest_emitter is
+    imported; the sink must still see async_wait so the file is awaited."""
+    from datahub.ingestion.sink.datahub_rest import (
+        _configured_gms_emit_mode,
+        _resolve_gms_emit_mode,
+    )
+
+    monkeypatch.setenv("DATAHUB_EMIT_MODE", "async_wait")
+    configured = _configured_gms_emit_mode()
+    assert configured == EmitMode.ASYNC_WAIT
+    assert (
+        _resolve_gms_emit_mode(RestSinkMode.ASYNC_BATCH, configured)
+        == EmitMode.ASYNC_WAIT
+    )
+
+    monkeypatch.delenv("DATAHUB_EMIT_MODE")
+    assert _configured_gms_emit_mode() == EmitMode.SYNC_PRIMARY
+
+
 class TestDatahubRestSinkTcpKeepalive:
     """Regression tests covering end-to-end tcp_keepalive propagation through
     the REST sink: from the recipe config, through the sink config, into the
