@@ -10,13 +10,18 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageGraphFilters;
+import com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import org.opensearch.action.search.SearchResponse;
@@ -36,6 +41,9 @@ public class GraphQueryBaseDAOLineageCountTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,count_one,PROD)");
   private static final Urn DATASET_TWO =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,count_two,PROD)");
+
+  /** The sibling group whose members must never count as each other's lineage. */
+  private static final Set<String> GROUP = Set.of(DATASET_ONE.toString(), DATASET_TWO.toString());
 
   private OperationContext opContext;
   private GraphQueryPITDAO dao;
@@ -65,16 +73,67 @@ public class GraphQueryBaseDAOLineageCountTest {
     String rendered = source.toString();
     assertTrue(rendered.contains("\"size\":0"), rendered);
     assertTrue(rendered.contains("\"cardinality\""), rendered);
-    assertTrue(rendered.contains("\"terms\""), rendered);
     assertTrue(rendered.contains("lineageCount_"), rendered);
-    // Via entities are sampled too, so ghost and sibling filtering reach them.
-    assertTrue(rendered.contains("\"viaSample\""), rendered);
-    // Group members are left out of the vias as well as the neighbours.
-    assertTrue(rendered.contains("\"viaOutsideGroup\""), rendered);
-    // Members of the group are never counted as each other's neighbours.
-    assertTrue(rendered.contains("must_not"), rendered);
-    assertTrue(rendered.contains(DATASET_ONE.toString()), rendered);
-    assertTrue(rendered.contains(DATASET_TWO.toString()), rendered);
+
+    // The group's members have to be excluded, not merely mentioned: the start urns appear in
+    // the request either way, so assert on the exclusions themselves. Every direction excludes
+    // them as neighbours, and its viaOutsideGroup sub-aggregation excludes them as vias, so
+    // dropping either must_not fails here.
+    JsonNode parsed = parse(rendered);
+    List<JsonNode> perDirection = aggregationsNamedLike(parsed, "lineageCount_");
+    assertFalse(perDirection.isEmpty(), rendered);
+    for (JsonNode direction : perDirection) {
+      assertEquals(excludedNeighbours(direction.path("filter")), GROUP, rendered);
+
+      JsonNode via = direction.path("aggregations").path("viaOutsideGroup");
+      assertFalse(via.isMissingNode(), rendered);
+      assertEquals(excludedTerms(via.path("filter"), "via"), GROUP, rendered);
+      // Via entities are sampled too, so ghost and sibling filtering reach them.
+      assertFalse(via.path("aggregations").path("viaSample").isMissingNode(), rendered);
+    }
+  }
+
+  private static JsonNode parse(String rendered) {
+    try {
+      return new ObjectMapper().readTree(rendered);
+    } catch (Exception e) {
+      throw new AssertionError("request is not valid JSON: " + rendered, e);
+    }
+  }
+
+  /** Every aggregation body whose name starts with the prefix, at any depth. */
+  private static List<JsonNode> aggregationsNamedLike(JsonNode node, String prefix) {
+    List<JsonNode> found = new ArrayList<>();
+    JsonNode aggregations = node.path("aggregations");
+    aggregations
+        .fieldNames()
+        .forEachRemaining(
+            name -> {
+              if (name.startsWith(prefix)) {
+                found.add(aggregations.path(name));
+              }
+            });
+    aggregations.forEach(child -> found.addAll(aggregationsNamedLike(child, prefix)));
+    return found;
+  }
+
+  /** Urns the filter excludes as neighbours, whichever end of the edge this direction reads. */
+  private static Set<String> excludedNeighbours(JsonNode filter) {
+    Set<String> excluded = new LinkedHashSet<>();
+    excluded.addAll(excludedTerms(filter, GraphQueryConstants.DESTINATION_URN));
+    excluded.addAll(excludedTerms(filter, GraphQueryConstants.SOURCE_URN));
+    return excluded;
+  }
+
+  /** The urns a filter's {@code must_not} excludes on the given field. */
+  private static Set<String> excludedTerms(JsonNode filter, String field) {
+    Set<String> excluded = new LinkedHashSet<>();
+    filter
+        .path("bool")
+        .path("must_not")
+        .forEach(
+            clause -> clause.path("terms").path(field).forEach(urn -> excluded.add(urn.asText())));
+    return excluded;
   }
 
   @Test

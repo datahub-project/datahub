@@ -1245,10 +1245,17 @@ public class SiblingGraphServiceTest {
         new CountFixture(Map.of(dbt, siblings(true, table), table, siblings(false, dbt)));
 
     assertEquals(fixture.service.siblingGroup(opContext, dbt), Set.of(dbt, table));
+    // Pin the aspect names, not just the key-aspect flag: reading anything besides the sibling
+    // list costs a column per urn on a group this walk is meant to keep cheap.
     verify(fixture.entityService, times(2))
-        .getLatestAspects(any(OperationContext.class), any(Set.class), any(Set.class), eq(false));
+        .getLatestAspects(
+            any(OperationContext.class),
+            any(Set.class),
+            eq(Set.of(SIBLINGS_ASPECT_NAME)),
+            eq(false));
     verify(fixture.entityService, never())
         .getLatestAspects(any(OperationContext.class), any(Set.class), any(Set.class), eq(true));
+    verifyNoMoreInteractions(fixture.entityService);
   }
 
   /** A one-way list gives a different group from each end: the walk follows lists forward only. */
