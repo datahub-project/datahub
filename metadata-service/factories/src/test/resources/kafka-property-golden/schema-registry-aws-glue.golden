@@ -65,7 +65,6 @@ spring.deserializer.value.delegate.class=com.amazonaws.services.schemaregistry.d
 value.deserializer=org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
 
 [consumer.kafkaConsumerPoolConsumerFactory]
-auto.commit.interval.ms=10000 (Integer)
 avroRecordType=GENERIC_RECORD
 bootstrap.servers=[http://localhost:9092] (List)
 dataFormat=AVRO

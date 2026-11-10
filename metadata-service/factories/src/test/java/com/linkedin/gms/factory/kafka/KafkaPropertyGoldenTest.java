@@ -255,8 +255,8 @@ public class KafkaPropertyGoldenTest {
 
       // Producers: intercept KafkaProducer construction so nothing connects to a broker. Beans are
       // lazy, so each getBean constructs exactly one producer and the capture is tied to its bean.
-      // Request order matters: kafkaProducer mutates the shared KafkaProperties that
-      // dataHubUsageProducer then reads; this order is the one the goldens pin.
+      // The builders never mutate the shared KafkaProperties, so the request order does not affect
+      // the captured configs (KafkaPropertiesIsolationTest covers both orders).
       List<Map<String, Object>> producerConfigs = new ArrayList<>();
       try (var ignored =
           mockConstruction(
