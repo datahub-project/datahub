@@ -12,7 +12,7 @@ import { useDomainSidebarFilters } from '@app/domainV2/nestedDomains/domainSideb
 import useDomainOwnerAggregations from '@app/domainV2/nestedDomains/domainSidebarFilters/useDomainOwnerAggregations';
 import { DomainNavigatorVariant } from '@app/domainV2/nestedDomains/types';
 import useScrollDomains from '@app/domainV2/useScrollDomains';
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 import { TreeContainer } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
 import HierarchicalBrowseTreeRow from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseTreeRow';
 import {
@@ -219,7 +219,7 @@ function DomainNavigatorInner({
     // Collapsed: local TreeContainer so the icon column can scroll.
     if (isSidebar) {
         if (isCollapsed) {
-            return <TreeContainer>{treeBody}</TreeContainer>;
+            return <TreeContainer $isCollapsed>{treeBody}</TreeContainer>;
         }
         return <>{treeBody}</>;
     }

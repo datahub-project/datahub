@@ -3,13 +3,12 @@ import React, { useMemo, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { PreviewType } from '@app/entity/Entity';
-import { EntityAndType } from '@app/entity/shared/types';
-import { isListSubset } from '@app/entity/shared/utils';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
+import { EntityAndType } from '@app/entityV2/shared/types';
+import { isListSubset } from '@app/entityV2/shared/utils';
 import { SearchEntitySidebarContainer } from '@app/searchV2/SearchEntitySidebarContainer';
 import { SearchResultLineageStatusProvider } from '@app/searchV2/SearchResultLineageStatusContext';
-import { SearchResultList } from '@app/searchV2/SearchResultList';
+import { CARD_OUTLINE_ROOM_PX, SearchResultList } from '@app/searchV2/SearchResultList';
 import {
     SearchEntityWithLineage,
     applySearchResultLineageCounts,
@@ -23,8 +22,9 @@ import SearchQuerySuggester from '@app/searchV2/suggestions/SearchQuerySugggeste
 import { useIsBrowseV2, useIsSearchV2 } from '@app/searchV2/useSearchAndBrowseVersion';
 import { useSearchResultLineageCounts } from '@app/searchV2/useSearchResultLineageCounts';
 import { combineSiblingsInSearchResults } from '@app/searchV2/utils/combineSiblingsInSearchResults';
-import { ErrorSection } from '@app/shared/error/ErrorSection';
-import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { ErrorSection } from '@app/sharedV2/error/ErrorSection';
+import { formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
+import { PAGE_GAP_PX } from '@app/sharedV2/layouts/constants';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { SearchCfg } from '@src/conf';
@@ -71,7 +71,7 @@ const PaginationControlContainer = styled.div`
 `;
 
 const PaginationInfoContainer = styled.div<{ v2Styles: boolean }>`
-    padding: 4px 8px 4px 12px;
+    padding: 4px 8px 4px ${(props) => (props.v2Styles ? PAGE_GAP_PX : 12)}px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -117,7 +117,9 @@ const SearchResultListContainer = styled.div<{ v2Styles: boolean; $isShowNavBarR
         overflow-y: auto;
         ${$isShowNavBarRedesign ? 'scrollbar-width: none;' : ''}
     `}
-    margin: ${(props) => (props.$isShowNavBarRedesign ? '5px 4px 5px 0px' : '4px 12px 4px 0px')};
+    /* Redesign: the list pads its right side for card outlines; pulling the container out by the same
+       amount keeps the cards' right edge one page gap from the next panel. */
+    margin: ${(props) => (props.$isShowNavBarRedesign ? `0 -${CARD_OUTLINE_ROOM_PX}px 0 0` : '4px 12px 4px 0px')};
 `;
 
 interface Props {
@@ -148,8 +150,6 @@ interface Props {
     setIsSelectMode: (showSelectMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
     refetch: () => void;
-    previewType?: PreviewType;
-    onCardClick?: (any: any) => any;
 }
 
 export const SearchResults = ({
@@ -172,8 +172,6 @@ export const SearchResults = ({
     setIsSelectMode,
     onChangeSelectAll,
     refetch,
-    previewType,
-    onCardClick,
 }: Props) => {
     const { t } = useTranslation('search');
     const showSearchFiltersV2 = useIsSearchV2();
@@ -187,9 +185,8 @@ export const SearchResults = ({
         showSeparateSiblings,
         searchResponse?.searchResults,
     );
-    // Stay closed until click or keyboard. Hover would reflow the list under the pointer
-    // and mount a profile for every row the pointer crosses.
-    const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
+    // For vertical sidebar
+    const [highlightedIndex, setHighlightedIndex] = useState<number | null>(0);
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const {
@@ -302,8 +299,6 @@ export const SearchResults = ({
                                                     setSelectedEntities={setSelectedEntities}
                                                     suggestions={suggestions}
                                                     pageNumber={page}
-                                                    previewType={previewType}
-                                                    onCardClick={onCardClick}
                                                     setAreAllEntitiesSelected={setAreAllEntitiesSelected}
                                                 />
                                                 {totalResults > 0 && (

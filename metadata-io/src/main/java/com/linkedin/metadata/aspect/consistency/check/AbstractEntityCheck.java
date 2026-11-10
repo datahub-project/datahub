@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.consistency.check;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.UNVERSIONED_ASPECT_VERSION;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
@@ -11,6 +12,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.consistency.ConsistencyIssue;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixType;
@@ -372,6 +374,9 @@ public abstract class AbstractEntityCheck implements ConsistencyCheck {
    * @return true if the entity exists and is soft-deleted
    */
   protected boolean isReferencedEntitySoftDeleted(@Nonnull CheckContext ctx, @Nonnull Urn urn) {
+    if (isUnknownEntityType(ctx, urn)) {
+      return false;
+    }
     // Check if entity exists including soft-deleted
     boolean existsIncludingSoftDeleted =
         ctx.getEntityService().exists(ctx.getOperationContext(), urn, true);
@@ -399,7 +404,34 @@ public abstract class AbstractEntityCheck implements ConsistencyCheck {
    * @return true if the entity exists (even if soft-deleted)
    */
   protected boolean referencedEntityExists(@Nonnull CheckContext ctx, @Nonnull Urn urn) {
+    if (isUnknownEntityType(ctx, urn)) {
+      return true;
+    }
     return ctx.getEntityService().exists(ctx.getOperationContext(), urn, true);
+  }
+
+  /**
+   * A reference to an entity type this registry doesn't know (written by a newer version before a
+   * rollback), or to a urn whose key holds one, can't be checked here: {@code exists()} reports
+   * such urns as missing. Treat it as present so no fix deletes data that version still uses.
+   */
+  protected static boolean isUnknownEntityType(@Nonnull CheckContext ctx, @Nonnull Urn urn) {
+    return handling()
+        .referencesUnknownEntityType(ctx.getOperationContext().getEntityRegistry(), urn);
+  }
+
+  /**
+   * True when the stored aspect was written by a newer version (e.g. before a rollback). Reads drop
+   * its references to entity types this registry doesn't know, so a check can see a field as
+   * missing that the stored aspect has; such an aspect is left to the version that wrote it.
+   */
+  protected static boolean isStoredByNewerVersion(
+      @Nonnull CheckContext ctx, @Nonnull Urn urn, @Nonnull String aspectName) {
+    return handling().toleratesUnknownEntityAspect()
+        && ctx.getEntityService()
+            .getLatestSystemAspect(ctx.getOperationContext(), urn, aspectName)
+            .map(SystemAspect::isFromNewerVersion)
+            .orElse(false);
   }
 
   // ============================================================================

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import ActionDropdown from '@app/entityV2/shared/components/styled/search/action/ActionDropdown';
 import SetDataProductModal from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/SetDataProductModal';
 import { handleBatchError } from '@app/entityV2/shared/utils';
-import { useIsMultipleDataProductsEnabled } from '@app/shared/hooks/useIsMultipleDataProductsEnabled';
+import { useIsMultipleDataProductsEnabled } from '@app/sharedV2/hooks/useIsMultipleDataProductsEnabled';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';

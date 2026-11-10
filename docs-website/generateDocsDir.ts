@@ -146,6 +146,8 @@ function list_markdown_files(): string[] {
     /^metadata-ingestion\/src\/datahub\/ingestion\/source\/odcs\/odcs_schema\//, // vendored ODCS JSON schemas + attribution README, not user-facing
     /^metadata-ingestion\/tests\//,
     /^metadata-ingestion-examples\//,
+    // Test-fixture notes, including datapack READMEs, are not docs pages.
+    /^metadata-io\/src\/test\//,
     // Smoke-test READMEs are developer-facing (see smoke-test/AGENTS.md). Keeping them out of
     // genDocs avoids broken relative links to excluded AGENTS.md files during docusaurus build.
     /^smoke-test\//,

@@ -3,16 +3,16 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import CreateGlossaryEntityModal from '@app/entity/shared/EntityDropdown/CreateGlossaryEntityModal';
 import useGlossaryChildren from '@app/entityV2/glossaryNode/useGlossaryChildren';
 import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
+import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
 import EmptyGlossarySection from '@app/glossaryV2/EmptyGlossarySection';
 import GlossaryEntitiesList from '@app/glossaryV2/GlossaryEntitiesList';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, SearchBar, Tooltip } from '@src/alchemy-components';
-import Loading from '@src/app/shared/Loading';
+import Loading from '@src/app/sharedV2/Loading';
 
 import { EntityType, GlossaryNode, GlossaryTerm } from '@types';
 
@@ -53,6 +53,7 @@ function ChildrenTab() {
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const entityUrn = entityData?.urn;
+    const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
 
     const { scrollRef, data, loading, searchQuery, setSearchQuery, refetch } = useGlossaryChildren({ entityUrn });
 
@@ -134,6 +135,7 @@ function ChildrenTab() {
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryTerm}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateTermModalVisible(false)}
                     refetchData={refetch}
                 />
@@ -141,6 +143,7 @@ function ChildrenTab() {
             {isCreateNodeModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryNode}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetch}
                 />

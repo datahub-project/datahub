@@ -12,6 +12,7 @@
 import { test, expect } from '../../fixtures/login-test';
 import { users } from '../../data/users';
 import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.describe('Login with Theme V2', () => {
   test.beforeEach(async ({ apiMock, page }) => {
@@ -32,10 +33,14 @@ test.describe('Login with Theme V2', () => {
     });
   });
 
-  test('logs in successfully with Theme V2 enabled', async ({ page, loginPage }) => {
-    const { username, password } = users.admin;
-    await page.goto('/');
-    await loginPage.login(username, password);
-    await expect(page.getByRole('button', { name: 'Discover', exact: true })).toBeVisible();
-  });
+  test(
+    'logs in successfully with Theme V2 enabled',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ page, loginPage }) => {
+      const { username, password } = users.admin;
+      await page.goto('/');
+      await loginPage.login(username, password);
+      await expect(page.getByRole('button', { name: 'Discover', exact: true })).toBeVisible();
+    },
+  );
 });

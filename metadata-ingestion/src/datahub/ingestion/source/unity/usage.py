@@ -600,6 +600,12 @@ class UnityCatalogUsageExtractor:
                     for urn in lineage.upstreams + lineage.targets
                 )
             ):
+                # table_lineage omits hive_metastore tables, so a statement joining
+                # an ingested Unity Catalog table to one still needs the SQL text.
+                if covers_hive_metastore and not query.is_query_text_redacted:
+                    lineage = (
+                        self._with_hive_metastore_tables(query, lineage) or lineage
+                    )
                 self._add_preparsed_queries(aggregator, query, lineage)
                 return
 

@@ -19,7 +19,6 @@ import com.linkedin.metadata.event.UsageEventPublisher;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.telemetry.TelemetryClientId;
 import com.mixpanel.mixpanelapi.MessageBuilder;
-import com.mixpanel.mixpanelapi.MixpanelAPI;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import java.io.IOException;
@@ -60,7 +59,7 @@ public class TrackingServiceTest {
 
   private Urn _clientIdUrn;
   private JSONObject _mixpanelMessage;
-  private MixpanelAPI _mixpanelAPI;
+  private MixpanelEventSender _mixpanelSender;
   private MessageBuilder _mixpanelMessageBuilder;
   private SecretService _secretService;
   private EntityService<?> _entityService;
@@ -72,7 +71,8 @@ public class TrackingServiceTest {
   @BeforeMethod
   public void setupTest() {
     _clientIdUrn = UrnUtils.getUrn(CLIENT_ID_URN);
-    _mixpanelAPI = mock(MixpanelAPI.class);
+    _mixpanelSender = mock(MixpanelEventSender.class);
+    when(_mixpanelSender.submit(any(JSONObject.class))).thenReturn(true);
     _mixpanelMessageBuilder = mock(MessageBuilder.class);
     _mixpanelMessage = spy(new JSONObject());
     _mixpanelMessage.put("properties", new JSONObject());
@@ -102,7 +102,7 @@ public class TrackingServiceTest {
             topicsConfiguration,
             _secretService,
             _mixpanelMessageBuilder,
-            _mixpanelAPI,
+            _mixpanelSender,
             _entityService,
             gitVersion,
             usageEventPublisher);
@@ -144,8 +144,8 @@ public class TrackingServiceTest {
     // Call the track method directly
     _trackingService.track(EVENT_TYPE, opContext, null, null, eventNode);
 
-    // Verify that the Mixpanel API was called
-    verify(_mixpanelAPI, times(1)).sendMessage(any(JSONObject.class));
+    // Verify that the event was handed to the Mixpanel sender
+    verify(_mixpanelSender, times(1)).submit(any(JSONObject.class));
 
     // Verify that the Kafka producer was called
     verify(usageEventPublisher, times(1))
@@ -172,7 +172,7 @@ public class TrackingServiceTest {
             topicsConfiguration,
             _secretService,
             _mixpanelMessageBuilder,
-            _mixpanelAPI,
+            _mixpanelSender,
             _entityService,
             gitVersion,
             errorProducer);
@@ -234,8 +234,8 @@ public class TrackingServiceTest {
         _trackingService.track(
             EVENT_TYPE, opContext, null, null, eventNode, EnumSet.of(TrackingDestination.KAFKA));
 
-    // Verify that the Mixpanel API was NOT called
-    verify(_mixpanelAPI, never()).sendMessage(any(JSONObject.class));
+    // Verify that nothing was handed to the Mixpanel sender
+    verify(_mixpanelSender, never()).submit(any(JSONObject.class));
 
     // Verify that the Kafka producer was called
     verify(usageEventPublisher, times(1))
@@ -325,6 +325,23 @@ public class TrackingServiceTest {
     assertTrue(sanitizedEvent.has(ACTOR_URN_FIELD));
     assertEquals(sanitizedEvent.get(ACTOR_URN_FIELD), HASHED_ACTOR_URN_STRING);
     assertFalse(sanitizedEvent.has(NOT_ALLOWED_FIELD));
+  }
+
+  @Test
+  public void testSanitizeEventKeepsLanguage() throws JSONException {
+    // The allowlist drops anything unlisted, so locale fields reaching Mixpanel depend on being
+    // registered there — not merely on the frontend sending them.
+    final JSONObject event = new JSONObject();
+    event.put(EVENT_TYPE_FIELD, EVENT_TYPE);
+    event.put("language", "pt-BR");
+    event.put("appLanguage", "pt-BR");
+
+    final JSONObject sanitizedEvent = _trackingService.sanitizeEvent(event);
+    assertNotNull(sanitizedEvent);
+    assertTrue(sanitizedEvent.has("language"));
+    assertEquals(sanitizedEvent.get("language"), "pt-BR");
+    assertTrue(sanitizedEvent.has("appLanguage"));
+    assertEquals(sanitizedEvent.get("appLanguage"), "pt-BR");
   }
 
   @Test
@@ -524,7 +541,7 @@ public class TrackingServiceTest {
 
   @Test
   public void testTrackEventWithNoServices() throws IOException {
-    // Create a tracking service without producer and MixpanelAPI to cover log paths
+    // Create a tracking service without producer and MixpanelEventSender to cover log paths
     TopicsConfiguration topicsConfiguration = mock(TopicsConfiguration.class);
     when(topicsConfiguration.getDataHubUsage()).thenReturn("DataHubUsageEvent_v1");
 
@@ -534,7 +551,7 @@ public class TrackingServiceTest {
             topicsConfiguration,
             _secretService,
             null, // No MessageBuilder
-            null, // No MixpanelAPI
+            null, // No MixpanelEventSender
             _entityService,
             gitVersion,
             null); // No Kafka producer

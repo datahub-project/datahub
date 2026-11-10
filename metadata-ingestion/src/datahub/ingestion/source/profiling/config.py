@@ -14,6 +14,7 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source_config.operation_config import OperationConfig
+from datahub.metadata.urns import TagUrn
 from datahub.utilities.str_enum import StrEnum
 
 _PROFILING_FLAGS_TO_REPORT = {
@@ -178,11 +179,11 @@ class ProfilingConfig(ProfilingBaseConfig):
     )
 
     profile_table_row_count_estimate_only: Annotated[
-        bool, SupportedSources(["postgres", "mysql"])
+        bool, SupportedSources(["postgres", "mysql", "redshift"])
     ] = Field(
         default=False,
         description="Use an approximate query for row count. This will be much faster but slightly "
-        "less accurate. Only supported for Postgres and MySQL. ",
+        "less accurate. Only supported for Postgres, MySQL and Redshift. ",
     )
 
     # The query combiner enables us to combine multiple queries into a single query,
@@ -197,6 +198,29 @@ class ProfilingConfig(ProfilingBaseConfig):
     query_combiner_flatten_enabled: bool = Field(
         default=False,
         description="Flattens same-shape aggregate queries into one flat SELECT per FROM group to reduce full table scans on row stores (e.g. MySQL). Requires `query_combiner_enabled`; has no effect on its own. Off by default. COUNT(DISTINCT) columns are capped per statement to bound server memory.",
+    )
+
+    # Duplicated from MAX_QUERIES_TO_COMBINE_AT_ONCE for the same reason as
+    # max_distinct_per_statement below.
+    max_queries_to_combine: pydantic.PositiveInt = Field(
+        default=40,
+        description="Only used when `query_combiner_enabled` is on. Maximum number of "
+        "profiling **queries** merged into one statement -- not columns: a 12-column "
+        "numeric table issues 109 queries under default settings, 85 of them "
+        "combinable. Raising it cuts round trips, and with "
+        "`query_combiner_flatten_enabled` also scans, because a flattened statement is "
+        "one aggregate list over one table. Without flattening each merged query is "
+        "still its own aggregate, so only round trips fall. Raising it is also bounded "
+        "by the database without flattening: the merged statement cross-joins one "
+        "subquery per query, and MySQL allows 61 tables in a join, SQLite 64. Past that "
+        "every merged statement fails and is retried one query at a time, which is "
+        "slower than not combining at all -- measured on a 20-column SQLite table of "
+        "101 queued queries, a value of 40 took 3 statements and 100 took 102. The "
+        "profiler warns at startup when it can tell the value is above the limit. A "
+        "flattened statement does not join, so its normal path is not subject to "
+        "that limit -- but a flat statement that fails is re-routed through the "
+        "joining path, so above the limit that recovery skips straight to one "
+        "query at a time.",
     )
 
     # Duplicated from DEFAULT_MAX_DISTINCT_PER_STATEMENT rather than imported,
@@ -239,6 +263,44 @@ class ProfilingConfig(ProfilingBaseConfig):
             "InnoDB, REPEATABLE_READ keeps a consistent snapshot; on Postgres, "
             "READ COMMITTED already takes a fresh snapshot per statement, so "
             "AUTOCOMMIT loses no consistency there."
+        ),
+    )
+
+    query_timeout_seconds: Annotated[
+        Optional[pydantic.PositiveInt], SupportedSources(["mysql", "postgres"])
+    ] = Field(
+        default=None,
+        # Postgres takes statement_timeout in milliseconds as a signed 32-bit
+        # int, so a larger value is rejected by the SET itself. MySQL's
+        # max_execution_time is unsigned and would accept more; the bound is
+        # the lower of the two rather than a per-platform limit.
+        le=2147483,
+        description=(
+            "Server-side time limit for each profiling statement, in seconds. "
+            "Defaults to unset, so a statement runs as long as it takes. A single "
+            "aggregate over a very large table holds a read view for its whole "
+            "duration, growing the InnoDB undo log on MySQL and blocking VACUUM on "
+            "Postgres, which a limit here bounds. The limit is set on the profiling "
+            "connection and restored when the table is done. Only MySQL "
+            "(max_execution_time) and Postgres (statement_timeout) are implemented; "
+            "other platforms ignore it. "
+            "Pair it with `profiling_isolation_level: AUTOCOMMIT`; the profiler "
+            "warns when the connection's isolation level undermines it. On "
+            "Postgres a timed-out statement leaves the transaction aborted at "
+            "every level below AUTOCOMMIT, so the table loses every per-column "
+            "metric that runs after it -- quantiles, histograms, value frequencies "
+            "and sample values. On MySQL nothing is lost that way, but REPEATABLE "
+            "READ and SERIALIZABLE hold the read view from the first statement to "
+            "the commit, so a per-statement limit does not bound the thing this "
+            "option exists to bound; AUTOCOMMIT or READ COMMITTED restores it. "
+            "Under AUTOCOMMIT it bounds a statement, not a table, and it does not "
+            "abandon the table: a statement that exceeds the limit is retried one "
+            "query at a time, so the columns whose own query then succeeds are "
+            "still profiled and only the slow ones lose their metrics. A table is "
+            "left without field profiles only when the row count itself times out. "
+            "One whose columns are each slow enough to time out therefore costs "
+            "roughly this limit per profiling query, which on a wide table is many "
+            "multiples of it."
         ),
     )
 
@@ -294,8 +356,35 @@ class ProfilingConfig(ProfilingBaseConfig):
             "Fixed list of tags to ignore sampling. Each entry may be a full tag URN"
             " (e.g. `urn:li:tag:my_tag`) or just the tag name (e.g. `my_tag`)."
             " If not specified, tables will be sampled based on `use_sampling`."
+            " Resolving these tags queries the DataHub server. When that lookup"
+            " fails, the table is treated as tagged rather than untagged: row,"
+            " null and distinct counts are still profiled, but column values"
+            " (sample values, min/max/mean, stddev, median, histograms,"
+            " quantiles and distinct value frequencies) are not, and a warning"
+            " is reported."
         ),
     )
+
+    @field_validator("tags_to_ignore_sampling")
+    @classmethod
+    def _validate_tags_to_ignore_sampling(
+        cls, value: Optional[List[str]]
+    ) -> Optional[List[str]]:
+        # Parsed here so a typo fails the recipe with the offending entry. The
+        # profiler parses these again while resolving tags, inside a handler
+        # that answers any failure with "treat the table as tagged" -- so an
+        # unvalidated typo would silently drop every column value for every
+        # table, reported as a DataHub outage. Same call the profiler makes, so
+        # parse time and profile time accept exactly the same set.
+        for tag in value or []:
+            try:
+                TagUrn(tag)
+            except Exception as e:
+                raise ValueError(
+                    f"tags_to_ignore_sampling entry {tag!r} is not a valid tag "
+                    f"name or tag URN: {e}"
+                ) from e
+        return value
 
     profile_nested_fields: bool = Field(
         default=False,

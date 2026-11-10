@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import {
     DocumentDomainGroup,
@@ -22,11 +22,16 @@ export default function useDocumentGroupRoots(
     activeGroup?: DocumentDomainGroup,
     viewUrn?: string | null,
     skip?: boolean,
-): { groups: DocumentDomainGroup[]; loading: boolean } {
+): { groups: DocumentDomainGroup[]; loading: boolean; refetch: () => void } {
     const entityRegistry = useEntityRegistry();
     const field = getDocumentDomainGroupField();
 
-    const { data, previousData, loading } = useSearchDocumentsQuery({
+    const {
+        data,
+        previousData,
+        loading,
+        refetch: refetchDomainFacets,
+    } = useSearchDocumentsQuery({
         skip,
         fetchPolicy: 'network-only',
         variables: {
@@ -47,6 +52,7 @@ export default function useDocumentGroupRoots(
         data: unassignedData,
         previousData: previousUnassignedData,
         loading: unassignedLoading,
+        refetch: refetchUnassigned,
     } = useSearchDocumentsQuery({
         skip,
         fetchPolicy: 'network-only',
@@ -85,8 +91,14 @@ export default function useDocumentGroupRoots(
         unassignedLabel,
     ]);
 
+    const refetch = useCallback(() => {
+        refetchDomainFacets();
+        refetchUnassigned();
+    }, [refetchDomainFacets, refetchUnassigned]);
+
     return {
         groups,
         loading: skip ? false : loading || unassignedLoading,
+        refetch,
     };
 }

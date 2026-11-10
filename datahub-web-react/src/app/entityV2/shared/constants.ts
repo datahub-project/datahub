@@ -210,6 +210,14 @@ export const EMPTY_MESSAGES = {
             return i18next.t('entity.shared.emptyStates:emptyMessages.structuredProps.title');
         },
     },
+    businessAttributes: {
+        get title() {
+            return i18next.t('entity.profile.tabs:emptyTab.businessAttributes.title');
+        },
+        get description() {
+            return i18next.t('entity.profile.tabs:emptyTab.businessAttributes.description');
+        },
+    },
 };
 
 export const ENTITY_TYPES_WITH_MANUAL_LINEAGE = new Set([
@@ -230,6 +238,59 @@ export enum EntityProfileTab {
     DOCUMENTATION_TAB = 'DOCUMENTATION_TAB',
     DATA_PRODUCTS_TAB = 'DATA_PRODUCTS_TAB',
     SUMMARY_TAB = 'SUMMARY_TAB',
+}
+
+/**
+ * Stable keys that identify entity sidebar tabs (`EntitySidebarTab.key`). Tab display names are
+ * translated, so always target a sidebar tab (e.g. from an onboarding step) by one of these values.
+ */
+export enum EntitySidebarTabKey {
+    ABOUT = 'About',
+    SUMMARY = 'Summary',
+    LINEAGE = 'Lineage',
+    COLUMNS = 'Columns',
+    PROPERTIES = 'Properties',
+}
+
+/**
+ * Stable URL segments that identify entity profile tabs (`EntityTab.path`). Tab display names are
+ * translated, so always link to a tab by one of these values, never by its name.
+ */
+export enum EntityTabPath {
+    ACCESS = 'Access',
+    ASSETS = 'Assets',
+    COLUMNS = 'Columns',
+    CONTENTS = 'Contents',
+    DASHBOARDS = 'Dashboards',
+    DATASETS = 'Datasets',
+    DATA_PRODUCTS = 'Data Products',
+    DEFINITION = 'Definition',
+    DOCUMENTATION = 'Documentation',
+    FEATURES = 'Features',
+    FEATURE_TABLES = 'Feature Tables',
+    FIELDS = 'Fields',
+    GOVERNANCE = 'Governance',
+    GROUP = 'Group',
+    INCIDENTS = 'Incidents',
+    LINEAGE = 'Lineage',
+    MODELS = 'Models',
+    OUTPUT_PORTS = 'Output Ports',
+    PIPELINE = 'Pipeline',
+    PREVIEW = 'Preview',
+    PROPERTIES = 'Properties',
+    QUALITY = 'Quality',
+    QUERIES = 'Queries',
+    RELATED_ASSETS = 'Related Assets',
+    RELATED_ENTITIES = 'Related Entities',
+    RELATED_TERMS = 'Related Terms',
+    RUNS = 'Runs',
+    SCHEMA = 'Schema',
+    SIGNATURE = 'Signature',
+    SOURCES = 'Sources',
+    STATS = 'Stats',
+    SUMMARY = 'Summary',
+    TASKS = 'Tasks',
+    VIEW_DEFINITION = 'View Definition',
 }
 
 export const EDITING_DOCUMENTATION_URL_PARAM = 'editing';
@@ -256,4 +317,32 @@ export const ENTITY_TYPES_WITH_NEW_SUMMARY_TAB = [
     EntityType.Domain,
     EntityType.GlossaryNode,
     EntityType.GlossaryTerm,
+];
+
+export const ANTD_GRAY_V2 = {
+    1: '#F8F9Fa',
+    2: '#F3F5F6',
+    5: '#DDE0E4',
+    6: '#B2B8BD',
+    8: '#5E666E',
+    10: '#1B1E22',
+};
+
+const ELASTIC_MAX_COUNT = 10000;
+
+export const getElasticCappedTotalValueText = (count: number) => {
+    if (count === ELASTIC_MAX_COUNT) {
+        return `${ELASTIC_MAX_COUNT}+`;
+    }
+
+    return `${count}`;
+};
+
+/** Default actor URN used by the Python ingestion SDK when writing metadata. */
+export const INGESTION_ACTOR_URN = 'urn:li:corpuser:__ingestion';
+
+export const DEFAULT_SYSTEM_ACTOR_URNS = [
+    'urn:li:corpuser:__datahub_system',
+    'urn:li:corpuser:unknown',
+    INGESTION_ACTOR_URN,
 ];

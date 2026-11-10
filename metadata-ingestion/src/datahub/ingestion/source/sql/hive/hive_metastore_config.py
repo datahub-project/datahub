@@ -219,11 +219,14 @@ class HiveMetastore(
         AllowDenyPattern, Filters(DatasetContainerSubTypes.SCHEMA)
     ] = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for databases to filter.",
+        description="Regex patterns for Hive databases to filter. In Hive, databases "
+        "and schemas are the same thing; DataHub shows each Hive database as a "
+        "Schema container.",
     )
     schema_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for schemas to filter in ingestion. Specify regex to only match the schema name. e.g. to match all tables in schema analytics, use the regex 'analytics'",
+        description="Not applied by this source. To filter Hive databases (shown as "
+        "schemas in DataHub), use 'database_pattern'.",
     )
 
     mode: HiveMetastoreConfigMode = Field(

@@ -2,12 +2,12 @@ import React, { Suspense, useState } from 'react';
 import { Redirect, Route, Switch } from 'react-router-dom';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { GlossaryEntityContext } from '@app/entityV2/shared/GlossaryEntityContext';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import GlossarySidebar from '@app/glossaryV2/GlossarySidebar';
 import { shouldShowGlossary } from '@app/identity/user/UserUtils';
-import { SuspenseBlock } from '@app/shared/SuspenseBlock';
-import { lazyDefault, lazyNamed } from '@app/shared/lazyPage';
+import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
+import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import {
     HierarchicalBrowseContentWrapper,
     HierarchicalBrowseMainContent,

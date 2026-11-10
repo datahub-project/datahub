@@ -26,7 +26,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.TestUtils;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.context.RelationshipTraversalContext;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -55,8 +54,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -133,23 +130,36 @@ public class EntityRelationshipsResultResolverTest {
   }
 
   @Test
-  public void testUnauthorizedDocumentDoesNotLoadRelationships()
+  public void testDocumentUsesSharedRelationshipLoadPath()
       throws ExecutionException, InterruptedException {
     Urn documentUrn = UrnUtils.getUrn("urn:li:document:restricted");
     Document source = new Document();
     source.setUrn(documentUrn.toString());
     when(mockEnv.getSource()).thenReturn(source);
-    QueryContext context = mockEnv.getContext();
+    EntityRelationships emptyRelationships =
+        new EntityRelationships()
+            .setStart(0)
+            .setCount(0)
+            .setTotal(0)
+            .setRelationships(new EntityRelationshipArray());
+    when(_graphClient.getRelatedEntities(
+            eq(documentUrn.toString()),
+            eq(new HashSet<>(input.getTypes())),
+            same(com.linkedin.metadata.query.filter.RelationshipDirection.INCOMING),
+            eq(input.getStart()),
+            eq(input.getCount()),
+            any()))
+        .thenReturn(emptyRelationships);
 
-    try (MockedStatic<AuthorizationUtils> authorizationUtils =
-        Mockito.mockStatic(AuthorizationUtils.class)) {
-      authorizationUtils
-          .when(() -> AuthorizationUtils.canView(context.getOperationContext(), documentUrn))
-          .thenReturn(false);
-
-      assertTrue(resolver.get(mockEnv).get().getRelationships().isEmpty());
-      Mockito.verifyNoInteractions(_graphClient);
-    }
+    assertTrue(resolver.get(mockEnv).get().getRelationships().isEmpty());
+    verify(_graphClient)
+        .getRelatedEntities(
+            eq(documentUrn.toString()),
+            eq(new HashSet<>(input.getTypes())),
+            same(com.linkedin.metadata.query.filter.RelationshipDirection.INCOMING),
+            eq(input.getStart()),
+            eq(input.getCount()),
+            any());
   }
 
   @Test

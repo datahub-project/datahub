@@ -155,6 +155,8 @@ export class ViewSelectPage extends BasePage {
     const valueOption = this.getFilterValueOption(searchValue);
     await valueOption.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await valueOption.click();
+    // The option label opens the entity hover card under the pointer, over the footer; see EntityHoverCardComponent.
+    await this.entityHoverCard.dismiss(this.dropdownSearchInput, searchValue);
 
     // Update the filter
     await this.footerButtonUpdate.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
@@ -195,6 +197,15 @@ export class ViewSelectPage extends BasePage {
     await this.closeIcon.waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT });
     await this.closeIcon.click();
     await this.page.waitForLoadState('networkidle');
+  }
+
+  async selectView(viewName: string): Promise<void> {
+    await this.viewsButton.click();
+    await this.waitForPopoverOpen();
+    // Other views may push this one out of the visible list, so narrow it first.
+    await this.viewsPopover.getByPlaceholder('Search views...').fill(viewName);
+    await this.viewSelectItem.filter({ hasText: viewName }).click();
+    await expect(this.viewsButton).toContainText(viewName);
   }
 
   async openViewDropdown(viewName: string): Promise<void> {

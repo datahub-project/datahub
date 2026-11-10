@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import GlossaryEntityItem from '@app/glossaryV2/GlossaryEntityItem';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -88,6 +88,8 @@ function GlossaryEntitiesList(props: Props) {
                             type={term.type}
                             displayProperties={term.displayProperties}
                             description={term.properties?.description || ''}
+                            versionProperties={term.versionProperties}
+                            termStatus={term.status}
                         />
                     ))}
                 </GlossaryTerms>

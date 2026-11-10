@@ -58,9 +58,10 @@ _logging_configured: Optional[ContextManager] = None
 
 MAX_CONTENT_WIDTH = 120
 
-if sys.version_info >= (3, 12):
+# Keep in sync with the Python matrix in .github/workflows/metadata-ingestion.yml.
+if sys.version_info >= (3, 14):
     click.secho(
-        "Python versions above 3.11 are not actively tested with yet. Please use Python 3.11 for now.",
+        "Python versions above 3.13 are not actively tested with yet. Please use Python 3.11 to 3.13 for now.",
         fg="red",
         err=True,
     )

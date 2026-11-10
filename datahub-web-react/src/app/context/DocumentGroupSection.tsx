@@ -55,7 +55,9 @@ export default function DocumentGroupSection({
         groupKey: group.key,
         sort,
         skip: !isExpanded,
-        selectedDocument: selectedUrn && selectedDocument?.urn === selectedUrn ? selectedDocument : null,
+        // Every expanded group needs the open document so a domain change can
+        // remove it from the group it left, not only prepend it onto the new one.
+        selectedDocument,
     });
 
     const icon = group.entity ? (

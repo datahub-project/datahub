@@ -8,6 +8,7 @@ import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.VersionedUrn;
@@ -247,8 +248,11 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Integer limit,
       @Nullable String field)
       throws RemoteInvocationException {
-    return cachingEntitySearchService.autoComplete(
-        opContext, entityType, query, field, filterOrDefaultEmptyFilter(requestFilters), limit);
+    return ValidationUtils.validateAutoCompleteResult(
+        opContext,
+        cachingEntitySearchService.autoComplete(
+            opContext, entityType, query, field, filterOrDefaultEmptyFilter(requestFilters), limit),
+        entityService);
   }
 
   /**
@@ -269,8 +273,11 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter requestFilters,
       @Nullable Integer limit)
       throws RemoteInvocationException {
-    return cachingEntitySearchService.autoComplete(
-        opContext, entityType, query, "", filterOrDefaultEmptyFilter(requestFilters), limit);
+    return ValidationUtils.validateAutoCompleteResult(
+        opContext,
+        cachingEntitySearchService.autoComplete(
+            opContext, entityType, query, "", filterOrDefaultEmptyFilter(requestFilters), limit),
+        entityService);
   }
 
   /**
@@ -807,17 +814,50 @@ public class JavaEntityClient implements EntityClient {
     return response.getValues();
   }
 
+  private static AuditStamp sessionAuditStamp(@Nonnull OperationContext opContext) {
+    String actorUrnStr =
+        opContext.getSessionAuthentication().getActor() != null
+            ? opContext.getSessionAuthentication().getActor().toUrnStr()
+            : Constants.UNKNOWN_ACTOR;
+    return AuditStampUtils.createAuditStamp(actorUrnStr);
+  }
+
+  /**
+   * Implements {@code SystemEntityClient#ingestValidProposals}: one write per {@code
+   * batchIngestSize} group, as in {@link #batchIngestProposals}, of the proposals in it that pass
+   * proposal validation.
+   */
+  @Nonnull
+  public List<Pair<MetadataChangeProposal, Exception>> ingestValidProposals(
+      @Nonnull OperationContext opContext, @Nonnull List<MetadataChangeProposal> proposals) {
+    final AuditStamp auditStamp = sessionAuditStamp(opContext);
+    List<Pair<MetadataChangeProposal, Exception>> rejected = new ArrayList<>();
+    for (List<MetadataChangeProposal> group :
+        Lists.partition(proposals, Math.max(1, entityClientConfig.getBatchIngestSize()))) {
+      AspectsBatchImpl aspectsBatch =
+          AspectsBatchImpl.builder()
+              .mcpsRecordingRejected(
+                  group,
+                  auditStamp,
+                  opContext.getRetrieverContext(),
+                  opContext.getValidationContext().isAlternateValidation(),
+                  opContext.isSystemAuth())
+              .buildSkippingRejected(opContext);
+      rejected.addAll(aspectsBatch.getRejectedProposals());
+      if (!aspectsBatch.getItems().isEmpty()) {
+        entityService.ingestProposal(opContext, aspectsBatch, false);
+      }
+    }
+    return rejected;
+  }
+
   @Override
   @Nonnull
   public List<String> batchIngestProposals(
       @Nonnull OperationContext opContext,
       @Nonnull Collection<MetadataChangeProposal> metadataChangeProposals,
       boolean async) {
-    String actorUrnStr =
-        opContext.getSessionAuthentication().getActor() != null
-            ? opContext.getSessionAuthentication().getActor().toUrnStr()
-            : Constants.UNKNOWN_ACTOR;
-    final AuditStamp auditStamp = AuditStampUtils.createAuditStamp(actorUrnStr);
+    final AuditStamp auditStamp = sessionAuditStamp(opContext);
 
     List<String> updatedUrns = new ArrayList<>();
     Iterators.partition(
@@ -831,7 +871,8 @@ public class JavaEntityClient implements EntityClient {
                           batch,
                           auditStamp,
                           opContext.getRetrieverContext(),
-                          opContext.getValidationContext().isAlternateValidation())
+                          opContext.getValidationContext().isAlternateValidation(),
+                          opContext.isSystemAuth())
                       .build(opContext);
 
               List<IngestResult> results =

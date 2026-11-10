@@ -8,7 +8,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entityV2/view/utils';
 import { removeServiceAccountFromListCache } from '@app/identity/serviceAccount/cacheUtils';
 import { clearRoleListCache } from '@app/permissions/roles/cacheUtils';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { SelectOption } from '@src/alchemy-components/components/Select/types';
 
 import {

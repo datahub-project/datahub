@@ -4,11 +4,11 @@ import { Route, RouteProps, Switch, useLocation } from 'react-router-dom';
 
 import { useTrackPageView } from '@app/analytics';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
-import { NoPageFound } from '@app/shared/NoPageFound';
-import { SuspenseGlobal } from '@app/shared/SuspenseGlobal';
-import { ErrorSection } from '@app/shared/error/ErrorSection';
-import { lazyDefault } from '@app/shared/lazyPage';
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
+import { NoPageFound } from '@app/sharedV2/NoPageFound';
+import { SuspenseGlobal } from '@app/sharedV2/SuspenseGlobal';
+import { ErrorSection } from '@app/sharedV2/error/ErrorSection';
+import { lazyDefault } from '@app/sharedV2/lazyPage';
 import { PageRoutes } from '@conf/Global';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 

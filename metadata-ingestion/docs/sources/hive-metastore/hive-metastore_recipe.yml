@@ -8,11 +8,6 @@ source:
     host_port: localhost:5432
     database: metastore
 
-    # specify the schema where metastore tables reside
-    schema_pattern:
-      allow:
-        - "^public"
-
     # credentials
     username: user # optional
     password: pass # optional
@@ -20,7 +15,8 @@ source:
     #scheme: 'postgresql+psycopg2' # set this if metastore db is using postgres
     #scheme: 'mysql+pymysql' # set this if metastore db is using mysql, default if unset
 
-    # Filter databases using pattern-based filtering
+    # Filter Hive databases (shown as schemas in DataHub). Use database_pattern,
+    # not schema_pattern -- this source does not apply schema_pattern.
     #database_pattern:
     #  allow:
     #    - "^db1$"

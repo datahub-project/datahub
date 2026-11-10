@@ -2,16 +2,16 @@ import { Avatar } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import BaseProperty from '@app/entityV2/summary/properties/property/properties/BaseProperty';
 import { PropertyComponentProps } from '@app/entityV2/summary/properties/types';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { OwnerType } from '@types';
 
 export default function OwnersProperty(props: PropertyComponentProps) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const { entityData, loading } = useEntityContext();
     const owners = entityData?.ownership?.owners?.map((owner) => owner.owner) ?? [];

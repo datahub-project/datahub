@@ -397,17 +397,14 @@ def _frontend_url() -> str:
 def _default_config() -> DevToolingConfig:
     return DevToolingConfig(
         module_to_container={
-            "metadata-service/": (":metadata-service:war:bootJar", "datahub-gms"),
+            "metadata-service/war/": (":metadata-service:war:bootJar", "datahub-gms"),
             "metadata-models/": (None, None),  # triggers full rebuild
             "datahub-frontend/": (":datahub-frontend:dist", "datahub-frontend-react"),
             "datahub-web-react/": (
-                ":datahub-web-react:distZip",
+                ":datahub-frontend:dist",
                 "datahub-frontend-react",
             ),
-            "datahub-graphql-core/": (
-                ":metadata-service:war:bootJar",
-                "datahub-gms",
-            ),
+            "datahub-graphql-core/": (None, None),
             "metadata-jobs/mce-consumer-job/": (
                 ":metadata-jobs:mce-consumer-job:bootJar",
                 "datahub-mce-consumer",
@@ -416,7 +413,7 @@ def _default_config() -> DevToolingConfig:
                 ":metadata-jobs:mae-consumer-job:bootJar",
                 "datahub-mae-consumer",
             ),
-            "metadata-io/": (":metadata-service:war:bootJar", "datahub-gms"),
+            "metadata-io/": (None, None),
         },
         rebuild_module_aliases={
             "gms": "datahub-gms",
@@ -789,8 +786,8 @@ def cmd_wait(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _detect_changed_modules() -> List[Tuple[str, str, str]]:
-    """Use git diff to detect which modules changed, return list of (module_path, gradle_task, container)."""
+def _changed_worktree_files() -> Set[str]:
+    """Return staged, unstaged, and untracked worktree paths."""
     result = _run(["git", "diff", "--name-only", "HEAD"])
     if result.returncode != 0:
         # Fallback: also check unstaged
@@ -809,32 +806,30 @@ def _detect_changed_modules() -> List[Tuple[str, str, str]]:
     if untracked.stdout:
         changed_files.update(untracked.stdout.strip().splitlines())
 
-    if not changed_files:
-        return []
+    return changed_files
 
-    matched = []
-    full_rebuild = False
-    for module_prefix, (gradle_task, container) in CONFIG.module_to_container.items():
-        for f in changed_files:
-            if f.startswith(module_prefix):
-                if gradle_task is None:
-                    # metadata-models change => full rebuild
-                    full_rebuild = True
-                    break
-                matched.append((module_prefix, gradle_task, container))
-                break
-        if full_rebuild:
-            break
 
-    if full_rebuild:
-        # Return all buildable modules
-        return [
-            (mp, gt, ct)
-            for mp, (gt, ct) in CONFIG.module_to_container.items()
-            if gt is not None
+def _detect_changed_modules(
+    changed_files: Optional[Set[str]] = None,
+) -> List[Tuple[str, str, str]]:
+    """Return service-owned changes, or an empty list to keep the full build graph."""
+    if changed_files is None:
+        changed_files = _changed_worktree_files()
+
+    matched: Dict[str, Tuple[str, str, str]] = {}
+    for path in changed_files:
+        prefixes = [
+            prefix for prefix in CONFIG.module_to_container if path.startswith(prefix)
         ]
-
-    return matched
+        # Shared, unmapped or overlapping ownership must retain all consumers.
+        if len(prefixes) != 1:
+            return []
+        prefix = prefixes[0]
+        gradle_task, container = CONFIG.module_to_container[prefix]
+        if gradle_task is None or container is None:
+            return []
+        matched[prefix] = (prefix, gradle_task, container)
+    return list(matched.values())
 
 
 def cmd_rebuild(args: argparse.Namespace) -> int:
@@ -845,7 +840,6 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
     all in a single Gradle invocation so the task graph correctly detects
     which ``dockerPrepare`` tasks were not up-to-date.
     """
-    # Module info is only used for logging; reload handles detection itself
     if args.module:
         module_names = CONFIG.rebuild_module_aliases
         if args.module not in module_names:
@@ -853,14 +847,23 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
                 f"Unknown module: {args.module}. Valid: {', '.join(module_names.keys())}"
             )
             return 1
-        _log(f"Rebuilding: {module_names[args.module]}")
+        service = module_names[args.module]
+        modules = [
+            (prefix, task, container)
+            for prefix, (task, container) in CONFIG.module_to_container.items()
+            if task is not None and container == service
+        ]
+        _log(f"Rebuilding: {service}")
     else:
         modules = _detect_changed_modules()
         if modules:
-            containers = list(dict.fromkeys(m[2] for m in modules))
-            _log(f"Changed modules detected: {', '.join(containers)}")
+            _log(
+                f"Changed modules detected: {', '.join(sorted({m[2] for m in modules}))}"
+            )
         else:
-            _log("No changed modules detected, but running reload to be safe.")
+            _log(
+                "Checking the full build graph for shared, unmapped or unchanged sources."
+            )
 
     # Single Gradle invocation: builds changed modules AND restarts their
     # containers.  The reload task depends on prepareAll* which triggers
@@ -874,6 +877,11 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
         "-x",
         "check",
     ]
+    build_modules = sorted({task.rsplit(":", 1)[0] for _, task, _ in modules})
+    if build_modules and len(build_modules) == len(
+        {service for _, _, service in modules}
+    ):
+        gradle_cmd.append(f"-PbuildModules={','.join(build_modules)}")
     _log(f"Running: {' '.join(gradle_cmd)}")
     build_start = time.time()
     result = _run(gradle_cmd, capture=False, timeout=600)

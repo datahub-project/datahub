@@ -22,6 +22,7 @@ import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.NearC
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.ScopeMode;
 import com.linkedin.metadata.config.hazelcast.HazelcastDiscoveryMode;
 import com.linkedin.metadata.config.hazelcast.HazelcastInstanceBootstrapCondition;
+import com.linkedin.metadata.config.hazelcast.HazelcastSerializationAllowListContributor;
 import com.linkedin.metadata.config.hazelcast.RateLimitEndpointEnabledCondition;
 import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshot;
@@ -66,6 +67,12 @@ public class CacheConfig {
   @Value("${searchService.cache.hazelcast.resolve-not-ready-addresses:}")
   private String kubernetesResolveNotReadyAddresses;
 
+  @Value("${searchService.cache.hazelcast.serializationAllowList.classNames:}")
+  private String serializationAllowListClassNames;
+
+  @Value("${searchService.cache.hazelcast.serializationAllowList.packagePrefixes:}")
+  private String serializationAllowListPackagePrefixes;
+
   @Value("${datahub.gms.rateLimits.endpoint.hazelcastMapName:gmsRateLimitEndpointBuckets}")
   private String rateLimitEndpointHazelcastMapName;
 
@@ -96,7 +103,9 @@ public class CacheConfig {
   public HazelcastInstance hazelcastInstance(
       List<MapConfig> hazelcastMapConfigs,
       List<ReplicatedMapConfig> hazelcastReplicatedMapConfigs,
-      ObjectProvider<EntityGraphCacheProperties> effectiveEntityGraphCachePropertiesProvider) {
+      ObjectProvider<EntityGraphCacheProperties> effectiveEntityGraphCachePropertiesProvider,
+      ObjectProvider<HazelcastSerializationAllowListContributor>
+          serializationAllowListContributors) {
     Config config = new Config();
     EntityGraphCacheProperties effectiveEntityGraphCacheProperties =
         effectiveEntityGraphCachePropertiesProvider.getIfAvailable();
@@ -143,6 +152,12 @@ public class CacheConfig {
             new SerializerConfig()
                 .setTypeClass(EntityGraphOperationalStatus.class)
                 .setImplementation(new EntityGraphOperationalStatusSerializer()));
+
+    HazelcastSerializationFilter.apply(
+        config,
+        serializationAllowListContributors.orderedStream().toList(),
+        serializationAllowListClassNames,
+        serializationAllowListPackagePrefixes);
 
     config.setClassLoader(this.getClass().getClassLoader());
     config.setProperty("hazelcast.logging.type", "slf4j");
