@@ -22,6 +22,9 @@ class DremioSourceReport(
 ):
     num_containers_failed: int = 0
     num_datasets_failed: int = 0
+    # Set when the job-history fetch stopped early; the stateful time window
+    # is then left in place so the next run re-reads it.
+    query_fetch_incomplete: bool = False
     containers_scanned: int = 0
     containers_filtered: int = 0
 
@@ -35,9 +38,6 @@ class DremioSourceReport(
     # "is the filter biting?" signal, not an exact edge count.
     lineage_dropped_filtered: int = 0
 
-    # Set when the job-history fetch stopped early; the stateful time window
-    # is then left in place so the next run re-reads it.
-    query_fetch_incomplete: bool = False
 
     api_calls_total: int = 0
     api_calls_by_method_and_path: TopKDict[str, int] = field(
