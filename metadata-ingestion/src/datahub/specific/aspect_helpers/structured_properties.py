@@ -89,13 +89,14 @@ class HasStructuredPropertiesPatch(MetadataPatchProposal):
     ) -> Self:
         """Add a structured property.
 
-        Currently equivalent to set_structured_property: overwrites all values for the given property.
-        To append values while keeping existing ones, use
+        Currently equivalent to set_structured_property: it replaces the values of this
+        property under the same attribution source, leaving entries for the same property
+        from other sources in place. To append values while keeping the existing ones, use
         ``DataHubGraph.add_structured_property_values``.
 
         Args:
             key: the name of the property (either bare or urn form)
-            value: the value of the property (for multi-valued properties, pass a list; it replaces the existing values)
+            value: the value of the property (for multi-valued properties, pass a list; it replaces the values held under this attribution source)
 
         Returns:
             The patch builder instance.

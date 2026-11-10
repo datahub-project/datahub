@@ -128,6 +128,10 @@ It reads the property's current values and writes the merged list back as a patc
 The write only succeeds if the entity's structured properties have not changed since the read; if they
 have, it reads and merges again, so parallel appends keep each other's values.
 
+Two limits are worth knowing. The read-and-merge is retried at most eight times, after which the call
+raises `OperationalError` rather than writing. And servers that ignore conditional headers on patches
+apply the write unconditionally, so against those a parallel append can still drop values.
+
 ### Add & Remove Upstream Lineage for Dataset
 
 To add & remove a lineage edge connecting a dataset to it's upstream or input at both the dataset and schema field level:

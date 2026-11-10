@@ -138,6 +138,9 @@ _LONG_MAX = 2**63 - 1
 # with jittered exponential backoff between them (capped at _APPEND_MAX_BACKOFF_S).
 _APPEND_MAX_ATTEMPTS = 8
 _APPEND_MAX_BACKOFF_S = 2.0
+# A failed If-Version-Match precondition. The server reports it as 412 with an error of
+# "Precondition Error" (OpenAPI) or a 412 status in the body (restli).
+_PRECONDITION_FAILED = 412
 
 # Disk cache for entity/aspect specs, keyed by server URL + commit hash so it
 # survives across short-lived processes and invalidates on server upgrade.
@@ -1922,6 +1925,21 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         res = self.execute_graphql(query=graph_query)
         return res["removeTag"]
 
+    @staticmethod
+    def _is_version_conflict(error: OperationalError) -> bool:
+        """Whether a write failed its If-Version-Match precondition and can be retried.
+
+        Classified by status rather than by the server's error prose, so rewording a message
+        does not turn a retryable conflict into a hard failure. The text check is a fallback
+        for servers that predate the structured precondition response.
+        """
+        info = error.info
+        if info.get("status") == _PRECONDITION_FAILED:
+            return True
+        if info.get("error") == "Precondition Error":
+            return True
+        return "Expected version" in str(error)
+
     def add_structured_property_values(
         self,
         entity_urn: str,
@@ -1938,8 +1956,10 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
 
         The write is conditional on the structured properties being unchanged since the
         read. If another writer changed them in between, the read and merge are retried, so
-        concurrent appends do not drop each other's values. Older servers that ignore
-        conditional headers on patches apply the write unconditionally.
+        concurrent appends do not drop each other's values. Two limits apply: the retries
+        stop after eight attempts and raise ``OperationalError``, and servers that ignore
+        conditional headers on patches apply the write unconditionally, so on those a
+        parallel append can still drop values.
 
         The merged list is written as a manual edit, the same way an edit in the UI is. If
         the property's current value was written by an automation (for example
@@ -2013,7 +2033,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 return True
             except OperationalError as e:
                 if (
-                    "Expected version" not in str(e)
+                    not self._is_version_conflict(e)
                     or attempt == _APPEND_MAX_ATTEMPTS - 1
                 ):
                     raise

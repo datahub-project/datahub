@@ -10,7 +10,7 @@ from requests.exceptions import HTTPError
 
 from datahub.configuration.common import OperationalError
 from datahub.emitter.emit_mode import EmitMode
-from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.client import _APPEND_MAX_ATTEMPTS, DataHubGraph
 from datahub.metadata.schema_classes import (
     MetadataAttributionClass,
     MetadataChangeProposalClass,
@@ -392,6 +392,58 @@ class TestAddStructuredPropertyValues:
         assert isinstance(read, MagicMock)
         assert read.call_count == 2
         assert len(self._emitted(graph)) == 2
+
+    def test_conflict_is_recognised_by_status_not_by_message(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Rewording the server's message must not turn a retryable conflict into a failure."""
+        monkeypatch.setattr("datahub.ingestion.graph.client.time.sleep", lambda _: None)
+        graph = self._graph_with(
+            StructuredPropertiesClass(properties=[self._assignment(["a"])]),
+            emit_side_effect=[
+                OperationalError("rejected by the server", {"status": 412}),
+                None,
+            ],
+        )
+
+        assert graph.add_structured_property_values(self._ENTITY, self._PROP, ["b"])
+        assert len(self._emitted(graph)) == 2
+
+    def test_openapi_precondition_error_is_a_conflict(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr("datahub.ingestion.graph.client.time.sleep", lambda _: None)
+        graph = self._graph_with(
+            StructuredPropertiesClass(properties=[self._assignment(["a"])]),
+            emit_side_effect=[
+                OperationalError("nope", {"error": "Precondition Error"}),
+                None,
+            ],
+        )
+
+        assert graph.add_structured_property_values(self._ENTITY, self._PROP, ["b"])
+        assert len(self._emitted(graph)) == 2
+
+    def test_conflicts_stop_after_the_attempt_limit(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A contended entity gives up and raises rather than retrying without bound."""
+        monkeypatch.setattr("datahub.ingestion.graph.client.time.sleep", lambda _: None)
+        graph = self._graph_with(
+            StructuredPropertiesClass(properties=[self._assignment(["a"])]),
+            emit_side_effect=[
+                OperationalError("Expected version 3, actual version 4")
+                for _ in range(_APPEND_MAX_ATTEMPTS)
+            ],
+        )
+
+        with pytest.raises(OperationalError):
+            graph.add_structured_property_values(self._ENTITY, self._PROP, ["b"])
+
+        read = graph._get_structured_properties_with_version
+        assert isinstance(read, MagicMock)
+        assert read.call_count == _APPEND_MAX_ATTEMPTS
+        assert len(self._emitted(graph)) == _APPEND_MAX_ATTEMPTS
 
     def test_other_write_errors_are_not_retried(self) -> None:
         graph = self._graph_with(

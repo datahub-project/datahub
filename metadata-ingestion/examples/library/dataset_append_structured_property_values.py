@@ -1,7 +1,8 @@
 from datahub.emitter.mce_builder import make_dataset_urn
-from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
+from datahub.ingestion.graph.client import get_default_graph
 
-graph = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080"))
+# Uses the instance from `datahub init`, or DATAHUB_GMS_URL / DATAHUB_GMS_TOKEN.
+graph = get_default_graph()
 
 dataset_urn = make_dataset_urn(platform="hive", name="fct_users_created", env="PROD")
 

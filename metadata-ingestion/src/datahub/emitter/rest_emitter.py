@@ -1245,6 +1245,11 @@ class DataHubRestEmitter(Closeable, Emitter):
                     )
                     info.pop("stackTrace", None)
 
+                # Callers classify failures by status (a failed If-Version-Match precondition
+                # is a 412 the caller can retry, not a rejected write). The restli error body
+                # carries it; the OpenAPI one does not, so fill it in from the response.
+                info.setdefault("status", response.status_code)
+
                 hint = ""
                 if "unrecognized field found but not allowed" in (
                     info.get("message") or ""
