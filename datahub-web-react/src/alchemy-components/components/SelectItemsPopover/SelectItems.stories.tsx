@@ -45,12 +45,12 @@ const meta: Meta<SelectItemPopoverProps> = {
             table: {
                 defaultValue: { summary: '<Button>Click Me</Button>' },
             },
-            control: { type: 'object' },
+            control: false,
         },
         handleSelectionChange: {
             description: 'Callback function triggered when selected items are updated.',
             table: {
-                type: { summary: '(params: { addedItems: Entity[], removedItems: Entity[] }) => void' },
+                type: { summary: '(params: { selectedItems: string[], removedItems: string[] }) => void' },
             },
             control: false,
         },
@@ -93,7 +93,7 @@ const meta: Meta<SelectItemPopoverProps> = {
         renderOption: {
             description: 'Custom renderer function for each option in the select list.',
             table: {
-                type: { summary: '(option: { item: Entity }) => React.ReactNode' },
+                type: { summary: '(option: { value: string, label: ReactNode, item?: Entity }) => React.ReactNode' },
             },
             control: false,
         },

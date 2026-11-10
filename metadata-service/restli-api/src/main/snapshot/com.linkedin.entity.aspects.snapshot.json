@@ -379,7 +379,11 @@
         "Searchable" : {
           "/*" : {
             "fieldType" : "TEXT",
-            "queryByDefault" : true
+            "queryByDefault" : true,
+            "v3" : {
+              "copyToOther" : true,
+              "queryByDefault" : false
+            }
           }
         }
       } ]
@@ -402,7 +406,11 @@
         "doc" : "URL where the reference exist",
         "optional" : true,
         "Searchable" : {
-          "fieldType" : "KEYWORD"
+          "fieldType" : "KEYWORD",
+          "v3" : {
+            "queryByDefault" : false,
+            "searchLabel" : "externalUrl"
+          }
         }
       } ]
     } ],
@@ -416,6 +424,7 @@
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
         "v3" : {
+          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -425,6 +434,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -446,6 +456,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "description"
         }
       }
@@ -508,7 +519,11 @@
       "doc" : "URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart",
       "optional" : true,
       "Searchable" : {
-        "fieldType" : "KEYWORD"
+        "fieldType" : "KEYWORD",
+        "v3" : {
+          "queryByDefault" : false,
+          "searchLabel" : "externalUrl"
+        }
       }
     }, {
       "name" : "inputs",
@@ -639,7 +654,27 @@
     "fields" : [ {
       "name" : "rawQuery",
       "type" : "string",
-      "doc" : "Raw query to build a chart from input datasets"
+      "doc" : "Raw query to build a chart from input datasets",
+      "Searchable" : {
+        "fieldType" : "RICH_TEXT",
+        "queryByDefault" : false,
+        "v3" : {
+          "boostScore" : 0.5,
+          "mappings" : [ {
+            "docValues" : false,
+            "index" : false,
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "queryByDefault" : false,
+          "searchLabel" : "queryText"
+        }
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -660,7 +695,8 @@
       }
     } ],
     "Aspect" : {
-      "name" : "chartQuery"
+      "name" : "chartQuery",
+      "schemaVersion" : 2
     }
   }, "com.linkedin.chart.ChartQueryType", "com.linkedin.chart.ChartType", "com.linkedin.common.AccessLevel", "com.linkedin.common.AuditStamp", {
     "type" : "record",
@@ -858,7 +894,7 @@
         "filterNameOverride" : "Platform",
         "v3" : {
           "copyToOther" : true,
-          "queryByDefault" : false
+          "searchLabel" : "platform"
         }
       }
     }, {
@@ -873,7 +909,7 @@
         "filterNameOverride" : "Platform Instance",
         "v3" : {
           "copyToOther" : true,
-          "queryByDefault" : false
+          "searchLabel" : "platformInstance"
         }
       }
     } ],
@@ -1059,6 +1095,7 @@
             "mappings" : [ {
               "type" : "URN"
             } ],
+            "queryByDefault" : true,
             "searchLabel" : "tags"
           }
         }
@@ -1147,6 +1184,7 @@
           "mappings" : [ {
             "type" : "URN"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "glossaryTerms"
         }
       }
@@ -1563,6 +1601,7 @@
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
         "v3" : {
+          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -1572,6 +1611,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -1595,6 +1635,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "description"
         }
       }
@@ -1760,6 +1801,7 @@
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
         "v3" : {
+          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -1769,6 +1811,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -1793,6 +1836,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "description"
         }
       }
@@ -1870,6 +1914,7 @@
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
         "v3" : {
+          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -1879,6 +1924,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -1903,6 +1949,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "description"
         }
       }
@@ -2225,7 +2272,11 @@
                 "fieldName" : "fineGrainedUpstreams",
                 "fieldType" : "URN",
                 "hasValuesFieldName" : "hasFineGrainedUpstreams",
-                "queryByDefault" : false
+                "queryByDefault" : false,
+                "v3" : {
+                  "queryByDefault" : false,
+                  "searchLabel" : "fineGrainedUpstreams"
+                }
               }
             }
           }, {
@@ -2351,6 +2402,7 @@
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
         "v3" : {
+          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -2360,6 +2412,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -2374,6 +2427,7 @@
         "enableAutocomplete" : true,
         "fieldType" : "WORD_GRAM",
         "v3" : {
+          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -2383,6 +2437,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "qualifiedName"
         }
       }
@@ -2407,6 +2462,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "description"
         }
       }
@@ -2506,7 +2562,11 @@
         "fieldName" : "upstreams",
         "fieldType" : "URN",
         "hasValuesFieldName" : "hasUpstreams",
-        "queryByDefault" : false
+        "queryByDefault" : false,
+        "v3" : {
+          "queryByDefault" : false,
+          "searchLabel" : "upstreams"
+        }
       }
     }, {
       "name" : "type",
@@ -2602,6 +2662,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "description"
         }
       }
@@ -2620,7 +2681,6 @@
         "hasValuesFieldName" : "hasParentNode",
         "v3" : {
           "hasValuesFieldName" : "hasParent",
-          "queryByDefault" : false,
           "searchLabel" : "parent"
         }
       }
@@ -2636,6 +2696,7 @@
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
         "v3" : {
+          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -2645,6 +2706,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -2654,7 +2716,22 @@
       "doc" : "Optional id for the GlossaryNode",
       "optional" : true,
       "Searchable" : {
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "TEXT_PARTIAL",
+        "v3" : {
+          "boostScore" : 2.0,
+          "lowercase" : true,
+          "mappings" : [ {
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "queryByDefault" : true,
+          "searchLabel" : "id"
+        }
       }
     } ],
     "Aspect" : {
@@ -2672,7 +2749,22 @@
       "doc" : "Optional id for the term",
       "optional" : true,
       "Searchable" : {
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "TEXT_PARTIAL",
+        "v3" : {
+          "boostScore" : 2.0,
+          "lowercase" : true,
+          "mappings" : [ {
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "queryByDefault" : true,
+          "searchLabel" : "id"
+        }
       }
     }, {
       "name" : "name",
@@ -2685,6 +2777,7 @@
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
         "v3" : {
+          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -2694,6 +2787,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -2716,6 +2810,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "description"
         }
       }
@@ -2734,7 +2829,6 @@
         "hasValuesFieldName" : "hasParentNode",
         "v3" : {
           "hasValuesFieldName" : "hasParent",
-          "queryByDefault" : false,
           "searchLabel" : "parent"
         }
       }
@@ -2785,6 +2879,7 @@
         "fieldType" : "TEXT_PARTIAL",
         "queryByDefault" : true,
         "v3" : {
+          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -2794,6 +2889,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -2858,6 +2954,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "description"
         }
       }
@@ -2907,7 +3004,10 @@
       "default" : [ ],
       "Searchable" : {
         "/*" : {
-          "fieldType" : "TEXT"
+          "fieldType" : "TEXT",
+          "v3" : {
+            "queryByDefault" : true
+          }
         }
       }
     }, {
@@ -2920,7 +3020,10 @@
       "default" : [ ],
       "Searchable" : {
         "/*" : {
-          "fieldType" : "TEXT"
+          "fieldType" : "TEXT",
+          "v3" : {
+            "queryByDefault" : true
+          }
         }
       }
     }, {
@@ -2938,6 +3041,7 @@
         "fieldType" : "WORD_GRAM",
         "queryByDefault" : true,
         "v3" : {
+          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -2947,6 +3051,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -3034,6 +3139,7 @@
         "fieldType" : "WORD_GRAM",
         "queryByDefault" : true,
         "v3" : {
+          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -3043,6 +3149,7 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
+          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -3053,7 +3160,10 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "KEYWORD",
-        "queryByDefault" : true
+        "queryByDefault" : true,
+        "v3" : {
+          "queryByDefault" : true
+        }
       }
     }, {
       "name" : "title",
@@ -3062,7 +3172,10 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "KEYWORD",
-        "queryByDefault" : true
+        "queryByDefault" : true,
+        "v3" : {
+          "queryByDefault" : true
+        }
       }
     }, {
       "name" : "managerUrn",
@@ -3107,7 +3220,21 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldType" : "WORD_GRAM",
-        "queryByDefault" : true
+        "queryByDefault" : true,
+        "v3" : {
+          "lowercase" : true,
+          "mappings" : [ {
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "queryByDefault" : true,
+          "searchLabel" : "name"
+        }
       }
     }, {
       "name" : "countryCode",
@@ -3202,15 +3329,40 @@
         "Searchable" : {
           "boostScore" : 4.0,
           "fieldName" : "tool",
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "TEXT_PARTIAL",
+          "v3" : {
+            "boostScore" : 1.0,
+            "queryByDefault" : false,
+            "searchLabel" : "tool"
+          }
         }
       }, {
         "name" : "chartId",
         "type" : "string",
-        "doc" : "Unique id for the chart. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, chart URL could be used here for Looker such as 'looker.linkedin.com/looks/1234'"
+        "doc" : "Unique id for the chart. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, chart URL could be used here for Looker such as 'looker.linkedin.com/looks/1234'",
+        "Searchable" : {
+          "fieldType" : "KEYWORD",
+          "queryByDefault" : false,
+          "v3" : {
+            "boostScore" : 2.0,
+            "lowercase" : true,
+            "mappings" : [ {
+              "type" : "KEYWORD"
+            }, {
+              "subfield" : "text",
+              "type" : "TEXT"
+            }, {
+              "subfield" : "stemmed",
+              "type" : "STEMMED"
+            } ],
+            "queryByDefault" : true,
+            "searchLabel" : "id"
+          }
+        }
       } ],
       "Aspect" : {
-        "name" : "chartKey"
+        "name" : "chartKey",
+        "schemaVersion" : 2
       }
     }, "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", {
       "type" : "record",
@@ -3225,7 +3377,22 @@
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
           "fieldType" : "WORD_GRAM",
-          "queryByDefault" : true
+          "queryByDefault" : true,
+          "v3" : {
+            "boostScore" : 10.0,
+            "lowercase" : true,
+            "mappings" : [ {
+              "type" : "KEYWORD"
+            }, {
+              "subfield" : "text",
+              "type" : "TEXT"
+            }, {
+              "subfield" : "stemmed",
+              "type" : "STEMMED"
+            } ],
+            "queryByDefault" : true,
+            "searchLabel" : "name"
+          }
         }
       } ],
       "Aspect" : {
@@ -3244,7 +3411,22 @@
           "boostScore" : 2.0,
           "enableAutocomplete" : true,
           "fieldName" : "ldap",
-          "fieldType" : "WORD_GRAM"
+          "fieldType" : "WORD_GRAM",
+          "v3" : {
+            "boostScore" : 10.0,
+            "lowercase" : true,
+            "mappings" : [ {
+              "type" : "KEYWORD"
+            }, {
+              "subfield" : "text",
+              "type" : "TEXT"
+            }, {
+              "subfield" : "stemmed",
+              "type" : "STEMMED"
+            } ],
+            "queryByDefault" : true,
+            "searchLabel" : "name"
+          }
         }
       } ],
       "Aspect" : {
@@ -3262,15 +3444,40 @@
         "Searchable" : {
           "boostScore" : 4.0,
           "fieldName" : "tool",
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "TEXT_PARTIAL",
+          "v3" : {
+            "boostScore" : 1.0,
+            "queryByDefault" : false,
+            "searchLabel" : "tool"
+          }
         }
       }, {
         "name" : "dashboardId",
         "type" : "string",
-        "doc" : "Unique id for the dashboard. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, dashboard URL could be used here for Looker such as 'looker.linkedin.com/dashboards/1234'"
+        "doc" : "Unique id for the dashboard. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, dashboard URL could be used here for Looker such as 'looker.linkedin.com/dashboards/1234'",
+        "Searchable" : {
+          "fieldType" : "KEYWORD",
+          "queryByDefault" : false,
+          "v3" : {
+            "boostScore" : 2.0,
+            "lowercase" : true,
+            "mappings" : [ {
+              "type" : "KEYWORD"
+            }, {
+              "subfield" : "text",
+              "type" : "TEXT"
+            }, {
+              "subfield" : "stemmed",
+              "type" : "STEMMED"
+            } ],
+            "queryByDefault" : true,
+            "searchLabel" : "id"
+          }
+        }
       } ],
       "Aspect" : {
-        "name" : "dashboardKey"
+        "name" : "dashboardKey",
+        "schemaVersion" : 2
       }
     }, "com.linkedin.dashboard.DashboardInfo", {
       "type" : "record",
@@ -3282,7 +3489,12 @@
         "type" : "string",
         "doc" : "Workflow manager like azkaban, airflow which orchestrates the flow",
         "Searchable" : {
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "TEXT_PARTIAL",
+          "v3" : {
+            "boostScore" : 1.0,
+            "queryByDefault" : false,
+            "searchLabel" : "tool"
+          }
         }
       }, {
         "name" : "flowId",
@@ -3290,14 +3502,35 @@
         "doc" : "Unique Identifier of the data flow",
         "Searchable" : {
           "enableAutocomplete" : true,
-          "fieldType" : "WORD_GRAM"
+          "fieldType" : "WORD_GRAM",
+          "v3" : {
+            "boostScore" : 2.0,
+            "lowercase" : true,
+            "mappings" : [ {
+              "type" : "KEYWORD"
+            }, {
+              "subfield" : "text",
+              "type" : "TEXT"
+            }, {
+              "subfield" : "stemmed",
+              "type" : "STEMMED"
+            } ],
+            "queryByDefault" : true,
+            "searchLabel" : "id"
+          }
         }
       }, {
         "name" : "cluster",
         "type" : "string",
         "doc" : "Cluster where the flow is executed",
         "Searchable" : {
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "TEXT_PARTIAL",
+          "v3" : {
+            "boostScore" : 1.0,
+            "copyToOther" : true,
+            "queryByDefault" : false,
+            "searchLabel" : "location"
+          }
         }
       } ],
       "Aspect" : {
@@ -3319,7 +3552,12 @@
         "Searchable" : {
           "fieldName" : "dataFlow",
           "fieldType" : "URN_PARTIAL",
-          "queryByDefault" : false
+          "queryByDefault" : false,
+          "v3" : {
+            "hasValuesFieldName" : "hasParent",
+            "queryByDefault" : false,
+            "searchLabel" : "parent"
+          }
         }
       }, {
         "name" : "jobId",
@@ -3327,7 +3565,22 @@
         "doc" : "Unique Identifier of the data job",
         "Searchable" : {
           "enableAutocomplete" : true,
-          "fieldType" : "WORD_GRAM"
+          "fieldType" : "WORD_GRAM",
+          "v3" : {
+            "boostScore" : 2.0,
+            "lowercase" : true,
+            "mappings" : [ {
+              "type" : "KEYWORD"
+            }, {
+              "subfield" : "text",
+              "type" : "TEXT"
+            }, {
+              "subfield" : "stemmed",
+              "type" : "STEMMED"
+            } ],
+            "queryByDefault" : true,
+            "searchLabel" : "id"
+          }
         }
       } ],
       "Aspect" : {
@@ -3508,6 +3761,7 @@
                 "queryByDefault" : "true",
                 "v3" : {
                   "degree" : 1,
+                  "lowercase" : true,
                   "mappings" : [ {
                     "type" : "KEYWORD"
                   }, {
@@ -3517,7 +3771,6 @@
                     "subfield" : "stemmed",
                     "type" : "STEMMED"
                   } ],
-                  "queryByDefault" : false,
                   "searchLabel" : "name"
                 }
               }
@@ -3557,7 +3810,6 @@
                     "subfield" : "stemmed",
                     "type" : "STEMMED"
                   } ],
-                  "queryByDefault" : false,
                   "searchLabel" : "description"
                 }
               }
@@ -3573,6 +3825,7 @@
                 "fieldType" : "TEXT",
                 "v3" : {
                   "degree" : 1,
+                  "lowercase" : true,
                   "mappings" : [ {
                     "type" : "KEYWORD"
                   }, {
@@ -3582,7 +3835,6 @@
                     "subfield" : "stemmed",
                     "type" : "STEMMED"
                   } ],
-                  "queryByDefault" : false,
                   "searchLabel" : "name"
                 }
               }
@@ -3747,7 +3999,6 @@
                     "mappings" : [ {
                       "type" : "URN"
                     } ],
-                    "queryByDefault" : false,
                     "searchLabel" : "tags"
                   }
                 }
@@ -3790,7 +4041,6 @@
                     "mappings" : [ {
                       "type" : "URN"
                     } ],
-                    "queryByDefault" : false,
                     "searchLabel" : "glossaryTerms"
                   }
                 }
@@ -3959,6 +4209,7 @@
                     "subfield" : "stemmed",
                     "type" : "STEMMED"
                   } ],
+                  "queryByDefault" : true,
                   "searchLabel" : "description"
                 }
               }
@@ -3997,6 +4248,7 @@
                     "mappings" : [ {
                       "type" : "URN"
                     } ],
+                    "queryByDefault" : true,
                     "searchLabel" : "tags"
                   }
                 }
@@ -4039,6 +4291,7 @@
                     "mappings" : [ {
                       "type" : "URN"
                     } ],
+                    "queryByDefault" : true,
                     "searchLabel" : "glossaryTerms"
                   }
                 }
@@ -4046,7 +4299,7 @@
             } ]
           }
         },
-        "doc" : "Client provided a list of fields from document schema. Descriptions, tags and glossary\nterms on these columns are one step from the entity, so they index as degree 1.",
+        "doc" : "Client provided a list of fields from document schema. Descriptions, tags and glossary\nterms on these columns are one step from the entity, so they index as degree 1.\nThe field annotation opts those values into an unqualified query. This path sets\nv3.queryByDefault false so the column copy stays out.",
         "Searchable" : {
           "/*/description" : {
             "v3" : {
@@ -4083,13 +4336,31 @@
       "fields" : [ {
         "name" : "name",
         "type" : "string",
+        "doc" : "Unique id for the node. Callers may supply one; otherwise creation stores a UUID.\nThe display name is GlossaryNodeInfo.name.",
         "Searchable" : {
           "enableAutocomplete" : true,
-          "fieldType" : "WORD_GRAM"
+          "fieldName" : "id",
+          "fieldType" : "WORD_GRAM",
+          "v3" : {
+            "boostScore" : 2.0,
+            "lowercase" : true,
+            "mappings" : [ {
+              "type" : "KEYWORD"
+            }, {
+              "subfield" : "text",
+              "type" : "TEXT"
+            }, {
+              "subfield" : "stemmed",
+              "type" : "STEMMED"
+            } ],
+            "queryByDefault" : true,
+            "searchLabel" : "id"
+          }
         }
       } ],
       "Aspect" : {
-        "name" : "glossaryNodeKey"
+        "name" : "glossaryNodeKey",
+        "schemaVersion" : 2
       }
     }, "com.linkedin.glossary.GlossaryTermInfo", {
       "type" : "record",
@@ -4103,7 +4374,22 @@
         "Searchable" : {
           "enableAutocomplete" : true,
           "fieldName" : "id",
-          "fieldType" : "WORD_GRAM"
+          "fieldType" : "WORD_GRAM",
+          "v3" : {
+            "boostScore" : 2.0,
+            "lowercase" : true,
+            "mappings" : [ {
+              "type" : "KEYWORD"
+            }, {
+              "subfield" : "text",
+              "type" : "TEXT"
+            }, {
+              "subfield" : "stemmed",
+              "type" : "STEMMED"
+            } ],
+            "queryByDefault" : true,
+            "searchLabel" : "id"
+          }
         }
       } ],
       "Aspect" : {
@@ -4119,7 +4405,13 @@
         "type" : "string",
         "doc" : "Namespace for the feature",
         "Searchable" : {
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "TEXT_PARTIAL",
+          "v3" : {
+            "boostScore" : 1.0,
+            "copyToOther" : true,
+            "queryByDefault" : false,
+            "searchLabel" : "location"
+          }
         }
       }, {
         "name" : "name",
@@ -4131,6 +4423,7 @@
           "fieldNameAliases" : [ "_entityName" ],
           "fieldType" : "WORD_GRAM",
           "v3" : {
+            "lowercase" : true,
             "mappings" : [ {
               "type" : "KEYWORD"
             }, {
@@ -4140,6 +4433,7 @@
               "subfield" : "stemmed",
               "type" : "STEMMED"
             } ],
+            "queryByDefault" : true,
             "searchLabel" : "name"
           }
         }
@@ -4173,6 +4467,7 @@
               "subfield" : "stemmed",
               "type" : "STEMMED"
             } ],
+            "queryByDefault" : true,
             "searchLabel" : "description"
           }
         }
@@ -4213,7 +4508,16 @@
       "fields" : [ {
         "name" : "platform",
         "type" : "com.linkedin.common.Urn",
-        "doc" : "Standardized platform urn for the model"
+        "doc" : "Standardized platform urn for the model",
+        "Searchable" : {
+          "enableAutocomplete" : true,
+          "fieldType" : "URN",
+          "queryByDefault" : false,
+          "v3" : {
+            "copyToOther" : true,
+            "searchLabel" : "platform"
+          }
+        }
       }, {
         "name" : "name",
         "type" : "string",
@@ -4225,6 +4529,7 @@
           "fieldNameAliases" : [ "_entityName" ],
           "fieldType" : "WORD_GRAM",
           "v3" : {
+            "lowercase" : true,
             "mappings" : [ {
               "type" : "KEYWORD"
             }, {
@@ -4234,6 +4539,7 @@
               "subfield" : "stemmed",
               "type" : "STEMMED"
             } ],
+            "queryByDefault" : true,
             "searchLabel" : "name"
           }
         }
@@ -4245,11 +4551,19 @@
           "addToFilters" : true,
           "fieldType" : "TEXT_PARTIAL",
           "filterNameOverride" : "Environment",
-          "queryByDefault" : false
+          "queryByDefault" : false,
+          "v3" : {
+            "mappings" : [ {
+              "type" : "KEYWORD"
+            } ],
+            "queryByDefault" : false,
+            "searchLabel" : "origin"
+          }
         }
       } ],
       "Aspect" : {
-        "name" : "mlModelKey"
+        "name" : "mlModelKey",
+        "schemaVersion" : 2
       }
     }, {
       "type" : "record",
@@ -4557,6 +4871,7 @@
           "fieldType" : "WORD_GRAM",
           "queryByDefault" : true,
           "v3" : {
+            "lowercase" : true,
             "mappings" : [ {
               "type" : "KEYWORD"
             }, {
@@ -4566,6 +4881,7 @@
               "subfield" : "stemmed",
               "type" : "STEMMED"
             } ],
+            "queryByDefault" : true,
             "searchLabel" : "name"
           }
         }
@@ -4590,6 +4906,7 @@
               "subfield" : "stemmed",
               "type" : "STEMMED"
             } ],
+            "queryByDefault" : true,
             "searchLabel" : "description"
           }
         }
@@ -4646,7 +4963,10 @@
         "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc",
         "optional" : true,
         "Searchable" : {
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "TEXT_PARTIAL",
+          "v3" : {
+            "queryByDefault" : true
+          }
         }
       }, {
         "name" : "hyperParameters",
@@ -4885,6 +5205,7 @@
           "fieldName" : "id",
           "fieldType" : "WORD_GRAM",
           "v3" : {
+            "lowercase" : true,
             "mappings" : [ {
               "type" : "KEYWORD"
             }, {
@@ -4894,6 +5215,7 @@
               "subfield" : "stemmed",
               "type" : "STEMMED"
             } ],
+            "queryByDefault" : true,
             "searchLabel" : "name"
           }
         }
@@ -4916,6 +5238,7 @@
           "fieldNameAliases" : [ "_entityName" ],
           "fieldType" : "WORD_GRAM",
           "v3" : {
+            "lowercase" : true,
             "mappings" : [ {
               "type" : "KEYWORD"
             }, {
@@ -4925,6 +5248,7 @@
               "subfield" : "stemmed",
               "type" : "STEMMED"
             } ],
+            "queryByDefault" : true,
             "searchLabel" : "name"
           }
         }
@@ -4947,6 +5271,7 @@
               "subfield" : "stemmed",
               "type" : "STEMMED"
             } ],
+            "queryByDefault" : true,
             "searchLabel" : "description"
           }
         }

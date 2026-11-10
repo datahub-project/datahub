@@ -1,11 +1,13 @@
 package com.linkedin.datahub.graphql;
 
+import static com.linkedin.datahub.graphql.GmsGraphQLEngine.interfaceSchemaFiles;
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertTrue;
 
+import com.google.common.collect.Iterables;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -110,7 +112,7 @@ public class MapperReadsCoveredByAnnotationsTest {
     SchemaParser parser = new SchemaParser();
     TypeDefinitionRegistry typeRegistry = new TypeDefinitionRegistry();
     ClassLoader cl = Thread.currentThread().getContextClassLoader();
-    for (String file : SCHEMA_FILES) {
+    for (String file : Iterables.concat(List.of(SCHEMA_FILES), interfaceSchemaFiles())) {
       try (InputStream is = cl.getResourceAsStream(file)) {
         String sdl =
             IOUtils.toString(Objects.requireNonNull(is, "Missing " + file), StandardCharsets.UTF_8);

@@ -597,6 +597,11 @@ module.exports = {
           ],
         },
         {
+          label: "Analytics Dashboards",
+          type: "doc",
+          id: "docs/features/feature-guides/analytics-dashboards",
+        },
+        {
           label: "Asset Summaries",
           type: "doc",
           id: "docs/features/feature-guides/custom-asset-summaries",
@@ -978,6 +983,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_2_4_0",
         "docs/managed-datahub/release-notes/v_2_3_0",
         "docs/managed-datahub/release-notes/v_2_2_0",
         "docs/managed-datahub/release-notes/v_2_1_0",
