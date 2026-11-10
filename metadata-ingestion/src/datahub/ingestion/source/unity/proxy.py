@@ -77,6 +77,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     TableReference,
     escape_unity_name,
     make_schema,
+    qualified_table_name,
     usage_statement_types,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
@@ -323,6 +324,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self.usage_data_source = usage_data_source
         self.databricks_api_page_size = databricks_api_page_size
         self._connections_cache: Optional[Dict[str, ConnectionInfo]] = None
+        # {qualified table name: {casefolded column: stored column}} for every
+        # table listed this run, so column lineage needs no extra API call for
+        # upstreams that are in scope.
+        # ponytail: in memory, names only; a FileBackedDict if catalogs get huge.
+        self._listed_column_names: Dict[str, Dict[str, str]] = {}
         # Initialize MLflow APIs
         self._experiments_api = ExperimentsAPI(self._workspace_client.api_client)
         self._files_api = FilesAPI(self._workspace_client.api_client)
@@ -1385,9 +1391,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
             # Databricks column names are case-insensitive, and lineage reports
             # them in the case the query used, not the case the table stores.
-            lineage_by_column = {
-                name.casefold(): items for name, items in lineage.items()
-            }
+            lineage_by_column: Dict[str, List[dict]] = {}
+            for name, items in lineage.items():
+                lineage_by_column.setdefault(name.casefold(), []).extend(items)
             for column_name in column_names:
                 for item in lineage_by_column.get(column_name.casefold()) or []:
                     table_ref = TableReference.create_from_lineage(
@@ -1398,9 +1404,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         upstream_column = self._table_column_names(
                             table_ref.qualified_table_name
                         ).get(item["name"].casefold(), item["name"])
-                        table.upstreams.setdefault(table_ref, {}).setdefault(
-                            column_name, []
-                        ).append(upstream_column)
+                        upstream_columns = table.upstreams.setdefault(
+                            table_ref, {}
+                        ).setdefault(column_name, [])
+                        if upstream_column not in upstream_columns:
+                            upstream_columns.append(upstream_column)
 
         except Exception as e:
             logger.warning(
@@ -1411,12 +1419,24 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     @cached(cachetools.LRUCache(maxsize=10_000))
     def _table_column_names(self, full_name: str) -> Dict[str, str]:
         """{casefolded name: stored name} for the columns of `full_name`, so
-        column lineage uses the names the table's schema is emitted with. Empty
-        when the table can't be read; lineage then keeps the reported names."""
+        column lineage uses the names the table's schema is emitted with. Tables
+        listed this run need no API call. Empty when the table can't be read;
+        lineage then keeps the reported names."""
+        listed = self._listed_column_names.get(full_name)
+        if listed is not None:
+            return listed
         try:
-            columns = self._workspace_client.tables.get(full_name=full_name).columns
+            columns = self._workspace_client.tables.get(
+                full_name=full_name, include_browse=True
+            ).columns
         except Exception as e:
-            logger.debug(f"Unable to read columns of {full_name}: {e}")
+            self.report.warning(
+                message="Unable to read upstream table columns for column lineage; "
+                "its column names are used as the lineage reports them",
+                context=full_name,
+                exc=e,
+                log=False,
+            )
             return {}
         return {c.name.casefold(): c.name for c in columns or [] if c.name}
 
@@ -1489,6 +1509,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             self.report.num_tables_missing_name += 1
             return None
         table_id = f"{schema.id}.{self._escape_sequence(obj.name)}"
+        self._listed_column_names[
+            qualified_table_name(schema.catalog.name, schema.name, obj.name)
+        ] = {c.name.casefold(): c.name for c in obj.columns or [] if c.name}
         return Table(
             name=obj.name,
             id=table_id,
