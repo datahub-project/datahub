@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Any, Dict, List, Optional, Tuple, cast
 from unittest.mock import Mock, patch
 
@@ -15,6 +16,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     get_dataset_name,
     has_three_level_hierarchy,
 )
+from datahub.ingestion.source.kafka_connect.kafka_connect import KafkaConnectSource
 from datahub.ingestion.source.kafka_connect.sink_connectors import (
     BigQuerySinkConnector,
     ClickHouseSinkConnector,
@@ -29,6 +31,8 @@ from datahub.ingestion.source.kafka_connect.source_connectors import (
     MongoSourceConnector,
 )
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
+    RegexRouterPlugin,
+    TransformConfig,
     get_transform_pipeline,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolverInterface
@@ -1203,6 +1207,233 @@ class TestConfluentCloudConnectors:
         assert any(t.schema == "public" and t.table == "users" for t in table_names)
         # Check for TableId with schema='public' and table='orders'
         assert any(t.schema == "public" and t.table == "orders" for t in table_names)
+
+    @staticmethod
+    def _managed_postgres_source(
+        extra: Dict[str, str], cluster_topics: List[str]
+    ) -> Tuple[ConfluentJDBCSourceConnector, KafkaConnectSourceReport]:
+        # Shape of a real Confluent Cloud PostgresSource config: no connection.url.
+        connector_config: Dict[str, str] = {
+            "connector.class": "PostgresSource",
+            "connection.host": "db.example",
+            "connection.port": "5432",
+            "connection.user": "reader",
+            "connection.password": "secret",
+            "db.name": "testdb",
+            "topic.prefix": "pg-",
+            **extra,
+        }
+        manifest = ConnectorManifest(
+            name="pg-src",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+        report = KafkaConnectSourceReport()
+        connector = ConfluentJDBCSourceConnector(
+            manifest, create_mock_kafka_connect_config(), report
+        )
+        connector.all_cluster_topics = cluster_topics
+        return connector, report
+
+    def test_cloud_managed_postgres_source_maps_literal_tables_to_prefixed_topics(
+        self,
+    ) -> None:
+        connector, report = self._managed_postgres_source(
+            {"table.include.list": "public.users,sales.orders"},
+            ["pg-users", "pg-orders", "unrelated"],
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert {
+            (lineage.source_dataset, lineage.target_dataset) for lineage in lineages
+        } == {
+            ("testdb.public.users", "pg-users"),
+            ("testdb.sales.orders", "pg-orders"),
+        }
+        assert all(lineage.source_platform == "postgres" for lineage in lineages)
+        bag = connector.extract_flow_property_bag()
+        assert "connection.password" not in bag
+        assert not report.warnings
+
+    def test_cloud_managed_postgres_source_pairs_tables_by_topic_name(
+        self,
+    ) -> None:
+        # Cluster order differs from include-list order; pairing must follow names.
+        connector, _ = self._managed_postgres_source(
+            {"table.include.list": "public.users,sales.orders,public.items"},
+            ["pg-items", "pg-orders", "other", "pg-users"],
+        )
+
+        assert {
+            lineage.target_dataset: lineage.source_dataset
+            for lineage in connector.extract_lineages()
+        } == {
+            "pg-users": "testdb.public.users",
+            "pg-orders": "testdb.sales.orders",
+            "pg-items": "testdb.public.items",
+        }
+
+    def test_cloud_managed_postgres_source_skips_regex_entries(self) -> None:
+        # `.*users` would derive the topic `pg-users`, which exists, but a regex names
+        # no single table, so only the literal entry is mapped.
+        connector, report = self._managed_postgres_source(
+            {"table.include.list": "sales.orders,public\\.users.*"},
+            ["pg-orders", "pg-users"],
+        )
+
+        assert [
+            (lineage.source_dataset, lineage.target_dataset)
+            for lineage in connector.extract_lineages()
+        ] == [("testdb.sales.orders", "pg-orders")]
+        assert report.warnings
+
+    def test_cloud_managed_postgres_source_never_claims_cluster_topics(
+        self,
+    ) -> None:
+        # A regex table list or a table whose topic is not on the cluster gives no
+        # config-derived topic, and the cluster's topics belong to other connectors.
+        for table_include_list in (".*users.*", "public.missing"):
+            connector, report = self._managed_postgres_source(
+                {"table.include.list": table_include_list},
+                ["pg-users", "unrelated"],
+            )
+
+            assert connector.extract_lineages() == []
+            assert report.warnings
+
+    def test_cloud_managed_postgres_source_needs_a_schema_and_one_table_per_topic(
+        self,
+    ) -> None:
+        # `orders` has no schema, and `users` exists in two schemas that would both
+        # write `pg-users`; none of them can be placed. Listing `sales.items` twice is
+        # not a collision.
+        connector, report = self._managed_postgres_source(
+            {
+                "table.include.list": (
+                    "orders,public.users,audit.users,sales.items,sales.items"
+                )
+            },
+            ["pg-orders", "pg-users", "pg-items"],
+        )
+
+        assert [
+            (lineage.source_dataset, lineage.target_dataset)
+            for lineage in connector.extract_lineages()
+        ] == [("testdb.sales.items", "pg-items")]
+        assert len(report.warnings) == 2
+
+    @staticmethod
+    def _python_regex_router(
+        topics: List[str], transform: TransformConfig
+    ) -> List[str]:
+        regex = transform.config["regex"]
+        replacement = transform.config["replacement"].replace("$", "\\")
+        return [re.sub(f"^{regex}$", replacement, topic) for topic in topics]
+
+    def test_cloud_managed_postgres_source_pairs_routed_topics_by_name(
+        self,
+    ) -> None:
+        routed = {
+            "transforms": "route",
+            "transforms.route.type": "io.confluent.connect.cloud.transforms.TopicRegexRouter",
+            "transforms.route.regex": "pg-(.*)",
+            "transforms.route.replacement": "cdc.$1",
+        }
+        with patch.object(
+            RegexRouterPlugin, "apply_forward", side_effect=self._python_regex_router
+        ):
+            connector, _ = self._managed_postgres_source(
+                {"table.include.list": "public.users,sales.orders", **routed},
+                ["cdc.orders", "pg-users", "cdc.users"],
+            )
+            lineages = connector.extract_lineages()
+
+            missing, report = self._managed_postgres_source(
+                {"table.include.list": "public.users", **routed}, ["pg-users"]
+            )
+            assert missing.extract_lineages() == []
+            assert report.warnings
+
+        assert {
+            lineage.target_dataset: lineage.source_dataset for lineage in lineages
+        } == {"cdc.users": "testdb.public.users", "cdc.orders": "testdb.sales.orders"}
+
+    def test_cloud_managed_postgres_source_flow_properties_are_allow_listed(
+        self,
+    ) -> None:
+        connector, _ = self._managed_postgres_source(
+            {"table.include.list": "public.users", "kafka.api.secret": "s"},
+            [],
+        )
+
+        bag = connector.extract_flow_property_bag()
+
+        assert "kafka.api.secret" not in bag
+        assert "connection.password" not in bag
+        assert "connection.user" not in bag
+        assert bag["db.name"] == "testdb"
+
+    @pytest.mark.parametrize(
+        "exclude", ["sales\\..*", "\\Qsales.\\E.*"], ids=["regex", "java-quoted"]
+    )
+    def test_cloud_managed_postgres_source_applies_the_exclude_list(
+        self, exclude: str
+    ) -> None:
+        connector, _ = self._managed_postgres_source(
+            {
+                "table.include.list": "public.users,sales.orders",
+                "table.exclude.list": exclude,
+            },
+            ["pg-users", "pg-orders"],
+        )
+
+        assert [lineage.target_dataset for lineage in connector.extract_lineages()] == [
+            "pg-users"
+        ]
+
+    def test_cloud_managed_postgres_source_unreadable_exclude_list(self) -> None:
+        connector, report = self._managed_postgres_source(
+            {"table.include.list": "public.users", "table.exclude.list": "sales(["},
+            ["pg-users"],
+        )
+
+        assert connector.extract_lineages() == []
+        assert report.warnings
+
+    def test_cloud_managed_postgres_source_missing_connection_fields(
+        self,
+    ) -> None:
+        connector, report = self._managed_postgres_source(
+            {"table.include.list": "public.users", "db.name": ""}, ["pg-users"]
+        )
+
+        assert connector.extract_lineages() == []
+        assert report.warnings
+
+    def test_get_job_id_prefixes_managed_postgres_source(self) -> None:
+        lineage = KafkaConnectLineage(
+            source_dataset="public.users",
+            source_platform="postgres",
+            target_dataset="pg-users",
+            target_platform="kafka",
+        )
+        connector = ConnectorManifest(
+            name="pg-src",
+            type="source",
+            config={"connector.class": "PostgresSource"},
+            tasks=[],
+            topic_names=[],
+            lineages=[lineage],
+        )
+        config: Mock = create_mock_kafka_connect_config()
+        config.connect_to_platform_map = {"pg-src": {"postgres": "prod-pg"}}
+
+        job_id = KafkaConnectSource.get_job_id(None, lineage, connector, config)  # type: ignore[arg-type]
+
+        assert job_id == "prod-pg.public.users"
 
     def test_cloud_postgres_source_connector(self) -> None:
         """Test Confluent Cloud PostgreSQL CDC source connector."""
