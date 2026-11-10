@@ -32,8 +32,9 @@ jobs:
           python -m pip install --upgrade pip
           # Deps pulled in by the scripts under test: requests/posthog match
           # post-workflow-actions.yml; defusedxml is used by the XML parsers;
-          # pyyaml is imported by pre-commit/generate_pre_commit.py.
-          pip install pytest requests==2.32.5 posthog==7.9.4 defusedxml pyyaml
+          # pyyaml is imported by pre-commit/generate_pre_commit.py; PyGithub
+          # matches pr-state-labeler.yml.
+          pip install pytest requests==2.32.5 posthog==7.9.4 defusedxml pyyaml PyGithub==2.9.0
 
       - name: Run tests
         run: |

@@ -1,0 +1,78 @@
+name: PR State Labeler
+
+# Keeps review-state labels (needs-review, pending-submitter-response,
+# pending-submitter-merge, merge-pending-ci) current on open PRs.
+# Logic and rules: .github/scripts/pr_state_labeler.py
+#
+# Replaces the "GitHub PR Label Sync" job in acryldata/datahub-internal-pipelines,
+# which ran from another org with a personal access token.
+
+on:
+  schedule:
+    # Hourly. Each run re-checks PRs updated in the last 3h, so a delayed or
+    # failed run is covered by the next one.
+    - cron: "20 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview label changes without applying them"
+        type: boolean
+        default: true
+      updated_within_hours:
+        description: "Only check PRs updated in the last N hours (0 = every open PR)"
+        type: string
+        default: "3"
+      limit:
+        description: "Max PRs to process (empty = no limit)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-state-labeler
+  cancel-in-progress: false
+
+jobs:
+  label:
+    if: github.repository == 'datahub-project/datahub'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          sparse-checkout: .github/scripts
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install PyGithub==2.9.0
+
+      - name: Update PR labels
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Bind inputs to env vars rather than interpolating into the shell body.
+          DRY_RUN: ${{ inputs.dry_run }}
+          UPDATED_WITHIN_HOURS: ${{ inputs.updated_within_hours }}
+          LIMIT: ${{ inputs.limit }}
+        run: |
+          args=()
+          if [[ "$DRY_RUN" == "true" ]]; then
+            args+=(--dry-run)
+          fi
+          if [[ -n "$UPDATED_WITHIN_HOURS" ]]; then
+            args+=(--updated-within-hours "$UPDATED_WITHIN_HOURS")
+          fi
+          if [[ -n "$LIMIT" ]]; then
+            args+=(--limit "$LIMIT")
+          fi
+          # The previous PAT-based sync applied labels as this account; don't
+          # mistake those historical label events for manual overrides.
+          python .github/scripts/pr_state_labeler.py "${args[@]}" --ignore-label-actor maggiehays
