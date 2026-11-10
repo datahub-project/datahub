@@ -80,7 +80,6 @@ export enum EventType {
     MoveDataProductEvent,
     IngestionTestConnectionEvent,
     IngestionExecutionResultViewedEvent,
-    IngestionSourceConfigurationImpressionEvent,
     IngestionViewAllClickEvent,
     IngestionViewAllClickWarningEvent,
     CreateIngestionSourceEvent,
@@ -185,6 +184,9 @@ export enum EventType {
     GoToLogicalParentColumnEvent,
     GoToPhysicalChildColumnEvent,
     LanguageChangeEvent,
+    // Micro frontend (MFE) host events
+    MfePageViewEvent,
+    MfeLoadEvent,
 }
 
 /**
@@ -663,7 +665,6 @@ export interface IngestionTestConnectionClickEvent extends BaseEvent {
     type: EventType.IngestionTestConnectionClickEvent;
     sourceType: string;
     sourceUrn?: string;
-    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface IngestionTestConnectionCloseEvent extends BaseEvent {
@@ -672,7 +673,6 @@ export interface IngestionTestConnectionCloseEvent extends BaseEvent {
     sourceUrn?: string;
     hasCompleted?: boolean;
     status?: 'success' | 'failure' | 'partialSuccess' | 'running';
-    ingestionOnboardingRedesignV1?: boolean;
     failedCapabilities?: string[];
     durationMs?: number;
 }
@@ -695,13 +695,6 @@ export interface IngestionExecutionResultViewedEvent extends BaseEvent {
     sourceType?: string;
 }
 
-export interface IngestionSourceConfigurationImpressionEvent extends BaseEvent {
-    type: EventType.IngestionSourceConfigurationImpressionEvent;
-    viewedSection: 'SELECT_TEMPLATE' | 'DEFINE_RECIPE' | 'CREATE_SCHEDULE' | 'NAME_SOURCE';
-    sourceType?: string;
-    sourceUrn?: string;
-}
-
 export interface CreateIngestionSourceEvent extends BaseEvent {
     type: EventType.CreateIngestionSourceEvent;
     sourceType: string;
@@ -709,7 +702,6 @@ export interface CreateIngestionSourceEvent extends BaseEvent {
     interval?: string;
     numOwners?: number;
     outcome?: string;
-    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface UpdateIngestionSourceEvent extends BaseEvent {
@@ -719,7 +711,6 @@ export interface UpdateIngestionSourceEvent extends BaseEvent {
     interval?: string;
     numOwners?: number;
     outcome?: string;
-    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface DeleteIngestionSourceEvent extends BaseEvent {
@@ -1407,6 +1398,55 @@ export interface LanguageChangeEvent extends BaseEvent {
 }
 
 /**
+ * Viewed a micro frontend (MFE) route under /mfe, whether reached from the nav bar or a direct link.
+ */
+export interface MfePageViewEvent extends BaseEvent {
+    type: EventType.MfePageViewEvent;
+    /** the id of the MFE from the MFE config yaml */
+    mfeId: string;
+    /** the label of the MFE from the MFE config yaml */
+    mfeLabel: string;
+    /** the path of the MFE from the MFE config yaml, without the /mfe prefix */
+    mfePath: string;
+}
+
+/**
+ * How a micro frontend remote module load ended:
+ * - success: the remote's mount function was called
+ * - timeout: the remote did not load within the configured load timeout
+ * - load_error: fetching or unwrapping the remote module failed
+ * - invalid_mount: the remote loaded but exposed no mount function
+ * - container_missing: the host container element was not in the DOM
+ * - disabled: the MFE is disabled in the config yaml, so it was not mounted
+ * - abandoned: the user left the page before the remote finished loading
+ */
+export type MfeLoadOutcome =
+    | 'success'
+    | 'timeout'
+    | 'load_error'
+    | 'invalid_mount'
+    | 'container_missing'
+    | 'disabled'
+    | 'abandoned';
+
+/**
+ * A micro frontend (MFE) remote module load settled, successfully or not.
+ */
+export interface MfeLoadEvent extends BaseEvent {
+    type: EventType.MfeLoadEvent;
+    /** the id of the MFE from the MFE config yaml */
+    mfeId: string;
+    /** the label of the MFE from the MFE config yaml */
+    mfeLabel: string;
+    /** how the load ended */
+    outcome: MfeLoadOutcome;
+    /** milliseconds from the start of the load until it settled */
+    durationMs: number;
+    /** the remote-module load timeout that applied to this load, in milliseconds */
+    loadTimeoutMs: number;
+}
+
+/**
  * Event consisting of a union of specific event types.
  */
 export type Event =
@@ -1540,7 +1580,6 @@ export type Event =
     | ProductTourButtonClickEvent
     | IngestionTestConnectionEvent
     | IngestionExecutionResultViewedEvent
-    | IngestionSourceConfigurationImpressionEvent
     | IngestionViewAllClickEvent
     | IngestionViewAllClickWarningEvent
     | AssetPageAddSummaryElementEvent
@@ -1569,4 +1608,6 @@ export type Event =
     | GoToPhysicalChildEvent
     | GoToLogicalParentColumnEvent
     | GoToPhysicalChildColumnEvent
-    | LanguageChangeEvent;
+    | LanguageChangeEvent
+    | MfePageViewEvent
+    | MfeLoadEvent;

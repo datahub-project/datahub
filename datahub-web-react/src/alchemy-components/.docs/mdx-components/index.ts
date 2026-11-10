@@ -1,4 +1,5 @@
 export * from './CodeBlock';
+export * from './ColorTokenTable';
 export * from './CopyButton';
 export * from './GridList';
 export * from './IconGalleryWithSearch';

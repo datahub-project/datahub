@@ -37,4 +37,7 @@ public class SearchTemplateComponentRequest {
 
   @Nonnull Map<String, String> config;
   @Nonnull SearchTemplateComponentMode mode;
+
+  /** Set by the template reorder. Null for {@code plan} and for an own-rung request. */
+  @Nullable SearchTemplateRankingInput ranking;
 }

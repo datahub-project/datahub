@@ -33,7 +33,11 @@ record UpstreamMetrics {
       "fieldName": "upstreamMetrics",
       "fieldType": "URN",
       "hasValuesFieldName": "hasUpstreamMetrics",
-      "queryByDefault": false
+      "queryByDefault": false,
+      "v3": {
+        "searchLabel": "upstreamMetrics",
+        "queryByDefault": false
+      }
     }
   }
   metrics: array[Edge]
