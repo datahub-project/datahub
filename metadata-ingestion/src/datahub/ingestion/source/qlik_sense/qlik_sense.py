@@ -70,6 +70,8 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     ResolvedConnection,
     ScriptTable,
     ScriptTableLineage,
+    apply_crosstable,
+    apply_preceding_loads,
     brackets_to_backticks,
     connection_lookup_names,
     drop_condition_variables,
@@ -81,6 +83,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     parse_load_script,
     reads_unknown_fields,
     redact_connection,
+    select_list_size,
 )
 from datahub.ingestion.source.state.entity_removal_state import (
     STATEFUL_INGESTION_IGNORED_ENTITY_TYPES,
@@ -184,6 +187,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     This plugin extracts the following:
     - Qlik Sense Spaces (Cloud) or Streams (Enterprise on Windows) and Apps as Container.
     - Qlik Datasets (Cloud)
+    - Tables of each app's data model
     - Sheets as dashboard and its charts
     """
 
@@ -895,7 +899,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
         dataset_properties.customProperties.update(
             {
-                Constant.TYPE: "Qlik Table",
+                Constant.TYPE: DatasetSubTypes.QLIK_TABLE,
                 Constant.DATACONNECTORID: table.dataconnectorid,
                 Constant.DATACONNECTORNAME: table.dataconnectorName,
             }
@@ -933,7 +937,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
-            aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_DATASET]),
+            aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_TABLE]),
         ).as_workunit()
 
     def _get_data_connections(self) -> Dict[str, DataConnectionInfo]:
@@ -1064,12 +1068,35 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         lineage.upstream_urns.extend(
             urn for urn in upstream_urns if urn not in lineage.upstream_urns
         )
+        sql_columns: Dict[str, List[str]] = {}
         for column in result.column_lineage or []:
-            lineage.column_upstreams.setdefault(column.downstream.column, []).extend(
+            sql_columns.setdefault(column.downstream.column, []).extend(
                 column_refs_to_schema_field_urns(
                     ref for ref in column.upstreams if ref.table in upstream_urns
                 )
             )
+        fields: Optional[Dict[str, List[str]]] = apply_preceding_loads(
+            script_table.preceding_loads, sql_columns
+        )
+        if script_table.reshaped:
+            # Only a CrossTable whose fields are known keeps column lineage;
+            # otherwise the fields are not the columns and only table lineage
+            # is kept.
+            selected = [
+                column.downstream.column for column in result.column_lineage or []
+            ]
+            fields = apply_crosstable(
+                script_table.crosstable,
+                script_table.preceding_loads,
+                sql_columns,
+                # The parser lists columns in SELECT order, but leaves out a *
+                # and repeats a name selected twice, which would shift slots.
+                sql_columns_in_order=len(set(selected))
+                == len(selected)
+                == select_list_size(script_table.sql),
+            )
+        for field, upstreams in (fields or {}).items():
+            lineage.column_upstreams.setdefault(field, []).extend(upstreams)
 
     def _build_script_tables(self, app: App) -> List[ScriptTableLineage]:
         if not app.script:
@@ -1386,7 +1413,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             {
                 Constant.QRI: dataset.secureQri,
                 Constant.SPACEID: dataset.spaceId,
-                Constant.TYPE: "Qlik Dataset",
+                Constant.TYPE: DatasetSubTypes.QLIK_DATASET,
                 Constant.DATASETTYPE: dataset.type,
                 Constant.SIZE: str(dataset.size),
                 Constant.ROWCOUNT: str(dataset.rowCount),
