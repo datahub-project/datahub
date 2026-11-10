@@ -346,20 +346,20 @@ class DremioSQLQueries:
         if isinstance(patterns, str):
             patterns = [patterns]
 
+        # An allow of ".*" admits everything, so it needs no filter. A deny of
+        # ".*" is kept: it excludes everything, as in AllowDenyPattern.
         if ".*" in patterns and allow:
-            return ""
-
-        patterns = [p for p in patterns if p != ".*"]
-        if not patterns:
             return ""
 
         operator = "REGEXP_LIKE" if allow else "NOT REGEXP_LIKE"
         # Dremio's REGEXP_LIKE is Java's Matcher.find(); AllowDenyPattern is
         # re.match with IGNORECASE. Anchor at the start and match
         # case-insensitively to agree with it. Uppercasing the pattern instead
-        # would also uppercase escapes (\d -> \D) and inline flags.
+        # would also uppercase escapes (\d -> \D) and inline flags. Only the
+        # `i` flag: RE2, which some Dremio execution paths use, rejects `u`, and
+        # the field is upper-cased already.
         alternatives = "|".join(f"({p})" for p in patterns)
-        pattern_str = f"(?iu)^(?:{alternatives})".replace("'", "''")
+        pattern_str = f"(?i)^(?:{alternatives})".replace("'", "''")
         return f"AND {operator}({field}, '{pattern_str}')"
 
     @staticmethod

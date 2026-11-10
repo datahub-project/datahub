@@ -81,6 +81,8 @@ source_mappings:
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
+`schema_pattern` is evaluated inside Dremio, with Java regular expressions. It matches from the start of the schema path and ignores case, as elsewhere in DataHub. Python-only syntax, such as named groups `(?P<name>...)`, is rejected by Dremio.
+
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

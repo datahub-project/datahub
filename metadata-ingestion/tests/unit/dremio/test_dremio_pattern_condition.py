@@ -11,7 +11,9 @@ _FIELD = DremioSQLQueries.SCHEMA_FILTER_FIELD
 
 def _dremio_matches(patterns: List[str], schema: str, allow: bool = True) -> bool:
     """What Dremio does with the pushed condition: REGEXP_LIKE is Java's
-    Matcher.find() against the UPPER()-ed schema path."""
+    Matcher.find() against the UPPER()-ed schema path. Python's re.search stands
+    in for it, which only holds for syntax both engines share (not Unicode
+    classes, possessive quantifiers or `(?P<name>...)`)."""
     condition = DremioSQLQueries.pattern_condition(patterns, _FIELD, allow=allow)
     operator = "REGEXP_LIKE" if allow else "NOT REGEXP_LIKE"
     match = re.fullmatch(
@@ -59,3 +61,8 @@ def test_multiple_patterns_each_anchored() -> None:
     patterns = ["raw", "staging"]
     assert _dremio_matches(patterns, "staging.orders")
     assert not _dremio_matches(patterns, "prod.staging")
+
+
+def test_deny_everything_is_pushed() -> None:
+    assert not _dremio_matches([".*"], "my_space.staging", allow=False)
+    assert DremioSQLQueries.pattern_condition([".*"], _FIELD) == ""
