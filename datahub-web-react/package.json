@@ -92,7 +92,7 @@
         "react-color": "^2.19.3",
         "react-diff-viewer-continued": "^4.4.0",
         "react-dom": "^17.0.0",
-        "react-error-boundary": "^3.1.4",
+        "react-error-boundary": "^6.0.0",
         "react-helmet-async": "^3.0.0",
         "react-i18next": "^14",
         "react-intersection-observer": "^9.16.0",
