@@ -1305,6 +1305,24 @@ def test_onprem_script_tables_get_upstream_lineage(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_onprem_script_table_columns_take_preceding_load_names(
+    mock_onprem: MagicMock,
+) -> None:
+    script = """
+LIB CONNECT TO 'Sales SQL';
+Orders:
+LOAD order_id AS OrderID, amount AS [Net Sales];
+SQL SELECT order_id, amount FROM dbo.orders;
+"""
+    _, (table,) = _script_tables(mock_onprem, {}, script=script)
+
+    assert {
+        field: [urn.rsplit(",", 1)[-1] for urn in upstreams]
+        for field, upstreams in table.column_upstreams.items()
+    } == {"OrderID": ["order_id)"], "Net Sales": ["amount)"]}
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
 def test_onprem_script_mapping_default_schema_qualifies_bare_tables(
     mock_onprem: MagicMock,
 ) -> None:
@@ -2130,3 +2148,60 @@ def test_mapping_tables_are_not_chart_inputs(mock_onprem: MagicMock) -> None:
     assert list(source._app_table_fields([], tables)) == [
         "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
     ]
+
+
+@pytest.mark.parametrize(
+    "select",
+    [
+        pytest.param("region, jan, region", id="column_selected_twice"),
+        pytest.param("*", id="star"),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_crosstable_on_select_of_unknown_column_order_keeps_table_lineage(
+    mock_onprem: MagicMock, select: str
+) -> None:
+    _, tables = _script_tables(
+        mock_onprem,
+        {},
+        script="LIB CONNECT TO 'Sales SQL';\n"
+        f"T: CrossTable(Month, Sales) SQL SELECT {select} FROM sales_db.dbo.sales;",
+    )
+
+    (table,) = tables
+    assert table.upstream_urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,sales_db.dbo.sales,PROD)"
+    ]
+    assert table.column_upstreams == {}
+
+
+@pytest.mark.parametrize(
+    "load, expected_fields",
+    [
+        pytest.param(
+            "T: CrossTable(Month, Sales) LOAD region, jan, feb;",
+            {"region": ["region"], "Month": [], "Sales": ["jan", "feb"]},
+            id="crosstable",
+        ),
+        pytest.param("T: Generic LOAD region, jan, feb;", {}, id="generic"),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_reshaped_script_tables_keep_only_traceable_fields(
+    mock_onprem: MagicMock, load: str, expected_fields: Dict[str, List[str]]
+) -> None:
+    _, tables = _script_tables(
+        mock_onprem,
+        {},
+        script="LIB CONNECT TO 'Sales SQL';\n"
+        f"{load}\n"
+        "SQL SELECT region, jan, feb FROM sales_db.dbo.sales;",
+    )
+
+    (table,) = tables
+    upstream = "urn:li:dataset:(urn:li:dataPlatform:mssql,sales_db.dbo.sales,PROD)"
+    assert table.upstream_urns == [upstream]
+    assert table.column_upstreams == {
+        field: [f"urn:li:schemaField:({upstream},{column})" for column in columns]
+        for field, columns in expected_fields.items()
+    }
