@@ -48,13 +48,12 @@ class S3AccountConfig(ConfigModel):
     aws_role: AwsAssumeRoleConfig = Field(
         description="Role to assume in this account, as a role ARN or an object with "
         "`RoleArn` and optional `ExternalId`. It is assumed after any roles in "
-        "`aws_config.aws_role`."
+        "`aws_config.aws_role`. The account ID is read from the ARN."
     )
-    platform_instance: Optional[str] = Field(
+    name: Optional[str] = Field(
         default=None,
         min_length=1,
-        description="Platform instance for everything ingested from this account. "
-        "Defaults to the account ID in the role ARN.",
+        description="Display name of the account's container. Defaults to the account ID.",
     )
 
     @field_validator("aws_role", mode="before")
@@ -63,23 +62,19 @@ class S3AccountConfig(ConfigModel):
         return {"RoleArn": value} if isinstance(value, str) else value
 
     @model_validator(mode="after")
-    def instance_is_resolvable(self) -> "S3AccountConfig":
-        if self.platform_instance is None and not account_id_from_role_arn(
-            self.aws_role.RoleArn
-        ):
+    def role_names_an_account(self) -> "S3AccountConfig":
+        if not account_id_from_role_arn(self.aws_role.RoleArn):
             raise ValueError(
                 f"Cannot read an account ID from role ARN {self.aws_role.RoleArn!r}; "
-                "set platform_instance for this account."
+                "expected arn:<partition>:iam::<account id>:role/<name>."
             )
         return self
 
     @property
-    def resolved_platform_instance(self) -> str:
-        instance = self.platform_instance or account_id_from_role_arn(
-            self.aws_role.RoleArn
-        )
-        assert instance, "checked by instance_is_resolvable"
-        return instance
+    def account_id(self) -> str:
+        account_id = account_id_from_role_arn(self.aws_role.RoleArn)
+        assert account_id, "checked by role_names_an_account"
+        return account_id
 
 
 class DataLakeSourceConfig(
@@ -110,9 +105,10 @@ class DataLakeSourceConfig(
     )
     aws_accounts: List[S3AccountConfig] = Field(
         default_factory=list,
-        description="Assume each account's role and ingest the same path_specs, with "
-        "the account as platform_instance. Bucket names in path_specs must use a "
-        "wildcard, and credentials must come from the default AWS credential chain.",
+        description="Assume each account's role and ingest the same path_specs, placing "
+        "each account's buckets under an AWS Account container. Bucket names in "
+        "path_specs must use a wildcard, and credentials must come from the default "
+        "AWS credential chain.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -351,17 +347,12 @@ class DataLakeSourceConfig(
             return self
         if self.platform != "s3":
             raise ValueError("aws_accounts can only be used with s3:// path_specs.")
-        if self.platform_instance:
-            raise ValueError(
-                "aws_accounts sets a platform_instance per account; remove the "
-                "top-level platform_instance."
-            )
         if self.aws_config and (
             self.aws_config.aws_access_key_id or self.aws_config.aws_profile
         ):
             # AwsConnectionConfig only assumes roles from the default credential
             # chain. With keys or a profile every account would silently list
-            # the base identity's buckets under its own platform_instance.
+            # the base identity's buckets as its own.
             raise ValueError(
                 "aws_accounts needs credentials from the default AWS credential "
                 "chain (environment variables, instance or pod role), because "
@@ -374,16 +365,16 @@ class DataLakeSourceConfig(
             if "*" not in get_bucket_name(spec.include)
         )
         if fixed_buckets:
-            # A named bucket belongs to one account, so in every other account it is
-            # either denied or ingested again under the wrong platform_instance.
+            # A named bucket belongs to one account. In every other account it is
+            # either denied, or listed and filed under that other account.
             raise ValueError(
                 "With aws_accounts every path_spec runs in every account, so the bucket "
                 f"name must be a wildcard such as s3://*/. Named buckets: {fixed_buckets}"
             )
-        counts = Counter(a.resolved_platform_instance for a in self.aws_accounts)
+        counts = Counter(account.account_id for account in self.aws_accounts)
         duplicates = sorted(i for i, n in counts.items() if n > 1)
         if duplicates:
             raise ValueError(
-                f"aws_accounts platform_instance values must be unique: {duplicates}"
+                f"aws_accounts lists an account more than once: {duplicates}"
             )
         return self

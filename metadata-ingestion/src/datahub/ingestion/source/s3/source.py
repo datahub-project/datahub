@@ -31,6 +31,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -51,7 +52,10 @@ from datahub.ingestion.source.aws.s3_util import (
     get_key_prefix,
     strip_s3_prefix,
 )
-from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.data_lake_common.data_lake_utils import (
     ContainerWUCreator,
     add_partition_columns_to_schema,
@@ -206,6 +210,10 @@ class TableData:
     content_type: Optional[str] = None
 
 
+class AwsAccountKey(ContainerKey):
+    account_id: str
+
+
 @platform_name("S3 / Local Files", id="s3")
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.GA)
@@ -327,13 +335,34 @@ class S3Source(StatefulIngestionSourceBase):
                 ) from e
 
     def _new_container_wu_creator(
-        self, root_browse_path_under_instance: bool = False
+        self, bucket_parent_key: Optional[ContainerKey] = None
     ) -> ContainerWUCreator:
         return ContainerWUCreator(
             self.source_config.platform,
             self.source_config.platform_instance,
             self.source_config.env,
-            root_browse_path_under_instance=root_browse_path_under_instance,
+            bucket_parent_key=bucket_parent_key,
+        )
+
+    def _account_key(self, account: S3AccountConfig) -> "AwsAccountKey":
+        # Keyed like BucketKey, so accounts and their buckets split by env and
+        # platform_instance the same way.
+        return AwsAccountKey(
+            platform=self.source_config.platform,
+            instance=self.source_config.platform_instance,
+            env=self.source_config.env,
+            backcompat_env_as_instance=True,
+            account_id=account.account_id,
+        )
+
+    def _account_container(
+        self, account: S3AccountConfig
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from gen_containers(
+            container_key=self._account_key(account),
+            name=account.name or account.account_id,
+            sub_types=[DatasetContainerSubTypes.AWS_ACCOUNT],
+            extra_properties={"account_id": account.account_id},
         )
 
     @classmethod
@@ -1204,12 +1233,11 @@ class S3Source(StatefulIngestionSourceBase):
             self.source_config = recipe_config.model_copy(
                 update={
                     "aws_config": account_aws_config,
-                    "platform_instance": account.resolved_platform_instance,
                     "aws_accounts": [],
                 }
             )
             self.container_WU_creator = self._new_container_wu_creator(
-                root_browse_path_under_instance=True
+                bucket_parent_key=self._account_key(account)
             )
             if profiling:
                 self.profiler.aws_config = account_aws_config
@@ -1225,8 +1253,7 @@ class S3Source(StatefulIngestionSourceBase):
         # A failure is reported and the next path spec or account carries on. Any
         # reported failure also keeps stale-entity removal from running, so no
         # account's existing metadata is soft-deleted after a partial run.
-        instance = account.resolved_platform_instance
-        context = f"platform_instance={instance}, role={account.aws_role.RoleArn}"
+        context = f"account={account.account_id}, role={account.aws_role.RoleArn}"
         failed = False
         emitted = 0
         try:
@@ -1235,6 +1262,10 @@ class S3Source(StatefulIngestionSourceBase):
                     spec_context = f"{context}, path_spec={path_spec.include}"
                     try:
                         for wu in self._ingest_path_spec(path_spec):
+                            if not emitted:
+                                # Only once the role has worked, so a denied account
+                                # does not appear as an empty container.
+                                yield from self._account_container(account)
                             emitted += 1
                             yield wu
                     except (BotoCoreError, ClientError) as e:
@@ -1264,7 +1295,7 @@ class S3Source(StatefulIngestionSourceBase):
             )
 
         if failed:
-            self.report.aws_accounts_failed.append(instance)
+            self.report.aws_accounts_failed.append(account.account_id)
             return
         self.report.aws_accounts_ingested += 1
         if not emitted:

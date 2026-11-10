@@ -1,8 +1,6 @@
 import logging
 from typing import Iterable, List, Optional, Tuple
 
-from datahub.emitter.mce_builder import make_dataplatform_instance_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     BucketKey,
     ContainerKey,
@@ -33,8 +31,6 @@ from datahub.ingestion.source.gcs.gcs_utils import (
     is_gcs_uri,
 )
 from datahub.metadata.schema_classes import (
-    BrowsePathEntryClass,
-    BrowsePathsV2Class,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     StringTypeClass,
@@ -89,13 +85,14 @@ class ContainerWUCreator:
         platform_instance: Optional[str],
         env: str,
         *,
-        root_browse_path_under_instance: bool = False,
+        bucket_parent_key: Optional[ContainerKey] = None,
     ) -> None:
         self.processed_containers = []
         self.platform = platform
         self.instance = platform_instance
         self.env = env
-        self.root_browse_path_under_instance = root_browse_path_under_instance
+        # Parent of every bucket container, e.g. the AWS account that owns them.
+        self.bucket_parent_key = bucket_parent_key
 
     def create_emit_containers(
         self,
@@ -116,24 +113,6 @@ class ContainerWUCreator:
             self.processed_containers.append(container_key.guid())
             logger.debug(f"Creating container with key: {container_key}")
             yield from container_wus
-            # The browse-path processor only prefixes the recipe's platform_instance.
-            # A source that varies the instance within one run roots each top-level
-            # container under its own instance; children inherit it. This must stay
-            # in the same batch as the container's other aspects.
-            if (
-                self.root_browse_path_under_instance
-                and parent_container_key is None
-                and self.instance
-            ):
-                instance_urn = make_dataplatform_instance_urn(
-                    self.platform, self.instance
-                )
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=container_key.as_urn(),
-                    aspect=BrowsePathsV2Class(
-                        path=[BrowsePathEntryClass(id=instance_urn, urn=instance_urn)]
-                    ),
-                ).as_workunit()
 
     def gen_folder_key(self, abs_path):
         return FolderKey(
@@ -221,7 +200,7 @@ class ContainerWUCreator:
                     container_key=bucket_key,
                     name=bucket_name,
                     sub_types=[self.get_sub_types()],
-                    parent_container_key=None,
+                    parent_container_key=self.bucket_parent_key,
                 )
             )
             return wus, bucket_key, self.get_base_full_path(path)

@@ -6,11 +6,9 @@ from boto3.session import Session
 from botocore.exceptions import ClientError
 from pydantic import ValidationError
 
-from datahub.emitter.mce_builder import (
-    make_dataplatform_instance_urn,
-    make_dataset_urn_with_platform_instance,
-)
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import BucketKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import aws_common
@@ -22,15 +20,13 @@ from datahub.ingestion.source.aws.aws_common import (
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.s3_probe import s3_probe_refusal
-from datahub.ingestion.source.s3.source import S3Source
+from datahub.ingestion.source.s3.source import AwsAccountKey, S3Source
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
+    ContainerClass,
     ContainerPropertiesClass,
-    DataPlatformInstanceClass,
+    SubTypesClass,
 )
-
-INSTANCE_A = make_dataplatform_instance_urn("s3", "111111111111")
-INSTANCE_B = make_dataplatform_instance_urn("s3", "222222222222")
 
 ACCOUNT_A = "111111111111"
 ACCOUNT_B = "222222222222"
@@ -113,10 +109,26 @@ def _containers_by_name(
     }
 
 
-def _instance(aspects: Dict[str, Any]) -> Optional[str]:
-    platform_instance = aspects["DataPlatformInstanceClass"]
-    assert isinstance(platform_instance, DataPlatformInstanceClass)
-    return platform_instance.instance
+def _account_urn(account_id: str) -> str:
+    return AwsAccountKey(
+        platform="s3",
+        env="PROD",
+        backcompat_env_as_instance=True,
+        account_id=account_id,
+    ).as_urn()
+
+
+def _bucket_urn(bucket: str) -> str:
+    # What a single-account recipe produces for the same bucket.
+    return BucketKey(
+        platform="s3", env="PROD", backcompat_env_as_instance=True, bucket_name=bucket
+    ).as_urn()
+
+
+def _parent(aspects: Dict[str, Any]) -> str:
+    container = aspects["ContainerClass"]
+    assert isinstance(container, ContainerClass)
+    return container.container
 
 
 def _browse_path(aspects: Dict[str, Any]) -> List[Optional[str]]:
@@ -132,7 +144,7 @@ def _last_role(aws_config: AwsConnectionConfig) -> str:
     return role.RoleArn
 
 
-def test_each_account_is_ingested_under_its_own_role_and_instance(
+def test_each_account_is_ingested_under_its_own_role_and_container(
     s3: Session,
 ) -> None:
     _seed_account(s3, ROLE_A, "bucket-a", ["data/orders/file.csv"])
@@ -143,6 +155,10 @@ def test_each_account_is_ingested_under_its_own_role_and_instance(
             path_specs=[
                 *FOLDERS_ONLY_SPECS,
                 {"include": "s3://*/data/{table}/*.csv"},
+            ],
+            aws_accounts=[
+                {"aws_role": ROLE_A, "name": "analytics-prod"},
+                {"aws_role": ROLE_B},
             ],
             use_s3_bucket_tags=True,
             profiling={"enabled": True},
@@ -170,27 +186,44 @@ def test_each_account_is_ingested_under_its_own_role_and_instance(
     ):
         aspects = _final_aspects(source.get_workunits())
 
-    dataset_a = make_dataset_urn_with_platform_instance(
-        "s3", "bucket-a/data/orders", ACCOUNT_A
-    )
-    dataset_b = make_dataset_urn_with_platform_instance(
-        "s3", "bucket-b/data/users", ACCOUNT_B
-    )
+    # Bucket names are globally unique, so no URN carries the account: datasets
+    # and buckets match what a single-account recipe (and Glue lineage) uses.
+    dataset_a = make_dataset_urn("s3", "bucket-a/data/orders")
+    dataset_b = make_dataset_urn("s3", "bucket-b/data/users")
+    account_a, account_b = _account_urn(ACCOUNT_A), _account_urn(ACCOUNT_B)
+    bucket_a = _bucket_urn("bucket-a")
     containers = _containers_by_name(aspects)
-    assert set(containers) == {"bucket-a", "bucket-b", "empty-bucket", "data"}
-    assert _instance(aspects[dataset_a]) == INSTANCE_A
-    assert _instance(aspects[dataset_b]) == INSTANCE_B
-    assert _instance(containers["empty-bucket"]) == INSTANCE_B
+    assert set(containers) == {
+        "analytics-prod",
+        ACCOUNT_B,
+        "bucket-a",
+        "bucket-b",
+        "empty-bucket",
+        "data",
+    }
+    assert (
+        containers["analytics-prod"]["ContainerPropertiesClass"].customProperties[
+            "account_id"
+        ]
+        == ACCOUNT_A
+    )
+    account_subtypes = containers[ACCOUNT_B]["SubTypesClass"]
+    assert isinstance(account_subtypes, SubTypesClass)
+    assert account_subtypes.typeNames == ["AWS Account"]
+
+    # Each bucket sits under the account whose role listed it.
+    assert _parent(aspects[bucket_a]) == account_a
+    assert _parent(aspects[_bucket_urn("bucket-b")]) == account_b
+    assert _parent(aspects[_bucket_urn("empty-bucket")]) == account_b
 
     # The account is the first level of the final browse path for buckets, and
     # folders and datasets inherit it through their container.
-    assert _browse_path(containers["bucket-a"]) == [INSTANCE_A]
-    assert _browse_path(containers["empty-bucket"]) == [INSTANCE_B]
-    bucket_a_urn, data_a_urn = _browse_path(aspects[dataset_a])[1:]
-    assert _browse_path(aspects[dataset_a]) == [INSTANCE_A, bucket_a_urn, data_a_urn]
-    assert data_a_urn is not None
-    assert _browse_path(aspects[data_a_urn]) == [INSTANCE_A, bucket_a_urn]
-    assert _browse_path(aspects[dataset_b])[0] == INSTANCE_B
+    assert _browse_path(aspects[account_a]) == []
+    assert _browse_path(aspects[bucket_a]) == [account_a]
+    data_a = _parent(aspects[dataset_a])
+    assert _browse_path(aspects[data_a]) == [account_a, bucket_a]
+    assert _browse_path(aspects[dataset_a]) == [account_a, bucket_a, data_a]
+    assert _browse_path(aspects[dataset_b])[0] == account_b
 
     assert sorted(reads) == sorted(
         [
@@ -202,7 +235,7 @@ def test_each_account_is_ingested_under_its_own_role_and_instance(
     )
     assert source.report.aws_accounts_ingested == 2
     assert not source.report.failures
-    assert source.source_config.platform_instance is None
+    assert source.source_config.aws_accounts
     assert source.profiler.aws_config is source.source_config.aws_config
 
 
@@ -224,7 +257,8 @@ def test_denied_role_fails_only_that_account(s3: Session) -> None:
     with patch.object(aws_common, "assume_role", deny_account_a):
         containers = _containers_by_name(_final_aspects(source.get_workunits()))
 
-    assert set(containers) == {"bucket-b", "curated"}
+    # No container is created for the account whose role was denied.
+    assert set(containers) == {ACCOUNT_B, "bucket-b", "curated"}
     assert source.report.aws_accounts_ingested == 1
     assert source.report.aws_accounts_failed == [ACCOUNT_A]
     # A reported failure is what keeps stale-entity removal from soft-deleting
@@ -232,7 +266,7 @@ def test_denied_role_fails_only_that_account(s3: Session) -> None:
     assert [f.title for f in source.report.failures] == [
         "Failed to read an AWS account"
     ]
-    assert source.source_config.platform_instance is None
+    assert source.source_config.aws_accounts
     assert source.container_WU_creator is recipe_container_wu_creator
 
 
@@ -254,7 +288,7 @@ def test_failing_path_spec_does_not_skip_the_accounts_other_specs(s3: Session) -
             _final_aspects(source.get_workunits_internal())
         )
 
-    assert set(containers) == {"bucket-a", "raw"}
+    assert set(containers) == {ACCOUNT_A, "bucket-a", "raw"}
     assert source.report.aws_accounts_failed == [ACCOUNT_A]
     assert [f.title for f in source.report.failures] == [
         "Unexpected error while ingesting an AWS account"
@@ -265,8 +299,9 @@ def test_account_that_matches_nothing_is_warned_about(s3: Session) -> None:
     _seed_account(s3, ROLE_A, "bucket-a", ["raw/file.csv"])
     source = S3Source.create(_config(), PipelineContext(run_id="multi-account"))
 
-    list(source.get_workunits_internal())
+    containers = _containers_by_name(_final_aspects(source.get_workunits_internal()))
 
+    assert ACCOUNT_B not in containers
     assert source.report.aws_accounts_ingested == 2
     assert [w.title for w in source.report.warnings] == [
         "AWS account produced no metadata"
@@ -294,41 +329,38 @@ def test_account_role_is_chained_after_the_recipe_roles() -> None:
     assert config.aws_config.aws_role == hub
 
 
-def test_platform_instance_defaults_to_the_role_account() -> None:
+def test_account_id_is_read_from_the_role_arn() -> None:
     config = DataLakeSourceConfig.model_validate(
         _config(
             aws_accounts=[
                 {"aws_role": ROLE_A},
                 {"aws_role": AwsAssumeRoleConfig(RoleArn=ROLE_B)},
                 {"aws_role": "arn:aws-us-gov:iam::333333333333:role/team/Reader"},
-                {"aws_role": ROLE_A, "platform_instance": "prod-data"},
             ]
         )
     )
 
-    assert [a.resolved_platform_instance for a in config.aws_accounts] == [
+    assert [a.account_id for a in config.aws_accounts] == [
         ACCOUNT_A,
         ACCOUNT_B,
         "333333333333",
-        "prod-data",
     ]
 
 
 @pytest.mark.parametrize(
     "overrides",
     [
-        pytest.param({"platform_instance": "shared"}, id="top-level-instance"),
         pytest.param(
             {"aws_accounts": [{"aws_role": ROLE_A}, {"aws_role": ROLE_A}]},
-            id="duplicate-instance",
+            id="duplicate-account",
         ),
         pytest.param(
             {"aws_accounts": [{"aws_role": "not-an-arn"}]},
             id="no-account-in-role",
         ),
         pytest.param(
-            {"aws_accounts": [{"aws_role": ROLE_A, "platform_instance": ""}]},
-            id="empty-instance",
+            {"aws_accounts": [{"aws_role": ROLE_A, "name": ""}]},
+            id="empty-name",
         ),
         pytest.param(
             {
