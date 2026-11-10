@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.telemetry;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.telemetry.MixpanelEventSender;
 import com.datahub.telemetry.TrackingService;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
@@ -60,7 +61,7 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
 
     // Use reflection to access the Mixpanel components
     java.lang.reflect.Field mixpanelAPIField =
-        trackingService.getClass().getDeclaredField("mixpanelAPI");
+        trackingService.getClass().getDeclaredField("mixpanelSender");
     mixpanelAPIField.setAccessible(true);
     Object mixpanelAPI = mixpanelAPIField.get(trackingService);
 
@@ -70,7 +71,7 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     Object mixpanelMessageBuilder = mixpanelMessageBuilderField.get(trackingService);
 
     // Verify that Mixpanel components are null when telemetry is disabled
-    assertNull(mixpanelAPI, "MixpanelAPI should be null when telemetry is disabled");
+    assertNull(mixpanelAPI, "MixpanelEventSender should be null when telemetry is disabled");
     assertNull(
         mixpanelMessageBuilder, "MixpanelMessageBuilder should be null when telemetry is disabled");
 
@@ -101,7 +102,7 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
 
     // Use reflection to access the Mixpanel components
     java.lang.reflect.Field mixpanelAPIField =
-        trackingService.getClass().getDeclaredField("mixpanelAPI");
+        trackingService.getClass().getDeclaredField("mixpanelSender");
     mixpanelAPIField.setAccessible(true);
     Object mixpanelAPI = mixpanelAPIField.get(trackingService);
 
@@ -111,7 +112,8 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     Object mixpanelMessageBuilder = mixpanelMessageBuilderField.get(trackingService);
 
     // Verify that Mixpanel components are initialized when telemetry is enabled
-    assertNotNull(mixpanelAPI, "MixpanelAPI should be initialized when telemetry is enabled");
+    assertNotNull(
+        mixpanelAPI, "MixpanelEventSender should be initialized when telemetry is enabled");
     assertNotNull(
         mixpanelMessageBuilder,
         "MixpanelMessageBuilder should be initialized when telemetry is enabled");
@@ -165,6 +167,12 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     @Qualifier("mixpanelApi")
     public MixpanelAPI mixpanelAPI() {
       return mock(MixpanelAPI.class);
+    }
+
+    @Bean
+    @Qualifier("mixpanelEventSender")
+    public MixpanelEventSender mixpanelEventSender() {
+      return mock(MixpanelEventSender.class);
     }
 
     @Bean
@@ -246,6 +254,12 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     @Qualifier("mixpanelApi")
     public MixpanelAPI mixpanelAPI() {
       return mock(MixpanelAPI.class);
+    }
+
+    @Bean
+    @Qualifier("mixpanelEventSender")
+    public MixpanelEventSender mixpanelEventSender() {
+      return mock(MixpanelEventSender.class);
     }
 
     @Bean

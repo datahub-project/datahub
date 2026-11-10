@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.query.template;
 
+import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.MatchEvidence;
@@ -177,15 +179,29 @@ public final class SearchTemplateMatchReport {
       covered.add(clause.path());
     }
     remaining.keySet().removeAll(consumed);
-    remaining.keySet().removeIf(name -> isNamedMode(name) || covers(name, covered));
+    // The entity-type scope filter is a named query that matches every hit. It is not a field the
+    // query read.
     remaining
         .keySet()
         .removeIf(
-            name ->
-                name.startsWith(MATCHED_FIELD_PREFIX) && remaining.containsKey(fieldName(name)));
+            name -> INDEX_VIRTUAL_FIELD.equals(name) || isNamedMode(name) || covers(name, covered));
+    // A highlight or match-tier scan records the field name, and the relevance clause records
+    // matchedField:<field>. Both describe the same field. Keep one, and keep a stored value ahead
+    // of the empty name the clause contributes on its own.
+    Map<String, LinkedHashSet<String>> byField = new LinkedHashMap<>();
     for (Map.Entry<String, Set<String>> entry : remaining.entrySet()) {
+      byField
+          .computeIfAbsent(fieldName(entry.getKey()), ignored -> new LinkedHashSet<>())
+          .addAll(entry.getValue());
+    }
+    for (Map.Entry<String, LinkedHashSet<String>> entry : byField.entrySet()) {
+      boolean hasText =
+          entry.getValue().stream().anyMatch(value -> value != null && !value.isBlank());
       for (String value : entry.getValue()) {
-        reported.add(new MatchedField().setName(fieldName(entry.getKey())).setValue(value));
+        if (hasText && (value == null || value.isBlank())) {
+          continue;
+        }
+        reported.add(new MatchedField().setName(entry.getKey()).setValue(value));
       }
     }
     return reported;

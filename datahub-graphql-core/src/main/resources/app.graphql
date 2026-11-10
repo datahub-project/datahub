@@ -820,6 +820,7 @@ type FeatureFlagsConfig {
   If turned on, show the re-designed Ingestions page
   """
   showIngestionPageRedesign: Boolean!
+    @deprecated(reason: "Always true. Will be removed in a future release.")
 
   """
   If turned on, users without the Manage Metadata Ingestion privilege can open the Ingestion page and
@@ -889,6 +890,7 @@ type FeatureFlagsConfig {
   Enables displaying the ingestion onboarding redesign
   """
   ingestionOnboardingRedesignV1: Boolean!
+    @deprecated(reason: "Always true. Will be removed in a future release.")
 
   """
   If enabled, allows uploading of files for documentation.

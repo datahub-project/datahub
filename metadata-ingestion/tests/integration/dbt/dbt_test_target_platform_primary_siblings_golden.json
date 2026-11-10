@@ -6514,12 +6514,12 @@
             "dashboards": [],
             "lastModified": {
                 "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:dbt_ingestion"
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:dbt_ingestion"
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
                 }
             }
         }
@@ -6653,12 +6653,12 @@
             "dashboards": [],
             "lastModified": {
                 "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:dbt_ingestion"
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:dbt_ingestion"
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
                 }
             }
         }

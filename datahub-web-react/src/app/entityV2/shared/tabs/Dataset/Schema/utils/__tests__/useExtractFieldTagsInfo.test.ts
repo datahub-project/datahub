@@ -12,7 +12,7 @@ import {
 
 const mockUseBaseEntity = vi.hoisted(() => vi.fn());
 
-vi.mock('@src/app/entity/shared/EntityContext', async (importOriginal) => {
+vi.mock('@src/app/entityV2/shared/EntityContext', async (importOriginal) => {
     const original = await importOriginal<object>();
     return {
         ...original,
@@ -399,5 +399,38 @@ describe('useExtractFieldTagsInfo', () => {
         expect(() => extractFieldTagsInfo(schemaField)).not.toThrow();
         const { numberOfTags } = extractFieldTagsInfo(schemaField);
         expect(numberOfTags).toBe(0);
+    });
+
+    it('should drop soft-deleted tags from every location and from the count', () => {
+        const removed = (tag: Tag): Tag => ({ ...tag, status: { removed: true } });
+        const extractFieldTagsInfo = renderHook(() =>
+            useExtractFieldTagsInfo({
+                editableSchemaFieldInfo: [
+                    { fieldPath: 'testField', globalTags: { tags: [{ associatedUrn: '', tag: removed(testTag2) }] } },
+                ],
+            }),
+        ).result.current;
+
+        const { directTags, editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo({
+            ...emptySchemaField,
+            globalTags: {
+                tags: [
+                    { associatedUrn: '', tag: testTag },
+                    { associatedUrn: '', tag: removed(testTag3) },
+                ],
+            },
+            schemaFieldEntity: {
+                urn: '',
+                type: EntityType.SchemaField,
+                fieldPath: 'testField',
+                parent: { urn: '', type: EntityType.Dataset },
+                tags: { tags: [{ associatedUrn: '', tag: removed(extraTag) }] },
+            },
+        });
+
+        expect(directTags?.tags).toHaveLength(0);
+        expect(editableTags?.tags).toHaveLength(0);
+        expect(uneditableTags?.tags?.map((t) => t.tag.urn)).toEqual([testTag.urn]);
+        expect(numberOfTags).toBe(1);
     });
 });

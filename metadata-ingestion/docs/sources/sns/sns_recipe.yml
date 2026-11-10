@@ -1,0 +1,55 @@
+source:
+  type: sns
+  config:
+    aws_config:
+      aws_region: "us-east-1"
+      # aws_role: "arn:aws:iam::123456789012:role/datahub-read"
+    # platform_instance defaults to the AWS account id. Use the same env and
+    # platform_instance as the sqs recipe so topic-to-queue lineage joins.
+    env: "PROD"
+
+    topic_pattern:
+      allow:
+        - ".*"
+
+    extract_tags: true
+    # One sns:GetSubscriptionAttributes call per subscription; reads subscription DLQs.
+    include_subscription_attributes: false
+
+    data_protection:
+      enabled: false
+      # glossary_term_map:
+      #   EmailAddress: "urn:li:glossaryTerm:pii.email"
+
+    # account_platform_instance_map:
+    #   "210987654321": "shared-services"
+
+    glue_schema_registry:
+      enabled: false
+      registry_name: "default-registry"
+      # Set enabled: true and replace {} with a mapping, for example:
+      #   topic_schema_map:
+      #     orders: "order-v1"
+      topic_schema_map: {}
+
+    lineage:
+      lambda_functions: true
+      # One lambda:ListFunctionEventInvokeConfigs call per function in the region.
+      lambda_async_destinations: false
+      eventbridge_rules: true
+      eventbridge_pipes: true
+      s3_notifications: false
+    # Match the s3 source recipe, for S3 notification lineage.
+    # platform_map:
+    #   s3:
+    #     platform_instance: "data-lake"
+    #     env: "PROD"
+    #     convert_urns_to_lowercase: false
+
+    cloudtrail_producers:
+      enabled: false
+      # event_data_store: "arn:aws:cloudtrail:us-east-1:123456789012:eventdatastore/EXAMPLE"
+      # lookback_days: 7
+
+    stateful_ingestion:
+      enabled: true

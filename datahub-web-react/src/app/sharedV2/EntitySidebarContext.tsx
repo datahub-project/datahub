@@ -14,6 +14,8 @@ export type SearchResultLineageCounts = {
 
 interface EntitySidebarContextProps {
     width: number;
+    /** Set by providers whose sidebar can be drag-resized (the entity page). */
+    setWidth?: (width: number) => void;
     setSidebarClosed: (isClosed: boolean) => void;
     isClosed: boolean;
     fineGrainedOperations?: FineGrainedOperation[]; // For query entities in lineage, when a column is selected

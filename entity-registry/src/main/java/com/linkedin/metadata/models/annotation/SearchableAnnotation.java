@@ -382,7 +382,12 @@ public class SearchableAnnotation {
     MAP_ARRAY,
     // Long analyzed text (document bodies, SQL). Unlike TEXT it has no keyword parent, so a value
     // is not dropped by Lucene's 32,766-byte term limit.
-    RICH_TEXT
+    RICH_TEXT,
+    // Map of value -> positive weight, indexed as an Elasticsearch rank_features field. Lets search
+    // rank a document by a weight that depends on which value matched (e.g. a per-value occurrence
+    // count), which boostScore (per-field), weightsPerFieldValue (global per value) and COUNT (one
+    // number per doc) cannot express. Backed by a map[string, <numeric>] field.
+    RANK_FEATURES
   }
 
   @Nonnull

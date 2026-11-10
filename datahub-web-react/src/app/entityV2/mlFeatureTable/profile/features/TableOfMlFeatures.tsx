@@ -6,9 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { useRefetch } from '@app/entity/shared/EntityContext';
 import SchemaDescriptionField from '@app/entityV2/dataset/profile/schema/components/SchemaDescriptionField';
 import MlFeatureDataTypeIcon from '@app/entityV2/mlFeatureTable/profile/features/MlFeatureDataTypeIcon';
+import { useRefetch } from '@app/entityV2/shared/EntityContext';
 import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

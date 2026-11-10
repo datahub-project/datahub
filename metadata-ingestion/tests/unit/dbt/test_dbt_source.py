@@ -64,11 +64,14 @@ from datahub.metadata.schema_classes import (
     AuditStampClass,
     CustomAssertionInfoClass,
     DatasetAssertionScopeClass,
+    GlobalTagsClass,
+    GlossaryTermsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    SchemaMetadataClass,
     StructuredPropertiesClass,
     StructuredPropertyValueAssignmentClass,
     SubTypesClass,
@@ -5578,3 +5581,75 @@ def test_select_test_results_to_emit_reads_offset_less_timestamps_as_utc(
     finally:
         monkeypatch.undo()
         time.tzset()
+
+
+def test_dbt_meta_mapping_list_values_yield_one_tag_and_term_per_item():
+    """A list-valued meta key (nested, at model and column level) maps to one
+    tag/term per list item rather than one tag built from the joined list."""
+    governance_mapping = {
+        "governance.tags": {
+            "match": ".*",
+            "operation": "add_tag",
+            "config": {"tag": "{{ $match }}"},
+        },
+        "governance.glossary_terms": {
+            "match": ".*",
+            "operation": "add_term",
+            "config": {"term": "{{ $match }}"},
+        },
+    }
+    config_dict = create_base_dbt_config()
+    config_dict["enable_meta_mapping"] = True
+    config_dict["meta_mapping"] = governance_mapping
+    config_dict["column_meta_mapping"] = governance_mapping
+    source = DBTCoreSource(DBTCoreConfig(**config_dict), PipelineContext(run_id="t"))
+
+    governance_meta = {
+        "governance": {
+            "tags": ["Domain: Sales", "PII"],
+            "glossary_terms": ["customer.customer_id", "customer.gender"],
+        }
+    }
+    node = _make_dbt_node_with_meta(
+        governance_meta,
+        columns=[
+            DBTColumn(
+                name="col_a",
+                comment="",
+                description="",
+                index=0,
+                data_type="VARCHAR",
+                meta=governance_meta,
+            )
+        ],
+    )
+
+    meta_aspects = OperationProcessor(
+        source.config.meta_mapping,
+        source.config.tag_prefix,
+        "SOURCE_CONTROL",
+        source.config.strip_user_ids_from_email,
+        match_nested_props=True,
+    ).process(node.meta)
+    aspects = source._generate_base_dbt_aspects(
+        node, platform="dbt", meta_aspects=meta_aspects
+    )
+
+    # The default dbt tag_prefix ("dbt:") is applied to every tag.
+    expected_tags = ["urn:li:tag:dbt:Domain: Sales", "urn:li:tag:dbt:PII"]
+    expected_terms = [
+        "urn:li:glossaryTerm:customer.customer_id",
+        "urn:li:glossaryTerm:customer.gender",
+    ]
+
+    (model_tags,) = [a for a in aspects if isinstance(a, GlobalTagsClass)]
+    assert [t.tag for t in model_tags.tags] == expected_tags
+    (model_terms,) = [a for a in aspects if isinstance(a, GlossaryTermsClass)]
+    assert [t.urn for t in model_terms.terms] == expected_terms
+
+    (schema_metadata,) = [a for a in aspects if isinstance(a, SchemaMetadataClass)]
+    (field,) = schema_metadata.fields
+    assert field.globalTags is not None
+    assert [t.tag for t in field.globalTags.tags] == expected_tags
+    assert field.glossaryTerms is not None
+    assert [t.urn for t in field.glossaryTerms.terms] == expected_terms
