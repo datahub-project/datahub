@@ -498,12 +498,9 @@ microFrontends:
         expect(loadMFEConfigFromYAML(yaml.replace('      showInNav: sometimes\n', '')).microFrontends).toHaveLength(1);
     });
 
-    it('builds an entity tab context with empty identifiers when the page has not resolved them', () => {
-        expect(buildSlotContext(TAB, {})).toEqual({
-            slot: 'entity.detail.tab',
-            contractVersion: '1.0.0',
-            entity: { urn: '', type: '' },
-        });
+    it('builds no entity tab context until the page has resolved the entity', () => {
+        expect(buildSlotContext(TAB, {})).toBeNull();
+        expect(buildSlotContext(TAB, { urn: 'urn:li:dataset:x' })).toBeNull();
     });
 
     it('does not mount a navigation page whose contract version the host cannot build', async () => {

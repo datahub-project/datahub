@@ -15,7 +15,8 @@ export type SlotContextBuilderArgs = {
     principal?: { user: string };
 };
 
-export type SlotContextBuilder = (args: SlotContextBuilderArgs) => SlotContext;
+/** Returns `null` when the host lacks something the contract requires, so the MFE is not mounted. */
+export type SlotContextBuilder = (args: SlotContextBuilderArgs) => SlotContext | null;
 
 function buildNavPageContextV1({ principal }: SlotContextBuilderArgs): NavPageContextV1 {
     return {
@@ -29,11 +30,13 @@ function buildEntityDetailTabContextV1({
     urn,
     entityType,
     principal,
-}: SlotContextBuilderArgs): EntityDetailTabContextV1 {
+}: SlotContextBuilderArgs): EntityDetailTabContextV1 | null {
+    // The entity is the one thing this contract promises, so never hand over a placeholder identity.
+    if (!urn || !entityType) return null;
     return {
         slot: 'entity.detail.tab',
         contractVersion: '1.0.0',
-        entity: { urn: urn ?? '', type: entityType ?? '' },
+        entity: { urn, type: entityType },
         ...(principal ? { principal } : {}),
     };
 }
@@ -81,7 +84,7 @@ export function isSlotContractSupported(config: MFEConfig): boolean {
     return getSlotContextBuilder(config) !== null;
 }
 
-/** Builds the typed context for an entry, or `null` when its contract version is unsupported. */
+/** Builds the typed context for an entry, or `null` when its contract version is unsupported or required inputs are missing. */
 export function buildSlotContext(config: MFEConfig, args: SlotContextBuilderArgs = {}): SlotContext | null {
     const builder = getSlotContextBuilder(config);
     return builder ? builder(args) : null;

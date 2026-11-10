@@ -112,6 +112,17 @@ describe('placement validation', () => {
         expect(loadMFEConfigFromYAML(yaml(notAString)).microFrontends).toHaveLength(0);
     });
 
+    // Gate 2 at load time: an unbuildable nav.page entry must not reach the sidebar or a route.
+    it('drops an entry whose contractVersion the host cannot build, including nav.page entries', () => {
+        const navUnsupported = `${NAV_ENTRY.replace('id: nav-app', 'id: nav-future')}
+    placement:
+      slot: nav.page
+      contractVersion: "9.9.9"`;
+        const tabUnsupported = TAB_ENTRY.replace('contractVersion: "1.0.0"', 'contractVersion: "9.9.9"');
+        const schema = loadMFEConfigFromYAML(yaml(navUnsupported, tabUnsupported, NAV_ENTRY));
+        expect(schema.microFrontends.map((c) => c.id)).toEqual(['nav-app']);
+    });
+
     it('defaults a missing placement to nav.page on the default contract version', () => {
         const [nav] = loadMFEConfigFromYAML(yaml(NAV_ENTRY)).microFrontends;
         expect(getPlacement(nav)).toEqual({ slot: 'nav.page', contractVersion: '1.0.0' });

@@ -4,6 +4,7 @@ import { Route, Switch } from 'react-router';
 
 import { MFEConfigContext } from '@app/mfeframework/MFEConfigContext';
 import { DEFAULT_LOAD_TIMEOUT_MS, MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContainer';
+import { isSlotContractSupported } from '@app/mfeframework/slots/slotContextBuilders';
 import { MFEPlacement, getPlacement, isNavPageMfe } from '@app/mfeframework/slots/slotPlacement';
 import { isMFESlotId } from '@app/mfeframework/slots/slotTypes';
 import { NoPageFound } from '@app/sharedV2/NoPageFound';
@@ -135,6 +136,11 @@ function validateMFEConfig(config: any): MFEConfig | null {
         errors.push('[MFE Loader] navIcon must be a non-empty string');
     }
     validatePlacement(config.placement, errors);
+    // Drop entries this host cannot build a context for here, so a nav.page entry never reaches the
+    // sidebar or a route that would render blank. isSlotContractSupported logs the reason.
+    if (errors.length === 0 && !isSlotContractSupported(config)) {
+        errors.push('[MFE Loader] placement.contractVersion is not supported by this host');
+    }
 
     // If any errors, log them and return null
     if (errors.length > 0) {

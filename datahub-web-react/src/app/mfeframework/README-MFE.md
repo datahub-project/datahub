@@ -246,12 +246,13 @@ on the per-slot type (`EntityDetailTabContext`, `NavPageContext`).
 ### Contract versions
 
 `placement.contractVersion` is how an entry tells the host which context shape it expects, and it is
-**required whenever `placement` is present**. It is checked twice, and both checks fail closed:
+**required whenever `placement` is present**. It is checked at config load and fails closed: a
+`placement` with a missing or blank `contractVersion`, or one naming a version the host has no builder
+for, is rejected and the entry is dropped. It never appears in the sidebar, as a route or as a tab, and
+its remote is never fetched. The only signal is a `console.error`.
 
-1. **At config load** — a `placement` with a missing or blank `contractVersion` is rejected and the entry
-   is dropped.
-2. **At render** — a `contractVersion` the host has no builder for means the tab is not shown and the
-   remote is never fetched. The only signal is a `console.error`.
+An entity tab also mounts only once the page has resolved the entity's URN and type; the host never hands
+an MFE a placeholder identity.
 
 Entries with no `placement` at all (every pre-slot config) are treated as `nav.page` on the default
 version, so existing configs keep working with no edits.
