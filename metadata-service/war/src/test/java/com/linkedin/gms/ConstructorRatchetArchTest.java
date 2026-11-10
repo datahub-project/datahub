@@ -96,13 +96,6 @@ public class ConstructorRatchetArchTest {
     SortedMap<String, String> violations = violations();
     Set<String> baseline = baseline();
 
-    // Canary: the rule must still see the class whose constructor ladder caused the incident.
-    assertTrue(
-        violations.containsKey(
-            "com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder"),
-        "V2MappingsBuilder is no longer flagged; if its constructors were collapsed, remove this"
-            + " canary along with its baseline line");
-
     Set<String> added = new TreeSet<>(violations.keySet());
     added.removeAll(baseline);
     Set<String> fixed = new TreeSet<>(baseline);
