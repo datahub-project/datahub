@@ -45,6 +45,8 @@ public class GraphQueryBaseDAOLineageCountTest {
   /** The sibling group whose members must never count as each other's lineage. */
   private static final Set<String> GROUP = Set.of(DATASET_ONE.toString(), DATASET_TWO.toString());
 
+  private static final Set<Urn> GROUP_URNS = Set.of(DATASET_ONE, DATASET_TWO);
+
   private OperationContext opContext;
   private GraphQueryPITDAO dao;
 
@@ -194,6 +196,28 @@ public class GraphQueryBaseDAOLineageCountTest {
     when(cardinality.getName()).thenReturn(name);
     when(cardinality.getValue()).thenReturn(value);
     return cardinality;
+  }
+
+  /**
+   * The group-member guard has to hold on the truncated path too: if a response comes back without
+   * the query's exclusions, a member sampled as its own neighbour must not be counted through the
+   * cardinality estimate either.
+   */
+  @Test
+  public void testTruncatedTotalDropsSampledGroupMembers() {
+    Urn a = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,count_a,PROD)");
+    // The sample holds one real neighbour and one of the group's own members, and the
+    // cardinality counts both plus one neighbour beyond the sample.
+    Filter direction = mock(Filter.class);
+    when(direction.getName()).thenReturn("lineageCount_OUTGOING");
+    Aggregations sub =
+        new Aggregations(List.of(cardinality("distinct", 3), terms("sample", 1, a, DATASET_TWO)));
+    when(direction.getAggregations()).thenReturn(sub);
+    SearchResponse response = mock(SearchResponse.class);
+    when(response.getAggregations()).thenReturn(new Aggregations(List.of(direction)));
+
+    // a, plus the one beyond the sample. DATASET_TWO is the group's own member.
+    assertEquals(dao.parseLineageCount(response, GROUP_URNS, 10).getTotal(), 2);
   }
 
   private static Terms terms(String name, long otherDocs, Urn... urns) {

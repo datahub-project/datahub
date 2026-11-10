@@ -1032,12 +1032,15 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         }
       }
     }
-    // The four cardinalities (neighbour and via, per direction) each count a URN seen in more than
-    // one role or direction, so remove the repeats the samples show. Group members are excluded
-    // from both in the query; removing them here only guards against a response without that
-    // filter.
-    estimated -= sampled - reached.size();
+    // Group members are excluded from the neighbours and the vias in the query; dropping them
+    // here guards against a response that lacks those filters. This has to come before the
+    // correction below: that subtraction is what takes a sampled group member back out of the
+    // cardinalities, so running it first leaves the member counted in `estimated` while
+    // `reached` no longer has it, and a truncated group then reports its own members as lineage.
     reached.removeAll(groupUrns);
+    // The four cardinalities (neighbour and via, per direction) each count a URN seen in more than
+    // one role or direction, so remove the repeats the samples show.
+    estimated -= sampled - reached.size();
     long total = truncated ? Math.max(reached.size(), estimated) : reached.size();
     return new LineageCountResult(
         (int) Math.min(total, Integer.MAX_VALUE),
