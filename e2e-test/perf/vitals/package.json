@@ -12,7 +12,7 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "lighthouse": "^12.2.1",
-    "puppeteer": "^23.6.0"
+    "lighthouse": "^13.5.0",
+    "puppeteer": "^25.16.0"
   }
 }
