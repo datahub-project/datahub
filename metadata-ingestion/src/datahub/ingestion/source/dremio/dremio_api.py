@@ -1319,22 +1319,15 @@ class DremioAPIOperations:
 
             try:
                 chunk_results = list(self.execute_query_iter(query=chunked_query))
-
-                if not chunk_results:
-                    logger.info("No more queries to fetch")
-                    break
-
-                yield from chunk_results
-
-                self._warn_if_page_at_job_cap(len(chunk_results))
-                if len(chunk_results) < chunk_size:
-                    break
-
-                offset += chunk_size
-
-            except DremioAPIException as e:
-                logger.error(
-                    f"Error in chunked query extraction at offset {offset}: {e}"
+            except _QUERY_FETCH_ERRORS as e:
+                # Jobs past this offset were never read; the source must not
+                # advance the stateful time window past them.
+                self.report.query_fetch_incomplete = True
+                self.report.failure(
+                    message="Failed to fetch Dremio job history; query lineage, "
+                    "usage and operations may be incomplete for this run.",
+                    context=f"failed at offset={offset} with chunk_size={chunk_size}",
+                    exc=e,
                 )
                 if "'rows'" in str(e):
                     self.report.warning(
@@ -1343,6 +1336,18 @@ class DremioAPIOperations:
                         log=False,
                     )
                 break
+
+            if not chunk_results:
+                logger.info("No more queries to fetch")
+                break
+
+            yield from chunk_results
+
+            self._warn_if_page_at_job_cap(len(chunk_results))
+            if len(chunk_results) < chunk_size:
+                break
+
+            offset += chunk_size
 
     def get_tags_for_resource(self, resource_id: str) -> Optional[List[str]]:
         """
