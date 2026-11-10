@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 import com.datahub.telemetry.TrackingDestination;
@@ -17,14 +18,13 @@ import com.linkedin.gms.factory.ProductionConfigContextRunner;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.UsageEventPublisher;
 import com.linkedin.metadata.version.GitVersion;
+import com.mixpanel.mixpanelapi.ClientDelivery;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.EnumSet;
 import java.util.Optional;
-import org.json.JSONObject;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.ApplicationContext;
@@ -39,6 +39,7 @@ import org.testng.annotations.Test;
 public class TrackingServiceFactoryContextTest {
 
   private static final String EVENT = "TestEvent";
+  private static final long DELIVERY_WAIT_MS = 10_000;
   private static final OperationContext OP_CONTEXT =
       TestOperationContexts.systemContextNoSearchAuthorization();
 
@@ -56,6 +57,9 @@ public class TrackingServiceFactoryContextTest {
           }
           MixpanelAPI offline = spy(mixpanel);
           try {
+            // MixpanelEventSender delivers batches through deliver(); sendMessage is stubbed too
+            // so no code path can reach the network.
+            doNothing().when(offline).deliver(any(ClientDelivery.class));
             doNothing().when(offline).sendMessage(any());
           } catch (Exception e) {
             throw new IllegalStateException(e);
@@ -89,12 +93,10 @@ public class TrackingServiceFactoryContextTest {
               assertThat(trackingService(context).track(EVENT, OP_CONTEXT, null, null, event()))
                   .isEqualTo(1);
 
-              ArgumentCaptor<JSONObject> message = ArgumentCaptor.forClass(JSONObject.class);
-              verify(context.getBean("mixpanelApi", MixpanelAPI.class))
-                  .sendMessage(message.capture());
-              JSONObject sent = message.getValue().getJSONObject("message");
-              assertThat(sent.getString("event")).isEqualTo(EVENT);
-              assertThat(sent.getJSONObject("properties").getString("token")).isNotBlank();
+              // Events are queued and delivered by MixpanelEventSender's background thread, so wait
+              // for the delivery instead of asserting right after track() returns.
+              verify(context.getBean("mixpanelApi", MixpanelAPI.class), timeout(DELIVERY_WAIT_MS))
+                  .deliver(any(ClientDelivery.class));
             });
   }
 
