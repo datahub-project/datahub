@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Dict, Optional
+from typing import Any, ClassVar, Dict, Literal, Optional
 
 import pydantic
 from pydantic import Field
@@ -9,13 +9,41 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
-from datahub.ingestion.source.aws_messaging.constants import AwsService
+from datahub.ingestion.source.aws_messaging.constants import (
+    EVENT_DATA_STORE_PATTERN,
+    AwsService,
+)
+from datahub.ingestion.source.kinesis.kinesis_config import DestinationPlatformDetail
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+
+# Platforms of datasets this source links to but doesn't emit.
+LinkedPlatform = Literal["s3"]
+
+
+class LinkedPlatformDetail(DestinationPlatformDetail):
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description=(
+            "platform_instance of that platform's own recipe. If unset, the dataset "
+            "URN has no platform_instance."
+        ),
+    )
+    env: Optional[str] = Field(
+        default=None,
+        description="env of that platform's own recipe. If unset, inherits this recipe's env.",
+    )
+    convert_urns_to_lowercase: bool = Field(
+        default=False,
+        description=(
+            "Set to that platform's recipe convert_urns_to_lowercase. Defaults to "
+            "False, like the s3 source."
+        ),
+    )
 
 
 class GlueSchemaRegistryConfigBase(ConfigModel):
@@ -101,6 +129,19 @@ class AwsMessagingLineageConfig(ConfigModel):
         default=True,
         description="Emit EventBridge Pipes whose source or target is one of this source's queues or topics.",
     )
+    s3_notifications: bool = Field(
+        default=False,
+        description=(
+            "Add S3 datasets as upstreams of the queues or topics their bucket's "
+            "event notifications target: every S3 dataset already in DataHub under "
+            "the notification's bucket and key prefix, up to 100. Reads the "
+            "notification configuration of each bucket in the recipe's region (one "
+            "call per bucket); a source only links its own queues or topics. Needs "
+            "a DataHub graph connection, and s3:ListAllMyBuckets plus "
+            "s3:GetBucketNotification. ListAllMyBuckets only returns buckets the "
+            "recipe's account owns."
+        ),
+    )
 
     @pydantic.model_validator(mode="after")
     def reject_async_destinations_without_functions(
@@ -112,6 +153,49 @@ class AwsMessagingLineageConfig(ConfigModel):
             raise ValueError(
                 "lineage.lambda_async_destinations needs lineage.lambda_functions. "
                 "Set lambda_functions=True, or remove lambda_async_destinations."
+            )
+        return self
+
+
+class CloudTrailProducersConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "Find producers from CloudTrail Lake: who called SendMessage or Publish "
+            "on this source's queues or topics. Needs data-event logging for SQS/SNS "
+            "into an event data store. Lake queries are billed per GB scanned."
+        ),
+    )
+    event_data_store: Optional[str] = Field(
+        default=None,
+        description=(
+            "ARN or id of the CloudTrail Lake event data store to query. With an ARN "
+            "the query runs in the store's region; with a bare id, in this recipe's "
+            "region. A store in another account must be shared with this role through "
+            "its resource policy."
+        ),
+    )
+    lookback_days: int = Field(
+        default=7,
+        ge=1,
+        description="How many days of events the producer query covers.",
+    )
+    query_timeout_seconds: int = Field(
+        default=300,
+        ge=10,
+        description="How long to wait for the CloudTrail Lake query before giving up.",
+    )
+
+    @pydantic.model_validator(mode="after")
+    def require_event_data_store(self) -> "CloudTrailProducersConfig":
+        if self.enabled and not self.event_data_store:
+            raise ValueError("cloudtrail_producers.enabled needs event_data_store.")
+        if self.event_data_store and not EVENT_DATA_STORE_PATTERN.match(
+            self.event_data_store
+        ):
+            raise ValueError(
+                "cloudtrail_producers.event_data_store must be an event data store id "
+                "or an arn:aws:cloudtrail:<region>:<account>:eventdatastore/<id> ARN."
             )
         return self
 
@@ -157,6 +241,19 @@ class AwsMessagingConfigBase(
             "account id. Accounts not listed use their account id."
         ),
     )
+    platform_map: Dict[LinkedPlatform, LinkedPlatformDetail] = Field(
+        default_factory=dict,
+        description=(
+            "Per platform (`s3`), the platform_instance, env and "
+            "convert_urns_to_lowercase of that platform's own recipe, so lineage "
+            "finds the dataset URNs it emits. A platform not listed uses no "
+            "platform_instance, this recipe's env and no lowercasing."
+        ),
+    )
+    cloudtrail_producers: CloudTrailProducersConfig = Field(
+        default_factory=CloudTrailProducersConfig,
+        description="Producer lineage from CloudTrail Lake (off by default).",
+    )
     lineage: AwsMessagingLineageConfig = Field(
         default_factory=AwsMessagingLineageConfig,
         description="Lineage through Lambda and EventBridge.",
@@ -201,10 +298,13 @@ class AwsMessagingConfigBase(
             self.include_column_lineage = self.glue_schema_registry.enabled
         return self
 
-    def make_client(self, session: Any, service: AwsService) -> Any:
+    def make_client(
+        self, session: Any, service: AwsService, region: Optional[str] = None
+    ) -> Any:
         # boto3 clients have no common static type; callers annotate the result.
         return session.client(
             service.value,
+            region_name=region,
             endpoint_url=(
                 self.aws_config.aws_endpoint_url
                 if service == self.endpoint_service

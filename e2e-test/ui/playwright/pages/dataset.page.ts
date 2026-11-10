@@ -95,7 +95,10 @@ export class DatasetPage extends BasePage {
   // ── Dynamic locators ──────────────────────────────────────────────────────
 
   getTagChip(tagName: string): Locator {
-    return this.page.getByTestId(`tag-${tagName}`);
+    // Scoped to the sidebar Tags section: with datasetSummaryPageV1 on, the Summary tab's
+    // Properties panel renders its own chip with the same `tag-${name}` testid, so a bare
+    // page-level lookup is ambiguous.
+    return this.tagsSectionContainer.getByTestId(`tag-${tagName}`);
   }
 
   getTagOption(tagName: string): Locator {
@@ -114,7 +117,10 @@ export class DatasetPage extends BasePage {
   }
 
   getGlossaryTermLocator(termName: string): Locator {
-    return this.page.getByTestId(`term-${termName}`);
+    // Scoped to the sidebar Glossary Terms section: with datasetSummaryPageV1 on, the Summary
+    // tab's Properties panel renders its own chip with the same `term-${name}` testid, so a
+    // bare page-level lookup is ambiguous.
+    return this.sidebarGlossarySection.getByTestId(`term-${termName}`);
   }
 
   getGlossaryTermRemoveButtonLocator(glossaryTermLocator: Locator): Locator {

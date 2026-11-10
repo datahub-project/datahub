@@ -1,14 +1,23 @@
+import time
 from typing import Any, Callable, Dict, Iterator, List, Optional, Union
 
+import botocore
 from botocore.exceptions import BotoCoreError, ClientError
 
 from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.arn import parse_arn
 from datahub.ingestion.source.aws_messaging.constants import (
     ALL_ATTRIBUTES,
+    BUCKET_REGION_PARAMETER,
+    MIN_BOTOCORE_FOR_BUCKET_REGION,
+    QUERY_POLL_SECONDS,
+    S3_PREFIX_FILTER,
+    S3_SUFFIX_FILTER,
     LambdaDestination,
+    QueryStatus,
 )
 from datahub.ingestion.source.aws_messaging.models import (
+    BucketNotification,
     EventBridgePipe,
     RuleTarget,
     SnsSubscription,
@@ -395,3 +404,177 @@ class PipesClient:
         if response is None:
             return None
         return (response.get("TargetParameters") or {}).get("InputTemplate") or ""
+
+
+class S3NotificationClient:
+    def __init__(self, client: Any, report: AwsMessagingReportBase):
+        self._client = client
+        self.report = report
+
+    def list_bucket_names(
+        self,
+        region: str,
+        on_error: Callable[[Union[ClientError, BotoCoreError]], None],
+    ) -> Iterator[str]:
+        # Notifications only target queues and topics in the bucket's own region,
+        # so S3 filters to the recipe's region server-side. BucketRegion is only
+        # returned when a filter or page size is sent, so the client-side check
+        # below is a guard, not the filter.
+        kwargs: Dict[str, Any] = {"PaginationConfig": {"PageSize": 1000}}
+        if self._supports_region_filter():
+            kwargs["BucketRegion"] = region
+        else:
+            self.report.warning(
+                title="Bucket region filter unavailable",
+                message=(
+                    f"This botocore can't filter ListBuckets by region (needs botocore "
+                    f">= {MIN_BOTOCORE_FOR_BUCKET_REGION}), so every bucket's "
+                    "notification configuration is read. Upgrade botocore to skip "
+                    "buckets in other regions."
+                ),
+                context=f"botocore {botocore.__version__}",
+            )
+        for bucket in paginate(
+            client=self._client,
+            operation="list_buckets",
+            result_key="Buckets",
+            report=self.report,
+            api_label="s3:ListAllMyBuckets",
+            optional=True,
+            on_error=on_error,
+            **kwargs,
+        ):
+            bucket_region = bucket.get("BucketRegion")
+            if bucket_region is None or bucket_region == region:
+                yield bucket["Name"]
+
+    def _supports_region_filter(self) -> bool:
+        # An older botocore would reject BucketRegion with a ParamValidationError,
+        # which the listing would report as a denied call.
+        operation = self._client.meta.service_model.operation_model("ListBuckets")
+        return BUCKET_REGION_PARAMETER in operation.input_shape.members
+
+    def get_notifications(self, bucket: str) -> Optional[List[BucketNotification]]:
+        """The bucket's queue and topic notifications, or None if they can't be read."""
+        response = call_or_warn(
+            call=lambda: self._client.get_bucket_notification_configuration(
+                Bucket=bucket
+            ),
+            report=self.report,
+            api_label="s3:GetBucketNotification",
+            context=f"bucket={bucket}",
+        )
+        if response is None:
+            return None
+        notifications: List[BucketNotification] = []
+        for key, arn_field in (
+            ("TopicConfigurations", "TopicArn"),
+            ("QueueConfigurations", "QueueArn"),
+        ):
+            for item in response.get(key) or []:
+                rules = ((item.get("Filter") or {}).get("Key") or {}).get(
+                    "FilterRules"
+                ) or []
+                values = {
+                    str(rule.get("Name", "")).lower(): rule.get("Value")
+                    for rule in rules
+                }
+                notifications.append(
+                    BucketNotification(
+                        bucket=bucket,
+                        target_arn=item[arn_field],
+                        prefix=values.get(S3_PREFIX_FILTER),
+                        suffix=values.get(S3_SUFFIX_FILTER),
+                    )
+                )
+        return notifications
+
+
+class CloudTrailLakeClient:
+    def __init__(self, client: Any, report: AwsMessagingReportBase):
+        self._client = client
+        self.report = report
+
+    def _cancel(
+        self, query_id: str, event_data_store: str, owner: Dict[str, str]
+    ) -> None:
+        # A query the run gave up on keeps scanning, and Lake bills per GB scanned.
+        try:
+            self._client.cancel_query(
+                EventDataStore=event_data_store, QueryId=query_id, **owner
+            )
+        except (ClientError, BotoCoreError) as e:
+            self.report.warning(
+                title="CloudTrail Lake query not cancelled",
+                message="The query may keep scanning until it finishes.",
+                context=f"query={query_id}: {aws_error_code(e)}",
+                exc=e,
+            )
+
+    def run_query(
+        self,
+        statement: str,
+        event_data_store: str,
+        timeout_seconds: int,
+        owner_account_id: Optional[str] = None,
+    ) -> Optional[List[Dict[str, str]]]:
+        """Rows as column-to-value dicts, or None if the query failed or timed out."""
+        owner: Dict[str, str] = (
+            {"EventDataStoreOwnerAccountId": owner_account_id}
+            if owner_account_id
+            else {}
+        )
+        query_id: Optional[str] = None
+        try:
+            query_id = self._client.start_query(QueryStatement=statement, **owner)[
+                "QueryId"
+            ]
+            deadline = time.monotonic() + timeout_seconds
+            rows: List[Dict[str, str]] = []
+            token: Optional[str] = None
+            while True:
+                kwargs: Dict[str, Any] = {
+                    "EventDataStore": event_data_store,
+                    "QueryId": query_id,
+                    **owner,
+                }
+                if token:
+                    kwargs["NextToken"] = token
+                response = self._client.get_query_results(**kwargs)
+                status = response.get("QueryStatus")
+                if status in (QueryStatus.QUEUED, QueryStatus.RUNNING):
+                    if time.monotonic() > deadline:
+                        self.report.warning(
+                            title="CloudTrail Lake query timed out",
+                            message="No producer lineage this run; raise query_timeout_seconds.",
+                            context=f"query={query_id}",
+                        )
+                        self._cancel(query_id, event_data_store, owner)
+                        return None
+                    time.sleep(QUERY_POLL_SECONDS)
+                    continue
+                if status != QueryStatus.FINISHED:
+                    self.report.warning(
+                        title="CloudTrail Lake query failed",
+                        message="No producer lineage this run.",
+                        context=f"query={query_id} status={status}: {response.get('ErrorMessage')}",
+                    )
+                    return None
+                for row in response.get("QueryResultRows") or []:
+                    merged: Dict[str, str] = {}
+                    for column in row:
+                        merged.update(column)
+                    rows.append(merged)
+                token = response.get("NextToken")
+                if not token:
+                    return rows
+        except (ClientError, BotoCoreError) as e:
+            self.report.warning(
+                title="CloudTrail Lake query failed",
+                message="No producer lineage this run.",
+                context=aws_error_code(e),
+                exc=e,
+            )
+            if query_id is not None:
+                self._cancel(query_id, event_data_store, owner)
+            return None

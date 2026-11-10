@@ -749,7 +749,9 @@ class BigQuerySchemaGenerator:
                 )
 
                 for table in db_tables[dataset_name]:
-                    table_columns = columns.get(table.name, []) if columns else []
+                    table_columns = (
+                        columns.get(table.name, []) if columns is not None else []
+                    )
                     table_constraints = (
                         constraints.get(table.name, []) if constraints else []
                     )
@@ -809,7 +811,9 @@ class BigQuerySchemaGenerator:
                 )
 
                 for snapshot in db_snapshots[dataset_name]:
-                    snapshot_columns = columns.get(snapshot.name, []) if columns else []
+                    snapshot_columns = (
+                        columns.get(snapshot.name, []) if columns is not None else []
+                    )
                     yield from self._process_snapshot(
                         snapshot=snapshot,
                         columns=snapshot_columns,
@@ -1039,7 +1043,7 @@ class BigQuerySchemaGenerator:
                     dataset_name=dataset_name,
                     rate_limiter=rate_limiter,
                 )
-            view_columns = columns.get(view.name, []) if columns else []
+            view_columns = columns.get(view.name, []) if columns is not None else []
             yield from self._process_view(
                 view=view,
                 columns=view_columns,

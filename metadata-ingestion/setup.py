@@ -442,6 +442,8 @@ file_profiling = {
     # cpc_sketch (distinct count) and kll_floats_sketch (approx median) give us
     # Deequ-equivalent approximate metrics without a JVM or pyspark/pydeequ.
     "datasketches>=5.0.0,<6.0.0",
+    # The profiler reads Avro files with fastavro.
+    "fastavro>=1.2.0,<2.0.0",
     # cachetools is used by the profiling config
     *cachetools_lib,
 }
@@ -481,6 +483,11 @@ databricks_common = {
     # connector 4.x split the SQLAlchemy dialect into a separate package; required so
     # create_engine("databricks://...") can load the dialect for SQLAlchemy profiling.
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
+    # The SQL connector returns tz-aware Arrow timestamps. pyarrow needs a tz database
+    # to convert them, and slim images have no system zoneinfo, so ship IANA data via
+    # tzdata (zoneinfo's fallback). 2022.7 matches the floor pandas uses. Versions are
+    # year-based and carry only data, so the cap is loose to avoid yearly bumps.
+    "tzdata>=2022.7,<2030",
 }
 
 databricks = {
@@ -768,7 +775,9 @@ plugins: Dict[str, Set[str]] = {
     # in the base install; JPype1/jdk4py bridge to the JDBC driver (no SQLAlchemy).
     "informix": sqlglot_lib | {"JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     "json-schema": {"requests<3.0.0"},
-    "kafka": kafka_common | kafka_protobuf,
+    # sqlglot_lib: Flink stream-processing lineage parses transform SQL for
+    # best-effort column-level lineage via datahub.sql_parsing.
+    "kafka": kafka_common | kafka_protobuf | sqlglot_lib,
     "kafka-connect": sql_common
     | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     # kafka_protobuf reused for Glue Schema Registry PROTOBUF support
@@ -782,7 +791,10 @@ plugins: Dict[str, Set[str]] = {
     "looker": looker_common,
     "lookml": looker_common,
     "metabase": {"requests<3.0.0"} | sqlglot_lib,
-    "microstrategy": {"requests<3.0.0"} | sqlglot_lib,
+    # usage_common: microstrategy emits no usage through it, but SQL-view lineage
+    # goes through create_lineage_from_sql_statements in sqlglot_lineage, which
+    # imports usage_common and so pulls sqlparse in via sql_formatter.
+    "microstrategy": {"requests<3.0.0"} | sqlglot_lib | usage_common,
     "mlflow": {
         "mlflow-skinny>=2.3.0,<2.21.0",
         # Pinned to avoid the breaking change introduced in MLflow 2.21.0 where search_registered_models injects an implicit filter
