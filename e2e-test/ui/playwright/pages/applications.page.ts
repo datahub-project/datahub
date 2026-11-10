@@ -125,14 +125,16 @@ export class ApplicationsPage extends BasePage {
 
   async searchApplication(query: string): Promise<void> {
     // The list searches after a debounce, so wait for the result for this query rather than
-    // returning while the previous results are still shown.
+    // returning while the previous results are still shown. The query needs at least 3
+    // characters and must not have been searched already on this page load: shorter queries
+    // are sent as '' and repeats are served from the Apollo cache, so no request would arrive.
     const searched = this.graphql.waitForGraphQLResponse('getSearchResultsForMultiple', (variables) => {
       const input = variables.input as { query?: string } | undefined;
       return input?.query === query;
     });
     await this.searchInput.fill('');
     await this.searchInput.type(query);
-    await searched;
+    expect((await searched).errors).toBeUndefined();
   }
 
   async verifyNoSearchResults(): Promise<void> {
