@@ -46,8 +46,8 @@ export const HIGHTOUCH_MAX_SYNC_RUNS: RecipeField = {
     placeholder: '10',
     rules: [
         {
-            pattern: /^\d+$/,
-            message: 'Max Sync Runs per Sync must be a non-negative integer.',
+            pattern: /^[1-9]\d*$/,
+            message: 'Max Sync Runs per Sync must be a positive integer.',
         },
     ],
 };

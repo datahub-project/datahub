@@ -144,9 +144,8 @@ def test_parsed_sql_upstreams_follow_platform_detail():
     assert parsed is not None
     assert sorted(parsed.upstream_urns) == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.crm.customers,PROD)",
-        # Unqualified tables take the source's database but no default schema, so
-        # the name is left as written rather than guessed.
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.orders,PROD)",
+        # Unqualified tables take the connection's database and schema.
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.public.orders,PROD)",
     ]
     assert [f.fieldPath for f in parsed.output_fields] == ["id", "name"]
     assert parsed.column_upstreams["name"][0].table.endswith(

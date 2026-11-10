@@ -198,10 +198,16 @@ class HightouchResolver:
         details = self.source_platform(source)
         result = create_lineage_sql_parsed_result(
             query=model.raw_sql,
-            # Without the schema in URNs a two-part name is database.table, so the
-            # parser must not read it as schema.table under the default database.
+            # Unqualified tables resolve against the connection's database and
+            # schema, as table models do. Without the schema in URNs a two-part
+            # name is database.table, so the parser must not read it as
+            # schema.table under the default database.
             default_db=details.database if details.include_schema_in_urn else None,
-            default_schema=None,
+            default_schema=(
+                source.configuration.get("schema") or None
+                if details.include_schema_in_urn
+                else None
+            ),
             platform=details.platform or "",
             platform_instance=details.platform_instance,
             env=details.env or self.config.env,
