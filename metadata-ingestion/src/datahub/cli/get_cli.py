@@ -29,9 +29,16 @@ def get() -> None:
     default=False,
     help="Whether to print details from database which help in audit.",
 )
+@click.option(
+    "--pretty-document",
+    is_flag=True,
+    default=False,
+    help="Render a Context Document for human reading. "
+    "Without this flag stdout remains machine-readable JSON.",
+)
 @click.pass_context
 @upgrade.check_upgrade
-def urn(ctx: Any, urn: Optional[str], aspect: List[str], details: bool) -> None:
+def urn(ctx: Any, urn: Optional[str], aspect: List[str], details: bool, pretty_document: bool) -> None:
     """
     Get metadata for an entity with an optional list of aspects to project.
     This works for both versioned aspects and timeseries aspects. For timeseries aspects, it fetches the latest value.
@@ -61,10 +68,30 @@ def urn(ctx: Any, urn: Optional[str], aspect: List[str], details: bool) -> None:
         details=details,
     )
 
+    if pretty_document and not urn.startswith("urn:li:document:"):
+        raise click.UsageError(
+            "--pretty-document requires a urn:li:document:* URN"
+        )
+
+    if pretty_document and aspect:
+        raise click.UsageError(
+            "--pretty-document cannot be combined with --aspect"
+        )
+
     if not aspect:
         # If no aspects are specified and we only get a key aspect back, yield an error instead.
         if len(aspect_data) == 1 and "key" in next(iter(aspect_data)).lower():
             raise click.ClickException(f"urn {urn} not found")
+
+    # If it's a Context Document and the user didn't request a specific aspect, render it nicely
+    if pretty_document and "documentInfo" in aspect_data:
+        doc_info = aspect_data["documentInfo"].get("value", aspect_data["documentInfo"]) if isinstance(aspect_data["documentInfo"], dict) else {}
+        title = doc_info.get("title", "Untitled Document")
+        contents = doc_info.get("contents", {}).get("text")
+        if contents:
+            click.echo(click.style(f"\n# {title}", fg="cyan", bold=True))
+            click.echo("\n" + contents + "\n")
+            click.echo(click.style("--- (Metadata Below) ---", fg="blue", bold=True))
 
     click.echo(
         json.dumps(
