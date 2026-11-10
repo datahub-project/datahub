@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import {
     AZURE_AUTHORITY_URL,
     AZURE_CLIENT_ID,
@@ -959,7 +961,9 @@ export const RECIPE_FIELDS: RecipeFields = {
             HIGHTOUCH_MAX_SYNC_RUNS,
             STATEFUL_INGESTION_ENABLED,
         ],
-        filterSectionTooltip: 'Include or exclude specific Syncs and Models from ingestion.',
+        get filterSectionTooltip() {
+            return i18next.t('ingestion.sourceBuilder:hightouch.filterSection.tooltip');
+        },
     },
     [NOTION]: {
         fields: [NOTION_API_KEY, NOTION_PAGE_IDS],

@@ -1,16 +1,15 @@
-/**
- * Hightouch Recipe Form Fields (V2 Ingestion UI)
- *
- * Note: This file is intentionally duplicated in both V1 (ingest) and V2 (ingestV2) folders
- * to maintain backward compatibility during the UI transition period. Any changes should be
- * applied to both files until V1 is fully deprecated.
- */
+import i18next from 'i18next';
+
 import { FieldType, FilterRecipeField, FilterRule, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 
 export const HIGHTOUCH_API_KEY: RecipeField = {
     name: 'api_key',
-    label: 'API Key',
-    tooltip: 'Your Hightouch API Key. Generate one from Settings → API Keys in your Hightouch workspace.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.apiKey.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.apiKey.tooltip');
+    },
     type: FieldType.SECRET,
     fieldPath: 'source.config.api_config.api_key',
     placeholder: 'your_api_key_here',
@@ -20,9 +19,12 @@ export const HIGHTOUCH_API_KEY: RecipeField = {
 
 export const HIGHTOUCH_EMIT_MODELS: RecipeField = {
     name: 'emit_models_as_datasets',
-    label: 'Emit Models as Datasets',
-    tooltip:
-        'Whether to emit Hightouch models as Dataset entities. When enabled, models appear as separate datasets with platform "hightouch".',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.emitModels.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.emitModels.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.emit_models_as_datasets',
     rules: null,
@@ -30,8 +32,12 @@ export const HIGHTOUCH_EMIT_MODELS: RecipeField = {
 
 export const HIGHTOUCH_INCLUDE_SYNC_RUNS: RecipeField = {
     name: 'include_sync_runs',
-    label: 'Include Sync Runs',
-    tooltip: 'Ingest sync execution history as DataProcessInstances with detailed statistics.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.includeSyncRuns.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.includeSyncRuns.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.include_sync_runs',
     rules: null,
@@ -39,71 +45,112 @@ export const HIGHTOUCH_INCLUDE_SYNC_RUNS: RecipeField = {
 
 export const HIGHTOUCH_MAX_SYNC_RUNS: RecipeField = {
     name: 'max_sync_runs_per_sync',
-    label: 'Max Sync Runs per Sync',
-    tooltip: 'Maximum number of historical sync runs to ingest per sync. Default is 10.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.maxSyncRuns.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.maxSyncRuns.tooltip');
+    },
     type: FieldType.TEXT,
     fieldPath: 'source.config.max_sync_runs_per_sync',
     placeholder: '10',
-    rules: [
-        {
-            pattern: /^[1-9]\d*$/,
-            message: 'Max Sync Runs per Sync must be a positive integer.',
-        },
-    ],
+    get rules() {
+        return [{ pattern: /^[1-9]\d*$/, message: i18next.t('ingestion.sourceBuilder:hightouch.maxSyncRuns.invalid') }];
+    },
 };
 
 export const HIGHTOUCH_SYNC_ALLOW: FilterRecipeField = {
     name: 'sync_patterns.allow',
-    label: 'Sync Allow Patterns',
-    tooltip: 'Only include syncs that match these regex patterns.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.syncAllow.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.syncAllow.tooltip');
+    },
     type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: 'source.config.sync_patterns.allow',
     rules: null,
     rule: FilterRule.INCLUDE,
-    filteringResource: 'Sync',
-    section: 'Syncs',
+    get filteringResource() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.syncs.resource');
+    },
+    get section() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.syncs.section');
+    },
     placeholder: '.*',
 };
 
 export const HIGHTOUCH_SYNC_DENY: FilterRecipeField = {
     name: 'sync_patterns.deny',
-    label: 'Sync Deny Patterns',
-    tooltip: 'Exclude syncs that match these regex patterns.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.syncDeny.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.syncDeny.tooltip');
+    },
     type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: 'source.config.sync_patterns.deny',
     rules: null,
     rule: FilterRule.EXCLUDE,
-    filteringResource: 'Sync',
-    section: 'Syncs',
+    get filteringResource() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.syncs.resource');
+    },
+    get section() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.syncs.section');
+    },
     placeholder: 'test-.*',
 };
 
 export const HIGHTOUCH_MODEL_ALLOW: FilterRecipeField = {
     name: 'model_patterns.allow',
-    label: 'Model Allow Patterns',
-    tooltip: 'Only include models that match these regex patterns.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.modelAllow.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.modelAllow.tooltip');
+    },
     type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: 'source.config.model_patterns.allow',
     rules: null,
     rule: FilterRule.INCLUDE,
-    filteringResource: 'Model',
-    section: 'Models',
+    get filteringResource() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.models.resource');
+    },
+    get section() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.models.section');
+    },
     placeholder: '.*',
 };
 
 export const HIGHTOUCH_MODEL_DENY: FilterRecipeField = {
     name: 'model_patterns.deny',
-    label: 'Model Deny Patterns',
-    tooltip: 'Exclude models that match these regex patterns.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.modelDeny.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.modelDeny.tooltip');
+    },
     type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: 'source.config.model_patterns.deny',
     rules: null,
     rule: FilterRule.EXCLUDE,
-    filteringResource: 'Model',
-    section: 'Models',
+    get filteringResource() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.models.resource');
+    },
+    get section() {
+        return i18next.t('ingestion.sourceBuilder:hightouch.models.section');
+    },
     placeholder: 'draft-.*',
 };
