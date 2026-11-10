@@ -1164,6 +1164,7 @@ kafka = [
     { name = "grpcio" },
     { name = "grpcio-tools" },
     { name = "networkx" },
+    { name = "sqlglot", extra = ["c"] },
 ]
 kafka-connect = [
     { name = "cachetools" },
@@ -2751,6 +2752,7 @@ requires-dist = [
     { name = "sqlglot", extras = ["c"], marker = "extra == 'hive-metastore'", specifier = "==30.22.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'informix'", specifier = "==30.22.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'integration-tests'", specifier = "==30.22.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'kafka'", specifier = "==30.22.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'kafka-connect'", specifier = "==30.22.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'looker'", specifier = "==30.22.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'lookml'", specifier = "==30.22.0" },
