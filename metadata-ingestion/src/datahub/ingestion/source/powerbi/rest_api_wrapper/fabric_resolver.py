@@ -60,6 +60,10 @@ KEY_PROPERTIES = "properties"
 KEY_SQL_ENDPOINT_PROPERTIES = "sqlEndpointProperties"
 KEY_WORKSPACE_ID = "workspaceId"
 KEY_ERROR = "error"
+KEY_ERROR_CODE = "errorCode"
+# Fabric's error code for an item that has no definition to return
+# (for example push and streaming semantic models).
+ERROR_OPERATION_NOT_SUPPORTED = "OperationNotSupportedForItem"
 KEY_MESSAGE = "message"
 MSAL_ERROR = "error"
 MSAL_ERROR_DESCRIPTION = "error_description"
@@ -68,9 +72,29 @@ MSAL_ERROR_DESCRIPTION = "error_description"
 class FabricDefinitionError(Exception):
     """A Fabric item definition could not be fetched for a non-transport reason."""
 
+    def __init__(self, message: str, error_code: Optional[str] = None) -> None:
+        super().__init__(message)
+        self.error_code = error_code
+
 
 class FabricLroTimeoutError(FabricDefinitionError):
     """The long-running getDefinition operation did not finish in time."""
+
+
+def is_unsupported_item_error(e: Exception) -> bool:
+    """getDefinition is not supported for this item, as opposed to failing."""
+    if isinstance(e, FabricDefinitionError):
+        return e.error_code == ERROR_OPERATION_NOT_SUPPORTED
+    if isinstance(e, requests.exceptions.HTTPError) and e.response is not None:
+        try:
+            body = e.response.json()
+        except ValueError:
+            return False
+        return (
+            isinstance(body, dict)
+            and body.get(KEY_ERROR_CODE) == ERROR_OPERATION_NOT_SUPPORTED
+        )
+    return False
 
 
 @dataclass
@@ -305,7 +329,8 @@ class FabricDefinitionResolver:
             if status == LRO_STATUS_FAILED:
                 error = operation.get(KEY_ERROR) or {}
                 raise FabricDefinitionError(
-                    f"getDefinition operation failed: {error.get(KEY_MESSAGE) or error}"
+                    f"getDefinition operation failed: {error.get(KEY_MESSAGE) or error}",
+                    error_code=error.get(KEY_ERROR_CODE),
                 )
             delay = self._retry_after_seconds(poll)
 

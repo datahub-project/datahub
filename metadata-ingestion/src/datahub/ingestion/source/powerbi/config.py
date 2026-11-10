@@ -178,6 +178,7 @@ class Constant:
 
     # Storage mode values
     DIRECT_LAKE = "DirectLake"
+    ADD_ROWS_API_ENABLED = "addRowsAPIEnabled"
 
     # workspace_apis mode: regular-API endpoints and refresh-history keys
     DATASET_REFRESHES = "DATASET_REFRESHES"
@@ -321,6 +322,7 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     # Semantic models only: the all-failed check must not count reports.
     semantic_model_definitions_fetched: int = 0
     semantic_model_definitions_failed: int = 0
+    semantic_model_definitions_unsupported: int = 0
     fabric_report_definitions_denied: int = 0
     dataset_parameters_failed: int = 0
     fabric_lro_timeouts: int = 0

@@ -19,6 +19,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
     DefinitionPart,
+    FabricDefinitionError,
     FabricItem,
     FabricLroTimeoutError,
     ItemDefinition,
@@ -183,6 +184,64 @@ def test_one_forbidden_model_is_a_failure_but_does_not_abort_the_workspace() -> 
     assert not any(
         f.title == "No Item Definitions Fetched" for f in api.reporter.failures
     )
+
+
+def _unsupported_http_error() -> requests.HTTPError:
+    response = requests.Response()
+    response.status_code = 400
+    response._content = b'{"errorCode": "OperationNotSupportedForItem"}'
+    return requests.HTTPError(response=response)
+
+
+@pytest.mark.parametrize(
+    "unsupported",
+    [
+        pytest.param(_unsupported_http_error(), id="http_400"),
+        pytest.param(
+            FabricDefinitionError(
+                "operation failed", error_code="OperationNotSupportedForItem"
+            ),
+            id="lro_failed",
+        ),
+    ],
+)
+def test_model_without_a_definition_is_a_warning_not_a_failure(
+    unsupported: Exception,
+) -> None:
+    """Push and streaming models never return TMDL; failing the run for them
+    would disable stale-entity removal on every run."""
+    api = _api(definitions={MODEL_A: unsupported})
+    workspace = _workspace()
+
+    api.fill_metadata_from_definitions([workspace])
+    api.report_if_no_definitions_fetched()
+
+    assert workspace.datasets[MODEL_A].tables == []
+    assert api.reporter.semantic_model_definitions_unsupported == 1
+    assert api.reporter.semantic_model_definitions_failed == 0
+    assert not api.reporter.failures
+    assert [w.title for w in api.reporter.warnings] == [
+        "Semantic Model Definition Not Supported"
+    ]
+
+
+def test_push_dataset_skips_get_definition() -> None:
+    api = _api(
+        datasets=[
+            {"id": MODEL_A, "name": "Insurance Model"},
+            {"id": MODEL_B, "name": "Push Model", "addRowsAPIEnabled": True},
+        ]
+    )
+    workspace = _workspace()
+
+    api.fill_metadata_from_definitions([workspace])
+
+    fabric = api._PowerBiAPI__fabric_resolver  # type: ignore[attr-defined]
+    requested = [c.kwargs["item_id"] for c in fabric.get_item_definition.call_args_list]
+    assert requested == [MODEL_A]
+    assert set(workspace.datasets) == {MODEL_A, MODEL_B}
+    assert api.reporter.semantic_model_definitions_unsupported == 1
+    assert not api.reporter.failures
 
 
 def test_lro_timeout_on_a_model_is_a_failure_and_all_failures_escalate() -> None:

@@ -63,6 +63,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
     FabricDefinitionResolver,
     FabricItem,
     FabricLroTimeoutError,
+    is_unsupported_item_error,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.report_definition_parser import (
     ParsedPage,
@@ -1001,6 +1002,17 @@ class PowerBiAPI:
             return None
         return parse_rdl_dataset_binding(definition.parts)
 
+    def _report_definition_unsupported(self, context: str) -> None:
+        # Push, streaming and similar models have no TMDL definition in any
+        # run, so they are not a failure: failing would disable stale-entity
+        # removal on every run for one such model.
+        self.reporter.semantic_model_definitions_unsupported += 1
+        self.reporter.warning(
+            title="Semantic Model Definition Not Supported",
+            message="This semantic model has no definition to fetch (for example a push or streaming model); it is ingested without tables, schema or lineage.",
+            context=context,
+        )
+
     def _report_definition_failure(
         self, e: Exception, context: str, item_kind: str
     ) -> None:
@@ -1287,7 +1299,10 @@ class PowerBiAPI:
             self.reporter.fabric_definitions_fetched += 1
             self.reporter.semantic_model_definitions_fetched += 1
         except Exception as e:
-            self._report_definition_failure(e, context, FABRIC_KIND_SEMANTIC_MODELS)
+            if is_unsupported_item_error(e):
+                self._report_definition_unsupported(context)
+            else:
+                self._report_definition_failure(e, context, FABRIC_KIND_SEMANTIC_MODELS)
             return
 
         parsed_model = parse_semantic_model(definition.parts)
@@ -1395,7 +1410,12 @@ class PowerBiAPI:
                         context=f"workspace={workspace.name}, dataset={dataset.name} id={dataset.id}",
                         exc=e,
                     )
-                self._fill_dataset_from_definition(workspace, dataset)
+                if raw_dataset.get(Constant.ADD_ROWS_API_ENABLED):
+                    self._report_definition_unsupported(
+                        f"workspace={workspace.name}, dataset={dataset.name} id={dataset.id}"
+                    )
+                else:
+                    self._fill_dataset_from_definition(workspace, dataset)
                 self._fill_refresh_history(workspace, dataset)
             except Exception as e:
                 self.reporter.semantic_models_not_processed += 1
