@@ -51,6 +51,17 @@ describe('TreeViewContextProvider getIsExpandable', () => {
         expect(result.current.getIsExpandable(loadedEmpty)).toBe(false);
     });
 
+    it('stays expandable when the load failed and its child count is unknown', () => {
+        const { result, rerender } = renderTreeContext(asyncNode());
+
+        act(() => result.current.expand(asyncNode()));
+
+        const loadFailed = asyncNode({ isChildrenLoading: false, totalChildren: undefined, children: [] });
+        rerender({ nodes: [loadFailed] });
+
+        expect(result.current.getIsExpandable(loadFailed)).toBe(true);
+    });
+
     it('stays expandable while loading and when the load returned children', () => {
         const { result, rerender } = renderTreeContext(asyncNode());
 
