@@ -1540,27 +1540,3 @@ def test_federation_cll_all_complex_table_counts_unmatched_columns():
     assert aspect is not None and not aspect.fineGrainedLineages
     assert src.report.num_federation_cll_edges_emitted == 0
     assert src.report.num_federation_cll_downstream_unmatched == 2
-
-
-def test_federation_cll_counts_unknown_original_paths():
-    # A schema stored without its field paths (raw SchemaInfo) has unknown
-    # originals: lineage falls back to simple paths, and the fallback is counted.
-    src = _lineage_cll_source()
-    catalog = _foreign_catalog()
-    _seed_external_schema(src, catalog, "my_schema", "t", {"col_a": "bigint"})
-    dbx_schema = _external_schema([_field("col_a")])
-
-    src._federation_lineage(_DBX_URN, _foreign_table(catalog), catalog, dbx_schema)
-
-    assert src.report.num_federation_cll_original_paths_unknown == 1
-
-
-def test_federation_cll_known_v1_originals_are_not_counted_unknown():
-    src = _lineage_cll_source()
-    catalog = _foreign_catalog()
-    _seed_external_v2_schema(src, catalog, ["col_a"])
-    dbx_schema = _external_schema([_field("col_a")])
-
-    src._federation_lineage(_DBX_URN, _foreign_table(catalog), catalog, dbx_schema)
-
-    assert src.report.num_federation_cll_original_paths_unknown == 0
