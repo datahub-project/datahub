@@ -60,7 +60,7 @@ from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 from datahub.telemetry import stats
-from datahub.telemetry.telemetry import telemetry_instance
+from datahub.telemetry.telemetry import get_telemetry_instance
 from datahub.upgrade.upgrade import (
     is_server_default_cli_ahead,
     retrieve_version_stats,
@@ -415,7 +415,7 @@ class Pipeline:
                     if self.graph is not None:
                         self.graph.test_connection()
             self.ctx.graph = self.graph
-            telemetry_instance.set_context(server=self.graph)
+            get_telemetry_instance().set_context(server=self.graph)
 
             with set_graph_context(self.graph):
                 with _add_init_error_context("configure reporters"):
@@ -860,7 +860,7 @@ class Pipeline:
             self.source.get_report().get_aspects_by_subtypes_dict()
         )
 
-        telemetry_instance.ping(
+        get_telemetry_instance().ping(
             "ingest_stats",
             {
                 "source_type": self.source_type,
