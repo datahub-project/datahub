@@ -675,6 +675,10 @@ _Changes_
 - Airflow Assets with a `file:///` URI keep the leading slash in the dataset name (`file:///tmp/x` becomes `/tmp/x`, not `tmp/x`), matching OpenLineage and the Spark agent.
 - DataFlows now carry a `schedule` custom property with the DAG's schedule as the Airflow UI shows it (for example `0 6 * * *`, `2:00:00` or `Asset`; `None` for an unscheduled DAG). The value is the same whether the DAG-run or the task hooks emitted the DataFlow. If the schedule cannot be resolved, for example a custom timetable that isn't registered through an Airflow plugin, the property is omitted and a warning is logged ([#20101](https://github.com/datahub-project/datahub/pull/20101)).
 
+_Fixes_
+
+- `DatahubEmitterOperator` now renders Jinja templates inside lists of strings, such as `DatasetProperties.tags` or `BrowsePaths.paths`. Before, those values were emitted as written, so a tag set to `{{ ds }}` reached DataHub as a literal `{{ ds }}` instead of the run date ([#21078](https://github.com/datahub-project/datahub/pull/21078)).
+
 ### Versions 1.7.0 through 1.7.0.10
 
 No plugin changes. Every `1.7.x` release published so far ships the same plugin code as
