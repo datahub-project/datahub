@@ -90,6 +90,7 @@ abs = [
     { name = "pyarrow" },
     { name = "smart-open", extra = ["azure"] },
     { name = "tableschema" },
+    { name = "tzdata" },
     { name = "ujson" },
     { name = "wcmatch" },
 ]
@@ -989,6 +990,7 @@ gcs = [
     { name = "pyarrow" },
     { name = "smart-open", extra = ["gcs", "s3"] },
     { name = "tableschema" },
+    { name = "tzdata" },
     { name = "ujson" },
     { name = "wcmatch" },
 ]
@@ -1003,6 +1005,7 @@ gcs-slim = [
     { name = "pyarrow" },
     { name = "smart-open", extra = ["gcs", "s3"] },
     { name = "tableschema" },
+    { name = "tzdata" },
     { name = "ujson" },
     { name = "wcmatch" },
 ]
@@ -1437,6 +1440,7 @@ s3 = [
     { name = "pyarrow" },
     { name = "smart-open", extra = ["s3"] },
     { name = "tableschema" },
+    { name = "tzdata" },
     { name = "ujson" },
     { name = "wcmatch" },
 ]
@@ -1451,6 +1455,7 @@ s3-slim = [
     { name = "pyarrow" },
     { name = "smart-open", extra = ["s3"] },
     { name = "tableschema" },
+    { name = "tzdata" },
     { name = "ujson" },
     { name = "wcmatch" },
 ]
@@ -2954,11 +2959,16 @@ requires-dist = [
     { name = "typing-inspect", specifier = "<0.10.0" },
     { name = "typing-inspect", marker = "extra == 'dev'", specifier = "<0.10.0" },
     { name = "typing-inspect", marker = "extra == 'docs'", specifier = "<0.10.0" },
+    { name = "tzdata", marker = "extra == 'abs'", specifier = ">=2022.7,<2030" },
     { name = "tzdata", marker = "extra == 'all'", specifier = ">=2022.7,<2030" },
     { name = "tzdata", marker = "extra == 'databricks'", specifier = ">=2022.7,<2030" },
     { name = "tzdata", marker = "extra == 'dev'", specifier = ">=2022.7,<2030" },
     { name = "tzdata", marker = "extra == 'docs'", specifier = ">=2022.7,<2030" },
     { name = "tzdata", marker = "extra == 'fivetran'", specifier = ">=2022.7,<2030" },
+    { name = "tzdata", marker = "extra == 'gcs'", specifier = ">=2022.7,<2030" },
+    { name = "tzdata", marker = "extra == 'gcs-slim'", specifier = ">=2022.7,<2030" },
+    { name = "tzdata", marker = "extra == 's3'", specifier = ">=2022.7,<2030" },
+    { name = "tzdata", marker = "extra == 's3-slim'", specifier = ">=2022.7,<2030" },
     { name = "tzdata", marker = "extra == 'unity-catalog'", specifier = ">=2022.7,<2030" },
     { name = "ujson", marker = "extra == 'abs'", specifier = ">=5.12.1,<6.0.0" },
     { name = "ujson", marker = "extra == 'abs-slim'", specifier = ">=5.12.1,<6.0.0" },
