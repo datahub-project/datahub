@@ -41,6 +41,9 @@ describe('use-app-wrappers', () => {
         "import { Editor } from '@components/components/Editor/EditorImpl';",
         "import { Editor as MarkdownEditor } from '@src/alchemy-components/components/Editor/Editor';",
         "export { Editor } from '@components';",
+        "import * as EditorModule from '@components/components/Editor/Editor';",
+        "export * from '@components/components/Editor';",
+        "const load = () => import('@components/components/Editor/EditorImpl');",
     ])('flags %s in app code', (code) => {
         expect(lint(code)).toEqual([
             "Import Editor from '@app/sharedV2/editor/Editor': the app wrapper adds app behavior to the alchemy component.",
@@ -48,7 +51,10 @@ describe('use-app-wrappers', () => {
     });
 
     it('flags only the wrapped name in a mixed import', () => {
-        expect(lint("import { Button, Editor, Tabs } from '@components';")).toHaveLength(2);
+        expect(lint("import { Button, Editor, Tabs } from '@components';")).toEqual([
+            "Import Editor from '@app/sharedV2/editor/Editor': the app wrapper adds app behavior to the alchemy component.",
+            "Import Tabs from '@app/sharedV2/tabs/Tabs': the app wrapper adds app behavior to the alchemy component.",
+        ]);
     });
 
     it.each([
@@ -57,6 +63,8 @@ describe('use-app-wrappers', () => {
         "import type { Editor } from '@components';",
         "import Editor from '@monaco-editor/react';",
         "import { Editor } from '@app/sharedV2/editor/Editor';",
+        "import * as Alchemy from '@components';",
+        "import type * as EditorTypes from '@components/components/Editor/types';",
     ])('allows %s', (code) => {
         expect(lint(code)).toEqual([]);
     });

@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { ThemeProvider } from 'styled-components';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Editor } from '@components/components/Editor/EditorImpl';
 import { EditorMentionsPickerProps } from '@components/components/Editor/types';
@@ -35,6 +35,10 @@ const Throws = () => {
 };
 
 describe('Editor', () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
     it('keeps the editable surface by default', async () => {
         renderEditor();
 
@@ -68,12 +72,11 @@ describe('Editor', () => {
     });
 
     it('falls back to mentionsPicker when mentionsComponent throws', () => {
-        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+        vi.spyOn(console, 'error').mockImplementation(() => {});
 
         renderEditor({ mentionsComponent: <Throws />, mentionsPicker: MentionsPicker });
 
         expect(screen.getByTestId('default-mentions')).toBeInTheDocument();
-        consoleError.mockRestore();
     });
 
     it('renders mentions as @name without mentionNodeView', async () => {

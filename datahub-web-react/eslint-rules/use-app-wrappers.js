@@ -6,7 +6,11 @@
  * - ❌ import { Editor } from '@components'
  * - ❌ import { Editor } from '@components/components/Editor/EditorImpl' (any file of the component)
  * - ✅ import { Editor } from '@app/sharedV2/editor/Editor'
+ * - ❌ import * as EditorModule from '@components/components/Editor/Editor', export * from it, or import() it
  * - ✅ import { EditorProps } from '@components/components/Editor/types' (other names)
+ *
+ * A namespace import, `export *` or `import()` of the alchemy root is not flagged: it does not name
+ * the component, and the root exports every other alchemy component too.
  *
  * Alchemy files and the component's own wrappers are exempt.
  *
@@ -19,11 +23,15 @@
 
 const ALCHEMY_ROOTS = ['@components', '@src/alchemy-components'];
 
-function importsFromComponent(source, folder) {
+function importsFromFolder(source, folder) {
     return ALCHEMY_ROOTS.some((root) => {
         const folderPath = `${root}/components/${folder}`;
-        return source === root || source === folderPath || source.startsWith(`${folderPath}/`);
+        return source === folderPath || source.startsWith(`${folderPath}/`);
     });
+}
+
+function importsFromComponent(source, folder) {
+    return ALCHEMY_ROOTS.includes(source) || importsFromFolder(source, folder);
 }
 
 function wrapperImportPath(wrapper) {
@@ -69,17 +77,28 @@ module.exports = {
         const components = (context.options[0]?.components ?? []).filter((component) => !isOwnWrapper(component));
         if (components.length === 0) return {};
 
+        function report(node, component) {
+            context.report({
+                node,
+                message: `Import ${component.name} from '${wrapperImportPath(component.wrappers[0])}': the app wrapper adds app behavior to the alchemy component.`,
+            });
+        }
+
         function check(node, importedName) {
             const source = node.parent.source?.value;
             if (typeof source !== 'string') return;
             const component = components.find(
                 ({ name, folder }) => name === importedName && importsFromComponent(source, folder),
             );
-            if (!component) return;
-            context.report({
-                node,
-                message: `Import ${component.name} from '${wrapperImportPath(component.wrappers[0])}': the app wrapper adds app behavior to the alchemy component.`,
-            });
+            if (component) report(node, component);
+        }
+
+        // Namespace imports, `export *` and `import()` reach every export of the module.
+        function checkWholeModule(node, sourceNode) {
+            const source = sourceNode?.value;
+            if (typeof source !== 'string') return;
+            const component = components.find(({ folder }) => importsFromFolder(source, folder));
+            if (component) report(node, component);
         }
 
         return {
@@ -90,6 +109,17 @@ module.exports = {
             ExportSpecifier(node) {
                 if (node.parent.exportKind === 'type' || node.exportKind === 'type') return;
                 check(node, node.local.name);
+            },
+            ImportNamespaceSpecifier(node) {
+                if (node.parent.importKind === 'type') return;
+                checkWholeModule(node, node.parent.source);
+            },
+            ExportAllDeclaration(node) {
+                if (node.exportKind === 'type') return;
+                checkWholeModule(node, node.source);
+            },
+            ImportExpression(node) {
+                checkWholeModule(node, node.source);
             },
         };
     },

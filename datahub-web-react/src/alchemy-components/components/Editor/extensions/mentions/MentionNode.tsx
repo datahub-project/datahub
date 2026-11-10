@@ -10,5 +10,5 @@ type Props = NodeViewComponentProps & {
 export function MentionNode({ view: View, ...props }: Props) {
     if (View) return <View {...props} />;
 
-    return <span>@{props.node.attrs.name}</span>;
+    return <span className="mentions">@{props.node.attrs.name}</span>;
 }
