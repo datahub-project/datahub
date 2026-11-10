@@ -9,6 +9,7 @@ from typing import (
     MutableMapping,
     Optional,
     Set,
+    Tuple,
     Type,
     TypeVar,
     cast,
@@ -38,6 +39,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Table,
     User,
     Workspace,
+    analysis_services_models_from_rows,
     analysis_services_models_from_scan,
     new_powerbi_dashboards,
     new_powerbi_dataset,
@@ -657,6 +659,12 @@ class PowerBiAPI:
             dataset_instance.analysis_services_models = (
                 analysis_services_models_from_scan(scan_result, dataset_dict)
             )
+            if not dataset_instance.analysis_services_models:
+                dataset_instance.analysis_services_models = (
+                    self._analysis_services_models_from_dataset_api(
+                        workspace.id, dataset_id
+                    )
+                )
 
             # fetch + set dataset parameters
             try:
@@ -743,6 +751,43 @@ class PowerBiAPI:
                     )
                 dataset_instance.tables.append(table)
         return dataset_map
+
+    def _analysis_services_models_from_dataset_api(
+        self, workspace_id: str, dataset_id: str
+    ) -> List[Tuple[str, str]]:
+        """Ask the dataset datasources API when the scan did not name a model.
+
+        A live connection has no tables, and the admin scan then often has no
+        ``datasourceUsages`` to join. ``GET .../datasets/{id}/datasources``
+        still returns the Analysis Services server and database.
+        """
+        resolver = self._get_resolver()
+        get_datasources = getattr(resolver, "get_dataset_datasources", None)
+        if not callable(get_datasources):
+            return []
+        try:
+            rows = get_datasources(workspace_id, dataset_id)
+        except Exception as exc:
+            logger.info(
+                "Unable to fetch datasources for dataset %s in workspace %s: %s",
+                dataset_id,
+                workspace_id,
+                exc,
+            )
+            return []
+        models = analysis_services_models_from_rows(rows)
+        if models:
+            logger.info(
+                "Dataset %s is connected to Analysis Services model(s): %s",
+                dataset_id,
+                ", ".join(database for _server, database in models),
+            )
+        else:
+            logger.info(
+                "Dataset %s datasources API returned no external Analysis Services model",
+                dataset_id,
+            )
+        return models
 
     def get_app(
         self,

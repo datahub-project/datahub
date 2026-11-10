@@ -345,7 +345,7 @@ class ReportDatasource:
         return ReportDatasource(
             datasource_type=datasource_type,
             server=server,
-            database=connection.get("database"),
+            database=connection.get("database") or connection.get("initialCatalog"),
         )
 
     @property
@@ -365,35 +365,17 @@ class ReportDatasource:
         return None
 
 
-def analysis_services_models_from_scan(
-    scan_result: Optional[dict], dataset_raw: dict
+def analysis_services_models_from_rows(
+    rows: List[Dict[str, Any]],
 ) -> List[Tuple[str, str]]:
-    """External AAS models a scanned dataset is connected to.
+    """External AAS models from datasource API rows.
 
-    The admin scan lists workspace datasources separately from datasets and
-    links them with ``datasourceUsages[].datasourceInstanceId``. A live
-    connection to Azure Analysis Services has no M expression, so this is the
-    only place the model name is available.
+    An internal Power BI semantic-model binding (``pbiazure`` plus a
+    ``sobe_wowvirtualserver-`` database) is not an Analysis Services model.
     """
-    if not scan_result:
-        return []
-
-    usage_ids = {
-        usage.get("datasourceInstanceId")
-        for usage in dataset_raw.get("datasourceUsages") or []
-        if isinstance(usage, dict) and usage.get("datasourceInstanceId")
-    }
-    if not usage_ids:
-        return []
-
     models: List[Tuple[str, str]] = []
     seen: Set[Tuple[str, str]] = set()
-    for raw in scan_result.get("datasources") or []:
-        if not isinstance(raw, dict):
-            continue
-        datasource_id = raw.get("datasourceId") or raw.get("datasourceInstanceId")
-        if datasource_id not in usage_ids:
-            continue
+    for raw in rows:
         parsed = ReportDatasource.from_raw(raw)
         if (
             parsed is None
@@ -408,6 +390,39 @@ def analysis_services_models_from_scan(
         seen.add(key)
         models.append(key)
     return models
+
+
+def analysis_services_models_from_scan(
+    scan_result: Optional[dict], dataset_raw: dict
+) -> List[Tuple[str, str]]:
+    """External AAS models a scanned dataset is connected to.
+
+    The admin scan lists workspace datasources separately from datasets and
+    links them with ``datasourceUsages[].datasourceInstanceId``. Those usages
+    are on the dataset for a live connection and on each table otherwise.
+    """
+    if not scan_result:
+        return []
+
+    usages: List[Any] = list(dataset_raw.get("datasourceUsages") or [])
+    for table in dataset_raw.get("tables") or []:
+        if isinstance(table, dict):
+            usages.extend(table.get("datasourceUsages") or [])
+    usage_ids = {
+        usage.get("datasourceInstanceId")
+        for usage in usages
+        if isinstance(usage, dict) and usage.get("datasourceInstanceId")
+    }
+    if not usage_ids:
+        return []
+
+    linked = [
+        raw
+        for raw in scan_result.get("datasources") or []
+        if isinstance(raw, dict)
+        and (raw.get("datasourceId") or raw.get("datasourceInstanceId")) in usage_ids
+    ]
+    return analysis_services_models_from_rows(linked)
 
 
 @dataclass

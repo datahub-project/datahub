@@ -157,6 +157,29 @@ def test_analysis_services_models_from_scan() -> None:
     ]
 
 
+def test_analysis_services_models_from_table_usages_and_initial_catalog() -> None:
+    scan = {
+        "datasources": [
+            {
+                "datasourceType": "AnalysisServices",
+                "datasourceId": "ds-aas",
+                "connectionDetails": {
+                    "server": "asazure://northeurope.asazure.windows.net/finance-server",
+                    "initialCatalog": "finance-model",
+                },
+            }
+        ]
+    }
+    dataset = {
+        "tables": [
+            {"name": "Sales", "datasourceUsages": [{"datasourceInstanceId": "ds-aas"}]}
+        ]
+    }
+    assert analysis_services_models_from_scan(scan, dataset) == [
+        ("asazure://northeurope.asazure.windows.net/finance-server", "finance-model")
+    ]
+
+
 def _finance_mapper(*, graph: object) -> Mapper:
     config = PowerBiDashboardSourceConfig.parse_obj(
         {
