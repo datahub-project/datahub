@@ -1,6 +1,9 @@
 # One inline fragment per type rather than "... on HasIncidents": GMS versions
 # from before that interface reject the query. Every type except Dataset,
 # DataJob, DataFlow, Dashboard and Chart is tagged NEWER_GMS so older GMS drops it.
+# NEWER_GMS is one switch per server, not per type: non-Cloud servers never query
+# these types, and on Cloud a validation error on any NEWER_GMS field turns the
+# tag off for every MCP tool on that server.
 # ListEntityIncidentsQueryTest (datahub-graphql-core) fails when the fragments
 # drift from the types that implement HasIncidents.
 
