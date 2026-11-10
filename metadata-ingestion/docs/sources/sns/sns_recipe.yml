@@ -24,5 +24,32 @@ source:
     # account_platform_instance_map:
     #   "210987654321": "shared-services"
 
+    glue_schema_registry:
+      enabled: false
+      registry_name: "default-registry"
+      # Set enabled: true and replace {} with a mapping, for example:
+      #   topic_schema_map:
+      #     orders: "order-v1"
+      topic_schema_map: {}
+
+    lineage:
+      lambda_functions: true
+      # One lambda:ListFunctionEventInvokeConfigs call per function in the region.
+      lambda_async_destinations: false
+      eventbridge_rules: true
+      eventbridge_pipes: true
+      s3_notifications: false
+    # Match the s3 source recipe, for S3 notification lineage.
+    # platform_map:
+    #   s3:
+    #     platform_instance: "data-lake"
+    #     env: "PROD"
+    #     convert_urns_to_lowercase: false
+
+    cloudtrail_producers:
+      enabled: false
+      # event_data_store: "arn:aws:cloudtrail:us-east-1:123456789012:eventdatastore/EXAMPLE"
+      # lookback_days: 7
+
     stateful_ingestion:
       enabled: true

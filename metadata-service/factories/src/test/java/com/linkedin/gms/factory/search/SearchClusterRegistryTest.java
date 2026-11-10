@@ -9,15 +9,19 @@ import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.metadata.config.search.ClusterMigrationConfiguration;
 import com.linkedin.metadata.config.search.ComponentClusterConfiguration;
+import com.linkedin.metadata.config.search.CopySettings;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.FamilyMigrationSettings;
 import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.search.elasticsearch.update.MirroredESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -52,7 +56,7 @@ public class SearchClusterRegistryTest {
     connections.put(
         "secondary",
         new SearchClusterRegistry.ClusterConnection("secondary", config, null, null, secondary));
-    return new SearchClusterRegistry(config, connections);
+    return new SearchClusterRegistry(config, connections, CONVENTION, null);
   }
 
   @Test
@@ -181,7 +185,7 @@ public class SearchClusterRegistryTest {
         "secondary",
         new SearchClusterRegistry.ClusterConnection(
             "secondary", secondaryConfig, null, null, mock(ESIndexBuilder.class)));
-    SearchClusterRegistry reg = new SearchClusterRegistry(routing, connections);
+    SearchClusterRegistry reg = new SearchClusterRegistry(routing, connections, CONVENTION, null);
 
     assertEquals(
         reg.configFor(SearchComponent.SEARCH_V2).getEntityIndex().getV3().getAnalyzerConfig(),
@@ -220,7 +224,9 @@ public class SearchClusterRegistryTest {
         new SearchClusterRegistry.ClusterConnection(
             "primary", config, mock(SearchClientShim.class), null, mock(ESIndexBuilder.class)));
 
-    assertThrows(IllegalStateException.class, () -> new SearchClusterRegistry(config, connections));
+    assertThrows(
+        IllegalStateException.class,
+        () -> new SearchClusterRegistry(config, connections, CONVENTION, null));
   }
 
   @Test
@@ -244,7 +250,8 @@ public class SearchClusterRegistryTest {
             mock(ESIndexBuilder.class)));
 
     assertEquals(
-        Set.copyOf(new SearchClusterRegistry(config, connections).bulkProcessors()),
+        Set.copyOf(
+            new SearchClusterRegistry(config, connections, CONVENTION, null).bulkProcessors()),
         Set.of(primary, secondary));
     assertEquals(Set.copyOf(SearchWriteAccess.fixed(primary).bulkProcessors()), Set.of(primary));
   }
@@ -268,7 +275,7 @@ public class SearchClusterRegistryTest {
         new SearchClusterRegistry.ClusterConnection(
             "secondary", config, other, null, mock(ESIndexBuilder.class)));
 
-    SearchClusterRegistry reg = new SearchClusterRegistry(config, connections);
+    SearchClusterRegistry reg = new SearchClusterRegistry(config, connections, CONVENTION, null);
 
     List<SearchClusterRegistry.ClusterConnection> unique = List.copyOf(reg.uniqueConnections());
     assertEquals(unique.size(), 2);
@@ -277,5 +284,123 @@ public class SearchClusterRegistryTest {
     assertSame(unique.get(0).getClient(), shared);
     assertSame(unique.get(1).getClient(), other);
     assertSame(reg.uniqueConnections(), reg.uniqueConnections());
+  }
+
+  private static ElasticSearchConfiguration configWithGraphMigration(String target, boolean copy) {
+    ElasticSearchConfiguration config = config(ComponentClusterConfiguration.builder().build());
+    config.setClusterMigration(
+        ClusterMigrationConfiguration.builder()
+            .graph(
+                FamilyMigrationSettings.builder()
+                    .targetCluster(target)
+                    .copy(CopySettings.builder().enabled(copy).build())
+                    .build())
+            .build());
+    return config;
+  }
+
+  private static Map<String, SearchClusterRegistry.ClusterConnection> liveConnections(
+      ElasticSearchConfiguration config,
+      SearchClientShim<?> primaryClient,
+      SearchClientShim<?> secondaryClient,
+      ESBulkProcessor primaryProcessor,
+      ESBulkProcessor secondaryProcessor) {
+    Map<String, SearchClusterRegistry.ClusterConnection> connections = new LinkedHashMap<>();
+    connections.put(
+        "primary",
+        new SearchClusterRegistry.ClusterConnection(
+            "primary", config, primaryClient, primaryProcessor, mock(ESIndexBuilder.class)));
+    connections.put(
+        "secondary",
+        new SearchClusterRegistry.ClusterConnection(
+            "secondary", config, secondaryClient, secondaryProcessor, mock(ESIndexBuilder.class)));
+    return connections;
+  }
+
+  @Test
+  public void testFamilyMigrationMirrorsOnlyThatFamilysWrites() {
+    ElasticSearchConfiguration config = configWithGraphMigration("secondary", true);
+    ESBulkProcessor primaryProcessor = mock(ESBulkProcessor.class);
+    ESBulkProcessor secondaryProcessor = mock(ESBulkProcessor.class);
+    SearchClusterRegistry reg =
+        new SearchClusterRegistry(
+            config,
+            liveConnections(
+                config,
+                mock(SearchClientShim.class),
+                mock(SearchClientShim.class),
+                primaryProcessor,
+                secondaryProcessor),
+            CONVENTION,
+            null);
+
+    ESBulkProcessor graphWriter = reg.bulkProcessorFor(SearchComponent.GRAPH);
+    assertTrue(graphWriter instanceof MirroredESBulkProcessor);
+    assertSame(((MirroredESBulkProcessor) graphWriter).getServing(), primaryProcessor);
+    assertSame(((MirroredESBulkProcessor) graphWriter).getTarget(), secondaryProcessor);
+    assertSame(reg.bulkProcessorFor(SearchComponent.TIMESERIES), primaryProcessor);
+    assertSame(reg.bulkProcessorFor(SearchComponent.SEARCH_V2), primaryProcessor);
+    // Reads and index building stay on the serving cluster.
+    assertEquals(reg.clusterNameFor(SearchComponent.GRAPH), "primary");
+    assertSame(reg.targetConnectionFor(SearchComponent.GRAPH), reg.connection("secondary"));
+    assertEquals(reg.familyMigrations().size(), 1);
+    assertTrue(reg.migrationFor(SearchComponent.GRAPH).isPresent());
+    assertFalse(reg.migrationFor(SearchComponent.USAGE).isPresent());
+    assertNotNull(
+        reg.migrationFor(SearchComponent.GRAPH).get().getWriteLog(),
+        "a migration whose history is copied logs its deletes for the replay");
+  }
+
+  @Test
+  public void testBulkProcessorsDrainTheRealProcessorsNotTheMirror() {
+    ElasticSearchConfiguration config = configWithGraphMigration("secondary", true);
+    ESBulkProcessor primaryProcessor = mock(ESBulkProcessor.class);
+    ESBulkProcessor secondaryProcessor = mock(ESBulkProcessor.class);
+    SearchClusterRegistry reg =
+        new SearchClusterRegistry(
+            config,
+            liveConnections(
+                config,
+                mock(SearchClientShim.class),
+                mock(SearchClientShim.class),
+                primaryProcessor,
+                secondaryProcessor),
+            CONVENTION,
+            null);
+
+    assertEquals(Set.copyOf(reg.bulkProcessors()), Set.of(primaryProcessor, secondaryProcessor));
+  }
+
+  @Test
+  public void testFamilyMigrationOntoTheSameConnectionIsRejected() {
+    ElasticSearchConfiguration config = configWithGraphMigration("secondary", true);
+    SearchClientShim<?> sharedClient = mock(SearchClientShim.class);
+    Map<String, SearchClusterRegistry.ClusterConnection> connections =
+        liveConnections(
+            config,
+            sharedClient,
+            sharedClient,
+            mock(ESBulkProcessor.class),
+            mock(ESBulkProcessor.class));
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> new SearchClusterRegistry(config, connections, CONVENTION, null));
+  }
+
+  @Test
+  public void testFamilyMigrationNeedsAnIndexConvention() {
+    ElasticSearchConfiguration config = configWithGraphMigration("secondary", true);
+    Map<String, SearchClusterRegistry.ClusterConnection> connections =
+        liveConnections(
+            config,
+            mock(SearchClientShim.class),
+            mock(SearchClientShim.class),
+            mock(ESBulkProcessor.class),
+            mock(ESBulkProcessor.class));
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> new SearchClusterRegistry(config, connections, null, null));
   }
 }

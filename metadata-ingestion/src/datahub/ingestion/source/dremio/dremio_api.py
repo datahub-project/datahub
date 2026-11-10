@@ -909,12 +909,13 @@ class DremioAPIOperations:
         """
         if self.edition == DremioEdition.ENTERPRISE:
             query_template = DremioSQLQueries.QUERY_DATASETS_EE_GLOBAL
+            schema_field = DremioSQLQueries.SYS_SCHEMA_FILTER_FIELD
         elif self.edition == DremioEdition.CLOUD:
             query_template = DremioSQLQueries.QUERY_DATASETS_CLOUD_GLOBAL
+            schema_field = DremioSQLQueries.SYS_SCHEMA_FILTER_FIELD
         else:
             query_template = DremioSQLQueries.QUERY_DATASETS_CE_GLOBAL
-
-        schema_field = DremioSQLQueries.SCHEMA_FILTER_FIELD
+            schema_field = DremioSQLQueries.SCHEMA_FILTER_FIELD
 
         schema_condition = DremioSQLQueries.pattern_condition(
             self.allow_schema_pattern, schema_field
