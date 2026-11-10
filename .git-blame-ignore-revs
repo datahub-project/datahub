@@ -1,0 +1,18 @@
+# Mass-formatting commits ignored by `git blame`.
+# Use: git config blame.ignoreRevsFile .git-blame-ignore-revs
+# (GitHub applies this file automatically.)
+
+# feat(lint): add spotless for java lint (#9373)
+e14474176f20e38b2c4c883949c561223181b57c
+
+# ci(ui): Add prettier to CI (#10741)
+92e9a5823bc14e81f0f21c55a68c493c3bbe87b9
+
+# dev: remove black in favor of ruff for formatting (#12378)
+262dd76518049c25c977b97e7144fcae6c270a80
+
+# build(ui): Sort imports and enforce absolute imports with aliases (#13113)
+45ebaa7d1aae74053fbc56b1cb3b5e91d1ad6617
+
+# ci(graphql,workflows): Format .md, .graphql, and workflow .yml files via prettier (#13220)
+d138a64a6ac4f32e68f962440ba52cb66caea5ad
