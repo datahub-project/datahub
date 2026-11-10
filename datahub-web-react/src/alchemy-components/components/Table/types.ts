@@ -28,8 +28,6 @@ export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
     isScrollable?: boolean;
     maxHeight?: string;
     isBorderless?: boolean;
-    isExpandedInnerTable?: boolean;
-    expandable?: ExpandableProps<T>;
     onRowClick?: (record: T) => void;
     /**
      * When set (including `null`), row highlight is controlled by this key
@@ -39,7 +37,6 @@ export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
     focusedRowKey?: string | null;
     rowClassName?: (record: T) => string;
     rowDataTestId?: (record: T) => string;
-    onExpand?: (record: T) => void;
     handleSortColumnChange?: ({ sortColumn, sortOrder }: { sortColumn: string; sortOrder: SortingState }) => void;
     rowKey?: string | ((record: T) => string);
     rowSelection?: RowSelectionProps<T>;
@@ -128,14 +125,6 @@ export interface RowSelectionProps<T> {
     getCheckboxProps?: (T) => {
         disabled: boolean;
     };
-}
-
-interface ExpandableProps<T> {
-    expandedRowRender?: (record: T, index: number) => React.ReactNode;
-    rowExpandable?: (record: T) => boolean;
-    defaultExpandedRowKeys?: string[];
-    expandIconPosition?: 'start' | 'end'; // Configurable position of the expand icon
-    expandedGroupIds?: string[];
 }
 
 export enum SortingState {

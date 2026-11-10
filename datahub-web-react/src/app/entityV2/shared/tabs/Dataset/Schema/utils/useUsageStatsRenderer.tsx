@@ -13,15 +13,16 @@ import { UsageQueryResult } from '@types';
 
 const IconsContainer = styled.div`
     display: flex;
-    gap: 3px;
+    align-items: flex-end;
+    gap: 6px;
     flex-direction: row;
 `;
 
 const IconWrapper = styled.div<{ hasStats: boolean; isFieldSelected: boolean }>`
     display: flex;
     svg {
-        width: 18px;
-        height: 18px;
+        width: 16px;
+        height: 16px;
         color: ${(props) => {
             return props.hasStats ? props.theme.colors.iconBrand : props.theme.colors.chartsBrandBase;
         }};

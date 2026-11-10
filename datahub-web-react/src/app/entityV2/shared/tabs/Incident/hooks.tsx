@@ -13,7 +13,6 @@ import {
     getAssigneeNamesWithAvatarUrl,
     getLinkedAssetsCount,
 } from '@app/entityV2/shared/tabs/Incident/utils';
-import { IncidentPriorityLabel } from '@app/sharedV2/incidentPriorityLabel/IncidentPriorityLabel';
 import { IncidentStagePill } from '@app/sharedV2/incidentStagePill';
 import { getCapitalizeWord } from '@app/sharedV2/textUtil';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
@@ -30,27 +29,20 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
                 title: tl('name'),
                 dataIndex: 'name',
                 key: 'name',
-                render: (record) =>
-                    record.groupName ? (
-                        <div>{record.groupName}</div>
-                    ) : (
-                        <IncidentPriorityLabel priority={record?.priority} title={record?.title} />
-                    ),
+                // Plain text so the name takes the table's row-title styling.
+                render: (record) => <span data-testid={record?.title}>{record?.title}</span>,
                 width: '25%',
-                sorter: (a, b) => {
-                    return a - b;
-                },
+                sorter: (a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }),
             },
             {
                 title: t('field.stageLabel'),
                 dataIndex: 'stage',
                 key: 'stage',
-                render: (record) =>
-                    !record.groupName && (
-                        <CategoryType data-testid="incident-stage">
-                            <IncidentStagePill showLabel stage={record?.stage} />
-                        </CategoryType>
-                    ),
+                render: (record) => (
+                    <CategoryType data-testid="incident-stage">
+                        <IncidentStagePill showLabel stage={record?.stage} />
+                    </CategoryType>
+                ),
                 width: '15%',
             },
             {
@@ -62,15 +54,13 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
                         record?.type === IncidentType.Custom ? record?.customType : record?.type,
                     );
                     return (
-                        !record.groupName && (
-                            <CategoryType data-testid="incident-category" title={categoryName}>
-                                {categoryName}
-                            </CategoryType>
-                        )
+                        <CategoryType data-testid="incident-category" title={categoryName}>
+                            {categoryName}
+                        </CategoryType>
                     );
                 },
                 sorter: (a, b) => {
-                    return (b.type || '').localeCompare(a.type || '', undefined, { sensitivity: 'base' });
+                    return (a.type || '').localeCompare(b.type || '', undefined, { sensitivity: 'base' });
                 },
                 width: '12%',
             },
@@ -78,11 +68,10 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
                 title: t('column.opened'),
                 dataIndex: 'created',
                 key: 'created',
-                render: (record) => {
-                    return !record.groupName && <div>{getTimeFromNow(record.created)}</div>;
-                },
+                render: (record) => <div>{getTimeFromNow(record.created)}</div>,
+                // First click shows the newest incidents first, the order grouped lists default to.
                 sorter: (a, b) => {
-                    return a?.created - b?.created;
+                    return b?.created - a?.created;
                 },
                 width: '12%',
             },
@@ -92,14 +81,11 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
                 tooltipTitle: t('field.linkedAssetsLabel'),
                 key: 'linkedAssets',
                 width: '9%',
-                render: (record) =>
-                    !record.groupName && (
-                        <div data-testid="incident-linked-assets">
-                            {getLinkedAssetsCount(record?.linkedAssets?.length)}
-                        </div>
-                    ),
+                render: (record) => (
+                    <div data-testid="incident-linked-assets">{getLinkedAssetsCount(record?.linkedAssets?.length)}</div>
+                ),
                 sorter: (a, b) => {
-                    return a.linkedAssets?.length - b.linkedAssets?.length;
+                    return b.linkedAssets?.length - a.linkedAssets?.length;
                 },
             },
             {
@@ -107,12 +93,11 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
                 dataIndex: 'assignees',
                 key: 'assignees',
                 width: '12%',
-                render: (record) =>
-                    !record.groupName && (
-                        <IncidentAssigneeAvatarStack assignees={getAssigneeNamesWithAvatarUrl(record?.assignees)} />
-                    ),
+                render: (record) => (
+                    <IncidentAssigneeAvatarStack assignees={getAssigneeNamesWithAvatarUrl(record?.assignees)} />
+                ),
                 sorter: (a, b) => {
-                    return a?.assignees?.length - b?.assignees?.length;
+                    return b?.assignees?.length - a?.assignees?.length;
                 },
             },
             {
@@ -120,13 +105,9 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
                 dataIndex: '',
                 key: 'actions',
                 width: '15%',
-                render: (record) => {
-                    return (
-                        !record.groupName && (
-                            <IncidentResolveButton incident={record} privileges={privileges} refetch={refetch} />
-                        )
-                    );
-                },
+                render: (record) => (
+                    <IncidentResolveButton incident={record} privileges={privileges} refetch={refetch} />
+                ),
                 alignment: 'right' as AlignmentOptions,
             },
         ];

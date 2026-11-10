@@ -82,12 +82,11 @@ export const HeaderContainer = styled.div<{ alignment?: AlignmentOptions }>(({ a
 }));
 
 export const TableRow = styled.tr<{
-    canExpand?: boolean;
     isRowClickable?: boolean;
     isFocused?: boolean;
     canHover?: boolean;
-}>(({ canExpand, isRowClickable, isFocused, canHover, theme }) => ({
-    background: canExpand ? theme.colors.bgHover : 'transparent',
+}>(({ isRowClickable, isFocused, canHover, theme }) => ({
+    background: 'transparent',
     ...(isFocused
         ? {
               background: theme.colors.bgSelectedSubtle,
@@ -118,14 +117,11 @@ export const TableCell = styled.td<{
     /** Virtualized rows have a fixed height, so cells drop their vertical padding and center content. */
     isFixedHeight?: boolean;
     size?: 'sm' | 'md';
-    // Legacy `expandable` parent rows.
-    isGroupHeader?: boolean;
-    isExpanded?: boolean;
-}>(({ width, alignment, fixedLeft, gutter, isPrimary, isFixedHeight, size, isGroupHeader, theme }) => {
+}>(({ width, alignment, fixedLeft, gutter, isPrimary, isFixedHeight, size, theme }) => {
     const verticalPadding = isFixedHeight ? '0' : (size === 'sm' && spacing.xsm) || spacing.md;
     const leftPadding = size === 'sm' ? spacing.xsm : spacing.md;
     return {
-        padding: isGroupHeader ? spacing.xsm : `${verticalPadding} ${spacing.xsm} ${verticalPadding} ${leftPadding}`,
+        padding: `${verticalPadding} ${spacing.xsm} ${verticalPadding} ${leftPadding}`,
         paddingLeft: gutter,
         borderBottom: `1px solid ${theme.colors.border}`,
         color: theme.colors.textSecondary,

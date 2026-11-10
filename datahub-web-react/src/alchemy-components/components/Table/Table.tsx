@@ -1,14 +1,12 @@
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
-import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { keyframes } from 'styled-components';
 
 import { Button } from '@components/components/Button';
-import { Icon } from '@components/components/Icon';
 import { StructuredPopover } from '@components/components/StructuredPopover';
 import { TableGroupHeaderRow } from '@components/components/Table/TableGroupHeaderRow';
 import {
@@ -112,8 +110,6 @@ export const Table = <T,>({
     isScrollable = tableDefaults.isScrollable,
     maxHeight = tableDefaults.maxHeight,
     isBorderless = tableDefaults.isBorderless,
-    expandable,
-    onExpand,
     onRowClick,
     focusedRowKey,
     rowClassName,
@@ -338,9 +334,6 @@ export const Table = <T,>({
     const renderRow = (item: Extract<DisplayItem<T>, { type: 'row' }>) => {
         const { row, index } = item;
         const isDetailOpen = !!rowDetail?.expandedRowKeys.includes(item.key);
-        // Legacy `expandable`: rows match open ids by `row.name` and show their caret in the last column.
-        const isExpanded = expandable?.expandedGroupIds?.includes((row as any)?.name);
-        const canExpand = expandable?.rowExpandable?.(row);
         // With `rowKey`, rows keep their identity when sorting or expanding shifts their position.
         const key = rowKey
             ? `row-${item.key}`
@@ -351,12 +344,10 @@ export const Table = <T,>({
             <React.Fragment key={key}>
                 {/* Render the main row */}
                 <TableRow
-                    canExpand={canExpand}
                     onClick={(e) => {
                         if (focusedRowKey === undefined) {
                             setInternalFocusedRow(internalFocusedRow === focusId ? null : focusId);
                         }
-                        if (canExpand) onExpand?.(row); // Handle row expansion
                         onRowClick?.(row); // Handle row click
                         e.stopPropagation();
                     }}
@@ -377,22 +368,7 @@ export const Table = <T,>({
                     {/* Render each cell in the row */}
 
                     {finalColumns.map((column, i) => {
-                        const isLegacyExpandCell = columns.length - 1 === i && canExpand;
-                        let content = isLegacyExpandCell ? (
-                            <div style={{ cursor: 'pointer', paddingTop: '10px', paddingRight: '10px' }}>
-                                <Icon
-                                    icon={isExpanded ? CaretDown : CaretUp}
-                                    size="lg"
-                                    weight="bold"
-                                    color="icon"
-                                    data-testid={
-                                        isExpanded ? 'group-header-expanded-icon' : 'group-header-collapsed-icon'
-                                    }
-                                />
-                            </div>
-                        ) : (
-                            renderCell(column, row, index)
-                        );
+                        let content = renderCell(column, row, index);
                         if (hasExpandableRows && i === primaryColumnIndex) content = renderTreeCell(item, content);
                         const cellContent = column.cellWrapper ? column.cellWrapper(content, row) : content;
                         const clickable = column.isCellClickable ? column.isCellClickable(row) : !!column.onCellClick;
@@ -401,9 +377,7 @@ export const Table = <T,>({
                             <TableCell
                                 key={column.key}
                                 width={column.width}
-                                alignment={isLegacyExpandCell ? 'right' : column.alignment}
-                                isGroupHeader={canExpand}
-                                isExpanded={isExpanded}
+                                alignment={column.alignment}
                                 isPrimary={i === primaryColumnIndex}
                                 isFixedHeight={!!virtualization}
                                 size={size}
@@ -424,13 +398,6 @@ export const Table = <T,>({
                         );
                     })}
                 </TableRow>
-                {isExpanded && expandable?.expandedRowRender && (
-                    <TableRow isRowClickable={isRowClickable} canHover={false}>
-                        <RowDetailCell colSpan={columns.length + (expandable?.expandIconPosition ? 1 : 0)}>
-                            <RowDetailContent>{expandable.expandedRowRender(row, index)}</RowDetailContent>
-                        </RowDetailCell>
-                    </TableRow>
-                )}
                 {isDetailOpen && rowDetail && (
                     <TableRow isRowClickable={false} canHover={false} data-testid="table-row-detail">
                         <RowDetailCell colSpan={finalColumns.length}>

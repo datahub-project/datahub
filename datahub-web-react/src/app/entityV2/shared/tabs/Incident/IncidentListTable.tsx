@@ -1,15 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router';
 
-import { useGetExpandedTableGroupsFromEntityUrnInUrl } from '@app/entityV2/shared/hooks';
 import { getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { useIncidentsTableColumns, useOpenIncidentDetailModal } from '@app/entityV2/shared/tabs/Incident/hooks';
 import { StyledTableContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
-import { IncidentListFilter, IncidentTable } from '@app/entityV2/shared/tabs/Incident/types';
-import { getSortedIncidents } from '@app/entityV2/shared/tabs/Incident/utils';
+import {
+    IncidentGroup,
+    IncidentListFilter,
+    IncidentTable,
+    IncidentTableRow,
+} from '@app/entityV2/shared/tabs/Incident/types';
 import { Table } from '@src/alchemy-components';
-import { SortingState } from '@src/alchemy-components/components/Table/types';
+import { IncidentPriorityIcon } from '@app/sharedV2/incidentPriorityLabel';
+import { IncidentStageIcon } from '@app/sharedV2/incidentStagePill';
+import { getIncidentStageLabel } from '@app/sharedV2/incidentStagePill/constant';
+import { getCapitalizeWord } from '@app/sharedV2/textUtil';
+import { TableGroupByProps } from '@src/alchemy-components/components/Table/types';
 import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
 import { EntityPrivileges } from '@src/types.generated';
 
@@ -20,23 +29,38 @@ type Props = {
     privileges?: EntityPrivileges;
 };
 
+const EMPTY_GROUPS: IncidentGroup[] = [];
+const EMPTY_KEYS: string[] = [];
+
 export const IncidentListTable = ({ incidentData, filter, refetch, privileges }: Props) => {
+    const { t } = useTranslation('entity.profile.incident');
     const { urn, entityData } = useEntityData();
     const { groupBy } = filter;
+    const groups: IncidentGroup[] = (groupBy && incidentData?.groupBy?.[groupBy]) || EMPTY_GROUPS;
 
-    const { expandedGroupIds, setExpandedGroupIds } = useGetExpandedTableGroupsFromEntityUrnInUrl(
-        incidentData?.groupBy ? incidentData?.groupBy[groupBy] : [],
-        { isGroupBy: !!groupBy },
-        'incident_urn',
-        (group) => group.incidents,
-    );
+    const location = useLocation();
+    const linkedIncidentUrn = new URLSearchParams(location.search).get('incident_urn');
+
+    // Groups the user closed, kept per grouping so switching "Group by" opens the new grouping fully
+    // instead of carrying over open/closed state from group names that no longer exist.
+    const [collapsedByGrouping, setCollapsedByGrouping] = useState<Record<string, string[]>>({});
+    const collapsedKeys = (groupBy && collapsedByGrouping[groupBy]) || EMPTY_KEYS;
+
+    // A link to one incident opens only that incident's group, once per grouping.
+    useEffect(() => {
+        if (!groupBy || !linkedIncidentUrn || !groups.length || collapsedByGrouping[groupBy]) return;
+        const linkedGroup = groups.find((group) =>
+            group.incidents.some((incident) => incident.urn === linkedIncidentUrn),
+        );
+        if (!linkedGroup) return;
+        setCollapsedByGrouping((previous) => ({
+            ...previous,
+            [groupBy]: groups.map((group) => group.name).filter((name) => name !== linkedGroup.name),
+        }));
+    }, [groupBy, linkedIncidentUrn, groups, collapsedByGrouping]);
 
     // get columns data from the custom hooks
     const incidentsTableCols = useIncidentsTableColumns(refetch, privileges);
-    const [sortedOptions, setSortedOptions] = useState<{ sortColumn: string; sortOrder: SortingState }>({
-        sortColumn: 'created',
-        sortOrder: SortingState.ASCENDING,
-    });
 
     const [focusIncidentUrn, setFocusIncidentUrn] = useState<string | null>(null);
 
@@ -44,10 +68,6 @@ export const IncidentListTable = ({ incidentData, filter, refetch, privileges }:
     const focusedEntityUrn = focusedIncident ? entityData?.urn : undefined;
     const focusedIncidentEntity =
         focusedEntityUrn && entityData ? getSiblingWithUrn(entityData, focusedEntityUrn) : undefined;
-
-    const getGroupData = () => {
-        return (incidentData?.groupBy && incidentData?.groupBy[groupBy]) || [];
-    };
 
     useOpenIncidentDetailModal(setFocusIncidentUrn);
 
@@ -57,70 +77,63 @@ export const IncidentListTable = ({ incidentData, filter, refetch, privileges }:
         }
     }, [focusIncidentUrn, focusedIncident]);
 
-    const onIncidentExpand = (record) => {
-        const key = record.name;
-        setExpandedGroupIds((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
-    };
+    // Grouped rows list each group's incidents newest first until a column sort is picked.
+    const groupedRows = useMemo(
+        () => groups.flatMap((group) => group.incidents.slice().sort((a, b) => b.created - a.created)),
+        [groups],
+    );
 
-    const rowClassName = (record) => {
-        if (record.groupName) {
-            return 'group-header';
-        }
-        if (record.urn === focusIncidentUrn) {
-            return 'acryl-selected-table-row';
-        }
-        return 'acryl-incident-table-row';
-    };
+    const tableGroupBy = useMemo((): TableGroupByProps<IncidentTableRow> | undefined => {
+        if (!groupBy) return undefined;
+        const groupNames = groups.map((group) => group.name);
+        const groupNameByIncidentUrn = new Map<string, string>(
+            groups.flatMap((group) => group.incidents.map((incident): [string, string] => [incident.urn, group.name])),
+        );
+        return {
+            getGroupKey: (incident) => groupNameByIncidentUrn.get(incident.urn) ?? '',
+            groupOrder: (a, b) => groupNames.indexOf(a.key) - groupNames.indexOf(b.key),
+            renderGroupHeader: ({ key }) => {
+                // Priority and stage have icons; category and state groups are label-only.
+                if (groupBy === 'priority') {
+                    return (
+                        <>
+                            <IncidentPriorityIcon priority={key} />
+                            {getCapitalizeWord(key)}
+                        </>
+                    );
+                }
+                if (groupBy === 'stage') {
+                    return (
+                        <>
+                            <IncidentStageIcon stage={key} />
+                            {getIncidentStageLabel(t)[key] ?? getCapitalizeWord(key)}
+                        </>
+                    );
+                }
+                return getCapitalizeWord(key);
+            },
+            collapsedKeys,
+            onCollapsedChange: (keys) => setCollapsedByGrouping((previous) => ({ ...previous, [groupBy]: keys })),
+            groupHeaderDataTestId: ({ key }) => `incident-group-${key}`,
+        };
+    }, [groupBy, groups, collapsedKeys, t]);
 
-    const onRowClick = (record) => {
-        setFocusIncidentUrn(record.urn);
-    };
-
-    const rowDataTestId = (record) => {
-        return record.groupName ? `incident-group-${record.name}` : `incident-row-${record.title}`;
-    };
+    const rowClassName = (record: IncidentTableRow) =>
+        record.urn === focusIncidentUrn ? 'acryl-selected-table-row' : 'acryl-incident-table-row';
 
     return (
         <>
             <StyledTableContainer style={{ height: '100vh', overflow: 'hidden' }}>
-                <Table
+                <Table<IncidentTableRow>
                     columns={incidentsTableCols}
-                    data={groupBy ? getGroupData() : incidentData.incidents || []}
+                    data={groupBy ? groupedRows : incidentData.incidents || []}
+                    rowKey="urn"
                     showHeader
                     isScrollable
+                    groupBy={tableGroupBy}
+                    onRowClick={(record) => setFocusIncidentUrn(record.urn)}
                     rowClassName={rowClassName}
-                    handleSortColumnChange={({
-                        sortColumn,
-                        sortOrder,
-                    }: {
-                        sortColumn: string;
-                        sortOrder: SortingState;
-                    }) => setSortedOptions({ sortColumn, sortOrder })}
-                    expandable={{
-                        expandedRowRender: (record) => {
-                            let sortedIncidents = record.incidents;
-                            if (sortedOptions.sortColumn && sortedOptions.sortOrder) {
-                                sortedIncidents = getSortedIncidents(record, sortedOptions);
-                            }
-                            return (
-                                <Table
-                                    columns={incidentsTableCols}
-                                    data={sortedIncidents}
-                                    showHeader={false}
-                                    isBorderless
-                                    isExpandedInnerTable
-                                    onRowClick={onRowClick}
-                                    rowClassName={rowClassName}
-                                    rowDataTestId={rowDataTestId}
-                                />
-                            );
-                        },
-                        rowExpandable: () => !!groupBy,
-                        expandIconPosition: 'end',
-                        expandedGroupIds,
-                    }}
-                    onExpand={onIncidentExpand}
-                    rowDataTestId={rowDataTestId}
+                    rowDataTestId={(record) => `incident-row-${record.title}`}
                 />
             </StyledTableContainer>
             {focusIncidentUrn && focusedIncidentEntity && (
