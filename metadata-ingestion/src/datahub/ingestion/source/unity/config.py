@@ -280,6 +280,8 @@ class UnityCatalogSourceConfig(
         AllowDenyPattern, Filters(DatasetContainerSubTypes.SCHEMA)
     ] = Field(
         default=AllowDenyPattern.allow_all(),
+        # pydantic v2 skips validators on defaults, and the information_schema deny lives in one.
+        validate_default=True,
         description="Regex patterns for schemas to filter in ingestion. Specify regex to the full `metastore.catalog.schema` name. e.g. to match all tables in schema analytics, use the regex `^mymetastore\\.mycatalog\\.analytics$`.",
     )
 
@@ -1002,8 +1004,14 @@ class UnityCatalogSourceConfig(
     def schema_pattern_should__always_deny_information_schema(
         cls, v: AllowDenyPattern
     ) -> AllowDenyPattern:
-        v.deny.append(".*\\.information_schema")
-        return v
+        deny_rule = ".*\\.information_schema"
+        if deny_rule in v.deny:
+            return v
+        # A new instance, not model_copy: that would carry over the compiled-regex
+        # caches in __dict__, and the shared default must never be mutated.
+        return AllowDenyPattern(
+            allow=v.allow, deny=[*v.deny, deny_rule], ignoreCase=v.ignoreCase
+        )
 
     @field_validator("profiling", mode="before")
     @classmethod

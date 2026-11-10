@@ -29,6 +29,30 @@ def test_profiling_needs_a_warehouse_from_either_level() -> None:
     assert inherited.profiling.warehouse_id == "wh"
 
 
+def test_information_schema_is_denied_when_the_recipe_sets_no_schema_pattern() -> None:
+    config = unity_config()
+
+    assert not config.schema_pattern.allowed("my_catalog.information_schema")
+    assert config.schema_pattern.allowed("my_catalog.my_schema")
+
+
+def test_information_schema_is_denied_alongside_an_explicit_schema_pattern() -> None:
+    config = unity_config(
+        schema_pattern={"allow": [".*"], "deny": ["my_catalog\\.other"]}
+    )
+
+    assert not config.schema_pattern.allowed("my_catalog.information_schema")
+    assert not config.schema_pattern.allowed("my_catalog.other")
+    assert config.schema_pattern.allowed("my_catalog.my_schema")
+
+
+def test_building_configs_does_not_grow_the_default_schema_deny_list() -> None:
+    unity_config()
+    second = unity_config()
+
+    assert second.schema_pattern.deny == [".*\\.information_schema"]
+
+
 class _Warnings:
     def __init__(self) -> None:
         self.messages: List[str] = []

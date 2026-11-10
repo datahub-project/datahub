@@ -876,3 +876,46 @@ def test_hive_metastore_without_a_warehouse_aborts_before_any_metadata(
 
     assert run.workunits == []
     assert "SQL warehouse not found" in failure_messages(run.source.report)
+
+
+def test_information_schema_is_not_ingested_when_the_recipe_sets_no_schema_pattern(
+    workspace_client: MagicMock, run_source: RunSource
+) -> None:
+    columns = [_column("col_a")]
+
+    def tables_for(*, catalog_name: str, schema_name: str, **_: Any) -> List[Any]:
+        is_info_schema = schema_name == "information_schema"
+        return [
+            TableInfoWithGeneration(
+                name="tables" if is_info_schema else "my_table",
+                catalog_name=catalog_name,
+                schema_name=schema_name,
+                table_type=TableType.VIEW if is_info_schema else TableType.MANAGED,
+                columns=columns,
+            )
+        ]
+
+    workspace_client.catalogs.list.return_value = [CatalogInfo(name="my_catalog")]
+    workspace_client.schemas.list.return_value = [
+        SchemaInfo(name="my_schema"),
+        SchemaInfo(name="information_schema"),
+    ]
+    workspace_client.tables.list.side_effect = tables_for
+    workspace_client.tables.get.return_value = TableInfoWithGeneration(
+        name="my_table", columns=columns
+    )
+    workspace_client.registered_models.list.return_value = []
+    config = unity_config(
+        include_usage_statistics=False,
+        include_tags=False,
+        include_ml_models=False,
+        include_table_lineage=False,
+        include_column_lineage=False,
+        include_external_lineage=False,
+    )
+
+    run = run_source(workspace_client, config)
+
+    urns = run.urns(DatasetPropertiesClass)
+    assert any("my_catalog.my_schema.my_table" in urn for urn in urns)
+    assert not any("information_schema" in urn for urn in urns)
