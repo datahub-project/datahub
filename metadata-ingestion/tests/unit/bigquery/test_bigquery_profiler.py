@@ -1194,26 +1194,25 @@ def test_fallback_partition_values_override_used():
     assert result == "`region` = 'us-east-1'"
 
 
+HIVE_REGION_DDL = (
+    "CREATE EXTERNAL TABLE `p.d.t` WITH PARTITION COLUMNS (region STRING) "
+    "OPTIONS (format='PARQUET', uris=['gs://bucket/*'], "
+    "hive_partition_uri_prefix='gs://bucket')"
+)
+HIVE_EVENT_DATE_DDL = (
+    "CREATE EXTERNAL TABLE `p.d.t` WITH PARTITION COLUMNS (event_date DATE) "
+    "OPTIONS (format='PARQUET', uris=['gs://bucket/*'])"
+)
+
+
 def test_external_table_discovery_fallback_skips_and_warns():
     """When external discovery can pin no partition value, the table is skipped with a
     warning instead of being profiled with an unpruned IS NOT NULL full scan."""
     report = BigQueryV2Report()
     discovery = PartitionDiscovery(create_test_config(), report)
-    table = create_test_table(external=True)
+    table = create_test_table(external=True, ddl=HIVE_REGION_DDL)
 
-    with (
-        patch.object(discovery, "_get_partitions_with_sampling", return_value=None),
-        patch.object(
-            discovery.info_schema,
-            "get_partition_column_names",
-            return_value=(["region"], True),
-        ),
-        patch.object(
-            discovery.info_schema,
-            "get_partition_column_types",
-            return_value={"region": "STRING"},
-        ),
-    ):
+    with patch.object(discovery, "_get_partitions_with_sampling", return_value=None):
         filters = discovery._get_external_table_partition_filters(
             table,
             "test-project",
@@ -1228,34 +1227,33 @@ def test_external_table_discovery_fallback_skips_and_warns():
 
 
 def test_external_discovery_short_circuits_on_sampling_success():
-    # Partition columns are discovered once up front and threaded into sampling. When
-    # sampling finds values the path returns them immediately, without a second discovery
-    # pass or the DDL fallback.
+    # Hive keys and types come from the DDL and are threaded into sampling. When sampling
+    # finds values the path returns them without the fallback or any COLUMNS query.
     discovery = PartitionDiscovery(create_test_config(), BigQueryV2Report())
-    table = create_test_table(external=True)
+    table = create_test_table(external=True, ddl=HIVE_EVENT_DATE_DDL)
 
     with (
-        patch.object(
-            discovery,
-            "_discover_partition_columns_with_types",
-            return_value={"event_date": "DATE"},
-        ) as mock_discover,
         patch.object(
             discovery,
             "_get_partitions_with_sampling",
             return_value=["`event_date` = '2023-01-01'"],
         ) as mock_sampling,
         patch.object(discovery, "_get_fallback_partition_filters") as mock_fallback,
+        patch.object(
+            discovery.info_schema, "get_partition_column_names"
+        ) as mock_columns,
     ):
         filters = discovery._get_external_table_partition_filters(
             table, "test-project", "dataset", lambda q, jc, ctx: []
         )
 
     assert filters == ["`event_date` = '2023-01-01'"]
-    mock_discover.assert_called_once()
     mock_fallback.assert_not_called()
-    # The discovered columns are threaded into sampling, not re-discovered there.
+    mock_columns.assert_not_called()
     assert mock_sampling.call_args.kwargs["known_columns"] == ["event_date"]
+    assert mock_sampling.call_args.kwargs["known_column_types"] == {
+        "event_date": "DATE"
+    }
 
 
 def test_external_discovery_applies_partition_datetime_override():
@@ -1264,16 +1262,9 @@ def test_external_discovery_applies_partition_datetime_override():
     config = create_test_config()
     config.profiling.partition_datetime = datetime(2025, 6, 15, 8, 30)
     discovery = PartitionDiscovery(config, BigQueryV2Report())
-    table = create_test_table(external=True)
+    table = create_test_table(external=True, ddl=HIVE_EVENT_DATE_DDL)
 
-    with (
-        patch.object(
-            discovery,
-            "_discover_partition_columns_with_types",
-            return_value={"event_date": "DATE"},
-        ),
-        patch.object(discovery, "_get_partitions_with_sampling") as mock_sampling,
-    ):
+    with patch.object(discovery, "_get_partitions_with_sampling") as mock_sampling:
         filters = discovery._get_external_table_partition_filters(
             table, "test-project", "dataset", lambda q, jc, ctx: []
         )
@@ -1282,132 +1273,99 @@ def test_external_discovery_applies_partition_datetime_override():
     mock_sampling.assert_not_called()
 
 
-def test_external_discovery_unknown_without_ddl_returns_none():
-    # No DDL and no INFORMATION_SCHEMA columns is an *undetermined* partition status, not a
-    # confirmed unpartitioned table: return None so the profiler skips it rather than [],
-    # which it would treat as unpartitioned and full-scan.
+@pytest.mark.parametrize(
+    "ddl",
+    [
+        pytest.param(None, id="no_ddl"),
+        pytest.param(
+            "CREATE EXTERNAL TABLE `p.d.t` WITH PARTITION COLUMNS "
+            "OPTIONS (format='PARQUET', uris=['gs://bucket/*'])",
+            id="bare_with_partition_columns",
+        ),
+        pytest.param(
+            "CREATE EXTERNAL TABLE `p.d.t` (dt STRING) "
+            "OPTIONS (format='PARQUET', uris=['gs://bucket/*'], "
+            "hive_partitioning_mode = 'AUTO')",
+            id="reconstructed_hive_mode_option",
+        ),
+        pytest.param(
+            "CREATE EXTERNAL TABLE `p.d.t` (dt STRING) "
+            "OPTIONS (format='PARQUET', uris=['gs://bucket/*'], "
+            "hive_partition_uri_prefix = 'gs://bucket', "
+            "require_hive_partition_filter = false)",
+            id="ddl_hive_option_names",
+        ),
+        pytest.param(
+            "CREATE EXTERNAL TABLE `p.d.t` (id INT64) WITH CONNECTION `p.us.conn` "
+            "OPTIONS (format='DELTA_LAKE', uris=['gs://bucket/delta'])",
+            id="delta_lake",
+        ),
+        pytest.param(
+            "CREATE EXTERNAL TABLE `p.d.t` (id INT64) "
+            "OPTIONS (format='GOOGLE_SHEETS', uris=['https://docs.google.com/x'])",
+            id="google_sheets",
+        ),
+        pytest.param(
+            "CREATE EXTERNAL TABLE `p.d.t` (id INT64, name STRING)",
+            id="no_format",
+        ),
+    ],
+)
+def test_external_discovery_skips_possibly_partitioned_tables(ddl):
+    # Each of these could hide partitioning the DDL does not spell out, so it is skipped
+    # (None) rather than read as unpartitioned ([]) and full-scanned.
     report = BigQueryV2Report()
     discovery = PartitionDiscovery(create_test_config(), report)
-    table = create_test_table(external=True)
-    table.ddl = None
+    table = create_test_table(external=True, ddl=ddl)
 
-    with (
-        patch.object(discovery, "_get_partitions_with_sampling", return_value=None),
-        patch.object(
-            discovery.info_schema,
-            "get_partition_column_names",
-            return_value=([], True),
-        ),
-    ):
-        filters = discovery._get_external_table_partition_filters(
-            table, "test-project", "dataset", lambda q, jc, ctx: []
-        )
+    filters = discovery._get_external_table_partition_filters(
+        table, "test-project", "dataset", lambda q, jc, ctx: []
+    )
 
     assert filters is None
     assert any("undetermined" in str(w).lower() for w in report.warnings)
 
 
-def test_external_discovery_hive_ddl_without_columns_returns_none():
-    # DDL declaring hive partitioning but yielding no extractable column means the table
-    # IS partitioned yet we can't build a filter: skip (None), don't full-scan.
-    report = BigQueryV2Report()
-    discovery = PartitionDiscovery(create_test_config(), report)
-    table = create_test_table(external=True)
-    table.ddl = (
-        "CREATE EXTERNAL TABLE `p.d.t` "
-        "WITH PARTITION COLUMNS OPTIONS (hive_partitioning_options=...)"
+def test_external_discovery_source_format_overrides_ddl_format():
+    # Table metadata reports ICEBERG, whose partition spec lives outside the DDL, so the
+    # table is skipped even though the DDL alone looks like a plain Parquet table.
+    discovery = PartitionDiscovery(create_test_config(), BigQueryV2Report())
+    table = create_test_table(
+        external=True,
+        ddl="CREATE EXTERNAL TABLE `p.d.t` (id INT64) WITH CONNECTION `p.us.conn` "
+        "OPTIONS (format='PARQUET', uris=['gs://bucket/*'])",
+        external_source_format="ICEBERG",
     )
 
-    with (
-        patch.object(discovery, "_get_partitions_with_sampling", return_value=None),
-        patch.object(
-            discovery.info_schema,
-            "get_partition_column_names",
-            return_value=([], True),
-        ),
-        patch.object(discovery, "get_partition_columns_from_ddl", return_value={}),
-    ):
-        filters = discovery._get_external_table_partition_filters(
-            table, "test-project", "dataset", lambda q, jc, ctx: []
-        )
+    filters = discovery._get_external_table_partition_filters(
+        table, "test-project", "dataset", lambda q, jc, ctx: []
+    )
 
     assert filters is None
 
 
-def test_external_discovery_hive_mode_option_without_columns_returns_none():
-    # Reconstructed INFORMATION_SCHEMA.TABLES.ddl lists the hive keys as ordinary columns
-    # and declares partitioning only via the `hive_partitioning_mode` OPTIONS entry (no
-    # `WITH PARTITION COLUMNS`). It must still be recognised as hive-partitioned and skipped.
-    report = BigQueryV2Report()
-    discovery = PartitionDiscovery(create_test_config(), report)
-    table = create_test_table(external=True)
-    table.ddl = (
-        "CREATE EXTERNAL TABLE `p.d.t` (dt STRING) "
-        "OPTIONS (uris=['gs://bucket/*'], hive_partitioning_mode = 'AUTO')"
-    )
-
-    with (
-        patch.object(discovery, "_get_partitions_with_sampling", return_value=None),
-        patch.object(
-            discovery.info_schema,
-            "get_partition_column_names",
-            return_value=([], True),
+@pytest.mark.parametrize(
+    "ddl",
+    [
+        pytest.param(
+            "CREATE EXTERNAL TABLE `p.d.t` (id INT64) OPTIONS ("
+            "uris=['gs://bucket/hive_partitioning_options=x/data/*'], format='PARQUET')",
+            id="hive_marker_in_uri",
         ),
-        patch.object(discovery, "get_partition_columns_from_ddl", return_value={}),
-    ):
-        filters = discovery._get_external_table_partition_filters(
-            table, "test-project", "dataset", lambda q, jc, ctx: []
-        )
-
-    assert filters is None
-
-
-def test_external_discovery_hive_marker_in_uri_is_not_hive():
-    # The hive marker appears only inside a quoted GCS URI, not as an OPTIONS assignment.
-    # It must NOT be misread as hive partitioning: this is a genuinely unpartitioned
-    # external table, so [] (profile the whole table) is correct.
+        pytest.param(
+            "CREATE EXTERNAL TABLE `p.d.t` (id INT64, name STRING) "
+            "WITH CONNECTION `p.us.conn` OPTIONS (format='CSV', uris=['gs://b/*'])",
+            id="biglake_with_connection",
+        ),
+    ],
+)
+def test_external_discovery_unpartitioned_file_table_returns_empty(ddl):
     discovery = PartitionDiscovery(create_test_config(), BigQueryV2Report())
-    table = create_test_table(external=True)
-    table.ddl = (
-        "CREATE EXTERNAL TABLE `p.d.t` (id INT64) "
-        "OPTIONS (uris=['gs://bucket/hive_partitioning_options/data/*'], format='PARQUET')"
+    table = create_test_table(external=True, ddl=ddl)
+
+    filters = discovery._get_external_table_partition_filters(
+        table, "test-project", "dataset", lambda q, jc, ctx: []
     )
-
-    with (
-        patch.object(discovery, "_get_partitions_with_sampling", return_value=None),
-        patch.object(
-            discovery.info_schema,
-            "get_partition_column_names",
-            return_value=([], True),
-        ),
-        patch.object(discovery, "get_partition_columns_from_ddl", return_value={}),
-    ):
-        filters = discovery._get_external_table_partition_filters(
-            table, "test-project", "dataset", lambda q, jc, ctx: []
-        )
-
-    assert filters == []
-
-
-def test_external_discovery_plain_ddl_no_partition_returns_empty():
-    # DDL present, no hive options, no PARTITION BY columns: a genuinely unpartitioned
-    # external table, so [] (profile the whole table) is correct.
-    discovery = PartitionDiscovery(create_test_config(), BigQueryV2Report())
-    table = create_test_table(external=True)
-    table.ddl = "CREATE EXTERNAL TABLE `p.d.t` (id INT64, name STRING)"
-
-    with (
-        patch.object(discovery, "_get_partitions_with_sampling", return_value=None),
-        patch.object(
-            discovery.info_schema,
-            "get_partition_column_names",
-            return_value=([], True),
-        ),
-        patch.object(discovery, "get_partition_columns_from_ddl", return_value={}),
-    ):
-        filters = discovery._get_external_table_partition_filters(
-            table, "test-project", "dataset", lambda q, jc, ctx: []
-        )
 
     assert filters == []
 
