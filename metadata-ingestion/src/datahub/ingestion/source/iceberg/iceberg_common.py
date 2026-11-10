@@ -256,6 +256,16 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
                 catalog_config[GLUE_SECRET_ACCESS_KEY] = creds["SecretAccessKey"]
                 catalog_config[GLUE_SESSION_TOKEN] = creds["SessionToken"]
 
+    @staticmethod
+    def _with_rest_catalog_defaults(catalog_config: Dict[str, Any]) -> Dict[str, Any]:
+        # The source only reads the current snapshot (dataset properties, and the
+        # profiler's manifest scan), never the snapshot history. By default the REST
+        # loadTable response carries every snapshot of the table, which for tables with
+        # a long history means megabytes of JSON per table to transfer and parse. Ask for
+        # ref-referenced snapshots only (Iceberg REST `snapshots=refs`), unless the user
+        # configured the mode explicitly.
+        return {SNAPSHOT_LOADING_MODE: "refs", **catalog_config}
+
     def get_catalog(self) -> Catalog:
         """Returns the Iceberg catalog instance as configured by the `catalog` dictionary.
 
@@ -297,16 +307,6 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
                 "https://", TimeoutHTTPAdapter(timeout=timeout, max_retries=retries)
             )
         return catalog
-
-    @staticmethod
-    def _with_rest_catalog_defaults(catalog_config: Dict[str, Any]) -> Dict[str, Any]:
-        # The source only reads the current snapshot (dataset properties, and the
-        # profiler's manifest scan), never the snapshot history. By default the REST
-        # loadTable response carries every snapshot of the table, which for tables with
-        # a long history means megabytes of JSON per table to transfer and parse. Ask for
-        # ref-referenced snapshots only (Iceberg REST `snapshots=refs`), unless the user
-        # configured the mode explicitly.
-        return {SNAPSHOT_LOADING_MODE: "refs", **catalog_config}
 
 
 class TopTableTimings:

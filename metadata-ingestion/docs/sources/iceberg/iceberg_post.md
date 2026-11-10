@@ -123,32 +123,6 @@ source:
         s3.region: "us-west-2"
 ```
 
-##### Special REST connection parameters for resiliency
-
-Unlike other parameters provided in the dictionary under the `catalog` key, `connection` parameter is a custom feature in
-DataHub, allowing to inject connection resiliency parameters to the REST connection made by the ingestor. `connection`
-allows for 2 parameters:
-
-- `timeout` is provided as amount of seconds, it needs to be whole number (or `null` to turn it off)
-- `retry` is a complex object representing parameters used to create [urllib3 Retry object](https://urllib3.readthedocs.io/en/latest/reference/urllib3.util.html#module-urllib3.util.retry).
-  There are many possible parameters, most important would be `total` (total retries) and `backoff_factor`. See the linked docs
-  for the details.
-
-```yaml
-source:
-  type: "iceberg"
-  config:
-    catalog:
-      demo:
-        type: "rest"
-        uri: "http://iceberg-catalog-uri"
-        connection:
-          retry:
-            backoff_factor: 0.5
-            total: 3
-          timeout: 120
-```
-
 ##### Performance tuning for large REST catalogs
 
 Ingesting a catalog with thousands of tables is dominated by one `loadTable` request per table. Three settings
@@ -177,6 +151,32 @@ source:
         type: "rest"
         uri: "http://iceberg-catalog-uri"
         snapshot-loading-mode: refs # DataHub default, shown for clarity
+```
+
+##### Special REST connection parameters for resiliency
+
+Unlike other parameters provided in the dictionary under the `catalog` key, `connection` parameter is a custom feature in
+DataHub, allowing to inject connection resiliency parameters to the REST connection made by the ingestor. `connection`
+allows for 2 parameters:
+
+- `timeout` is provided as amount of seconds, it needs to be whole number (or `null` to turn it off)
+- `retry` is a complex object representing parameters used to create [urllib3 Retry object](https://urllib3.readthedocs.io/en/latest/reference/urllib3.util.html#module-urllib3.util.retry).
+  There are many possible parameters, most important would be `total` (total retries) and `backoff_factor`. See the linked docs
+  for the details.
+
+```yaml
+source:
+  type: "iceberg"
+  config:
+    catalog:
+      demo:
+        type: "rest"
+        uri: "http://iceberg-catalog-uri"
+        connection:
+          retry:
+            backoff_factor: 0.5
+            total: 3
+          timeout: 120
 ```
 
 #### Google BigLake REST Catalog + GCS warehouse
