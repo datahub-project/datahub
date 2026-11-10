@@ -346,6 +346,16 @@ class TestTempTableColumnLineage:
         assert set(cll["target1"]["id"]) == {"source.id"}
         assert set(cll["target2"]["id"]) == {"source.id"}
 
+    def test_temp_columns_from_one_source_column_resolve_once(self) -> None:
+        """target.total <- staging.amount + staging.amount2, both <- source.amount  =>  [source.amount]"""
+        result = _parse(
+            [
+                "CREATE TEMP TABLE staging AS SELECT id, amount, amount AS amount2 FROM source",
+                "INSERT INTO target SELECT id, amount + amount2 AS total FROM staging",
+            ]
+        )
+        assert _cll_map(result)["target"]["total"] == ["source.amount"]
+
 
 class TestPersistentTableLineage:
     """CREATE TABLE (without TEMP) produces a persistent table visible to

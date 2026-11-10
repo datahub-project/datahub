@@ -186,8 +186,9 @@ _TRACE_FETCH_LIMIT = MAX_PROBE_ITEMS
 # The element queries carry the explores; user fields are not read.
 _TRACE_DASHBOARD_FIELDS = ["id", _FOLDER_FIELDS, "dashboard_elements"]
 # The folder flags let the trace skip what skip_personal_folders discards
-# without spending a dashboard read on it.
-_TRACE_LIST_FIELDS = ["id", "folder(id,is_personal,is_personal_descendant)"]
+# without spending a dashboard read on it; `name` is required by the SDK's
+# FolderBase, so a listing without it fails to deserialize.
+_TRACE_LIST_FIELDS = ["id", "folder(id,name,is_personal,is_personal_descendant)"]
 _TRACE_CAPPED = (
     "the chart trace stopped after {limit} reads, before reading everything "
     "ingestion would, so what it did not find in use is left undetermined "

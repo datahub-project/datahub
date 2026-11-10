@@ -17,10 +17,10 @@ const meta = {
     },
     argTypes: {
         value: {
-            description: 'The value of the component can be a Moment object or null | undefined',
+            description: 'The value of the component can be a Dayjs object or null | undefined',
             table: {
                 defaultValue: { summary: 'undefined' },
-                type: { summary: 'Moment | null | undefined' },
+                type: { summary: 'Dayjs | null | undefined' },
             },
         },
         onChange: {

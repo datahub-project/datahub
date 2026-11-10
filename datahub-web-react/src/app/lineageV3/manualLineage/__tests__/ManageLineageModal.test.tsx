@@ -2,9 +2,9 @@ import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { FetchStatus, LineageNodesContext } from '@app/lineageV3/common';
 import ManageLineageModal from '@app/lineageV3/manualLineage/ManageLineageModal';
-import { EntityAndType } from '@src/app/entity/shared/types';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 import { EntityType, LineageDirection } from '@types';

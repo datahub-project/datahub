@@ -27,7 +27,9 @@ class DremioSQLQueries:
         C.COLUMN_SIZE
     FROM
         INFORMATION_SCHEMA."TABLES" T
-        INNER JOIN (
+        -- LEFT JOIN: a dataset whose columns can't be read (e.g. its source
+        -- is offline) still comes back, as one row without COLUMN_NAME.
+        LEFT JOIN (
             SELECT
                 TABLE_CATALOG,
                 TABLE_SCHEMA,
@@ -286,6 +288,7 @@ class DremioSQLQueries:
         SELECT
             CONCAT(REPLACE(REPLACE(REPLACE(PATH, ', ', '.'), '[', ''), ']', '')) AS FULL_TABLE_PATH,
             PATH AS TABLE_SCHEMA,
+            VIEW_NAME AS TABLE_NAME,
             SQL_DEFINITION AS VIEW_DEFINITION
         FROM
             SYS.VIEWS
@@ -307,6 +310,7 @@ class DremioSQLQueries:
         SELECT
             CONCAT(REPLACE(REPLACE(REPLACE(PATH, ', ', '.'), '[', ''), ']', '')) AS FULL_TABLE_PATH,
             PATH AS TABLE_SCHEMA,
+            VIEW_NAME AS TABLE_NAME,
             SQL_DEFINITION AS VIEW_DEFINITION
         FROM
             SYS.PROJECT.VIEWS
@@ -324,6 +328,12 @@ class DremioSQLQueries:
     # Normalized schema field: Dremio's "[a, b]" path format flattened to dotted
     # text. pattern_condition matches it case-insensitively.
     SCHEMA_FILTER_FIELD = "CONCAT(REPLACE(REPLACE(REPLACE(UPPER(TABLE_SCHEMA), ', ', '.'), '[', ''), ']', ''))"
+
+    # Enterprise/Cloud FULL_TABLE_PATH ends with the dataset name; cut it to the schema path.
+    SYS_SCHEMA_FILTER_FIELD = (
+        "UPPER(SUBSTR(FULL_TABLE_PATH, 1, "
+        "LENGTH(FULL_TABLE_PATH) - LENGTH(TABLE_NAME) - 1))"
+    )
 
     @staticmethod
     def pattern_condition(

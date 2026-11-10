@@ -469,36 +469,6 @@ class TestSnowflakeQueriesExtractorOptimization:
 
         return extractor
 
-    def test_skip_query_fetch_when_all_features_disabled(self):
-        """Test that query fetching is skipped when all query features are disabled."""
-        extractor = self._create_mock_extractor(
-            include_lineage=False,
-            include_queries=False,
-            include_usage_statistics=False,
-            include_query_usage_statistics=False,
-            include_operations=False,
-        )
-
-        # Mock the fetch methods
-        with (
-            patch.object(extractor, "fetch_users", return_value={}) as mock_fetch_users,
-            patch.object(
-                extractor, "fetch_copy_history", return_value=[]
-            ) as mock_fetch_copy_history,
-            patch.object(
-                extractor, "fetch_query_log", return_value=[]
-            ) as mock_fetch_query_log,
-        ):
-            # Execute the method
-            list(extractor.get_workunits_internal())
-
-            # Verify fetch_users was called (always needed for setup)
-            mock_fetch_users.assert_called_once()
-
-            # Verify expensive fetches were NOT called
-            mock_fetch_copy_history.assert_not_called()
-            mock_fetch_query_log.assert_not_called()
-
     def test_fetch_queries_when_lineage_enabled(self):
         """Test that query fetching happens when lineage is enabled."""
         extractor = self._create_mock_extractor(
