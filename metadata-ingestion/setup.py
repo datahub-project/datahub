@@ -538,7 +538,8 @@ onnx_embeddings = {
 unstructured_lib = {
     # Unstructured.io core library for document partitioning with markdown support
     # CVE-2026-71428: SSRF in partition(url=...) fixed in 0.24.0+ (requires Python 3.11+)
-    "unstructured[md]==0.24.1",
+    # 0.27.37+ allows filelock 4.x (CVE-2026-112940 is fixed in filelock 4.2.1)
+    "unstructured[md]==0.27.37",
     # unstructured 0.24.x requires ingest >=1.4.0
     "unstructured-ingest==1.4.28",
     # JSONPath for custom property extraction
@@ -599,8 +600,9 @@ plugins: Dict[str, Set[str]] = {
     }
     | aws_common,
     "datahub-rest": rest_common,
-    # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility; Docker/constraints enforce >=3.20.3 where needed.
-    "sync-file-emitter": {"filelock>=3.13.1,<4.0.0"},
+    # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility (and filelock 4.2.1+ needs Python 3.11+);
+    # Docker/constraints enforce >=4.2.1 where needed.
+    "sync-file-emitter": {"filelock>=3.13.1,<5.0.0"},
     # DataHub Lite defaults to the stdlib sqlite3 engine, so this extra only
     # pulls in the `datahub lite serve` stack. The optional duckdb engine lives
     # in its own extra below.
