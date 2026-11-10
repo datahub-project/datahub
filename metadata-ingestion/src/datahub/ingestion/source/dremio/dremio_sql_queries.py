@@ -329,9 +329,7 @@ class DremioSQLQueries:
     # UPPER-cased text so the REGEXP_LIKE pattern filters can match it.
     SCHEMA_FILTER_FIELD = "CONCAT(REPLACE(REPLACE(REPLACE(UPPER(TABLE_SCHEMA), ', ', '.'), '[', ''), ']', ''))"
 
-    # Enterprise and Cloud read datasets from SYS tables, whose PATH (exposed as
-    # TABLE_SCHEMA) ends with the dataset name. schema_pattern applies to the schema
-    # path, so drop the trailing ".<TABLE_NAME>" from FULL_TABLE_PATH.
+    # Enterprise/Cloud FULL_TABLE_PATH ends with the dataset name; cut it to the schema path.
     SYS_SCHEMA_FILTER_FIELD = (
         "UPPER(SUBSTR(FULL_TABLE_PATH, 1, "
         "LENGTH(FULL_TABLE_PATH) - LENGTH(TABLE_NAME) - 1))"

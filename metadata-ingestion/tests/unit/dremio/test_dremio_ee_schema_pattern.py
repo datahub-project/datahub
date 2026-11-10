@@ -1,12 +1,7 @@
-"""schema_pattern on Dremio Enterprise is matched against the schema path.
+"""schema_pattern on Dremio Enterprise and Cloud is matched against the schema path.
 
-Enterprise reads datasets from SYS.VIEWS / SYS."TABLES", whose PATH includes the
-dataset name. The pushed schema_pattern predicate must still see only the schema
-path, as on Community Edition and in the Python-side container filter.
-
-The connector's real Enterprise queries run against SQLite, with the SYS and
-INFORMATION_SCHEMA tables they read attached. REGEXP_LIKE is Java's
-Matcher.find() in Dremio, so it is re.search here.
+The connector's real queries run against SQLite with the SYS and INFORMATION_SCHEMA
+tables attached. Dremio's REGEXP_LIKE is Java's Matcher.find(), so re.search here.
 """
 
 import re
@@ -17,13 +12,18 @@ from unittest.mock import Mock
 import pytest
 
 from datahub.ingestion.source.dremio.dremio_api import (
+    DremioAPIException,
     DremioAPIOperations,
     DremioEdition,
 )
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 
-_SOURCE_TABLE = ["My_Source", "Sales", "Orders"]
+_SOURCE_TABLES = [
+    ["My_Source", "Sales", "Orders"],
+    # Dremio file datasets often have a dot in their name.
+    ["My_Source", "Sales", "weather.csv"],
+]
 _SPACE_VIEW = ["Analytics", "orders_vw"]
 
 
@@ -48,19 +48,18 @@ def _sqlite_dremio_ee() -> sqlite3.Connection:
             COLUMN_NAME, ORDINAL_POSITION, IS_NULLABLE, DATA_TYPE, COLUMN_SIZE);
         """
     )
-    *table_schema, table_name = _SOURCE_TABLE
-    conn.execute(
-        """INSERT INTO SYS."TABLES" VALUES ('t1', ?, ?, 's1', 'src1', NULL, 'PARQUET',
-        NULL, 'TABLE')""",
-        (table_name, f"[{', '.join(_SOURCE_TABLE)}]"),
-    )
-    *view_schema, view_name = _SPACE_VIEW
+    for i, path in enumerate(_SOURCE_TABLES):
+        conn.execute(
+            """INSERT INTO SYS."TABLES" VALUES (?, ?, ?, 's1', 'src1', NULL,
+            'PARQUET', NULL, 'TABLE')""",
+            (f"t{i}", path[-1], f"[{', '.join(path)}]"),
+        )
     conn.execute(
         """INSERT INTO SYS.VIEWS VALUES ('v1', ?, ?, '', 'sp1', NULL, NULL, 'VIEW',
         'SELECT * FROM My_Source.Sales.Orders')""",
-        (view_name, f"[{', '.join(_SPACE_VIEW)}]"),
+        (_SPACE_VIEW[-1], f"[{', '.join(_SPACE_VIEW)}]"),
     )
-    for schema, name in ((table_schema, table_name), (view_schema, view_name)):
+    for *schema, name in [*_SOURCE_TABLES, _SPACE_VIEW]:
         conn.execute(
             """INSERT INTO INFORMATION_SCHEMA.COLUMNS
             VALUES (?, ?, 'id', 1, 'YES', 'INTEGER', 32)""",
@@ -69,14 +68,13 @@ def _sqlite_dremio_ee() -> sqlite3.Connection:
     return conn
 
 
-@pytest.fixture
-def ee_api(monkeypatch: pytest.MonkeyPatch) -> DremioAPIOperations:
+@pytest.fixture(params=[DremioEdition.ENTERPRISE, DremioEdition.CLOUD], ids=str)
+def sys_api(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> DremioAPIOperations:
+    edition: DremioEdition = request.param
     monkeypatch.setattr("requests.Session", Mock(return_value=Mock()))
-    monkeypatch.setattr(
-        DremioAPIOperations,
-        "get_dremio_edition",
-        lambda self: DremioEdition.ENTERPRISE,
-    )
+    monkeypatch.setattr(DremioAPIOperations, "get_dremio_edition", lambda self: edition)
     config = DremioSourceConfig(
         hostname="dummy-host",
         port=9047,
@@ -87,6 +85,10 @@ def ee_api(monkeypatch: pytest.MonkeyPatch) -> DremioAPIOperations:
     conn = _sqlite_dremio_ee()
 
     def execute_query_iter(query: str, timeout: int = 3600) -> Iterator[Dict[str, Any]]:
+        # SQLite can't attach Cloud's three-part SYS.PROJECT/SYS.ORGANIZATION names.
+        query = query.replace("SYS.PROJECT.", "SYS.").replace(
+            "SYS.ORGANIZATION.", "SYS."
+        )
         cursor = conn.execute(query)
         names = [d[0] for d in cursor.description]
         for row in cursor:
@@ -96,44 +98,71 @@ def ee_api(monkeypatch: pytest.MonkeyPatch) -> DremioAPIOperations:
     return api
 
 
-def _fetched(
-    api: DremioAPIOperations, allow: List[str], deny: List[str]
-) -> Dict[str, Any]:
+def _fetched(api: DremioAPIOperations, allow: List[str], deny: List[str]) -> List[str]:
     api.allow_schema_pattern = allow
     api.deny_schema_pattern = deny
-    return {d["TABLE_NAME"]: d for d in api.get_all_tables_and_columns()}
+    return sorted(d["TABLE_NAME"] for d in api.get_all_tables_and_columns())
+
+
+_IN_SALES = ["Orders", "weather.csv"]
 
 
 @pytest.mark.parametrize(
     "allow, deny, expected",
     [
         # Anchored at the schema: the dataset name must not be part of the match.
-        (
-            [r"^My_Source(\.Sales)?$", r"^Analytics$"],
-            [],
-            {"Orders", "orders_vw"},
-        ),
-        ([r"^My_Source($|\..*)"], [], {"Orders"}),
-        ([r"^Other($|\..*)"], [], set()),
-        ([".*"], [r"^My_Source\.Sales$"], {"orders_vw"}),
+        ([r"^My_Source(\.Sales)?$", r"^Analytics$"], [], [*_IN_SALES, "orders_vw"]),
+        ([r"^My_Source($|\..*)"], [], _IN_SALES),
+        ([r"^Other($|\..*)"], [], []),
+        ([".*"], [r"^My_Source\.Sales$"], ["orders_vw"]),
         # A pattern that names the dataset is not a schema match.
-        ([r"^Analytics\.orders_vw$"], [], set()),
+        ([r"^Analytics\.orders_vw$"], [], []),
+        # Breaking changes documented for this fix: "\..*" no longer reaches
+        # datasets directly in the schema, and a dataset-name deny filters nothing.
+        ([r"^My_Source\.Sales\..*"], [], []),
+        ([".*"], [r".*_vw$"], [*_IN_SALES, "orders_vw"]),
     ],
 )
-def test_schema_pattern_matches_schema_path_on_enterprise(
-    ee_api: DremioAPIOperations,
+def test_schema_pattern_matches_schema_path(
+    sys_api: DremioAPIOperations,
     allow: List[str],
     deny: List[str],
-    expected: set,
+    expected: List[str],
 ) -> None:
-    assert set(_fetched(ee_api, allow, deny)) == expected
+    assert _fetched(sys_api, allow, deny) == sorted(expected)
 
 
 def test_view_definition_survives_anchored_schema_pattern(
-    ee_api: DremioAPIOperations,
+    sys_api: DremioAPIOperations,
 ) -> None:
-    datasets = _fetched(ee_api, [r"^Analytics$"], [])
+    sys_api.allow_schema_pattern = [r"^Analytics$"]
+    sys_api.deny_schema_pattern = []
+    (view,) = sys_api.get_all_tables_and_columns()
 
-    assert datasets["orders_vw"]["VIEW_DEFINITION"] == (
-        "SELECT * FROM My_Source.Sales.Orders"
+    assert view["VIEW_DEFINITION"] == "SELECT * FROM My_Source.Sales.Orders"
+
+
+def test_per_container_fallback_matches_schema_path(
+    sys_api: DremioAPIOperations, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_query = sys_api.execute_query_iter
+
+    def fail_catalog_wide(query: str, timeout: int = 3600) -> Iterator[Dict[str, Any]]:
+        # Only the per-container dataset queries carry a TABLE_SCHEMA scan filter.
+        if "TABLE_ID" in query and "UPPER(TABLE_SCHEMA) =" not in query:
+            raise DremioAPIException("Query exceeded memory limit")
+        return run_query(query, timeout)
+
+    monkeypatch.setattr(sys_api, "execute_query_iter", fail_catalog_wide)
+    monkeypatch.setattr(
+        sys_api,
+        "get",
+        lambda url: {
+            "data": [
+                {"containerType": "SOURCE", "path": ["My_Source"]},
+                {"containerType": "SPACE", "path": ["Analytics"]},
+            ]
+        },
     )
+
+    assert _fetched(sys_api, [r"^My_Source(\.Sales)?$"], []) == _IN_SALES
