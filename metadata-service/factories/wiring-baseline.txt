@@ -52,13 +52,10 @@ com.linkedin.gms.factory.incident.IncidentServiceFactory
 com.linkedin.gms.factory.ingestion.IngestionCliVersionMatrixServiceFactory
 com.linkedin.gms.factory.ingestion.IngestionSchedulerFactory
 com.linkedin.gms.factory.kafka.CDCConsumerFactory
-com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory
 com.linkedin.gms.factory.kafka.NonKafkaMessagingConfiguration
 com.linkedin.gms.factory.kafka.PgQueueConsumersSerdeConfiguration
 com.linkedin.gms.factory.kafka.PgQueueEventProducerFactory
 com.linkedin.gms.factory.kafka.PgQueueUsageEventPublisherConfiguration
-com.linkedin.gms.factory.kafka.schemaregistry.AwsGlueSchemaRegistryFactory
-com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory
 com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryServiceFactory
 com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory
 com.linkedin.gms.factory.kafka.throttle.KafkaThrottleFactory
@@ -79,6 +76,7 @@ com.linkedin.gms.factory.recommendation.candidatesource.RecentlyViewedCandidateS
 com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory
 com.linkedin.gms.factory.search.CachingEntitySearchServiceFactory
 com.linkedin.gms.factory.search.CachingEvictionServiceFactory
+com.linkedin.gms.factory.search.ClusterMigrationMirrorLiveMarkerFactory
 com.linkedin.gms.factory.search.EntitySearchServiceFactory
 com.linkedin.gms.factory.search.LineageSearchServiceFactory
 com.linkedin.gms.factory.search.SearchClusterRegistryFactory
