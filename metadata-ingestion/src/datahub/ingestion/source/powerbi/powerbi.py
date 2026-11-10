@@ -567,18 +567,20 @@ class Mapper:
         self._add_model_internal_lineage(table, ds_urn, upstreams, cll_lineage)
         if existing is not None:
             existing.fineGrainedLineages = cll_lineage or None
-        elif upstreams:
-            # A DirectLake table always reads a Fabric item, so a missing
-            # OneLake edge means a lookup failed this run (partition source,
-            # model expressions, Fabric item listing or SQL endpoint). An
-            # aspect with only the model-internal edges would replace the
-            # OneLake edge emitted by earlier runs, so keep the stored lineage.
+            return mcps
+        # A DirectLake table always reads a Fabric item, so a missing OneLake
+        # edge means a lookup failed this run (partition source, model
+        # expressions, Fabric item listing or SQL endpoint).
+        self.__reporter.directlake_lineage_unresolved += 1
+        self.__reporter.warning(
+            title="DirectLake Lineage Not Resolved",
+            message="The OneLake source of a DirectLake table could not be resolved; lineage stored by earlier runs is left unchanged.",
+            context=f"table={table.full_name}",
+        )
+        if upstreams:
+            # An aspect with only the model-internal edges would replace the
+            # OneLake edge emitted by earlier runs, so it is not emitted.
             self.__reporter.directlake_lineage_withheld += 1
-            self.__reporter.warning(
-                title="DirectLake Lineage Not Updated",
-                message="The OneLake source of a DirectLake table could not be resolved, so its lineage was left unchanged.",
-                context=f"table={table.full_name}",
-            )
         return mcps
 
     def _add_model_internal_lineage(

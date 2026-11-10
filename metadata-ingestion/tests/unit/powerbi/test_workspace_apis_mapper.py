@@ -320,6 +320,22 @@ def test_directlake_lineage_withheld_when_partition_source_unparsed() -> None:
     assert mapper._Mapper__reporter.directlake_lineage_withheld == 1  # type: ignore[attr-defined]
 
 
+def test_directlake_lineage_unresolved_is_reported_without_model_edges() -> None:
+    """With no model-internal edges nothing would be withheld, but the
+    missing OneLake edge must still reach the report."""
+    mapper = _mapper()
+    _, kpis = _directlake_tables()
+    kpis.measures = []
+
+    mcps = mapper.extract_lineage(kpis, _urn(mapper, kpis), _workspace())
+
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    assert _lineage_aspect(mcps) is None
+    assert reporter.directlake_lineage_unresolved == 1
+    assert reporter.directlake_lineage_withheld == 0
+    assert any(w.title == "DirectLake Lineage Not Resolved" for w in reporter.warnings)
+
+
 def test_directlake_lineage_merges_onelake_and_model_internal_edges() -> None:
     mapper = _mapper()
     policies, kpis = _directlake_tables()
@@ -341,6 +357,7 @@ def test_directlake_lineage_merges_onelake_and_model_internal_edges() -> None:
     assert upstreams[1] == _urn(mapper, policies)
     assert aspect.fineGrainedLineages is not None
     assert mapper._Mapper__reporter.directlake_lineage_withheld == 0  # type: ignore[attr-defined]
+    assert mapper._Mapper__reporter.directlake_lineage_unresolved == 0  # type: ignore[attr-defined]
 
 
 def test_calculated_table_depends_on_referenced_model_tables() -> None:
