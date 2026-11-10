@@ -78,6 +78,7 @@
     "resizablePills.moreHiddenCount_one": "{{count}} weiteres Element ausgeblendet",
     "resizablePills.moreHiddenCount_other": "{{count}} weitere Elemente ausgeblendet",
     "search.placeholder": "Suchen...",
+    "select.noResults.description": "Versuche, deine Suche anzupassen, um zu finden, wonach du suchst",
     "select.placeholder": "Option auswählen",
     "selectItems.addMoreSection": "Weitere hinzufügen",
     "selectItems.entitiesLabel": "Entitäten",

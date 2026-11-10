@@ -21,6 +21,7 @@ class DatasetSubTypes(StrEnum):
     SALESFORCE_CUSTOM_OBJECT = "Custom Object"
     SALESFORCE_STANDARD_OBJECT = "Object"
     QLIK_DATASET = "Qlik Dataset"
+    QLIK_TABLE = "Qlik Table"
     GRAFANA_DATASET = "Grafana Dataset"
     QUICKSIGHT_DATASET = "Dataset"
     BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"

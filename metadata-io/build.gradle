@@ -291,11 +291,10 @@ test {
 tasks.withType(Test).configureEach {
   testClassesDirs = sourceSets.test.output.classesDirs
   classpath = sourceSets.test.runtimeClasspath
-  filter {
-    // Boots its own ES 8 container; the rest of its packages are container-free unit tests
-    // that now run in the OpenSearch suites (see testng-opensearch.xml).
-    excludeTestsMatching 'Es8SemanticSearchIT'
-  }
+  // Es8SemanticSearchIT (group es8-semantic) boots its own ES 8 container. Where it runs is set in
+  // the suite XMLs, not here: a filter { excludeTestsMatching } on this block did not stop the
+  // suite files from running it (it ran in testOpenSearch and twice in testEs8). Only the
+  // es8-semantic-search-it block of testng-es8.xml runs that group.
 }
 
 task testCassandraNeo4j(type: Test) {

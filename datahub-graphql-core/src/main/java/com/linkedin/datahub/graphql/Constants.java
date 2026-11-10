@@ -51,6 +51,7 @@ public class Constants {
   public static final String API_SCHEMA_FILE = "api.graphql";
   public static final String REPOSITORY_SCHEMA_FILE = "repository.graphql";
   public static final String INTERFACE_SCHEMA_DIRECTORY = "interfaces";
+  public static final String HAS_INCIDENTS_INTERFACE = "HasIncidents";
   public static final String BROWSE_PATH_DELIMITER = "/";
   public static final String BROWSE_PATH_V2_DELIMITER = "␟";
   public static final String VERSION_STAMP_FIELD_NAME = "versionStamp";

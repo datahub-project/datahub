@@ -1,0 +1,72 @@
+/*
+Process boot tests (src/bootTest/java): each starts a process's real Spring context -- GMSApplication,
+the MAE/MCE consumer applications, system-update -- and checks its required/forbidden bean contract.
+
+They live in their own source set, not src/test, for two reasons:
+  - Each context takes 10-60s to start, so they stay out of the default `test` task. CI runs
+    `bootTest` on PRs that touch wiring and nightly; `./gradlew bootTests` (root) runs every process.
+  - The processes component-scan broad packages (e.g. com.linkedin.metadata.kafka). With unit-test
+    classes on the classpath they would pick up @TestConfiguration classes and boot something that
+    is not the production process. The bootTest classpath is the module's production runtime
+    classpath plus the shared harness, nothing else.
+*/
+sourceSets {
+  bootTest {
+    // Module classes before jars, as in the boot archive (BOOT-INF/classes precedes BOOT-INF/lib).
+    // Component-scan registration order follows the classpath, and some contexts depend on it.
+    compileClasspath = sourceSets.main.output + configurations.bootTestCompileClasspath
+    runtimeClasspath = output + sourceSets.main.output + configurations.bootTestRuntimeClasspath
+  }
+}
+
+configurations {
+  bootTestImplementation.extendsFrom implementation
+  bootTestRuntimeOnly.extendsFrom runtimeOnly
+  bootTestCompileOnly.extendsFrom compileOnly
+  bootTestAnnotationProcessor.extendsFrom annotationProcessor
+}
+
+dependencies {
+  bootTestImplementation testFixtures(project(':metadata-service:factories'))
+  bootTestImplementation externalDependency.testng
+  bootTestRuntimeOnly externalDependency.h2
+}
+
+tasks.register('bootTest', Test) {
+  group = 'verification'
+  description = 'Starts this process\'s Spring contexts and checks the required/forbidden bean contract.'
+  testClassesDirs = sourceSets.bootTest.output.classesDirs
+  classpath = sourceSets.bootTest.runtimeClasspath
+  useTestNG()
+  // A boot suite that discovers or runs nothing fails via the root build's dead-suite guard.
+  timeout = java.time.Duration.ofMinutes(20)
+  // One JVM per module: each test boots one full context and closes it.
+  maxParallelForks = 1
+  maxHeapSize = '3g'
+  // Production JVMs run without -ea. Pegasus schema traversal trips internal asserts when the
+  // full entity registry is loaded from entity-registry.yml, which unit tests never do.
+  enableAssertions = false
+  // Images set this to the registry they ship; the yaml default is relative to a two-level module.
+  environment 'ENTITY_REGISTRY_CONFIG_PATH', rootProject.file('metadata-models/src/main/resources/entity-registry.yml').absolutePath
+  if (project.hasProperty('bootTestDumpDir')) {
+    systemProperty 'bootTest.dumpDir', project.property('bootTestDumpDir')
+  }
+  shouldRunAfter 'test'
+  testLogging {
+    events 'failed', 'skipped'
+    exceptionFormat 'full'
+  }
+}
+
+// Boot coverage would inflate the aggregated unit-test report (jacocoMergedReport reads every
+// build/jacoco/*.exec). Modules apply the coverage script before or after this one, so wait for it.
+plugins.withId('jacoco') {
+  tasks.named('bootTest', Test) {
+    extensions.getByType(JacocoTaskExtension).enabled = false
+  }
+}
+
+// Keep the suite compiling on every `check`, even though it only runs on demand.
+tasks.named('check') {
+  dependsOn 'bootTestClasses'
+}

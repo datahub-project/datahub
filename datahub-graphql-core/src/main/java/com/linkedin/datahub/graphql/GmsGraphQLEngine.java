@@ -416,6 +416,8 @@ import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import com.linkedin.metadata.version.GitVersion;
 import graphql.execution.DataFetcherResult;
 import graphql.language.InterfaceTypeDefinition;
+import graphql.language.ObjectTypeExtensionDefinition;
+import graphql.language.TypeName;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.StaticDataFetcher;
@@ -1076,6 +1078,34 @@ public class GmsGraphQLEngine {
     } catch (IOException e) {
       throw new RuntimeException("Failed to list GraphQL interface schema files", e);
     }
+  }
+
+  /**
+   * Object types that the interface schema files extend with {@code implements <interfaceName>}.
+   * graphql-java does not inherit data fetchers from an interface, so each implementer is wired.
+   *
+   * <p>Only {@code extend type ... implements} in {@code interfaces/*.graphql} is seen, not {@code
+   * type X implements} in other schema files or plugin schemas. EntityIncidentsWiringTest checks
+   * the built schema for any type this misses.
+   */
+  public static List<String> typesImplementing(@Nonnull final String interfaceName) {
+    final SchemaParser parser = new SchemaParser();
+    return interfaceSchemaFiles().stream()
+        .flatMap(
+            schemaFile ->
+                parser.parse(fileBasedSchema(schemaFile)).objectTypeExtensions().values().stream())
+        .flatMap(List::stream)
+        .filter(
+            extension ->
+                extension.getImplements().stream()
+                    .anyMatch(
+                        type ->
+                            type instanceof TypeName typeName
+                                && typeName.getName().equals(interfaceName)))
+        .map(ObjectTypeExtensionDefinition::getName)
+        .distinct()
+        .sorted()
+        .collect(Collectors.toList());
   }
 
   public static String fileBasedSchema(String fileName) {
@@ -4295,19 +4325,16 @@ public class GmsGraphQLEngine {
                           : null;
                     })));
 
-    // Add incidents attribute to all entities that support it
-    final List<String> entitiesWithIncidents =
-        ImmutableList.of(
-            "Dataset",
-            "DataJob",
-            "DataFlow",
-            "Dashboard",
-            "Chart",
-            "MLModel",
-            "MLFeature",
-            "MLFeatureTable",
-            "SchemaFieldEntity");
-    for (String entity : entitiesWithIncidents) {
+    final List<String> incidentEntityTypes = typesImplementing(HAS_INCIDENTS_INTERFACE);
+    if (incidentEntityTypes.isEmpty()) {
+      // An empty classpath scan leaves every incidents field null. Log it rather than fail
+      // startup, so the rest of GMS (including ingestion) keeps running.
+      log.error(
+          "No GraphQL types implement {} in the interface schemas; incidents fields will resolve"
+              + " to null",
+          HAS_INCIDENTS_INTERFACE);
+    }
+    for (String entity : incidentEntityTypes) {
       builder.type(
           entity,
           typeWiring ->
