@@ -757,6 +757,23 @@ class Mapper:
         self._hidden_aas_models[urn] = mcps
         return urn
 
+    def analysis_services_model_urns(
+        self, dataset: Optional[powerbi_data_classes.PowerBIDataset]
+    ) -> List[str]:
+        """Model URNs for a dataset, registering a hidden dataset when missing.
+
+        A live connection has no tables, so these URNs are the report's
+        upstream rather than an upstream of a Power BI table.
+        """
+        if not self.__config.extract_lineage or dataset is None:
+            return []
+        urns: List[str] = []
+        for server, database in dataset.analysis_services_models:
+            urn = self._register_analysis_services_model(server, database)
+            if urn and urn not in urns:
+                urns.append(urn)
+        return urns
+
     def hidden_analysis_services_model_workunits(self) -> Iterable[MetadataWorkUnit]:
         pending = self._hidden_aas_models
         self._hidden_aas_models = {}
@@ -942,6 +959,9 @@ class Mapper:
         ds_input: List[str] = self.to_urn_set(
             [x for x in ds_mcps if x.entityType == Constant.DATASET]
         )
+        # A live Analysis Services connection has no tables to use as inputs.
+        if not ds_input:
+            ds_input.extend(self.analysis_services_model_urns(tile.dataset))
 
         def tile_custom_properties(tile: powerbi_data_classes.Tile) -> dict:
             custom_properties: dict = {
@@ -1482,6 +1502,7 @@ class Mapper:
         workspace: powerbi_data_classes.Workspace,
         ds_mcps: List[MetadataChangeProposalWrapper],
         report: powerbi_data_classes.Report,
+        extra_inputs: Optional[List[str]] = None,
     ) -> List[MetadataChangeProposalWrapper]:
         chart_mcps = []
 
@@ -1508,6 +1529,9 @@ class Mapper:
             ds_input: List[str] = self.to_urn_set(
                 [x for x in ds_mcps if x.entityType == Constant.DATASET]
             )
+            for urn in extra_inputs or []:
+                if urn not in ds_input:
+                    ds_input.append(urn)
 
             # Create chartInfo mcp
             # Set chartUrl only if tile is created from Report
@@ -1714,19 +1738,27 @@ class Mapper:
         user_mcps = self.to_datahub_users(report.users)
         # Convert pages to charts. A report has a single dataset and the same dataset used in pages to create visualization
         ds_mcps = self.to_datahub_dataset(report.dataset, workspace)
-        chart_mcps = self.pages_to_chart(
-            report.pages, workspace=workspace, ds_mcps=ds_mcps, report=report
-        )
-
         # collect all upstream datasets; using a set to retain unique urns
         dataset_urns: Set[str] = {
             dataset.entityUrn
             for dataset in ds_mcps
             if dataset.entityType == DatasetUrn.ENTITY_TYPE and dataset.entityUrn
         }
+        # A live connection has no tables, so the model is the report upstream.
+        live_model_urns = (
+            [] if dataset_urns else self.analysis_services_model_urns(report.dataset)
+        )
+        chart_mcps = self.pages_to_chart(
+            report.pages,
+            workspace=workspace,
+            ds_mcps=ds_mcps,
+            report=report,
+            extra_inputs=live_model_urns,
+        )
         # Paginated (RDL) reports without a shared dataset get their lineage
         # solely from this fallback path.
         dataset_urns.update(self.paginated_report_datasource_urns(report))
+        dataset_urns.update(live_model_urns)
         dataset_edges = [
             EdgeClass(destinationUrn=dataset_urn) for dataset_urn in dataset_urns
         ]

@@ -15,15 +15,24 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
 )
 from datahub.ingestion.source.powerbi.powerbi import Mapper
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    Page,
     PowerBIDataset,
+    Report,
     ReportDatasource,
+    ReportType,
     Table,
+    Workspace,
     analysis_services_models_from_scan,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
 )
-from datahub.metadata.schema_classes import DatasetPropertiesClass, StatusClass
+from datahub.metadata.schema_classes import (
+    ChartInfoClass,
+    DashboardInfoClass,
+    DatasetPropertiesClass,
+    StatusClass,
+)
 
 
 def test_from_raw_happy_path() -> None:
@@ -220,6 +229,74 @@ def test_existing_analysis_services_model_is_not_replaced() -> None:
     mapper = _finance_mapper(graph=_Graph())
     mapper.extract_lineage(_finance_table(), "urn:li:dataset:downstream", MagicMock())
     assert list(mapper.hidden_analysis_services_model_workunits()) == []
+
+
+def test_live_connection_without_tables_links_the_report_to_the_model() -> None:
+    mapper = _finance_mapper(graph=None)
+    dataset = PowerBIDataset(
+        id="dataset-1",
+        name="Finance",
+        description="",
+        webUrl=None,
+        workspace_id="workspace-1",
+        workspace_name="Finance",
+        parameters={},
+        tables=[],
+        tags=[],
+        analysis_services_models=[
+            (
+                "asazure://northeurope.asazure.windows.net/finance-server",
+                "finance-model",
+            )
+        ],
+    )
+    report = Report(
+        id="report-1",
+        name="Finance",
+        type=ReportType.PowerBIReport,
+        webUrl=None,
+        embedUrl=None,
+        description="",
+        dataset_id=dataset.id,
+        dataset=dataset,
+        pages=[Page(id="page-1", displayName="Overview", name="Overview", order=0)],
+        users=[],
+        tags=[],
+    )
+    workspace = Workspace(
+        id="workspace-1",
+        name="Finance",
+        type="Workspace",
+        dashboards={},
+        reports={},
+        datasets={},
+        report_endorsements={},
+        dashboard_endorsements={},
+        scan_result={},
+        independent_datasets={},
+        app=None,
+    )
+    model_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,"
+        "finance-model,PROD)"
+    )
+    workunits = list(mapper.report_to_datahub_work_units(report, workspace))
+    dashboards = [
+        workunit.metadata.aspect
+        for workunit in workunits
+        if isinstance(workunit.metadata.aspect, DashboardInfoClass)
+    ]
+    charts = [
+        workunit.metadata.aspect
+        for workunit in workunits
+        if isinstance(workunit.metadata.aspect, ChartInfoClass)
+    ]
+    assert [edge.destinationUrn for edge in dashboards[0].datasetEdges] == [model_urn]
+    assert charts[0].inputs == [model_urn]
+    hidden = list(mapper.hidden_analysis_services_model_workunits())
+    assert StatusClass(removed=True) in [
+        workunit.metadata.aspect for workunit in hidden
+    ]
 
 
 def test_admin_resolver_report_datasources_is_empty() -> None:
