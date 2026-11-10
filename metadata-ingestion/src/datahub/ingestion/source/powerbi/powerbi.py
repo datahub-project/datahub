@@ -39,6 +39,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
+    DatasetSubTypes,
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.fabric.common.urn_generator import make_onelake_urn
@@ -414,8 +415,8 @@ class Mapper:
 
         if table.dataset:
             known = {upstream_table.dataset for upstream_table in upstream}
-            for server, database in table.dataset.analysis_services_models:
-                model_urn = self._register_analysis_services_model(server, database)
+            for model in table.dataset.analysis_services_models:
+                model_urn = self._register_analysis_services_model(model)
                 if model_urn and model_urn not in known:
                     known.add(model_urn)
                     upstream.append(
@@ -705,20 +706,41 @@ class Mapper:
             logger.debug("Could not check whether %s exists", urn, exc_info=True)
             return False
 
+    def _analysis_services_placeholder(self, urn: str) -> bool:
+        """True when this source should write the hidden model dataset.
+
+        A model the Analysis Services connector has already ingested is left
+        unchanged. A missing model, or one this source previously wrote as
+        hidden, is written again so connection details can be filled in.
+        """
+        if not self._dataset_exists(urn):
+            return True
+        graph = self.__ctx.graph
+        get_aspect = getattr(graph, "get_aspect", None)
+        if not callable(get_aspect):
+            return False
+        try:
+            status = get_aspect(urn, StatusClass)
+        except Exception:
+            logger.debug("Could not read status for %s", urn, exc_info=True)
+            return False
+        return isinstance(status, StatusClass) and status.removed is True
+
     def _register_analysis_services_model(
-        self, server: str, database: str
+        self, model: powerbi_data_classes.AnalysisServicesModel
     ) -> Optional[str]:
         """Remember an AAS model so a missing one is emitted as a hidden dataset.
 
         Lineage search drops neighbors that have never been written. A model
         the Analysis Services connector has not ingested yet is written with
         ``status.removed`` so it stays on the graph as a hidden dataset and is
-        not owned by this source. An existing model is left unchanged.
+        not owned by this source. The server and Power BI datasource type are
+        stored on that dataset. An ingested model is left unchanged.
         """
-        urn = self._analysis_services_model_urn(server, database)
+        urn = self._analysis_services_model_urn(model.server, model.database)
         if urn is None or urn in self._hidden_aas_models:
             return urn
-        if self._dataset_exists(urn):
+        if not self._analysis_services_placeholder(urn):
             self._hidden_aas_models[urn] = []
             return urn
 
@@ -726,7 +748,7 @@ class Mapper:
         platform_detail = self.__dataplatform_instance_resolver.get_platform_instance(
             PowerBIPlatformDetail(
                 data_platform_pair=pair,
-                data_platform_server=server,
+                data_platform_server=model.server,
             )
         )
         mcps = [
@@ -736,7 +758,22 @@ class Mapper:
             ),
             MetadataChangeProposalWrapper(
                 entityUrn=urn,
-                aspect=DatasetPropertiesClass(name=database),
+                aspect=DatasetPropertiesClass(
+                    name=model.database,
+                    customProperties={
+                        "server": model.server,
+                        "datasourceType": model.datasource_type,
+                    },
+                ),
+            ),
+            MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=SubTypesClass(
+                    typeNames=[
+                        DatasetSubTypes.CUBE,
+                        DatasetSubTypes.SEMANTIC_MODEL,
+                    ]
+                ),
             ),
         ]
         if platform_detail.platform_instance:
@@ -768,8 +805,8 @@ class Mapper:
         if not self.__config.extract_lineage or dataset is None:
             return []
         urns: List[str] = []
-        for server, database in dataset.analysis_services_models:
-            urn = self._register_analysis_services_model(server, database)
+        for model in dataset.analysis_services_models:
+            urn = self._register_analysis_services_model(model)
             if urn and urn not in urns:
                 urns.append(urn)
         return urns
@@ -844,7 +881,11 @@ class Mapper:
                     )
                     continue
                 model_urn = self._register_analysis_services_model(
-                    ds.server, ds.database
+                    powerbi_data_classes.AnalysisServicesModel(
+                        server=ds.server,
+                        database=ds.database,
+                        datasource_type=ds.datasource_type,
+                    )
                 )
                 if model_urn:
                     urns.append(model_urn)

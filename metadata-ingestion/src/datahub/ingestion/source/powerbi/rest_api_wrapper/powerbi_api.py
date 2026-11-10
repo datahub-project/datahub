@@ -9,7 +9,6 @@ from typing import (
     MutableMapping,
     Optional,
     Set,
-    Tuple,
     Type,
     TypeVar,
     cast,
@@ -26,6 +25,7 @@ from datahub.ingestion.source.powerbi.config import (
 from datahub.ingestion.source.powerbi.rest_api_wrapper import data_resolver
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     FIELD_TYPE_MAPPING,
+    AnalysisServicesModel,
     App,
     AppDashboard,
     AppReport,
@@ -665,6 +665,16 @@ class PowerBiAPI:
                         workspace.id, dataset_id
                     )
                 )
+            if dataset_instance.analysis_services_models:
+                logger.info(
+                    "Dataset %s is connected to Analysis Services model(s): %s",
+                    dataset_id,
+                    ", ".join(
+                        f"{model.database} (server={model.server}, "
+                        f"datasourceType={model.datasource_type})"
+                        for model in dataset_instance.analysis_services_models
+                    ),
+                )
 
             # fetch + set dataset parameters
             try:
@@ -754,7 +764,7 @@ class PowerBiAPI:
 
     def _analysis_services_models_from_dataset_api(
         self, workspace_id: str, dataset_id: str
-    ) -> List[Tuple[str, str]]:
+    ) -> List[AnalysisServicesModel]:
         """Ask the dataset datasources API when the scan did not name a model.
 
         A live connection has no tables, and the admin scan then often has no
@@ -776,13 +786,7 @@ class PowerBiAPI:
             )
             return []
         models = analysis_services_models_from_rows(rows)
-        if models:
-            logger.info(
-                "Dataset %s is connected to Analysis Services model(s): %s",
-                dataset_id,
-                ", ".join(database for _server, database in models),
-            )
-        else:
+        if not models:
             logger.info(
                 "Dataset %s datasources API returned no external Analysis Services model",
                 dataset_id,

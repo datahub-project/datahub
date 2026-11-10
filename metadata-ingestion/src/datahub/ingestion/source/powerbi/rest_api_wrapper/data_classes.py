@@ -231,10 +231,11 @@ class PowerBIDataset:
     # From relations[].dependentOnArtifactId
     dependent_on_artifact_id: Optional[str] = None
 
-    # External Azure Analysis Services models, as (server, database). The
-    # database is the model catalog name. Internal Power BI dataset bindings
+    # External Analysis Services models. Internal Power BI dataset bindings
     # (pbiazure + sobe_wowvirtualserver-) are not included.
-    analysis_services_models: List[Tuple[str, str]] = field(default_factory=list)
+    analysis_services_models: List["AnalysisServicesModel"] = field(
+        default_factory=list
+    )
 
     def get_urn_part(self):
         return f"datasets.{self.id}"
@@ -365,15 +366,30 @@ class ReportDatasource:
         return None
 
 
+@dataclass(frozen=True)
+class AnalysisServicesModel:
+    """An Analysis Services model named by a Power BI datasource row.
+
+    ``database`` is the model catalog and becomes the dataset name. ``server``
+    is the connection server: ``asazure://`` is Azure Analysis Services,
+    ``powerbi://`` is the Power BI XMLA endpoint. ``datasource_type`` is the
+    Power BI type, normally ``AnalysisServices``.
+    """
+
+    server: str
+    database: str
+    datasource_type: str
+
+
 def analysis_services_models_from_rows(
     rows: List[Dict[str, Any]],
-) -> List[Tuple[str, str]]:
+) -> List[AnalysisServicesModel]:
     """External AAS models from datasource API rows.
 
     An internal Power BI semantic-model binding (``pbiazure`` plus a
     ``sobe_wowvirtualserver-`` database) is not an Analysis Services model.
     """
-    models: List[Tuple[str, str]] = []
+    models: List[AnalysisServicesModel] = []
     seen: Set[Tuple[str, str]] = set()
     for raw in rows:
         parsed = ReportDatasource.from_raw(raw)
@@ -388,13 +404,19 @@ def analysis_services_models_from_rows(
         if key in seen:
             continue
         seen.add(key)
-        models.append(key)
+        models.append(
+            AnalysisServicesModel(
+                server=parsed.server,
+                database=parsed.database,
+                datasource_type=parsed.datasource_type,
+            )
+        )
     return models
 
 
 def analysis_services_models_from_scan(
     scan_result: Optional[dict], dataset_raw: dict
-) -> List[Tuple[str, str]]:
+) -> List[AnalysisServicesModel]:
     """External AAS models a scanned dataset is connected to.
 
     The admin scan lists workspace datasources separately from datasets and

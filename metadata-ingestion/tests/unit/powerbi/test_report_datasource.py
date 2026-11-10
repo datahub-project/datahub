@@ -6,6 +6,7 @@ PowerBI API returns without a usable `datasourceType` or `server`.
 
 from unittest.mock import MagicMock
 
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
@@ -15,6 +16,7 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
 )
 from datahub.ingestion.source.powerbi.powerbi import Mapper
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    AnalysisServicesModel,
     Page,
     PowerBIDataset,
     Report,
@@ -32,6 +34,7 @@ from datahub.metadata.schema_classes import (
     DashboardInfoClass,
     DatasetPropertiesClass,
     StatusClass,
+    SubTypesClass,
 )
 
 
@@ -153,7 +156,11 @@ def test_analysis_services_models_from_scan() -> None:
         ]
     }
     assert analysis_services_models_from_scan(scan, dataset) == [
-        ("asazure://northeurope.asazure.windows.net/finance-server", "finance-model")
+        AnalysisServicesModel(
+            server="asazure://northeurope.asazure.windows.net/finance-server",
+            database="finance-model",
+            datasource_type="AnalysisServices",
+        )
     ]
 
 
@@ -176,8 +183,20 @@ def test_analysis_services_models_from_table_usages_and_initial_catalog() -> Non
         ]
     }
     assert analysis_services_models_from_scan(scan, dataset) == [
-        ("asazure://northeurope.asazure.windows.net/finance-server", "finance-model")
+        AnalysisServicesModel(
+            server="asazure://northeurope.asazure.windows.net/finance-server",
+            database="finance-model",
+            datasource_type="AnalysisServices",
+        )
     ]
+
+
+def _finance_model() -> AnalysisServicesModel:
+    return AnalysisServicesModel(
+        server="asazure://northeurope.asazure.windows.net/finance-server",
+        database="finance-model",
+        datasource_type="AnalysisServices",
+    )
 
 
 def _finance_mapper(*, graph: object) -> Mapper:
@@ -210,12 +229,7 @@ def _finance_table() -> Table:
         parameters={},
         tables=[],
         tags=[],
-        analysis_services_models=[
-            (
-                "asazure://northeurope.asazure.windows.net/finance-server",
-                "finance-model",
-            )
-        ],
+        analysis_services_models=[_finance_model()],
     )
     return Table(name="Sales", full_name="Finance.Sales", dataset=dataset)
 
@@ -241,7 +255,19 @@ def test_missing_analysis_services_model_is_hidden_dataset() -> None:
     assert all(workunit.is_primary_source is False for workunit in workunits)
     aspects = [workunit.metadata.aspect for workunit in workunits]
     assert StatusClass(removed=True) in aspects
-    assert DatasetPropertiesClass(name="finance-model") in aspects
+    assert (
+        DatasetPropertiesClass(
+            name="finance-model",
+            customProperties={
+                "server": "asazure://northeurope.asazure.windows.net/finance-server",
+                "datasourceType": "AnalysisServices",
+            },
+        )
+        in aspects
+    )
+    assert SubTypesClass(
+        typeNames=[DatasetSubTypes.CUBE, DatasetSubTypes.SEMANTIC_MODEL]
+    ) in aspects
 
 
 def test_existing_analysis_services_model_is_not_replaced() -> None:
@@ -249,9 +275,41 @@ def test_existing_analysis_services_model_is_not_replaced() -> None:
         def exists(self, urn: str) -> bool:
             return True
 
+        def get_aspect(self, urn: str, aspect_type: object) -> StatusClass:
+            return StatusClass(removed=False)
+
     mapper = _finance_mapper(graph=_Graph())
     mapper.extract_lineage(_finance_table(), "urn:li:dataset:downstream", MagicMock())
     assert list(mapper.hidden_analysis_services_model_workunits()) == []
+
+
+def test_hidden_analysis_services_model_is_refreshed_with_connection_details() -> None:
+    class _Graph:
+        def exists(self, urn: str) -> bool:
+            return True
+
+        def get_aspect(self, urn: str, aspect_type: object) -> StatusClass:
+            return StatusClass(removed=True)
+
+    mapper = _finance_mapper(graph=_Graph())
+    mapper.extract_lineage(_finance_table(), "urn:li:dataset:downstream", MagicMock())
+    aspects = [
+        workunit.metadata.aspect
+        for workunit in mapper.hidden_analysis_services_model_workunits()
+    ]
+    assert (
+        DatasetPropertiesClass(
+            name="finance-model",
+            customProperties={
+                "server": "asazure://northeurope.asazure.windows.net/finance-server",
+                "datasourceType": "AnalysisServices",
+            },
+        )
+        in aspects
+    )
+    assert SubTypesClass(
+        typeNames=[DatasetSubTypes.CUBE, DatasetSubTypes.SEMANTIC_MODEL]
+    ) in aspects
 
 
 def test_live_connection_without_tables_links_the_report_to_the_model() -> None:
@@ -266,12 +324,7 @@ def test_live_connection_without_tables_links_the_report_to_the_model() -> None:
         parameters={},
         tables=[],
         tags=[],
-        analysis_services_models=[
-            (
-                "asazure://northeurope.asazure.windows.net/finance-server",
-                "finance-model",
-            )
-        ],
+        analysis_services_models=[_finance_model()],
     )
     report = Report(
         id="report-1",
@@ -327,3 +380,22 @@ def test_admin_resolver_report_datasources_is_empty() -> None:
     # returns an empty list so admin_apis_only mode degrades gracefully.
     resolver = AdminAPIResolver.__new__(AdminAPIResolver)
     assert resolver.get_report_datasources(workspace=MagicMock(), report_id="r") == []
+
+
+def test_admin_resolver_reads_dataset_datasources_from_admin_endpoint() -> None:
+    resolver = AdminAPIResolver.__new__(AdminAPIResolver)
+    resolver._admin_base_url = "https://api.powerbi.com/v1.0/myorg/admin"
+    resolver.get_authorization_header = MagicMock(return_value={})  # type: ignore[method-assign]
+    session = MagicMock()
+    session.get.return_value.json.return_value = {
+        "value": [{"datasourceType": "AnalysisServices"}]
+    }
+    resolver._request_session = session
+
+    rows = resolver.get_dataset_datasources(workspace_id="w", dataset_id="d")
+
+    assert rows == [{"datasourceType": "AnalysisServices"}]
+    assert (
+        session.get.call_args.args[0]
+        == "https://api.powerbi.com/v1.0/myorg/admin/datasets/d/datasources"
+    )

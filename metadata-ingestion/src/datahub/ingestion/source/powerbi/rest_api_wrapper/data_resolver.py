@@ -696,6 +696,7 @@ class AdminAPIResolver(DataResolverBase):
         Constant.DATASET_LIST: "{POWERBI_ADMIN_BASE_URL}/groups/{WORKSPACE_ID}/datasets",
         Constant.WORKSPACE_MODIFIED_LIST: "{POWERBI_ADMIN_BASE_URL}/workspaces/modified",
         Constant.GET_WORKSPACE_APP: "{POWERBI_ADMIN_BASE_URL}/apps",
+        Constant.DATASET_DATASOURCES: "{POWERBI_ADMIN_BASE_URL}/datasets/{DATASET_ID}/datasources",
     }
 
     def create_scan_job(self, workspace_ids: List[str]) -> str:
@@ -957,6 +958,31 @@ class AdminAPIResolver(DataResolverBase):
     ) -> Dict[str, str]:
         logger.debug("Get dataset parameter is unsupported in Admin API")
         return {}
+
+    def get_dataset_datasources(
+        self, workspace_id: str, dataset_id: str
+    ) -> List[Dict[str, Any]]:
+        """Raw rows from ``GET /admin/datasets/{id}/datasources``.
+
+        ``admin_apis_only`` recipes cannot use the workspace-scoped endpoint,
+        and the admin scan usually omits ``datasourceUsages`` for live
+        Analysis Services connections.
+        """
+        endpoint = AdminAPIResolver.API_ENDPOINTS[Constant.DATASET_DATASOURCES].format(
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url,
+            DATASET_ID=dataset_id,
+        )
+        logger.info(
+            "Requesting admin dataset datasources for workspace %s dataset %s",
+            workspace_id,
+            dataset_id,
+        )
+        response = self._request_session.get(
+            endpoint,
+            headers=self.get_authorization_header(),
+        )
+        response.raise_for_status()
+        return response.json().get(Constant.VALUE, [])
 
     def profile_dataset(
         self,
