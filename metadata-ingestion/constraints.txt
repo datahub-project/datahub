@@ -1679,6 +1679,7 @@ typing-inspection==0.4.2 ; python_full_version >= '3.11' and python_full_version
     #   pydantic
 tzdata==2025.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
+    #   acryl-datahub
     #   dlt
     #   faker
     #   pandas

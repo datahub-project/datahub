@@ -255,6 +255,82 @@ class TestLookerViewIdPreprocessFilePath:
         assert view_id.preprocess_file_path("views/local_view") == "views.local_view"
 
 
+class TestLookerViewIdProjectPlatformInstance:
+    """Views of LookML projects ingested by separate recipes with their own
+    platform instances must get those recipes' URNs."""
+
+    @staticmethod
+    def _urn(project_name: str, config: LookerCommonConfig) -> str:
+        return LookerViewId(
+            project_name=project_name,
+            model_name="m",
+            view_name="orders",
+            file_path="views/orders.view.lkml",
+        ).get_urn(config)
+
+    def test_mapped_project_uses_its_instance_and_env(self) -> None:
+        config = LookerCommonConfig.model_validate(
+            {
+                "platform_instance": "looker_prod",
+                "project_to_platform_instance": {
+                    "sales": {"platform_instance": "lookml_sales"},
+                    "finance": {"platform_instance": "lookml_finance", "env": "DEV"},
+                },
+            }
+        )
+
+        assert self._urn("sales", config) == (
+            "urn:li:dataset:(urn:li:dataPlatform:looker,lookml_sales.sales.view.orders,PROD)"
+        )
+        assert self._urn("finance", config) == (
+            "urn:li:dataset:(urn:li:dataPlatform:looker,lookml_finance.finance.view.orders,DEV)"
+        )
+
+    def test_unmapped_project_keeps_the_top_level_instance(self) -> None:
+        config = LookerCommonConfig.model_validate(
+            {
+                "platform_instance": "looker_prod",
+                "project_to_platform_instance": {
+                    "sales": {"platform_instance": "lookml_sales"}
+                },
+            }
+        )
+
+        assert self._urn("marketing", config) == (
+            "urn:li:dataset:(urn:li:dataPlatform:looker,looker_prod.marketing.view.orders,PROD)"
+        )
+
+    def test_env_only_override_keeps_the_top_level_instance(self) -> None:
+        config = LookerCommonConfig.model_validate(
+            {
+                "platform_instance": "looker_prod",
+                "env": "DEV",
+                "project_to_platform_instance": {
+                    "sales": {"env": "QA"},
+                    "finance": {"platform_instance": "lookml_finance"},
+                },
+            }
+        )
+
+        assert self._urn("sales", config) == (
+            "urn:li:dataset:(urn:li:dataPlatform:looker,looker_prod.sales.view.orders,QA)"
+        )
+        assert self._urn("finance", config) == (
+            "urn:li:dataset:(urn:li:dataPlatform:looker,lookml_finance.finance.view.orders,DEV)"
+        )
+
+    def test_mapped_env_is_validated_and_uppercased(self) -> None:
+        config = LookerCommonConfig.model_validate(
+            {"project_to_platform_instance": {"sales": {"env": "dev"}}}
+        )
+        assert config.view_platform_detail("sales").env == "DEV"
+
+        with pytest.raises(ValueError):
+            LookerCommonConfig.model_validate(
+                {"project_to_platform_instance": {"sales": {"env": "NOT_AN_ENV"}}}
+            )
+
+
 class TestResolveViewLocations:
     def _field(
         self,
@@ -491,6 +567,7 @@ class TestFromApiImportedViewProject:
         source_config.env = real_config.env
         source_config.platform_instance = real_config.platform_instance
         source_config.view_naming_pattern = real_config.view_naming_pattern
+        source_config.view_platform_detail = real_config.view_platform_detail
         source_config.extract_column_level_lineage = (
             real_config.extract_column_level_lineage
         )

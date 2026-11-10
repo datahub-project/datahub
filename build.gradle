@@ -1151,3 +1151,15 @@ tasks.register('verifyVendorJars') {
 // Cross-module aggregated JaCoCo report (recovers coverage of a class produced by tests in
 // another module). See gradle/coverage/java-coverage-aggregation.gradle for details.
 apply from: 'gradle/coverage/java-coverage-aggregation.gradle'
+
+// Process boot tests: start every OSS process's real Spring context (GMS, MAE/MCE consumers,
+// system-update) under the kafka and pgqueue transports. Not part of `test`/`check`; CI runs this
+// on PRs that touch wiring and nightly. See gradle/testing/boot-test.gradle.
+tasks.register('bootTests') {
+  group = 'verification'
+  description = 'Boots every OSS process and checks its required/forbidden bean contract.'
+  dependsOn ':metadata-service:war:bootTest',
+      ':metadata-jobs:mae-consumer-job:bootTest',
+      ':metadata-jobs:mce-consumer-job:bootTest',
+      ':datahub-upgrade:bootTest'
+}

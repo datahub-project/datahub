@@ -558,7 +558,7 @@ public class SearchTestUtils {
     List<SettingsBuilder> settingsBuilders = new ArrayList<>();
 
     if (entityIndexConfiguration.getV2().isEnabled()) {
-      settingsBuilders.add(new V2LegacySettingsBuilder(indexConfiguration, indexConvention));
+      settingsBuilders.add(new V2LegacySettingsBuilder(indexConfiguration, indexConvention, false));
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {
@@ -592,7 +592,8 @@ public class SearchTestUtils {
           new V2MappingsBuilder(
               entityIndexConfiguration,
               com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim
-                  .PARTIAL_NGRAM_CONFIG));
+                  .PARTIAL_NGRAM_CONFIG,
+              ESUtils.KEYWORD_MAXLENGTH));
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {

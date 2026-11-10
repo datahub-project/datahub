@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.GetMode;
@@ -13,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
@@ -59,6 +61,9 @@ public class TagMapper implements ModelMapper<EntityResponse, Tag> {
         DEPRECATION_ASPECT_NAME,
         (tag, dataMap) ->
             tag.setDeprecation(DeprecationMapper.map(context, new Deprecation(dataMap))));
+    mappingHelper.mapToResult(
+        STATUS_ASPECT_NAME,
+        (tag, dataMap) -> tag.setStatus(StatusMapper.map(context, new Status(dataMap))));
 
     if (result.getProperties() != null && result.getProperties().getName() == null) {
       result.getProperties().setName(legacyName);

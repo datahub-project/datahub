@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -107,7 +108,7 @@ public class BackfillEntityIndicesStep implements UpgradeStep {
   private final OperationContext opContext;
   private final EntityService<?> entityService;
   private final List<ElasticSearchIndexed> indexedServices;
-  private final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
+  private final Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties;
   private final String upgradeVersion;
   private final BuildIndicesConfiguration buildIndicesConfig;
   private final AspectIndexLoader loader;
@@ -118,7 +119,7 @@ public class BackfillEntityIndicesStep implements UpgradeStep {
       OperationContext opContext,
       EntityService<?> entityService,
       List<ElasticSearchIndexed> indexedServices,
-      Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties,
+      Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties,
       String upgradeVersion,
       @Nullable BuildIndicesConfiguration buildIndicesConfig,
       AspectIndexLoader loader,

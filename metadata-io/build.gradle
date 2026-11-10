@@ -165,6 +165,7 @@ dependencies {
   compileOnlyApi externalDependency.djlApi
   compileOnlyApi externalDependency.djlHuggingFaceTokenizers
   // Provider unit tests exercise the real ONNX/DJL libraries.
+  testImplementation testFixtures(project(':metadata-utils'))
   testImplementation externalDependency.onnxRuntime
   testImplementation externalDependency.djlApi
   testImplementation externalDependency.djlHuggingFaceTokenizers
@@ -185,6 +186,8 @@ dependencies {
   implementation externalDependency.opentelemetrySdkTrace
   implementation externalDependency.opentelemetrySdkMetrics
   implementation externalDependency.resilience4j
+  // exp4j for mathematical expression evaluation in template ranking formulas
+  implementation 'net.objecthunter:exp4j:0.4.8'
   // Newer Spring libraries require JDK17 classes, allow for JDK11
   compileOnly externalDependency.springBootAutoconfigureJdk11
   implementation(externalDependency.mixpanel) {
@@ -293,11 +296,10 @@ tasks.withType(Test).configureEach {
   // pass. Note this does NOT cover the convention-loss failure mode above (an unwired task is
   // NO-SOURCE and skips before discovery), which is what the task-graph check below is for.
   failOnNoDiscoveredTests = true
-  filter {
-    // Boots its own ES 8 container; the rest of its packages are container-free unit tests
-    // that now run in the OpenSearch suites (see testng-opensearch.xml).
-    excludeTestsMatching 'Es8SemanticSearchIT'
-  }
+  // Es8SemanticSearchIT (group es8-semantic) boots its own ES 8 container. Where it runs is set in
+  // the suite XMLs, not here: a filter { excludeTestsMatching } on this block did not stop the
+  // suite files from running it (it ran in testOpenSearch and twice in testEs8). Only the
+  // es8-semantic-search-it block of testng-es8.xml runs that group.
 }
 
 // Guard against the Gradle-9 dead-suite bug recurring: convention loss leaves testClassesDirs
