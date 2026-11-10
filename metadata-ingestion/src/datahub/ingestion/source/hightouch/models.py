@@ -47,7 +47,6 @@ class HightouchDbtQuery(_HightouchBaseModel):
     database: Optional[str] = None
     schema_name: Optional[str] = Field(default=None, alias="schema")
     name: Optional[str] = None
-    compiled_sql: Optional[str] = Field(default=None, alias="compiledSql")
 
 
 class HightouchModel(_HightouchBaseModel):
@@ -64,7 +63,8 @@ class HightouchModel(_HightouchBaseModel):
     is_schema: bool = Field(default=False, alias="isSchema")
     tags: Optional[Dict[str, str]] = None
     folder_id: Optional[str] = Field(default=None, alias="folderId")
-    # Exactly one of these is set, matching queryType. `name` above is the display
+    # At most one of these is set, matching queryType; custom and visual models
+    # set none. `name` above is the display
     # name; the warehouse table of a table model is `table.name`.
     table: Optional[HightouchTableQuery] = None
     raw: Optional[HightouchRawQuery] = None

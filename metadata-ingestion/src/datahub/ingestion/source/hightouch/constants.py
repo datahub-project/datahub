@@ -23,7 +23,6 @@ API_PAGINATION_INITIAL_OFFSET = 0
 API_PAGINATION_MAX_PAGES = 10_000
 
 # Model query types (Hightouch "queryType" field values)
-QUERY_TYPE_TABLE = "table"
 QUERY_TYPE_RAW_SQL = "raw_sql"
 
 # Keys read from a source connection's `configuration` blob

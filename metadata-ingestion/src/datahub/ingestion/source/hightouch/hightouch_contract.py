@@ -61,7 +61,9 @@ class HightouchContractHandler:
             try:
                 yield from self._emit_contract(contract)
             except Exception as e:
-                self.report.warning(
+                # A failure, not a warning: it keeps stale-entity removal from
+                # soft-deleting the contract's datasets and assertion.
+                self.report.failure(
                     title="Failed to process contract",
                     message="An error occurred while processing an event contract.",
                     context=f"contract: {contract.name} (contract_id: {contract.id})",

@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Union
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -36,7 +36,6 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
-from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -52,10 +51,6 @@ class HightouchLineageHandler:
         urn_builder: HightouchUrnBuilder,
         graph: Optional[DataHubGraph],
         registered_urns: Set[str],
-        model_schema_fields_cache: Dict[str, List[SchemaFieldClass]],
-        sql_aggregators: Dict[
-            Tuple[str, Optional[str], str], Optional[SqlParsingAggregator]
-        ],
         schema_metadata_cache: SchemaMetadataCache,
     ) -> None:
         self.config = config
@@ -64,10 +59,8 @@ class HightouchLineageHandler:
         self.urn_builder = urn_builder
         self.graph = graph
         self._registered_urns = registered_urns
-        self._model_schema_fields_cache = model_schema_fields_cache
         # Upstream table URNs parsed from each raw-SQL model, by model id.
         self._sql_upstreams: Dict[str, List[str]] = {}
-        self._sql_aggregators = sql_aggregators
         self._schema_metadata_cache = schema_metadata_cache
 
     def _fetch_schema_field_paths(self, urn: str, kind: str) -> Optional[List[str]]:
@@ -285,13 +278,21 @@ class HightouchLineageHandler:
         self.report.sql_parsing_attempts += 1
         result = create_lineage_sql_parsed_result(
             query=model.raw_sql,
-            default_db=source_platform.database,
+            # Without the schema in URNs, a two-part name is database.table, so the
+            # parser must not read it as schema.table under the default database.
+            default_db=(
+                source_platform.database
+                if source_platform.include_schema_in_urn
+                else None
+            ),
             default_schema=None,
             platform=source_platform.platform,
             platform_instance=source_platform.platform_instance,
             env=source_platform.env or self.config.env,
-            graph=None,
-            schema_aware=False,
+            # With a graph the resolver matches the casing of the table as it is
+            # already ingested; without one the parser's own casing is used.
+            graph=self.graph,
+            schema_aware=self.graph is not None,
         )
 
         if result.debug_info.table_error:

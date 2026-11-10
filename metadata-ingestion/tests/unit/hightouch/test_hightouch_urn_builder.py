@@ -476,14 +476,25 @@ def test_normalize_parsed_upstream_urn_keeps_schema_when_flag_true(
     urn_builder, source_connection = _urn_builder_for_schema_flag(
         pipeline_context, include_schema_in_urn=True
     )
+    # The parser puts the platform instance in front of the name, lowercased.
     parsed = DatasetUrn(
-        platform="snowflake", name="raw_data.public.customers", env="PROD"
+        platform="snowflake",
+        name="snowflake-prod.raw_data.public.customers",
+        env="PROD",
     )
 
     result = urn_builder.normalize_parsed_upstream_urn(parsed, source_connection)
 
-    # Flag is on: the parser output already carries the schema, so it is returned as-is.
-    assert result == str(parsed)
+    # Flag is on: the schema stays, and the URN is rebuilt with the configured
+    # instance, as table-model upstreams are.
+    assert result == str(
+        DatasetUrn.create_from_ids(
+            platform_id="snowflake",
+            table_name="raw_data.public.customers",
+            env="PROD",
+            platform_instance="snowflake-prod",
+        )
+    )
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -631,3 +642,56 @@ def test_dbt_model_upstream_is_its_generated_table(
 
     assert urn is not None
     assert DatasetUrn.from_string(urn).name == "analytics.marts.orders"
+
+
+@pytest.mark.parametrize(
+    "parsed_name, expected_name",
+    [
+        pytest.param("orders", "raw_data.orders", id="bare-table"),
+        pytest.param("otherdb.orders", "otherdb.orders", id="cross-database"),
+        pytest.param("otherdb.sch.orders", "otherdb.orders", id="three-part"),
+    ],
+)
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_normalize_parsed_upstream_urn_keeps_the_written_database(
+    mock_api_client_class, pipeline_context, parsed_name, expected_name
+):
+    urn_builder, source_connection = _urn_builder_for_schema_flag(
+        pipeline_context, include_schema_in_urn=False
+    )
+    parsed = DatasetUrn(
+        platform="snowflake", name=f"snowflake-prod.{parsed_name}", env="PROD"
+    )
+
+    result = urn_builder.normalize_parsed_upstream_urn(parsed, source_connection)
+
+    # A table in another database is not filed under the source's own database.
+    assert DatasetUrn.from_string(result).name == f"snowflake-prod.{expected_name}"
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_snowflake_destination_urn_is_lowercased(
+    mock_api_client_class, pipeline_context
+):
+    source_instance = HightouchIngestionSource(
+        HightouchSourceConfig(
+            api_config=HightouchAPIConfig(api_key="test_api_key"),
+            destination_to_platform_instance={
+                "dest_1": PlatformDetail(platform="snowflake", database="ANALYTICS")
+            },
+        ),
+        pipeline_context,
+    )
+    destination = HightouchDestination(
+        id="dest_1",
+        name="Warehouse",
+        slug="warehouse",
+        type="snowflake",
+        workspace_id="workspace_1",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    urn = source_instance._urn_builder.make_destination_urn("PUBLIC.USERS", destination)
+
+    assert DatasetUrn.from_string(str(urn)).name == "analytics.public.users"

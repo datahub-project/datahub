@@ -108,41 +108,43 @@ class HightouchSyncHandler:
     def get_inlet_urns_for_model(
         self, model: HightouchModel, sync: HightouchSync
     ) -> List[Union[str, DatasetUrn]]:
+        # An emitted model is the inlet whatever its source; only the source-table
+        # fallback below needs the source.
+        if self.emits_model_dataset(model):
+            return [self.urn_builder.make_model_urn(model)]
+
         source = self.get_source(model.source_id)
         if not source:
             self.report.warning(
                 title="Failed to get source for model",
                 message="Could not retrieve source information for lineage creation.",
-                context=f"sync_slug: {sync.slug} (model_id: {model.source_id})",
+                context=f"sync_slug: {sync.slug} (source_id: {model.source_id})",
             )
             return []
 
         # A model denied by model_patterns is never emitted, so lineage goes to its
         # source tables instead of to a model dataset that would not exist.
-        if not self.emits_model_dataset(model):
-            table_urn = self.urn_builder.source_table_urn(model, source)
-            if table_urn:
-                return [table_urn]
+        table_urn = self.urn_builder.source_table_urn(model, source)
+        if table_urn:
+            return [table_urn]
 
-            # For non-table (raw SQL) models there is no intermediate model dataset,
-            # so resolve the SQL's upstream tables directly and use them as inlets.
-            sql_upstreams = self.lineage_handler.sql_upstream_urns(model, source)
-            if sql_upstreams:
-                return list(sql_upstreams)
+        # For non-table (raw SQL) models there is no intermediate model dataset,
+        # so resolve the SQL's upstream tables directly and use them as inlets.
+        sql_upstreams = self.lineage_handler.sql_upstream_urns(model, source)
+        if sql_upstreams:
+            return list(sql_upstreams)
 
-            self.report.report_lineage_resolution_failure(
-                f"sync_slug: {sync.slug} (model_slug: {model.slug})"
-            )
-            self.report.warning(
-                title="No upstream lineage for non-table model",
-                message="The model is not emitted as a dataset and its SQL upstream "
-                "tables could not be resolved, so no upstream lineage can be "
-                "emitted for this sync.",
-                context=f"sync_slug: {sync.slug} (query_type: {model.query_type})",
-            )
-            return []
-
-        return [self.urn_builder.make_model_urn(model, source)]
+        self.report.report_lineage_resolution_failure(
+            f"sync_slug: {sync.slug} (model_slug: {model.slug})"
+        )
+        self.report.warning(
+            title="No upstream lineage for non-table model",
+            message="The model is not emitted as a dataset and its SQL upstream "
+            "tables could not be resolved, so no upstream lineage can be "
+            "emitted for this sync.",
+            context=f"sync_slug: {sync.slug} (query_type: {model.query_type})",
+        )
+        return []
 
     def get_outlet_urn_for_sync(
         self, sync: HightouchSync, destination: HightouchDestination
@@ -184,8 +186,10 @@ class HightouchSyncHandler:
         if not dest_table:
             # No outlet rather than an invented one: a guessed name would create a
             # dataset that does not exist and never joins the destination's own.
+            # Common for webhook-style destinations, so info rather than a warning;
+            # every such sync is listed in unresolved_destinations.
             self.report.report_unresolved_destination(sync.slug)
-            self.report.warning(
+            self.report.info(
                 title="Could not resolve sync destination object",
                 message="The sync configuration names no destination table or object "
                 "the connector recognises, so the sync has no outlet.",

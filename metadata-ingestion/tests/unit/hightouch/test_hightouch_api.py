@@ -2,6 +2,7 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 
 import requests
+import requests_mock
 from requests.adapters import HTTPAdapter
 
 from datahub.ingestion.source.hightouch.config import (
@@ -320,3 +321,15 @@ def test_field_mappings_include_the_external_id_and_skip_non_column_mappings() -
         ("email", "email", False),
         ("test_id", "firstname", True),
     ]
+
+
+def test_contracts_without_access_are_a_warning_not_a_failure() -> None:
+    report = HightouchSourceReport()
+    client = HightouchAPIClient(HightouchAPIConfig(api_key="test"), report)
+    with requests_mock.Mocker() as mocker:
+        mocker.get("https://api.hightouch.com/api/v1/events/contracts", status_code=403)
+        contracts = client.get_contracts()
+
+    assert contracts == []
+    assert not report.failures
+    assert [w.title for w in report.warnings] == ["Could not fetch Event Contracts"]

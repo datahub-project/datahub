@@ -52,6 +52,8 @@ T = TypeVar("T", bound=BaseModel)
 logger = logging.getLogger(__name__)
 
 HTTP_STATUS_NOT_FOUND = 404
+# The workspace or key has no access to Events: there are no contracts to keep.
+HTTP_STATUSES_CONTRACTS_UNAVAILABLE = {401, 403, HTTP_STATUS_NOT_FOUND}
 
 
 class HightouchAPIClient:
@@ -66,17 +68,22 @@ class HightouchAPIClient:
         self.report = report
         self.session = self._create_session()
 
-    def _report_parse_failure(self, entity_name: str, detail: str) -> None:
-        if self.report is not None:
-            self.report.report_entity_parse_failure(entity_name)
-            self.report.warning(
-                title="Failed to parse Hightouch entity",
-                message="An entity returned by the Hightouch API could not be parsed "
-                "and was skipped.",
-                context=f"{entity_name}: {detail}",
-            )
-        else:
+    def _report_parse_failure(
+        self, entity_name: str, detail: str, drops_entity: bool = True
+    ) -> None:
+        if self.report is None:
             logger.warning(f"Failed to parse {entity_name}: {detail}")
+            return
+        self.report.report_entity_parse_failure(entity_name)
+        # A skipped sync, model or contract is missing from this run, so it is a
+        # failure: that keeps stale-entity removal from soft-deleting it.
+        log = self.report.failure if drops_entity else self.report.warning
+        log(
+            title="Failed to parse Hightouch entity",
+            message="An entity returned by the Hightouch API could not be parsed "
+            "and was skipped.",
+            context=f"{entity_name}: {detail}",
+        )
 
     def _create_session(self) -> requests.Session:
         session = requests.Session()
@@ -289,15 +296,19 @@ class HightouchAPIClient:
                 run = HightouchSyncRun.model_validate(run_data)
                 runs.append(run)
             except ValidationError as e:
-                self._report_parse_failure(ENTITY_NAME_SYNC_RUN, str(e))
+                # Run history is not tracked for stale removal, so a skipped run
+                # is only a warning.
+                self._report_parse_failure(
+                    ENTITY_NAME_SYNC_RUN, str(e), drops_entity=False
+                )
                 continue
 
         return runs
 
     def get_contracts(self) -> List[HightouchContract]:
-        # Contracts are optional (plan-gated) and a failure here must never abort the
-        # rest of the run, so every request error (HTTP status, connection, timeout)
-        # is downgraded to a warning + empty list.
+        # Contracts are optional (plan-gated), so a request error never aborts the
+        # run: no access is a warning, and anything else is a failure that keeps
+        # stale-entity removal from soft-deleting contracts it could not read.
         try:
             return self._fetch_entities(
                 API_ENDPOINT_CONTRACTS, HightouchContract, ENTITY_NAME_CONTRACT
@@ -305,11 +316,12 @@ class HightouchAPIClient:
         except requests.exceptions.RequestException as e:
             response = getattr(e, "response", None)
             status_code = response.status_code if response is not None else None
-            if status_code == HTTP_STATUS_NOT_FOUND:
+            if status_code in HTTP_STATUSES_CONTRACTS_UNAVAILABLE:
                 message = (
-                    "Contracts endpoint not found (404). Event Contracts may not be "
-                    "enabled for your Hightouch account/plan. Skipping contract "
-                    "ingestion."
+                    f"Event Contracts are not available to this API key (HTTP "
+                    f"{status_code}); they may not be enabled for the workspace. "
+                    "Skipping contracts; set include_contracts: false to stop "
+                    "requesting them."
                 )
             else:
                 detail = f"HTTP {status_code}" if status_code else type(e).__name__
@@ -319,7 +331,7 @@ class HightouchAPIClient:
                 )
             if self.report is None:
                 logger.warning(message)
-            elif status_code == HTTP_STATUS_NOT_FOUND:
+            elif status_code in HTTP_STATUSES_CONTRACTS_UNAVAILABLE:
                 self.report.warning(
                     title="Could not fetch Event Contracts",
                     message=message,

@@ -68,11 +68,9 @@ class HightouchUrnBuilder:
 
     @staticmethod
     def _strip_to_database_qualified(name: str, database: str) -> str:
-        # include_schema_in_urn is false: reduce any schema/database qualification down
-        # to the bare table, then re-qualify with the configured database so the name
-        # matches the URN the source platform emits. Shared by qualified_table_name and
-        # normalize_parsed_upstream_urn so the source-table and raw-SQL lineage paths
-        # cannot diverge.
+        # include_schema_in_urn is false: reduce the table model's name to the bare
+        # table, then re-qualify with the configured database so it matches the URN
+        # the source platform emits.
         bare_table = name.split(".")[-1]
         return f"{database}.{bare_table}" if database else bare_table
 
@@ -156,16 +154,11 @@ class HightouchUrnBuilder:
     def normalize_parsed_upstream_urn(
         self, urn: Union[str, DatasetUrn], source: HightouchSourceConnection
     ) -> str:
-        # The SQL parser builds upstream URNs straight from the query text, so it
-        # always keeps the schema segment. When include_schema_in_urn is false the
-        # connector's own source URNs drop the schema, so a parsed upstream would not
-        # match the entity the source platform emits. Re-run the parsed table name
-        # through the same schema-omission rule (bare table re-qualified with the
-        # configured database) so both sides agree. When the flag is true the parser
-        # output already matches, so return it unchanged.
+        # The SQL parser builds upstream URNs from the query text with its own
+        # casing and platform-instance handling. Rebuild each through
+        # make_upstream_table_urn so raw-SQL and table-model upstreams follow the
+        # same PlatformDetail rules (instance, lowercasing, schema omission).
         source_details = self._get_cached_source_details(source)
-        if source_details.include_schema_in_urn:
-            return str(urn)
         try:
             parsed = DatasetUrn.from_string(str(urn))
         except InvalidUrnError:
@@ -174,9 +167,27 @@ class HightouchUrnBuilder:
             # exception is a programming error and must propagate to the caller's
             # reraise_if_programming_error guard instead of being hidden.
             return str(urn)
-        database = self._resolve_source_database(source, source_details)
-        name = self._strip_to_database_qualified(parsed.name, database)
+        name = parsed.name
+        instance = source_details.platform_instance
+        if instance and name.lower().startswith(f"{instance.lower()}."):
+            name = name[len(instance) + 1 :]
+        if not source_details.include_schema_in_urn:
+            database = self._resolve_source_database(source, source_details)
+            name = self._parsed_name_without_schema(name, database)
         return str(self.make_upstream_table_urn(name, source))
+
+    @staticmethod
+    def _parsed_name_without_schema(name: str, database: str) -> str:
+        # Parsed without a default database (see _parse_sql_upstreams), so the parts
+        # are as written: `table`, `database.table`, or `database.schema.table`.
+        # Keeping the written database means a cross-database reference is not
+        # filed under the source's own database.
+        parts = name.split(".")
+        if len(parts) == 1:
+            return f"{database}.{name}" if database else name
+        if len(parts) == 2:
+            return name
+        return f"{parts[0]}.{parts[-1]}"
 
     def make_destination_urn(
         self, table_name: str, destination: HightouchDestination
@@ -184,7 +195,9 @@ class HightouchUrnBuilder:
         dest_details = self._get_cached_destination_details(destination)
 
         if dest_details.database:
-            table_name = self._qualify(table_name, dest_details.database.lower())
+            table_name = self._qualify(table_name, dest_details.database)
+        if dest_details.lowercase_urns:
+            table_name = table_name.lower()
 
         return DatasetUrn.create_from_ids(
             platform_id=dest_details.platform or destination.type.lower(),

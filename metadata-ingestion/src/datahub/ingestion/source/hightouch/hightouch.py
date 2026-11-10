@@ -135,8 +135,6 @@ class HightouchSource(StatefulIngestionSourceBase, TestableSource):
             urn_builder=self._urn_builder,
             graph=self.graph,
             registered_urns=self._registered_urns,
-            model_schema_fields_cache=self._model_schema_fields_cache,
-            sql_aggregators=self._sql_aggregators,
             schema_metadata_cache=self._schema_metadata_cache,
         )
 
@@ -357,7 +355,11 @@ class HightouchSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.graph and (filtered_syncs or all_models):
             self._schema_handler.preload_schemas_for_sql_parsing(
-                models=all_models,
+                models=[
+                    model
+                    for model in all_models
+                    if self.config.model_patterns.allowed(model.name)
+                ],
                 syncs=filtered_syncs,
                 registered_urns=self._registered_urns,
                 get_source=self._get_source,
@@ -430,7 +432,8 @@ class HightouchSource(StatefulIngestionSourceBase, TestableSource):
                     columns.append(column)
 
         model_ids = [model.id for model in all_models]
-        model_ids += [m for m in columns_by_model if m not in set(model_ids)]
+        listed = set(model_ids)
+        model_ids += [m for m in columns_by_model if m not in listed]
 
         for model_id in model_ids:
             try:

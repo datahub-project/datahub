@@ -1,5 +1,8 @@
+import json
 import logging
 from typing import Dict, Optional, Tuple, Type, Union
+
+import requests
 
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
@@ -34,6 +37,9 @@ def fetch_schema_metadata_cached(
 # Exceptions that signal a bug in our own code rather than an operational or
 # environmental failure. These are re-raised (fail fast) instead of degraded.
 _PROGRAMMING_ERRORS = (AttributeError, TypeError, KeyError, ValueError)
+# Response-body decode errors subclass ValueError but come from the network (a
+# proxy error page, say), so they are degraded like any other request error.
+_OPERATIONAL_VALUE_ERRORS = (requests.exceptions.JSONDecodeError, json.JSONDecodeError)
 
 
 def normalize_column_name(name: str) -> str:
@@ -133,7 +139,9 @@ def resolve_datahub_field_type(native_type: Optional[str]) -> SchemaFieldDataTyp
 def reraise_if_programming_error(e: Exception, context: str) -> None:
     # Called first inside best-effort `except Exception` blocks so real bugs fail
     # fast while operational failures fall through to the caller's degrade path.
-    if isinstance(e, _PROGRAMMING_ERRORS):
+    if isinstance(e, _PROGRAMMING_ERRORS) and not isinstance(
+        e, _OPERATIONAL_VALUE_ERRORS
+    ):
         logger.error(
             f"Programming error {context}: {type(e).__name__}: {e}",
             exc_info=True,

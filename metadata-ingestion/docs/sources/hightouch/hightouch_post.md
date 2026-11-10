@@ -35,7 +35,9 @@ The connector extracts comprehensive lineage:
 3. **Multi-hop Lineage**: Complete path from source databases through models to destinations
 
 SQL parsing is supported for `raw_sql` models, automatically extracting upstream table
-dependencies and creating column-level lineage. Column casing is normalized to match upstream
+dependencies and creating column-level lineage. With `include_schema_in_urn: false` the lineage
+from raw SQL models is table-level only. When the upstream tables are already in DataHub, their
+names are matched with the casing they were ingested with. Column casing is normalized to match upstream
 table schemas (e.g., Snowflake lowercasing). For best results:
 
 - Ensure upstream source tables are already ingested into DataHub
@@ -189,6 +191,13 @@ If lineage is not appearing correctly:
    `destination_to_platform_instance`
 2. Check that `emit_models_as_datasets` is set to your preferred mode
 3. Ensure source and destination datasets already exist in DataHub (or ingest them separately)
+
+#### Failed Runs and Stale Metadata
+
+A sync or model that fails to process, Event Contracts that cannot be read (other than an API
+key without access to them), an entity the API returns in an unexpected shape, or a list cut off
+at the pagination limit fails the run. That keeps stale-metadata removal from soft-deleting
+entities that still exist in Hightouch but were missing from the run.
 
 #### Rate Limiting
 
