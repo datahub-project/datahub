@@ -12,6 +12,9 @@ from datahub.ingestion.source.microstrategy.microstrategy_semantic_model import 
 from datahub.ingestion.source.microstrategy.models import MicroStrategyObject
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
+    ContainerClass,
+    DataPlatformInstanceClass,
     ERModelRelationshipCardinalityClass,
     MetricInfoClass,
     MetricRelationshipsClass,
@@ -94,10 +97,10 @@ def _mapper(
     )
 
 
-def _project_container_key() -> ContainerKey:
+def _project_container_key(instance: Optional[str] = None) -> ContainerKey:
     return _ProjectKey(
         platform="microstrategy",
-        instance=None,
+        instance=instance,
         env="PROD",
         project_id="project-1",
     )
@@ -217,6 +220,91 @@ def test_table_becomes_semantic_model_dataset_with_dimension_and_measure_fields(
     assert isinstance(revenue_annotation, SemanticFieldAnnotationClass)
     assert region_annotation.type == SemanticFieldTypeClass.DIMENSION
     assert revenue_annotation.type == SemanticFieldTypeClass.MEASURE
+
+
+def test_semantic_model_gets_browse_path_under_project_and_no_container_aspect() -> (
+    None
+):
+    # Regression: the semanticModel entity does not accept a container aspect
+    # (it is absent from the entity registry), so emitting one made GMS reject
+    # every write batch that carried the model with a 422. The model's place
+    # in the browse tree is expressed through browsePathsV2 instead, while the
+    # logical datasets keep their container aspect.
+    mapper = _mapper(FakeSemanticModelClient())
+    project_key = _project_container_key()
+    model_tables = [
+        _table("SALES", attributes=[_attribute("ATTR1", "Region")], facts=[])
+    ]
+
+    aspects = _aspects_by_urn(
+        list(
+            mapper.emit(
+                project_id="project-1",
+                project_name="Project One",
+                model_tables=model_tables,
+                warehouse_context=None,
+                project_container_key=project_key,
+            )
+        )
+    )
+
+    model_urn = (
+        "urn:li:semanticModel:(urn:li:dataPlatform:microstrategy,project-1,schema)"
+    )
+    assert "ContainerClass" not in aspects[model_urn]
+    browse_path = aspects[model_urn]["BrowsePathsV2Class"]
+    assert isinstance(browse_path, BrowsePathsV2Class)
+    assert [(entry.id, entry.urn) for entry in browse_path.path] == [
+        (project_key.as_urn(), project_key.as_urn())
+    ]
+
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:microstrategy,project-1.SALES,PROD)"
+    )
+    container = aspects[dataset_urn]["ContainerClass"]
+    assert isinstance(container, ContainerClass)
+    assert container.container == project_key.as_urn()
+
+
+def test_semantic_model_browse_path_leads_with_platform_instance_when_configured() -> (
+    None
+):
+    mapper = _mapper(FakeSemanticModelClient(), platform_instance="prod")
+    project_key = _project_container_key(instance="prod")
+    model_tables = [
+        _table("SALES", attributes=[_attribute("ATTR1", "Region")], facts=[])
+    ]
+
+    aspects = _aspects_by_urn(
+        list(
+            mapper.emit(
+                project_id="project-1",
+                project_name="Project One",
+                model_tables=model_tables,
+                warehouse_context=None,
+                project_container_key=project_key,
+            )
+        )
+    )
+
+    model_urn = (
+        "urn:li:semanticModel:(urn:li:dataPlatform:microstrategy,project-1,schema)"
+    )
+    instance_urn = (
+        "urn:li:dataPlatformInstance:(urn:li:dataPlatform:microstrategy,prod)"
+    )
+    browse_path = aspects[model_urn]["BrowsePathsV2Class"]
+    assert isinstance(browse_path, BrowsePathsV2Class)
+    assert [(entry.id, entry.urn) for entry in browse_path.path] == [
+        (instance_urn, instance_urn),
+        (project_key.as_urn(), project_key.as_urn()),
+    ]
+    # The leading entry names the same instance as the model's own
+    # dataPlatformInstance aspect.
+    platform_instance = aspects[model_urn]["DataPlatformInstanceClass"]
+    assert isinstance(platform_instance, DataPlatformInstanceClass)
+    assert platform_instance.instance == instance_urn
+    assert "ContainerClass" not in aspects[model_urn]
 
 
 def test_table_with_no_usable_fields_is_skipped_with_warning() -> None:

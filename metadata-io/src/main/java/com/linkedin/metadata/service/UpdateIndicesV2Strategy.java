@@ -3,8 +3,6 @@ package com.linkedin.metadata.service;
 import static com.linkedin.metadata.search.transformer.SearchDocumentTransformer.withSystemCreated;
 import static com.linkedin.metadata.service.UpdateIndicesService.UPDATE_CHANGE_TYPES;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
@@ -26,7 +24,6 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentP
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
-import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -633,42 +630,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
   }
 
   void updateTimeseriesFieldsForEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
-    // V2 timeseries update logic - uses the existing TimeseriesAspectTransformer
-    log.debug(
-        "Updating V2 timeseries fields for entity: {} aspect: {}",
-        event.getUrn(),
-        event.getAspectName());
-
-    Urn urn = event.getUrn();
-    String entityType = event.getEntitySpec().getName();
-    String aspectName = event.getAspectName();
-    Object aspect = event.getRecordTemplate();
-    AspectSpec aspectSpec = event.getAspectSpec();
-    SystemMetadata systemMetadata = event.getSystemMetadata();
-
-    // Check if aspect is timeseries before processing
-    if (!aspectSpec.isTimeseries()) {
-      log.debug("Aspect {} is not timeseries, skipping V2 timeseries update", aspectName);
-      return;
-    }
-
-    Map<String, JsonNode> documents;
-    try {
-      documents =
-          TimeseriesAspectTransformer.transform(
-              urn, (RecordTemplate) aspect, aspectSpec, systemMetadata, idHashAlgo);
-    } catch (JsonProcessingException e) {
-      log.error("Failed to generate V2 timeseries document from aspect: {}", e.toString());
-      return;
-    }
-
-    documents
-        .entrySet()
-        .forEach(
-            document -> {
-              timeseriesAspectService.upsertDocument(
-                  opContext, entityType, aspectName, document.getKey(), document.getValue());
-            });
+    TimeseriesIndexWriter.upsert(opContext, timeseriesAspectService, idHashAlgo, event);
   }
 
   void updateIndexMappings(OperationContext opContext, MCLItem event) {
@@ -703,9 +665,9 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
         // Apply the mapping for the full set of currently-declared entity types on every
         // definition upsert, not just types newly added since oldValue. applyMappings is an
         // idempotent put_mapping, so re-saving a property re-applies (and thereby repairs) any
-        // mapping a previous attempt failed to write — the only convergence path when the
-        // structured-property system-update machinery is disabled (the default). Entity types
-        // removed from the definition are handled by the dedicated removal path, not here.
+        // mapping a previous attempt failed to write, without waiting for the next
+        // system-update to add it. Entity types removed from the definition are handled by the
+        // dedicated removal path, not here.
         if (!newDefinition.getEntityTypes().isEmpty()) {
           elasticSearchService
               .buildReindexConfigsWithNewStructProp(opContext, urn, newDefinition)

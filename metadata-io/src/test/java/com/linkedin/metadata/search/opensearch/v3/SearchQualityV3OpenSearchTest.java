@@ -86,4 +86,10 @@ public class SearchQualityV3OpenSearchTest extends SearchQualityV3TestBase {
   public void testAutocompleteProbes() throws Exception {
     super.testAutocompleteProbes();
   }
+
+  @Test
+  @Override
+  public void testQuickstartSearchProbes() throws Exception {
+    super.testQuickstartSearchProbes();
+  }
 }

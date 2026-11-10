@@ -199,6 +199,9 @@
         "boost" : 1.0,
         "field" : "text"
       }, {
+        "boost" : 1.0,
+        "field" : "note"
+      }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
       }, {
@@ -212,10 +215,13 @@
         "field" : "text"
       }, {
         "boost" : 1.0,
-        "field" : "description"
+        "field" : "note"
       }, {
         "boost" : 0.5,
         "field" : "tags"
+      }, {
+        "boost" : 1.0,
+        "field" : "description"
       }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
@@ -274,6 +280,9 @@
         "boost" : 10.0,
         "field" : "name"
       }, {
+        "boost" : 1.0,
+        "field" : "note"
+      }, {
         "boost" : 2.0,
         "field" : "id"
       }, {
@@ -300,6 +309,9 @@
       }, {
         "boost" : 0.5,
         "field" : "tags"
+      }, {
+        "boost" : 1.0,
+        "field" : "note"
       }, {
         "boost" : 2.0,
         "field" : "id"
@@ -424,6 +436,9 @@
         "boost" : 1.0,
         "field" : "text"
       }, {
+        "boost" : 1.0,
+        "field" : "note"
+      }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
       }, {
@@ -447,6 +462,9 @@
       }, {
         "boost" : 0.5,
         "field" : "tags"
+      }, {
+        "boost" : 1.0,
+        "field" : "note"
       } ]
     },
     "dataProcess" : {
@@ -481,6 +499,9 @@
         "boost" : 0.5,
         "field" : "tags"
       }, {
+        "boost" : 1.0,
+        "field" : "note"
+      }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
       } ]
@@ -514,6 +535,9 @@
         "boost" : 1.0,
         "field" : "text"
       }, {
+        "boost" : 1.0,
+        "field" : "note"
+      }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
       } ]
@@ -546,6 +570,9 @@
       }, {
         "boost" : 1.0,
         "field" : "description"
+      }, {
+        "boost" : 1.0,
+        "field" : "note"
       } ]
     },
     "entityType" : {
@@ -614,13 +641,16 @@
     "glossaryTerm" : {
       "queryFields" : [ {
         "boost" : 1.0,
-        "field" : "description"
+        "field" : "note"
       }, {
         "boost" : 0.5,
         "field" : "tags"
       }, {
         "boost" : 10.0,
         "field" : "name"
+      }, {
+        "boost" : 1.0,
+        "field" : "description"
       }, {
         "boost" : 2.0,
         "field" : "id"
@@ -697,6 +727,9 @@
         "boost" : 0.5,
         "field" : "tags"
       }, {
+        "boost" : 1.0,
+        "field" : "note"
+      }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
       } ]
@@ -708,6 +741,9 @@
       }, {
         "boost" : 1.0,
         "field" : "text"
+      }, {
+        "boost" : 1.0,
+        "field" : "note"
       }, {
         "boost" : 0.5,
         "field" : "tags"
@@ -726,6 +762,9 @@
       }, {
         "boost" : 1.0,
         "field" : "description"
+      }, {
+        "boost" : 1.0,
+        "field" : "note"
       }, {
         "boost" : 0.5,
         "field" : "tags"
@@ -748,6 +787,9 @@
         "boost" : 1.0,
         "field" : "text"
       }, {
+        "boost" : 1.0,
+        "field" : "note"
+      }, {
         "boost" : 10.0,
         "field" : "name"
       }, {
@@ -764,13 +806,16 @@
         "field" : "name"
       }, {
         "boost" : 1.0,
-        "field" : "description"
+        "field" : "note"
       }, {
         "boost" : 0.5,
         "field" : "tags"
       }, {
         "boost" : 1.0,
         "field" : "deploymentStatus"
+      }, {
+        "boost" : 1.0,
+        "field" : "description"
       } ]
     },
     "mlModelGroup" : {
@@ -782,10 +827,13 @@
         "field" : "name"
       }, {
         "boost" : 1.0,
-        "field" : "description"
+        "field" : "note"
       }, {
         "boost" : 0.5,
         "field" : "tags"
+      }, {
+        "boost" : 1.0,
+        "field" : "description"
       }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
@@ -798,6 +846,9 @@
       }, {
         "boost" : 1.0,
         "field" : "description"
+      }, {
+        "boost" : 1.0,
+        "field" : "note"
       }, {
         "boost" : 0.5,
         "field" : "tags"
@@ -899,7 +950,7 @@
         "field" : "text"
       }, {
         "boost" : 1.0,
-        "field" : "description"
+        "field" : "note"
       }, {
         "boost" : 0.5,
         "field" : "tags"
@@ -926,13 +977,16 @@
         "field" : "tags"
       }, {
         "boost" : 1.0,
-        "field" : "description"
+        "field" : "note"
       }, {
         "boost" : 2.0,
         "field" : "id"
       }, {
         "boost" : 10.0,
         "field" : "name"
+      }, {
+        "boost" : 1.0,
+        "field" : "description"
       }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
@@ -975,6 +1029,9 @@
       }, {
         "boost" : 1.0,
         "field" : "description"
+      }, {
+        "boost" : 1.0,
+        "field" : "note"
       } ]
     },
     "telemetry" : {
