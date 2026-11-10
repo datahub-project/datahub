@@ -18,7 +18,10 @@ import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.datahub.authorization.role.RoleService;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -31,6 +34,11 @@ import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.gms.factory.search.MappingsBuilderFactory;
 import com.linkedin.gms.factory.search.SearchClusterRegistry;
+import com.linkedin.incident.IncidentInfo;
+import com.linkedin.incident.IncidentState;
+import com.linkedin.incident.IncidentStatus;
+import com.linkedin.incident.IncidentType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
@@ -204,27 +212,18 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
               Map.entry("unlinkPhysicalChild", Outcome.WROTE),
               // PRECONDITION: the generated arguments fail an existence or input check that runs
               // before the authorization check (the check exists on the success path).
-              Map.entry("batchAddOwners", Outcome.FAILED),
               Map.entry("batchAddToDataProducts", Outcome.FAILED),
               Map.entry("batchRemoveFromDataProducts", Outcome.FAILED),
               Map.entry("batchSetApplication", Outcome.FAILED),
-              Map.entry("batchSetDataProduct", Outcome.FAILED),
               Map.entry("batchUnsetApplication", Outcome.FAILED),
-              Map.entry("createDataProduct", Outcome.FAILED),
               Map.entry("createERModelRelationship", Outcome.FAILED),
-              Map.entry("deleteApplication", Outcome.FAILED),
-              Map.entry("deleteDataProduct", Outcome.FAILED),
               Map.entry("deleteView", Outcome.FAILED),
               Map.entry("linkAssetVersion", Outcome.FAILED),
               Map.entry("moveDataProduct", Outcome.FAILED),
               Map.entry("reportAssertionResult", Outcome.FAILED),
               Map.entry("unlinkAssetVersion", Outcome.FAILED),
-              Map.entry("updateDataProduct", Outcome.FAILED),
-              Map.entry("updateIncident", Outcome.FAILED),
-              Map.entry("updateIncidentStatus", Outcome.FAILED),
               Map.entry("updateQuery", Outcome.FAILED),
               Map.entry("updateView", Outcome.FAILED),
-              Map.entry("upsertIncident", Outcome.FAILED),
               // REFUSED IN PAYLOAD: refuses with success=false in the result instead of an error.
               Map.entry("patchEntities", Outcome.RETURNED),
               Map.entry("patchEntity", Outcome.RETURNED),
@@ -848,6 +847,9 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
   private void stubExistence() throws Exception {
     when(metricUtils.getRegistry()).thenReturn(new SimpleMeterRegistry());
     when(graphService.supportsMultiHop()).thenReturn(true);
+    // Services that gate on their own existence lookup.
+    when(dataProductService.verifyEntityExists(any(), any())).thenReturn(true);
+    when(applicationService.verifyEntityExists(any(), any())).thenReturn(true);
     for (EntityClient client : List.of(entityClient, systemEntityClient)) {
       when(client.exists(any(), any(Urn.class))).thenReturn(true);
       when(client.exists(any(), any(Urn.class), any(Boolean.class))).thenReturn(true);
@@ -872,6 +874,19 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
       doAnswer(get).when(client).getV2(any(), anyString(), any(Urn.class), any(), any());
     }
 
+    // Incident resolvers authorize against the entities on the stored IncidentInfo.
+    IncidentInfo incident =
+        new IncidentInfo()
+            .setType(IncidentType.OPERATIONAL)
+            .setEntities(new UrnArray(List.of(UrnUtils.getUrn(DEFAULT_URN))))
+            .setStatus(
+                new IncidentStatus().setState(IncidentState.ACTIVE).setLastUpdated(auditStamp()))
+            .setCreated(auditStamp());
+    for (EntityService<?> s : List.of(entityService, service)) {
+      when(s.getAspect(any(), any(Urn.class), eq(Constants.INCIDENT_INFO_ASPECT_NAME), anyLong()))
+          .thenReturn(incident);
+    }
+
     // Covers every exists(...) overload: the boolean ones answer true, the set ones echo the urns.
     Answer<Object> exists =
         inv ->
@@ -888,6 +903,10 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
       doAnswer(exists).when(s).exists(any(), any(Urn.class), anyBoolean(), anyBoolean());
       doAnswer(exists).when(s).exists(any(), any(Urn.class));
     }
+  }
+
+  private static AuditStamp auditStamp() {
+    return new AuditStamp().setActor(SWEEP_ACTOR).setTime(0L);
   }
 
   private static EntityResponse entityResponse(Urn urn) {
@@ -962,7 +981,11 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
       Map<String, Object> fields = new LinkedHashMap<>();
       for (GraphQLInputObjectField inputField : inputType.getFieldDefinitions()) {
         boolean required = inputField.getType() instanceof GraphQLNonNull;
-        if (required || (populateOptional && depth < 3)) {
+        // Optional sub-resource scoping stays empty: a generated value names no real field and is
+        // rejected before the authorization check.
+        boolean subResource =
+            inputField.getName().toLowerCase(Locale.ROOT).startsWith("subresource");
+        if (required || (populateOptional && depth < 3 && !subResource)) {
           fields.put(
               inputField.getName(),
               value(
