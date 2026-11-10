@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 
 import analytics, { EventType } from '@app/analytics';
 import { UnauthorizedPage } from '@app/authorization/UnauthorizedPage';
-import { BrowsableEntityPage } from '@app/browse/BrowsableEntityPage';
 import { useUserContext } from '@app/context/useUserContext';
 import { VIEW_ENTITY_PAGE } from '@app/entityV2/shared/constants';
 import { decodeUrn } from '@app/entityV2/shared/utils';
@@ -25,22 +24,6 @@ interface Props {
     entityType: EntityType;
 }
 
-const ALLOWED_ENTITY_TYPES = [
-    EntityType.Dataset,
-    EntityType.Dashboard,
-    EntityType.Chart,
-    EntityType.DataFlow,
-    EntityType.DataJob,
-    EntityType.Mlmodel,
-    EntityType.Mlfeature,
-    EntityType.MlprimaryKey,
-    EntityType.MlfeatureTable,
-    EntityType.MlmodelGroup,
-    EntityType.GlossaryTerm,
-    EntityType.GlossaryNode,
-    EntityType.SchemaField,
-];
-
 /**
  * Responsible for rendering an Entity Profile
  */
@@ -49,7 +32,6 @@ export const EntityPage = ({ entityType }: Props) => {
     const urn = decodeUrn(encodedUrn);
     const entityRegistry = useEntityRegistry();
     const entity = entityRegistry.getEntity(entityType);
-    const isBrowsable = entity.isBrowseEnabled();
     const isLineageSupported = entity.isLineageEnabled();
     const isLineageMode = useIsLineageMode();
     const authenticatedUserUrn = useUserContext()?.user?.urn;
@@ -77,7 +59,6 @@ export const EntityPage = ({ entityType }: Props) => {
     }, [entityType, urn]);
 
     const canViewEntityPage = privileges.find((privilege) => privilege === VIEW_ENTITY_PAGE);
-    const showNewPage = ALLOWED_ENTITY_TYPES.includes(entityType);
 
     const showLineage = isLineageMode && isLineageSupported;
     // Seed from any enclosing EntitySidebarContext (e.g. DomainRoutes opens collapsed) so the
@@ -113,17 +94,7 @@ export const EntityPage = ({ entityType }: Props) => {
                             setTabFullsize: showLineage ? undefined : setTabFullsize,
                         }}
                     >
-                        {showNewPage && profile}
-                        {!showNewPage && (
-                            <BrowsableEntityPage
-                                isBrowsable={isBrowsable}
-                                urn={urn}
-                                type={entityType}
-                                lineageSupported={isLineageSupported}
-                            >
-                                {profile}
-                            </BrowsableEntityPage>
-                        )}
+                        {profile}
                     </TabFullSizedContext.Provider>
                 </EntitySidebarContext.Provider>
             )}
