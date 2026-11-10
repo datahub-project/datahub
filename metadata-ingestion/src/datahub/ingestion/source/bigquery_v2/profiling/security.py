@@ -3,7 +3,7 @@
 
 import logging
 import unicodedata
-from typing import List
+from typing import List, Optional
 
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     FILTER_COLUMN_REF_RE,
@@ -19,6 +19,18 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _closing_backtick(sql: str, start: int) -> Optional[int]:
+    i = start
+    while i < len(sql):
+        if sql[i] == "\\":
+            i += 2
+            continue
+        if sql[i] == "`":
+            return i
+        i += 1
+    return None
 
 
 def mask_string_literals(sql: str) -> str:
@@ -63,16 +75,20 @@ def mask_string_literals(sql: str) -> str:
                     out.append(sql[i + 1])
                     i += 2
                 continue
-            # Backtick identifier: copy verbatim so a quote inside it can't open a literal.
+            # Backtick identifier: mask its body so a quote, comment marker or `;` in a
+            # legal quoted name is neither read as a literal opener nor as injection.
+            # Backslash escapes are honoured as BigQuery does, so an escaped backtick
+            # can't end the mask early. An unterminated identifier is left visible
+            # rather than masking the rest of the query.
             if ch == "`":
-                out.append(ch)
-                i += 1
-                while i < n and sql[i] != "`":
-                    out.append(sql[i])
-                    i += 1
-                if i < n:
-                    out.append(sql[i])
-                    i += 1
+                end = _closing_backtick(sql, i + 1)
+                if end is None:
+                    out.append(sql[i:])
+                    break
+                out.append("`")
+                out.append("x" * (end - i - 1))
+                out.append("`")
+                i = end + 1
                 continue
             out.append(ch)
             if ch in ("'", '"'):

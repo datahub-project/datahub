@@ -3701,15 +3701,15 @@ def test_build_safe_table_reference_allows_digit_leading_shard():
 
 
 def test_mask_string_literals_blanks_interior_keeps_structure():
-    # Interior blanked, delimiters kept, non-literal SQL untouched.
-    assert mask_string_literals("`c` = 'a; DROP'") == "`c` = 'xxxxxxx'"
+    # Literal and identifier interiors blanked, delimiters kept.
+    assert mask_string_literals("`c` = 'a; DROP'") == "`x` = 'xxxxxxx'"
     # Backslash-escaped quote does not close the literal.
-    assert mask_string_literals(r"`c` = 'a\'b'") == "`c` = 'xxxx'"
+    assert mask_string_literals(r"`c` = 'a\'b'") == "`x` = 'xxxx'"
     # Doubled-quote escape stays inside the literal. NB: BigQuery has no '' escape (it uses
     # backslash), so 'a''b' is really two literals there; masking it as one only ever
     # over-masks (a BigQuery syntax error either way), never hides executable SQL. Pinned
     # here so a future rewrite of this branch is a deliberate, tested change.
-    assert mask_string_literals("`c` = 'a''b'") == "`c` = 'xxxx'"
+    assert mask_string_literals("`c` = 'a''b'") == "`x` = 'xxxx'"
     # A comment delimiter is preserved but its body is masked (kept out of denylist scans).
     assert mask_string_literals("SELECT 1 -- x") == "SELECT 1 --xx"
 
@@ -3718,7 +3718,7 @@ def test_mask_string_literals_triple_quoted_body_is_masked():
     # Triple-quoted strings are masked correctly even though nothing handles ''' explicitly
     # (the doubled-quote branch happens to cover it). Pinned so a cleanup can't silently
     # regress it and let a ';' inside a triple-quoted value escape the mask.
-    assert mask_string_literals("`c` = '''a;b'''") == "`c` = 'xxxxxxx'"
+    assert mask_string_literals("`c` = '''a;b'''") == "`x` = 'xxxxxxx'"
     assert validate_filter_expression("`c` = '''a;b'''") is True
 
 
@@ -4073,3 +4073,22 @@ def test_untyped_is_not_null_partition_is_not_windowed_from_today():
     )
 
     assert filters == ["`event_date` IS NOT NULL"]
+
+
+def test_quoted_name_with_comment_and_separator_passes_query_guards():
+    # Legal quoted names can hold `--`, `;` or `/*`; they must not read as injection.
+    table_ref = build_safe_table_reference("my-project", "my_dataset", "a--b;c/*d")
+    query = f"SELECT 1 FROM {table_ref} LIMIT 1"
+
+    assert validate_sql_structure(query)
+    QueryExecutor(create_test_config())._validate_query_security(query)
+
+
+def test_mask_string_literals_honours_escaped_backtick_in_identifier():
+    # BigQuery reads `a\` x ` as one identifier, so the stacked statement after it
+    # must stay visible to the single-statement guard.
+    masked = mask_string_literals("SELECT 1 FROM `a\\` x `; DROP TABLE t")
+    assert "; DROP TABLE t" in masked
+
+    # An unterminated identifier is left visible rather than masking what follows.
+    assert "; DROP" in mask_string_literals("SELECT 1 FROM `t; DROP TABLE t")
