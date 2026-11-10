@@ -1,4 +1,6 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
+import logging
+import warnings
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from airflow.exceptions import AirflowException
 
@@ -15,6 +17,8 @@ except (ModuleNotFoundError, ImportError):
 from datahub.emitter.composite_emitter import CompositeEmitter
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.errors import DataHubDeprecationWarning
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -28,6 +32,40 @@ if TYPE_CHECKING:
     from datahub.emitter.synchronized_file_emitter import SynchronizedFileEmitter
     from datahub.ingestion.graph.client import DataHubGraph
     from datahub.ingestion.sink.datahub_kafka import KafkaSinkConfig
+
+logger = logging.getLogger(__name__)
+
+
+def _mces_as_mcps(
+    items: Iterable[
+        Union[
+            MetadataChangeEvent, MetadataChangeProposal, MetadataChangeProposalWrapper
+        ]
+    ],
+) -> Iterable[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]]:
+    """Converts MCEs to one MCP per aspect so that no MCE leaves the plugin."""
+    warned = False
+    for item in items:
+        if isinstance(item, MetadataChangeEvent):
+            if not warned:
+                message = (
+                    "Passing MetadataChangeEvent to DataHub hooks and DatahubEmitterOperator "
+                    "is deprecated; it is sent as one MetadataChangeProposalWrapper per "
+                    "aspect. Pass MetadataChangeProposalWrapper objects instead."
+                )
+                warnings.warn(message, DataHubDeprecationWarning, stacklevel=3)
+                # Python only shows DeprecationWarning from __main__ and airflow.*
+                # modules, so the warning alone never reaches the task log.
+                logger.warning(message)
+                warned = True
+            mcps = list(mcps_from_mce(item))
+            if not mcps:
+                logger.warning(
+                    f"MCE for {item.proposedSnapshot.urn} produced zero MCPs"
+                )
+            yield from mcps
+        else:
+            yield item
 
 
 class DatahubRestHook(BaseHook):
@@ -117,7 +155,7 @@ class DatahubRestHook(BaseHook):
 
     def emit(
         self,
-        items: Sequence[
+        items: Iterable[
             Union[
                 MetadataChangeEvent,
                 MetadataChangeProposal,
@@ -127,7 +165,7 @@ class DatahubRestHook(BaseHook):
     ) -> None:
         emitter = self.make_emitter()
 
-        for item in items:
+        for item in _mces_as_mcps(items):
             emitter.emit(item)
 
     # Retained for backwards compatibility.
@@ -198,7 +236,7 @@ class DatahubKafkaHook(BaseHook):
 
     def emit(
         self,
-        items: Sequence[
+        items: Iterable[
             Union[
                 MetadataChangeEvent,
                 MetadataChangeProposal,
@@ -213,8 +251,8 @@ class DatahubKafkaHook(BaseHook):
             if exc:
                 errors.append(exc)
 
-        for mce in items:
-            emitter.emit(mce, callback)
+        for item in _mces_as_mcps(items):
+            emitter.emit(item, callback)
 
         emitter.flush()
 
@@ -262,7 +300,7 @@ class SynchronizedFileHook(BaseHook):
 
     def emit(
         self,
-        items: Sequence[
+        items: Iterable[
             Union[
                 MetadataChangeEvent,
                 MetadataChangeProposal,
@@ -272,13 +310,13 @@ class SynchronizedFileHook(BaseHook):
     ) -> None:
         emitter = self.make_emitter()
 
-        for item in items:
+        for item in _mces_as_mcps(items):
             emitter.emit(item)
 
 
 class DatahubGenericHook(BaseHook):
     """
-    Emits Metadata Change Events using either the DatahubRestHook or the
+    Emits metadata using either the DatahubRestHook or the
     DatahubKafkaHook. Set up a DataHub Rest or Kafka connection to use.
 
     :param datahub_conn_id: Reference to the DataHub connection.
@@ -325,7 +363,7 @@ class DatahubGenericHook(BaseHook):
 
     def emit(
         self,
-        items: Sequence[
+        items: Iterable[
             Union[
                 MetadataChangeEvent,
                 MetadataChangeProposal,
@@ -347,8 +385,6 @@ class DatahubCompositeHook(BaseHook):
     :type datahub_conn_ids: List[str]
     """
 
-    hooks: List[DatahubGenericHook] = []
-
     def __init__(self, datahub_conn_ids: List[str]) -> None:
         self.datahub_conn_ids = datahub_conn_ids
 
@@ -362,7 +398,7 @@ class DatahubCompositeHook(BaseHook):
 
     def emit(
         self,
-        items: Sequence[
+        items: Iterable[
             Union[
                 MetadataChangeEvent,
                 MetadataChangeProposal,
@@ -372,7 +408,7 @@ class DatahubCompositeHook(BaseHook):
     ) -> None:
         emitter = self.make_emitter()
 
-        for item in items:
+        for item in _mces_as_mcps(items):
             emitter.emit(item)
 
     def _get_underlying_hook(self, conn_id: str) -> DatahubGenericHook:

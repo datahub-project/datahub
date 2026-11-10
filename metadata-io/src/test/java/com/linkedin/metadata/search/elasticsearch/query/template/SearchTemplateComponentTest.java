@@ -105,29 +105,50 @@ public class SearchTemplateComponentTest {
             .build();
     SearchTemplateComponents.applyPostProcess(registry, template, request, page);
     assertEquals(page.getEntities().get(0).getEntity().toString(), "urn:li:dataset:a");
-    assertEquals(new EmptyPostProcessComponent().plan(request, request.getConfig()), 0);
+    assertEquals(new EmptyPostProcessComponent().plan(request, request.getConfig(), null), 0);
   }
 
   @Test
   public void testSkipConditions() {
-    assertTrue(SearchTemplateComponents.skip(true, 10, null, 0, 50));
-    assertTrue(SearchTemplateComponents.skip(false, 0, null, 0, 50));
+    assertTrue(SearchTemplateComponents.skip(true, 10, null, 0, 50, "orders"));
+    assertTrue(SearchTemplateComponents.skip(false, 0, null, 0, 50, "orders"));
     assertTrue(
         SearchTemplateComponents.skip(
             false,
             10,
             List.of(new SortCriterion().setField("name").setOrder(SortOrder.ASCENDING)),
             0,
-            50));
-    assertTrue(SearchTemplateComponents.skip(false, 10, null, 50, 50));
-    assertFalse(SearchTemplateComponents.skip(false, 10, null, 0, 50));
+            50,
+            "orders"));
+    assertTrue(
+        SearchTemplateComponents.skip(
+            false,
+            10,
+            List.of(new SortCriterion().setField("usageCount30d").setOrder(SortOrder.DESCENDING)),
+            0,
+            50,
+            "orders"));
+    assertTrue(
+        SearchTemplateComponents.skip(
+            false,
+            10,
+            List.of(new SortCriterion().setField("_score").setOrder(SortOrder.ASCENDING)),
+            0,
+            50,
+            "orders"));
+    assertTrue(SearchTemplateComponents.skip(false, 10, null, 50, 50, "orders"));
+    assertTrue(SearchTemplateComponents.skip(false, 10, null, 80, 50, "orders"));
+    assertTrue(SearchTemplateComponents.skip(false, 10, null, 0, 50, "urn:li:not-a-dataset"));
+    assertTrue(SearchTemplateComponents.skip(false, 10, null, 0, 50, "urn:li:"));
+    assertFalse(SearchTemplateComponents.skip(false, 10, null, 0, 50, "orders"));
     assertFalse(
         SearchTemplateComponents.skip(
             false,
             10,
             List.of(new SortCriterion().setField("_score").setOrder(SortOrder.DESCENDING)),
             0,
-            50));
+            50,
+            "orders"));
   }
 
   @Test
@@ -164,6 +185,24 @@ public class SearchTemplateComponentTest {
             .build();
     SearchTemplateComponents.applyPostProcess(registry, template, request, page);
     assertEquals(page.getNumEntities(), 9);
+    SearchResult identity = new SearchResult();
+    identity.setEntities(new SearchEntityArray(List.of(first, second)));
+    identity.setFrom(0);
+    identity.setPageSize(2);
+    identity.setNumEntities(9);
+    SearchTemplateComponentRequest identityRequest =
+        SearchTemplateComponentRequest.builder()
+            .query("urn:li:not-a-dataset")
+            .from(0)
+            .size(2)
+            .hits(List.of(first, second))
+            .total(9)
+            .config(SearchTemplateComponents.config(spec))
+            .mode(SearchTemplateComponentMode.POST_PROCESS)
+            .build();
+    SearchTemplateComponents.applyPostProcess(registry, template, identityRequest, identity);
+    assertEquals(identity.getEntities().get(0).getEntity(), first.getEntity());
+    assertEquals(identity.getEntities().get(1).getEntity(), second.getEntity());
     assertEquals(page.getEntities().get(0).getEntity(), second.getEntity());
     assertEquals(page.getEntities().get(1).getEntity(), first.getEntity());
   }
@@ -234,7 +273,7 @@ public class SearchTemplateComponentTest {
   }
 
   /** Test double. Reverses the fetched window and only accepts POST_PROCESS. */
-  private static final class ReverseComponent implements SearchTemplateComponent {
+  private static final class ReverseComponent implements PostProcessComponent {
     @Override
     public String name() {
       return "reverse";
@@ -256,16 +295,66 @@ public class SearchTemplateComponentTest {
     }
 
     @Override
-    public int plan(SearchTemplateComponentRequest request, Map<String, String> config) {
+    public int plan(
+        SearchTemplateComponentRequest request,
+        Map<String, String> config,
+        com.linkedin.search.template.SearchTemplateRanking ranking) {
       return Integer.parseInt(config.getOrDefault("window", "10"));
     }
 
     @Override
-    public SearchTemplateComponentPage execute(SearchTemplateComponentRequest request) {
-      List<SearchEntity> reversed = new ArrayList<>(request.getHits());
+    public List<SearchEntity> rescore(
+        SearchTemplateComponentRequest request, List<SearchEntity> entities) {
+      return entities;
+    }
+
+    @Override
+    public List<SearchEntity> postProcess(
+        SearchTemplateComponentRequest request, List<SearchEntity> mergedEntities) {
+      List<SearchEntity> reversed = new ArrayList<>(mergedEntities);
       java.util.Collections.reverse(reversed);
-      return new SearchTemplateComponentPage(
-          reversed, request.getTotal(), request.getMetadata(), List.of(), false, false, null);
+      return reversed;
+    }
+
+    @Override
+    public java.util.Set<String> sourceFields(
+        com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate template) {
+      return java.util.Set.of();
+    }
+
+    @Override
+    public List<String> matchTierSourceFields(Map<String, String> config) {
+      return List.of();
+    }
+
+    @Override
+    public boolean runsMatchTier(Map<String, String> config) {
+      return false;
+    }
+
+    @Override
+    public List<String> matchTierFieldSources(Map<String, String> config) {
+      return List.of();
+    }
+
+    @Override
+    public boolean includeExplain(com.linkedin.metadata.query.SearchFlags flags) {
+      return false;
+    }
+
+    @Override
+    public boolean rescoreEnabled(com.linkedin.metadata.query.SearchFlags flags) {
+      return true;
+    }
+
+    @Override
+    public String normalizeQuery(String query) {
+      return query;
+    }
+
+    @Override
+    public int fetchSize(int from, Integer size, int window) {
+      return window;
     }
   }
 }

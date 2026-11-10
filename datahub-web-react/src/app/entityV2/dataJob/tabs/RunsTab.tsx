@@ -15,7 +15,7 @@ import {
 } from '@app/ingest/source/utils';
 import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
 import { scrollToTop } from '@app/sharedV2/searchUtils';
-import { safeUrl } from '@app/sharedV2/urlUtils';
+import { safeUrl } from '@utils/urlUtils';
 
 import { useGetExecutionRunsQuery } from '@graphql/runs.generated';
 import { DataProcessInstanceRunResultType, DataProcessRunStatus, Entity } from '@types';

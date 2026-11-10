@@ -34,3 +34,5 @@ entity_mapping_config:
         type: date
       systemIndexModified:
         type: date
+      _v3Tombstone:
+        type: boolean

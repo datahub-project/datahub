@@ -77,6 +77,7 @@
     "radio.label": "標籤",
     "resizablePills.moreHiddenCount_other": "另有 {{count}} 個項目已隱藏",
     "search.placeholder": "搜尋...",
+    "select.noResults.description": "請嘗試調整搜尋條件，以找到你要的內容",
     "select.placeholder": "請選取一個選項",
     "selectItems.addMoreSection": "新增更多",
     "selectItems.entitiesLabel": "實體",

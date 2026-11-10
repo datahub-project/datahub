@@ -54,6 +54,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -68,6 +69,7 @@ import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -80,6 +82,7 @@ public class ESSearchDAOHybridTest {
   private HybridSearchResultReranker reranker;
   private OperationContext opContext;
   private MetricUtils metrics;
+  private ThreadPoolExecutor hybridExecutor;
   private ESSearchDAO dao;
 
   @BeforeMethod
@@ -115,6 +118,16 @@ public class ESSearchDAOHybridTest {
             TEST_SEARCH_SERVICE_CONFIG,
             new Sha256UrnEntityDocumentIdHasher(),
             reranker);
+    // Each test gets its own pool. The shared one keeps the workers earlier tests started, idle,
+    // and a burst of searches can fill its queue before they take tasks, so a test that fills the
+    // pool would see more rejections than the pool's capacity allows
+    hybridExecutor = ESSearchDAO.newHybridExecutor();
+    dao.setHybridExecutor(hybridExecutor);
+  }
+
+  @AfterMethod(alwaysRun = true)
+  public void tearDown() {
+    hybridExecutor.shutdownNow();
   }
 
   @Test
@@ -614,6 +627,10 @@ public class ESSearchDAOHybridTest {
       }
       verify(metrics, timeout(30_000).atLeast(3))
           .increment(ESSearchDAO.class, "hybridReadRejected", 1);
+      assertEquals(
+          hybridExecutor.getQueue().remainingCapacity(),
+          0,
+          "the burst should leave the pool's queue full");
       // The executor stays full, so each of these is rejected in turn; if rejections counted,
       // three in a row would pause hybrid read and the last one would be skipped
       for (int i = 0; i < 4; i++) {

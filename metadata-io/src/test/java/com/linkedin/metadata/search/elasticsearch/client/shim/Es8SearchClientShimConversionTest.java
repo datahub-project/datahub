@@ -1,34 +1,46 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim;
 
-import static org.mockito.ArgumentCaptor.forClass;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
+import co.elastic.clients.elasticsearch._helpers.bulk.BulkListener;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch.core.BulkRequest;
+import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.search.FieldSuggester;
 import co.elastic.clients.elasticsearch.indices.update_aliases.Action;
 import co.elastic.clients.json.JsonpUtils;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
+import co.elastic.clients.transport.ElasticsearchTransport;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.update.BulkProcessorCompletionTracker;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
@@ -185,20 +197,13 @@ public class Es8SearchClientShimConversionTest {
    */
   @Test
   public void testAddToProcessorWithIndexRequestOpTypeCreateUsesCreateOperation() throws Exception {
-    @SuppressWarnings("unchecked")
-    BulkIngester<Object> mockProcessor = mock(BulkIngester.class);
     IndexRequest indexRequest =
         new IndexRequest("datahub_usage_event")
             .id("event-1")
             .source(Collections.singletonMap("type", "PageViewEvent"))
             .opType(DocWriteRequest.OpType.CREATE);
 
-    invokeAddToProcessor(mockProcessor, indexRequest);
-
-    var captor = forClass(BulkOperation.class);
-    // Context is the DocWriteRequest so failed items can be requeued.
-    verify(mockProcessor).add(captor.capture(), eq(indexRequest));
-    BulkOperation operation = captor.getValue();
+    BulkOperation operation = captureAddToProcessorOperation(indexRequest);
     assertNotNull(operation, "BulkOperation should be captured");
     assertTrue(
         operation.isCreate(),
@@ -208,31 +213,116 @@ public class Es8SearchClientShimConversionTest {
   /** When IndexRequest has default opType INDEX, addToProcessor must send an IndexOperation. */
   @Test
   public void testAddToProcessorWithIndexRequestOpTypeIndexUsesIndexOperation() throws Exception {
-    @SuppressWarnings("unchecked")
-    BulkIngester<Object> mockProcessor = mock(BulkIngester.class);
     IndexRequest indexRequest =
         new IndexRequest("my_index").id("doc-1").source(Collections.singletonMap("field", "value"));
 
-    invokeAddToProcessor(mockProcessor, indexRequest);
-
-    var captor = forClass(BulkOperation.class);
-    // Context is the DocWriteRequest so failed items can be requeued.
-    verify(mockProcessor).add(captor.capture(), eq(indexRequest));
-    BulkOperation operation = captor.getValue();
+    BulkOperation operation = captureAddToProcessorOperation(indexRequest);
     assertNotNull(operation, "BulkOperation should be captured");
     assertTrue(
         operation.isIndex(),
         "IndexRequest with default OpType.INDEX must produce an IndexOperation");
   }
 
-  /** Helper to invoke protected addToProcessor(BulkIngester, DocWriteRequest) via reflection. */
-  private void invokeAddToProcessor(BulkIngester<?> processor, DocWriteRequest<?> writeRequest)
+  @Test
+  public void testAddToProcessorUpdateWithoutUpsertCannotCreateTheDocument() throws Exception {
+    UpdateRequest update =
+        new UpdateRequest("my_index", "doc-1")
+            .doc(Collections.singletonMap("field", "value"))
+            .docAsUpsert(false);
+
+    BulkOperation operation = captureAddToProcessorOperation(update);
+
+    assertTrue(operation.isUpdate());
+    JsonNode action = updateActionBody(operation);
+    assertFalse(action.has("upsert"));
+    assertFalse(action.path("doc_as_upsert").asBoolean(false));
+  }
+
+  @Test
+  public void testAddToProcessorScriptedUpsertKeepsItsUpsertDocument() throws Exception {
+    UpdateRequest update =
+        new UpdateRequest("my_index", "doc-1")
+            .script(new org.opensearch.script.Script("ctx._source.field = 'value'"))
+            .scriptedUpsert(true)
+            .upsert(Collections.singletonMap("field", "initial"));
+
+    BulkOperation operation = captureAddToProcessorOperation(update);
+
+    JsonNode action = updateActionBody(operation);
+    assertEquals(action.path("upsert").path("field").asText(), "initial");
+    assertTrue(action.path("scripted_upsert").asBoolean(false));
+  }
+
+  private static JsonNode updateActionBody(BulkOperation operation) throws Exception {
+    ByteBuffer body = operation.update().binaryAction().asByteBuffer();
+    return new ObjectMapper().readTree(StandardCharsets.UTF_8.decode(body).toString());
+  }
+
+  /**
+   * Invoke addToProcessor via reflection, capturing the BulkOperation it builds. Uses a real
+   * BulkIngester (with a mock client and a capturing listener) instead of mocking BulkIngester
+   * directly, since ByteBuddy cannot instrument that class on Java 25+.
+   */
+  private BulkOperation captureAddToProcessorOperation(DocWriteRequest<?> writeRequest)
       throws Exception {
     Method addToProcessorMethod =
         Es8SearchClientShim.class.getDeclaredMethod(
-            "addToProcessor", BulkIngester.class, DocWriteRequest.class);
+            "addToProcessor",
+            BulkIngester.class,
+            DocWriteRequest.class,
+            BulkProcessorCompletionTracker.Submission.class);
     addToProcessorMethod.setAccessible(true);
-    addToProcessorMethod.invoke(shim, processor, writeRequest);
+
+    List<BulkOperation> captured = new ArrayList<>();
+    @SuppressWarnings("unchecked")
+    BulkListener<Object> listener =
+        new BulkListener<>() {
+          @Override
+          public void beforeBulk(long executionId, BulkRequest request, List<Object> contexts) {
+            request.operations().forEach(captured::add);
+          }
+
+          @Override
+          public void afterBulk(
+              long executionId,
+              BulkRequest request,
+              List<Object> contexts,
+              BulkResponse response) {}
+
+          @Override
+          public void afterBulk(
+              long executionId, BulkRequest request, List<Object> contexts, Throwable failure) {}
+        };
+
+    BulkResponse emptyBulkResponse =
+        BulkResponse.of(b -> b.errors(false).items(Collections.emptyList()).took(0));
+    ElasticsearchTransport mockTransport = mock(ElasticsearchTransport.class, RETURNS_DEEP_STUBS);
+    when(mockTransport.jsonpMapper()).thenReturn(new JacksonJsonpMapper());
+    when(mockTransport.performRequest(any(), any(), any())).thenReturn(emptyBulkResponse);
+    when(mockTransport.performRequestAsync(any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(emptyBulkResponse));
+    ElasticsearchClient esClient = new ElasticsearchClient(mockTransport);
+
+    BulkIngester<Object> ingester =
+        BulkIngester.of(b -> b.client(esClient).listener(listener).maxOperations(1));
+
+    Exception[] invocationFailure = {null};
+    new BulkProcessorCompletionTracker()
+        .track(
+            writeRequest,
+            submission -> {
+              try {
+                addToProcessorMethod.invoke(shim, ingester, writeRequest, submission);
+              } catch (Exception e) {
+                invocationFailure[0] = e;
+              }
+            });
+    ingester.close();
+    if (invocationFailure[0] != null) {
+      throw invocationFailure[0];
+    }
+    assertFalse(captured.isEmpty(), "Should have captured at least one BulkOperation");
+    return captured.get(0);
   }
 
   /**

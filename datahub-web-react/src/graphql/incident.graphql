@@ -2,13 +2,25 @@
 fragment incidentLinkedAssetPreview on Entity {
     urn
     type
-    ... on Dataset {
+    ... on HasName {
         name
-        origin
-        uri
+    }
+    ... on HasPlatform {
         platform {
             ...platformFields
         }
+    }
+    ... on HasDescription {
+        description
+    }
+    ... on HasDeprecation {
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on Dataset {
+        origin
+        uri
         editableProperties {
             name
             description
@@ -37,9 +49,6 @@ fragment incidentLinkedAssetPreview on Entity {
                 time
             }
         }
-        platform {
-            ...platformFields
-        }
     }
     ... on Chart {
         urn
@@ -56,9 +65,6 @@ fragment incidentLinkedAssetPreview on Entity {
                 time
             }
         }
-        platform {
-            ...platformFields
-        }
     }
     ... on DataFlow {
         urn
@@ -71,20 +77,13 @@ fragment incidentLinkedAssetPreview on Entity {
             description
             project
         }
-        platform {
-            ...platformFields
-        }
     }
     ... on MLFeature {
-        name
         featureNamespace
-        description
     }
     ... on MLFeatureTable {
         urn
         type
-        name
-        description
         featureTableProperties {
             description
             mlFeatures {
@@ -94,31 +93,12 @@ fragment incidentLinkedAssetPreview on Entity {
                 urn
             }
         }
-        platform {
-            ...platformFields
-        }
     }
     ... on MLModel {
-        name
-        description
         origin
-        platform {
-            ...platformFields
-        }
-        deprecation {
-            ...deprecationFields
-        }
     }
     ... on MLModelGroup {
-        name
         origin
-        description
-        platform {
-            ...platformFields
-        }
-        deprecation {
-            ...deprecationFields
-        }
     }
     ... on DataPlatform {
         ...nonConflictingPlatformFields
@@ -229,70 +209,18 @@ query getEntityIncidents(
     $skipSiblingsSearch: Boolean = false
 ) {
     entity(urn: $urn) {
+        ... on HasIncidents {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentResultFields
+            }
+        }
+        ... on HasPrivileges {
+            privileges {
+                canEditIncidents
+            }
+        }
         ... on Dataset {
-            incidents(start: $start, count: $count, state: $state) {
-                ...incidentResultFields
-            }
             ...datasetSiblingIncidents
-            privileges {
-                canEditIncidents
-            }
-        }
-        ... on DataJob {
-            incidents(start: $start, count: $count, state: $state) {
-                ...incidentResultFields
-            }
-            privileges {
-                canEditIncidents
-            }
-        }
-        ... on DataFlow {
-            incidents(start: $start, count: $count, state: $state) {
-                ...incidentResultFields
-            }
-            privileges {
-                canEditIncidents
-            }
-        }
-        ... on Dashboard {
-            incidents(start: $start, count: $count, state: $state) {
-                ...incidentResultFields
-            }
-            privileges {
-                canEditIncidents
-            }
-        }
-        ... on Chart {
-            incidents(start: $start, count: $count, state: $state) {
-                ...incidentResultFields
-            }
-            privileges {
-                canEditIncidents
-            }
-        }
-        ... on MLModel {
-            incidents(start: $start, count: $count, state: $state) {
-                ...incidentResultFields
-            }
-            privileges {
-                canEditIncidents
-            }
-        }
-        ... on MLFeature {
-            incidents(start: $start, count: $count, state: $state) {
-                ...incidentResultFields
-            }
-            privileges {
-                canEditIncidents
-            }
-        }
-        ... on MLFeatureTable {
-            incidents(start: $start, count: $count, state: $state) {
-                ...incidentResultFields
-            }
-            privileges {
-                canEditIncidents
-            }
         }
     }
 }
