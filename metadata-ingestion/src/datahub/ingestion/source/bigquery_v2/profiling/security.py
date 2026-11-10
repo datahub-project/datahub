@@ -2,6 +2,7 @@
 # parameters, so they are validated and backtick-escaped here instead.
 
 import logging
+import unicodedata
 from typing import List
 
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
@@ -9,10 +10,10 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     FILTER_DANGEROUS_PATTERNS,
     FILTER_OPERATOR_RE,
     FLEXIBLE_COLUMN_NAME_PATTERN,
-    PROJECT_ID_RE,
+    MAX_IDENTIFIER_LENGTH,
+    QUOTED_PATH_IDENTIFIER_TYPES,
     SQL_ALLOWED_START_PATTERNS,
     SQL_DANGEROUS_PATTERNS,
-    TABLE_IDENTIFIER_RE,
     VALID_COLUMN_NAME_PATTERN,
     WHITESPACE_RE,
 )
@@ -104,45 +105,40 @@ def mask_string_literals(sql: str) -> str:
 
 
 def _validate_identifier_format(identifier_type: str, clean_identifier: str) -> None:
-    if identifier_type == "project":
-        # fullmatch, not match: `$` under match would accept a trailing newline.
-        if not PROJECT_ID_RE.fullmatch(clean_identifier):
-            raise ValueError(f"Invalid project ID format: {clean_identifier}")
-        if len(clean_identifier) < 6 or len(clean_identifier) > 30:
-            raise ValueError(f"Project ID must be 6-30 characters: {clean_identifier}")
-        if "--" in clean_identifier:
+    # Columns and other unquoted names: letters, numbers, underscores only.
+    if not VALID_COLUMN_NAME_PATTERN.fullmatch(clean_identifier):
+        raise ValueError(
+            f"Invalid {identifier_type} identifier format: {clean_identifier}"
+        )
+    if len(clean_identifier) > MAX_IDENTIFIER_LENGTH:
+        raise ValueError(
+            f"{identifier_type} identifier too long: {len(clean_identifier)} chars"
+        )
+    if clean_identifier.startswith("__"):
+        raise ValueError(
+            f"Invalid {identifier_type} identifier cannot start with double underscore: {clean_identifier}"
+        )
+
+
+def _quote_path_identifier(identifier_type: str, identifier: str) -> str:
+    """Backtick-quote one part of a project.dataset.table path.
+
+    BigQuery accepts names an allowlist would reject (spaces and Unicode in table names,
+    digit-leading datasets, domain-scoped `example.com:project` ids), and rejecting one
+    loses the table's whole profile. Inside backticks only a backtick or a backslash
+    escape can end the quoting early, so those and control characters are the only
+    ones refused. The name is not stripped: surrounding spaces are part of it.
+    """
+    for char in identifier:
+        if char in ("`", "\\") or unicodedata.category(char) == "Cc":
             raise ValueError(
-                f"Project ID cannot contain consecutive hyphens: {clean_identifier}"
+                f"Invalid {identifier_type} identifier contains character {char!r}: {identifier!r}"
             )
-    elif identifier_type == "table":
-        # Hyphens allowed in backtick-escaped table names; fullmatch to reject a
-        # trailing newline.
-        if not TABLE_IDENTIFIER_RE.fullmatch(clean_identifier):
-            raise ValueError(
-                f"Invalid {identifier_type} identifier format: {clean_identifier}"
-            )
-        if len(clean_identifier) > 1024:
-            raise ValueError(
-                f"{identifier_type} identifier too long: {len(clean_identifier)} chars"
-            )
-        if "--" in clean_identifier:
-            raise ValueError(
-                f"Table identifier cannot contain consecutive hyphens: {clean_identifier}"
-            )
-    else:
-        # Datasets and columns: letters, numbers, underscores only (no hyphens).
-        if not VALID_COLUMN_NAME_PATTERN.fullmatch(clean_identifier):
-            raise ValueError(
-                f"Invalid {identifier_type} identifier format: {clean_identifier}"
-            )
-        if len(clean_identifier) > 1024:
-            raise ValueError(
-                f"{identifier_type} identifier too long: {len(clean_identifier)} chars"
-            )
-        if clean_identifier.startswith("__"):
-            raise ValueError(
-                f"Invalid {identifier_type} identifier cannot start with double underscore: {clean_identifier}"
-            )
+    if len(identifier) > MAX_IDENTIFIER_LENGTH:
+        raise ValueError(
+            f"{identifier_type} identifier too long: {len(identifier)} chars"
+        )
+    return f"`{identifier}`"
 
 
 def validate_bigquery_identifier(
@@ -153,6 +149,7 @@ def validate_bigquery_identifier(
             f"Invalid {identifier_type} identifier: must be non-empty string"
         )
 
+    raw_identifier = identifier
     identifier = identifier.strip()
     upper_identifier = identifier.upper()
 
@@ -168,6 +165,9 @@ def validate_bigquery_identifier(
             if not VALID_COLUMN_NAME_PATTERN.fullmatch(view_suffix):
                 raise ValueError(f"Invalid INFORMATION_SCHEMA view name: {identifier}")
         return identifier
+
+    if identifier_type in QUOTED_PATH_IDENTIFIER_TYPES:
+        return _quote_path_identifier(identifier_type, raw_identifier)
 
     # Injection/escape chars that must never appear in an identifier we backtick ourselves.
     dangerous_patterns = [";", "--", "/*", "*/", '"', "'", "\\", "\n", "\r", "\t", "`"]

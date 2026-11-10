@@ -1060,7 +1060,7 @@ def test_batch_kwargs_rejects_invalid_identifier():
 
         with pytest.raises(ValueError, match="Invalid dataset identifier"):
             profiler.get_batch_kwargs(
-                make_table(), "invalid;dataset", "valid-project-123"
+                make_table(), "invalid`dataset", "valid-project-123"
             )
 
 

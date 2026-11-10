@@ -142,13 +142,11 @@ VALID_COLUMN_NAME_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 # FILTER_COLUMN_REF_RE, so such rare names are skipped rather than profiled.
 FLEXIBLE_COLUMN_NAME_PATTERN = re.compile(r"\w+", re.UNICODE)
 
-# BigQuery project ID: lowercase letters, numbers, hyphens; 6-30 chars.
-PROJECT_ID_RE = re.compile(r"^[a-z][a-z0-9-]*[a-z0-9]$")
-
-# Table name: hyphens allowed (unlike column/dataset identifiers), and a leading
-# digit is permitted because BigQuery date-sharded tables (e.g. `20200101`) are
-# backtick-quoted digit-leading names.
-TABLE_IDENTIFIER_RE = re.compile(r"^[a-zA-Z0-9_][a-zA-Z0-9_-]*$")
+# Parts of a project.dataset.table path. These are backtick-quoted as-is rather than
+# matched against an allowlist, since BigQuery accepts spaces, Unicode and digit-leading
+# names there.
+QUOTED_PATH_IDENTIFIER_TYPES = ("project", "dataset", "table")
+MAX_IDENTIFIER_LENGTH = 1024
 
 
 # Collapses runs of whitespace when normalising a query before injection checks.
@@ -251,10 +249,12 @@ ISO_DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 # BigQuery partition-id / date-literal shapes normalised by FilterBuilder.
 DATETIME_SECONDS_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
 # The TIMESTAMP range bound FilterBuilder._format_bound_literal renders for a
-# tz-aware value, e.g. "2024-01-01 00:00:00+00:00".
+# tz-aware value, e.g. "2024-01-01 00:00:00+00:00", or the hours-only "+00" offset
+# BigQuery's CAST(TIMESTAMP AS STRING) emits.
 DATETIME_SECONDS_OFFSET_PATTERN = re.compile(
-    r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$"
+    r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}(:\d{2})?$"
 )
+HOURS_ONLY_OFFSET_RE = re.compile(r"[+-]\d{2}$")
 # A DATETIME/TIMESTAMP value sampled from BigQuery can carry a 'T' separator,
 # fractional seconds, and/or a trailing UTC offset (e.g.
 # "2025-01-15T10:30:00.123456+00:00"). These are valid literals BigQuery casts, so

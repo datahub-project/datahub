@@ -940,7 +940,7 @@ def test_profiler_get_batch_kwargs_security_validation(mock_get_filters):
 
     with pytest.raises(ValueError, match="Invalid dataset identifier"):
         profiler.get_batch_kwargs(
-            create_test_table(), "invalid;dataset", "test-project"
+            create_test_table(), "invalid`dataset", "test-project"
         )
 
 
@@ -948,8 +948,7 @@ def test_profiler_get_batch_kwargs_security_validation(mock_get_filters):
 def test_profiler_get_batch_kwargs_without_sql_keeps_names_validation_rejects(
     mock_get_filters,
 ):
-    # A legal BigQuery name the validator rejects (a space, Unicode) only matters when
-    # it goes into generated SQL; a table profiled without custom SQL keeps its profile.
+    # A table profiled without custom SQL keeps its legal BigQuery name as-is.
     mock_get_filters.return_value = []
     profiler = BigqueryProfiler(create_test_config(), BigQueryV2Report())
 
@@ -1144,18 +1143,32 @@ def test_validate_bigquery_identifier_table_allows_hyphen():
 
 
 @pytest.mark.parametrize(
-    "malicious", ["tbl--x", "tbl;drop", "tbl'injection", "tbl/*c*/", 'tbl"q']
+    "identifier_type, name",
+    [
+        ("table", "daily sales ü"),
+        ("table", "tbl--x"),
+        ("dataset", "1dataset"),
+        ("dataset", "__hidden"),
+        ("project", "example.com:my-project"),
+    ],
 )
-def test_validate_bigquery_identifier_table_rejects_injection(malicious: str) -> None:
-    """The relaxed table rule still rejects comment/quote/statement injection."""
+def test_validate_bigquery_identifier_quotes_legal_path_names(
+    identifier_type: str, name: str
+) -> None:
+    # Path parts are quoted rather than allowlisted, so legal names keep their profile.
+    assert validate_bigquery_identifier(name, identifier_type) == f"`{name}`"
+
+
+@pytest.mark.parametrize(
+    "malicious", ["tbl`; DROP TABLE x; --", "tbl\\", "tbl\nx", "tbl\x00"]
+)
+@pytest.mark.parametrize("identifier_type", ["project", "dataset", "table"])
+def test_validate_bigquery_identifier_rejects_quote_breakers(
+    identifier_type: str, malicious: str
+) -> None:
+    # A backtick or a backslash escape could end the quoting early.
     with pytest.raises(ValueError):
-        validate_bigquery_identifier(malicious, "table")
-
-
-def test_validate_bigquery_identifier_dataset_rejects_hyphen():
-    """Datasets keep the stricter rule (no hyphens) unlike tables."""
-    with pytest.raises(ValueError, match="Invalid dataset identifier"):
-        validate_bigquery_identifier("my-dataset", "dataset")
+        validate_bigquery_identifier(malicious, identifier_type)
 
 
 def test_fallback_partition_values_override_used():
@@ -3618,18 +3631,6 @@ def test_date_component_value_zero_pads_month_and_day():
     assert PartitionDiscovery._date_component_value("region", dt) is None
 
 
-def test_security_project_identifier_bounds():
-    assert (
-        validate_bigquery_identifier("my-project-123", "project") == "`my-project-123`"
-    )
-    with pytest.raises(ValueError):
-        validate_bigquery_identifier("shrt", "project")  # < 6 chars
-    with pytest.raises(ValueError):
-        validate_bigquery_identifier("a" * 31, "project")  # > 30 chars
-    with pytest.raises(ValueError):
-        validate_bigquery_identifier("my--project", "project")  # consecutive hyphens
-
-
 def test_security_information_schema_identifier_is_bare_dotted():
     # INFORMATION_SCHEMA views are referenced by their bare dotted name; backticking
     # the whole "INFORMATION_SCHEMA.VIEW" string makes BigQuery look for a table
@@ -3644,9 +3645,7 @@ def test_security_information_schema_identifier_is_bare_dotted():
         validate_bigquery_identifier("INFORMATION_SCHEMA.COLUMNS; DROP TABLE x")
 
 
-def test_security_dataset_double_underscore_and_length():
-    with pytest.raises(ValueError):
-        validate_bigquery_identifier("__hidden", "dataset")
+def test_security_identifier_length():
     with pytest.raises(ValueError):
         validate_bigquery_identifier("a" * 1025, "table")
 
@@ -3940,15 +3939,11 @@ def test_collapsed_sharded_table_is_profiled_by_latest_shard_but_reports_totals(
 @pytest.mark.parametrize(
     "identifier_type,identifier",
     [
-        ("project", "Bad Project"),  # uppercase / space
-        ("project", "abc"),  # too short
-        ("project", "my--project"),  # consecutive hyphens
-        ("table", "t;drop"),  # disallowed character
         ("table", "t" * 1025),  # too long
-        ("table", "my--table"),  # consecutive hyphens
-        ("dataset", "my-dataset"),  # hyphens only allowed in tables
+        ("table", "t`x"),  # backtick
+        ("dataset", "d\\"),  # backslash escape
+        ("project", "p\x01"),  # control character
         ("dataset", "d" * 1025),  # too long
-        ("dataset", "__reserved"),  # reserved prefix
         ("general", ""),  # empty
         ("general", "tab\x01le"),  # non-printable
         ("general", "INFORMATION_SCHEMA.bad view"),  # malformed view name
@@ -3987,3 +3982,63 @@ def test_sql_structure_must_start_with_select_or_with() -> None:
 def test_filter_without_comparison_operator_is_rejected() -> None:
     assert validate_filter_expression("`dt`") is False
     assert validate_and_filter_expressions(["`dt`", "`region`"], "fallback") == []
+
+
+def test_deferred_external_discovery_is_counted():
+    profiler = BigqueryProfiler(create_test_config(), BigQueryV2Report())
+    deferred = _build_deferred_external_request(profiler)
+
+    with (
+        patch.object(
+            PartitionDiscovery, "get_required_partition_filters", return_value=[]
+        ),
+        patch.object(profiler, "_get_cached_partition_metadata", return_value=None),
+        patch(
+            "datahub.ingestion.source.sql.sql_generic_profiler.GenericProfiler.generate_profile_workunits",
+            return_value=[],
+        ),
+    ):
+        list(
+            profiler.generate_profile_workunits_with_deferred_partitions(
+                [], [deferred], max_workers=1, platform="bigquery", profiler_args={}
+            )
+        )
+
+    assert profiler._partition_discovery_calls == 1
+
+
+@patch.object(PartitionDiscovery, "get_required_partition_filters")
+def test_sampling_is_not_deferred_when_sample_size_exceeds_row_limit(
+    mock_get_filters,
+):
+    # The adapter would sample sample_size rows with no LIMIT, past the row cap.
+    mock_get_filters.return_value = []
+    config = create_test_config(
+        use_sampling=True, sample_size=5000, profiling_row_limit=1000
+    )
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+
+    result = profiler.get_batch_kwargs(
+        create_test_table(rows_count=100000), "test_dataset", "test-project"
+    )
+
+    assert result["custom_sql"].endswith("LIMIT 1000")
+
+
+def test_single_partition_label_is_dropped_for_integer_range_tables():
+    # max_partition_id is a string max, so "9000" would label the 19000 bucket.
+    profiler = BigqueryProfiler(create_test_config(), BigQueryV2Report())
+    table = create_test_table(partitioned=True, max_partition_id="9000")
+    table.partition_info.type = "RANGE"  # type: ignore[union-attr]
+
+    assert profiler._single_partition_label("`id` >= 19000", table, False) is None
+
+
+def test_hours_only_timestamp_offset_is_windowed():
+    # BigQuery's CAST(TIMESTAMP AS STRING) renders the offset as "+00".
+    profiler = BigqueryProfiler(create_test_config(), BigQueryV2Report())
+
+    spec = profiler._parse_date_literal("TIMESTAMP('2024-01-15 10:30:00+00')")
+
+    assert spec is not None
+    assert spec.moment == datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc)

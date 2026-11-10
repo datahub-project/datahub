@@ -20,7 +20,10 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    RANGE_PARTITION_NAME,
+    BigqueryTable,
+)
 from datahub.ingestion.source.bigquery_v2.common import BQ_SPECIAL_PARTITION_IDS
 from datahub.ingestion.source.bigquery_v2.profiling import queries
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
@@ -33,6 +36,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     DATE_LIKE_COLUMN_NAMES,
     DATE_LITERAL_SHAPES,
     DATE_WRAPPER_RE,
+    HOURS_ONLY_OFFSET_RE,
     PARTITION_EQ_LITERAL_RE,
     PARTITION_GE_BOUND_RE,
     PARTITION_HANDLING_ENABLED,
@@ -327,6 +331,13 @@ class BigqueryProfiler(GenericProfiler):
             and rows_count > self.config.profiling.sample_size
         )
 
+    def _sample_fits_row_cap(self) -> bool:
+        # The adapter samples about sample_size rows with no LIMIT, so leaving sampling
+        # to it only keeps within the row cap when sample_size fits under that cap.
+        row_limit = self.config.profiling.profiling_row_limit
+        row_cap = row_limit if row_limit > 0 else BQ_SAFETY_ROW_LIMIT
+        return self.config.profiling.sample_size <= row_cap
+
     def _build_partition_profiling_sql(
         self, safe_table_ref: str, partition_where: str, bq_table: BigqueryTable
     ) -> str:
@@ -367,8 +378,6 @@ class BigqueryProfiler(GenericProfiler):
         # apply the safety cap for very large tables. Returns None when the table should
         # be profiled without custom SQL (FULL_TABLE partitionSpec) — including when it
         # is large enough to sample, because sampling is applied downstream (see below).
-        # The identifiers are only validated once SQL is built, so a table whose name
-        # our validator rejects (spaces, Unicode) still gets a profile without it.
         table_ref = f"{db_name}.{schema_name}.{bq_table.name}"
         rows_count = getattr(bq_table, "rows_count", None)
 
@@ -379,7 +388,7 @@ class BigqueryProfiler(GenericProfiler):
                 )
             )
 
-        if self._should_sample(rows_count):
+        if self._should_sample(rows_count) and self._sample_fits_row_cap():
             # Do NOT emit TABLESAMPLE here. The SQLAlchemy profiler adapter
             # (_setup_sampling, mirrored by the GE profiler) already runs a single
             # TABLESAMPLE on the source table when use_sampling is on and no LIMIT is
@@ -609,6 +618,14 @@ class BigqueryProfiler(GenericProfiler):
             bq_table.partition_info
             and bq_table.partition_info.fields
             and len(bq_table.partition_info.fields) > 1
+        ):
+            return None
+        # For integer-range tables max_partition_id is a string max ("9000" sorts after
+        # "19000"), so it can name a different bucket from the numeric top bucket that
+        # discovery filtered on.
+        if (
+            bq_table.partition_info
+            and bq_table.partition_info.type == RANGE_PARTITION_NAME
         ):
             return None
         # An empty predicate on a *partitioned* table means no partition WHERE was derived,
@@ -1058,6 +1075,8 @@ class BigqueryProfiler(GenericProfiler):
                 args_list=[(d,) for d in deferred_external],
                 max_workers=min(max_workers, len(deferred_external)),
             ):
+                # Counted here on the main thread: every deferred worker runs discovery.
+                self._partition_discovery_calls += 1
                 for title, message, context in result.warnings:
                     self.report.warning(title=title, message=message, context=context)
                 if result.partition_profiling_disabled is not None:
@@ -1290,6 +1309,11 @@ class BigqueryProfiler(GenericProfiler):
 
         for fmt, pattern in DATE_LITERAL_SHAPES:
             if pattern.fullmatch(inner):
+                if fmt == DATE_FORMAT_DATETIME_OFFSET and HOURS_ONLY_OFFSET_RE.search(
+                    inner
+                ):
+                    # BigQuery's CAST(TIMESTAMP AS STRING) emits "+00"; %z needs minutes.
+                    inner = f"{inner}:00"
                 try:
                     # Parse to a full datetime (no .date()) so an hourly YYYYMMDDHH
                     # literal keeps its hour; date-only shapes get hour 0.
