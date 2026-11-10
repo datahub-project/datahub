@@ -678,6 +678,7 @@ plugins: Dict[str, Set[str]] = {
     | postgres_common
     | aws_common
     | {"sqlalchemy-cockroachdb>=2.0.0,<3.0.0"},
+    "csv-enricher": set(),
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "dataplex": dataplex_common | cachetools_lib,
