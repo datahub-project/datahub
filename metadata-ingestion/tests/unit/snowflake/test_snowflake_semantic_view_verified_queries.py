@@ -1,11 +1,12 @@
 import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 from unittest import mock
 
 import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.snowflake import snowflake_config
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
@@ -25,7 +26,10 @@ from datahub.metadata.schema_classes import (
     QueryPropertiesClass,
     QuerySourceClass,
     QuerySubjectsClass,
+    StatusClass,
 )
+from tests.unit.snowflake import conftest
+from tests.unit.snowflake.conftest import DB, SCHEMA, make_gen
 
 _DDL_HEAD = """create or replace semantic view SALES
 	tables (
@@ -268,3 +272,231 @@ def test_unreadable_definition_is_a_warning(ddl: Optional[str]) -> None:
     assert _run(extractor, _semantic_view(ddl)) == []
     assert len(extractor.report.warnings) == 1
     assert extractor.report.num_semantic_view_verified_queries_skipped == 1
+
+
+def test_parse_tolerates_odd_entries_and_value_types() -> None:
+    ddl = (
+        _DDL_HEAD
+        + """ai_verified_queries (
+  'not_an_entry',
+  STRINGLY AS (
+    QUESTION 'Typed as strings?'
+    VERIFIED_AT 'yesterday'
+    ONBOARDING_QUESTION 'TRUE'
+    SOME_FLAG
+    SQL 'SELECT 1'
+  ),
+  UNSURE AS ( SQL 'SELECT 2' ONBOARDING_QUESTION 'maybe' ),
+);"""
+    )
+    result = parse_verified_queries_from_ddl(ddl)
+
+    # The trailing comma's empty entry is ignored; the string entry is skipped.
+    assert len(result.skipped) == 1
+    stringly, unsure = result.queries
+    # A keyword without a value doesn't swallow the next key.
+    assert stringly.sql == "SELECT 1"
+    assert stringly.verified_at is None
+    assert stringly.onboarding_question is True
+    assert unsure.onboarding_question is None
+
+
+def test_skipped_entries_and_duplicate_names_are_reported() -> None:
+    ddl = (
+        _DDL_HEAD
+        + """ai_verified_queries (
+  NO_SQL AS ( QUESTION 'Unanswered?' ),
+  DUP AS ( QUESTION 'First?' SQL 'SELECT 1' ),
+  DUP AS ( QUESTION 'Second?' SQL 'SELECT 2' )
+);"""
+    )
+    extractor = _extractor()
+    mcps = _run(extractor, _semantic_view(ddl), semantic_model_urn=None)
+
+    names = [m.aspect.name for m in mcps if isinstance(m.aspect, QueryPropertiesClass)]
+    assert names == ["First?"]
+    assert extractor.report.num_semantic_view_verified_queries_skipped == 1
+    assert len(extractor.report.warnings) == 1
+
+
+def test_subjects_skip_ctes_stages_and_resolve_partial_names() -> None:
+    ddl = (
+        _DDL_HEAD
+        + """ai_verified_queries (
+  MIXED AS ( SQL 'WITH recent AS (SELECT * FROM customers)
+    SELECT * FROM recent JOIN OTHER_SCHEMA.EVENTS e ON TRUE
+    JOIN @my_stage s ON TRUE;;
+    SELECT * FROM "MY_DB"."MY_SCHEMA"."ORDERS_T"' )
+);"""
+    )
+    mcps = _run(_extractor(), _semantic_view(ddl))
+    (subjects,) = [m.aspect for m in mcps if isinstance(m.aspect, QuerySubjectsClass)]
+
+    # `customers` is a logical table, `recent` a CTE, `@my_stage` a stage, and
+    # the 2-part name resolves against the view's database.
+    entities = [s.entity for s in subjects.subjects]
+    assert entities[0] == _MODEL_URN
+    assert sorted(entities[1:]) == sorted(
+        [
+            _CUSTOMERS_URN,
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.other_schema.events,PROD)",
+            _ORDERS_URN,
+        ]
+    )
+
+
+def test_timestamp_falls_back_to_view_last_altered() -> None:
+    ddl = _DDL_HEAD + "ai_verified_queries ( Q AS ( SQL 'SELECT 1' ) );"
+    mcps = _run(_extractor(), _semantic_view(ddl), semantic_model_urn=None)
+    (props,) = [m.aspect for m in mcps if isinstance(m.aspect, QueryPropertiesClass)]
+    assert props.name == "Q"
+    assert props.created.time == int(
+        datetime.datetime(2024, 2, 1, tzinfo=datetime.timezone.utc).timestamp() * 1000
+    )
+
+
+def test_ai_context_without_graph_is_reported_once() -> None:
+    extractor = _extractor()
+    _run(extractor, _semantic_view(_DDL))
+    _run(extractor, _semantic_view(_DDL))
+    assert len(extractor.report.infos) == 1
+
+
+def test_ai_context_created_when_model_has_none() -> None:
+    graph = mock.MagicMock()
+    graph.get_aspect.return_value = None
+    mcps = _run(_extractor(graph), _semantic_view(_DDL))
+    ai_contexts = [m.aspect for m in mcps if isinstance(m.aspect, AiContextClass)]
+    assert ai_contexts == [
+        AiContextClass(
+            examples=[
+                "What is the total amount by order type?",
+                "How many customers are there?",
+            ]
+        )
+    ]
+
+
+def test_ai_context_not_rewritten_when_questions_already_present() -> None:
+    graph = mock.MagicMock()
+    graph.get_aspect.return_value = AiContextClass(
+        examples=[
+            "How many customers are there?",
+            "What is the total amount by order type?",
+        ]
+    )
+    mcps = _run(_extractor(graph), _semantic_view(_DDL))
+    assert not any(isinstance(m.aspect, AiContextClass) for m in mcps)
+
+
+def test_no_ai_context_when_no_query_has_a_question() -> None:
+    ddl = _DDL_HEAD + "ai_verified_queries ( Q AS ( SQL 'SELECT 1' ) );"
+    graph = mock.MagicMock()
+    mcps = _run(_extractor(graph), _semantic_view(ddl))
+    assert not any(isinstance(m.aspect, AiContextClass) for m in mcps)
+    graph.get_aspect.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"semantic_views": {"include_verified_queries": True}},
+        {
+            "include_technical_schema": False,
+            "semantic_views": {"enabled": True, "include_verified_queries": True},
+        },
+    ],
+)
+def test_config_warns_when_verified_queries_cannot_run(
+    overrides: Dict[str, object],
+) -> None:
+    # The config module's logger is not attached to the logging hierarchy, so
+    # caplog can't see it.
+    with mock.patch.object(snowflake_config, "logger") as config_logger:
+        SnowflakeV2Config.model_validate(
+            {
+                "account_id": "test_account",
+                "username": "u",
+                "password": "p",
+                **overrides,
+            }
+        )
+    assert any(
+        "include_verified_queries" in call.args[0]
+        for call in config_logger.warning.call_args_list
+    )
+
+
+_SCHEMA_GEN_DDL = (
+    "create semantic view SV tables ( BASE as TEST_DB.PUBLIC.BASE ) "
+    "ai_verified_queries ( Q AS ( QUESTION 'How many?' SQL 'SELECT COUNT(*) FROM __BASE' ) );"
+)
+
+
+def _schema_gen_semantic_view() -> SnowflakeSemanticView:
+    return conftest.semantic_view(
+        "SV",
+        view_definition=_SCHEMA_GEN_DDL,
+        base_tables=[SnowflakeTableIdentifier(DB, SCHEMA, "BASE")],
+        logical_to_physical_table={"BASE": (DB, SCHEMA, "BASE")},
+    )
+
+
+def test_schema_gen_legacy_mode_attaches_queries_to_view_dataset() -> None:
+    gen = make_gen(semantic_views={"enabled": True, "include_verified_queries": True})
+    sv = _schema_gen_semantic_view()
+
+    workunits = list(gen._process_semantic_view(sv, conftest.schema(), DB))
+
+    (subjects,) = conftest.aspects(workunits, QuerySubjectsClass).values()
+    assert [s.entity for s in subjects.subjects] == [
+        conftest.dataset_urn(gen, "SV"),
+        conftest.dataset_urn(gen, "BASE"),
+    ]
+    assert gen.report.num_semantic_view_verified_queries_emitted == 1
+
+
+def test_schema_gen_extractor_failure_is_a_warning() -> None:
+    gen = make_gen(semantic_views={"enabled": True, "include_verified_queries": True})
+    sv = _schema_gen_semantic_view()
+
+    with mock.patch.object(
+        gen.verified_queries_extractor,
+        "gen_workunits",
+        side_effect=RuntimeError("boom"),
+    ):
+        workunits = list(gen._process_semantic_view(sv, conftest.schema(), DB))
+
+    # The semantic view itself is still emitted.
+    assert conftest.dataset_urn(gen, "SV") in conftest.aspects(workunits, StatusClass)
+    assert "Failed to import semantic view verified queries" in conftest.log_keys(
+        gen.report.warnings
+    )
+
+
+def test_schema_gen_semantic_model_mode_adds_questions_to_model() -> None:
+    gen = make_gen(
+        semantic_views={
+            "enabled": True,
+            "emit_semantic_model_entities": True,
+            "include_verified_queries": True,
+        }
+    )
+    sv = _schema_gen_semantic_view()
+
+    workunits = list(gen._process_semantic_view(sv, conftest.schema(), DB))
+
+    model_urn = gen.identifiers.gen_semantic_model_urn("SV", SCHEMA, DB)
+    (subjects,) = conftest.aspects(workunits, QuerySubjectsClass).values()
+    assert subjects.subjects[0].entity == model_urn
+    assert conftest.aspects(workunits, AiContextClass)[model_urn].examples == [
+        "How many?"
+    ]
+
+
+def test_schema_gen_emits_no_queries_when_disabled() -> None:
+    gen = make_gen(semantic_views={"enabled": True})
+    workunits = list(
+        gen._process_semantic_view(_schema_gen_semantic_view(), conftest.schema(), DB)
+    )
+    assert conftest.aspects(workunits, QueryPropertiesClass) == {}

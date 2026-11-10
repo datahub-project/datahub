@@ -128,7 +128,9 @@ def _split_block_entries(tokens: List[Token]) -> List[List[Token]]:
             if depth == 0:
                 break
         if depth == 1 and token.token_type == TokenType.COMMA:
-            entries.append(current)
+            # A trailing or doubled comma leaves no entry.
+            if current:
+                entries.append(current)
             current = []
         else:
             current.append(token)
@@ -140,8 +142,6 @@ def _split_block_entries(tokens: List[Token]) -> List[List[Token]]:
 def _parse_entry(
     entry: List[Token],
 ) -> Tuple[Optional[SnowflakeVerifiedQuery], Optional[str]]:
-    if not entry:
-        return None, None
     # `NAME AS ( key value ... )`
     if (
         len(entry) < 3
