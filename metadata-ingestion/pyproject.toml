@@ -261,6 +261,8 @@ confluence = [
     "unstructured[md]==0.24.1",
 ]
 
+csv-enricher = []
+
 cube = [
     "requests<3.0.0",
     "sqlglot[c]==30.22.0",
