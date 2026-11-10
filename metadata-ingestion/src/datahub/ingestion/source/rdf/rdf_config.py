@@ -168,6 +168,26 @@ class RDFSourceConfig(
         ),
     )
 
+    ontology: Optional[str] = Field(
+        default="default",
+        description=(
+            "DataHub ontology TBox used to route RDF relationship predicates. "
+            "Use 'default' to load the bundled glossary ontology (SKOS broader/narrower/related "
+            "alignments to native IsA/IsRelatedTo). Set to null or an empty string to disable "
+            "alignments (all relationship triples become per-predicate RDF structured properties). "
+            "Or provide a path to a custom Turtle TBox file."
+        ),
+    )
+
+    skip_owl_axioms: bool = Field(
+        default=True,
+        description=(
+            "When true (default), skip OWL/RDFS axiom predicates (e.g. owl:disjointWith, "
+            "rdfs:subPropertyOf) during relationship routing. Class hierarchies via "
+            "rdfs:subClassOf are still harvested and routed when aligned in the TBox."
+        ),
+    )
+
     # Selective Export Options
     export_only: Optional[List[str]] = Field(
         default=None,
@@ -188,6 +208,18 @@ class RDFSourceConfig(
             "Example: Filter to specific FIBO modules: "
             "'CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o . "
             'FILTER(STRSTARTS(STR(?s), "https://spec.edmcouncil.org/fibo/ontology/FBC/")) }\''
+        ),
+    )
+    include_referenced_entities: bool = Field(
+        default=False,
+        description=(
+            "When using sparql_filter, also import triples for URI entities referenced "
+            "from the filtered graph but outside the filter scope (default: false). "
+            "Follows rdfs:subClassOf and skos:broader/narrower transitively, plus "
+            "owl:equivalentClass, owl:sameAs, and skos:exactMatch/closeMatch. "
+            "Prevents incomplete imports where relationship targets (e.g. FIBO superclass "
+            "classes) are missing glossary term metadata. Set to true to pull in referenced "
+            "entities beyond those matched by sparql_filter."
         ),
     )
 
