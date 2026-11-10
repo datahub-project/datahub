@@ -725,7 +725,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Qlik Dataset"
+                "Qlik Table"
             ]
         }
     },
@@ -919,7 +919,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Qlik Dataset"
+                "Qlik Table"
             ]
         }
     },

@@ -10,7 +10,7 @@ import { Button } from '@components/components/Button';
 import { AvatarSizeOptions } from '@components/theme/config';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
-import isPresent from '@app/utils/isPresent';
+import isPresent from '@utils/isPresent';
 
 const PillsContainer = styled.div`
     display: flex;
