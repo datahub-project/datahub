@@ -27,6 +27,7 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationHandler,
     classification_workunit_processor,
 )
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
@@ -73,6 +74,9 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 )
 from datahub.ingestion.source.snowflake.snowflake_semantic_model import (
     SnowflakeSemanticModelMapper,
+)
+from datahub.ingestion.source.snowflake.snowflake_semantic_view_verified_queries import (
+    SnowflakeVerifiedQueriesExtractor,
 )
 from datahub.ingestion.source.snowflake.snowflake_tag import SnowflakeTagExtractor
 from datahub.ingestion.source.snowflake.snowflake_utils import (
@@ -277,6 +281,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         aggregator: Optional[SqlParsingAggregator],
         snowsight_url_builder: Optional[SnowsightUrlBuilder],
         fetch_views_from_information_schema: bool = False,
+        graph: Optional[DataHubGraph] = None,
     ) -> None:
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
@@ -320,6 +325,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             report=self.report,
             identifiers=self.identifiers,
             domain_registry=self.domain_registry,
+        )
+        self.verified_queries_extractor = SnowflakeVerifiedQueriesExtractor(
+            report=self.report,
+            identifiers=self.identifiers,
+            graph=graph,
         )
 
         # These are populated as side-effects of get_workunits_internal.
@@ -1457,6 +1467,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 db_name=db_name,
                 fine_grained_lineages=column_lineages,
             )
+            semantic_model_urn = self.identifiers.gen_semantic_model_urn(
+                semantic_view.name, schema_name, db_name
+            )
+            yield from self._gen_verified_query_workunits(
+                semantic_view,
+                schema_name,
+                db_name,
+                view_urn=semantic_model_urn,
+                semantic_model_urn=semantic_model_urn,
+            )
             return
 
         # Legacy dataset mode: emit schema FIRST, then lineage (DataHub needs
@@ -1492,6 +1512,49 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     context=semantic_view.name,
                     exc=e,
                 )
+
+        # Legacy dataset mode: verified queries attach to the semantic view
+        # dataset. Datasets have no aiContext aspect, so the questions are only
+        # carried by the Query entities.
+        yield from self._gen_verified_query_workunits(
+            semantic_view,
+            schema_name,
+            db_name,
+            view_urn=self.identifiers.gen_dataset_urn(semantic_view_name),
+            semantic_model_urn=None,
+        )
+
+    def _gen_verified_query_workunits(
+        self,
+        semantic_view: SnowflakeSemanticView,
+        schema_name: str,
+        db_name: str,
+        view_urn: str,
+        semantic_model_urn: Optional[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        # The definition the verified queries are read from is only fetched with
+        # include_technical_schema (a config-time warning covers that case).
+        if not (
+            self.config.semantic_views.include_verified_queries
+            and self.config.include_technical_schema
+        ):
+            return
+        try:
+            yield from self.verified_queries_extractor.gen_workunits(
+                semantic_view=semantic_view,
+                schema_name=schema_name,
+                db_name=db_name,
+                view_urn=view_urn,
+                semantic_model_urn=semantic_model_urn,
+            )
+        except Exception as e:
+            self.structured_reporter.warning(
+                title="Failed to import semantic view verified queries",
+                message="An exception occurred while importing the semantic "
+                "view's verified queries; the rest of the view was ingested.",
+                context=semantic_view.name,
+                exc=e,
+            )
 
     def _process_tag(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
         use_sp = self.config.extract_tags_as_structured_properties

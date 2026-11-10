@@ -398,6 +398,7 @@ semantic_views:
   enabled: true # Default: false
   column_lineage: true # Default: false - enable column-level lineage
   include_queries: true # Default: false - emit query entities for queries against semantic views
+  include_verified_queries: true # Default: false - import Cortex Analyst verified queries
 
 # Filter semantic views using regex patterns
 semantic_view_pattern:
@@ -415,6 +416,17 @@ semantic_view_pattern:
 - **Tags Support**: Tags applied to semantic views are extracted if `extract_tags` is enabled
 - **External URLs**: Snowsight links are emitted only in the legacy dataset representation; `semanticModel` entities carry no Snowsight URL
 - **Query Entities**: When `include_queries` is enabled, queries against semantic views are ingested as query entities
+- **Verified Queries**: When `include_verified_queries` is enabled, see below
+
+##### Verified queries
+
+A semantic view can carry verified queries (Cortex Analyst's `AI_VERIFIED_QUERIES`): a natural-language question with SQL that someone has checked, plus who verified it, when, and whether it is an onboarding question. With `semantic_views.include_verified_queries: true` the connector reads them from the view's `GET_DDL` definition (no extra privileges or queries) and emits, for each one:
+
+- a **Query** entity with source `MANUAL`, so it shows as a Highlighted Query. Its name is the question, its statement is the verified SQL, and `verified_by`, `verified_at`, `use_as_onboarding_question` and the verified query name are custom properties. The URN is derived from the view and the verified query name, so re-ingestion updates the same entity. Stateful ingestion does not remove query entities, so a verified query deleted in Snowflake stays in DataHub until it is deleted there.
+- query subjects: the semantic view (the semanticModel, or the legacy dataset) and the physical tables the SQL reads. References to logical tables (`__orders`) resolve to their base tables; if the SQL cannot be parsed, every base table of the view is used.
+- in semanticModel mode, the questions are appended to the semantic model's AI context `examples`. With a DataHub connection the existing AI context is read first and kept (synonyms, instructions and other examples); a question removed in Snowflake is not removed from the examples. Without a connection (e.g. a file sink) the aspect is written with just the questions. Legacy datasets have no AI context aspect, so there only the Query entities are emitted.
+
+Requires `include_technical_schema` (the definition is only fetched then). A view whose definition or verified queries cannot be read produces a warning; the rest of the run is unaffected.
 
 ##### What changes with `emit_semantic_model_entities`
 
