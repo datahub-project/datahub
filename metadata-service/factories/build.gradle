@@ -80,6 +80,7 @@ dependencies {
   implementation externalDependency.opentelemetrySdkMetrics
   implementation externalDependency.opentelemetryAutoConfig
 
+  testImplementation testFixtures(project(':metadata-utils'))
   testImplementation externalDependency.springBootTest
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng

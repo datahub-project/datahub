@@ -67,18 +67,9 @@ jobs:
           path: ${{ env.UV_CACHE_DIR }}
           key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/pyproject.toml', './metadata-ingestion/uv.lock', './metadata-ingestion/constraints.txt', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
           lookup-only: true
-      - name: Set up JDK 25
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         if: steps.uv-cache.outputs.cache-hit != 'true'
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        if: steps.uv-cache.outputs.cache-hit != 'true'
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        if: steps.uv-cache.outputs.cache-hit != 'true'
-        with:
-          python-version: "3.11"
       - name: Configure fast APT mirror
         if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' && steps.uv-cache.outputs.cache-hit != 'true' }}
         uses: ./.github/actions/configure-fast-apt-mirror
@@ -136,18 +127,9 @@ jobs:
           path: ${{ env.UV_CACHE_DIR }}
           key: "uv-smoke-test-lint-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml', './metadata-ingestion/setup.py', './metadata-ingestion/pyproject.toml') }}"
           lookup-only: true
-      - name: Set up JDK 25
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         if: steps.uv-cache.outputs.cache-hit != 'true'
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        if: steps.uv-cache.outputs.cache-hit != 'true'
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        if: steps.uv-cache.outputs.cache-hit != 'true'
-        with:
-          python-version: "3.11"
       - name: Install smoke-test dev environment
         if: steps.uv-cache.outputs.cache-hit != 'true'
         run: ./gradlew :smoke-test:installDev
@@ -191,18 +173,9 @@ jobs:
           path: ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt') }}
           lookup-only: true
-      - name: Set up JDK 25
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         if: steps.uv-cache.outputs.cache-hit != 'true'
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        if: steps.uv-cache.outputs.cache-hit != 'true'
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        if: steps.uv-cache.outputs.cache-hit != 'true'
-        with:
-          python-version: "3.11"
       - name: Configure fast APT mirror
         if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' && steps.uv-cache.outputs.cache-hit != 'true' }}
         uses: ./.github/actions/configure-fast-apt-mirror
@@ -216,8 +189,8 @@ jobs:
         run: ./gradlew :metadata-ingestion:installDevTest
       # Drops pre-built wheels and unpacked sdists, which re-download in seconds, and
       # keeps the wheels uv built from source, the slow part. What uv recommends for
-      # CI caches. Nothing puts uv on PATH here; environmentSetup installs it into the
-      # venv.
+      # CI caches. Prune with the venv's uv, the one environmentSetup installed and
+      # populated this cache with, not the uv setup-toolchain put on PATH.
       - name: Prune uv cache
         if: steps.uv-cache.outputs.cache-hit != 'true'
         run: metadata-ingestion/venv/bin/uv cache prune --ci
@@ -256,14 +229,11 @@ jobs:
           path: ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
           lookup-only: true
-      - name: Set up JDK 25
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         if: steps.yarn-cache.outputs.cache-hit != 'true'
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
+          python: false
       - name: Populate yarn cache
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         run: ./gradlew :datahub-web-react:yarnInstall
@@ -303,10 +273,13 @@ jobs:
           key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}
           lookup-only: true
       - name: Set up Node.js
+        uses: ./.github/actions/setup-toolchain
         if: steps.yarn-cache.outputs.cache-hit != 'true'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "22"
+          java: false
+          python: false
+          gradle: false
+          node: true
       - name: Populate yarn cache
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         working-directory: e2e-test/ui/playwright
@@ -344,14 +317,11 @@ jobs:
           path: ~/.cache/yarn
           key: docs-website-${{ runner.os }}-yarn-${{ hashFiles('docs-website/yarn.lock') }}
           lookup-only: true
-      - name: Set up JDK 25
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         if: steps.yarn-cache.outputs.cache-hit != 'true'
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
+          python: false
       - name: Populate yarn cache
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         run: ./gradlew :docs-website:yarnInstall
@@ -396,18 +366,12 @@ jobs:
           path: ~/.cache/yarn
           key: docker-unified-${{ runner.os }}-yarn-${{ hashFiles('./datahub-web-react/yarn.lock') }}
           lookup-only: true
-      - name: Set up JDK 25
-        if: steps.uv-cache.outputs.cache-hit != 'true' || steps.yarn-cache.outputs.cache-hit != 'true'
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        if: steps.uv-cache.outputs.cache-hit != 'true' || steps.yarn-cache.outputs.cache-hit != 'true'
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        if: steps.uv-cache.outputs.cache-hit != 'true'
-        with:
-          python-version: "3.11"
+          java: ${{ steps.uv-cache.outputs.cache-hit != 'true' || steps.yarn-cache.outputs.cache-hit != 'true' }}
+          python: ${{ steps.uv-cache.outputs.cache-hit != 'true' }}
+          gradle: ${{ steps.uv-cache.outputs.cache-hit != 'true' || steps.yarn-cache.outputs.cache-hit != 'true' }}
       - name: Configure fast APT mirror
         if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' && steps.uv-cache.outputs.cache-hit != 'true' }}
         uses: ./.github/actions/configure-fast-apt-mirror

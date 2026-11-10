@@ -847,6 +847,9 @@ elasticsearch:
         engineType: ${ELASTICSEARCH_SHIM_ENGINE_TYPE:AUTO_DETECT}
         # Whether to auto-detect the engine type by connecting to the cluster
         autoDetectEngine: ${ELASTICSEARCH_SHIM_AUTO_DETECT:true}
+        # Engine version to assume (e.g. 2.19.0) instead of reading it from the cluster info API,
+        # which needs cluster:monitor/main. Blank = probe the cluster.
+        engineVersion: ${ELASTICSEARCH_SHIM_ENGINE_VERSION:}
       sslContext: # Required if the uri scheme is https and the cert is not already trusted
         protocol: ${ELASTICSEARCH_SSL_PROTOCOL:}
         secureRandomImplementation: ${ELASTICSEARCH_SSL_SECURE_RANDOM_IMPL:}
@@ -890,6 +893,7 @@ elasticsearch:
         enabled: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SHIM_ENABLED:}
         engineType: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SHIM_ENGINE_TYPE:AUTO_DETECT}
         autoDetectEngine: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SHIM_AUTO_DETECT:true}
+        engineVersion: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SHIM_ENGINE_VERSION:}
       sslContext:
         protocol: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_PROTOCOL:}
         secureRandomImplementation: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_SECURE_RANDOM_IMPL:}
@@ -919,6 +923,105 @@ elasticsearch:
     timeseries: ${ELASTICSEARCH_COMPONENT_CLUSTER_TIMESERIES:primary}
     systemMetadata: ${ELASTICSEARCH_COMPONENT_CLUSTER_SYSTEM_METADATA:primary}
     usage: ${ELASTICSEARCH_COMPONENT_CLUSTER_USAGE:primary}
+
+  # Per-family move of a non-entity index family (graph, timeseries, systemMetadata, usage) to
+  # another named cluster. componentCluster.<family> stays the serving cluster for reads and primary
+  # writes; targetCluster names the cluster that also receives the family's writes while system-update
+  # copies the family's history there (copy.enabled) and verifies it. Blank targetCluster = off.
+  # copy.mode: inProcess (default; the upgrade pages the source and bulk-creates on the target through
+  # each cluster's own client), remoteReindex (the target's _reindex pulls from the source; needs source
+  # credentials the target can present and, on self-managed clusters, reindex.remote.allowlist), or
+  # external (operator restored a snapshot; only catch-up and verification run).
+  clusterMigration:
+    # gms | mae | upgrade; application-mae.yaml and application-upgrade.yaml set theirs.
+    processRole: ${ELASTICSEARCH_CLUSTER_MIGRATION_PROCESS_ROLE:gms}
+    # The non-blocking copy waits this long for GMS and the MAE consumer to record their mirror
+    # markers (they do within a minute of starting); 0 returns at once and resumes on a later run.
+    liveWriterWaitMinutes: ${ELASTICSEARCH_CLUSTER_MIGRATION_LIVE_WRITER_WAIT_MINUTES:30}
+    graph:
+      targetCluster: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_TARGET_CLUSTER:}
+      copy:
+        enabled: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_ENABLED:true}
+        mode: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_MODE:inProcess}
+        parallelism: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_PARALLELISM:4}
+        batchSize: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_BATCH_SIZE:1000}
+        requestsPerSecond: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_REQUESTS_PER_SECOND:-1}
+        maxHours: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_MAX_HOURS:0}
+        targetDocsPerPartition: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_TARGET_DOCS_PER_PARTITION:20000000}
+        skewMs: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_SKEW_MS:300000}
+        cursorKeepAlive: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_CURSOR_KEEP_ALIVE:5m}
+        checkpointEveryPages: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_CHECKPOINT_EVERY_PAGES:10}
+        externalWatermarkEpochMs: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_EXTERNAL_WATERMARK_EPOCH_MS:}
+        remote:
+          host: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_REMOTE_HOST:}
+          username: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_REMOTE_USERNAME:}
+          password: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_REMOTE_PASSWORD:}
+          external: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_REMOTE_EXTERNAL:false}
+          socketTimeout: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_REMOTE_SOCKET_TIMEOUT:5m}
+          connectTimeout: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_REMOTE_CONNECT_TIMEOUT:30s}
+    timeseries:
+      targetCluster: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_TARGET_CLUSTER:}
+      copy:
+        enabled: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_ENABLED:true}
+        mode: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_MODE:inProcess}
+        parallelism: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_PARALLELISM:4}
+        batchSize: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_BATCH_SIZE:1000}
+        requestsPerSecond: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_REQUESTS_PER_SECOND:-1}
+        maxHours: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_MAX_HOURS:0}
+        targetDocsPerPartition: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_TARGET_DOCS_PER_PARTITION:20000000}
+        skewMs: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_SKEW_MS:300000}
+        cursorKeepAlive: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_CURSOR_KEEP_ALIVE:5m}
+        checkpointEveryPages: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_CHECKPOINT_EVERY_PAGES:10}
+        externalWatermarkEpochMs: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_EXTERNAL_WATERMARK_EPOCH_MS:}
+        remote:
+          host: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_REMOTE_HOST:}
+          username: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_REMOTE_USERNAME:}
+          password: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_REMOTE_PASSWORD:}
+          external: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_REMOTE_EXTERNAL:false}
+          socketTimeout: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_REMOTE_SOCKET_TIMEOUT:5m}
+          connectTimeout: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_REMOTE_CONNECT_TIMEOUT:30s}
+    systemMetadata:
+      targetCluster: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_TARGET_CLUSTER:}
+      copy:
+        enabled: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_ENABLED:true}
+        mode: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_MODE:inProcess}
+        parallelism: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_PARALLELISM:4}
+        batchSize: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_BATCH_SIZE:1000}
+        requestsPerSecond: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_REQUESTS_PER_SECOND:-1}
+        maxHours: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_MAX_HOURS:0}
+        targetDocsPerPartition: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_TARGET_DOCS_PER_PARTITION:20000000}
+        skewMs: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_SKEW_MS:300000}
+        cursorKeepAlive: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_CURSOR_KEEP_ALIVE:5m}
+        checkpointEveryPages: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_CHECKPOINT_EVERY_PAGES:10}
+        externalWatermarkEpochMs: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_EXTERNAL_WATERMARK_EPOCH_MS:}
+        remote:
+          host: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_REMOTE_HOST:}
+          username: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_REMOTE_USERNAME:}
+          password: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_REMOTE_PASSWORD:}
+          external: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_REMOTE_EXTERNAL:false}
+          socketTimeout: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_REMOTE_SOCKET_TIMEOUT:5m}
+          connectTimeout: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_REMOTE_CONNECT_TIMEOUT:30s}
+    usage:
+      targetCluster: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_TARGET_CLUSTER:}
+      copy:
+        enabled: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_ENABLED:true}
+        mode: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_MODE:inProcess}
+        parallelism: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_PARALLELISM:4}
+        batchSize: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_BATCH_SIZE:1000}
+        requestsPerSecond: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_REQUESTS_PER_SECOND:-1}
+        maxHours: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_MAX_HOURS:0}
+        targetDocsPerPartition: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_TARGET_DOCS_PER_PARTITION:20000000}
+        skewMs: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_SKEW_MS:300000}
+        cursorKeepAlive: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_CURSOR_KEEP_ALIVE:5m}
+        checkpointEveryPages: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_CHECKPOINT_EVERY_PAGES:10}
+        externalWatermarkEpochMs: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_EXTERNAL_WATERMARK_EPOCH_MS:}
+        remote:
+          host: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_REMOTE_HOST:}
+          username: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_REMOTE_USERNAME:}
+          password: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_REMOTE_PASSWORD:}
+          external: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_REMOTE_EXTERNAL:false}
+          socketTimeout: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_REMOTE_SOCKET_TIMEOUT:5m}
+          connectTimeout: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_REMOTE_CONNECT_TIMEOUT:30s}
 
   entityIndex:
     v2:
@@ -1999,11 +2102,11 @@ systemUpdate:
     rolloutProgressLogIntervalSeconds: ${DATAHUB_UPGRADE_K8_ROLLOUT_PROGRESS_LOG_INTERVAL_SECONDS:60}
 
 structuredProperties:
-  enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
+  enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings; system update builds index mappings from the definitions
   writeEnabled: ${ENABLE_STRUCTURED_PROPERTIES_WRITE:true} # write structured property values
-  systemUpdateEnabled: ${ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE:false} # applies structured property mappings in system update job
+  systemUpdateEnabled: ${ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE:false} # lets system update reindex for structured property mapping differences (removed property, type or copy_to mismatch)
   # Reindex when existing SP field ES types disagree with definition-driven targets (e.g. float vs double).
-  # Requires systemUpdateEnabled as well; both must be true for type-mismatch reindex.
+  # Requires systemUpdateEnabled and ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true as well.
   typeMismatchReindexEnabled: ${ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX:true}
   # Reindex when an existing SP field's copy_to disagrees with the definition-driven target.
   # Requires systemUpdateEnabled and ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
@@ -2062,8 +2165,8 @@ featureFlags:
   themeV2Enabled: ${THEME_V2_ENABLED:true} # Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be false for this to have any effect.
   themeV2Default: ${THEME_V2_DEFAULT:true} # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
   themeV2Toggleable: ${THEME_V2_TOGGLEABLE:false} # Acryl only! Allows theme v2 to be toggled on / off by users.
-  themeDarkModeEnabled: ${THEME_DARK_MODE_ENABLED:false} # If turned on, show the light/dark mode toggle in Appearance settings and apply the dark color theme.
-  schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:false} # Enables links to schema field-level lineage on lineage explorer and columns tab
+  themeDarkModeEnabled: ${THEME_DARK_MODE_ENABLED:true} # If turned on, show the light/dark mode toggle in Appearance settings and apply the dark color theme.
+  schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:true} # Enables links to schema field-level lineage on lineage explorer and columns tab
   schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:true} # If turned on, schema field lineage will always fetch ghost entities
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
@@ -2078,8 +2181,6 @@ featureFlags:
   showSearchBarAutocompleteRedesign: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:true} # If turned on, show the redesigned search bar's autocomplete
   showManageTags: ${SHOW_MANAGE_TAGS:true} # If turned on, allow users to manage tags in the UI
   showIntroducePage: ${SHOW_INTRODUCE_PAGE:true} # If turned on, we will show the introduce page in the V2 UI experience to add a title and select platforms
-  showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:true} # If turned on, show the re-designed Ingestion page
-  ingestionOnboardingRedesignV1: ${INGESTION_ONBOARDING_REDESIGN_V1:false} # If turned on, show the redesigned ingestion onboarding experience
   showLineageExpandMore: ${SHOW_LINEAGE_EXPAND_MORE:true} # If turned on, show the expand more button (>>) in the lineage graph
   showLineageFilterNodes: ${SHOW_LINEAGE_FILTER_NODES:false} # If turned on, render lineage filter nodes ("N shown of M" cards) in the lineage graph; if off, pagination and search live on the expand/contract buttons
   showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:true} # If turned on, show the re-designed Stats tab on the entity page
@@ -2095,14 +2196,14 @@ featureFlags:
   showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false} # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:true} # Enables displaying the asset summary page
-  datasetSummaryPageV1: ${DATASET_SUMMARY_PAGE_V1:false} # Enables displaying the dataset summary page
+  datasetSummaryPageV1: ${DATASET_SUMMARY_PAGE_V1:true} # Enables displaying the dataset summary page
   metricsEnabled: ${METRICS_ENABLED:true} # If turned on, enables the Metrics feature end-to-end (Metrics page in nav, /metrics route, and backend wiring for Metric / Semantic Model). Defaults on; set METRICS_ENABLED=false to hide the feature.
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
   documentExplicitSaveEnabled: ${DOCUMENT_EXPLICIT_SAVE_ENABLED:false} # If turned on, document body edits stay local until the user saves instead of auto-saving
   multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
-  glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
+  glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:true} # Enables glossary-based policies to be created
   structuredPropertiesInPoliciesEnabled: ${STRUCTURED_PROPERTIES_IN_POLICIES_ENABLED:true} # Enables structured properties as criteria in policies
   showTestsInHealthIcon: ${SHOW_TESTS_IN_HEALTH_ICON:false} # If enabled, shows tests status in the health icon on entity pages
   i18nEnabled: ${I18N_ENABLED:true} # If enabled, internationalization (i18n) features are active
@@ -2119,6 +2220,8 @@ featureFlags:
   reliableHardDelete: ${RELIABLE_HARD_DELETE_ENABLED:false} # If enabled, a whole-entity hard delete (Rest.li delete, OpenAPI entity delete, GraphQL type-specific deletes) deletes only what existed when the request arrived; disable for the previous delete behavior
   createSchemaVersionIndex: ${CREATE_SCHEMA_VERSION_INDEX:${ZDU_STAGE_10:false}} # Creates schemaVersionIndex on metadata_aspect_v2 for ZDU schema version queries
   aspectMigrationMutatorEnabled: ${ASPECT_MIGRATION_MUTATOR_ENABLED:${ZDU_STAGE_20:false}} # Populates AspectMigrationMutatorChain with registered mutators
+  unknownEntityAspectToleranceEnabled: ${UNKNOWN_ENTITY_ASPECT_TOLERANCE_ENABLED:${UNKNOWN_DATA_TOLERANCE_ENABLED:false}} # Entity types, aspects and references this version's entity registry does not know (written by a newer version, read after a rollback): skipped, or left out on read, instead of failing reads, consumers and upgrade steps; a request naming one gets a 400. Defaults to UNKNOWN_DATA_TOLERANCE_ENABLED, which turns on both kinds of tolerance for a rollback; set this to override that kind. Off keeps the previous fail-on-unknown behavior
+  unknownEnumToleranceEnabled: ${UNKNOWN_ENUM_TOLERANCE_ENABLED:${UNKNOWN_DATA_TOLERANCE_ENABLED:false}} # Enum symbols and union members a newer version added to aspects this version knows: fall back in GraphQL, and rows failing only on them are skipped instead of failing consumers and upgrade steps. Defaults to UNKNOWN_DATA_TOLERANCE_ENABLED; set this to override that kind. Off keeps the previous behavior
   browserTracingEnabled: ${BROWSER_TRACING_ENABLED:false} # If enabled, the React app emits browser (RUM) OpenTelemetry spans, exported via the frontend /otel/v1/traces proxy and correlated with backend traces.
   browserWebVitalsEnabled: ${BROWSER_WEB_VITALS_ENABLED:false} # If enabled, the React app emits Core Web Vitals (LCP/CLS/FID/FCP/TTFB) as OTel spans. Requires browserTracingEnabled.
 
@@ -2384,6 +2487,12 @@ metadataChangeProposal:
     privilegeConstraints:
       enabled: ${MCP_VALIDATION_PRIVILEGE_CONSTRAINTS:true}
     aspectAuthorization:
+      assertion:
+        # Requires Edit Assertions (or Edit Entity) on the asserted asset to attach, re-target,
+        # delete, soft delete or report results for an assertion through any write API
+        enabled: ${MCP_VALIDATION_ASSERTION_AUTHORIZATION:true}
+        # Run events and run summaries dated further ahead of the server clock are rejected
+        maxFutureSkewSeconds: ${MCP_VALIDATION_ASSERTION_MAX_FUTURE_SKEW_SECONDS:300}
       corpUserCredentials:
         enabled: ${MCP_VALIDATION_CORP_USER_CREDENTIALS:true}
       domainWrite:

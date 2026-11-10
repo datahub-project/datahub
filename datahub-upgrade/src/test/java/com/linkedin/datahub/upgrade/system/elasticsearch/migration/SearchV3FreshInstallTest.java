@@ -108,7 +108,7 @@ public class SearchV3FreshInstallTest {
                 harness.opContext,
                 harness.entityService,
                 List.of(harness.searchService),
-                Set.of(),
+                Set::of,
                 FIRST_DEPLOY,
                 harness.buildIndicesConfig,
                 harness.aspectIndexLoader(),
@@ -131,7 +131,7 @@ public class SearchV3FreshInstallTest {
                 harness.entityService,
                 harness.aspectDao,
                 List.of(harness.searchService),
-                Set.of(),
+                Set::of,
                 FIRST_DEPLOY,
                 harness.buildIndicesConfig,
                 mock(UpdateIndicesService.class)));

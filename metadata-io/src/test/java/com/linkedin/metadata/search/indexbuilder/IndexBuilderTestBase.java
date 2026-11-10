@@ -48,6 +48,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.opensearch.OpenSearchException;
@@ -1387,6 +1388,124 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
         assertOnlyParsedUrnSources(aspectsProperties.get("structuredProperties"));
       }
     }
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testEngineRejectionOfNewStructuredPropertyFields() throws Exception {
+    // The engine's own total-fields rejection: system-update applies the rest of the change and
+    // leaves the new structured property fields out, and a fill into the index fails on it.
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            testDefaultConfig,
+            StructuredPropertiesConfiguration.builder()
+                .enabled(true)
+                .systemUpdateEnabled(false)
+                .build(),
+            Map.of(),
+            new GitVersion("0.0.0-test", "123456", Optional.empty()));
+    // field1 and the structured property container take two of the three fields allowed.
+    Map<String, Object> settings = Map.of("mapping", Map.of("total_fields", Map.of("limit", 3)));
+    buildIndex(builder, TEST_INDEX_NAME, structuredPropertyTestMappings(false, Map.of()), settings);
+    Map<String, Object> target =
+        structuredPropertyTestMappings(
+            true, Map.of("propA", Map.of("type", "keyword"), "propB", Map.of("type", "keyword")));
+
+    ReindexConfig withNewField =
+        builder.buildReindexState(opContext, TEST_INDEX_NAME, target, settings);
+    assertTrue(withNewField.isPureMappingsAddition());
+    builder.buildIndex(opContext, withNewField);
+
+    ReindexConfig onlyStructuredPropertiesMissing =
+        builder.buildReindexState(opContext, TEST_INDEX_NAME, target, settings);
+    Map<String, Object> properties =
+        (Map<String, Object>) onlyStructuredPropertiesMissing.currentMappings().get("properties");
+    assertTrue(properties.containsKey("field2"));
+    assertEquals(structuredPropertyFieldNames(properties), Set.of());
+    assertFalse(onlyStructuredPropertiesMissing.requiresApplyMappings());
+    assertFalse(onlyStructuredPropertiesMissing.requiresApplySettings());
+
+    assertEquals(
+        builder.buildIndex(opContext, onlyStructuredPropertiesMissing),
+        ReindexResult.NOT_REINDEXED_NOTHING_APPLIED);
+    assertThrows(
+        Exception.class,
+        () ->
+            builder.addUnmappedStructuredPropertyFields(
+                opContext, onlyStructuredPropertiesMissing));
+    assertEquals(
+        structuredPropertyFieldNames(
+            (Map<String, Object>)
+                builder
+                    .buildReindexState(opContext, TEST_INDEX_NAME, target, settings)
+                    .currentMappings()
+                    .get("properties")),
+        Set.of());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testReindexFallsBackToLiveStructuredPropertyFieldsOnRejection() throws Exception {
+    // The engine rejects a destination with the definitions' fields; the reindex completes with
+    // the fields the index maps now instead of failing with its writes blocked.
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            testDefaultConfig.toBuilder()
+                .index(testDefaultConfig.getIndex().toBuilder().enableMappingsReindex(true).build())
+                .build(),
+            StructuredPropertiesConfiguration.builder()
+                .enabled(true)
+                .systemUpdateEnabled(false)
+                .build(),
+            Map.of(),
+            new GitVersion("0.0.0-test", "123456", Optional.empty()));
+    // field1, the container and propLive fill the limit.
+    Map<String, Object> settings = Map.of("mapping", Map.of("total_fields", Map.of("limit", 3)));
+    Map<String, Object> keyword = Map.of(ESUtils.TYPE, ESUtils.KEYWORD);
+    buildIndex(
+        builder,
+        TEST_INDEX_NAME,
+        structuredPropertyTestMappings(false, Map.of("propLive", keyword)),
+        settings);
+    // Only a reindex changes field1's type; propA and propB take the destination past the limit.
+    Map<String, Object> target =
+        structuredPropertyTestMappings(
+            false, Map.of("propLive", keyword, "propA", keyword, "propB", keyword));
+    ((Map<String, Object>) target.get("properties")).put("field1", Map.of(ESUtils.TYPE, "text"));
+
+    ReindexConfig config = builder.buildReindexState(opContext, TEST_INDEX_NAME, target, settings);
+    assertTrue(config.requiresReindex());
+    builder.buildIndex(opContext, config);
+
+    Map<String, Object> properties =
+        (Map<String, Object>)
+            builder
+                .buildReindexState(opContext, TEST_INDEX_NAME, target, settings)
+                .currentMappings()
+                .get("properties");
+    assertEquals(((Map<String, Object>) properties.get("field1")).get(ESUtils.TYPE), "text");
+    assertEquals(structuredPropertyFieldNames(properties), Set.of("propLive"));
+  }
+
+  private static Map<String, Object> structuredPropertyTestMappings(
+      boolean withField2, Map<String, Object> structuredPropertyFields) {
+    Map<String, Object> properties = new HashMap<>();
+    properties.put("field1", Map.of(ESUtils.TYPE, ESUtils.KEYWORD));
+    if (withField2) {
+      properties.put("field2", Map.of(ESUtils.TYPE, ESUtils.KEYWORD));
+    }
+    properties.put(
+        STRUCTURED_PROPERTY_MAPPING_FIELD,
+        Map.of("type", "object", "dynamic", false, "properties", structuredPropertyFields));
+    return Map.of("properties", properties);
+  }
+
+  private static Set<?> structuredPropertyFieldNames(Map<String, Object> properties) {
+    Object container = properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+    Object fields = container instanceof Map<?, ?> map ? map.get("properties") : null;
+    return fields instanceof Map<?, ?> fieldMap ? fieldMap.keySet() : Set.of();
   }
 
   // --- Incremental reindex integration tests ---
