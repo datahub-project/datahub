@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Generic, Optional, Type, TypeVar
 
 import pydantic
-from pydantic import BaseModel as GenericModel, model_validator
+from pydantic import model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import (
@@ -85,7 +85,7 @@ class StatefulIngestionConfig(ConfigModel):
 CustomConfig = TypeVar("CustomConfig", bound=StatefulIngestionConfig)
 
 
-class StatefulIngestionConfigBase(GenericModel, Generic[CustomConfig]):
+class StatefulIngestionConfigBase(ConfigModel, Generic[CustomConfig]):
     """
     Base configuration class for stateful ingestion for source configs to inherit from.
     """
@@ -287,7 +287,10 @@ class StateProviderWrapper:
         ):
             if self.ctx.pipeline_name is None:
                 raise ConfigurationError(
-                    "pipeline_name must be provided if stateful ingestion is enabled."
+                    "pipeline_name must be set when stateful ingestion is enabled. "
+                    "Ingestion state is stored against it, so give it a value unique to "
+                    "this source configuration and keep it stable across runs — two "
+                    "recipes sharing one name corrupt each other's state."
                 )
             checkpointing_state_provider_class = (
                 ingestion_checkpoint_provider_registry.get(

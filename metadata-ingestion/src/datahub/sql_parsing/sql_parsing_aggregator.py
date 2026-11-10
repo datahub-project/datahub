@@ -6,6 +6,7 @@ import json
 import logging
 import pathlib
 import tempfile
+import time
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -76,6 +77,7 @@ from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.ordered_set import OrderedSet
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.stats_collections import TopKDict
 
 logger = logging.getLogger(__name__)
 QueryId = str
@@ -105,6 +107,8 @@ _DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
 ]
 MAX_UPSTREAM_TABLES_COUNT = 300
 MAX_FINEGRAINEDLINEAGE_COUNT = 2000
+_SLOW_DOWNSTREAM_WARNING_SECONDS = 60
+_SLOWEST_DOWNSTREAMS_TRACKED = 10
 
 
 @dataclasses.dataclass
@@ -392,6 +396,8 @@ class SqlAggregatorReport(Report):
 
     # SQL parsing (over all invocations).
     num_sql_parsed: int = 0
+    # Parses whose column lineage needed the vendored sqlglot 30.20 projection pushdown.
+    num_sql_parsed_legacy_pushdown_projections: int = 0
     sql_parsing_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_fingerprinting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_formatting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
@@ -417,6 +423,16 @@ class SqlAggregatorReport(Report):
         default_factory=LossyList
     )
     make_schema_resolver_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    # Seconds spent resolving each downstream's queries through temp tables,
+    # for the slowest downstreams only, slowest first.
+    slowest_downstreams_lineage_seconds: TopKDict[UrnStr, float] = dataclasses.field(
+        default_factory=lambda: TopKDict(top_k=_SLOWEST_DOWNSTREAMS_TRACKED)
+    )
+    slowest_downstreams_operations_seconds: TopKDict[UrnStr, float] = dataclasses.field(
+        default_factory=lambda: TopKDict(top_k=_SLOWEST_DOWNSTREAMS_TRACKED)
+    )
+    # Downstreams whose resolution took over 60 s, counted once per pass.
+    num_slow_downstreams: int = 0
 
     # Lineage-related.
     schema_resolver_count: Optional[int] = None
@@ -1437,6 +1453,8 @@ class SqlParsingAggregator(Closeable):
                 override_dialect=override_dialect,
             )
         self.report.num_sql_parsed += 1
+        if parsed.debug_info.used_legacy_pushdown_projections:
+            self.report.num_sql_parsed_legacy_pushdown_projections += 1
 
         # Conditionally log the query.
         if self.query_log == QueryLogSetting.STORE_ALL or (
@@ -1637,10 +1655,24 @@ class SqlParsingAggregator(Closeable):
             self.report.num_lineage_skipped_due_to_filters += 1
             return
 
+        start = time.perf_counter()
         queries: List[QueryMetadata] = [
             self._resolve_query_with_temp_tables(self._query_map[query_id])
             for query_id in query_ids
         ]
+        resolution_seconds = time.perf_counter() - start
+        self._track_downstream_resolution_time(
+            downstream_urn,
+            len(queries),
+            {
+                query_id
+                for query in queries
+                if query.composed_of
+                for query_id in query.composed_of.all_queries
+            },
+            resolution_seconds,
+            self.report.slowest_downstreams_lineage_seconds,
+        )
 
         # Sort the queries by highest precedence first, then by latest timestamp.
         # In case of ties, prefer queries with a known query type.
@@ -1968,6 +2000,7 @@ class SqlParsingAggregator(Closeable):
         # of the thing being copied in order to generate CLL.
 
         session_id = base_query.session_id
+        session_temp_lineage = self._temp_lineage_map.get(session_id, {})
 
         composed_of_queries = OrderedSet[QueryId]()
 
@@ -2006,9 +2039,7 @@ class SqlParsingAggregator(Closeable):
             # Find all the temp tables that this query depends on.
             temp_upstream_queries: Dict[UrnStr, QueryLineageInfo] = {}
             for upstream in query.upstreams:
-                upstream_query_ids = self._temp_lineage_map.get(session_id, {}).get(
-                    upstream
-                )
+                upstream_query_ids = session_temp_lineage.get(upstream)
                 if upstream_query_ids:
                     for upstream_query_id in upstream_query_ids:
                         upstream_query = self._query_map.get(upstream_query_id)
@@ -2037,31 +2068,13 @@ class SqlParsingAggregator(Closeable):
                     new_upstreams.add(upstream)
 
             # Compute merged column lineage.
-            new_cll = []
-            for lineage_info in query.column_lineage:
-                new_column_upstreams: List[ColumnRef] = []
-                for existing_col_upstream in lineage_info.upstreams:
-                    if existing_col_upstream.table in temp_upstream_queries:
-                        new_column_upstreams.extend(
-                            [
-                                temp_col_upstream
-                                for temp_lineage_info in temp_upstream_queries[
-                                    existing_col_upstream.table
-                                ].column_lineage
-                                for temp_col_upstream in temp_lineage_info.upstreams
-                                if temp_lineage_info.downstream.column
-                                == existing_col_upstream.column
-                            ]
-                        )
-                    else:
-                        new_column_upstreams.append(existing_col_upstream)
-
-                new_cll.append(
-                    ColumnLineageInfo(
-                        downstream=lineage_info.downstream,
-                        upstreams=new_column_upstreams,
-                    )
-                )
+            new_cll = self._resolve_temp_column_lineage(
+                query.column_lineage,
+                {
+                    temp_table: temp_lineage.column_lineage
+                    for temp_table, temp_lineage in temp_upstream_queries.items()
+                },
+            )
 
             # Compute merged confidence score.
             new_confidence_score = min(
@@ -2129,7 +2142,7 @@ class SqlParsingAggregator(Closeable):
             ],
         )
 
-        resolved_query = dataclasses.replace(
+        return dataclasses.replace(
             base_query,
             query_id=composite_query_id,
             formatted_query_string=merged_query_text,
@@ -2139,7 +2152,69 @@ class SqlParsingAggregator(Closeable):
             composed_of=composed_of,
         )
 
-        return resolved_query
+    @staticmethod
+    def _resolve_temp_column_lineage(
+        column_lineage: List[ColumnLineageInfo],
+        temp_column_lineage: Dict[UrnStr, Iterable[ColumnLineageInfo]],
+    ) -> List[ColumnLineageInfo]:
+        """Replaces each upstream column of a temp table with that temp column's
+        upstreams. Each column's upstreams keep first-occurrence order, without
+        duplicates."""
+        temp_column_upstreams: Dict[UrnStr, Dict[str, OrderedSet[ColumnRef]]] = {}
+        for temp_table, temp_lineage in temp_column_lineage.items():
+            by_column: Dict[str, OrderedSet[ColumnRef]] = defaultdict(OrderedSet)
+            for temp_lineage_info in temp_lineage:
+                by_column[temp_lineage_info.downstream.column].update(
+                    temp_lineage_info.upstreams
+                )
+            temp_column_upstreams[temp_table] = by_column
+
+        new_cll = []
+        for lineage_info in column_lineage:
+            new_column_upstreams = OrderedSet[ColumnRef]()
+            for existing_col_upstream in lineage_info.upstreams:
+                temp_columns = temp_column_upstreams.get(existing_col_upstream.table)
+                if temp_columns is not None:
+                    new_column_upstreams.update(
+                        temp_columns.get(existing_col_upstream.column, ())
+                    )
+                else:
+                    new_column_upstreams.add(existing_col_upstream)
+
+            new_cll.append(
+                ColumnLineageInfo(
+                    downstream=lineage_info.downstream,
+                    upstreams=list(new_column_upstreams),
+                )
+            )
+        return new_cll
+
+    def _track_downstream_resolution_time(
+        self,
+        downstream_urn: UrnStr,
+        num_queries: int,
+        composed_queries: Set[QueryId],
+        seconds: float,
+        slowest: TopKDict[UrnStr, float],
+    ) -> None:
+        if seconds > _SLOW_DOWNSTREAM_WARNING_SECONDS:
+            self.report.num_slow_downstreams += 1
+            logger.warning(
+                f"Resolving temp tables for {downstream_urn} took {seconds:.1f}s: "
+                f"{num_queries} queries, composed of {len(composed_queries)} queries"
+            )
+
+        if downstream_urn in slowest:
+            seconds = max(seconds, slowest[downstream_urn])
+        elif len(slowest) >= _SLOWEST_DOWNSTREAMS_TRACKED:
+            fastest = min(slowest, key=slowest.__getitem__)
+            if slowest[fastest] >= seconds:
+                return
+            del slowest[fastest]
+        slowest[downstream_urn] = seconds
+        ranked = sorted(slowest.items(), key=lambda item: item[1], reverse=True)
+        slowest.clear()
+        slowest.update(ranked)
 
     @staticmethod
     def _compute_upstream_fields(
@@ -2169,12 +2244,19 @@ class SqlParsingAggregator(Closeable):
             return
 
         for downstream_urn, query_ids in self._lineage_map.items():
+            # Sums resolution time only; queries are resolved and emitted one at a time.
+            resolution_seconds = 0.0
+            composed_queries: Set[QueryId] = set()
             for query_id in query_ids:
                 # Resolve temp tables so operations reference the same (possibly
                 # composite) Query entity that lineage does - otherwise the raw
                 # component id is referenced but never emitted (it's subsumed by
                 # the composite), leaving a dangling query reference.
+                start = time.perf_counter()
                 query = self._resolve_query_with_temp_tables(self._query_map[query_id])
+                resolution_seconds += time.perf_counter() - start
+                if query.composed_of:
+                    composed_queries.update(query.composed_of.all_queries)
                 yield from self._gen_operation_for_downstream(downstream_urn, query)
 
                 # Avoid generating the same query twice. A composite subsumes its
@@ -2186,6 +2268,14 @@ class SqlParsingAggregator(Closeable):
                 if query.composed_of:
                     queries_generated.update(query.composed_of.all_queries)
                 yield from self._gen_query(query, downstream_urn)
+
+            self._track_downstream_resolution_time(
+                downstream_urn,
+                len(query_ids),
+                composed_queries,
+                resolution_seconds,
+                self.report.slowest_downstreams_operations_seconds,
+            )
 
     def _gen_operation_for_downstream(
         self, downstream_urn: UrnStr, query: QueryMetadata

@@ -102,6 +102,13 @@ KEYWORD_ENTITY_TYPES = [
     "domain",
     "tag",
 ]
+# The smoke suite searches "sample" against the quickstart bootstrap, which this
+# pack does not load. These copies give the search-quality instance the same names.
+QUICKSTART_SEARCH_DATASETS = (
+    ("kafka", "SampleKafkaDataset"),
+    ("hdfs", "SampleHdfsDataset"),
+    ("hive", "SampleHiveDataset"),
+)
 
 
 def repo_root() -> Path:
@@ -148,6 +155,22 @@ def dataset_urn(platform: str, name: str, origin: str = "PROD") -> str:
 
 AUTOCOMPLETE_NAME = "zzprefixprobe"
 AUTOCOMPLETE_DATASET = dataset_urn("catalogprobe", AUTOCOMPLETE_NAME)
+PHRASE_AUTOCOMPLETE_QUERY = "Xylarvene Orders Model"
+PHRASE_AUTOCOMPLETE_DATASET = dataset_urn("catalogprobe", "xylarvene_orders_model")
+REORDERED_AUTOCOMPLETE_DATASET = dataset_urn("catalogprobe", "orders_model_xylarvene")
+DESCRIPTION_CONTAIN_DELETED = dataset_urn("catalogprobe", "users_deleted_asset")
+DESCRIPTION_CONTAIN_CREATED = dataset_urn("catalogprobe", "users_created_asset")
+SHARED_TOKEN_APPLE = dataset_urn("catalogprobe", "shared_token_apple")
+SHARED_TOKEN_BANANA = dataset_urn("catalogprobe", "shared_token_banana")
+SHARED_TOKEN_QUERY = "xylarvene sources search apple"
+# "v3" splits into two tokens, so this three-word query skips light.
+UI_FILTER_QUERY = "mirkapath v3 filter"
+UI_FILTER_SOURCE = dataset_urn("catalogprobe", "mirka_filter_source")
+UI_FILTER_CLI_SOURCE = dataset_urn("catalogprobe", "mirka_filter_cli_source")
+UI_FILTER_STRAY = dataset_urn("catalogprobe", "mirka_file")
+# Four underscore parts. An empty light result stops instead of continuing.
+FOUR_PART_TAG_NAME = "zindle_search_filter_tag"
+FOUR_PART_TAG = f"urn:li:tag:{FOUR_PART_TAG_NAME}"
 
 STRING_OPT_IN_DATASET = dataset_urn(
     "dbt", "long_tail_companions.analytics.dogs_in_movies"
@@ -460,6 +483,12 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     identity_name_and_qualified = dataset_urn(
         "catalogprobe", "identity_name_and_qualified"
     )
+    # A dataset key name is the name label, so it cannot stand in for id. These flows
+    # keep the same display name and put the query tokens on the id label alone.
+    identity_flow_name_only = "urn:li:dataFlow:(catalogprobe,flow_name_only,prod)"
+    identity_flow_name_and_id = (
+        "urn:li:dataFlow:(catalogprobe,identityprobe_parity,prod)"
+    )
     identity_path = dataset_urn("catalogprobe", "identity_path")
     identity_path_partial = dataset_urn("catalogprobe", "identity_path_partial")
     identity_earlier_segment = dataset_urn("catalogprobe", "identity_earlier_segment")
@@ -530,6 +559,60 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             AUTOCOMPLETE_NAME,
             AUTOCOMPLETE_NAME,
         ),
+        (
+            PHRASE_AUTOCOMPLETE_DATASET,
+            PHRASE_AUTOCOMPLETE_QUERY,
+            "catalogprobe.xylarvene_orders_model",
+            "Phrase-named catalog probe for autocomplete.",
+        ),
+        (
+            REORDERED_AUTOCOMPLETE_DATASET,
+            "Catalogprobe Reordered Name",
+            "orders_model.xylarvene",
+            "Tokens from the phrase query, stored out of order.",
+        ),
+        (
+            DESCRIPTION_CONTAIN_DELETED,
+            "Catalogprobe Users Deleted",
+            "catalogprobe.users_deleted_asset",
+            "fct_users_deleted",
+        ),
+        (
+            DESCRIPTION_CONTAIN_CREATED,
+            "Catalogprobe Users Created",
+            "catalogprobe.users_created_asset",
+            "fct_users_created",
+        ),
+        (
+            SHARED_TOKEN_APPLE,
+            SHARED_TOKEN_QUERY,
+            "catalogprobe.shared_token_apple",
+            "Shared-token name probe, distinguished by apple.",
+        ),
+        (
+            SHARED_TOKEN_BANANA,
+            "xylarvene sources search banana",
+            "catalogprobe.shared_token_banana",
+            "Shared-token name probe, distinguished by banana.",
+        ),
+        (
+            UI_FILTER_SOURCE,
+            "mirkapath v3 filter source",
+            "catalogprobe.mirka_filter_source",
+            "Filter-query name probe, the UI source.",
+        ),
+        (
+            UI_FILTER_CLI_SOURCE,
+            "mirkapath v3 filter cli source",
+            "catalogprobe.mirka_filter_cli_source",
+            "Filter-query name probe, the CLI source.",
+        ),
+        (
+            UI_FILTER_STRAY,
+            "file (mirkapath)",
+            "catalogprobe.mirka_file",
+            "One-token overlap probe.",
+        ),
     ]
     proposals: list[dict[str, Any]] = []
     proposals.append(
@@ -563,6 +646,22 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                     "name": "identityprobe parity",
                     "qualifiedName": "catalogprobe.identityprobe.parity",
                     "description": "Name and qualified-name identity comparison asset.",
+                },
+            ),
+            mcp(
+                identity_flow_name_only,
+                "dataFlowInfo",
+                {
+                    "name": "identityprobe parity",
+                    "description": "Name-only identity comparison flow.",
+                },
+            ),
+            mcp(
+                identity_flow_name_and_id,
+                "dataFlowInfo",
+                {
+                    "name": "identityprobe parity",
+                    "description": "Name and id identity comparison flow.",
                 },
             ),
             mcp(
@@ -710,12 +809,32 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                 {"urn": identity_name_and_qualified, "relevance": 1},
             ],
             "containsInTop": {
-                "n": 2,
+                "n": 3,
                 "values": [identity_name_only, identity_name_and_qualified],
             },
             "scoreRatioAtMost": {
                 "numerator": identity_name_and_qualified,
                 "denominator": identity_name_only,
+                "max": 1.02,
+            },
+        },
+        {
+            "id": "identity-name-id-parity",
+            "group": "keyword-probe",
+            "query": "identityprobe parity",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataFlow"],
+            "grades": [
+                {"urn": identity_flow_name_only, "relevance": 1},
+                {"urn": identity_flow_name_and_id, "relevance": 1},
+            ],
+            "containsInTop": {
+                "n": 2,
+                "values": [identity_flow_name_only, identity_flow_name_and_id],
+            },
+            "scoreRatioAtMost": {
+                "numerator": identity_flow_name_and_id,
+                "denominator": identity_flow_name_only,
                 "max": 1.02,
             },
         },
@@ -851,6 +970,94 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             fulltext,
         ),
     ]
+    judgments.extend(
+        [
+            {
+                "id": "description-contain-stacked-token",
+                "group": "keyword-probe",
+                "query": "*",
+                "surfaces": ["keyword"],
+                "entityTypes": ["dataset"],
+                "grades": [{"urn": DESCRIPTION_CONTAIN_DELETED, "relevance": 1}],
+                "filter": {
+                    "field": "description",
+                    "condition": "CONTAIN",
+                    "value": "fct_users_deleted",
+                },
+                "candidateUrns": [
+                    DESCRIPTION_CONTAIN_DELETED,
+                    DESCRIPTION_CONTAIN_CREATED,
+                ],
+                "expectedOrder": [DESCRIPTION_CONTAIN_DELETED],
+            },
+            {
+                "id": "shared-token-name",
+                "group": "keyword-probe",
+                "query": SHARED_TOKEN_QUERY,
+                "surfaces": ["keyword"],
+                "entityTypes": ["dataset"],
+                "grades": [
+                    {"urn": SHARED_TOKEN_APPLE, "relevance": 1},
+                    {"urn": SHARED_TOKEN_BANANA, "relevance": 1},
+                ],
+                "candidateUrns": [SHARED_TOKEN_APPLE, SHARED_TOKEN_BANANA],
+                "rankAbove": {
+                    "urn": SHARED_TOKEN_APPLE,
+                    "above": [SHARED_TOKEN_BANANA],
+                },
+            },
+            {
+                "id": "shared-token-name-quoted",
+                "group": "keyword-probe",
+                "query": f'"{SHARED_TOKEN_QUERY}"',
+                "surfaces": ["keyword"],
+                "entityTypes": ["dataset"],
+                "grades": [{"urn": SHARED_TOKEN_APPLE, "relevance": 1}],
+                "candidateUrns": [SHARED_TOKEN_APPLE, SHARED_TOKEN_BANANA],
+                "expectedOrder": [SHARED_TOKEN_APPLE],
+            },
+            {
+                "id": "ui-filter-full-names",
+                "group": "keyword-probe",
+                "query": UI_FILTER_QUERY,
+                "surfaces": ["keyword"],
+                "entityTypes": ["dataset"],
+                "grades": [
+                    {"urn": UI_FILTER_SOURCE, "relevance": 1},
+                    {"urn": UI_FILTER_CLI_SOURCE, "relevance": 1},
+                ],
+                "candidateUrns": [UI_FILTER_SOURCE, UI_FILTER_CLI_SOURCE],
+                "present": [UI_FILTER_SOURCE, UI_FILTER_CLI_SOURCE],
+            },
+            {
+                "id": "ui-filter-shared-token",
+                "group": "keyword-probe",
+                "query": UI_FILTER_QUERY,
+                "surfaces": ["keyword"],
+                "entityTypes": ["dataset"],
+                "grades": [],
+                "candidateUrns": [UI_FILTER_STRAY],
+                "expectNoHits": True,
+            },
+            {
+                "id": "tag-four-part-name",
+                "group": "keyword-probe",
+                "query": FOUR_PART_TAG_NAME,
+                "surfaces": ["keyword"],
+                "entityTypes": ["tag"],
+                "grades": [{"urn": FOUR_PART_TAG, "relevance": 1}],
+                "candidateUrns": [FOUR_PART_TAG],
+                "exactTopHit": FOUR_PART_TAG,
+            },
+        ]
+    )
+    proposals.append(
+        mcp(
+            FOUR_PART_TAG,
+            "tagProperties",
+            {"name": FOUR_PART_TAG_NAME},
+        )
+    )
     proposals.extend(sort_probe_entities())
     judgments.extend(sort_judgments())
     proposals.extend(field_probe_entities())
@@ -1175,6 +1382,16 @@ def autocomplete_judgments() -> list[dict[str, Any]]:
             "entityTypes": ["dataset"],
             "grades": [],
             "expectedUrns": [],
+        },
+        {
+            "id": "autocomplete-phrase-not-reordered",
+            "group": "autocomplete",
+            "query": PHRASE_AUTOCOMPLETE_QUERY,
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [],
+            "expectedUrns": [PHRASE_AUTOCOMPLETE_DATASET],
+            "absentUrns": [REORDERED_AUTOCOMPLETE_DATASET],
         },
     ]
 
@@ -2058,6 +2275,7 @@ def validate_judgments(judgments: dict[str, Any], seen: set[str]) -> None:
         "sort",
         "field-probe",
         "autocomplete",
+        "quickstart-search",
     }
     allowed_surfaces = {"keyword", "semantic", "hybrid", "lineage"}
     for judgment in judgments["judgments"]:
@@ -2111,6 +2329,11 @@ def assert_probe_judgment(judgment: dict[str, Any], seen: set[str]) -> None:
             if urn not in seen:
                 raise AssertionError(
                     f"Judgment {judgment['id']} expects unloaded {urn}"
+                )
+        for urn in judgment.get("absentUrns") or []:
+            if urn not in seen:
+                raise AssertionError(
+                    f"Judgment {judgment['id']} excludes unloaded {urn}"
                 )
     if judgment["group"] == "field-probe":
         if judgment.get("grades"):
@@ -2219,9 +2442,9 @@ def _validate_pack(directory: Path) -> None:
     autocomplete = [
         item for item in judgments["judgments"] if item["group"] == "autocomplete"
     ]
-    if len(autocomplete) != 3:
+    if len(autocomplete) != 4:
         raise AssertionError(
-            f"Expected 3 autocomplete probes, found {len(autocomplete)}"
+            f"Expected 4 autocomplete probes, found {len(autocomplete)}"
         )
     assert_fulltext_probe_tokens_absent(loaded)
     assert_field_probe_tokens_absent(loaded)
@@ -2452,6 +2675,128 @@ def entity_weight_probes(
     return mcps, judgments
 
 
+def shared_label_judgments() -> list[dict[str, Any]]:
+    """Probes for shared labels whose entities live in the ecommerce shard."""
+    return [
+        {
+            "id": "label-tool",
+            "group": "keyword-probe",
+            "query": "sigma",
+            "surfaces": ["keyword"],
+            "entityTypes": ["chart"],
+            "grades": [],
+            "expectNoHits": True,
+        },
+        {
+            "id": "label-id",
+            "group": "keyword-probe",
+            "query": "zqcollarflowid",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataFlow"],
+            "grades": [
+                {
+                    "urn": "urn:li:dataFlow:(prefect,zqcollarflowid,zqcollarcluster)",
+                    "relevance": 4,
+                }
+            ],
+            "containsInTop": {"n": 5, "values": ["zqcollarflowid"]},
+        },
+        {
+            "id": "label-text",
+            "group": "keyword-probe",
+            "query": "zqdocbodypolicy",
+            "surfaces": ["keyword"],
+            "entityTypes": ["document"],
+            "grades": [
+                {"urn": "urn:li:document:collar-returns-policy", "relevance": 4}
+            ],
+            "containsInTop": {"n": 5, "values": ["collar-returns-policy"]},
+        },
+        {
+            "id": "label-description",
+            "group": "keyword-probe",
+            "query": "zqdeprecatednote",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [
+                {
+                    "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,jaffle_shop.collar_returns,PROD)",
+                    "relevance": 4,
+                }
+            ],
+            "containsInTop": {"n": 5, "values": ["collar_returns"]},
+        },
+        {
+            "id": "label-name",
+            "group": "keyword-probe",
+            "query": "zqoriginalfilename",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataHubFile"],
+            "grades": [{"urn": "urn:li:dataHubFile:collar-photo", "relevance": 4}],
+            "containsInTop": {"n": 5, "values": ["collar-photo"]},
+        },
+        {
+            "id": "label-custom-properties",
+            "group": "keyword-probe",
+            "query": "zqcustompropvalue",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataFlow"],
+            "grades": [
+                {
+                    "urn": "urn:li:dataFlow:(prefect,zqcollarflowid,zqcollarcluster)",
+                    "relevance": 4,
+                }
+            ],
+            "containsInTop": {"n": 5, "values": ["zqcollarflowid"]},
+        },
+    ]
+
+
+def quickstart_search_mcps() -> list[dict[str, Any]]:
+    mcps: list[dict[str, Any]] = []
+    for platform, name in QUICKSTART_SEARCH_DATASETS:
+        urn = dataset_urn(platform, name)
+        mcps.append(
+            mcp(
+                urn,
+                "datasetProperties",
+                {
+                    "name": name,
+                    "description": f"{platform} dataset from the quickstart catalog.",
+                },
+            )
+        )
+        mcps.append(mcp(urn, "status", {"removed": False}))
+    return mcps
+
+
+def quickstart_search_judgments() -> list[dict[str, Any]]:
+    """Quickstart "sample" recall. Recorded, not gated: the light rung stops on camelCase names."""
+    urns = [
+        dataset_urn(platform, name) for platform, name in QUICKSTART_SEARCH_DATASETS
+    ]
+    return [
+        {
+            "id": "quickstart-sample-datasets",
+            "group": "quickstart-search",
+            "query": "sample",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [],
+            "containsInTop": {"n": 10, "values": urns},
+        },
+        {
+            "id": "quickstart-sample-across-entities",
+            "group": "quickstart-search",
+            "query": "sample",
+            "surfaces": ["keyword"],
+            "entityTypes": [],
+            "grades": [],
+            "containsInTop": {"n": 10, "values": urns},
+        },
+    ]
+
+
 def generate(root: Path | None = None) -> Path:
     gc.disable()
     root = root or repo_root()
@@ -2495,6 +2840,7 @@ def generate(root: Path | None = None) -> Path:
     imported = imported_proposals(business)
 
     platforms = {"cranfield", "catalogprobe", "ranking"}
+    platforms.update(platform for platform, _ in QUICKSTART_SEARCH_DATASETS)
     for proposal in business + profile:
         platform = platform_name(proposal["entityUrn"])
         if platform:
@@ -2530,7 +2876,10 @@ def generate(root: Path | None = None) -> Path:
         # are rejected as unknown properties.
         "01-definitions.json": definitions(platforms) + property_definitions,
         "02-cranfield-datasets.json": cranfield_mcps,
-        "05-catalog-probes.json": probe_mcps + ranking_mcps + boost_mcps,
+        "05-catalog-probes.json": probe_mcps
+        + ranking_mcps
+        + boost_mcps
+        + quickstart_search_mcps(),
         "06-semantic-probes.json": semantic_mcps,
     }
     index = {
@@ -2575,6 +2924,8 @@ def generate(root: Path | None = None) -> Path:
         + ranking_judgments()
         + interactive_ranking_judgments
         + probe_judgments
+        + shared_label_judgments()
+        + quickstart_search_judgments()
         + boost_judgments
         + [semantic_judgment],
     }

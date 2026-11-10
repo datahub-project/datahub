@@ -108,17 +108,24 @@ def _athena_setup() -> Callable[[Any], None]:
     return prepare
 
 
+def _stock_athena_engine() -> sqlalchemy.engine.Engine:
+    # A real engine on PyAthena's own dialect; building it opens no connection.
+    return sqlalchemy.create_engine(
+        "awsathena+rest://@athena.us-east-1.amazonaws.com:443/db"
+        "?s3_staging_dir=s3://bucket/prefix/"
+    )
+
+
 def test_athena_substitutes_the_dialect_its_source_uses():
     """PyAthena's own dialect omits ICEBERG from get_table_names and mis-parses
     complex column types, which is why AthenaSource.get_inspectors replaces it.
-    The probe must make the same substitution or report a different catalog."""
-
-    class _Engine:
-        dialect: Any = "stock"
-
-    engine = _Engine()
+    The probe must make the same substitution or report a different catalog,
+    keeping the engine's DBAPI: SQLAlchemy wraps driver errors through it."""
+    engine = _stock_athena_engine()
+    stock_dbapi = engine.dialect.dbapi
     _athena_setup()(engine)
     assert isinstance(engine.dialect, CustomAthenaRestDialect)
+    assert stock_dbapi is not None and engine.dialect.dbapi is stock_dbapi
 
 
 def test_an_unreadable_athena_schema_fails_instead_of_looking_empty():
@@ -131,16 +138,13 @@ def test_an_unreadable_athena_schema_fails_instead_of_looking_empty():
     "could not read" is the confusion this interface exists to prevent, so on
     the probe path the warning has to become the failure.
     """
-
-    class _Engine:
-        dialect: Any = "stock"
-
-    engine = _Engine()
+    engine = _stock_athena_engine()
     _athena_setup()(engine)
+    dialect: Any = engine.dialect
 
     # Exactly the call the fallback's except-branch makes.
     with pytest.raises(AthenaProbeReadFailed, match="catalog=c"):
-        engine.dialect._report.warning(
+        dialect._report.warning(
             message="Failed to list S3 Tables via boto3 fallback.",
             context="catalog=c, schema=s",
             exc=RuntimeError("AccessDenied"),

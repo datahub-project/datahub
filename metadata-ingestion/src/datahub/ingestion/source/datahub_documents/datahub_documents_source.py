@@ -25,24 +25,39 @@ from datahub.configuration.common import GraphError, OperationalError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    SourceCapability,
+    SourceReport,
+    TestableSource,
+    TestConnectionReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
 from datahub.ingestion.source.datahub_documents.datahub_documents_config import (
     DataHubDocumentsSourceConfig,
 )
 from datahub.ingestion.source.datahub_documents.document_chunking_state_handler import (
     DocumentChunkingStateHandler,
 )
+from datahub.ingestion.source.datahub_documents.document_embedding import (
+    is_below_embed_minimum,
+    resolve_embed_text,
+)
 from datahub.ingestion.source.datahub_documents.document_indexing_lock import (
     DocumentIndexingLock,
 )
-from datahub.ingestion.source.datahub_documents.text_partitioner import TextPartitioner
+from datahub.ingestion.source.datahub_documents.text_partitioner import (
+    PartitionTimeoutError,
+    TextPartitioner,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfig,
     StatefulIngestionConfigBase,
@@ -58,6 +73,10 @@ from datahub.ingestion.source.unstructured.chunking_source import (
     DocumentChunkingSource,
     compute_source_text_sha256,
 )
+from datahub.ingestion.source.unstructured.embedding_target import (
+    model_storage_key,
+    resolve_embedding_target,
+)
 from datahub.ingestion.source.unstructured.event_consumer import DocumentEventConsumer
 
 logger = logging.getLogger(__name__)
@@ -71,6 +90,7 @@ EMBED_SOURCE_ASPECT_NAMES = ("documentInfo", "semanticText")
 # Source types whose documents DataHub owns and embeds itself. SYSTEM marks
 # documents managed by the platform rather than created by users.
 DATAHUB_OWNED_SOURCE_TYPES = ("NATIVE", "SYSTEM")
+PARTITION_TIMEOUT_SKIP_REASON = "PARTITION_TIMEOUT"
 
 
 class DocumentEnumerationError(Exception):
@@ -93,6 +113,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     num_documents_skipped_empty: int = 0
     num_documents_skipped_existing_embeddings: int = 0
     num_documents_skipped_orphaned: int = 0
+    num_documents_partition_timeout: int = 0
     num_documents_pruned_from_state: int = 0
     num_chunks_created: int = 0
     lock_skipped_run: bool = False
@@ -134,6 +155,10 @@ class DataHubDocumentsReport(StatefulIngestionReport):
         """Report a URN skipped because it has no resolvable backing entity."""
         self.num_documents_skipped_orphaned += 1
 
+    def report_partition_timeout(self) -> None:
+        """Report a document skipped because partitioning exceeded the time limit."""
+        self.num_documents_partition_timeout += 1
+
     def report_embeddings_generated(self, count: int) -> None:
         self.num_embeddings_generated += count
 
@@ -144,7 +169,8 @@ class DataHubDocumentsReport(StatefulIngestionReport):
 @platform_name("DataHubDocuments", id="datahub-documents")
 @support_status(SupportStatus.ALPHA)
 @config_class(DataHubDocumentsSourceConfig)
-class DataHubDocumentsSource(StatefulIngestionSourceBase):
+@capability(SourceCapability.TEST_CONNECTION, "Checks semantic embedding availability")
+class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
     """
     Extract Document entities from DataHub and generate semantic embeddings for semantic search.
 
@@ -205,7 +231,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             self.graph = DataHubGraph(config=graph_config)
 
         # Initialize text partitioner
-        self.text_partitioner = TextPartitioner()
+        self.text_partitioner = TextPartitioner(
+            timeout_seconds=self.config.partition_timeout_seconds
+        )
 
         # Initialize chunking/embedding sub-component (same pattern as NotionSource)
         chunking_config = DocumentChunkingSourceConfig(
@@ -270,6 +298,49 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             f"mode: {'event-driven' if self.config.event_mode.enabled else 'batch'}, "
             f"incremental: {self.config.incremental.enabled}"
         )
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        graph: Optional[DataHubGraph] = None
+        try:
+            config = DataHubDocumentsSourceConfig.model_validate(config_dict)
+            graph = DataHubGraph(
+                config=DatahubClientConfig(
+                    server=config.datahub.server,
+                    token=config.datahub.token.get_secret_value()
+                    if config.datahub.token
+                    else None,
+                )
+            )
+            graph.test_connection()
+            try:
+                embedding = DocumentChunkingSource.resolve_embedding_config(
+                    config.embedding, graph, fail_on_lookup_error=True
+                )
+                capability_report = DocumentChunkingSource.test_embedding_capability(
+                    embedding, graph=graph
+                )
+            except Exception as error:
+                capability_report = CapabilityReport(
+                    capable=False,
+                    failure_reason=str(error),
+                    mitigation_message="Check the embedding configuration. Use a provider with its own credentials if server embeddings are unavailable.",
+                )
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(capable=True),
+                capability_report={"semantic_search": capability_report},
+            )
+        except Exception as error:
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(
+                    capable=False,
+                    failure_reason=str(error),
+                    mitigation_message="Check the DataHub connection and embedding configuration. Use a provider with its own credentials if server embeddings are unavailable.",
+                )
+            )
+        finally:
+            if graph is not None:
+                graph.close()
 
     @staticmethod
     def _default_lock_id(pipeline_name: Optional[str]) -> str:
@@ -345,6 +416,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             return
 
         try:
+            self.chunking_source.verify_embedding_service()
             if self.config.event_mode.enabled:
                 yield from self._process_event_mode()
             else:
@@ -569,11 +641,11 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             contents = dict(raw_contents)
             contents["semanticText"] = self._fetch_semantic_text(entity_urn)
 
-        # semanticText overrides text as the embedding source; see _resolve_embed_text.
+        # semanticText overrides text as the embedding source; see resolve_embed_text.
         # Empty text is NOT an early return: _process_single_document emits a skip marker
         # for it (and for too-short text) so the document is classified rather than
         # silently invisible, and incremental state stops re-visiting it.
-        text = self._resolve_embed_text(contents)
+        text = resolve_embed_text(contents)
 
         # Filter by source type (NATIVE vs EXTERNAL)
         # Default to NATIVE if source or sourceType is not set (backward compatibility with old documents)
@@ -699,7 +771,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 yield from self._process_batch_mode()
                 return
 
-        except DocumentEnumerationError:
+        except (DocumentEnumerationError, ServerEmbeddingRunError):
             # A batch fallback above aborted systemically and already reported a
             # specific failure. Falling back again would replay a full
             # enumeration + hydration storm against GMS for the same outcome.
@@ -1055,7 +1127,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 continue
 
             # Extract text content (GraphQL returns null for missing aspects).
-            # semanticText overrides text as the embedding source; see _resolve_embed_text.
+            # semanticText overrides text as the embedding source; see resolve_embed_text.
             info = entity.get("info") or {}
             contents = info.get("contents")
             if contents is None:
@@ -1063,7 +1135,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 # document with empty text: skip silently rather than stamping a skip
                 # marker onto an entity whose content we could not read.
                 continue
-            text = self._resolve_embed_text(contents)
+            text = resolve_embed_text(contents)
 
             # Default to NATIVE when sourceType is absent (older documents).
             source = info.get("source") or {}
@@ -1480,6 +1552,11 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         # server, so the recipe copy stays empty and server changes would never re-hash.
         embedding = self.chunking_source.config.embedding
         embedding_enabled = embedding.provider is not None
+        target = (
+            resolve_embedding_target(embedding, self.graph)
+            if embedding_enabled
+            else None
+        )
 
         fingerprint: Dict[str, Any] = {
             # Chunking affects chunk boundaries and structure
@@ -1498,8 +1575,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             else None,
             # Embedding affects vector embeddings on chunks
             "embedding_enabled": embedding_enabled,
-            "embedding_provider": embedding.provider if embedding_enabled else None,
-            "embedding_model": embedding.model if embedding_enabled else None,
+            "embedding_provider": target.model_provider if target else None,
+            "embedding_model": target.model_id if target else None,
             # Partitioning affects how text is extracted
             "partition_strategy": self.config.partition_strategy,
         }
@@ -1517,37 +1594,19 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         # cls and mean pooling give different vectors from the same onnx model. Like
         # the chunk cap, only a non-default value is fingerprinted (normalized as the
         # provider does), so onnx documents hashed before this knob are not re-embedded.
-        if embedding.provider == "onnx":
-            pooling = (embedding.onnx_pooling or "cls").lower()
+        if target is not None and target.model_provider == "onnx":
+            pooling = target.onnx_pooling or "unknown_server_pooling"
             if pooling != "cls":
                 fingerprint["onnx_pooling"] = pooling
+        # The storage key names the semanticContent entry the vectors are written
+        # under. Only a key that differs from the model's default is fingerprinted,
+        # so default-key hashes recorded before this field stay valid; a custom key
+        # re-embeds once after upgrading (see breaking-changes.md).
+        if target is not None and target.model_embedding_key != model_storage_key(
+            target.model_id
+        ):
+            fingerprint["embedding_model_key"] = target.model_embedding_key
         return fingerprint
-
-    @staticmethod
-    def _resolve_embed_text(contents: Dict[str, Any]) -> str:
-        """Resolve the text to embed from a contents dict.
-
-        `semanticText` overrides `text` as the embedding source when present, so
-        a curated representation can drive retrieval while the full body stays in
-        `text`. The override lives in the standalone `semanticText` aspect: batch
-        mode still receives it under `contents` because the GraphQL surface maps
-        the aspect there, and event mode injects it into the dict before calling
-        this. Resolving here (rather than in the hash) means the content hash
-        tracks the embedded value: editing `semanticText` re-embeds, and a change
-        to `text` while `semanticText` is set does not.
-
-        A blank override counts as missing. `or` already handles `""`, but a
-        whitespace-only value is truthy, so it would win, and the callers'
-        `if not text` check does not catch it either. The document would then be
-        embedded as whitespace and could not be found, while a good body sat
-        unused in `text`. Only the emptiness check strips; the value itself is
-        returned as-is, so existing content hashes do not change.
-        """
-        semantic_text = contents.get("semanticText") or ""
-        if semantic_text.strip():
-            return semantic_text
-        text = contents.get("text") or ""
-        return text if text.strip() else ""
 
     def _calculate_text_hash(self, text: str) -> str:
         """Calculate hash of document content AND processing configuration.
@@ -1588,8 +1647,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         empty documents are always skipped, but skip_empty_text=False keeps
         short-but-non-empty documents embeddable regardless of min_text_length.
         """
-        return not text or (
-            self.config.skip_empty_text and len(text) < self.config.min_text_length
+        return is_below_embed_minimum(
+            text,
+            min_text_length=self.config.min_text_length,
+            skip_empty_text=self.config.skip_empty_text,
         )
 
     def _update_document_state(self, document_urn: str, text: str) -> None:
@@ -1772,6 +1833,41 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 source_text_sha256=compute_source_text_sha256(text),
             )
 
+        except ServerEmbeddingRunError:
+            raise
+        except PartitionTimeoutError:
+            document_urn = doc.get("urn", "unknown")
+            self.report.report_partition_timeout()
+            self.report.warning(
+                title="Document partitioning timed out",
+                message="Partitioning exceeded partition_timeout_seconds, so the document "
+                f"was skipped (limit {self.config.partition_timeout_seconds:g}s of CPU "
+                "time). With incremental processing on, it is not retried until its "
+                "content changes.",
+                context=document_urn,
+            )
+            # The marker drops this pipeline's embeddings, which were built from an
+            # earlier version of the text; leaving them would keep search matching
+            # content the document no longer has.
+            try:
+                marker = self.chunking_source.build_skip_marker_workunit(
+                    document_urn, PARTITION_TIMEOUT_SKIP_REASON
+                )
+            except Exception as e:
+                self.report.report_document_failed()
+                self.report.warning(
+                    title="Failed to mark timed-out document",
+                    message="Could not write the partition-timeout skip marker; the "
+                    "document is retried next run.",
+                    context=document_urn,
+                    exc=e,
+                )
+                return False
+            yield marker
+            # Deterministic for this text, so return True: incremental state records the
+            # hash and the document is not retried (and does not cost another full time
+            # limit every run) until its content changes.
+            return True
         except Exception as e:
             if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True
@@ -1820,9 +1916,15 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     def close(self) -> None:
         """Cleanup resources."""
-        if self.config.incremental.enabled:
-            self._save_state()
-        # Safety net: release the lock if the work generator was never fully consumed.
-        if self.lock is not None:
-            self.lock.release()
-        super().close()
+        try:
+            self.chunking_source.close()
+        finally:
+            try:
+                if self.config.incremental.enabled:
+                    self._save_state()
+            finally:
+                # Safety net: release the lock if the work generator was never
+                # fully consumed, even when teardown above raised.
+                if self.lock is not None:
+                    self.lock.release()
+                super().close()

@@ -1,5 +1,7 @@
 export type GraphCardProps = {
     title: string;
+    /** Optional element rendered beside the title (e.g. a badge or info tooltip icon). */
+    titlePill?: React.ReactNode;
     subTitle?: string | React.ReactNode;
     loading?: boolean;
     graphHeight?: string;

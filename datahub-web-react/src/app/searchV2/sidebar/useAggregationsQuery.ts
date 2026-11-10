@@ -1,4 +1,4 @@
-import { GLOSSARY_ENTITY_TYPES } from '@app/entity/shared/constants';
+import { GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
 import { MAX_AGGREGATION_VALUES } from '@app/searchV2/sidebar/constants';
 import { useSidebarFilters } from '@app/searchV2/sidebar/useSidebarFilters';
 import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';

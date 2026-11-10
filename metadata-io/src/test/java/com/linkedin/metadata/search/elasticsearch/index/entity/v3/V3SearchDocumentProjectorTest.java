@@ -32,17 +32,24 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.service.RetryableIndexingException;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.schema.EditableSchemaFieldInfo;
+import com.linkedin.schema.EditableSchemaFieldInfoArray;
+import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateProperties;
 import io.datahubproject.metadata.context.OperationContext;
@@ -66,6 +73,7 @@ public class V3SearchDocumentProjectorTest {
   @Mock private RecordTemplate aspect;
   @Mock private RecordTemplate previousAspect;
   @Mock private AuditStamp auditStamp;
+  @Mock private SystemAspect systemAspect;
 
   private OperationContext opContext;
   private V3SearchDocumentProjector projector;
@@ -90,6 +98,7 @@ public class V3SearchDocumentProjectorTest {
     when(aspectSpec.getSearchableFieldSpecs()).thenReturn(List.of());
     when(entitySpec.getName()).thenReturn("dataset");
     when(entitySpec.getKeyAspectName()).thenReturn("datasetKey");
+    when(entitySpec.getSearchGroup()).thenReturn("primary");
     when(auditStamp.getTime()).thenReturn(123L);
   }
 
@@ -163,8 +172,9 @@ public class V3SearchDocumentProjectorTest {
 
     V3SearchDocumentProjector.ProjectedAspect fieldProjection =
         realProjector.projectAspect(opContext, event).orElseThrow();
-    assertFalse(fieldProjection.aspectFields().has("parent__urn_name"));
-    assertFalse(fieldProjection.rootFields().path("parent").isNull());
+    assertEquals(
+        fieldProjection.aspectFields().get("parent__urn_name").get(0).asText(), "sales.orders");
+    assertTrue(fieldProjection.rootFields().get("parent").isNull());
     assertEquals(fieldProjection.rootFields().get("urn_name").asText(), "order_id");
   }
 
@@ -304,6 +314,19 @@ public class V3SearchDocumentProjectorTest {
   }
 
   @Test
+  public void testProjectAspectRedeliversAFailedAspectRead() throws Exception {
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), eq(aspect), eq(aspectSpec), eq(false), eq(auditStamp)))
+        .thenThrow(new RemoteInvocationException("gms unavailable"));
+
+    RetryableIndexingException exception =
+        expectThrows(
+            RetryableIndexingException.class, () -> projector.projectAspect(opContext, event));
+    assertTrue(exception.getCause() instanceof RemoteInvocationException);
+  }
+
+  @Test
   public void testProjectAspectReturnsEmptyForValidNoProjectionAspect() throws Exception {
     when(event.getPreviousRecordTemplate()).thenReturn(null);
     when(searchDocumentTransformer.transformAspect(
@@ -311,6 +334,38 @@ public class V3SearchDocumentProjectorTest {
         .thenReturn(Optional.empty());
 
     assertTrue(projector.projectAspect(opContext, event).isEmpty());
+  }
+
+  @Test
+  public void testProjectSystemAspectPropagatesTransformerFailure() throws Exception {
+    when(systemAspect.getRecordTemplate()).thenReturn(aspect);
+    when(systemAspect.getAspectSpec()).thenReturn(aspectSpec);
+    when(systemAspect.getUrn()).thenReturn(urn);
+    when(systemAspect.getAuditStamp()).thenReturn(auditStamp);
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), eq(aspect), eq(aspectSpec), eq(false), eq(auditStamp)))
+        .thenThrow(new IllegalStateException("stored transform failed"));
+
+    assertThrows(
+        IllegalStateException.class, () -> projector.projectSystemAspect(opContext, systemAspect));
+  }
+
+  @Test
+  public void testProjectSystemAspectRejectsMissingAspectSpec() {
+    when(systemAspect.getRecordTemplate()).thenReturn(aspect);
+    when(systemAspect.getAspectSpec()).thenReturn(null);
+
+    assertThrows(
+        IllegalStateException.class, () -> projector.projectSystemAspect(opContext, systemAspect));
+  }
+
+  @Test
+  public void testProjectSystemAspectRejectsMissingRecordTemplate() {
+    when(systemAspect.getRecordTemplate()).thenReturn(null);
+    when(systemAspect.getAspectSpec()).thenReturn(aspectSpec);
+
+    assertThrows(
+        IllegalStateException.class, () -> projector.projectSystemAspect(opContext, systemAspect));
   }
 
   @Test
@@ -334,6 +389,16 @@ public class V3SearchDocumentProjectorTest {
         expectThrows(
             IllegalStateException.class, () -> projector.projectAspect(failingContext, event));
     assertTrue(exception.getCause() instanceof JsonProcessingException);
+  }
+
+  @Test
+  public void testTombstoneDocumentMarksRemovedEntity() {
+    ObjectNode tombstone = projector.newTombstoneDocument(urn, entitySpec);
+
+    assertEquals(tombstone.get("urn").asText(), urn.toString());
+    assertEquals(tombstone.get("_entityType").asText(), "dataset");
+    assertTrue(tombstone.get("removed").asBoolean());
+    assertTrue(tombstone.get("_v3Tombstone").asBoolean());
   }
 
   @Test
@@ -402,27 +467,262 @@ public class V3SearchDocumentProjectorTest {
   }
 
   @Test
-  public void testSemanticContentStaysUnderAspects() throws Exception {
+  public void testSemanticContentSkipsRootEmbeddingsForEntityWithoutSemanticSearch()
+      throws Exception {
+    when(entitySpec.getSearchGroup()).thenReturn("default");
     when(aspectSpec.getName()).thenReturn("semanticContent");
     when(event.getPreviousRecordTemplate()).thenReturn(null);
-    ObjectNode currentDocument = JsonNodeFactory.instance.objectNode();
-    currentDocument.put("urn", urn.toString());
-    currentDocument.set("embeddings", JsonNodeFactory.instance.objectNode());
-    currentDocument.put("skipReason", "EMPTY_TEXT");
+    ObjectNode semanticDocument = semanticContentSearchDocument();
+
     when(searchDocumentTransformer.transformAspect(
             eq(opContext), eq(urn), eq(aspect), eq(aspectSpec), eq(false), eq(auditStamp)))
-        .thenReturn(Optional.of(currentDocument));
+        .thenReturn(Optional.of(semanticDocument));
 
+    V3SearchDocumentProjector.ProjectedAspect projectedAspect =
+        projector.projectAspect(opContext, event).orElseThrow();
     ObjectNode document = projector.newEntityDocument(urn, entitySpec);
-    projector.applyProjection(document, projector.projectAspect(opContext, event).orElseThrow());
+    projector.applyProjection(document, projectedAspect);
 
-    // The strategy lifts vectors to the root only for semantic-enabled entities
+    assertTrue(projectedAspect.rootOnly());
+    assertFalse(projectedAspect.rootFields().has("embeddings"));
+    assertFalse(projectedAspect.aspectFields().has("embeddings"));
     assertFalse(document.has("embeddings"));
-    assertFalse(document.has("skipReason"));
-    ObjectNode aspectNode =
-        (ObjectNode) document.get(MappingConstants.ASPECTS_FIELD_NAME).get("semanticContent");
-    assertTrue(aspectNode.has("embeddings"));
-    assertEquals(aspectNode.get("skipReason").asText(), "EMPTY_TEXT");
+    assertFalse(document.has(MappingConstants.ASPECTS_FIELD_NAME));
+  }
+
+  @Test
+  public void testSemanticContentProjectsRootEmbeddingsWhenEnabledOnPrimary() throws Exception {
+    projector = new V3SearchDocumentProjector(searchDocumentTransformer, true);
+    when(aspectSpec.getName()).thenReturn("semanticContent");
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    ObjectNode semanticDocument = semanticContentSearchDocument();
+
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), eq(aspect), eq(aspectSpec), eq(false), eq(auditStamp)))
+        .thenReturn(Optional.of(semanticDocument));
+
+    V3SearchDocumentProjector.ProjectedAspect projectedAspect =
+        projector.projectAspect(opContext, event).orElseThrow();
+    ObjectNode document = projector.newEntityDocument(urn, entitySpec);
+    projector.applyProjection(document, projectedAspect);
+
+    assertTrue(projectedAspect.rootOnly());
+    assertTrue(projectedAspect.rootFields().has("embeddings"));
+    assertFalse(projectedAspect.aspectFields().has("embeddings"));
+    assertTrue(document.has("embeddings"));
+    assertFalse(document.has(MappingConstants.ASPECTS_FIELD_NAME));
+  }
+
+  @Test
+  public void testSemanticContentProjectsRootEmbeddingsForNonPrimarySemanticEntity()
+      throws Exception {
+    projector =
+        new V3SearchDocumentProjector(searchDocumentTransformer, true, Map.of(), Set.of("dataset"));
+    when(entitySpec.getSearchGroup()).thenReturn("dataset");
+    when(aspectSpec.getName()).thenReturn("semanticContent");
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    ObjectNode semanticDocument = semanticContentSearchDocument();
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), eq(aspect), eq(aspectSpec), eq(false), eq(auditStamp)))
+        .thenReturn(Optional.of(semanticDocument));
+
+    V3SearchDocumentProjector.ProjectedAspect projectedAspect =
+        projector.projectAspect(opContext, event).orElseThrow();
+
+    assertTrue(projectedAspect.rootFields().has("embeddings"));
+  }
+
+  @Test
+  public void testSemanticContentDropsVectorWithWrongConfiguredDimension() throws Exception {
+    projector =
+        new V3SearchDocumentProjector(
+            searchDocumentTransformer, true, Map.of("test_model", 2), Set.of());
+    when(aspectSpec.getName()).thenReturn("semanticContent");
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    ObjectNode semanticDocument = semanticContentSearchDocument();
+    ((ObjectNode) semanticDocument.path("embeddings").path("test_model").path("chunks").get(0))
+        .set("vector", JsonNodeFactory.instance.arrayNode().add(0.1));
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), eq(aspect), eq(aspectSpec), eq(false), eq(auditStamp)))
+        .thenReturn(Optional.of(semanticDocument));
+
+    // Bad vectors must not fail the write (poison pill); the model is dropped and the
+    // lexical document still projects.
+    V3SearchDocumentProjector.ProjectedAspect projected =
+        projector.projectAspect(opContext, event).orElseThrow();
+    assertFalse(projected.rootFields().path("embeddings").has("test_model"));
+  }
+
+  @Test
+  public void testSemanticContentDropsOnlyMismatchedModelAndKeepsValidOne() throws Exception {
+    projector =
+        new V3SearchDocumentProjector(
+            searchDocumentTransformer, true, Map.of("test_model", 2, "second_model", 3), Set.of());
+    when(aspectSpec.getName()).thenReturn("semanticContent");
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    ObjectNode semanticDocument = semanticContentSearchDocument();
+    setVector(semanticDocument, "test_model", 0.1); // wrong: expects 2 dims
+    setVector(semanticDocument, "second_model", 0.3, 0.4, 0.5); // valid
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), eq(aspect), eq(aspectSpec), eq(false), eq(auditStamp)))
+        .thenReturn(Optional.of(semanticDocument));
+
+    V3SearchDocumentProjector.ProjectedAspect projected =
+        projector.projectAspect(opContext, event).orElseThrow();
+    assertFalse(projected.rootFields().path("embeddings").has("test_model"));
+    assertTrue(projected.rootFields().path("embeddings").has("second_model"));
+  }
+
+  @Test
+  public void testRepeatedDimensionMismatchStillDropsAfterLogDedup() throws Exception {
+    // The per-model rejection log is deduplicated, but every document carrying the bad model must
+    // still have it dropped — the dedup must gate only the log line, never the removal.
+    projector =
+        new V3SearchDocumentProjector(
+            searchDocumentTransformer, true, Map.of("test_model", 2), Set.of());
+    when(aspectSpec.getName()).thenReturn("semanticContent");
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    ObjectNode semanticDocument = semanticContentSearchDocument();
+    setVector(semanticDocument, "test_model", 0.1); // wrong: expects 2 dims
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), eq(aspect), eq(aspectSpec), eq(false), eq(auditStamp)))
+        .thenReturn(Optional.of(semanticDocument));
+
+    V3SearchDocumentProjector.ProjectedAspect first =
+        projector.projectAspect(opContext, event).orElseThrow();
+    V3SearchDocumentProjector.ProjectedAspect second =
+        projector.projectAspect(opContext, event).orElseThrow();
+
+    assertFalse(first.rootFields().path("embeddings").has("test_model"));
+    assertFalse(second.rootFields().path("embeddings").has("test_model"));
+  }
+
+  @Test
+  public void testSemanticContentExcludesRetiredModelVectorAndProjectsActiveModel()
+      throws Exception {
+    projector =
+        new V3SearchDocumentProjector(
+            searchDocumentTransformer, true, Map.of("test_model", 1), Set.of());
+    when(aspectSpec.getName()).thenReturn("semanticContent");
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    ObjectNode semanticDocument = semanticContentSearchDocument();
+    setVector(semanticDocument, "test_model", 0.1);
+    setVector(semanticDocument, "retired_model", 0.2);
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), eq(aspect), eq(aspectSpec), eq(false), eq(auditStamp)))
+        .thenReturn(Optional.of(semanticDocument));
+
+    V3SearchDocumentProjector.ProjectedAspect projected =
+        projector.projectAspect(opContext, event).orElseThrow();
+
+    assertTrue(projected.rootFields().path("embeddings").has("test_model"));
+    assertFalse(projected.rootFields().path("embeddings").has("retired_model"));
+  }
+
+  @Test
+  public void testSemanticContentAcceptsAllConfiguredModelDimensions() throws Exception {
+    projector =
+        new V3SearchDocumentProjector(
+            searchDocumentTransformer, true, Map.of("test_model", 2, "second_model", 3), Set.of());
+    when(aspectSpec.getName()).thenReturn("semanticContent");
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    ObjectNode semanticDocument = semanticContentSearchDocument();
+    setVector(semanticDocument, "test_model", 0.1, 0.2);
+    setVector(semanticDocument, "second_model", 0.3, 0.4, 0.5);
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), eq(aspect), eq(aspectSpec), eq(false), eq(auditStamp)))
+        .thenReturn(Optional.of(semanticDocument));
+
+    V3SearchDocumentProjector.ProjectedAspect projected =
+        projector.projectAspect(opContext, event).orElseThrow();
+
+    assertTrue(projected.rootFields().path("embeddings").has("test_model"));
+    assertTrue(projected.rootFields().path("embeddings").has("second_model"));
+  }
+
+  @Test
+  public void testSemanticContentSystemAspectProjectsRootEmbeddingsWhenEnabledOnPrimary()
+      throws Exception {
+    projector = new V3SearchDocumentProjector(searchDocumentTransformer, true);
+    when(aspectSpec.getName()).thenReturn("semanticContent");
+    when(systemAspect.getRecordTemplate()).thenReturn(aspect);
+    when(systemAspect.getAspectSpec()).thenReturn(aspectSpec);
+    when(systemAspect.getUrn()).thenReturn(urn);
+    when(systemAspect.getAuditStamp()).thenReturn(auditStamp);
+    when(systemAspect.getEntitySpec()).thenReturn(entitySpec);
+    when(systemAspect.getSystemMetadata()).thenReturn(new SystemMetadata().setRunId("run-1"));
+    ObjectNode semanticDocument = semanticContentSearchDocument();
+
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), eq(aspect), eq(aspectSpec), eq(false), eq(auditStamp)))
+        .thenReturn(Optional.of(semanticDocument));
+
+    V3SearchDocumentProjector.ProjectedAspect projectedAspect =
+        projector.projectSystemAspect(opContext, systemAspect).orElseThrow();
+    ObjectNode document = projector.newEntityDocument(urn, entitySpec);
+    projector.applyProjection(document, projectedAspect);
+
+    assertTrue(projectedAspect.rootOnly());
+    assertTrue(projectedAspect.rootFields().has("embeddings"));
+    assertFalse(projectedAspect.aspectFields().has("embeddings"));
+    assertTrue(document.has("embeddings"));
+    assertFalse(document.has(MappingConstants.ASPECTS_FIELD_NAME));
+  }
+
+  @Test
+  public void testSemanticContentSkipsRootEmbeddingsForNonPrimarySearchGroup() throws Exception {
+    projector = new V3SearchDocumentProjector(searchDocumentTransformer, true);
+    when(entitySpec.getSearchGroup()).thenReturn("default");
+    when(aspectSpec.getName()).thenReturn("semanticContent");
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    ObjectNode semanticDocument = semanticContentSearchDocument();
+
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), eq(aspect), eq(aspectSpec), eq(false), eq(auditStamp)))
+        .thenReturn(Optional.of(semanticDocument));
+
+    V3SearchDocumentProjector.ProjectedAspect projectedAspect =
+        projector.projectAspect(opContext, event).orElseThrow();
+    ObjectNode document = projector.newEntityDocument(urn, entitySpec);
+    projector.applyProjection(document, projectedAspect);
+
+    assertTrue(projectedAspect.rootOnly());
+    assertFalse(projectedAspect.rootFields().has("embeddings"));
+    assertFalse(projectedAspect.aspectFields().has("embeddings"));
+    assertFalse(document.has("embeddings"));
+    assertFalse(document.has(MappingConstants.ASPECTS_FIELD_NAME));
+  }
+
+  private ObjectNode semanticContentSearchDocument() {
+    ObjectNode document = JsonNodeFactory.instance.objectNode();
+    document.put("urn", urn.toString());
+    ObjectNode embeddings = JsonNodeFactory.instance.objectNode();
+    ObjectNode model = JsonNodeFactory.instance.objectNode();
+    model.set(
+        "chunks", JsonNodeFactory.instance.arrayNode().add(JsonNodeFactory.instance.objectNode()));
+    embeddings.set("test_model", model);
+    document.set("embeddings", embeddings);
+    return document;
+  }
+
+  private static void setVector(ObjectNode document, String modelKey, double... values) {
+    ObjectNode embeddings = (ObjectNode) document.path("embeddings");
+    ObjectNode model;
+    if (embeddings.has(modelKey)) {
+      model = (ObjectNode) embeddings.path(modelKey);
+    } else {
+      model = JsonNodeFactory.instance.objectNode();
+      model.set(
+          "chunks",
+          JsonNodeFactory.instance.arrayNode().add(JsonNodeFactory.instance.objectNode()));
+      embeddings.set(modelKey, model);
+    }
+    ObjectNode chunk = (ObjectNode) model.path("chunks").get(0);
+    var vector = JsonNodeFactory.instance.arrayNode();
+    for (double value : values) {
+      vector.add(value);
+    }
+    chunk.set("vector", vector);
   }
 
   @Test
@@ -488,6 +788,45 @@ public class V3SearchDocumentProjectorTest {
 
     assertFalse(projected.aspectFields().has("hasDescription"));
     assertTrue(projected.rootFields().get("hasDescription").isNull());
+  }
+
+  @Test
+  public void testInlineFieldDescriptionUsesTheDegreeOneBoolean() throws Exception {
+    V3SearchDocumentProjector realProjector = realProjector();
+    EntityRegistry registry = opContext.getEntityRegistry();
+    EntitySpec dataset = registry.getEntitySpec("dataset");
+    AspectSpec editableSchema = dataset.getAspectSpec("editableSchemaMetadata");
+    SearchableFieldSpec columnDescription =
+        editableSchema.getSearchableFieldSpecs().stream()
+            .filter(
+                spec ->
+                    "editedFieldDescriptions".equals(spec.getSearchableAnnotation().getFieldName()))
+            .findFirst()
+            .orElseThrow();
+    assertEquals(
+        columnDescription.getSearchableAnnotation().indexedHasValuesFieldName().orElseThrow(),
+        "hasDescription_1");
+
+    when(event.getEntitySpec()).thenReturn(dataset);
+    when(event.getAspectSpec()).thenReturn(editableSchema);
+    when(event.getAspectName()).thenReturn(editableSchema.getName());
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    EditableSchemaMetadata metadata =
+        new EditableSchemaMetadata()
+            .setEditableSchemaFieldInfo(
+                new EditableSchemaFieldInfoArray(
+                    new EditableSchemaFieldInfo()
+                        .setFieldPath("amount")
+                        .setDescription("Order amount")));
+    when(event.getRecordTemplate()).thenReturn(metadata);
+
+    V3SearchDocumentProjector.ProjectedAspect projected =
+        realProjector.projectAspect(opContext, event).orElseThrow();
+
+    assertTrue(projected.aspectFields().get("hasDescription").booleanValue());
+    assertTrue(projected.rootFields().get("hasDescription").isNull());
+    assertFalse(projected.aspectFields().has("hasDescription_1"));
+    assertFalse(projected.rootFields().has("hasDescription_1"));
   }
 
   @Test
@@ -672,6 +1011,35 @@ public class V3SearchDocumentProjectorTest {
     assertEquals(((Map<String, Object>) aspectMapping.get("apiVersion")).get("type"), "integer");
     assertEquals(((Map<String, Object>) aspectMapping.get("editable")).get("type"), "boolean");
     assertFalse(aspectMapping.containsKey("query"));
+  }
+
+  @Test
+  public void testStoredSearchTemplateBodySurvivesRebuild() throws Exception {
+    V3SearchDocumentProjector realProjector = realProjector();
+    EntityRegistry registry = opContext.getEntityRegistry();
+    EntitySpec entity = registry.getEntitySpec("searchTemplate");
+    AspectSpec aspect = entity.getAspectSpec("searchTemplateProperties");
+    SearchTemplateProperties properties = new SearchTemplateProperties();
+    properties.setName("Fulltext");
+    properties.setDialect(SearchTemplateDialect.ELASTICSEARCH);
+    properties.setQuery("{ \"match_all\": {} }");
+    SystemAspect stored = mock(SystemAspect.class);
+    when(stored.getRecordTemplate()).thenReturn(properties);
+    when(stored.getAspectSpec()).thenReturn(aspect);
+    when(stored.getUrn()).thenReturn(UrnUtils.getUrn("urn:li:searchTemplate:fulltext"));
+    when(stored.getEntitySpec()).thenReturn(entity);
+    when(stored.getAuditStamp()).thenReturn(null);
+    when(stored.getSystemMetadata()).thenReturn(null);
+
+    V3SearchDocumentProjector.ProjectedAspect projected =
+        realProjector.projectSystemAspect(opContext, stored).orElseThrow();
+    JsonNode storedJson =
+        opContext
+            .getObjectMapper()
+            .readTree(
+                projected.aspectFields().get(V3SearchDocumentProjector.ASPECT_JSON_FIELD).asText());
+    assertEquals(storedJson.get("query").asText(), "{ \"match_all\": {} }");
+    assertFalse(projected.rootFields().has(V3SearchDocumentProjector.ASPECT_JSON_FIELD));
   }
 
   private V3SearchDocumentProjector realProjector() {

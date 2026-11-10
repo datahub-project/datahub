@@ -78,6 +78,8 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteEntity;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -93,6 +95,7 @@ import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -113,6 +116,7 @@ import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
@@ -154,6 +158,8 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.action.explain.ExplainResponse;
+import org.opensearch.action.get.GetRequest;
+import org.opensearch.action.get.GetResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.GetMappingsRequest;
@@ -1159,48 +1165,34 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   /**
-   * Matched fields ("Matched on" in the UI) are opt-in. A shipped template names no highlight
-   * field, so a hit of the default query reports none.
+   * Highlighting is opt-in, but matched fields are not. The light query reads name and id, and the
+   * stored values that contain the query are reported with highlighting off. The exact name term is
+   * named {@code matchedField:name}, the same label the source scan already recorded, so it is not
+   * reported again with an empty value.
    */
   @Test
   public void testSearchReportsNoMatchedFieldsWithoutOptIn() {
     SearchEntity hit = onlyHit("customers", flags -> flags);
     assertEquals(hit.getEntity(), CUSTOMERS);
-    assertEquals(matchedFieldNames(hit), List.of());
+    assertCustomersQueriedFields(hit);
   }
 
   /**
-   * A request opts fields in for that call. Both the name and the description of this hit hold the
-   * query, and only the opted-in field is reported, with the value the document stores. Opting the
-   * name in reads every source of that label, which for a dataset includes the key id.
+   * Opting a field in adds it only when the query read it. This light query reads name and id, so
+   * description stays out. The dataset key {@code sales.customers} is reported as id because the
+   * query searched id and that stored value contains the query.
    */
   @Test
   public void testSearchReportsOptedInMatchedFields() {
-    SearchEntity byName = onlyHit("customers", optIn("name"));
-    assertEqualsNoOrder(
-        matchedFieldNames(byName).toArray(),
-        new String[] {"name", "id"},
-        byName.getMatchedFields().toString());
-    assertEquals(matchedFieldValue(byName, "name"), "customers");
-    assertEquals(matchedFieldValue(byName, "id"), "sales.customers");
-
-    SearchEntity byDescription = onlyHit("customers", optIn("description"));
-    assertEquals(
-        matchedFieldNames(byDescription),
-        List.of("description"),
-        byDescription.getMatchedFields().toString());
-    assertEquals(matchedFieldValue(byDescription, "description"), CUSTOMERS_DESCRIPTION);
-
-    SearchEntity both = onlyHit("customers", optIn("name", "description"));
-    assertEqualsNoOrder(
-        matchedFieldNames(both).toArray(),
-        new String[] {"name", "id", "description"},
-        both.getMatchedFields().toString());
+    assertCustomersQueriedFields(onlyHit("customers", optIn("name")));
+    assertCustomersQueriedFields(onlyHit("customers", optIn("description")));
+    assertCustomersQueriedFields(onlyHit("customers", optIn("name", "description")));
   }
 
   /**
    * A structured property is read where it is stored: {@code copy_to} fills the shared field the
-   * query reads, which {@code _source} does not hold.
+   * query reads, which {@code _source} does not hold. The property is reported because the query
+   * read it, including when the request opts in a different field.
    */
   @Test
   public void testSearchReportsOptedInStructuredPropertyMatchedFields() {
@@ -1210,11 +1202,16 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEquals(matchedFieldNames(withProperty), List.of(field));
     assertEquals(matchedFieldValue(withProperty, field), "nightjar");
 
-    // The query matched the property, not the name, so opting the name in reports nothing
-    assertEquals(matchedFieldNames(onlyHit("nightjar", optIn("name"))), List.of());
+    SearchEntity byName = onlyHit("nightjar", optIn("name"));
+    assertEquals(matchedFieldNames(byName), List.of(field), byName.getMatchedFields().toString());
+    assertEquals(matchedFieldValue(byName, field), "nightjar");
   }
 
-  /** A field the query does not read is dropped, as are an aspect path and a wildcard. */
+  /**
+   * A field the query does not read is not added. Owners, an aspect path, a wildcard, and a
+   * structured property whose value does not contain the query leave the queried-field report
+   * unchanged.
+   */
   @Test
   public void testSearchDropsMatchedFieldsTheQueryDoesNotRead() {
     for (String field :
@@ -1223,26 +1220,35 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             "_aspects.datasetProperties.name",
             "*",
             "structuredProperties." + HIDDEN_LABEL.getId())) {
-      assertEquals(matchedFieldNames(onlyHit("customers", optIn(field))), List.of(), field);
+      SearchEntity hit = onlyHit("customers", optIn(field));
+      assertFalse(matchedFieldNames(hit).contains(field), hit.getMatchedFields().toString());
+      assertCustomersQueriedFields(hit);
     }
   }
 
-  /** {@code skipHighlighting} clears the set a request opted in. */
+  /** {@code skipHighlighting} clears highlights. Fields the query read are still reported. */
   @Test
   public void testSkipHighlightingClearsOptedInMatchedFields() {
-    SearchEntity hit =
-        onlyHit("customers", flags -> optIn("name").apply(flags).setSkipHighlighting(true));
-    assertEquals(matchedFieldNames(hit), List.of());
+    assertCustomersQueriedFields(
+        onlyHit("customers", flags -> optIn("name").apply(flags).setSkipHighlighting(true)));
   }
 
-  /** {@code customHighlightingFields} replaces the set instead of adjusting it. */
+  /**
+   * {@code customHighlightingFields} replaces the highlight set. It does not drop fields the query
+   * read, and description is not among them for this light query.
+   */
   @Test
   public void testCustomHighlightingFieldsReplaceMatchedFields() {
-    SearchEntity hit =
+    assertCustomersQueriedFields(
         onlyHit(
             "customers",
-            flags -> optIn("name").apply(flags).setCustomHighlightingFields(names("description")));
-    assertEquals(matchedFieldNames(hit), List.of("description"));
+            flags -> optIn("name").apply(flags).setCustomHighlightingFields(names("description"))));
+  }
+
+  private static void assertCustomersQueriedFields(@Nonnull SearchEntity hit) {
+    assertEquals(matchedFieldNames(hit), List.of("name", "id"), hit.getMatchedFields().toString());
+    assertEquals(matchedFieldValue(hit, "name"), "customers");
+    assertEquals(matchedFieldValue(hit, "id"), "sales.customers");
   }
 
   @Nonnull
@@ -1549,6 +1555,54 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 10)
             .getEntities(),
         ORDERS_CHART);
+  }
+
+  /**
+   * The ingest poll is a star query plus one equality on {@code urn}. Both a dataset URN, with
+   * commas and parentheses, and a chart URN are returned, and each stored document has that same
+   * urn.
+   */
+  @Test
+  public void testStarQueryUrnEqualMatchesIndexedDocument() throws IOException {
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    CriterionUtils.buildConjunctiveCriterion(
+                        CriterionUtils.buildCriterion(
+                            "urn", Condition.EQUAL, ORDERS.toString(), ORDERS_CHART.toString()))));
+    assertUrns(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
+                ENTITY_TYPES,
+                "*",
+                filter,
+                null,
+                0,
+                10)
+            .getEntities(),
+        ORDERS,
+        ORDERS_CHART);
+
+    Sha256UrnEntityDocumentIdHasher hasher = new Sha256UrnEntityDocumentIdHasher();
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    for (Urn urn : List.of(ORDERS, ORDERS_CHART)) {
+      String index =
+          indexConvention.getEntityIndexNameV3(
+              opContext,
+              V3IndexKeys.resolve(
+                  opContext.getEntityRegistry().getEntitySpec(urn.getEntityType())));
+      GetResponse stored =
+          getSearchClient()
+              .getDocument(
+                  opContext,
+                  new GetRequest(index, hasher.documentId(opContext, urn)),
+                  RequestOptions.DEFAULT);
+      assertTrue(stored.isExists(), urn.toString());
+      assertEquals(stored.getSourceAsMap().get("urn"), urn.toString());
+      assertFalse(Boolean.TRUE.equals(stored.getSourceAsMap().get("removed")), urn.toString());
+    }
   }
 
   /**

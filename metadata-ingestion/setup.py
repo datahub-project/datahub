@@ -175,7 +175,9 @@ sqlglot_lib = {
     # the release when that happens, keep it here and set DATAHUB_SQLGLOT_DISABLE_C
     # to force pure-Python sqlglot at runtime (see
     # datahub/_force_pure_python_sqlglot.py).
-    "sqlglot[c]==30.12.0",
+    # 30.21.0 rewrote pushdown_projections to raise on unexpanded stars; see
+    # datahub/sql_parsing/_legacy_pushdown_projections.py for the fallback.
+    "sqlglot[c]==30.22.0",
 }
 
 dbt_common = {
@@ -222,7 +224,7 @@ aws_common = {
 
 path_spec_common = {
     "parse>=1.19.0,<2.0.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
 }
 
 looker_common = {
@@ -339,6 +341,7 @@ snowflake_common = {
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
+    *path_spec_common,
 }
 
 trino = {
@@ -439,6 +442,8 @@ file_profiling = {
     # cpc_sketch (distinct count) and kll_floats_sketch (approx median) give us
     # Deequ-equivalent approximate metrics without a JVM or pyspark/pydeequ.
     "datasketches>=5.0.0,<6.0.0",
+    # The profiler reads Avro files with fastavro.
+    "fastavro>=1.2.0,<2.0.0",
     # cachetools is used by the profiling config
     *cachetools_lib,
 }
@@ -478,6 +483,11 @@ databricks_common = {
     # connector 4.x split the SQLAlchemy dialect into a separate package; required so
     # create_engine("databricks://...") can load the dialect for SQLAlchemy profiling.
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
+    # The SQL connector returns tz-aware Arrow timestamps. pyarrow needs a tz database
+    # to convert them, and slim images have no system zoneinfo, so ship IANA data via
+    # tzdata (zoneinfo's fallback). 2022.7 matches the floor pandas uses. Versions are
+    # year-based and carry only data, so the cap is loose to avoid yearly bumps.
+    "tzdata>=2022.7,<2030",
 }
 
 databricks = {
@@ -765,17 +775,26 @@ plugins: Dict[str, Set[str]] = {
     # in the base install; JPype1/jdk4py bridge to the JDBC driver (no SQLAlchemy).
     "informix": sqlglot_lib | {"JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     "json-schema": {"requests<3.0.0"},
-    "kafka": kafka_common | kafka_protobuf,
+    # sqlglot_lib: Flink stream-processing lineage parses transform SQL for
+    # best-effort column-level lineage via datahub.sql_parsing.
+    "kafka": kafka_common | kafka_protobuf | sqlglot_lib,
     "kafka-connect": sql_common
     | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     # kafka_protobuf reused for Glue Schema Registry PROTOBUF support
     # (kinesis_schema_registry imports protobuf_util at module load).
     "kinesis": aws_common | kafka_protobuf,
+    "langfuse": {"requests<3.0.0"},
+    # Glue Schema Registry PROTOBUF schemas also need the kafka extra (grpc).
+    "sqs": aws_common,
+    "sns": aws_common,
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
     "metabase": {"requests<3.0.0"} | sqlglot_lib,
-    "microstrategy": {"requests<3.0.0"} | sqlglot_lib,
+    # usage_common: microstrategy emits no usage through it, but SQL-view lineage
+    # goes through create_lineage_from_sql_statements in sqlglot_lineage, which
+    # imports usage_common and so pulls sqlparse in via sql_formatter.
+    "microstrategy": {"requests<3.0.0"} | sqlglot_lib | usage_common,
     "mlflow": {
         "mlflow-skinny>=2.3.0,<2.21.0",
         # Pinned to avoid the breaking change introduced in MLflow 2.21.0 where search_registered_models injects an implicit filter
@@ -851,7 +870,7 @@ plugins: Dict[str, Set[str]] = {
     "snowplow": snowplow,
     # Floor at 0.235.2: first release pinning sqlglot~=30.8.0. Cap at <0.237 after
     # vetting 0.236. Excluded from the pyproject/uv lock and from the "all" extra
-    # because DataHub pins sqlglot[c]==30.12.0 and no released sqlmesh accepts that
+    # because DataHub pins sqlglot[c]==30.22.0 and no released sqlmesh accepts that
     # yet — install with ``pip install 'acryl-datahub[sqlmesh]'`` (setuptools path)
     # in a dedicated environment. Re-vet and restore to the lock when sqlmesh bumps.
     "sqlmesh": {"sqlmesh>=0.235.2,<0.237", *cachetools_lib}
@@ -964,7 +983,7 @@ all_exclude_plugins: Set[str] = {
     # Feast tends to have overly restrictive dependencies and hence doesn't
     # play nice with the "all" installation.
     "feast",
-    # SQLMesh pins sqlglot~=30.8.0; DataHub pins sqlglot[c]==30.12.0. Until
+    # SQLMesh pins sqlglot~=30.8.0; DataHub pins sqlglot[c]==30.22.0. Until
     # sqlmesh widens its pin, keep it out of "all" so lock resolution succeeds.
     "sqlmesh",
     # Debug recording is an optional debugging tool.
@@ -1109,6 +1128,8 @@ base_dev_requirements = {
             "sagemaker",
             "kafka",
             "kinesis",
+            "sqs",
+            "sns",
             "datahub-rest",
             "datahub-lite",
             "duckdb",
@@ -1267,6 +1288,9 @@ entry_points = {
         "kafka = datahub.ingestion.source.kafka.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
         "kinesis = datahub.ingestion.source.kinesis.kinesis:KinesisSource",
+        "langfuse = datahub.ingestion.source.langfuse.langfuse:LangfuseSource",
+        "sqs = datahub.ingestion.source.aws_messaging.sqs_source:SqsSource",
+        "sns = datahub.ingestion.source.aws_messaging.sns_source:SnsSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
