@@ -74,7 +74,7 @@ Requirements:
 
 ### Breaking Changes
 
-- **(Ingestion / GitHub documents)** OKF import is now off by default. The default-on behavior only shipped in 1.7.0.20 release candidates. Files, including their frontmatter, are imported as plain text unless you opt in. Server support is no longer detected automatically. **Action:** set `enable_okf: true` to import OKF concepts; this requires a DataHub server with the `okfProperties` aspect and fails the run if the server does not support it. Turning OKF off clears previously imported OKF metadata when a graph connection is available.
+- [#21159](https://github.com/datahub-project/datahub/pull/21159) **(Ingestion / GitHub documents)** OKF import is now off by default. The default-on behavior only shipped in 1.7.0.20 release candidates. Files, including their frontmatter, are imported as plain text unless you opt in. Server support is no longer detected automatically. **Action:** set `enable_okf: true` to import OKF concepts; this requires a DataHub server with the `okfProperties` aspect and fails the run if the server does not support it. Turning OKF off clears previously imported OKF metadata when a graph connection is available.
 
 - [#21077](https://github.com/datahub-project/datahub/pull/21077) **(Ingestion / Qlik Sense)** Tables in a Qlik app's data model, and tables read from an app's load script, now have the subtype `Qlik Table` instead of `Qlik Dataset`. Qlik Cloud catalog datasets, the data files stored in a space, keep `Qlik Dataset`. URNs, schemas and lineage are unchanged. **Action:** after the next Qlik Sense run, update any saved search, view or filter that uses the `Qlik Dataset` subtype to find app tables.
 
