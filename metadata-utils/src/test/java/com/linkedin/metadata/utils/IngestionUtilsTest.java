@@ -2,6 +2,7 @@ package com.linkedin.metadata.utils;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.testng.annotations.Test;
@@ -41,5 +42,24 @@ public class IngestionUtilsTest {
     assertEquals(
         recipe,
         "{\"source\":{\"type\":\"snowflake\",\"config\":{\"stateful_ingestion\":{\"enabled\":true}}},\"pipeline_name\":\"urn:li:ingestionSource:12345\"}");
+  }
+
+  // CVE-2026-59171: org.json before 20260719 parsed arbitrarily long numbers via BigInteger /
+  // BigDecimal in super-linear time. Newer releases keep numbers over 1,000 digits as strings.
+  @Test
+  public void injectPipelineNameWithHugeNumberIsFast() {
+    String hugeNumber = "1".repeat(200_000);
+    String recipe = "{\"source\":{\"type\":\"snowflake\",\"config\":{\"n\":" + hugeNumber + "}}}";
+
+    long start = System.nanoTime();
+    String result = IngestionUtils.injectPipelineName(recipe, ingestionSourceUrn);
+    long elapsedMs = (System.nanoTime() - start) / 1_000_000;
+
+    assertTrue(elapsedMs < 2_000, "injectPipelineName took " + elapsedMs + " ms");
+    assertEquals(
+        result,
+        "{\"source\":{\"type\":\"snowflake\",\"config\":{\"n\":\""
+            + hugeNumber
+            + "\"}},\"pipeline_name\":\"urn:li:ingestionSource:12345\"}");
   }
 }

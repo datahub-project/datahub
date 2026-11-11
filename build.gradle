@@ -337,7 +337,7 @@ project.ext.externalDependency = [
     'jsonPathImpl': 'org.eclipse.parsson:parsson:1.1.6',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
     'jsonSmart': 'net.minidev:json-smart:2.5.2',
-    'json': 'org.json:json:20231013',
+    'json': 'org.json:json:20260814',
     'jsonSchemaValidator': 'com.github.java-json-tools:json-schema-validator:2.2.14',
     'jjwtApi': "io.jsonwebtoken:jjwt-api:$jjwtVersion",
     'jjwtImpl': "io.jsonwebtoken:jjwt-impl:$jjwtVersion",
