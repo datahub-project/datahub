@@ -375,8 +375,18 @@ class Mapper:
             )
             return mcps
 
-        # Look up the Fabric artifact (Lakehouse/Warehouse) this dataset depends on
-        artifact = workspace.fabric_artifacts.get(dataset.dependent_on_artifact_id)
+        # Look up the Fabric artifact (Lakehouse/Warehouse) this dataset depends on.
+        # The id can come from TMDL text, whose GUID casing need not match the
+        # Fabric API's, so fall back to a case-insensitive match.
+        artifact_id = dataset.dependent_on_artifact_id
+        artifact = workspace.fabric_artifacts.get(artifact_id) or next(
+            (
+                candidate
+                for key, candidate in workspace.fabric_artifacts.items()
+                if key.casefold() == artifact_id.casefold()
+            ),
+            None,
+        )
         if not artifact:
             logger.debug(
                 f"Fabric artifact {dataset.dependent_on_artifact_id} not found "

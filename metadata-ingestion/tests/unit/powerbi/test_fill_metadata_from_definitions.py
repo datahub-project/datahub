@@ -478,6 +478,18 @@ def test_paginated_report_bound_through_rdl_definition() -> None:
     api._PowerBiAPI__regular_api_resolver.get_report_datasources.assert_not_called()  # type: ignore[attr-defined]
 
 
+def test_paginated_report_rdl_binding_matches_registry_regardless_of_case() -> None:
+    # The RDL's GUID casing need not match the REST API's dataset ids.
+    api = _api(definitions={"rdl-1": _rdl_definition(MODEL_A.lower())})
+    api.dataset_registry[MODEL_A] = _registered_dataset()
+    report = _paginated_report()
+
+    api._resolve_paginated_report_lineage(report, _workspace())
+
+    assert report.dataset_id == MODEL_A
+    assert report.dataset is not None
+
+
 def test_paginated_report_rdl_binding_to_unknown_dataset_is_reported() -> None:
     api = _api(definitions={"rdl-1": _rdl_definition(MODEL_B)})
     report = _paginated_report()

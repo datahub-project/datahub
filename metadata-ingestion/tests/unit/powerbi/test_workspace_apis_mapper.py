@@ -340,9 +340,10 @@ def test_directlake_lineage_merges_onelake_and_model_internal_edges() -> None:
     mapper = _mapper()
     policies, kpis = _directlake_tables()
     workspace = _workspace()
+    # The TMDL's artifact id ("lh-1") need not share the Fabric API's casing.
     workspace.fabric_artifacts = {
-        "lh-1": FabricArtifact(
-            id="lh-1", name="Lake", artifact_type="Lakehouse", workspace_id="ws-1"
+        "LH-1": FabricArtifact(
+            id="LH-1", name="Lake", artifact_type="Lakehouse", workspace_id="ws-1"
         )
     }
 

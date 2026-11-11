@@ -339,8 +339,22 @@ class PowerBiAPI:
         if self.__config.metadata_api_mode == PowerBiMetadataApiMode.WORKSPACE_APIS:
             bound_from_rdl = self._paginated_report_binding_from_rdl(report, workspace)
             if bound_from_rdl is not None:
-                report.dataset_id = bound_from_rdl
-                report.dataset = self.dataset_registry.get(bound_from_rdl)
+                # The RDL's GUID casing need not match the REST API's, which
+                # keys the registry; try the API's usual lowercase too.
+                registry_id = next(
+                    (
+                        candidate
+                        for candidate in (
+                            bound_from_rdl,
+                            bound_from_rdl.lower(),
+                            bound_from_rdl.upper(),
+                        )
+                        if candidate in self.dataset_registry
+                    ),
+                    bound_from_rdl,
+                )
+                report.dataset_id = registry_id
+                report.dataset = self.dataset_registry.get(registry_id)
                 if report.dataset is None:
                     self.reporter.info(
                         title="Missing Lineage For Paginated Report",
