@@ -109,7 +109,7 @@ class QlikAPI(QlikBaseAPI):
         try:
             dataset.stored_from_qris = [
                 qri
-                for table in self.get_table_lineage(dataset.secureQri)
+                for table in self.get_table_lineage(dataset.secureQri) or []
                 for qri in table.source_qris
             ]
         except Exception as e:
@@ -119,19 +119,28 @@ class QlikAPI(QlikBaseAPI):
             self.lineage_read_failures.append(f"{dataset_id}: {e}")
         return dataset
 
-    def get_table_lineage(self, qri: str) -> List[LineageTable]:
-        node = quote(qri, safe="")
+    def get_table_lineage(self, qri: str) -> Optional[List[LineageTable]]:
+        """The resource's tables with the tables they are loaded from, or None
+        when Qlik has no lineage graph for it (404)."""
+        encoded_qri = quote(qri, safe="")
         response = self.session.get(
-            f"{self.rest_api_url}/lineage-graphs/nodes/{node}/actions/expand?node={node}&level=TABLE"
+            f"{self.rest_api_url}/lineage-graphs/nodes/{encoded_qri}/actions/expand"
+            f"?node={encoded_qri}&level=TABLE"
         )
-        # Qlik has no lineage for a resource it has not loaded or stored yet.
+        # Qlik has no lineage for a resource it has not loaded or stored yet, or
+        # has not computed it since.
         if response.status_code == 404:
-            return []
+            return None
         response.raise_for_status()
-        graph = response.json()[Constant.GRAPH]
+        graph = response.json().get(Constant.GRAPH)
+        if graph is None:
+            raise ValueError(f"Lineage graph response for {qri} has no graph")
+        # Only the resource's own tables: neighbouring nodes would otherwise be
+        # read as its tables, and their sources as its sources.
         tables = {
             table_qri: LineageTable(qri=table_qri, label=node.get(Constant.LABEL) or "")
             for table_qri, node in (graph.get(Constant.NODES) or {}).items()
+            if table_qri.startswith(f"{qri}#")
         }
         for edge in graph.get(Constant.EDGES) or []:
             table = tables.get(edge.get(Constant.TARGET))
@@ -325,11 +334,13 @@ class QlikAPI(QlikBaseAPI):
             app.sheets = self._get_app_sheets(websocket_connection, app_id, errors)
             read_errors = len(errors.messages)
             app.tables = self._get_app_used_tables(websocket_connection, app_id, errors)
-            if not app.tables:
+            if not app.tables and len(errors.messages) == read_errors:
                 # Script-built apps have no data model, but Qlik still traces
                 # their tables, including QVDs they load.
                 try:
-                    app.lineage_tables = self.get_table_lineage(app.qri)
+                    lineage_tables = self.get_table_lineage(app.qri)
+                    app.lineage_graph_missing = lineage_tables is None
+                    app.lineage_tables = lineage_tables or []
                 except Exception as e:
                     errors.record(
                         f"Unable to fetch table lineage of app {app_id}. Exception: {e}"

@@ -22,6 +22,9 @@ class AppCheckpoint(BaseModel):
     # Consecutive runs in which the app was only partly read and these URNs,
     # from its last complete read, were kept instead.
     partial_reads: int = 0
+    # Table QRI -> dataset URN of the app's tables, so datasets an app kept from
+    # its last read stores into still link to them. None in older state.
+    table_urns_by_qri: Optional[Dict[str, str]] = None
 
 
 class QlikAppCheckpointState(CheckpointStateBase):
