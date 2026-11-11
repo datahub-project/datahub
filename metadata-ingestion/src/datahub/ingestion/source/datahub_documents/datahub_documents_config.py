@@ -8,6 +8,9 @@ from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.datahub_documents.document_chunking_state_handler import (
     DocumentChunkingStatefulIngestionConfig,
 )
+from datahub.ingestion.source.datahub_documents.text_partitioner import (
+    DEFAULT_PARTITION_TIMEOUT_SECONDS,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
@@ -148,6 +151,19 @@ class DataHubDocumentsSourceConfig(
     min_text_length: int = Field(
         default=50,
         description="Minimum text length in characters to process (shorter documents are skipped)",
+    )
+    partition_timeout_seconds: float = Field(
+        default=DEFAULT_PARTITION_TIMEOUT_SECONDS,
+        ge=0,
+        allow_inf_nan=False,
+        description="Maximum CPU seconds to partition one document; slower documents are "
+        "skipped and counted in the report. Measured as CPU time rather than wall-clock "
+        "time, so a busy or throttled executor does not cause timeouts; time spent "
+        "waiting (e.g. on I/O or locks) is not limited. 0 disables the "
+        "limit. Only enforced when the source runs "
+        "on the main thread of a POSIX platform. Documents that already timed out are not "
+        "retried after the limit is raised until their content changes; run once with "
+        "incremental.force_reprocess: true to retry them (this re-embeds every document).",
     )
     # Override from base class to enable stateful ingestion by default
     # This ensures stateful ingestion is always available for:

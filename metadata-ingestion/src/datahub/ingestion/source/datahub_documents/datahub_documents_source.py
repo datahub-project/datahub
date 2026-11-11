@@ -35,7 +35,10 @@ from datahub.ingestion.source.datahub_documents.datahub_documents_config import 
 from datahub.ingestion.source.datahub_documents.document_chunking_state_handler import (
     DocumentChunkingStateHandler,
 )
-from datahub.ingestion.source.datahub_documents.text_partitioner import TextPartitioner
+from datahub.ingestion.source.datahub_documents.text_partitioner import (
+    PartitionTimeoutError,
+    TextPartitioner,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfig,
     StatefulIngestionConfigBase,
@@ -66,6 +69,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     num_documents_skipped: int = 0
     num_documents_skipped_unchanged: int = 0
     num_documents_skipped_empty: int = 0
+    num_documents_partition_timeout: int = 0
     num_chunks_created: int = 0
     num_embeddings_generated: int = 0
     num_embedding_failures: int = 0
@@ -90,6 +94,10 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     def report_document_skipped_empty(self) -> None:
         """Report document skipped due to empty or too-short text."""
         self.num_documents_skipped_empty += 1
+
+    def report_partition_timeout(self) -> None:
+        """Report a document skipped because partitioning exceeded the time limit."""
+        self.num_documents_partition_timeout += 1
 
     def report_embeddings_generated(self, count: int) -> None:
         self.num_embeddings_generated += count
@@ -158,7 +166,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             self.graph = DataHubGraph(config=graph_config)
 
         # Initialize text partitioner
-        self.text_partitioner = TextPartitioner()
+        self.text_partitioner = TextPartitioner(
+            timeout_seconds=self.config.partition_timeout_seconds
+        )
 
         # Initialize chunking/embedding sub-component (same pattern as NotionSource)
         chunking_config = DocumentChunkingSourceConfig(
@@ -1048,6 +1058,19 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 document_urn=document_urn, elements=elements
             )
 
+        except PartitionTimeoutError:
+            # PartitionTimeoutError derives from BaseException, so it must be caught by
+            # name here. The caller still records the document's hash, so it is not
+            # retried until its content changes. This release line has no
+            # semanticContent skip marker, so any earlier embeddings are left in place.
+            self.report.report_partition_timeout()
+            self.report.warning(
+                title="Document partitioning timed out",
+                message="Partitioning exceeded partition_timeout_seconds, so the document "
+                f"was skipped (limit {self.config.partition_timeout_seconds:g}s of CPU "
+                "time).",
+                context=doc.get("urn", "unknown"),
+            )
         except Exception as e:
             if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True
