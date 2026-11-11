@@ -1064,6 +1064,30 @@ def _strip_expansions(expression: str) -> str:
     return "".join(kept)
 
 
+_VARIABLE_EXPANSION_RE = re.compile(r"\$\(([^()=$]+)\)")
+
+
+def expand_variables(expression: str, variables: Dict[str, str]) -> str:
+    """Expands $(name) with the variable's definition, as Qlik does when the
+    definition is plain text. A definition starting with = expands to its
+    calculated value, and an unknown or parameterised variable is left as is."""
+    for _ in range(10):  # Bounded, as a variable can expand to itself.
+
+        def definition(match: "re.Match[str]") -> str:
+            value = variables.get(match.group(1).strip())
+            return (
+                match.group(0)
+                if value is None or value.lstrip().startswith("=")
+                else value
+            )
+
+        expanded = _VARIABLE_EXPANSION_RE.sub(definition, expression)
+        if expanded == expression:
+            break
+        expression = expanded
+    return expression
+
+
 def reads_unknown_fields(expression: str) -> bool:
     """Whether a $(variable) expansion outside comments and set modifier values
     may stand for fields the expression reads."""
