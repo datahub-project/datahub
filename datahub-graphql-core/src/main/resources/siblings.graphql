@@ -60,9 +60,10 @@ A member of a sibling group
 """
 type SiblingMember {
   """
-  The member dataset
+  The member dataset. Null when it couldn't be loaded, so one member that fails doesn't fail the
+  whole response; clients should skip such members.
   """
-  entity: Entity!
+  entity: Entity
 
   """
   Whether the member's siblings aspect marks it as the group's primary
