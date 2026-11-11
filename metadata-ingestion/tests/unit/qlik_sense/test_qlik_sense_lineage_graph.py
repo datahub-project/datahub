@@ -638,3 +638,28 @@ def test_column_lineage_uses_the_data_model_spelling(mock_api_cls: MagicMock) ->
         "code": ["u2"],
         "other": ["u3"],
     }
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_files_qlik_catalogued_on_a_connection_are_sources(
+    mock_api_cls: MagicMock,
+) -> None:
+    adls_file = "qri:file:adls://Conn#File"
+    mock_api_cls.return_value.list_datasets.return_value = [
+        ListedDataset(space_id="space-1", name="prices.qvd", secure_qri=adls_file)
+    ]
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    source._allowed_space_ids = {"space-1"}
+
+    resolved = source._resolve_lineage_sources(
+        [f"{adls_file}#Tbl", "qri:db:databricks://Opaque#Table#Tbl"],
+        _urn("etl-app.curve"),
+        own_app_id="etl-app",
+    )
+
+    # A database table Qlik did not catalogue is left to the load script parser.
+    assert resolved.urns == [_urn("space-1.prices.qvd")]
+    assert resolved.complete

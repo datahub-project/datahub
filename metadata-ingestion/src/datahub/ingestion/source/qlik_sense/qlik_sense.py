@@ -88,6 +88,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     brackets_to_backticks,
     connection_lookup_names,
     drop_condition_variables,
+    expand_variables,
     expression_names,
     has_qualified_name,
     infer_data_connection,
@@ -172,7 +173,6 @@ class _PartialRead(StrEnum):
 ENTITY_CHECK_BATCH_SIZE = 100
 
 # Lineage graph QRIs of Qlik dataset tables, `<dataset secureQri>#<table>`.
-QLIK_DATASET_QRI_PREFIX = "qri:qdf:"
 QLIK_APP_QRI_PREFIX = "qri:app:sense://"
 QVD_EXTENSION = ".qvd"
 
@@ -821,11 +821,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         input_tables_urns: List[str],
         has_unknown_schema: bool,
     ) -> List[str]:
-        # The fields behind a $(variable) expansion are unknown, so the chart
-        # may read any of the app's tables, as may a measure that could not be
-        # read, a derived field such as Date.autoCalendar.Year whose base field
-        # is not known, or a name that is not a known field while some table's
-        # columns are unknown (e.g. SELECT *). Set modifier values only filter.
+        # The fields behind a $(variable) expansion that could not be expanded
+        # are unknown, so the chart may read any of the app's tables, as may a
+        # measure that could not be read, a derived field such as
+        # Date.autoCalendar.Year whose base field is not known, or a name that
+        # is not a known field while some table's columns are unknown (e.g.
+        # SELECT *). Set modifier values only filter.
         unmatched = [
             name
             for expression in chart.field_expressions
@@ -839,10 +840,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             or (has_unknown_schema and unmatched)
         ):
             return input_tables_urns
-        return (
-            list(dict.fromkeys(field.dataset_urn for field in chart_fields))
-            or input_tables_urns
-        )
+        # Otherwise every name is known: a chart that reads no field of the
+        # app, such as a text object, has no input table.
+        return list(dict.fromkeys(field.dataset_urn for field in chart_fields))
 
     @staticmethod
     def _index_app_fields(
@@ -934,6 +934,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if self.config.ingest_owner and owner_username:
                 yield self._gen_entity_owner_aspect(dashboard_urn, owner_username)
 
+            for chart in sheet.charts:
+                chart.field_expressions = [
+                    expand_variables(expression, app.variables)
+                    for expression in chart.field_expressions
+                ]
             yield from self._gen_charts_workunit(
                 sheet.charts,
                 input_tables_urns,
@@ -1455,13 +1460,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         result incomplete. With `own_app_id`, only that app's tables are linked."""
         resolved = _ResolvedSources()
         for source_qri in source_qris:
-            if source_qri.startswith(QLIK_DATASET_QRI_PREFIX):
-                datasets = self._dataset_urns_by_secure_qri
-                if datasets is None:
-                    resolved.complete = False
-                    continue
-                urn = datasets.get(source_qri.rpartition("#")[0])
-            elif source_qri.startswith(QLIK_APP_QRI_PREFIX):
+            if source_qri.startswith(QLIK_APP_QRI_PREFIX):
                 app_id = source_qri[len(QLIK_APP_QRI_PREFIX) :].partition("#")[0]
                 if own_app_id is not None and app_id != own_app_id:
                     continue
@@ -1470,9 +1469,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     continue
                 urn = self._app_table_urns_by_qri.get(source_qri)
             else:
-                # Database table QRIs are opaque hashes; the load script parser
-                # traces SQL loads instead.
-                continue
+                # Data files, and files Qlik catalogued on a data connection
+                # such as ADLS, are datasets. Other sources, such as database
+                # tables, have opaque QRIs; the load script parser traces SQL
+                # loads instead.
+                datasets = self._dataset_urns_by_secure_qri
+                if datasets is None:
+                    resolved.complete = False
+                    continue
+                urn = datasets.get(source_qri.rpartition("#")[0])
             if urn and urn != dataset_urn and urn not in resolved.urns:
                 resolved.urns.append(urn)
         return resolved
