@@ -117,6 +117,8 @@ _IN_SALES = ["Orders", "weather.csv"]
         ([r"^My_Source($|\..*)"], [], _IN_SALES),
         ([r"^Other($|\..*)"], [], []),
         ([".*"], [r"^My_Source\.Sales$"], ["orders_vw", "other"]),
+        # Allow and deny together: the deny carves the sibling out of the allow.
+        ([r"^My_Source"], [r"^My_SourceB"], _IN_SALES),
         # A pattern that names the dataset is not a schema match.
         ([r"^Analytics\.orders_vw$"], [], []),
         # Breaking changes documented for this fix: "\..*" no longer reaches

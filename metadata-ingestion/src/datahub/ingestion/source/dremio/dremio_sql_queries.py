@@ -1,6 +1,6 @@
 import re
 from datetime import datetime, timedelta
-from typing import Optional, Sequence
+from typing import List, Optional
 
 
 class DremioSQLQueries:
@@ -326,11 +326,10 @@ class DremioSQLQueries:
         """
 
     # Normalized schema field: Dremio's "[a, b]" path format flattened to dotted
-    # text, UPPER()-ed: pattern_condition upper-cases non-ASCII pattern letters to match it.
+    # text. pattern_condition matches it case-insensitively.
     SCHEMA_FILTER_FIELD = "CONCAT(REPLACE(REPLACE(REPLACE(UPPER(TABLE_SCHEMA), ', ', '.'), '[', ''), ']', ''))"
 
     # Enterprise/Cloud FULL_TABLE_PATH ends with the dataset name; cut it to the schema path.
-    # UPPER()-ed: pattern_condition upper-cases non-ASCII pattern letters to match it.
     SYS_SCHEMA_FILTER_FIELD = (
         "UPPER(SUBSTR(FULL_TABLE_PATH, 1, "
         "LENGTH(FULL_TABLE_PATH) - LENGTH(TABLE_NAME) - 1))"
@@ -340,17 +339,13 @@ class DremioSQLQueries:
     def _upper_non_ascii(pattern: str) -> str:
         # Java's `(?i)` without `u` folds ASCII letters only, and `u` is not used
         # (see pattern_condition), so non-ASCII letters are upper-cased to match
-        # the UPPER()-ed field. Escapes and inline flags are ASCII and stay as written.
+        # the field. The schema fields must therefore stay UPPER()-ed. Escapes
+        # and inline flags are ASCII and stay as written.
         return "".join(c if c.isascii() else c.upper() for c in pattern)
 
     @staticmethod
-    def pattern_condition(
-        patterns: Sequence[str], field: str, allow: bool = True
-    ) -> str:
-        """Build an `AND [NOT] REGEXP_LIKE(field, '...')` schema-pattern predicate.
-
-        `field` must be UPPER()-ed; see `_upper_non_ascii`.
-        """
+    def pattern_condition(patterns: List[str], field: str, allow: bool = True) -> str:
+        """Build an `AND [NOT] REGEXP_LIKE(field, '...')` schema-pattern predicate."""
         if not patterns:
             return ""
 
@@ -365,8 +360,10 @@ class DremioSQLQueries:
         # the schema path, as it does there. Uppercasing the whole pattern
         # would also uppercase escapes (\d -> \D) and inline flags. Only the
         # `i` flag: RE2, which some Dremio execution paths use, rejects `u`.
+        # Non-capturing groups keep each pattern's own group numbers, so
+        # backreferences such as `(a)\1` still work.
         alternatives = "|".join(
-            f"({DremioSQLQueries._upper_non_ascii(p)})" for p in patterns
+            f"(?:{DremioSQLQueries._upper_non_ascii(p)})" for p in patterns
         )
         pattern_str = f"(?i)^(?:{alternatives})".replace("'", "''")
         return f"AND {operator}({field}, '{pattern_str}')"

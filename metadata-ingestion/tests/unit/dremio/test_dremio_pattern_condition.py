@@ -44,6 +44,11 @@ def _dremio_matches(patterns: List[str], schema: str, allow: bool = True) -> boo
         # Anchored at the start like re.match, not anywhere like find().
         ("temp", "prod.temp_x"),
         ("temp", "temp_x"),
+        # A top-level | inside one pattern is anchored on both sides.
+        ("sales|finance", "prod.finance"),
+        ("sales|finance", "finance.x"),
+        # Each pattern keeps its own group numbers for backreferences.
+        (r"^(a)\1$", "aa"),
         # A quote doesn't break the SQL literal.
         ("o'brien", "o'brien.sales"),
         # Non-ASCII letters match in either case, as AllowDenyPattern does.
