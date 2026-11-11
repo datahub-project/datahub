@@ -10,6 +10,7 @@ from pydantic import ValidationError
 import datahub.ingestion.source.snowflake.snowflake_utils
 from datahub.configuration.common import AllowDenyPattern, ConfigurationWarning
 from datahub.configuration.pattern_utils import UUID_REGEX
+from datahub.ingestion.agent.pattern_path import validate_pattern_at
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
@@ -1706,8 +1707,6 @@ def test_snowflake_schema_pattern_instance_is_not_mutated() -> None:
 
 
 def test_snowflake_information_schema_deny_not_duplicated_on_revalidation() -> None:
-    from datahub.ingestion.agent.pattern_path import validate_pattern_at
-
     cfg = _info_schema_config()
     new_pattern = AllowDenyPattern(allow=["DB\\..*"])
     validate_pattern_at(cfg, "schema_pattern", new_pattern)
