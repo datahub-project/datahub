@@ -312,6 +312,8 @@ class App(Item):
     tables: List[QlikTable] = []
     # Tables of an app without a data model, from Qlik Cloud's lineage graph.
     lineage_tables: List[LineageTable] = []
+    # Qlik Cloud answered 404 for the app's lineage graph.
+    lineage_graph_missing: bool = False
     script: Optional[str] = None
     fingerprint: Optional[str] = None
     script_read_failed: bool = False

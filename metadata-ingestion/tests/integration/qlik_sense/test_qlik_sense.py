@@ -573,10 +573,10 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
 
     api_vs_response.update(override_data)
 
-    # No app stores into the test datasets.
+    # No app stores into the test datasets, whatever kind of dataset they are.
     request_mock.register_uri(
         "GET",
-        re.compile(r".*/lineage-graphs/nodes/qri%3Aqdf%3A.*level=TABLE$"),
+        re.compile(r".*/lineage-graphs/nodes/.*level=TABLE$"),
         json={"graph": {"nodes": {}, "edges": []}},
     )
     for url in api_vs_response:

@@ -2,21 +2,29 @@ from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 from urllib.parse import quote
 
+import pytest
 import requests_mock as requests_mock_module
 
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.qlik_sense.app_state import AppCheckpoint
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     LineageTable,
     ListedDataset,
     QlikDataset,
+    UnchangedApp,
+    UnreadItem,
 )
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import ScriptTableLineage
-from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    SubTypesClass,
+    UpstreamLineageClass,
+)
 
 BASE_URL = "https://tenant.example.com/api/v1"
 CLOUD_CONFIG = {"tenant_hostname": "tenant.example.com", "api_key": "key"}
@@ -44,7 +52,11 @@ def test_table_lineage_graph_is_read(
         _expand_url(REPORT_APP),
         json={
             "graph": {
-                "nodes": {f"{REPORT_APP}#Tbl": {"label": "Prices"}},
+                "nodes": {
+                    f"{REPORT_APP}#Tbl": {"label": "Prices"},
+                    # A neighbouring resource's table is not the app's own.
+                    f"{STORED_QVD}#Curve": {"label": "Curve"},
+                },
                 "edges": [
                     {"source": f"{STORED_QVD}#Curve", "target": f"{REPORT_APP}#Tbl"},
                     {"source": f"{SOURCE_QVD}#Other", "target": "qri:not-a-node"},
@@ -59,7 +71,7 @@ def test_table_lineage_graph_is_read(
             qri=f"{REPORT_APP}#Tbl", label="Prices", source_qris=[f"{STORED_QVD}#Curve"]
         )
     ]
-    assert api.get_table_lineage(ETL_APP) == []
+    assert api.get_table_lineage(ETL_APP) is None
 
 
 def _app(app_id: str, lineage_tables: List[LineageTable]) -> App:
@@ -101,13 +113,16 @@ POSTGRES_ORDERS = make_dataset_urn("postgres", "db.public.orders")
 
 
 def _run(
-    mock_api_cls: MagicMock, datasets: Optional[List[ListedDataset]]
+    mock_api_cls: MagicMock,
+    datasets: Optional[List[ListedDataset]],
+    keep_unread_items: bool = False,
 ) -> Tuple[QlikSenseSource, Dict[str, List[str]]]:
     space = MagicMock(id="space-1")
     space.name = "Finance"
     api = mock_api_cls.return_value
     api.get_spaces.return_value = [space]
-    api.unread_items = []
+    if not keep_unread_items:
+        api.unread_items = []
     api.failed_user_lookups = {}
     api.change_check_failures = []
     api.lineage_read_failures = []
@@ -164,10 +179,10 @@ DATASETS = [
 def test_qvd_lineage_links_apps_through_datasets(mock_api_cls: MagicMock) -> None:
     source, upstreams = _run(mock_api_cls, DATASETS)
 
-    curve = _urn(f"{ETL_APP}#Curve")
+    curve = _urn("etl-app.curve")
     assert upstreams == {
         curve: [_urn("space-1.src.qvd")],
-        _urn(f"{REPORT_APP}#Tbl"): [_urn("space-1.stored.qvd")],
+        _urn("report-app.prices"): [_urn("space-1.stored.qvd")],
         _urn("space-1.stored.qvd"): [curve],
     }
     assert not source.reporter.failures
@@ -175,8 +190,8 @@ def test_qvd_lineage_links_apps_through_datasets(mock_api_cls: MagicMock) -> Non
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_script_table_in_lineage_graph_keeps_its_urn(mock_api_cls: MagicMock) -> None:
-    # Script tables were ingested as `{app_id}.{label}` before the lineage graph
-    # was read; moving them to the graph QRI would soft-delete the old entity.
+    # A graph table that is also a load script table is ingested once, with
+    # the upstreams of both, under the URN script tables already had.
     script_table = ScriptTableLineage(
         label="Curve", identifier="etl-app.curve", upstream_urns=[POSTGRES_ORDERS]
     )
@@ -194,13 +209,193 @@ def test_script_table_in_lineage_graph_keeps_its_urn(mock_api_cls: MagicMock) ->
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_graph_table_urn_does_not_depend_on_script_sql(
+    mock_api_cls: MagicMock,
+) -> None:
+    # Without a resolvable SQL load the table is not a script table, but it must
+    # keep the same URN, or a failed connection would soft-delete it.
+    _, upstreams = _run(mock_api_cls, DATASETS)
+    assert _urn("etl-app.curve") in upstreams
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_failed_dataset_listing_keeps_table_lineage(mock_api_cls: MagicMock) -> None:
     source, upstreams = _run(mock_api_cls, None)
 
     # Both tables load datasets, so their lineage from the last run is kept
     # rather than replaced by lineage without the dataset edges.
-    assert _urn(f"{ETL_APP}#Curve") not in upstreams
-    assert _urn(f"{REPORT_APP}#Tbl") not in upstreams
+    assert _urn("etl-app.curve") not in upstreams
+    assert _urn("report-app.prices") not in upstreams
     assert [w.title for w in source.reporter.warnings] == [
         "Lineage of Qlik app table not updated"
     ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_dataset_lineage_is_kept_when_a_storing_app_was_not_read(
+    mock_api_cls: MagicMock,
+) -> None:
+    # A space or item could not be read, so `unread-app` may still store into
+    # the dataset; rewriting the lineage without it would drop its edge.
+    mock_api_cls.return_value.unread_items = [
+        UnreadItem(name="items of space space-2", cause="timeout")
+    ]
+    source, upstreams = _run(mock_api_cls, DATASETS, keep_unread_items=True)
+
+    assert _urn("space-1.stored.qvd") not in upstreams
+    assert "Lineage of Qlik dataset not updated" in [
+        w.title for w in source.reporter.warnings
+    ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_kept_app_tables_resolve_from_its_checkpoint(mock_api_cls: MagicMock) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    mock_api_cls.return_value.unread_items = []
+    source.app_state = MagicMock()
+    source.stale_entity_removal_handler = MagicMock()
+    source._fingerprint_salt = "salt"
+    curve = _urn("etl-app.curve")
+    source.app_state.previous.return_value = AppCheckpoint(
+        urns=[curve], table_urns_by_qri={f"{ETL_APP}#Curve": curve}
+    )
+    source._keep_unchanged_app(UnchangedApp(id="etl-app", fingerprint="f"))
+    source._dataset_store_sources[_urn("space-1.stored.qvd")] = [f"{ETL_APP}#Curve"]
+
+    lineage = [
+        wu.get_aspect_of_type(UpstreamLineageClass)
+        for wu in source._gen_dataset_store_lineage()
+    ]
+    assert [[u.dataset for u in a.upstreams] for a in lineage if a] == [[curve]]
+    recorded = source.app_state.record.call_args.args[1]
+    assert recorded.table_urns_by_qri == {f"{ETL_APP}#Curve": curve}
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_app_kept_from_older_state_leaves_dataset_lineage(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    mock_api_cls.return_value.unread_items = []
+    source.app_state = MagicMock()
+    source.stale_entity_removal_handler = MagicMock()
+    source._fingerprint_salt = "salt"
+    # Recorded before table URNs were kept, so the app's tables are unknown.
+    source.app_state.previous.return_value = AppCheckpoint(urns=[_urn("etl-app.curve")])
+    source._keep_unchanged_app(UnchangedApp(id="etl-app", fingerprint="f"))
+    source._dataset_store_sources[_urn("space-1.stored.qvd")] = [f"{ETL_APP}#Curve"]
+
+    assert not list(source._gen_dataset_store_lineage())
+
+
+@pytest.mark.parametrize("had_tables, read_complete", [(True, False), (False, True)])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_missing_lineage_graph(
+    mock_api_cls: MagicMock, had_tables: bool, read_complete: bool
+) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    source.app_state = MagicMock()
+    source.app_state.previous.return_value = AppCheckpoint(
+        urns=["urn:li:container:x"],
+        table_urns_by_qri={f"{ETL_APP}#Curve": _urn("etl-app.curve")}
+        if had_tables
+        else {},
+    )
+    app = _app("etl-app", [])
+    app.lineage_graph_missing = True
+
+    source._check_missing_lineage_graph(app)
+
+    # A 404 for an app whose last read had tables is not trusted to mean the
+    # tables are gone, as Qlik also answers 404 before it recomputes lineage.
+    assert app.read_complete is read_complete
+    assert app.tables_read_failed is not read_complete
+    assert list(source.reporter.apps_without_lineage_graph) == (
+        [] if had_tables else ["etl-app"]
+    )
+
+
+def test_datasets_are_listed(requests_mock: requests_mock_module.Mocker) -> None:
+    requests_mock.get(f"{BASE_URL}/api-keys", json={})
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    first = f"{BASE_URL}/items?resourceType=dataset"
+    second = f"{first}&next=abc"
+    requests_mock.get(
+        first,
+        complete_qs=True,
+        json={
+            "data": [
+                {
+                    "name": "src.qvd",
+                    "spaceId": "space-1",
+                    "resourceAttributes": {"secureQri": SOURCE_QVD},
+                },
+                # Not a dataset Qlik traces, so it has no secure QRI.
+                {"name": "notes.txt", "spaceId": "space-1", "resourceAttributes": {}},
+            ],
+            "links": {"next": {"href": second}},
+        },
+    )
+    requests_mock.get(
+        second,
+        json={
+            "data": [
+                {"name": "mine.qvd", "resourceAttributes": {"secureQri": STORED_QVD}}
+            ]
+        },
+    )
+
+    assert api.list_datasets() == [
+        ListedDataset(space_id="space-1", name="src.qvd", secure_qri=SOURCE_QVD),
+        ListedDataset(
+            space_id="personal-space-id", name="mine.qvd", secure_qri=STORED_QVD
+        ),
+    ]
+
+    requests_mock.get(first, complete_qs=True, status_code=500)
+    assert api.list_datasets() is None
+    assert [item.name for item in api.unread_items] == ["datasets"]
+
+
+@pytest.mark.parametrize(
+    "name, dataset_type, display_name, subtype",
+    [
+        ("sales.qvd", "qvd", "sales", "QVD"),
+        ("Sales.QVD", "qvd", "Sales", "QVD"),
+        ("sales.csv", "DELIMETED", "sales.csv", "Qlik Dataset"),
+    ],
+)
+def test_qvd_datasets_get_their_own_subtype_and_name(
+    name: str, dataset_type: str, display_name: str, subtype: str
+) -> None:
+    dataset = _dataset(name, SOURCE_QVD, [])
+    dataset.type = dataset_type
+    with patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI"):
+        source = QlikSenseSource(
+            QlikSourceConfig.model_validate(CLOUD_CONFIG),
+            PipelineContext(run_id="test-lineage-graph"),
+        )
+    workunits = list(source._gen_dataset_workunit(dataset))
+
+    properties = next(
+        props
+        for wu in workunits
+        if (props := wu.get_aspect_of_type(DatasetPropertiesClass))
+    )
+    subtypes = next(
+        types for wu in workunits if (types := wu.get_aspect_of_type(SubTypesClass))
+    )
+    assert properties.name == display_name
+    assert properties.qualifiedName == name
+    assert subtypes.typeNames == [subtype]
+    # The URN keeps the file name, so existing entities keep their URNs.
+    assert {wu.get_urn() for wu in workunits} == {_urn(f"space-1.{name}")}
