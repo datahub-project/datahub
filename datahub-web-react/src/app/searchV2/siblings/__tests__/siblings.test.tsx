@@ -5,12 +5,12 @@ import React from 'react';
 import { useLocation } from 'react-router-dom';
 
 import SearchResultSiblings, { EXPANDED_PAGE_SIZE } from '@app/searchV2/siblings/SearchResultSiblings';
+import { RESULT_URN, group as fixtureGroup, member, settle } from '@app/searchV2/siblings/__tests__/siblingFixtures';
 import { SHOW_SIBLINGS_URL_PARAM, useShowSiblings } from '@app/searchV2/siblings/useShowSiblings';
-import { SiblingGroupData, SiblingMemberData, useSiblingGroups } from '@app/searchV2/siblings/useSiblingGroups';
+import { useSiblingGroups } from '@app/searchV2/siblings/useSiblingGroups';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 import { GetSiblingGroupsDocument } from '@graphql/siblings.generated';
-import { EntityType } from '@types';
 
 let separateSiblings = true;
 vi.mock('@app/useAppConfig', async (importOriginal) => ({
@@ -18,29 +18,9 @@ vi.mock('@app/useAppConfig', async (importOriginal) => ({
     useIsShowSeparateSiblingsEnabled: () => separateSiblings,
 }));
 
-const RESULT_URN = 'urn:li:dataset:(urn:li:dataPlatform:glue,db.orders,PROD)';
-
-function member(name: string, isPrimary = false): SiblingMemberData {
-    return {
-        __typename: 'SiblingMember',
-        isPrimary,
-        entity: {
-            __typename: 'Dataset',
-            urn: `urn:li:dataset:(urn:li:dataPlatform:glue,db.${name},PROD)`,
-            type: EntityType.Dataset,
-            name,
-            platform: null,
-            properties: { __typename: 'DatasetProperties', name },
-            container: null,
-        },
-    } as unknown as SiblingMemberData;
-}
-
 const MEMBERS = [member('orders_primary', true), ...Array.from({ length: 6 }, (_, i) => member(`copy_${i}`))];
 
-function group(members = MEMBERS, total = MEMBERS.length): SiblingGroupData {
-    return { __typename: 'SiblingGroup', urn: RESULT_URN, total, truncated: false, members } as SiblingGroupData;
-}
+const group = (members = MEMBERS, total = MEMBERS.length) => fixtureGroup(members, total);
 
 function siblingGroupsMock(start: number, count: number, members = MEMBERS): MockedResponse {
     return {
@@ -107,9 +87,7 @@ describe('useSiblingGroups', () => {
                 </MockedProvider>
             ),
         });
-        await new Promise((resolve) => {
-            setTimeout(resolve, 0);
-        });
+        await settle();
         expect(fetched).not.toHaveBeenCalled();
         expect(result.current.groups.size).toBe(0);
     });
@@ -124,6 +102,37 @@ describe('useSiblingGroups', () => {
         });
         await waitForNextUpdate();
         expect(result.current.groups.get(RESULT_URN)?.members).toHaveLength(5);
+    });
+
+    it('sends one request for the same datasets in a different order, and keeps the groups meanwhile', async () => {
+        const otherUrn = 'urn:li:dataset:(urn:li:dataPlatform:glue,db.payments,PROD)';
+        const urns = [RESULT_URN, otherUrn].sort();
+        const fetched = vi.fn(() => ({
+            data: { siblingGroups: [fixtureGroup(MEMBERS.slice(0, 5), 7), fixtureGroup([], 0, otherUrn)] },
+        }));
+        const mocks: MockedResponse[] = [
+            {
+                request: { query: GetSiblingGroupsDocument, variables: { input: { urns, start: 0, count: 5 } } },
+                result: fetched,
+            },
+        ];
+        const { result, rerender, waitForNextUpdate } = renderHook(
+            ({ order }: { order: string[] }) => useSiblingGroups(order, true),
+            {
+                initialProps: { order: [RESULT_URN, otherUrn] },
+                wrapper: ({ children }) => (
+                    <MockedProvider mocks={mocks} addTypename>
+                        <TestPageContainer>{children}</TestPageContainer>
+                    </MockedProvider>
+                ),
+            },
+        );
+        await waitForNextUpdate();
+        rerender({ order: [otherUrn, RESULT_URN] });
+        await settle();
+        expect(fetched).toHaveBeenCalledTimes(1);
+        expect(result.current.groups.get(RESULT_URN)?.members).toHaveLength(5);
+        expect(result.current.error).toBeUndefined();
     });
 });
 
@@ -158,11 +167,10 @@ describe('SearchResultSiblings', () => {
         expect(screen.getAllByTestId('sibling-row')).toHaveLength(5);
     });
 
-    it('points aria-controls at a rendered element with a safe id', () => {
+    it('points aria-controls at the rendered siblings', () => {
         renderSiblings();
         const more = screen.getByText('+ 2 more siblings of orders');
         const controlled = document.getElementById(more.getAttribute('aria-controls') || '');
-        expect(controlled).not.toBeNull();
-        expect(controlled?.id).toMatch(/^siblings-[0-9a-f-]+$/);
+        expect(controlled).toContainElement(screen.getAllByTestId('sibling-row')[0]);
     });
 });

@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { IconStyleType } from '@app/entityV2/Entity';
 import { SIBLINGS_SHOWN_INLINE, SiblingGroupData, SiblingMemberData } from '@app/searchV2/siblings/useSiblingGroups';
-import PlatformIcon, { getPlatformLogoUrl } from '@app/sharedV2/icons/PlatformIcon';
+import { getPlatformLogoUrl } from '@app/sharedV2/icons/PlatformIcon';
 import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -20,6 +20,7 @@ export const EXPANDED_PAGE_SIZE = 200;
 export const SIBLINGS_LIST_CLASS_NAME = 'search-result-siblings-list';
 
 const COMPACT_LOGO_SIZE = 14;
+const INLINE_LOGO_SIZE = 16;
 
 const Container = styled.div`
     margin: -4px 0 12px 28px;
@@ -74,7 +75,11 @@ const Badge = styled.span`
     border: 1px solid ${(props) => props.theme.colors.borderBrand};
 `;
 
-const LinkButton = styled.button`
+/**
+ * A text button styled as a link, for the siblings' "+ N more", "Show less" and "Retry". The
+ * alchemy Button doesn't forward refs, and "+ N more" needs one to take focus back on collapse.
+ */
+export const SiblingsLinkButton = styled.button`
     background: none;
     border: none;
     padding: 2px 0;
@@ -120,30 +125,32 @@ const ErrorText = styled.span`
     color: ${(props) => props.theme.colors.textError};
 `;
 
-const Logo = styled.img`
-    width: 14px;
-    height: 14px;
+const Logo = styled.img<{ $size: number }>`
+    width: ${(props) => props.$size}px;
+    height: ${(props) => props.$size}px;
     object-fit: contain;
     flex-shrink: 0;
 `;
 
-const DefaultLogo = styled.span`
+const DefaultLogo = styled.span<{ $size: number }>`
     display: flex;
     flex-shrink: 0;
-    font-size: ${COMPACT_LOGO_SIZE}px;
+    font-size: ${(props) => props.$size}px;
 `;
 
 /**
- * The platform logo for a compact row: the same logo as PlatformIcon, without its color sampling
- * (a canvas read per row is too much for a list of hundreds), and the default icon if it fails to load.
+ * The platform logo for a sibling row: the same logo as PlatformIcon, without its color sampling
+ * (a canvas read per row adds up over a page of results, let alone a list of hundreds), and the
+ * default icon if it fails to load.
  */
-function CompactLogo({ platform }: { platform: DataPlatform | undefined }) {
+function SiblingLogo({ platform, size }: { platform: DataPlatform | undefined; size: number }) {
     const entityRegistry = useEntityRegistry();
     const logoUrl = getPlatformLogoUrl(platform);
     const [failedUrl, setFailedUrl] = useState<string | undefined>(undefined);
     if (logoUrl && logoUrl !== failedUrl) {
         return (
             <Logo
+                $size={size}
                 src={logoUrl}
                 alt={platform?.properties?.displayName || platform?.name || ''}
                 onError={() => setFailedUrl(logoUrl)}
@@ -151,11 +158,11 @@ function CompactLogo({ platform }: { platform: DataPlatform | undefined }) {
         );
     }
     return (
-        <DefaultLogo>
+        <DefaultLogo $size={size}>
             {platform?.properties?.logical ? (
-                <LogicalPlatformDefaultIcon size={COMPACT_LOGO_SIZE} />
+                <LogicalPlatformDefaultIcon size={size} />
             ) : (
-                entityRegistry.getIcon(EntityType.DataPlatform, COMPACT_LOGO_SIZE, IconStyleType.ACCENT)
+                entityRegistry.getIcon(EntityType.DataPlatform, size, IconStyleType.ACCENT)
             )}
         </DefaultLogo>
     );
@@ -295,9 +302,9 @@ export default function SearchResultSiblings({ urn, resultName, group, onSibling
         'container' in member.entity ? member.entity.container?.properties?.name : undefined;
 
     const retryButton = (onRetry: () => void) => (
-        <LinkButton type="button" onClick={onRetry}>
+        <SiblingsLinkButton type="button" onClick={onRetry}>
             {t('siblings.retry')}
-        </LinkButton>
+        </SiblingsLinkButton>
     );
 
     if (expanded) {
@@ -307,7 +314,7 @@ export default function SearchResultSiblings({ urn, resultName, group, onSibling
                 <Expanded>
                     <ExpandedHeader>
                         <span>{t('siblings.groupTitle', { count: group.total, name: resultName })}</span>
-                        <LinkButton
+                        <SiblingsLinkButton
                             type="button"
                             aria-expanded
                             aria-controls={listId}
@@ -317,7 +324,7 @@ export default function SearchResultSiblings({ urn, resultName, group, onSibling
                             }}
                         >
                             {t('siblings.showLess')}
-                        </LinkButton>
+                        </SiblingsLinkButton>
                     </ExpandedHeader>
                     <ExpandedList
                         ref={listRef}
@@ -329,7 +336,7 @@ export default function SearchResultSiblings({ urn, resultName, group, onSibling
                     >
                         {expandedMembers.map((member) => (
                             <CompactRow key={member.entity.urn} role="listitem" data-testid="sibling-compact-row">
-                                <CompactLogo platform={memberPlatform(member)} />
+                                <SiblingLogo platform={memberPlatform(member)} size={COMPACT_LOGO_SIZE} />
                                 <Name to={memberUrl(member)} onClick={() => onSiblingClick?.(member)}>
                                     {memberName(member)}
                                 </Name>
@@ -360,7 +367,7 @@ export default function SearchResultSiblings({ urn, resultName, group, onSibling
             <div role="list" aria-label={t('siblings.groupTitle', { count: group.total, name: resultName })}>
                 {shown.map((member) => (
                     <SiblingRow key={member.entity.urn} role="listitem" data-testid="sibling-row">
-                        <PlatformIcon platform={memberPlatform(member)} size={16} />
+                        <SiblingLogo platform={memberPlatform(member)} size={INLINE_LOGO_SIZE} />
                         <Name to={memberUrl(member)} onClick={() => onSiblingClick?.(member)}>
                             {memberName(member)}
                         </Name>
@@ -371,7 +378,7 @@ export default function SearchResultSiblings({ urn, resultName, group, onSibling
                 ))}
             </div>
             {more > 0 && (
-                <LinkButton
+                <SiblingsLinkButton
                     ref={moreRef}
                     type="button"
                     aria-expanded={false}
@@ -382,7 +389,7 @@ export default function SearchResultSiblings({ urn, resultName, group, onSibling
                     }}
                 >
                     {t('siblings.moreSiblings', { count: more, name: resultName })}
-                </LinkButton>
+                </SiblingsLinkButton>
             )}
         </Container>
     );

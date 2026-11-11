@@ -186,14 +186,11 @@ export default function SearchFilters({
     return (
         <Container id={SEARCH_RESULTS_FILTERS_ID} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <FiltersContainerTop>
-                {showSiblingsSwitch ? (
-                    <FilterOptionsContainer>
-                        {filterOptions}
-                        <ShowSiblingsToggle />
-                    </FilterOptionsContainer>
-                ) : (
-                    filterOptions
-                )}
+                {/* Always wrapped, so the filter options don't remount when app config loads. */}
+                <FilterOptionsContainer>
+                    {filterOptions}
+                    {showSiblingsSwitch && <ShowSiblingsToggle />}
+                </FilterOptionsContainer>
                 <ControlsContainer>
                     <SearchSortSelect
                         selectedSortOption={selectedSortOption}
