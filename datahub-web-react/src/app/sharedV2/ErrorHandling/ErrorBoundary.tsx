@@ -11,7 +11,7 @@ type ErrorBoundaryProps = {
     resetKeys?: string[];
 };
 
-const logError = (error: Error, info: { componentStack: string }) => {
+const logError = (error: unknown, info: { componentStack: string }) => {
     console.group('🔴 UI Crash Error Report');
     console.error('Error:', error);
     console.error('Component Info:', info);
