@@ -49,6 +49,9 @@ interface OptionProps<OptionType extends NestedSelectOption> {
     hideParentCheckbox?: boolean;
     isParentOptionLabelExpanded?: boolean;
     implicitlySelectChildren: boolean;
+    // Implicitly select every descendant (not just direct leaf children) of a selected option.
+    implicitlySelectAllDescendants?: boolean;
+    isAncestorSelected?: boolean;
     selectChildrenWithParent: boolean;
     renderCustomOptionText?: CustomOptionRenderer<OptionType>;
 }
@@ -68,6 +71,8 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
     hideParentCheckbox,
     isParentOptionLabelExpanded,
     implicitlySelectChildren,
+    implicitlySelectAllDescendants = false,
+    isAncestorSelected = false,
     selectChildrenWithParent,
     renderCustomOptionText,
 }: OptionProps<OptionType>) => {
@@ -89,6 +94,8 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
             selectableChildren,
             areParentsSelectable,
             implicitlySelectChildren,
+            implicitlySelectAllDescendants,
+            isAncestorSelected,
             selectChildrenWithParent,
             isMultiSelect: !!isMultiSelect,
             addOptions,
@@ -206,6 +213,10 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                             areParentsSelectable={areParentsSelectable}
                             setSelectedOptions={setSelectedOptions}
                             implicitlySelectChildren={implicitlySelectChildren}
+                            implicitlySelectAllDescendants={implicitlySelectAllDescendants}
+                            isAncestorSelected={
+                                isImplicitlySelected || !!selectedOptions.find((o) => o.value === option.value)
+                            }
                             selectChildrenWithParent={selectChildrenWithParent}
                             renderCustomOptionText={renderCustomOptionText}
                         />

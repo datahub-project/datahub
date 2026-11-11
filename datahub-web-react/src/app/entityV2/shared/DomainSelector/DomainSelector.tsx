@@ -44,6 +44,10 @@ type DomainSelectorProps = {
     label?: string;
     isMultiSelect?: boolean;
     selectChildrenWithParent?: boolean;
+    // Show every subdomain of a selected domain as selected (checked and disabled).
+    includeSubdomains?: boolean;
+    dropdownHeader?: React.ReactNode;
+    normalizeSelection?: (options: EntityNestedSelectOption[]) => EntityNestedSelectOption[];
     renderCustomOptionText?: CustomOptionRenderer<EntityNestedSelectOption>;
     renderCustomSelectedValue?: (option: EntityNestedSelectOption) => React.ReactNode;
     isRequired?: boolean;
@@ -68,6 +72,9 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     label,
     isMultiSelect = false,
     selectChildrenWithParent = true,
+    includeSubdomains = false,
+    dropdownHeader,
+    normalizeSelection,
     renderCustomOptionText = (option) => <DomainOptionLabel option={option} />,
     renderCustomSelectedValue,
     isRequired = false,
@@ -273,13 +280,16 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
             isRequired={isRequired}
             isDisabled={isDisabled}
             showSearch
-            implicitlySelectChildren={false}
+            implicitlySelectChildren={includeSubdomains}
+            implicitlySelectAllDescendants={includeSubdomains}
             selectChildrenWithParent={selectChildrenWithParent}
             areParentsSelectable
             shouldAlwaysSyncParentValues
             hideParentCheckbox={false}
             renderCustomOptionText={renderCustomOptionText}
             renderCustomSelectedValue={renderCustomSelectedValue}
+            dropdownHeader={dropdownHeader}
+            normalizeSelection={normalizeSelection}
             selectLabelProps={renderCustomSelectedValue ? { variant: 'custom' } : undefined}
             showClear
         />
