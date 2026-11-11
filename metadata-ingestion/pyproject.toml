@@ -258,7 +258,7 @@ confluence = [
     "markdownify>=0.14.1,<2.0.0",
     "nltk!=3.10.1",
     "unstructured-ingest[confluence]==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
 ]
 
 csv-enricher = []
@@ -306,7 +306,7 @@ datahub-documents = [
     "jsonpath-ng==1.7.0",
     "nltk!=3.10.1",
     "unstructured-ingest==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
 ]
 
 datahub-gc = []
@@ -571,7 +571,7 @@ google-drive = [
     "markdownify>=0.14.1,<2.0.0",
     "nltk!=3.10.1",
     "unstructured-ingest==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
 ]
 
 grafana = [
@@ -807,7 +807,7 @@ notion = [
     "jsonpath-ng==1.7.0",
     "nltk!=3.10.1",
     "unstructured-ingest[notion]==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
 ]
 
 odcs = [
@@ -1141,7 +1141,7 @@ superset = [
 ]
 
 sync-file-emitter = [
-    "filelock>=3.13.1,<4.0.0",
+    "filelock>=3.13.1,<5.0.0",
 ]
 
 tableau = [
@@ -1215,7 +1215,7 @@ unstructured = [
     "jsonpath-ng==1.7.0",
     "nltk!=3.10.1",
     "unstructured-ingest==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
 ]
 
 vertexai = [
@@ -1259,7 +1259,7 @@ all = [
     "dlt>=1.0.0,<2.0.0",
     "dnspython==2.7.0",
     "fastavro>=1.2.0,<2.0.0",
-    "filelock>=3.13.1,<4.0.0",
+    "filelock>=3.13.1,<5.0.0",
     "flatdict!=4.0.1",
     "GeoAlchemy2<0.19.0",
     "GitPython>=3.1.58,<4.0.0",
@@ -1547,7 +1547,7 @@ dev = [
     "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
     "unstructured-ingest[confluence,notion]==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
     "urllib3>=2.5.0,<3.0",
     "uvicorn<0.41.0",
     "wcmatch>=10.1,<11.0.0",
@@ -1746,7 +1746,7 @@ docs = [
     "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
     "unstructured-ingest[confluence,notion]==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
     "urllib3>=2.5.0,<3.0",
     "uvicorn<0.41.0",
     "wcmatch>=10.1,<11.0.0",
