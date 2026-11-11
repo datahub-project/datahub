@@ -246,7 +246,8 @@ export class LineageV3Page extends LineageBasePage {
    */
   async clickLineageTab(): Promise<void> {
     await this.lineageTab.click();
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    await this.page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
+    await this.waitForViewportToSettle();
   }
 
   /**
@@ -280,7 +281,8 @@ export class LineageV3Page extends LineageBasePage {
    */
   async navigateToDatasetLineage(urn: string): Promise<void> {
     await this.navigate(`/dataset/${urn}/Lineage`);
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    await this.page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
+    await this.waitForViewportToSettle();
   }
 
   /**
