@@ -3,6 +3,7 @@ from typing import Any, Dict, List
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
+import psycopg2
 import pytest
 from pydantic import ValidationError
 from sqlalchemy.dialects.postgresql import (
@@ -14,6 +15,7 @@ from sqlalchemy.dialects.postgresql import (
     base as pg_base,
 )
 from sqlalchemy.dialects.postgresql.base import PGDialect
+from sqlalchemy.exc import OperationalError
 
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -651,6 +653,47 @@ def test_get_inspectors_skips_databases_denied_by_pattern(
     assert len(inspectors) == 1
     assert create_engine_mock.call_count == 2
     assert create_engine_mock.call_args_list[1][0][0].endswith("keep_me")
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.inspect")
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_get_inspectors_skips_unreachable_database_and_reports_it(
+    create_engine_mock: MagicMock, inspect_mock: MagicMock
+) -> None:
+    databases = ["my_db_a", "my_db_denied", "my_db_b"]
+    created_urls: List[str] = []
+
+    def make_engine(url: Any, **kwargs: Any) -> MagicMock:
+        url = str(url)
+        created_urls.append(url)
+        engine = MagicMock()
+        if url.endswith("my_db_denied"):
+            engine.connect.side_effect = OperationalError(
+                "connect",
+                {},
+                psycopg2.OperationalError(
+                    'FATAL:  permission denied for database "my_db_denied"\n'
+                    "DETAIL:  User does not have CONNECT privilege.\n"
+                ),
+            )
+        else:
+            conn = engine.connect.return_value.__enter__.return_value
+            conn.execute.return_value.mappings.return_value = [
+                {"datname": name} for name in databases
+            ]
+        return engine
+
+    create_engine_mock.side_effect = make_engine
+    config = PostgresConfig.model_validate(
+        {**_base_config(), "initial_database": "postgres"}
+    )
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+
+    inspectors = list(source.get_inspectors())
+
+    assert len(inspectors) == 2
+    assert any(url.endswith("my_db_b") for url in created_urls)
+    assert any("my_db_denied" in str(f) for f in source.get_report().failures)
 
 
 # --- view lineage fallback for views sqlglot could not parse ---

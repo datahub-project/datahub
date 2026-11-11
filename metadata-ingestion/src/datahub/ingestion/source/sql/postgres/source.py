@@ -29,6 +29,7 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.dialects.postgresql import ranges
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.types import UserDefinedType
 
 if TYPE_CHECKING:
@@ -683,9 +684,23 @@ class PostgresSource(SQLAlchemySource):
                     db_engine = create_engine(url, **self._get_engine_options())
                     self._setup_rds_iam_event_listener(db_engine)
 
-                    with db_engine.connect() as conn:
-                        inspector = inspect(conn)
-                        yield inspector
+                    try:
+                        db_conn = db_engine.connect()
+                    except OperationalError as e:
+                        # A failure (not a warning) on purpose: stateful ingestion
+                        # skips soft-deletion when the report has failures, so the
+                        # skipped database's entities are not marked as removed.
+                        self.report.failure(
+                            title="Failed to connect to database",
+                            message="Skipping this database; other databases are still ingested. "
+                            "Grant the ingestion user CONNECT on it, or exclude it with database_pattern.deny.",
+                            context=db_name,
+                            exc=e,
+                        )
+                        db_engine.dispose()
+                        continue
+                    with db_conn:
+                        yield inspect(db_conn)
 
     def _get_view_names(self, inspector: Inspector, schema: str) -> List[str]:
         view_names = super()._get_view_names(inspector, schema)
