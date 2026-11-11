@@ -78,6 +78,7 @@
     "resizablePills.moreHiddenCount_one": "még {{count}} rejtett elem",
     "resizablePills.moreHiddenCount_other": "még {{count}} rejtett elem",
     "search.placeholder": "Keresés...",
+    "select.noResults.description": "Próbálja módosítani a keresést, hogy megtalálja, amit keres",
     "select.placeholder": "Válasszon egy lehetőséget",
     "switch.label": "Címke",
     "table.loading": "Adatok betöltése...",

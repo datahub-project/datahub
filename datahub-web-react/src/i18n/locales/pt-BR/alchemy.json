@@ -78,6 +78,7 @@
     "resizablePills.moreHiddenCount_one": "{{count}} item oculto",
     "resizablePills.moreHiddenCount_other": "{{count}} itens ocultos",
     "search.placeholder": "Pesquisar...",
+    "select.noResults.description": "Tente ajustar sua pesquisa para encontrar o que procura",
     "select.placeholder": "Selecione uma opção",
     "switch.label": "Rótulo",
     "table.loading": "Carregando dados...",

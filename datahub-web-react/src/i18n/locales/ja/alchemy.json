@@ -77,6 +77,7 @@
     "radio.label": "ラベル",
     "resizablePills.moreHiddenCount_other": "他に{{count}}件が非表示",
     "search.placeholder": "検索...",
+    "select.noResults.description": "検索条件を調整してお試しください",
     "select.placeholder": "オプションを選択",
     "switch.label": "ラベル",
     "table.loading": "データを読み込み中...",

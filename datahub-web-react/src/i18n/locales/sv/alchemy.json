@@ -78,6 +78,7 @@
     "resizablePills.moreHiddenCount_one": "{{count}} till objekt dolt",
     "resizablePills.moreHiddenCount_other": "{{count}} till objekt dolda",
     "search.placeholder": "Sök...",
+    "select.noResults.description": "Prova att justera din sökning för att hitta det du letar efter",
     "select.placeholder": "Välj ett alternativ",
     "switch.label": "Etikett",
     "table.loading": "Läser in data...",

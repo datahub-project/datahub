@@ -77,6 +77,7 @@
     "radio.label": "标签",
     "resizablePills.moreHiddenCount_other": "另有 {{count}} 项已隐藏",
     "search.placeholder": "搜索...",
+    "select.noResults.description": "请尝试调整搜索内容，以找到你需要的结果",
     "select.placeholder": "请选择一个选项",
     "switch.label": "标签",
     "table.loading": "正在加载数据...",
