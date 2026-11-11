@@ -42,13 +42,13 @@ sink:
 
 #### Plain-body serialization
 
-Files are imported as **plain markdown or text**, except OKF concepts (below). Other document metadata lives in DataHub aspects and `customProperties`.
+Files are imported as **plain markdown or text** by default. Set `enable_okf: true` to import OKF concepts (below). Other document metadata lives in DataHub aspects and `customProperties`.
 
 #### Open Knowledge Format bundles
 
-You can import [Open Knowledge Format (OKF) 0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md) concepts alongside ordinary documentation. A concept must be a Markdown file inside an OKF bundle and have a `type` key in its YAML frontmatter. A `type` key alone does not enable OKF handling for a Hugo page or another document outside a bundle.
+Opt in with `enable_okf: true` to import [Open Knowledge Format (OKF) 0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md) concepts alongside ordinary documentation. A concept must be a Markdown file inside an OKF bundle and have a `type` key in its YAML frontmatter. A `type` key alone does not enable OKF handling for a Hugo page or another document outside a bundle.
 
-The source discovers bundle roots from `index.md` files whose frontmatter contains `okf_version`:
+With OKF enabled, the source discovers bundle roots from `index.md` files whose frontmatter contains `okf_version`:
 
 ```markdown
 ---
@@ -70,6 +70,7 @@ source:
   config:
     github_token: "${GITHUB_TOKEN}"
     repository: example-org/analytics
+    enable_okf: true
     okf_bundle_roots: [context]
 ```
 
@@ -117,7 +118,7 @@ Mapped owners, tags, and terms carry attribution with `origin: okf`, `bundle` (t
 
 An owner maps when it is an email address, a `corpuser` or `corpGroup` URN, or a user that exists in DataHub. Tag names map directly to tag URNs without an existence check. A glossary term maps when it is a URN or the name of exactly one catalog term. Values that cannot be mapped remain in raw frontmatter and increment `okf_unresolved_values`. Invalid typed OKF values increment `okf_invalid_values` and produce warnings. Catalog changes alone do not retry unresolved values on unchanged files; edit the file to trigger a retry. Owner-existence and term-name lookups are cached for each run.
 
-If a file stops being a concept, a graph connection lets the source UPSERT an empty `okfProperties` record, remove its OKF-attributed associations, and UPSERT an empty subtype list only when the stored subtype still equals the previous OKF type. The source never emits aspect DELETEs. An aspect without `raw` is neutral and is treated like an absent aspect; GraphQL returns null for it. Subsequent runs leave an already neutral aspect alone. All top-level fields are optional to permit this neutral value; when `raw` is present, `bundle`, `conceptId`, and `type` are set. A subtype edited in DataHub is preserved. Without a graph, previous OKF metadata cannot be cleared. Setting `enable_okf: false` disables discovery and mapping and also clears previous OKF state when a graph is available, unless the server is known not to support the aspect.
+If a file stops being a concept, a graph connection lets the source UPSERT an empty `okfProperties` record, remove its OKF-attributed associations, and UPSERT an empty subtype list only when the stored subtype still equals the previous OKF type. The source never emits aspect DELETEs. An aspect without `raw` is neutral and is treated like an absent aspect; GraphQL returns null for it. Subsequent runs leave an already neutral aspect alone. All top-level fields are optional to permit this neutral value; when `raw` is present, `bundle`, `conceptId`, and `type` are set. A subtype edited in DataHub is preserved. Without a graph, previous OKF metadata cannot be cleared. Setting `enable_okf: false` disables discovery and mapping and also clears previous OKF state when a graph is available.
 
 The source resolves the configured branch head once and lists and reads files at that commit SHA. It stops if the head cannot be resolved, so the content, blob SHA, and revision commit refer to one snapshot. GitHub links and branch custom properties retain the configured branch.
 
@@ -138,7 +139,7 @@ Cloud sync-back may additionally write `last_exported_content_hash` to prevent r
 
 #### Server compatibility
 
-With a graph connection (`datahub-rest` sink or `datahub_api`), the source checks server support for `okfProperties` once per run. If unsupported, it warns, sets `okf_disabled_reason`, and imports full file text without OKF aspects, patches, or cleanup writes. If the registry cannot be read, it warns and follows `enable_okf`; writes may be rejected by an older server, so set `enable_okf: false` to import plain text. Without a graph, server support is not checked and `enable_okf` controls the output. A later run against a supporting server re-imports bundle files using OKF handling.
+OKF import is disabled by default. Set `enable_okf: true` only when your DataHub server supports the `okfProperties` aspect. The config flag alone controls OKF import; the source does not check the server registry or silently disable OKF. Enabling OKF on a server without the aspect fails the ingestion run when the server rejects the writes.
 
 #### Stateful ingestion
 
