@@ -9,6 +9,7 @@ from typing import (
     Iterable,
     List,
     Optional,
+    Set,
     Tuple,
     Type,
     Union,
@@ -577,6 +578,11 @@ class PostgresSource(SQLAlchemySource):
             config.rds_iam_token_manager()
         )
 
+        # Databases get_inspectors() could not connect to. It runs once per
+        # pass (workunits, profiling, lineage); later passes skip these
+        # rather than reconnecting and reporting them again.
+        self._unreachable_databases: Set[str] = set()
+
         self.sql_aggregator: Optional[SqlParsingAggregator] = None
         if self.config.include_query_lineage:
             # Validate graph connection requirement for usage statistics
@@ -677,7 +683,10 @@ class PostgresSource(SQLAlchemySource):
             else:
                 databases = self.config.list_databases(conn)
                 for db_name in databases:
-                    if not self.config.database_pattern.allowed(db_name):
+                    if (
+                        not self.config.database_pattern.allowed(db_name)
+                        or db_name in self._unreachable_databases
+                    ):
                         continue
 
                     url = self.config.get_sql_alchemy_url(database=db_name)
@@ -693,10 +702,12 @@ class PostgresSource(SQLAlchemySource):
                         self.report.failure(
                             title="Failed to connect to database",
                             message="Skipping this database; other databases are still ingested. "
-                            "Grant the ingestion user CONNECT on it, or exclude it with database_pattern.deny.",
+                            "Check that the ingestion user can connect to it (e.g. has the CONNECT privilege), "
+                            "or exclude it with database_pattern.deny.",
                             context=db_name,
                             exc=e,
                         )
+                        self._unreachable_databases.add(db_name)
                         db_engine.dispose()
                         continue
                     with db_conn:
