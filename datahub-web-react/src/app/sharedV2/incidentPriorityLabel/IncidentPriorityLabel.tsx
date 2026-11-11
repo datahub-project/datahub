@@ -2,11 +2,11 @@ import React from 'react';
 
 import { IconLabel } from '@components/components/IconLabel';
 import { IconType } from '@components/components/IconLabel/types';
-import { Label, StyledImage } from '@components/components/IncidentPriorityLabel/components';
-import { PRIORITIES } from '@components/components/IncidentPriorityLabel/constant';
-import { IncidentPriorityLabelProps } from '@components/components/IncidentPriorityLabel/types';
-import { getCapitalizeWord } from '@components/components/IncidentStagePill/utils';
 
+import { Label, StyledImage } from '@app/sharedV2/incidentPriorityLabel/components';
+import { PRIORITIES } from '@app/sharedV2/incidentPriorityLabel/constant';
+import { IncidentPriorityLabelProps } from '@app/sharedV2/incidentPriorityLabel/types';
+import { getCapitalizeWord } from '@app/sharedV2/textUtil';
 import LowIcon from '@src/images/incident-chart-bar-one.svg';
 import HighIcon from '@src/images/incident-chart-bar-three.svg';
 import MediumIcon from '@src/images/incident-chart-bar-two.svg';
