@@ -119,6 +119,21 @@ class AzureAnalysisServicesConfig(
         default=True,
         description="Extract upstream lineage from partition M/Power Query and native SQL.",
     )
+    databricks_default_catalog: Optional[str] = Field(
+        default=None,
+        description=(
+            "Catalog to prepend when a Databricks table reference resolves to "
+            "fewer than three name parts. Partition SQL (``FROM factopex``) and "
+            "M/Power Query lineage name the table or schema.table, and Analysis "
+            "Services does not expose a Unity Catalog catalog for them. Nothing "
+            "is assumed by default, so those references are not emitted as "
+            "Databricks datasets until this is set. The value is prepended as-is: "
+            "``prod`` turns ``finance.factopex`` into ``prod.finance.factopex``, "
+            "and ``prod.finance`` turns a bare ``factopex`` into "
+            "``prod.finance.factopex``. A reference that already has three or "
+            "more parts is left unchanged."
+        ),
+    )
     extract_column_level_lineage: bool = Field(
         default=True,
         description="Extract column-level lineage (upstream CLL and intra-model DAX dependencies).",

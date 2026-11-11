@@ -2,6 +2,10 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
+import sqlglot
+from sqlglot import exp
+from sqlglot.optimizer.scope import traverse_scope
+
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.azure_analysis_services import constants
@@ -21,6 +25,7 @@ from datahub.ingestion.source.common.m_query.instance_resolver import (
     ServerToPlatformInstanceResolver,
 )
 from datahub.metadata.schema_classes import (
+    DatasetKeyClass,
     DatasetLineageTypeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
@@ -31,6 +36,69 @@ from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 logger = logging.getLogger(__name__)
+
+# Unity Catalog dataset names are catalog.schema.table. Matches Azure Data
+# Factory's qualification: prepend databricks_default_catalog only while the
+# reference has fewer than this many dot-separated parts.
+_DATABRICKS_QUALIFIED_PARTS = 3
+_DATABRICKS_PLATFORM = "databricks"
+
+
+def qualify_databricks_table_name(table_name: str, catalog: Optional[str]) -> str:
+    """Prepend a catalog onto a 1- or 2-part Databricks name.
+
+    Same rule as Azure Data Factory: an already qualified catalog.schema.table
+    is left unchanged, and the configured value is prepended as a single
+    string (it may itself contain a schema, e.g. ``prod.finance``).
+    """
+    if not catalog or "/" in table_name:
+        return table_name
+    if len(table_name.split(".")) >= _DATABRICKS_QUALIFIED_PARTS:
+        return table_name
+    return f"{catalog}.{table_name}"
+
+
+def _is_bare_sql(query: str) -> bool:
+    # Partition QueryDefinition is either an M expression (``let ...``) or the
+    # SQL text of a query partition. Only the latter is a Databricks load.
+    head = query.lstrip().lower()
+    if head.startswith("let ") or head.startswith("let\n") or head.startswith("let\r"):
+        return False
+    return head.startswith(("select", "with ", "with\n", "with\r"))
+
+
+def _sql_table_names(sql: str) -> List[str]:
+    # Physical tables only. CTE and subquery aliases are scopes, not tables,
+    # so a ``WITH src AS (...) SELECT * FROM src`` does not become an upstream.
+    try:
+        statements = sqlglot.parse(sql, dialect="databricks")
+    except sqlglot.errors.SqlglotError:
+        return []
+    names: List[str] = []
+    seen: Set[str] = set()
+    for statement in statements:
+        if statement is None:
+            continue
+        try:
+            scopes = traverse_scope(statement)
+        except sqlglot.errors.SqlglotError:
+            continue
+        for scope in scopes:
+            for source in scope.sources.values():
+                if not isinstance(source, exp.Table):
+                    continue
+                parts = [
+                    part for part in (source.catalog, source.db, source.name) if part
+                ]
+                if not parts:
+                    continue
+                name = ".".join(parts)
+                if name in seen:
+                    continue
+                seen.add(name)
+                names.append(name)
+    return names
+
 
 # DISCOVER_CALC_DEPENDENCY OBJECT_TYPE / REFERENCED_OBJECT_TYPE values that map
 # to a DataHub schema field (and therefore to an intra-model column edge).
@@ -122,10 +190,31 @@ class AasLineageExtractor:
             if partition.query_definition in seen_queries:
                 continue
             seen_queries.add(partition.query_definition)
+            # Query partitions store Spark SQL, not M. Qualify those table
+            # references onto Databricks when a catalog is configured, and do
+            # not hand the SQL to the M parser.
+            if self.config.databricks_default_catalog and _is_bare_sql(
+                partition.query_definition
+            ):
+                for urn in self._databricks_urns_from_sql(
+                    partition.query_definition, table.full_name
+                ):
+                    urn = self._lineage_urn_to_lowercase(urn)
+                    if urn in seen_upstreams:
+                        continue
+                    seen_upstreams.add(urn)
+                    result.upstreams.append(
+                        UpstreamClass(
+                            dataset=urn, type=DatasetLineageTypeClass.TRANSFORMED
+                        )
+                    )
+                continue
             partition_table = table.model_copy(update={"partitions": [partition]})
             for lineage in self._parse_table(partition_table):
                 for upstream_table in lineage.upstreams:
-                    urn = self._lineage_urn_to_lowercase(upstream_table.urn)
+                    urn = self._lineage_urn_to_lowercase(
+                        self._with_databricks_catalog(upstream_table.urn)
+                    )
                     if urn in seen_upstreams:
                         continue
                     seen_upstreams.add(urn)
@@ -158,6 +247,39 @@ class AasLineageExtractor:
             self.report.tables_without_upstream_lineage += 1
         self.report.column_lineage_edges += len(result.fine_grained)
         return result
+
+    def _with_databricks_catalog(self, urn: str) -> str:
+        catalog = self.config.databricks_default_catalog
+        if not catalog:
+            return urn
+        key = builder.dataset_urn_to_key(urn)
+        if key is None or _DATABRICKS_PLATFORM not in key.platform:
+            return urn
+        qualified = qualify_databricks_table_name(key.name, catalog)
+        if qualified == key.name:
+            return urn
+        return builder.dataset_key_to_urn(
+            DatasetKeyClass(platform=key.platform, name=qualified, origin=key.origin)
+        )
+
+    def _databricks_urns_from_sql(self, sql: str, table_name: str) -> List[str]:
+        catalog = self.config.databricks_default_catalog
+        names = _sql_table_names(sql)
+        if not names:
+            self.report.warning(
+                title="Databricks table not found in partition SQL",
+                message="The partition query was SQL, but no source table could be parsed from it.",
+                context=f"table={table_name}",
+            )
+            return []
+        return [
+            builder.make_dataset_urn(
+                _DATABRICKS_PLATFORM,
+                qualify_databricks_table_name(name, catalog),
+                env=self.config.env,
+            )
+            for name in names
+        ]
 
     def _parse_table(self, table: AasTable) -> List[parser.Lineage]:
         try:
@@ -194,7 +316,9 @@ class AasLineageExtractor:
                 continue
             upstreams = [
                 builder.make_schema_field_urn(
-                    self._lineage_urn_to_lowercase(column_ref.table),
+                    self._lineage_urn_to_lowercase(
+                        self._with_databricks_catalog(column_ref.table)
+                    ),
                     column_ref.column,
                 )
                 for column_ref in cll.upstreams

@@ -7,6 +7,13 @@ expression (including `Value.NativeQuery` native SQL) to build upstream table li
 `server_to_platform_instance` to map the servers named in those expressions to the DataHub platform
 instance and environment of the native connector so the URNs line up and entities stitch together.
 
+Query partitions often store Spark SQL (`FROM schema.table` or `FROM table`) instead of M. Analysis
+Services does not include a Unity Catalog catalog in that SQL. Set `databricks_default_catalog` to
+prepend one, the same way the Azure Data Factory connector does. A reference that already has three
+parts (`catalog.schema.table`) is left unchanged. The value is prepended as a whole string, so
+`prod.finance` qualifies a bare table name to `prod.finance.<table>`. Leave it unset to avoid
+guessing a catalog.
+
 With `extract_column_level_lineage` enabled, the connector additionally emits intra-model
 column-level lineage for DAX measures and calculated columns, derived from
 `DISCOVER_CALC_DEPENDENCY`.

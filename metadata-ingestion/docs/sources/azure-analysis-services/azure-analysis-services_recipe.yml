@@ -21,6 +21,12 @@ source:
     # Lineage feature toggles.
     extract_lineage: true
     extract_column_level_lineage: true
+
+    # Prepend a Unity Catalog catalog when a Databricks partition query names
+    # only schema.table or a bare table. Same rule as Azure Data Factory:
+    # "prod" turns finance.factopex into prod.finance.factopex, and
+    # "prod.finance" turns factopex into prod.finance.factopex.
+    # databricks_default_catalog: "prod.finance"
     extract_model_definition: true
 
     # Map upstream servers referenced in partition M/Power Query to their DataHub
