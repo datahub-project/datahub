@@ -73,6 +73,48 @@ public class AdminClientFactoryTest {
                         AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, List.of("spring:9092")));
   }
 
+  @Test
+  public void testSplitProducerConfigUsesProducerBootstrapAndSecurityProtocol() {
+    ProductionConfigContextRunner.create()
+        .withPropertyValues(
+            "kafka.bootstrapServers=base:9092",
+            "kafka.producer.bootstrapServers=producer:9093",
+            "kafka.producer.securityProtocol=SSL",
+            "spring.kafka.security.protocol=PLAINTEXT")
+        .run(
+            context ->
+                assertThat(adminProperties(context, "client-e"))
+                    .containsEntry(
+                        AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, List.of("producer:9093"))
+                    .containsEntry(AdminClientConfig.SECURITY_PROTOCOL_CONFIG, "SSL"));
+  }
+
+  @Test
+  public void testProducerSecurityProtocolOverridesSpringAdminProtocol() {
+    ProductionConfigContextRunner.create()
+        .withPropertyValues(
+            "kafka.producer.securityProtocol=SASL_SSL",
+            "spring.kafka.admin.security.protocol=SASL_PLAINTEXT")
+        .run(
+            context ->
+                assertThat(adminProperties(context, "client-f"))
+                    .containsEntry(AdminClientConfig.SECURITY_PROTOCOL_CONFIG, "SASL_SSL"));
+  }
+
+  @Test
+  public void testWithoutProducerSecurityProtocolKeepsTheBaseProtocol() {
+    ProductionConfigContextRunner.create()
+        .withPropertyValues(
+            "kafka.producer.bootstrapServers=producer:9093",
+            "spring.kafka.security.protocol=SASL_SSL")
+        .run(
+            context ->
+                assertThat(adminProperties(context, "client-g"))
+                    .containsEntry(
+                        AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, List.of("producer:9093"))
+                    .containsEntry(AdminClientConfig.SECURITY_PROTOCOL_CONFIG, "SASL_SSL"));
+  }
+
   @SuppressWarnings("unchecked")
   private static Map<String, Object> adminProperties(ApplicationContext context, String clientId) {
     AtomicReference<Map<String, Object>> captured = new AtomicReference<>();
