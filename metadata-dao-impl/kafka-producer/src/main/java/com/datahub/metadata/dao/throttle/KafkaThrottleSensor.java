@@ -67,6 +67,9 @@ public class KafkaThrottleSensor implements ThrottleSensor {
   private final Map<ThrottleType, Long> medianLag = new ConcurrentHashMap<>();
   private final Map<ThrottleType, BackOffExecution> backoffMap = new ConcurrentHashMap<>();
 
+  /** Topics whose last refresh found no committed offsets, so the warning is logged once. */
+  private final Set<ThrottleType> topicsWithoutOffsets = ConcurrentHashMap.newKeySet();
+
   @Override
   public KafkaThrottleSensor addCallback(Function<ThrottleEvent, ThrottleControl> callback) {
     throttleCallbacks.add(callback);
@@ -237,9 +240,15 @@ public class KafkaThrottleSensor implements ThrottleSensor {
                         .filter(entry -> entry.getKey().topic().equals(topicName))
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
                 if (topicOffsets.isEmpty()) {
-                  // No committed offset for this topic yet (fresh install, never-consumed
-                  // timeseries topic): there is no median to take, so report no lag.
+                  warnOnceWithoutOffsets(mclType, topicName);
                   return Map.entry(mclType, 0L);
+                }
+                if (topicsWithoutOffsets.remove(mclType)) {
+                  log.info(
+                      "Consumer group {} has committed offsets on MCL topic {} again; lag"
+                          + " throttling for it resumes.",
+                      mclConsumerGroupId,
+                      topicName);
                 }
                 List<Double> offsetValues =
                     topicOffsets.values().stream()
@@ -260,6 +269,41 @@ public class KafkaThrottleSensor implements ThrottleSensor {
     } catch (ExecutionException | InterruptedException e) {
       log.error("Error fetching consumer group offsets.", e);
       return Map.of(MCL_VERSIONED_LAG, 0L, MCL_TIMESERIES_LAG, 0L);
+    }
+  }
+
+  /**
+   * A topic with no committed offsets reports zero lag, which turns lag throttling off for it. That
+   * covers a fresh install or a topic the group hasn't consumed yet, and also a group whose offsets
+   * were removed: expired after the group had no members for {@code offsets.retention.minutes}, or
+   * after it stopped consuming the topic, or deleted by an admin.
+   *
+   * <p>Zero is reported even when a lag was seen before, rather than keeping that last value.
+   * Nothing refreshes a kept value until the group commits on the topic again, so a group that
+   * stopped consuming the topic would throttle writers for good. When consumers come back they
+   * start from {@code auto.offset.reset} (earliest by default) and commit, and the next refresh
+   * measures the real backlog and throttles again. The warning is logged once per transition so
+   * operators can tell this state from a drained topic.
+   */
+  private void warnOnceWithoutOffsets(ThrottleType mclType, String topicName) {
+    if (!topicsWithoutOffsets.add(mclType)) {
+      return;
+    }
+    Long lastLag = medianLag.get(mclType);
+    if (lastLag != null && lastLag > 0) {
+      log.warn(
+          "Consumer group {} has no committed offsets on MCL topic {}; its last lag was {}. The"
+              + " offsets may have expired or been deleted. Reporting zero lag, so writers are"
+              + " not throttled for this topic until the group commits on it again.",
+          mclConsumerGroupId,
+          topicName,
+          lastLag);
+    } else {
+      log.warn(
+          "Consumer group {} has no committed offsets on MCL topic {}; reporting zero lag until"
+              + " it commits.",
+          mclConsumerGroupId,
+          topicName);
     }
   }
 

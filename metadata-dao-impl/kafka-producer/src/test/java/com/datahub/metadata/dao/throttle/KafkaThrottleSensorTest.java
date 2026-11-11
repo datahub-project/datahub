@@ -13,6 +13,10 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.linkedin.metadata.config.MetadataChangeProposalConfig;
 import com.linkedin.metadata.dao.throttle.ThrottleControl;
 import com.linkedin.metadata.dao.throttle.ThrottleType;
@@ -35,6 +39,7 @@ import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartition;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
 public class KafkaThrottleSensorTest {
@@ -360,6 +365,141 @@ public class KafkaThrottleSensorTest {
             .build();
 
     assertLagEventuallyRefreshed(test);
+  }
+
+  @Test
+  public void testFreshInstallWithoutCommittedOffsetsReportsNoLagAndWarnsOnce()
+      throws ExecutionException, InterruptedException {
+    // The consumer group has never committed on either topic
+    AdminClient mockAdmin = mockKafka(Pair.of(Map.of(), Map.of()));
+    MetadataChangeProposalConfig.ThrottlesConfig throttleConfig = noSchedulerConfig().getThrottle();
+    throttleConfig.getVersioned().setThreshold(1);
+
+    KafkaThrottleSensor test =
+        KafkaThrottleSensor.builder()
+            .config(throttleConfig)
+            .kafkaAdmin(mockAdmin)
+            .versionedTopicName(STANDARD_TOPICS.get(0))
+            .timeseriesTopicName(STANDARD_TOPICS.get(1))
+            .entityRegistry(mock(EntityRegistry.class))
+            .mclConsumerGroupId(STANDARD_MCL_CONSUMER_GROUP_ID)
+            .build();
+
+    ListAppender<ILoggingEvent> logs = captureLogs();
+    try {
+      test.refresh();
+      test.refresh();
+    } finally {
+      stopCapturingLogs(logs);
+    }
+
+    assertEquals(
+        test.getLag(),
+        Map.of(
+            ThrottleType.MCL_VERSIONED_LAG, 0L,
+            ThrottleType.MCL_TIMESERIES_LAG, 0L));
+    assertFalse(test.isThrottled(ThrottleType.MCL_VERSIONED_LAG));
+    List<String> warnings = warnings(logs);
+    assertEquals(warnings.size(), 2, "Expected one warning per topic, not one per refresh");
+    assertTrue(
+        warnings.stream().anyMatch(w -> w.contains(STANDARD_TOPICS.get(0))), warnings.toString());
+    assertTrue(
+        warnings.stream().anyMatch(w -> w.contains(STANDARD_TOPICS.get(1))), warnings.toString());
+    assertTrue(
+        warnings.stream().noneMatch(w -> w.contains("last lag")),
+        "No lag was seen, so the warning shouldn't name one: " + warnings);
+  }
+
+  @Test
+  public void testOffsetsVanishingAfterLagWasSeenReportsNoLagAndWarnsOncePerTransition()
+      throws ExecutionException, InterruptedException {
+    // Versioned topic only, lag 1, 2, 3 -> median 2. Refreshes see: lag, no offsets, no offsets,
+    // lag again, no offsets.
+    Pair<Map<TopicPartition, OffsetAndMetadata>, Map<TopicPartition, Long>> lag =
+        generateLag(
+            List.of(STANDARD_TOPICS.get(0)),
+            topicPart -> (long) topicPart.partition() + 1,
+            topicPart -> ((long) topicPart.partition() + 1) * 2,
+            3);
+    AdminClient mockAdmin = mockKafka(lag);
+    KafkaFuture<Map<TopicPartition, OffsetAndMetadata>> consumerFuture = mock(KafkaFuture.class);
+    when(consumerFuture.get())
+        .thenReturn(lag.getFirst(), Map.of(), Map.of(), lag.getFirst(), Map.of());
+    ListConsumerGroupOffsetsResult offsetsResult = mock(ListConsumerGroupOffsetsResult.class);
+    when(offsetsResult.partitionsToOffsetAndMetadata()).thenReturn(consumerFuture);
+    when(mockAdmin.listConsumerGroupOffsets(anyString())).thenReturn(offsetsResult);
+
+    MetadataChangeProposalConfig.ThrottlesConfig throttleConfig = noSchedulerConfig().getThrottle();
+    throttleConfig.getVersioned().setThreshold(1);
+    KafkaThrottleSensor test =
+        KafkaThrottleSensor.builder()
+            .config(throttleConfig)
+            .kafkaAdmin(mockAdmin)
+            .versionedTopicName(STANDARD_TOPICS.get(0))
+            .timeseriesTopicName(STANDARD_TOPICS.get(1))
+            .entityRegistry(mock(EntityRegistry.class))
+            .mclConsumerGroupId(STANDARD_MCL_CONSUMER_GROUP_ID)
+            .build();
+    String versionedTopic = STANDARD_TOPICS.get(0);
+
+    ListAppender<ILoggingEvent> logs = captureLogs();
+    try {
+      test.refresh();
+      assertEquals(test.getLag().get(ThrottleType.MCL_VERSIONED_LAG), 2L);
+      assertTrue(test.isThrottled(ThrottleType.MCL_VERSIONED_LAG));
+      assertTrue(warningsFor(logs, versionedTopic).isEmpty());
+
+      // Offsets vanish: zero lag, not the last value, so throttling stops; one warning naming it
+      test.refresh();
+      assertEquals(test.getLag().get(ThrottleType.MCL_VERSIONED_LAG), 0L);
+      assertFalse(test.isThrottled(ThrottleType.MCL_VERSIONED_LAG));
+      List<String> warnings = warningsFor(logs, versionedTopic);
+      assertEquals(warnings.size(), 1, warnings.toString());
+      assertTrue(warnings.get(0).contains("last lag was 2"), warnings.get(0));
+
+      // Still no offsets: no repeat warning
+      test.refresh();
+      assertEquals(test.getLag().get(ThrottleType.MCL_VERSIONED_LAG), 0L);
+      assertEquals(warningsFor(logs, versionedTopic).size(), 1);
+
+      // Offsets come back: lag and throttling return
+      test.refresh();
+      assertEquals(test.getLag().get(ThrottleType.MCL_VERSIONED_LAG), 2L);
+      assertTrue(test.isThrottled(ThrottleType.MCL_VERSIONED_LAG));
+
+      // And vanish again: warned again
+      test.refresh();
+      assertEquals(test.getLag().get(ThrottleType.MCL_VERSIONED_LAG), 0L);
+      assertEquals(warningsFor(logs, versionedTopic).size(), 2);
+    } finally {
+      stopCapturingLogs(logs);
+    }
+  }
+
+  private static ListAppender<ILoggingEvent> captureLogs() {
+    Logger logger = (Logger) LoggerFactory.getLogger(KafkaThrottleSensor.class);
+    ListAppender<ILoggingEvent> appender = new ListAppender<>();
+    appender.start();
+    logger.addAppender(appender);
+    return appender;
+  }
+
+  private static void stopCapturingLogs(ListAppender<ILoggingEvent> appender) {
+    ((Logger) LoggerFactory.getLogger(KafkaThrottleSensor.class)).detachAppender(appender);
+    appender.stop();
+  }
+
+  private static List<String> warnings(ListAppender<ILoggingEvent> appender) {
+    return appender.list.stream()
+        .filter(event -> event.getLevel() == Level.WARN)
+        .map(ILoggingEvent::getFormattedMessage)
+        .collect(Collectors.toList());
+  }
+
+  private static List<String> warningsFor(ListAppender<ILoggingEvent> appender, String topic) {
+    return warnings(appender).stream()
+        .filter(message -> message.contains(topic))
+        .collect(Collectors.toList());
   }
 
   /**
