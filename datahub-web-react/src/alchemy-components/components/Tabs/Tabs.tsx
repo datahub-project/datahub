@@ -1,6 +1,6 @@
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Tabs as AntTabs, TabsProps } from 'antd';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { ComponentType, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { Icon } from '@components/components/Icon';
@@ -10,7 +10,6 @@ import { OverflowText } from '@components/components/OverflowText';
 import { Pill } from '@components/components/Pills';
 import { Tooltip } from '@components/components/Tooltip';
 
-import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
 import { removeRuntimePath } from '@utils/runtimeBasePath';
 
 const ScrollableTabsContainer = styled.div<{ $maxHeight?: string }>`
@@ -383,6 +382,11 @@ export interface Tab {
     errorResetKey?: string;
 }
 
+export type TabErrorBoundaryProps = {
+    resetKeys: string[];
+    children: ReactNode;
+};
+
 export interface Props extends Pick<TabsProps, 'tabBarExtraContent'> {
     tabs: Tab[];
     selectedTab?: string;
@@ -412,8 +416,14 @@ export interface Props extends Pick<TabsProps, 'tabBarExtraContent'> {
     destroyInactiveTabPane?: boolean;
     hideNavOperations?: boolean;
     onTabClose?: (tabKey: string) => void;
+    /** Wraps each tab's content, e.g. to contain a crashing tab. Without it the error propagates past Tabs. */
+    tabErrorBoundary?: ComponentType<TabErrorBoundaryProps>;
 }
 
+/**
+ * Outside alchemy-components, import Tabs from '@app/sharedV2/tabs/Tabs' instead: it passes the app
+ * error boundary, so a crashing tab shows an error state instead of taking the page down.
+ */
 export function Tabs({
     tabs,
     selectedTab,
@@ -434,6 +444,7 @@ export function Tabs({
     tabBarExtraContent,
     hideNavOperations,
     onTabClose,
+    tabErrorBoundary: TabErrorBoundary,
 }: Props) {
     const tabsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -483,10 +494,10 @@ export function Tabs({
             />
         ),
         disabled: tab.disabled,
-        children: (
-            <ErrorBoundary resetKeys={[tab.key, tab.errorResetKey ?? '']} variant="tab">
-                {tab.component}
-            </ErrorBoundary>
+        children: TabErrorBoundary ? (
+            <TabErrorBoundary resetKeys={[tab.key, tab.errorResetKey ?? '']}>{tab.component}</TabErrorBoundary>
+        ) : (
+            tab.component
         ),
     }));
     const tabsContent = (

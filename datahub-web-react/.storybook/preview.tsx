@@ -3,7 +3,7 @@ import { DocsContainer } from '@storybook/blocks';
 import { ConfigProvider } from 'antd';
 // antd 5 styles itself at runtime; reset.css supplies the base element styles it expects
 import 'antd/dist/reset.css';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { ThemeProvider, createGlobalStyle } from 'styled-components';
 
@@ -12,6 +12,7 @@ import { isSupportedLanguage } from '../src/app/i18n/utils';
 import { antdTheme } from '../src/alchemy-components/theme/antdTheme';
 import GlobalThemeStyles from '../src/app/theme/GlobalThemeStyles';
 import themes from '../src/conf/theme/themes';
+import { CustomThemeContext } from '../src/customThemeContext';
 import dayjs from '../src/utils/dayjs';
 import DocTemplate from './DocTemplate.mdx';
 import { darkDocsTheme, lightDocsTheme } from './docsThemes';
@@ -100,8 +101,8 @@ function resolveTheme(themeId: string | undefined) {
 /**
  * Supplies the active theme to everything rendered inside the preview iframe.
  *
- * `GlobalThemeStyles` is the sheet `CustomThemeProvider` mounts in the app. antd
- * compiles its palette from LESS at build time, so without it every antd-backed
+ * `GlobalThemeStyles` is the sheet `CustomThemeProvider` mounts in the app. antd's
+ * design tokens are static light values, so without it every antd-backed
  * component (Modal, Drawer, Select, Table, Pagination, Timeline…) keeps its light
  * colors in dark mode.
  *
@@ -119,16 +120,21 @@ function PreviewTheme({
     children: React.ReactNode;
 }) {
     const activeTheme = resolveTheme(themeId);
+    // Alchemy `Icon` and `Text` resolve semantic color names (e.g. `icon`) through this context, as the
+    // app's `CustomThemeProvider` supplies it; without it those colors fall back to black.
+    const customTheme = useMemo(() => ({ theme: activeTheme, updateTheme: () => null }), [activeTheme]);
     return (
-        <ThemeProvider theme={activeTheme}>
-            {injectGlobalStyles && (
-                <>
-                    <GlobalThemeStyles />
-                    <ThemedPreviewStyles $bg={activeTheme.colors.bg} $text={activeTheme.colors.text} />
-                </>
-            )}
-            {children}
-        </ThemeProvider>
+        <CustomThemeContext.Provider value={customTheme}>
+            <ThemeProvider theme={activeTheme}>
+                {injectGlobalStyles && (
+                    <>
+                        <GlobalThemeStyles />
+                        <ThemedPreviewStyles $bg={activeTheme.colors.bg} $text={activeTheme.colors.text} />
+                    </>
+                )}
+                {children}
+            </ThemeProvider>
+        </CustomThemeContext.Provider>
     );
 }
 

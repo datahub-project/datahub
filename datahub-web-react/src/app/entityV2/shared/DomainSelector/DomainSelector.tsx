@@ -15,8 +15,8 @@ import {
     mergeSelectedNestedOptions,
 } from '@app/entityV2/shared/utils/selectorUtils';
 import { DEBOUNCE_SEARCH_MS } from '@app/sharedV2/constants';
+import { EntityNestedSelectOption } from '@app/sharedV2/select/select.types';
 import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
-import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { CustomOptionRenderer } from '@src/alchemy-components/components/Select/types';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
@@ -29,7 +29,7 @@ import { Domain, EntityType } from '@src/types.generated';
 // `DomainSelector` builds its option list from several independent sources (root domains, loaded
 // children, autocomplete search results, and hydrated selected urns) — whichever one a domain's
 // option comes from, apply the same icon so it doesn't matter which list "wins" a merge.
-function withDomainIcons(options: NestedSelectOption[]): NestedSelectOption[] {
+function withDomainIcons(options: EntityNestedSelectOption[]): EntityNestedSelectOption[] {
     return options.map((option) =>
         option.entity
             ? { ...option, icon: <DomainColoredIcon domain={option.entity as Domain} size={14} fontSize={8} /> }
@@ -39,13 +39,13 @@ function withDomainIcons(options: NestedSelectOption[]): NestedSelectOption[] {
 
 type DomainSelectorProps = {
     selectedDomains: string[];
-    onDomainsChange: (domainUrns: string[], selectedOptions?: NestedSelectOption[]) => void;
+    onDomainsChange: (domainUrns: string[], selectedOptions?: EntityNestedSelectOption[]) => void;
     placeholder?: string;
     label?: string;
     isMultiSelect?: boolean;
     selectChildrenWithParent?: boolean;
-    renderCustomOptionText?: CustomOptionRenderer<NestedSelectOption>;
-    renderCustomSelectedValue?: (option: NestedSelectOption) => React.ReactNode;
+    renderCustomOptionText?: CustomOptionRenderer<EntityNestedSelectOption>;
+    renderCustomSelectedValue?: (option: EntityNestedSelectOption) => React.ReactNode;
     isRequired?: boolean;
     isDisabled?: boolean;
 };
@@ -124,7 +124,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
         [entitiesLoading, t],
     );
 
-    // Convert selected domain URNs to NestedSelectOption format using utility
+    // Convert selected domain URNs to EntityNestedSelectOption format using utility
     // Use useMemo to prevent unnecessary recalculations and ensure NestedSelect properly syncs
     const initialOptions = useMemo(() => {
         return withDomainIcons(
@@ -132,7 +132,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
         );
     }, [selectedDomains, entityCache, entityRegistry, loadingPlaceholder]);
 
-    const [childOptions, setChildOptions] = useState<NestedSelectOption[]>([]);
+    const [childOptions, setChildOptions] = useState<EntityNestedSelectOption[]>([]);
     const [loadedChildUrns, setLoadedChildUrns] = useState<Set<string>>(new Set());
 
     // Track scroll state per parent domain for nested infinite scroll
@@ -147,7 +147,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     useEffect(() => {
         if (nestedScrollData?.scrollAcrossEntities?.searchResults) {
             const { searchResults: results, nextScrollId } = nestedScrollData.scrollAcrossEntities;
-            const childOptionsToAdd: NestedSelectOption[] = [];
+            const childOptionsToAdd: EntityNestedSelectOption[] = [];
 
             results.forEach((result) => {
                 const domain = result.entity;
@@ -206,7 +206,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
             })),
         ) || [];
 
-    function handleLoad(option: NestedSelectOption) {
+    function handleLoad(option: EntityNestedSelectOption) {
         const parentUrn = option.value;
 
         // Check if we've already loaded this parent's children
@@ -237,7 +237,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
         [autoComplete],
     );
 
-    function handleUpdate(values: NestedSelectOption[]) {
+    function handleUpdate(values: EntityNestedSelectOption[]) {
         if (values.length) {
             const domainUrnsToUpdate = values.map((v) => v.value);
             onDomainsChange(domainUrnsToUpdate, values);

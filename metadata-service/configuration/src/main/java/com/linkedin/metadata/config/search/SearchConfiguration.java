@@ -38,6 +38,9 @@ public class SearchConfiguration {
    */
   private boolean hideNonPrimarySiblings;
 
+  /** Use the v2.5 analyzer chain in legacy index settings. Off keeps the original v2 analyzers. */
+  @Builder.Default private boolean enableSearchV2_5 = false;
+
   private ExactMatchConfiguration exactMatch;
   private PartialConfiguration partial;
   private CustomConfiguration custom;

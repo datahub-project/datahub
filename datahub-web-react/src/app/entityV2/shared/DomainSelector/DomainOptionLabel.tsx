@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
-import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { EntityNestedSelectOption } from '@app/sharedV2/select/select.types';
 import { Domain } from '@src/types.generated';
 
 const Row = styled.div`
@@ -13,7 +13,7 @@ const Row = styled.div`
 `;
 
 type Props = {
-    option: NestedSelectOption;
+    option: EntityNestedSelectOption;
     /** Icon slot size in px — the default suits dropdown rows; selected-value slots want smaller. */
     iconSize?: number;
     iconFontSize?: number;
