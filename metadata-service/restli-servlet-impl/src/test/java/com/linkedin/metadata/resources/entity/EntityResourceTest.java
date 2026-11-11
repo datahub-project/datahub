@@ -1,7 +1,10 @@
 package com.linkedin.metadata.resources.entity;
 
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -46,11 +49,22 @@ import java.net.URISyntaxException;
 import com.linkedin.data.DataMap;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.restli.internal.server.methods.AnyRecord;
+import com.datahub.authorization.AuthUtil;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.DatasetAspectArray;
+import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.snapshot.DatasetSnapshot;
+import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.restli.server.RestLiServiceException;
+import java.util.Map;
+import org.testng.annotations.DataProvider;
 import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
@@ -70,6 +84,16 @@ public class EntityResourceTest {
   private Authorizer authorizer;
   private OperationContext systemOperationContext;
   private Engine parseqEngine;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
+  }
 
   @BeforeMethod
   public void setup() {
@@ -146,6 +170,41 @@ public class EntityResourceTest {
     assertNotNull(task);
   }
 
+  @Test
+  public void testSearchAcrossOnlyUnknownEntityTypesDoesNotSearchEveryType() throws Exception {
+    // Every requested type is unknown to the registry (e.g. after a rollback): the search must not
+    // fall back to searching every entity type.
+    SearchService searchService = mock(SearchService.class);
+    when(searchService.getEntitiesToSearch(any(), any(), any())).thenReturn(List.of());
+    setSearchService(entityResource, searchService);
+
+    Task<SearchResult> task =
+        entityResource.searchAcrossEntities(
+            new String[] {"entityFromNewerBuild"}, "*", null, null, null, 0, 10, null);
+
+    assertNotNull(task);
+    verify(searchService).emptySearchResult(0, 10);
+    verify(searchService, never())
+        .searchAcrossEntities(
+            any(OperationContext.class), any(), any(), any(), any(), anyInt(), any(), any());
+  }
+
+  @Test
+  public void testScrollAcrossOnlyUnknownEntityTypesDoesNotScrollEveryType() throws Exception {
+    SearchService searchService = mock(SearchService.class);
+    when(searchService.getEntitiesToSearch(any(), any(), any())).thenReturn(List.of());
+    setSearchService(entityResource, searchService);
+
+    Task<ScrollResult> task =
+        entityResource.scrollAcrossEntities(
+            new String[] {"entityFromNewerBuild"}, "*", null, null, null, null, "5m", 10, null);
+
+    assertNotNull(task);
+    verify(searchService).emptyScrollResult(10);
+    verify(searchService, never())
+        .scrollAcrossEntities(
+            any(OperationContext.class), any(), any(), any(), any(), any(), any(), any());
+  }
   /**
    * Entities such as {@code structuredProperty} have no registered timeseries aspects. The delete
    * flow must not call {@link TimeseriesAspectService#deleteAspectValues} (or require timeseries
@@ -479,6 +538,86 @@ public class EntityResourceTest {
             any(),
             eq(0),
             eq(10));
+  }
+
+  @DataProvider(name = "legacyIngestAuthorizationCases")
+  public Object[][] legacyIngestAuthorizationCases() {
+    String create = "CREATE_ENTITY";
+    String edit = PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType();
+    return new Object[][] {
+      // granted privilege, entity exists, batch endpoint, expect allowed
+      {create, false, false, true},
+      {create, true, false, false},
+      {create, false, true, true},
+      {create, true, true, false},
+      {edit, false, false, true},
+      {edit, true, false, true},
+      {edit, true, true, true},
+    };
+  }
+
+  /**
+   * Legacy snapshot ingest must use the same existence-aware CREATE vs EDIT selection as
+   * ingestProposal: a create-only grant may create new entities but not overwrite existing ones.
+   */
+  @Test(dataProvider = "legacyIngestAuthorizationCases")
+  public void testLegacyIngestAuthorizationIsExistenceAware(
+      String grantedPrivilege, boolean entityExists, boolean batch, boolean expectAllowed)
+      throws Exception {
+    Urn urn = new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD);
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getEntityRegistry())
+        .thenReturn(systemOperationContext.getEntityRegistry());
+    when(aspectRetriever.entityExists(any(OperationContext.class), eq(Set.of(urn))))
+        .thenReturn(Map.of(urn, entityExists));
+    entityResource.setSystemOperationContext(
+        TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever));
+    when(authorizer.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation -> {
+              AuthorizationRequest request = invocation.getArgument(0);
+              return new AuthorizationResult(
+                  request,
+                  grantedPrivilege.equals(request.getPrivilege())
+                      ? AuthorizationResult.Type.ALLOW
+                      : AuthorizationResult.Type.DENY,
+                  "");
+            });
+    Entity entity =
+        new Entity()
+            .setValue(
+                Snapshot.create(
+                    new DatasetSnapshot()
+                        .setUrn(DatasetUrn.createFromUrn(urn))
+                        .setAspects(new DatasetAspectArray())));
+
+    // AuthUtil reads this flag directly, so it must be set rather than stubbed.
+    Field restApiAuthEnabled = AuthUtil.class.getDeclaredField("isRestApiAuthorizationEnabled");
+    restApiAuthEnabled.setAccessible(true);
+    Object previousRestApiAuthEnabled = restApiAuthEnabled.get(null);
+    restApiAuthEnabled.set(null, true);
+    boolean allowed;
+    try {
+      if (batch) {
+        entityResource.batchIngest(new Entity[] {entity}, null);
+      } else {
+        entityResource.ingest(entity, null);
+      }
+      allowed = true;
+    } catch (RestLiServiceException e) {
+      assertEquals(e.getStatus().getCode(), 403);
+      allowed = false;
+    } finally {
+      restApiAuthEnabled.set(null, previousRestApiAuthEnabled);
+    }
+    assertEquals(allowed, expectAllowed);
+  }
+
+  private static void setSearchService(EntityResource entityResource, SearchService searchService)
+      throws Exception {
+    Field field = EntityResource.class.getDeclaredField("searchService");
+    field.setAccessible(true);
+    field.set(entityResource, searchService);
   }
 
   private static void setEntitySearchService(

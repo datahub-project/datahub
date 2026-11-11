@@ -6,7 +6,7 @@ import analytics, { EventType } from '@app/analytics';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
 import { useGetModalLinkProps } from '@app/sharedV2/modals/useGetModalLinkProps';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataHubPageModuleType, Entity } from '@types';
 
@@ -47,7 +47,7 @@ export default function EntityItem({
     customOnEntityClick,
     customHoverEntityName,
 }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const linkProps = useGetModalLinkProps();
     const { templateType } = usePageTemplateContext();
 

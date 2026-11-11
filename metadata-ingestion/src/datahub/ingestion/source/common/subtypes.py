@@ -21,6 +21,7 @@ class DatasetSubTypes(StrEnum):
     SALESFORCE_CUSTOM_OBJECT = "Custom Object"
     SALESFORCE_STANDARD_OBJECT = "Object"
     QLIK_DATASET = "Qlik Dataset"
+    QLIK_TABLE = "Qlik Table"
     GRAFANA_DATASET = "Grafana Dataset"
     QUICKSIGHT_DATASET = "Dataset"
     BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"
@@ -37,6 +38,8 @@ class DatasetSubTypes(StrEnum):
     NEO4J_RELATIONSHIP = "Neo4j Relationship"
     SNOWFLAKE_STREAM = "Snowflake Stream"
     KINESIS_STREAM = "Stream"
+    SQS_QUEUE = "Queue"
+    EVENTBRIDGE_EVENT_BUS = "Event Bus"
     SEMANTIC_VIEW = "Semantic View"
     DYNAMIC_TABLE = "Dynamic Table"
     API_ENDPOINT = "API Endpoint"
@@ -57,6 +60,8 @@ class DatasetSubTypes(StrEnum):
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
     CUBE = "Cube"
+    # Langfuse
+    LANGFUSE_PROMPT = "Langfuse Prompt"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -67,8 +72,8 @@ class GenericContainerSubTypes(StrEnum):
 
     # Microsoft Fabric
     FABRIC_WORKSPACE = "Fabric Workspace"
-    # AWS Kinesis
-    KINESIS_REGION = "Region"
+    # AWS region containers (kinesis, sqs, sns, lambda, eventbridge, eventbridge-pipes).
+    AWS_REGION = "Region"
 
 
 class DatasetContainerSubTypes(StrEnum):
@@ -172,12 +177,14 @@ class BIAssetSubTypes(StrEnum):
     THOUGHTSPOT_LIVEBOARD = "Liveboard"
     THOUGHTSPOT_VISUALIZATION = "Visualization"
     MICROSTRATEGY_DOSSIER = "Dossier"
+    MICROSTRATEGY_DOCUMENT = "Document"
     MICROSTRATEGY_VISUALIZATION = "Visualization"
 
     # PowerBI
     POWERBI_TILE = "PowerBI Tile"
     POWERBI_PAGE = "PowerBI Page"
     POWERBI_APP = "App"
+    POWERBI_PAGINATED_REPORT = "PaginatedReport"
 
     # Mode
     MODE_REPORT = "Report"
@@ -217,6 +224,11 @@ class MLAssetSubTypes(StrEnum):
 
     FOLDER = "Folder"
 
+    # Langfuse
+    LANGFUSE_PROJECT = "Langfuse Project"
+    LANGFUSE_TRACE = "Langfuse Trace"
+    LANGFUSE_GENERATION = "Langfuse Generation"
+
 
 class DocumentSubTypes(StrEnum):
     # Documents that stand for a folder in the source system, matching the value
@@ -234,6 +246,10 @@ class DataFlowSubTypes(StrEnum):
     SAP_TASK_CHAIN = "Task Chain"
     # Amazon Data Firehose — each Firehose stream is its own pipeline (DataFlow).
     KINESIS_FIREHOSE_STREAM = "Firehose Stream"
+    # AWS Lambda / EventBridge resources wired to SQS or SNS: one DataFlow each.
+    LAMBDA_FUNCTION = "Lambda Function"
+    EVENTBRIDGE_RULE = "EventBridge Rule"
+    EVENTBRIDGE_PIPE = "EventBridge Pipe"
 
 
 class DataJobSubTypes(StrEnum):
@@ -244,6 +260,10 @@ class DataJobSubTypes(StrEnum):
     SAP_TASK_CHAIN_STEP = "Task Chain Step"
     # Amazon Data Firehose — the single delivery step within a Firehose stream.
     KINESIS_FIREHOSE_DELIVERY = "Delivery"
+    # The single step inside each Lambda / EventBridge DataFlow above.
+    LAMBDA_INVOCATION = "Lambda Invocation"
+    EVENTBRIDGE_ROUTE = "Route"
+    EVENTBRIDGE_PIPE_STEP = "Pipe"
     # ADF Activity Types
     ADF_COPY_ACTIVITY = "Copy Activity"
     ADF_DATA_FLOW_ACTIVITY = "Data Flow Activity"

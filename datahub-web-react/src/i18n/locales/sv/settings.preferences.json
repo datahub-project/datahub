@@ -1,6 +1,9 @@
 {
     "appearance.subTitle": "Hantera dina utseendeinställningar.",
     "appearance.title": "Utseende",
+    "darkMode.beta": "Beta",
+    "darkMode.description": "Använd ett mörkt färgtema i hela DataHub.",
+    "darkMode.title": "Mörkt läge",
     "language.description": "Välj ditt önskade visningsspråk",
     "language.title": "Språk för användargränssnitt",
     "noSettings": "Inga utseendeinställningar hittades.",

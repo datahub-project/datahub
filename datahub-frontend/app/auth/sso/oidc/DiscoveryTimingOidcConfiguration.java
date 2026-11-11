@@ -35,11 +35,19 @@ class DiscoveryTimingOidcConfiguration extends OidcConfiguration {
     @Override
     protected OIDCProviderMetadata retrieveMetadata() {
       final long startedAtNanos = System.nanoTime();
-      final OIDCProviderMetadata metadata = super.retrieveMetadata();
-      log.info(
-          "OIDC provider metadata fetch completed in {} ms",
-          TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAtNanos));
-      return metadata;
+      boolean succeeded = false;
+      try {
+        final OIDCProviderMetadata metadata = super.retrieveMetadata();
+        succeeded = true;
+        return metadata;
+      } finally {
+        // Timeouts and parse failures throw before a document is returned. Log the duration
+        // either way; the outcome distinguishes a usable document from a throw.
+        log.info(
+            "OIDC provider metadata fetch completed in {} ms outcome={}",
+            TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAtNanos),
+            succeeded ? "success" : "failed");
+      }
     }
   }
 }

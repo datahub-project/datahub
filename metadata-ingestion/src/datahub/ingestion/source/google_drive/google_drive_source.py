@@ -31,6 +31,7 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
 from datahub.ingestion.source.common.subtypes import DocumentSubTypes
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.google_drive.constants import (
@@ -84,6 +85,13 @@ from datahub.ingestion.source.google_drive.google_drive_hierarchy import (
 )
 from datahub.ingestion.source.google_drive.google_drive_report import (
     GoogleDriveSourceReport,
+)
+from datahub.ingestion.source.google_drive.google_drive_selection import (
+    MAX_TEXT_LENGTH,
+    MIN_TEXT_LENGTH,
+    SKIP_EMPTY_DOCUMENTS,
+    exported_text_verdict,
+    root_document_verdict,
 )
 from datahub.ingestion.source.google_drive.models import (
     DocumentRef,
@@ -194,6 +202,10 @@ def to_stored_document(
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.OWNERSHIP, "Enabled by default via `extract_owners`")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
     """Ingest Google Docs from Google Drive folders and shared drives as DataHub
     Document entities, preserving the folder hierarchy."""
@@ -316,7 +328,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             folders = [
                 folder
                 for folder in tree.folders.values()
-                if self.config.create_root_documents or not folder.is_root
+                if not folder.is_root or root_document_verdict(self.config).included
             ]
             for start in range(0, len(folders), CHANGE_DETECTION_BATCH_SIZE):
                 folder_page = folders[start : start + CHANGE_DETECTION_BATCH_SIZE]
@@ -331,19 +343,25 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         with self.report.new_stage(STAGE_DOCUMENTS):
             total = len(tree.documents)
             processed = 0
-            for start in range(0, total, CHANGE_DETECTION_BATCH_SIZE):
-                page = tree.documents[start : start + CHANGE_DETECTION_BATCH_SIZE]
-                stored = self._load_stored_documents(
-                    [ref.file.id for ref in page if ref.file.version]
-                )
-                for ref in page:
-                    yield from self._process_document_safely(
-                        ref, tree, stored.get(make_document_urn(ref.file.id))
+            try:
+                for start in range(0, total, CHANGE_DETECTION_BATCH_SIZE):
+                    page = tree.documents[start : start + CHANGE_DETECTION_BATCH_SIZE]
+                    stored = self._load_stored_documents(
+                        [ref.file.id for ref in page if ref.file.version]
                     )
-                    processed += 1
-                    if processed % PROGRESS_LOG_INTERVAL == 0 or processed == total:
-                        logger.info("Processed %d of %d Google Docs", processed, total)
-            self._merge_chunking_logs()
+                    for ref in page:
+                        yield from self._process_document_safely(
+                            ref, tree, stored.get(make_document_urn(ref.file.id))
+                        )
+                        processed += 1
+                        if processed % PROGRESS_LOG_INTERVAL == 0 or processed == total:
+                            logger.info(
+                                "Processed %d of %d Google Docs", processed, total
+                            )
+            finally:
+                # Kept when a server-wide embedding failure ends the run, so the
+                # report still shows what happened to the documents before it.
+                self._merge_chunking_logs()
             yield from self._emit_presence_if_idle()
 
     def _emit_presence_if_idle(self) -> Iterable[MetadataWorkUnit]:
@@ -389,6 +407,8 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         try:
             yield from self._process_document(ref, tree, stored)
+        except ServerEmbeddingRunError:
+            raise
         except Exception as e:
             if self.report.num_documents_limit_reached:
                 self.report.failure(
@@ -520,12 +540,11 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         text = clean_markdown(result.text)
-        if (self.config.skip_empty_documents and not text) or len(
-            text
-        ) < self.config.min_text_length:
+        text_verdict = exported_text_verdict(self.config, len(text))
+        if text_verdict.excluded_by in (SKIP_EMPTY_DOCUMENTS, MIN_TEXT_LENGTH):
             self.report.documents_skipped_empty += 1
             return
-        if self.config.max_text_length and len(text) > self.config.max_text_length:
+        if text_verdict.excluded_by == MAX_TEXT_LENGTH:
             self.report.documents_skipped_too_long += 1
             # Not registered in state, so a previously ingested copy is soft-deleted.
             self.report.warning(
@@ -620,6 +639,8 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             # The stored embedding state could not be read; retry next run.
             self._report_embedding_deferred(file, e)
             return EmbedResult(workunits=workunits, succeeded=False)
+        except ServerEmbeddingRunError:
+            raise
         except RuntimeError as e:
             if self.chunking_source.report.num_documents_limit_reached:
                 return EmbedResult(workunits=workunits, succeeded=True, limit_error=e)
@@ -929,25 +950,11 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
     @staticmethod
     def _test_semantic_search_capability(
         config: GoogleDriveSourceConfig,
+        graph: Optional[DataHubGraph] = None,
     ) -> CapabilityReport:
-        try:
-            resolved = DocumentChunkingSource.resolve_embedding_config(
-                config.embedding, None
-            )
-            return DocumentChunkingSource.test_embedding_capability(resolved)
-        except ValueError as e:
-            return CapabilityReport(
-                capable=False,
-                failure_reason=str(e),
-                mitigation_message="Fix the embedding configuration or enable "
-                "semantic search on the DataHub server.",
-            )
-        except Exception as e:
-            return CapabilityReport(
-                capable=False,
-                failure_reason=f"Failed to resolve embedding configuration: {e}",
-                mitigation_message="Check the embedding configuration.",
-            )
+        return DocumentChunkingSource.test_semantic_search_capability(
+            config.embedding, datahub=config.datahub, graph=graph
+        )
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -1006,3 +1013,9 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             basic_connectivity=CapabilityReport(capable=True),
             capability_report=capability_report,
         )
+
+    def close(self) -> None:
+        try:
+            self.chunking_source.close()
+        finally:
+            super().close()

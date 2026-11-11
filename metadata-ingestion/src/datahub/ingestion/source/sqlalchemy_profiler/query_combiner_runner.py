@@ -116,7 +116,7 @@ class QueryCombinerRunner:
     Methods that return FutureResult[T]:
         - Single-value scalar queries (e.g., COUNT, MIN, MAX, AVG, STDDEV)
         - These return FutureResult[T] which makes batching explicit in the type system
-        - Schedule multiple queries, call query_combiner.flush(), then extract results
+        - Schedule them inside a batch(), then extract results once it exits
 
     Methods that return direct values:
         - Complex queries (e.g., histograms, frequencies, quantiles)
@@ -124,25 +124,16 @@ class QueryCombinerRunner:
         - Cannot be efficiently batched
 
     Usage pattern:
-        # Schedule queries (returns FutureResult immediately)
-        row_count_future = runner.get_row_count(table)
-        min_future = runner.get_column_min(table, "col")
-        max_future = runner.get_column_max(table, "col")
+        # Scheduling returns a FutureResult immediately; the batch flushes
+        # on exit.
+        with runner.batch() as batch:
+            row_count_future = batch.get_row_count(table)
+            min_future = batch.get_column_min(table, "col")
+            max_future = batch.get_column_max(table, "col")
 
-        # Execute all 3 queries in one batch
-        query_combiner.flush()
-
-        # Extract results
         row_count = row_count_future.result()
         min_val = min_future.result()
         max_val = max_future.result()
-
-    TODO: Future enhancement - Add context manager for automatic flush:
-        with runner.batch() as batch:
-            row_count = batch.get_row_count(table)
-            min_val = batch.get_column_min(table, "col")
-            # Auto-flushes on exit
-        print(row_count.result())
 
     Architecture:
         User -> QueryCombinerRunner (schedules via query combiner) -> PlatformAdapter (executes SQL)
@@ -187,6 +178,15 @@ class QueryCombinerRunner:
 
         self.query_combiner.run(execute)
         return FutureResult(container=container)
+
+    @property
+    def defers_queries(self) -> bool:
+        """Whether scheduling a query postpones it until flush().
+
+        False when the combiner is disabled: every scheduled call runs where it
+        is written, so queries cannot be gated on a result from the same batch.
+        """
+        return bool(self.query_combiner.enabled)
 
     def flush(self) -> None:
         """Execute every scheduled query. FutureResults resolve after this."""

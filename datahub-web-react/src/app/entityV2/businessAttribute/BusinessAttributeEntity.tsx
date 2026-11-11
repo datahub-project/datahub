@@ -6,6 +6,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/e
 import { Preview } from '@app/entityV2/businessAttribute/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
@@ -116,14 +117,17 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
                 tabs={[
                     {
                         name: i18next.t('entity.types:tab.documentation'),
+                        path: EntityTabPath.DOCUMENTATION,
                         component: DocumentationTab,
                     },
                     {
                         name: i18next.t('entity.types:businessAttribute.relatedEntitiesTab'),
+                        path: EntityTabPath.RELATED_ENTITIES,
                         component: BusinessAttributeRelatedEntity,
                     },
                     {
                         name: i18next.t('entity.types:tab.properties'),
+                        path: EntityTabPath.PROPERTIES,
                         component: PropertiesTab,
                     },
                 ]}

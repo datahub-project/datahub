@@ -6,7 +6,8 @@ import com.linkedin.common.Urn
  * Key for an MLFeatureTable
  */
 @Aspect = {
-  "name": "mlFeatureTableKey"
+  "name": "mlFeatureTableKey",
+  "schemaVersion": 2
 }
 record MLFeatureTableKey {
   /**
@@ -16,6 +17,15 @@ record MLFeatureTableKey {
     "name": "SourcePlatform",
     "entityTypes": [ "dataPlatform" ]
   }
+  @Searchable = {
+    "fieldType": "URN",
+    "queryByDefault": false,
+    "enableAutocomplete": true,
+    "v3": {
+      "searchLabel": "platform",
+      "copyToOther": true
+    }
+  }
   platform: Urn
 
   /**
@@ -24,10 +34,18 @@ record MLFeatureTableKey {
   @Searchable = {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
-    "boostScore": 8.0,
+    "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: string
 }

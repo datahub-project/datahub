@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
@@ -24,6 +25,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
+import com.linkedin.metadata.aspect.plugins.validation.WriteRejectedException;
 import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.AspectSpec;
@@ -55,6 +57,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -318,8 +321,22 @@ public class DeleteEntityService {
       String relationshipType,
       @Nullable CascadeOperationContext cascade) {
     final String relatedEntityName = relatedUrn.getEntityType();
-    final EntitySpec relatedEntitySpec =
-        opContext.getEntityRegistry().getEntitySpec(relatedEntityName);
+    final Optional<EntitySpec> maybeRelatedEntitySpec =
+        handling().entitySpecForData(opContext.getEntityRegistry(), relatedEntityName);
+    // While unknown data is tolerated, an entity type this build does not know (e.g. a referrer
+    // written by a newer build before a version rollback) cannot have its aspects edited here: skip
+    // it instead of failing the whole reference cleanup. Otherwise the lookup fails as before.
+    if (maybeRelatedEntitySpec.isEmpty()) {
+      handleError(
+          new DeleteEntityServiceError(
+              "Related entity type not found in entity registry",
+              DeleteEntityServiceErrorReason.ENTITY_REGISTRY_SPEC_NOT_FOUND,
+              ImmutableMap.of(
+                  "relatedEntityName", relatedEntityName, "relationshipType", relationshipType)),
+          cascade);
+      return Stream.empty();
+    }
+    final EntitySpec relatedEntitySpec = maybeRelatedEntitySpec.get();
     final Map<String, AspectSpec> aspectSpecs =
         getAspectSpecsReferringTo(urn.getEntityType(), relationshipType, relatedEntitySpec);
 
@@ -437,15 +454,15 @@ public class DeleteEntityService {
                 if (enrichedAspect.getVersion() != null) {
                   writeIfUnchanged(
                       opContext,
-                      urn,
                       relatedUrn,
-                      relationshipType,
                       aspectName,
                       aspectSpec,
                       aspect,
                       enrichedAspect.getVersion(),
                       enrichedAspect.isVersionStored(),
                       updatedAspect.get(),
+                      latest ->
+                          withReferenceRemoved(urn, latest, aspectSpec, relationshipType, cascade),
                       cascade);
                 } else if (updatedAspect.get() == null) {
                   // Then we should remove the aspect.
@@ -522,18 +539,20 @@ public class DeleteEntityService {
    *     legacy aspect without one is deleted unbounded, as an unconditional write would, since its
    *     older rows would not match a bound on the resolved version and would be restored
    * @param updatedAspect {@code readAspect} with the reference removed; null to delete the aspect
+   * @param removeReference removes the reference from the aspect as stored now, as {@link
+   *     #withReferenceRemoved} does: the copy, holding null to delete the aspect; null when the
+   *     aspect could not be copied (already reported)
    */
   private void writeIfUnchanged(
       @Nonnull OperationContext opContext,
-      final Urn urn,
       final Urn relatedUrn,
-      final String relationshipType,
       final String aspectName,
       final AspectSpec aspectSpec,
       final Aspect readAspect,
       final long readVersion,
       final boolean readVersionStored,
       @Nullable final Aspect updatedAspect,
+      @Nonnull final Function<Aspect, AtomicReference<Aspect>> removeReference,
       @Nonnull final CascadeOperationContext cascade) {
     Aspect current = readAspect;
     long version = readVersion;
@@ -556,8 +575,9 @@ public class DeleteEntityService {
           settled =
               updateAspect(opContext, relatedUrn, aspectName, current, updated, version, cascade);
         } catch (RuntimeException e) {
-          // Inside a request a version mismatch is thrown as a validation failure; its type is not
-          // visible from this module, so the read below tells a mismatch from any other failure.
+          // Inside a request a version mismatch is thrown as a validation failure, the same type as
+          // a validator rejecting the write, so the read below tells a mismatch from any other
+          // failure.
           settled = false;
           rejection = e;
         }
@@ -569,9 +589,7 @@ public class DeleteEntityService {
       final EnvelopedAspect latest =
           readLatestAspect(opContext, relatedUrn, aspectName, aspectSpec);
       final AtomicReference<Aspect> latestUpdated =
-          latest == null
-              ? null
-              : withReferenceRemoved(urn, latest.getValue(), aspectSpec, relationshipType, cascade);
+          latest == null ? null : removeReference.apply(latest.getValue());
       if (latestUpdated == null || latest.getValue().equals(latestUpdated.get())) {
         // The aspect, or the reference in it, is gone already.
         return;
@@ -579,6 +597,10 @@ public class DeleteEntityService {
       final long latestVersion = ConditionalWriteValidator.resolveAspectVersion(latest);
       final boolean versionMoved = latestVersion != version;
       if (!versionMoved && rejection != null) {
+        if (rejection instanceof WriteRejectedException) {
+          reportUpdateRejected(relatedUrn, aspectName, rejection, cascade);
+          return;
+        }
         throw rejection;
       }
       if (!versionMoved || writes >= _conditionalWriteLimit) {
@@ -640,16 +662,23 @@ public class DeleteEntityService {
     try {
       rollbackResult =
           _entityService.deleteAspect(opContext, urn.toString(), aspectName, conditions, true);
-    } catch (IllegalArgumentException e) {
-      // Delete-time guards can reject individual aspect deletions — e.g. the propertyDefinition
-      // of an ACTIVE structured property that references the deleted entity requires a prior
-      // soft delete. Leave that aspect in place and continue the cascade for the remaining
-      // references instead of aborting cleanup mid-loop.
+    } catch (IllegalArgumentException | WriteRejectedException e) {
+      // Delete-time guards and aspect validators can reject individual aspect deletions — e.g.
+      // the propertyDefinition of an ACTIVE structured property that references the deleted
+      // entity requires a prior soft delete, and an assertionInfo delete requires Edit Assertions
+      // on the asserted asset. Leave that aspect in place, report it, and continue the cascade for
+      // the remaining references instead of aborting cleanup mid-loop. Other failures propagate.
       log.warn(
           "Reference cleanup skipped deleting aspect {} of {}; the aspect was left in place: {}",
           aspectName,
           urn,
           e.getMessage());
+      handleError(
+          new DeleteEntityServiceError(
+              "Aspect delete rejected",
+              DeleteEntityServiceErrorReason.ASPECT_DELETE_FAILED,
+              ImmutableMap.of("urn", urn, "aspectName", aspectName)),
+          cascade);
       return true;
     }
     if (maxVersion != null && rollbackResult.isEmpty()) {
@@ -688,6 +717,8 @@ public class DeleteEntityService {
    * @param ifVersionMatch when set, the aspect is written only if it is still at this version
    * @return false when nothing was written and nothing reported: outside a request, a write whose
    *     version does not match is dropped rather than thrown
+   * @throws WriteRejectedException when {@code ifVersionMatch} is set and the write is rejected,
+   *     since that may be a version mismatch; an unconditional write's rejection is reported
    */
   private boolean updateAspect(
       @Nonnull OperationContext opContext,
@@ -719,13 +750,46 @@ public class DeleteEntityService {
         new AuditStamp()
             .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
             .setTime(System.currentTimeMillis());
-    final IngestResult ingestProposalResult =
-        _entityService.ingestProposal(opContext, proposal, auditStamp, false);
+    final IngestResult ingestProposalResult;
+    try {
+      ingestProposalResult = _entityService.ingestProposal(opContext, proposal, auditStamp, false);
+    } catch (WriteRejectedException e) {
+      if (ifVersionMatch != null) {
+        // A version mismatch is rejected the same way; writeIfUnchanged tells the two apart.
+        throw e;
+      }
+      reportUpdateRejected(urn, aspectName, e, cascade);
+      return true;
+    }
 
     if (ingestProposalResult != null && !ingestProposalResult.isSqlCommitted()) {
       reportUpdateFailed(prevAspect, newAspect, ImmutableMap.of("proposal", proposal), cascade);
     }
     return ingestProposalResult != null;
+  }
+
+  /**
+   * Aspect validators can reject a reference-removal upsert, e.g. an assertionInfo whose targets
+   * change requires Edit Assertions on the asserted asset, or the aspect left after the reference
+   * is stripped no longer passes validation. Leave that aspect in place, report it, and continue
+   * the cascade for the remaining references, as {@link #deleteAspect} does for a rejected delete.
+   */
+  private void reportUpdateRejected(
+      final Urn urn,
+      final String aspectName,
+      final RuntimeException rejection,
+      @Nonnull final CascadeOperationContext cascade) {
+    log.warn(
+        "Reference cleanup skipped updating aspect {} of {}; the aspect was left in place: {}",
+        aspectName,
+        urn,
+        rejection.getMessage());
+    handleError(
+        new DeleteEntityServiceError(
+            "Aspect update rejected",
+            DeleteEntityServiceErrorReason.MCP_PROCESSOR_FAILED,
+            ImmutableMap.of("urn", urn, "aspectName", aspectName)),
+        cascade);
   }
 
   private void reportUpdateFailed(
@@ -990,7 +1054,7 @@ public class DeleteEntityService {
       @Nonnull final Urn deletedUrn,
       @Nullable final CascadeOperationContext cascade) {
     if (shouldDeleteAssetReferencingUrn(assetUrn, deletedUrn)) {
-      _entityService.deleteUrn(opContext, assetUrn);
+      deleteReferencingEntity(opContext, assetUrn, cascade);
     }
 
     List<MetadataChangeProposal> mcps = new ArrayList<>();
@@ -998,6 +1062,18 @@ public class DeleteEntityService {
     aspectsToUpdate.forEach(
         aspectName -> {
           try {
+            // formInfo and forms are rewritten only if still at the version read, as the graph
+            // phase does. Flag off stays the existing async whole-aspect path.
+            if (_conditionalReferenceWrites
+                && aspectName.equals("formInfo")
+                && deletedUrn.getEntityType().equals("structuredProperty")) {
+              removePromptsIfUnchanged(opContext, assetUrn, deletedUrn, aspectName, cascade);
+              return;
+            }
+            if (_conditionalReferenceWrites && aspectName.equals("forms")) {
+              removeFormIfUnchanged(opContext, assetUrn, deletedUrn, aspectName, cascade);
+              return;
+            }
             MetadataChangeProposal mcp =
                 updateAspectForSearchReference(opContext, assetUrn, deletedUrn, aspectName);
             if (mcp != null) {
@@ -1015,6 +1091,141 @@ public class DeleteEntityService {
           }
         });
     return mcps;
+  }
+
+  /**
+   * Removes the prompts referencing {@code deletedUrn} from a form's {@code formInfo} only if it is
+   * still at the version read, as the graph phase does, so a prompt edited meanwhile is kept. The
+   * write is synchronous: an asynchronous one could not report a version mismatch.
+   */
+  private void removePromptsIfUnchanged(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn assetUrn,
+      @Nonnull final Urn deletedUrn,
+      @Nonnull final String aspectName,
+      @Nonnull final CascadeOperationContext cascade) {
+    final AspectSpec aspectSpec =
+        opContext
+            .getEntityRegistry()
+            .getEntitySpec(assetUrn.getEntityType())
+            .getAspectSpec(aspectName);
+    final EnvelopedAspect read = readLatestAspect(opContext, assetUrn, aspectName, aspectSpec);
+    if (read == null) {
+      return;
+    }
+    // Applied to what is stored, again after every conflict.
+    final Function<Aspect, AtomicReference<Aspect>> removePrompts =
+        aspect ->
+            new AtomicReference<>(
+                new Aspect(
+                    DeleteEntityUtils.removePromptsFromFormInfoAspect(
+                            new FormInfo(aspect.data()), deletedUrn)
+                        .data()));
+    final Aspect updated = removePrompts.apply(read.getValue()).get();
+    if (read.getValue().equals(updated)) {
+      return;
+    }
+    writeIfUnchanged(
+        opContext,
+        assetUrn,
+        aspectName,
+        aspectSpec,
+        read.getValue(),
+        ConditionalWriteValidator.resolveAspectVersion(read),
+        hasStoredVersion(read),
+        updated,
+        removePrompts,
+        cascade);
+  }
+
+  /**
+   * Removes {@code deletedUrn} from an asset's {@code forms} only if it is still at the version
+   * read, as the graph phase does, so a form assignment edited meanwhile is kept. The write is
+   * synchronous: an asynchronous one could not report a version mismatch. Search can name an entity
+   * type that has no forms aspect; do not write in that case.
+   */
+  private void removeFormIfUnchanged(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn assetUrn,
+      @Nonnull final Urn deletedUrn,
+      @Nonnull final String aspectName,
+      @Nonnull final CascadeOperationContext cascade) {
+    final AspectSpec aspectSpec =
+        opContext
+            .getEntityRegistry()
+            .getEntitySpec(assetUrn.getEntityType())
+            .getAspectSpec(aspectName);
+    if (aspectSpec == null) {
+      return;
+    }
+    final EnvelopedAspect read = readLatestAspect(opContext, assetUrn, aspectName, aspectSpec);
+    if (read == null) {
+      return;
+    }
+    final Function<Aspect, AtomicReference<Aspect>> removeForm =
+        current -> {
+          final Forms updated =
+              DeleteEntityUtils.removeFormFromForms(new Forms(current.data()), deletedUrn);
+          if (updated == null) {
+            return null;
+          }
+          return new AtomicReference<>(new Aspect(updated.data()));
+        };
+    final AtomicReference<Aspect> updated = removeForm.apply(read.getValue());
+    if (updated == null) {
+      return;
+    }
+    writeIfUnchanged(
+        opContext,
+        assetUrn,
+        aspectName,
+        aspectSpec,
+        read.getValue(),
+        ConditionalWriteValidator.resolveAspectVersion(read),
+        hasStoredVersion(read),
+        updated.get(),
+        removeForm,
+        cascade);
+  }
+
+  /**
+   * Hard-deletes an entity that only exists for the deleted one. With conditional reference writes
+   * on, the versions of its aspects are captured first and the key is deleted only if nothing was
+   * written since. Otherwise the entity stays with its newer rows and only the captured aspects are
+   * removed. A kept entity is logged and counted as the cascade outcome {@code
+   * referencing_entity_kept}, which is not an error. One with no key row is logged and counted as
+   * the error {@code referencing_entity_missing}.
+   */
+  private void deleteReferencingEntity(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nullable final CascadeOperationContext cascade) {
+    if (!_conditionalReferenceWrites) {
+      _entityService.deleteUrn(opContext, urn);
+      return;
+    }
+    final Optional<DeleteCeiling> ceiling = _entityService.captureDeleteCeiling(opContext, urn);
+    if (ceiling.isEmpty()) {
+      log.warn("Reference cleanup did not delete {}: it has no key row to capture", urn);
+      if (cascade != null) {
+        cascade.recordError("referencing_entity_missing");
+      }
+      return;
+    }
+    final RollbackRunResult deleted = _entityService.deleteUrn(opContext, urn, ceiling.get());
+    final boolean keyDeleted =
+        deleted.getRollbackResults().stream()
+            .map(RollbackResult::getKeyAffected)
+            .anyMatch(Boolean.TRUE::equals);
+    if (!keyDeleted) {
+      log.warn(
+          "Reference cleanup kept {}: it was written to after its versions were captured, so only"
+              + " what it had then was deleted",
+          urn);
+      if (cascade != null) {
+        cascade.recordOutcome("referencing_entity_kept");
+      }
+    }
   }
 
   /**

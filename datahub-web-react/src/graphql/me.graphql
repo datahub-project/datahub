@@ -29,7 +29,6 @@ query getMe {
             settings {
                 appearance {
                     showSimplifiedHomepage
-                    showThemeV2
                 }
                 views {
                     defaultView {

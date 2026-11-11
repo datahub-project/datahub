@@ -20,6 +20,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -55,18 +57,22 @@ public class BuildIndices implements BlockingSystemUpgrade {
       final EntityService<?> entityService,
       final GitVersion gitVersion,
       final String revision,
+      final UpdateIndicesService updateIndicesService,
+      final V3DocumentIdScheme v3DocumentIdScheme,
+      final boolean entityIndexFillAvailable,
       @Nullable final SearchClusterRegistry searchClusterRegistry) {
 
     _indexedServices =
         ElasticSearchUpgradeUtils.createElasticSearchIndexedServices(
             graphService, entitySearchService, systemMetadataService, timeseriesAspectService);
 
-    if (configurationProvider.getStructuredProperties().isSystemUpdateEnabled()) {
-      _structuredProperties =
-          ElasticSearchUpgradeUtils.getActiveStructuredPropertiesDefinitions(aspectDao);
-    } else {
-      _structuredProperties = Set.of();
-    }
+    // Read now: the scale-down vote is the first step to use the definitions and counts a failure
+    // as "no reindex due", so a failed read must fail the run before that vote.
+    _structuredProperties =
+        Set.copyOf(
+            ElasticSearchUpgradeUtils.getStructuredPropertiesForIndexMappings(
+                    configurationProvider.getStructuredProperties(), aspectDao)
+                .get());
 
     _incrementalReindexEnabled =
         configurationProvider.getElasticSearch().getBuildIndices() != null
@@ -103,6 +109,9 @@ public class BuildIndices implements BlockingSystemUpgrade {
             opContext,
             entityService,
             String.format("%s-%s", gitVersion.getVersion(), revision),
+            updateIndicesService,
+            v3DocumentIdScheme,
+            entityIndexFillAvailable,
             searchClusterRegistry);
   }
 
@@ -142,6 +151,9 @@ public class BuildIndices implements BlockingSystemUpgrade {
       final OperationContext opContext,
       final EntityService<?> entityService,
       final String upgradeVersion,
+      final UpdateIndicesService updateIndicesService,
+      final V3DocumentIdScheme v3DocumentIdScheme,
+      final boolean entityIndexFillAvailable,
       @Nullable final SearchClusterRegistry searchClusterRegistry) {
 
     final List<UpgradeStep> steps = new ArrayList<>();
@@ -163,7 +175,10 @@ public class BuildIndices implements BlockingSystemUpgrade {
               _structuredProperties,
               entityService,
               upgradeVersion,
-              configurationProvider.getElasticSearch().getBuildIndices()));
+              configurationProvider.getElasticSearch().getBuildIndices(),
+              updateIndicesService,
+              v3DocumentIdScheme,
+              entityIndexFillAvailable));
     } else {
       // Legacy path: block writes, reindex in-place, swap aliases, unblock writes
       steps.add(
@@ -171,12 +186,12 @@ public class BuildIndices implements BlockingSystemUpgrade {
               baseElasticSearchComponents,
               indexedServices,
               configurationProvider,
-              _structuredProperties));
+              () -> _structuredProperties));
       steps.add(
           new BuildIndicesStep(indexedServices, _structuredProperties, configurationProvider));
       steps.add(
           new BuildIndicesPostStep(
-              baseElasticSearchComponents, indexedServices, _structuredProperties));
+              baseElasticSearchComponents, indexedServices, () -> _structuredProperties));
     }
     return steps;
   }

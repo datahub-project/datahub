@@ -41,7 +41,6 @@ from typing_extensions import Annotated
 from datahub.configuration.common import AllowDenyPattern, Filters
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.agent.sql_gate import (
     INFORMATION_SCHEMA,
     CatalogScope,
@@ -84,6 +83,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
     MapTypeClass,
     StringTypeClass,
+)
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.perf_timer import PerfTimer
@@ -545,6 +549,10 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class PostgresSource(SQLAlchemySource):
     """
     This plugin extracts the following:
@@ -780,15 +788,18 @@ class PostgresSource(SQLAlchemySource):
                 env=self.config.env,
             )
 
-            # use the mce_builder to ensure that the change proposal inherits
-            # the correct defaults for auditHeader and systemMetadata
-            lineage_mce = mce_builder.make_lineage_mce(
-                source_tables,
-                urn,
-            )
-
-            for item in mcps_from_mce(lineage_mce):
-                yield item.as_workunit()
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=UpstreamLineageClass(
+                    upstreams=[
+                        UpstreamClass(
+                            dataset=source_table,
+                            type=DatasetLineageTypeClass.TRANSFORMED,
+                        )
+                        for source_table in source_tables
+                    ]
+                ),
+            ).as_workunit()
 
     def _get_query_based_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
         """

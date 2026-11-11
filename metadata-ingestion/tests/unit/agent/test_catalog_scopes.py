@@ -389,6 +389,10 @@ _DEFAULT_SCOPE_REVIEWED = frozenset(
         "starrocks",
         "tidb",
         "trino",
+        # Databricks: information_schema is reserved per catalog (users cannot
+        # create a lookalike), and holds object shape, tags and DDL only. Query
+        # text lives in system.query.history and identity in system.access.*,
+        # both outside this scope.
         "unity-catalog",
         "vertica",
     }

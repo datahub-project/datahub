@@ -1,0 +1,23 @@
+namespace com.linkedin.structured
+
+/**
+ * Optional numeric range for a structured property. Setting these fields does not score
+ * the property. A search template turns scoring on by naming the property in
+ * {@code fieldValueScores}. An extent that entry omits is read from here.
+ */
+record StructuredPropertyScore {
+  /**
+   * Values at or below this keep a neutral multiplier.
+   */
+  inputMin: optional double
+
+  /**
+   * Values at or above this receive {@code maxMultiplier}.
+   */
+  inputMax: optional double
+
+  /**
+   * Multiplier at {@code inputMax}. Values between the bounds map linearly from 1.
+   */
+  maxMultiplier: optional double
+}

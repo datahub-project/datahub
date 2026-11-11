@@ -1456,6 +1456,46 @@ public class DataHubAuthorizerTest {
         authorizeEditOnContainer(authorizer, domainPolicy), AuthorizationResult.Type.ALLOW);
   }
 
+  // Same as above, but through the request's authorization result cache: a result cached before
+  // the proposed domains were seeded must not answer the check made after seeding.
+  @Test
+  public void testFirstDomainOverrideAppliesToResultCachedBeforeSeeding() {
+    DataHubAuthorizer authorizer = authorizerWithStoredContainer(new AtomicInteger());
+    io.datahubproject.metadata.context.AuthorizationContext authorizationContext =
+        io.datahubproject.metadata.context.AuthorizationContext.builder()
+            .authorizer(authorizer)
+            .build();
+    OperationContext sessionOpContext = mock(OperationContext.class);
+    when(sessionOpContext.getAuthorizationContext()).thenReturn(authorizationContext);
+    ActorContext actorContext =
+        ActorContext.builder()
+            .authentication(
+                new Authentication(new Actor(ActorType.USER, INSTANCE_SCOPED_USER.getId()), ""))
+            .actorPoliciesByPrivilege(
+                Map.of(
+                    "EDIT_ENTITY",
+                    List.of(
+                        containerEditPolicy(
+                            "DOMAIN", PolicyMatchCondition.EQUALS, CHILD_DOMAIN_URN.toString()))))
+            .build();
+    EntitySpec container = new EntitySpec(CONTAINER_ENTITY_NAME, EXISTING_CONTAINER_URN.toString());
+
+    assertEquals(
+        authorizationContext
+            .authorize(sessionOpContext, actorContext, "EDIT_ENTITY", container)
+            .getType(),
+        AuthorizationResult.Type.DENY);
+
+    DomainWriteAuthorizationUtils.seedProposedDomainResourceSpec(
+        sessionOpContext, container, Set.of(CHILD_DOMAIN_URN.toString()));
+
+    assertEquals(
+        authorizationContext
+            .authorize(sessionOpContext, actorContext, "EDIT_ENTITY", container)
+            .getType(),
+        AuthorizationResult.Type.ALLOW);
+  }
+
   @Test
   public void testFieldOverridesIgnoredForForeignCache() {
     DataHubAuthorizer authorizer = authorizerWithStoredContainer(new AtomicInteger());

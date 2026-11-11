@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 
 import { STRUCTURED_PROPERTY_FILTER_PREFIX } from '@app/entityV2/view/builder/constants';
 import { viewBuilderProperties } from '@app/entityV2/view/builder/viewBuilderProperties';
-import { DATE_TYPE_URN, NUMBER_TYPE_URN, URN_TYPE_URN } from '@app/shared/constants';
+import { DATE_TYPE_URN, NUMBER_TYPE_URN, URN_TYPE_URN } from '@app/sharedV2/constants';
 import { STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID } from '@app/sharedV2/queryBuilder/builder/property/constants';
 import { Property } from '@app/sharedV2/queryBuilder/builder/property/types/properties';
 import { SelectInputMode, SelectOption, ValueTypeId } from '@app/sharedV2/queryBuilder/builder/property/types/values';

@@ -10,6 +10,7 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
@@ -29,6 +30,24 @@ public class EntitySearchIndexResolverTest {
             .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
             .build();
     assertTrue(EntitySearchIndexResolver.shouldReadV3(cfg));
+  }
+
+  @Test
+  public void viewCreatorFieldFollowsTheIndexFamily() {
+    EntityIndexConfiguration v3Only =
+        EntityIndexConfiguration.builder()
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+    assertEquals(
+        EntitySearchIndexResolver.viewCreatorField(v3Only),
+        MappingConstants.SYSTEM_CREATED_ACTOR_FIELD);
+
+    EntityIndexConfiguration v2 =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+    assertEquals(EntitySearchIndexResolver.viewCreatorField(v2), "createdBy");
+    assertEquals(EntitySearchIndexResolver.viewCreatorField(null), "createdBy");
   }
 
   @Test
@@ -122,7 +141,7 @@ public class EntitySearchIndexResolverTest {
             .build();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
     // Registry keys are lower-cased; V3 stores the entity name (glossaryTerm)
-    EntitySearchIndexResolver.applyEntityTypeFilter(query, List.of("dataset", "glossaryterm"), cfg);
+    EntityFilter.applyEntityTypeFilter(query, List.of("dataset", "glossaryterm"), cfg);
 
     assertEquals(query.filter().size(), 1);
     BoolQueryBuilder entityTypes = (BoolQueryBuilder) query.filter().get(0);
@@ -144,7 +163,7 @@ public class EntitySearchIndexResolverTest {
             .v3(EntityIndexVersionConfiguration.builder().enabled(false).build())
             .build();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
-    EntitySearchIndexResolver.applyEntityTypeFilter(query, List.of("dataset"), cfg);
+    EntityFilter.applyEntityTypeFilter(query, List.of("dataset"), cfg);
     assertTrue(query.filter().isEmpty());
   }
 
@@ -194,7 +213,7 @@ public class EntitySearchIndexResolverTest {
             .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
             .build();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
-    EntitySearchIndexResolver.applyEntityTypeFilter(query, List.of(), cfg);
+    EntityFilter.applyEntityTypeFilter(query, List.of(), cfg);
     assertTrue(query.filter().isEmpty());
   }
 }

@@ -1,8 +1,9 @@
-import { Dropdown, Loader, Text } from '@components';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Dropdown } from '@components/components/Dropdown';
+import { Loader } from '@components/components/Loader';
 import {
     Container,
     DropdownContainer,
@@ -20,6 +21,7 @@ import DropdownSearchBar from '@components/components/Select/private/DropdownSea
 import SelectActionButtons from '@components/components/Select/private/SelectActionButtons';
 import useSelectDropdown from '@components/components/Select/private/hooks/useSelectDropdown';
 import { SelectProps } from '@components/components/Select/types';
+import { Text } from '@components/components/Text';
 
 const NoSuggestions = styled.div`
     padding: 8px;

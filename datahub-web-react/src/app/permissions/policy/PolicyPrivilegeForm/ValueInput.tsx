@@ -6,7 +6,7 @@ import styled from 'styled-components';
 
 import { EntitySearchSelect } from '@app/entityV2/shared/EntitySearchSelect/EntitySearchSelect';
 import { notEmpty } from '@app/entityV2/shared/utils';
-import { DATE_TYPE_URN, NUMBER_TYPE_URN, URN_TYPE_URN } from '@app/shared/constants';
+import { DATE_TYPE_URN, NUMBER_TYPE_URN, URN_TYPE_URN } from '@app/sharedV2/constants';
 
 import { EntityType } from '@types';
 

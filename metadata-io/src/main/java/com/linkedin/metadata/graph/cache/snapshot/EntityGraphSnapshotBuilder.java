@@ -922,7 +922,7 @@ public class EntityGraphSnapshotBuilder {
 
     void addCanonicalEdge(
         String source, String dest, String relType, int maxVertices, int maxEdges) {
-      if (bypassed || source == null || dest == null) {
+      if (bypassed || source == null || dest == null || source.equals(dest)) {
         return;
       }
       vertices.add(source);

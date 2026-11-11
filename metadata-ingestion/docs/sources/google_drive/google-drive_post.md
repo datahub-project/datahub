@@ -37,6 +37,34 @@ source:
 
 On each run the connector lists every configured folder, then compares each Doc's Drive version, title, parent folder, and the connector settings that shape its output with what DataHub already stores. Unchanged Docs are not exported again, which keeps re-runs cheap. Docs that were deleted, trashed, moved out of scope, or newly filtered out are soft-deleted when stateful ingestion is enabled.
 
+#### Probe support
+
+`datahub recipe probe` checks a recipe against Google Drive without running ingestion. It returns metadata only, never a Doc's text.
+
+- `identity`: the account the recipe connects as and, when `delegated_user` is set, whether domain-wide delegation is in effect.
+- `roots`: each configured root's name and kind (My Drive folder, shared drive, or a folder in a shared drive), or why it cannot be opened and how to fix it.
+- `shared_drives`: the shared drives the account can see, with the ID to use in `root_folder_ids`.
+- `scope`: what a run would pick up, counted the way ingestion counts it: folders and Docs found, how many each pattern skips, and whether `max_documents` would stop the run.
+- `folders`: every folder under the roots, by the path `folder_pattern` is matched against, including folders the recipe skips.
+- `documents --folder <path>`: the Google Docs in one folder, by title, including Docs `document_pattern` skips.
+
+`datahub recipe probe filter` explains each verdict, and needs no connection. Folders are judged as `Folder` and Docs as `Google Doc`, together with the folders above them:
+
+```shell
+datahub recipe probe methods --recipe google_drive_recipe.yml
+datahub recipe probe run roots --recipe google_drive_recipe.yml
+datahub recipe probe run folders --recipe google_drive_recipe.yml --report-to folders.json
+datahub recipe probe filter --recipe google_drive_recipe.yml --from-run folders.json
+datahub recipe probe filter --recipe google_drive_recipe.yml --kind "Google Doc" \
+  --parent "Handbook/Engineering" --name "Copy of Runbook"
+```
+
+- `explain --document <ID or URL>`: whether one file would be ingested, and if not, which rule decides. It applies the folder and title rules first, then exports the Doc to check the text-length rules (empty, shorter than `min_text_length`, or longer than `max_text_length`). It reports the text's length, never the text, and names the file only when it is under a configured root.
+
+`explain` is the only command that exports a Doc. The listings and `probe filter` judge folders and titles only, so a Doc they keep can still be skipped for its text. None of them account for `max_documents`, which stops a run once that many Docs are embedded; `scope` says whether a run can reach it.
+
+When Google refuses a token, for example because domain-wide delegation is not authorized, the probe exits with code 3 and says what to change.
+
 ### Limitations
 
 - Only Google Docs are ingested. Sheets, Slides, PDFs, uploaded files, and shortcuts are skipped.
@@ -62,7 +90,7 @@ Either the ID is wrong or the source cannot see the folder.
 - Check that the ID or URL in `root_folder_ids` points to a folder or shared drive, not a file.
 - Share the folder with the account the source authenticates as: the service account's `client_email` when you set `credential`, or the Application Default Credentials account otherwise. Alternatively, set `delegated_user` to a user who can open it.
 
-Run `datahub check source-connection` to see which roots fail.
+Run `datahub check source-connection` to see which roots fail, or `datahub recipe probe run roots --recipe <recipe>` to see why each one fails and how to fix it.
 
 When any root or folder fails, the run reports a failure and stale-entity removal is skipped for that run, so nothing is soft-deleted because of a partial listing.
 

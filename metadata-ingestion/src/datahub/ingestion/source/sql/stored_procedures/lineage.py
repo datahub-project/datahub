@@ -110,8 +110,28 @@ def _extract_procedure_call(parsed: sqlglot.exp.Expression) -> Optional[Procedur
       unparseable; rest of the statement is captured as a literal string. We
       regex out the dotted target.
     """
+    if isinstance(parsed, sqlglot.exp.ExecuteSql):
+        # `sp_executesql` runs a string. The callee, if there is one at all, is inside
+        # it; the name here is the system procedure. A subclass of Execute, so it has
+        # to be tested first.
+        logger.debug("Skipping sp_executesql call: %s", parsed.sql())
+        return None
+
     if isinstance(parsed, sqlglot.exp.Execute):
         target = parsed.this
+        identifier = target.this if isinstance(target, sqlglot.exp.Table) else None
+        if isinstance(identifier, sqlglot.exp.Parameter):
+            # `EXEC @proc_var`: dynamic dispatch. sqlglot still wraps the variable in a
+            # Table, so without this the variable's own name becomes the callee.
+            logger.debug("Skipping call through a variable: %s", parsed.sql())
+            return None
+        if isinstance(identifier, sqlglot.exp.Identifier) and (
+            identifier.args.get("temporary") or identifier.args.get("global_")
+        ):
+            # `EXEC #tmp_proc`: session-scoped, and the name arrives with its `#`
+            # stripped, so it would collide with a real procedure of that name.
+            logger.debug("Skipping temp procedure call: %s", parsed.sql())
+            return None
         if isinstance(target, sqlglot.exp.Table):
             return ProcedureCall(
                 database=target.args["catalog"].name

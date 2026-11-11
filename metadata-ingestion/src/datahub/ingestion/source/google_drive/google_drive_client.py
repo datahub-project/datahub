@@ -14,6 +14,7 @@ from datahub.ingestion.source.google_drive.constants import (
     ABOUT_FIELDS,
     API_ABOUT_GET,
     API_DRIVES_GET,
+    API_DRIVES_LIST,
     API_FILES_EXPORT,
     API_FILES_GET,
     API_FILES_LIST,
@@ -24,6 +25,8 @@ from datahub.ingestion.source.google_drive.constants import (
     DRIVE_FIELDS,
     DRIVE_ID_RE,
     DRIVE_SCOPES,
+    DRIVES_LIST_FIELDS,
+    DRIVES_PAGE_SIZE,
     EXPORT_HTML,
     EXPORT_MARKDOWN,
     EXPORT_TOO_LARGE_REASON,
@@ -31,6 +34,7 @@ from datahub.ingestion.source.google_drive.constants import (
     FAILURE_NOT_FOUND,
     FAILURE_TOO_LARGE,
     FILE_FIELDS,
+    FILE_WITH_PARENTS_FIELDS,
     FOLDER_PATH_SEPARATOR,
     HTTP_NOT_FOUND,
     LIST_FIELDS,
@@ -47,6 +51,11 @@ from datahub.ingestion.source.google_drive.google_drive_config import (
 from datahub.ingestion.source.google_drive.google_drive_report import (
     GoogleDriveSourceReport,
 )
+from datahub.ingestion.source.google_drive.google_drive_selection import (
+    FOLDER_PATTERN,
+    document_title_verdict,
+    subfolder_verdict,
+)
 from datahub.ingestion.source.google_drive.models import (
     DocumentRef,
     DriveFile,
@@ -57,6 +66,10 @@ from datahub.ingestion.source.google_drive.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class NotAFolderError(ValueError):
+    """A configured root resolved to a file rather than a folder or shared drive."""
 
 
 def http_error_reason(error: HttpError) -> str:
@@ -124,7 +137,7 @@ class GoogleDriveClient:
     def get_root(self, root_id: str) -> FolderNode:
         """Resolve a configured root (folder or shared drive) into a FolderNode.
 
-        Raises HttpError when the root is not accessible and ValueError when the ID
+        Raises HttpError when the root is not accessible and NotAFolderError when the ID
         refers to something other than a folder.
         """
         try:
@@ -142,7 +155,7 @@ class GoogleDriveClient:
 
         root = DriveFile.model_validate(raw)
         if not root.is_folder:
-            raise ValueError(
+            raise NotAFolderError(
                 f"Root {root_id} is a '{root.mime_type}', not a folder or shared drive"
             )
         title = root.name
@@ -170,6 +183,44 @@ class GoogleDriveClient:
             .execute(num_retries=API_MAX_RETRIES)
         )
         return SharedDrive.model_validate(raw)
+
+    def get_file(self, file_id: str) -> DriveFile:
+        """One file with its parents and trash state. Raises HttpError when the
+        account cannot see it."""
+        if not DRIVE_ID_RE.match(file_id):
+            raise ValueError(f"Refusing to fetch unexpected file id '{file_id}'")
+        self.report.report_api_call(API_FILES_GET)
+        raw = (
+            self._service.files()
+            .get(
+                fileId=file_id, fields=FILE_WITH_PARENTS_FIELDS, supportsAllDrives=True
+            )
+            .execute(num_retries=API_MAX_RETRIES)
+        )
+        return DriveFile.model_validate(raw)
+
+    def iter_shared_drives(self) -> Iterator[SharedDrive]:
+        """Shared drives the authenticated account is a member of."""
+        page_token: Optional[str] = None
+        while True:
+            self.report.report_api_call(API_DRIVES_LIST)
+            response = (
+                self._service.drives()
+                .list(
+                    fields=DRIVES_LIST_FIELDS,
+                    pageSize=DRIVES_PAGE_SIZE,
+                    pageToken=page_token,
+                )
+                .execute(num_retries=API_MAX_RETRIES)
+            )
+            for raw in response.get("drives", []):
+                yield SharedDrive.model_validate(raw)
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                return
+
+    def close(self) -> None:
+        self._service.close()
 
     def _get_shared_drive_name(self, drive_id: str) -> Optional[str]:
         return self._get_shared_drive(drive_id).name
@@ -290,7 +341,7 @@ class GoogleDriveClient:
                     if child.id in seen_documents:
                         continue
                     self.report.documents_discovered += 1
-                    if not self.config.document_pattern.allowed(child.name):
+                    if not document_title_verdict(self.config, child.name).included:
                         self.report.documents_filtered += 1
                         continue
                     seen_documents.add(child.id)
@@ -306,11 +357,13 @@ class GoogleDriveClient:
         visited: Set[str],
     ) -> None:
         self.report.folders_discovered += 1
-        if not self.config.recursive or child.id in visited:
+        if child.id in visited:
             return
         path = parent.path + FOLDER_PATH_SEPARATOR + child.name
-        if not self.config.folder_pattern.allowed(path):
-            self.report.folders_filtered += 1
+        verdict = subfolder_verdict(self.config, path)
+        if not verdict.included:
+            if verdict.excluded_by == FOLDER_PATTERN:
+                self.report.folders_filtered += 1
             return
         visited.add(child.id)
         node = FolderNode(

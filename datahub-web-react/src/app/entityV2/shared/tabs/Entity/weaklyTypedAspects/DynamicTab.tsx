@@ -1,6 +1,7 @@
-import { CodeBlock } from '@components';
 import React from 'react';
 import styled from 'styled-components';
+
+import { CodeBlock } from '@components/components/CodeBlock';
 
 import DynamicPropertiesTab from '@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/DynamicPropertiesTab';
 import DynamicTabularTab from '@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/DynamicTabularTab';

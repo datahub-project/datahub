@@ -1,0 +1,113 @@
+package com.linkedin.metadata.search.elasticsearch.indexbuilder;
+
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.testng.annotations.Test;
+
+public class ReindexConfigMappingDiffTest {
+
+  @Test
+  public void testUnchangedCopyToArrayMatchesTheEngineList() {
+    Map<String, Object> currentName = new HashMap<>();
+    currentName.put("type", "keyword");
+    currentName.put("copy_to", new String[] {"name", "other"});
+
+    List<String> diff =
+        ReindexConfig.compactMappingDiff(
+            Map.of("name", currentName),
+            Map.of("name", Map.of("type", "keyword", "copy_to", List.of("name", "other"))));
+
+    assertTrue(diff.isEmpty(), diff.toString());
+  }
+
+  @Test
+  public void testStructuredPropertyParameterDifferencesOnSameTypedFieldsOnly() {
+    Map<String, Object> current =
+        structuredProperties(
+            Map.of(
+                "limitChanged", Map.of("type", "keyword", "ignore_above", 256),
+                "subfieldAdded", Map.of("type", "keyword"),
+                "subfieldLimitChanged",
+                    Map.of(
+                        "type",
+                        "text",
+                        "fields",
+                        Map.of("keyword", Map.of("type", "keyword", "ignore_above", 256))),
+                "unchanged", Map.of("type", "keyword", "ignore_above", "256"),
+                "typeChanged", Map.of("type", "text")));
+    Map<String, Object> target =
+        structuredProperties(
+            Map.of(
+                "limitChanged", Map.of("type", "keyword", "ignore_above", 512),
+                "subfieldAdded",
+                    Map.of("type", "keyword", "fields", Map.of("raw", Map.of("type", "keyword"))),
+                "subfieldLimitChanged",
+                    Map.of(
+                        "type",
+                        "text",
+                        "fields",
+                        Map.of("keyword", Map.of("type", "keyword", "ignore_above", "8191"))),
+                "unchanged", Map.of("type", "keyword", "ignore_above", 256),
+                "typeChanged", Map.of("type", "keyword", "ignore_above", 512)));
+
+    assertEquals(
+        ReindexConfig.structuredPropertyParameterDifferences(current, target),
+        Set.of(
+            "limitChanged (current ignore_above=256 subfields={}, target ignore_above=512"
+                + " subfields={})",
+            "subfieldAdded (current ignore_above=null subfields={}, target ignore_above=null"
+                + " subfields={raw=keyword})",
+            "subfieldLimitChanged (current ignore_above=null subfields={keyword=keyword"
+                + " ignore_above=256}, target ignore_above=null subfields={keyword=keyword"
+                + " ignore_above=8191})"));
+  }
+
+  private static Map<String, Object> structuredProperties(Map<String, Object> fields) {
+    return Map.of(
+        "properties",
+        Map.of(
+            "structuredProperties",
+            Map.of("type", "object", "dynamic", false, "properties", fields)));
+  }
+
+  @Test
+  public void testDiffNamesAddedAndRemovedFieldsAndLeafChanges() {
+    List<String> diff =
+        ReindexConfig.compactMappingDiff(
+            Map.of(
+                "name",
+                Map.of(
+                    "type",
+                    "keyword",
+                    "ignore_above",
+                    256,
+                    "fields",
+                    Map.of("text", Map.of("type", "text", "analyzer", "standard"))),
+                "old",
+                Map.of("type", "keyword")),
+            Map.of(
+                "name",
+                Map.of(
+                    "type",
+                    "keyword",
+                    "ignore_above",
+                    "512",
+                    "fields",
+                    Map.of("text", Map.of("type", "text", "analyzer", "datahub"))),
+                "fresh",
+                Map.of("type", "boolean")));
+
+    assertEquals(
+        diff,
+        List.of(
+            "- old",
+            "+ fresh: {type=boolean}",
+            "name.fields.text.analyzer: standard -> datahub",
+            "name.ignore_above: 256 -> 512"));
+  }
+}

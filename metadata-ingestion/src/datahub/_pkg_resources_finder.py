@@ -5,7 +5,7 @@ setuptools 82 dropped ``pkg_resources``. It was added for the
 1.4-era releases ``import pkg_resources`` at load. Their SQLAlchemy 2.0 releases no
 longer do, but this finder is installed process-wide by ``import datahub``, so other
 packages in the same environment may rely on it too. Removing it therefore needs
-its own change and an ``updating-datahub.md`` entry. This installs a
+its own change and a ``breaking-changes.md`` entry. This installs a
 ``sys.meta_path`` finder that resolves ``import pkg_resources`` to
 ``datahub.utilities.pkg_resources_shim``.
 

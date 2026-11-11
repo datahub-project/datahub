@@ -80,14 +80,27 @@ export const sandbox: Story = {
     render: (props) => <Heading {...props}>{props.children}</Heading>,
 };
 
+// `size` defaults to 2xl and overrides the per-level size, so each level is given its own size.
 export const sizes: StoryFn<Story> = (props: any) => (
     <VerticalFlexGrid>
-        <Heading type="h1">H1 {props.children}</Heading>
-        <Heading type="h2">H2 {props.children}</Heading>
-        <Heading type="h3">H3 {props.children}</Heading>
-        <Heading type="h4">H4 {props.children}</Heading>
-        <Heading type="h5">H5 {props.children}</Heading>
-        <Heading type="h6">H6 {props.children}</Heading>
+        <Heading type="h1" size="4xl">
+            H1 {props.children}
+        </Heading>
+        <Heading type="h2" size="3xl">
+            H2 {props.children}
+        </Heading>
+        <Heading type="h3" size="2xl">
+            H3 {props.children}
+        </Heading>
+        <Heading type="h4" size="xl">
+            H4 {props.children}
+        </Heading>
+        <Heading type="h5" size="lg">
+            H5 {props.children}
+        </Heading>
+        <Heading type="h6" size="md">
+            H6 {props.children}
+        </Heading>
     </VerticalFlexGrid>
 );
 

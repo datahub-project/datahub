@@ -74,7 +74,11 @@ public class JavaEntityClientFactory {
       final RollbackService rollbackService,
       final EntityClientCacheConfig entityClientCacheConfig,
       final EntityClientConfig entityClientConfig,
-      final MetricUtils metricUtils) {
+      final MetricUtils metricUtils,
+          // As for entityClient: services that hard-delete through the system client go through the
+          // HardDeleteService too, not around it.
+          final @Qualifier("hardDeleteService") ObjectProvider<HardDeleteService>
+              hardDeleteService) {
     return new SystemJavaEntityClient(
         _entityService,
         _deleteEntityService,
@@ -87,6 +91,7 @@ public class JavaEntityClientFactory {
         _eventProducer,
         entityClientCacheConfig,
         entityClientConfig,
-        metricUtils);
+        metricUtils,
+        hardDeleteService.getIfAvailable());
   }
 }

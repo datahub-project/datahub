@@ -1,7 +1,10 @@
 import { FetchStatus, LineageEdge, LineageEntity } from '@app/lineageV3/common';
 import hideNodes from '@app/lineageV3/useComputeGraph/filterNodes';
+import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
 import { EntityType, LineageDirection } from '@types';
+
+const entityRegistry = getTestEntityRegistry();
 
 describe('hideNodes', () => {
     const createMockNode = (urn: string, type: EntityType, entity?: any): LineageEntity => ({
@@ -41,6 +44,7 @@ describe('hideNodes', () => {
         const result = hideNodes(
             'root',
             EntityType.Dataset,
+            entityRegistry,
             {
                 hideTransformations: false,
                 hideDataProcessInstances: false,
@@ -72,6 +76,7 @@ describe('hideNodes', () => {
         const result = hideNodes(
             'root',
             EntityType.Dataset,
+            entityRegistry,
             {
                 hideTransformations: false,
                 hideDataProcessInstances: false,
@@ -124,6 +129,7 @@ describe('hideNodes', () => {
         const result = hideNodes(
             'root',
             EntityType.Dataset,
+            entityRegistry,
             {
                 hideTransformations: true,
                 hideDataProcessInstances: false,
@@ -168,6 +174,7 @@ describe('hideNodes', () => {
         const result = hideNodes(
             'root',
             EntityType.Dataset,
+            entityRegistry,
             {
                 hideTransformations: false,
                 hideDataProcessInstances: true,
@@ -208,6 +215,7 @@ describe('hideNodes', () => {
         const result = hideNodes(
             'root',
             EntityType.Dataset,
+            entityRegistry,
             {
                 hideTransformations: false,
                 hideDataProcessInstances: false,
@@ -241,6 +249,7 @@ describe('hideNodes', () => {
         const result = hideNodes(
             'root',
             EntityType.Dataset,
+            entityRegistry,
             {
                 hideTransformations: false,
                 hideDataProcessInstances: false,
@@ -325,6 +334,7 @@ describe('hideNodes', () => {
         const result = hideNodes(
             'dataset1',
             EntityType.Dataset,
+            entityRegistry,
             {
                 hideTransformations: true,
                 hideDataProcessInstances: false,

@@ -1,6 +1,9 @@
 {
     "appearance.subTitle": "管理你的外观设置。",
     "appearance.title": "外观",
+    "darkMode.beta": "Beta",
+    "darkMode.description": "在整个 DataHub 中使用深色主题。",
+    "darkMode.title": "深色模式",
     "language.description": "选择你偏好的显示语言",
     "language.title": "用户界面语言",
     "noSettings": "未找到外观设置。",
