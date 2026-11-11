@@ -1,5 +1,7 @@
+import * as QueryString from 'query-string';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useDataNotCombinedWithSiblings, useEntityData } from '@app/entityV2/shared/EntityContext';
@@ -8,11 +10,16 @@ import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/
 import { stripSiblingsFromEntity } from '@app/entityV2/shared/siblingUtils';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
+import { SHOW_SIBLINGS_URL_PARAM } from '@app/searchV2/siblings/useShowSiblings';
+import { SIBLINGS_SHOWN_INLINE, withLoadedMembers } from '@app/searchV2/siblings/useSiblingGroups';
 import { UnionType } from '@app/searchV2/utils/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PageRoutes } from '@conf/Global';
 import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
-import { Dataset, Entity } from '@types';
+import { useGetSiblingGroupsQuery } from '@graphql/siblings.generated';
+import { Dataset, Entity, EntityType } from '@types';
 
 // eslint-disable-next-line i18next/no-literal-string -- API filter field name, not UI text
 const SIBLINGS_FILTER_FIELD = 'siblings';
@@ -27,6 +34,15 @@ const EntityListContainer = styled.div`
     color: ${(props) => props.theme.colors.textSecondary};
 `;
 
+const MoreLink = styled(Link)`
+    margin-left: 4px;
+    margin-top: 5px;
+    color: ${(props) => props.theme.colors.textSecondary};
+    :hover {
+        color: ${(props) => props.theme.colors.hyperlinks};
+    }
+`;
+
 const AndMoreWrapper = styled.div`
     margin-left: 4px;
     margin-top: 5px;
@@ -38,7 +54,8 @@ const AndMoreWrapper = styled.div`
 
 export const SidebarSiblingsSection = () => {
     const { t } = useTranslation('entity.shared.containers');
-    const { entityData, urn } = useEntityData();
+    const { entityData, urn, entityType } = useEntityData();
+    const entityRegistry = useEntityRegistry();
 
     const dataNotCombinedWithSiblings = useDataNotCombinedWithSiblings<GetDatasetQuery>();
 
@@ -47,8 +64,70 @@ export const SidebarSiblingsSection = () => {
 
     const [showAllSiblings, setShowAllSiblings] = useState(false);
 
+    // Where siblings are separate results, the section shows the whole sibling group (transitive,
+    // primary first) with its size, and "+ N more" opens search with "Show siblings" on. Until the
+    // group loads, or if it fails, the section falls back to the one-link siblings list below.
+    const groupQueried = showSeparateSiblings && entityType === EntityType.Dataset && !!urn;
+    const { data: groupData, loading: groupLoading } = useGetSiblingGroupsQuery({
+        skip: !groupQueried,
+        variables: { input: { urns: [urn], start: 0, count: SIBLINGS_SHOWN_INLINE } },
+    });
+    const rawGroup = groupData?.siblingGroups?.[0];
+    const group = rawGroup ? withLoadedMembers(rawGroup) : undefined;
+
     if (!entityData) {
         return <></>;
+    }
+
+    // Render nothing until the group arrives, rather than the fallback list first and then a
+    // different list, count and link.
+    if (groupQueried && groupLoading && !group) {
+        return <></>;
+    }
+
+    if (showSeparateSiblings && group) {
+        if (group.total === 0) {
+            return <></>;
+        }
+        const more = group.total - group.members.length;
+        const displayName = entityRegistry.getDisplayName(EntityType.Dataset, entityData);
+        const search = QueryString.stringify({
+            query: encodeURIComponent(displayName),
+            [SHOW_SIBLINGS_URL_PARAM]: 'true',
+        });
+        return (
+            <SidebarSection
+                title={t('sidebar.siblings.composedOfTitle')}
+                count={group.total}
+                showFullCount
+                countIsLowerBound={group.truncated}
+                content={
+                    <EntityListContainer data-testid="siblings-list">
+                        <CompactEntityNameList
+                            entities={group.members.map((member) => member.entity as Entity)}
+                            linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}
+                            showFullTooltips
+                        />
+                        {more > 0 && (
+                            <MoreLink
+                                to={{ pathname: PageRoutes.SEARCH, search }}
+                                aria-label={t('sidebar.siblings.moreInSearchLabel', { count: more, name: displayName })}
+                                data-testid="siblings-more"
+                            >
+                                {t(
+                                    group.truncated
+                                        ? 'sidebar.siblings.moreInSearchCapped'
+                                        : 'sidebar.siblings.moreInSearch',
+                                    {
+                                        count: more,
+                                    },
+                                )}
+                            </MoreLink>
+                        )}
+                    </EntityListContainer>
+                }
+            />
+        );
     }
 
     // showSeparateSiblings disables the combined view, but with this flag in we show siblings in the sidebar to navigate to them
