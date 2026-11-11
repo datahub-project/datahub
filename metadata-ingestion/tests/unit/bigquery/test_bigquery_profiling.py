@@ -19,6 +19,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
     PartitionDiscovery,
 )
+from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.external_ddl import (
+    parse_external_table_ddl,
+)
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.info_schema import (
     InfoSchemaQueries,
 )
@@ -1227,6 +1230,153 @@ def test_external_table_deferred_in_get_workunits():
     assert deferred.bq_table is table
     assert deferred.db_name == "test-project-123456"
     assert deferred.schema_name == "ds"
+
+
+def test_parse_external_table_ddl_classifies_partitioning():
+    plain = parse_external_table_ddl(
+        "CREATE EXTERNAL TABLE t (a INT64) OPTIONS (format='PARQUET', uris=['gs://b/*'])"
+    )
+    assert plain is not None and plain.confirms_unpartitioned(None)
+    # Table metadata's source format overrides the DDL option.
+    assert not plain.confirms_unpartitioned("ICEBERG")
+
+    hive = parse_external_table_ddl(
+        "CREATE OR REPLACE EXTERNAL TABLE t "
+        "WITH PARTITION COLUMNS (dt DATE, `region` STRING, n INT64) "
+        "OPTIONS (format='PARQUET', uris=['gs://b/*'])"
+    )
+    assert hive is not None and hive.declares_hive_partitioning
+    assert list(hive.hive_partition_columns.items()) == [
+        ("dt", "DATE"),
+        ("region", "STRING"),
+        ("n", "INT64"),
+    ]
+
+    # Plain CREATE TABLE and non-SQL text are never confirmed unpartitioned.
+    for ddl in ["CREATE TABLE t (a INT64)", "NOT PARSEABLE DDL ((("]:
+        parsed = parse_external_table_ddl(ddl)
+        assert parsed is not None and not parsed.confirms_unpartitioned("PARQUET")
+    assert parse_external_table_ddl("CREATE EXTERNAL TABLE t OPTIONS (x='open") is None
+
+
+def test_external_table_undetermined_ddl_skips_not_full_scans():
+    """An external table whose partition columns can't be resolved and whose DDL fails to
+    parse (no hive-partitioning syntax) is undetermined, so discovery returns None (skip)
+    rather than [] (which the profiler treats as confirmed-unpartitioned and full-scans).
+    A cleanly-parsed DDL with no partitioning still returns [] (genuinely unpartitioned).
+    """
+    discovery = PartitionDiscovery(make_profiling_config())
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        return []  # no INFORMATION_SCHEMA / sample rows
+
+    undetermined = make_table(
+        name="ext_bad_ddl", external=True, ddl="NOT PARSEABLE DDL ((("
+    )
+    assert (
+        discovery._get_external_table_partition_filters(
+            undetermined, "test-project-123456", "ds", execute
+        )
+        is None
+    )
+
+    unpartitioned = make_table(
+        name="ext_plain",
+        external=True,
+        ddl="CREATE EXTERNAL TABLE ext_plain (a INT64, b STRING) "
+        "OPTIONS (format='CSV', uris=['gs://bucket/*'])",
+    )
+    assert (
+        discovery._get_external_table_partition_filters(
+            unpartitioned, "test-project-123456", "ds", execute
+        )
+        == []
+    )
+
+
+def test_discover_preserves_info_schema_columns_when_type_lookup_and_ddl_empty():
+    """INFORMATION_SCHEMA names the partition columns but the type lookup and the DDL
+    fallback both come back empty. The columns must be kept with an unknown ("") type so
+    the caller still treats the table as partitioned, rather than returning {} and
+    full-scanning a known-partitioned table.
+    """
+    discovery = PartitionDiscovery(make_profiling_config())
+    table = make_table(name="typeless")
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        return []
+
+    with (
+        patch.object(
+            discovery.info_schema,
+            "get_partition_column_names",
+            return_value=(["event_date"], True),
+        ),
+        patch.object(
+            discovery.info_schema, "get_partition_column_types", return_value={}
+        ),
+    ):
+        result = discovery._discover_partition_columns_with_types(
+            table, "my-project", "ds", execute
+        )
+
+    assert result == {"event_date": ""}
+
+
+def test_parse_external_table_ddl_ignores_markers_in_strings_and_comments():
+    """Hive markers count only as real DDL, never inside a quoted value (URI, description
+    with GoogleSQL backslash-escaped quotes) or a comment.
+    """
+
+    def declares(ddl: str) -> bool:
+        parsed = parse_external_table_ddl(ddl)
+        assert parsed is not None
+        return parsed.declares_hive_partitioning
+
+    assert not declares(
+        "CREATE EXTERNAL TABLE t OPTIONS ("
+        "uris = ['gs://bucket/hive_partitioning_mode=auto/*'], format='CSV')"
+    )
+    assert not declares(
+        "CREATE EXTERNAL TABLE t (a STRING OPTIONS("
+        'description="say \\"hi\\" WITH PARTITION COLUMNS")) '
+        "OPTIONS (format='CSV') -- hive_partitioning_mode = 'AUTO'"
+    )
+    assert declares("CREATE EXTERNAL TABLE t OPTIONS (hive_partitioning_mode = 'AUTO')")
+    assert declares(
+        "CREATE EXTERNAL TABLE t OPTIONS (hive_partition_uri_prefix = r'gs://b')"
+    )
+    assert declares("CREATE EXTERNAL TABLE t WITH PARTITION COLUMNS")
+
+    # A description with an escaped quote must not hide a real WITH PARTITION COLUMNS.
+    escaped = parse_external_table_ddl(
+        'CREATE EXTERNAL TABLE t (a STRING OPTIONS(description="a \\" b")) '
+        "WITH PARTITION COLUMNS (dt DATE) OPTIONS (format='PARQUET')"
+    )
+    assert escaped is not None
+    assert escaped.hive_partition_columns == {"dt": "DATE"}
+
+
+def test_external_path_does_not_repeat_information_schema_queries():
+    """The external path runs after INFORMATION_SCHEMA.COLUMNS (or its cache) and the
+    probe already found nothing, so it must read the DDL rather than query COLUMNS again.
+    """
+    discovery = PartitionDiscovery(make_profiling_config())
+    table = make_table(
+        name="ext_hive",
+        external=True,
+        ddl="CREATE EXTERNAL TABLE t WITH PARTITION COLUMNS (event_date DATE) "
+        "OPTIONS (format='PARQUET', uris=['gs://bucket/*'])",
+    )
+    queries: List[str] = []
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        queries.append(query)
+        return []
+
+    discovery._get_external_table_partition_filters(table, "my-project", "ds", execute)
+
+    assert not any("INFORMATION_SCHEMA.COLUMNS" in q.upper() for q in queries)
 
 
 def test_partition_discovery_cache_avoids_repeat_info_schema_queries():

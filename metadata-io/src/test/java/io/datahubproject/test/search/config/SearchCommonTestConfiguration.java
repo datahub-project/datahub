@@ -88,7 +88,7 @@ public class SearchCommonTestConfiguration {
 
     // Create real SearchContext using ESUtils methods to populate searchableFieldTypes
     MappingsBuilder mappingsBuilder =
-        createDelegatingMappingsBuilder(TEST_OS_SEARCH_CONFIG.getEntityIndex());
+        createDelegatingMappingsBuilder(TEST_OS_SEARCH_CONFIG.getEntityIndex(), searchClient);
     SearchContext.SearchContextBuilder searchContextBuilder =
         SearchContext.builder()
             .indexConvention(indexConvention)
