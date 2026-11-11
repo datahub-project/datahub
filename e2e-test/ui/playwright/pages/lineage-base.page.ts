@@ -529,8 +529,8 @@ export class LineageBasePage extends BasePage {
 
   /** Open the column selector dropdown and pick a column by name. */
   async selectColumnFromDropdown(columnName: string): Promise<void> {
-    await this.page.getByText('Select column').click({ force: true });
-    await this.columnDropdownVirtualList.getByText(columnName, { exact: true }).click();
+    await this.page.getByTestId('column-selector-dropdown').click();
+    await this.page.getByTestId(`column-option-${columnName}`).click();
   }
 
   /**

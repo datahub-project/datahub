@@ -1,4 +1,4 @@
-import { Tooltip } from '@components';
+import { Text, Tooltip } from '@components';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
 
@@ -42,9 +42,8 @@ const ResultColumn = styled.div`
     flex: 1;
 `;
 
-const PreHeaderText = styled.div<{ color?: string }>`
-    font-size: 12px;
-    color: ${(props) => props.color || props.theme.colors.textTertiary};
+const PreHeaderText = styled(Text).attrs({ type: 'div', size: 'sm' })`
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const ResultStatusRow = styled.div`
@@ -53,9 +52,7 @@ const ResultStatusRow = styled.div`
     gap: 8px;
 `;
 
-const HeaderText = styled.div`
-    font-size: 14px;
-`;
+const HeaderText = styled(Text).attrs({ type: 'div', size: 'md' })``;
 
 type Props = {
     assertion: Assertion;

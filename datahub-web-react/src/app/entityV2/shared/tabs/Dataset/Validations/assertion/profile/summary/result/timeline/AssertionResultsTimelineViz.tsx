@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -30,12 +30,14 @@ const VizHeader = styled.div`
     justify-content: left;
 `;
 
-const VizHeaderTitle = styled(Typography.Text)`
+const VizHeaderTitle = styled(Text).attrs({ type: 'span' })`
     margin-bottom: 20px;
     margin-top: 4px;
     color: ${(props) => props.theme.colors.text};
     font-size: 16px;
     font-weight: 600;
+    line-height: inherit;
+    word-break: break-word;
 `;
 
 type Props = {
@@ -67,7 +69,7 @@ export const AssertionResultsTimelineViz = ({
 
     const renderChartTitle = (title?: string) => (
         <VizHeader>
-            <VizHeaderTitle strong>{title || getTimeRangeDisplay(timeRange)}</VizHeaderTitle>
+            <VizHeaderTitle>{title || getTimeRangeDisplay(timeRange)}</VizHeaderTitle>
         </VizHeader>
     );
 

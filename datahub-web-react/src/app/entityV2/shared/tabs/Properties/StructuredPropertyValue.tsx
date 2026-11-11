@@ -1,7 +1,6 @@
 import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import { Typography } from 'antd';
 import React from 'react';
-import Highlight from 'react-highlighter';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -10,13 +9,14 @@ import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/compo
 import { ValueColumnData } from '@app/entityV2/shared/tabs/Properties/types';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Tooltip } from '@src/alchemy-components';
+import { MatchText, OverflowText, Tooltip } from '@src/alchemy-components';
 import { getSchemaFieldParentLink } from '@src/app/entityV2/schemaField/utils';
 import { CompactEntityNameComponent } from '@src/app/recommendations/renderer/component/CompactEntityNameComponent';
 import ActorPill from '@src/app/sharedV2/owners/ActorPill';
 import { Entity, EntityType, MetadataAttribution, OwnerType } from '@src/types.generated';
 
-const ValueText = styled(Typography.Text)<{ size: number; $isProposed?: boolean }>`
+// A plain span rather than alchemy Text: Tooltip children must forward their ref to a DOM node
+const ValueText = styled.span<{ size: number; $isProposed?: boolean }>`
     font-family: 'Manrope';
     font-weight: 400;
     font-size: ${(props) => props.size}px;
@@ -36,6 +36,7 @@ const ValueText = styled(Typography.Text)<{ size: number; $isProposed?: boolean 
                 cursor: pointer;
         }
         `}
+    word-break: break-word;
 `;
 
 const StyledIcon = styled(ArrowSquareOut)`
@@ -89,25 +90,17 @@ const ViewerContainer = styled.div`
     max-width: calc(100% - 16px);
 `;
 
-const EntityName = styled(Typography.Text)`
-    overflow: hidden;
+const EntityNameText = styled(OverflowText)`
     white-space: nowrap;
-    text-overflow: ellipsis;
 `;
 
-const StyledHighlight = styled(Highlight)<{ truncateText?: boolean }>`
+// With `ellipsis`, truncates and shows the full name in a tooltip when it overflows.
+const EntityName = ({ children, ellipsis }: { children: string; ellipsis?: { tooltip: boolean } }) =>
+    ellipsis ? <EntityNameText text={children} /> : <span>{children}</span>;
+
+const HighlightedValue = styled.span`
     line-height: 1.5;
     text-wrap: wrap;
-
-    ${(props) =>
-        props.truncateText &&
-        `
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 100%;
-        display: block;
-    `}
 `;
 
 interface Props {
@@ -202,9 +195,18 @@ export default function StructuredPropertyValue({
                                         {value.value?.toString() || <div style={{ minHeight: 22 }} />}
                                     </Typography.Text>
                                 ) : (
-                                    <StyledHighlight search={filterText} truncateText={truncateText}>
-                                        {value.value?.toString() || <div style={{ minHeight: 22 }} />}
-                                    </StyledHighlight>
+                                    <HighlightedValue>
+                                        {value.value?.toString() ? (
+                                            <MatchText
+                                                type="span"
+                                                size="inherit"
+                                                text={value.value.toString()}
+                                                highlight={filterText || ''}
+                                            />
+                                        ) : (
+                                            <div style={{ minHeight: 22 }} />
+                                        )}
+                                    </HighlightedValue>
                                 )}
                             </>
                         )}

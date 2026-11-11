@@ -1,4 +1,4 @@
-import { Empty } from 'antd';
+import { EmptyState } from '@components';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -265,11 +265,11 @@ export const AcrylAssertionList = () => {
             );
         }
         return (
-            <Empty
-                description={
+            <EmptyState
+                title={
                     hasRefinements ? t('assertionList.noAssertionsMatchFilters') : t('assertionList.noAssertionsRun')
                 }
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                size="sm"
             />
         );
     };

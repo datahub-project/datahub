@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { OverflowText } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -53,11 +53,5 @@ export const VolumeAssertionDescription = ({ assertionInfo, ellipsis }: Props) =
         key = `volumeDescription.total${operatorKeyPart}`;
     }
 
-    return (
-        <div>
-            <Typography.Text ellipsis={ellipsis ? { tooltip: true } : undefined}>
-                {t(key, interpolation)}
-            </Typography.Text>
-        </div>
-    );
+    return <div>{ellipsis ? <OverflowText text={t(key, interpolation)} /> : <span>{t(key, interpolation)}</span>}</div>;
 };

@@ -1,4 +1,4 @@
-import { Card, Typography } from 'antd';
+import { Card, Text } from '@components';
 import React, { useMemo } from 'react';
 import styled, { useTheme } from 'styled-components';
 
@@ -7,21 +7,14 @@ import { TimeSeriesChart } from '@app/analyticsDashboardV2/components/TimeSeries
 
 import { DateInterval, DateRange } from '@types';
 
-const ChartTitle = styled(Typography.Text)`
+const ChartTitle = styled(Text).attrs({ type: 'span' })`
     && {
         text-align: left;
         font-size: 12px;
         color: ${(props) => props.theme.colors.textSecondary};
+        line-height: inherit;
     }
-`;
-
-/**
- * Exported this styled card to enable width adjustment for better fit within the sidebar also for boxShadow.
- * This approach allows style updates without the need for unnecessary props.
- */
-export const ChartCard = styled(Card)<{ visible: boolean }>`
-    box-shadow: ${(props) => props.theme.colors.shadowSm};
-    visibility: ${(props) => (props.visible ? 'visible' : 'hidden')};
+    word-break: break-word;
 `;
 
 type Point = {
@@ -43,6 +36,7 @@ type Props = {
     width?: number;
     height?: number;
     lineColor?: string;
+    padding?: string;
 };
 
 const DEFAULT_AXIS_WIDTH = 2;
@@ -60,6 +54,7 @@ export default function StatChart({
     width = 360,
     height = 300,
     lineColor,
+    padding = '24px',
 }: Props) {
     const theme = useTheme();
     const resolvedLineColor = lineColor || theme.colors.chartsSeafoamHigh;
@@ -78,7 +73,7 @@ export default function StatChart({
     );
 
     return (
-        <ChartCard visible={visible}>
+        <Card padding={padding} style={{ visibility: visible ? 'visible' : 'hidden' }}>
             <ChartContainer>
                 <ChartTitle>{title}</ChartTitle>
                 <TimeSeriesChart
@@ -105,6 +100,6 @@ export default function StatChart({
                     yAxis={yAxis}
                 />
             </ChartContainer>
-        </ChartCard>
+        </Card>
     );
 }

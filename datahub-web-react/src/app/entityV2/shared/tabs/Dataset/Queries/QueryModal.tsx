@@ -1,4 +1,3 @@
-import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -7,7 +6,7 @@ import { CodeBlock } from '@components/components/CodeBlock';
 import { Editor } from '@components/components/Editor';
 
 import { SQL_LANGUAGE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
-import { Modal } from '@src/alchemy-components';
+import { Heading, Modal } from '@src/alchemy-components';
 
 const StyledModal = styled(Modal)`
     top: 4vh;
@@ -26,11 +25,9 @@ const QueryDetails = styled.div`
     padding: 28px 28px 28px 28px;
 `;
 
-const QueryTitle = styled(Typography.Title)<{ secondary?: boolean }>`
-    && {
-        margin-bottom: 16px;
-        color: ${(props) => (props.secondary && props.theme.colors.textSecondary) || undefined};
-    }
+const QueryTitleContainer = styled.div`
+    margin-bottom: 16px;
+    word-break: break-word;
 `;
 
 const StyledViewer = styled(Editor)<{ secondary?: boolean }>`
@@ -101,9 +98,11 @@ export default function QueryModal({ query, title, description, showDetails = tr
             </QueryContainer>
             {showDetails && (
                 <QueryDetails>
-                    <QueryTitle level={4} secondary={!title}>
-                        {title || t('queryCard.noTitle')}
-                    </QueryTitle>
+                    <QueryTitleContainer>
+                        <Heading type="h4" size="2xl" weight="semiBold" color={title ? 'text' : 'textSecondary'}>
+                            {title || t('queryCard.noTitle')}
+                        </Heading>
+                    </QueryTitleContainer>
                     <StyledViewer readOnly secondary={!title} content={description || t('queryCard.noDescription')} />
                 </QueryDetails>
             )}

@@ -1,3 +1,4 @@
+import { Pill, Text } from '@components';
 import { Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import i18next from 'i18next';
@@ -20,23 +21,18 @@ type Props = {
     ellipsis?: boolean;
 };
 
+const BoldText = styled(Text).attrs({ type: 'span', weight: 'bold' })`
+    color: ${(props) => props.theme.colors.text};
+    font-size: inherit;
+    line-height: inherit;
+    word-break: break-word;
+`;
+
 const StyledDescrptionContainer = styled.div`
     display: flex;
     flex-direction: column;
     gap: 4px;
 `;
-const StyledColumnTag = styled.div`
-    align-items: center;
-    background-color: ${(props) => props.theme.colors.bgSurface};
-    width: fit-content;
-    border-radius: 12px;
-    height: 24px;
-    display: flex;
-    text-align: center;
-    justify-content: center;
-    padding: 0px 8px;
-`;
-
 /**
  * A human-readable description of a Field Assertion.
  * @param showColumnTag decide whether to show column tag or not
@@ -49,7 +45,7 @@ const renderFallbackDescription = (field: string | null | undefined) => (
     <Trans
         i18nKey="entity.profile.validations:fieldDescription.customCheckOn"
         values={{ field: field ?? i18next.t('entity.profile.validations:fieldDescription.fieldFallback') }}
-        components={{ bold: <Typography.Text style={{ fontWeight: 'bold' }} /> }}
+        components={{ bold: <BoldText /> }}
     />
 );
 
@@ -76,7 +72,7 @@ export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assert
                         maxValue: descriptor.tokens.maxValue,
                     }}
                     components={{
-                        bold: <Typography.Text style={{ fontWeight: 'bold' }} />,
+                        bold: <BoldText />,
                     }}
                 />
             );
@@ -91,7 +87,9 @@ export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assert
     return (
         <StyledDescrptionContainer>
             <Typography.Text ellipsis={ellipsis ? { tooltip: true } : undefined}>{descriptionContent}</Typography.Text>
-            {showColumnTag && <StyledColumnTag>{field}</StyledColumnTag>}
+            {showColumnTag && !!field && (
+                <Pill label={field} variant="filled" color="gray" size="sm" clickable={false} />
+            )}
         </StyledDescrptionContainer>
     );
 };

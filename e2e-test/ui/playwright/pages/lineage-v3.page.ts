@@ -311,7 +311,7 @@ export class LineageV3Page extends LineageBasePage {
    */
   async selectColumnFromDropdown(columnName: string): Promise<void> {
     await this.selectColumnDropdownButton.click({ timeout: TIMEOUTS.MEDIUM });
-    await this.columnSelectVirtualList.getByText(columnName, { exact: true }).click({ timeout: TIMEOUTS.MEDIUM });
+    await this.page.getByTestId(`column-option-${columnName}`).click({ timeout: TIMEOUTS.MEDIUM });
   }
 
   // ── Contract lineage control (shown when the filter-node flag is off) ───────

@@ -1,41 +1,11 @@
-import { Tooltip } from '@components';
-import { Button } from 'antd';
+import { Button, Tooltip } from '@components';
 import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
-/**
- * Styled button component for access management actions.
- * Supports both enabled (request) and disabled (granted) states.
- */
-export const AccessButton = styled(Button)`
-    background-color: ${(props) => props.theme.colors.buttonFillBrand};
-    color: ${(props) => props.theme.colors.textOnFillBrand};
-    min-width: 80px;
-    height: 30px;
-    border-radius: 3.5px;
-    border: none;
-    font-weight: bold;
-
-    &:hover {
-        background-color: ${(props) => props.theme.colors.buttonSurfaceBrandHover};
-        color: ${(props) => props.theme.colors.textOnFillBrand};
-        border: none;
-    }
-
-    /* Disabled state when user already has access */
-    &:disabled {
-        background-color: ${(props) => props.theme.colors.bgSurface};
-        color: ${(props) => props.theme.colors.textDisabled};
-        cursor: not-allowed;
-        border: 1px solid ${(props) => props.theme.colors.border};
-
-        &:hover {
-            background-color: ${(props) => props.theme.colors.bgSurface};
-            color: ${(props) => props.theme.colors.textDisabled};
-            border: 1px solid ${(props) => props.theme.colors.border};
-        }
-    }
+// Disabled buttons don't emit mouse events, so the tooltip needs a wrapper element to hover.
+const TooltipTarget = styled.span`
+    display: inline-block;
 `;
 
 /**
@@ -90,13 +60,15 @@ export const renderAccessButton = (roleData: RoleAccessData): React.ReactElement
     const { hasAccess, url } = roleData;
 
     const button = (
-        <AccessButton
+        <Button
+            variant="filled"
+            size="sm"
             disabled={isAccessButtonDisabled(hasAccess, url)}
             onClick={handleAccessButtonClick(hasAccess, url)}
             aria-label={getAccessButtonAriaLabel(hasAccess, url)}
         >
             {getAccessButtonText(hasAccess, url)}
-        </AccessButton>
+        </Button>
     );
 
     // Only requestable roles (no access, request URL set) render without a tooltip
@@ -113,7 +85,7 @@ export const renderAccessButton = (roleData: RoleAccessData): React.ReactElement
             }
             placement="top"
         >
-            {button}
+            <TooltipTarget>{button}</TooltipTarget>
         </Tooltip>
     );
 };

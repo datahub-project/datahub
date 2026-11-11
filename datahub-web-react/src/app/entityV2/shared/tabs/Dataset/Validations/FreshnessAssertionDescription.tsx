@@ -1,10 +1,19 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
 
 import { cronToString, removeTimePrefix } from '@utils/cronstrue';
 
 import { CronSchedule, FreshnessAssertionInfo, FreshnessAssertionScheduleType, FreshnessAssertionType } from '@types';
+
+// alchemy Text sets its own font-size/line-height; antd Typography.Text inherited them
+const InlineText = styled(Text).attrs({ type: 'span' })`
+    color: ${(props) => props.theme.colors.text};
+    font-size: inherit;
+    line-height: inherit;
+    word-break: break-word;
+`;
 
 type Props = {
     assertionInfo: FreshnessAssertionInfo;
@@ -58,7 +67,7 @@ export const FreshnessAssertionDescription = ({ assertionInfo }: Props) => {
     }
     return (
         <div>
-            <Typography.Text>{scheduleText}</Typography.Text>
+            <InlineText>{scheduleText}</InlineText>
         </div>
     );
 };

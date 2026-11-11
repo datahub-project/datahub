@@ -1,5 +1,5 @@
+import { Button } from '@components';
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
-import { Button } from 'antd';
 import React from 'react';
 
 type Props = {
@@ -8,7 +8,7 @@ type Props = {
 
 export const CloseButton = ({ close }: Props) => {
     return (
-        <Button type="text" onClick={close}>
+        <Button variant="text" color="gray" onClick={close}>
             <ArrowRight />
         </Button>
     );

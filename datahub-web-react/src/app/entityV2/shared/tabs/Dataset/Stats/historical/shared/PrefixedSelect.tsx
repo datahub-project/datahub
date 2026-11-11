@@ -1,4 +1,4 @@
-import { Select, Typography } from 'antd';
+import { SimpleSelect, Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -9,24 +9,30 @@ type Props = {
     setValue: (value: string) => void;
 };
 
-const SubHeaderText = styled(Typography.Text)`
-    font-size: 14px;
-    color: ${(props) => props.theme.colors.textSecondary};
+const Container = styled.span`
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
 `;
 
-const EmbeddedSelect = styled(Select)`
-    padding-left: 8px;
+const SubHeaderText = styled(Text).attrs({ type: 'span' })`
+    font-size: 14px;
+    color: ${(props) => props.theme.colors.textSecondary};
+    line-height: inherit;
+    word-break: break-word;
 `;
 
 export default function PrefixedSelect({ prefixText, values, value, setValue }: Props): JSX.Element {
     return (
-        <span>
+        <Container>
             <SubHeaderText>{prefixText}</SubHeaderText>
-            <EmbeddedSelect value={value} onChange={(val) => setValue(val as string)}>
-                {values.map((val) => (
-                    <Select.Option value={val}>{val}</Select.Option>
-                ))}
-            </EmbeddedSelect>
-        </span>
+            <SimpleSelect
+                options={values.map((val) => ({ value: val, label: val }))}
+                values={[value]}
+                onUpdate={(selectedValues) => setValue(selectedValues[0])}
+                showClear={false}
+                width="fit-content"
+            />
+        </Container>
     );
 }

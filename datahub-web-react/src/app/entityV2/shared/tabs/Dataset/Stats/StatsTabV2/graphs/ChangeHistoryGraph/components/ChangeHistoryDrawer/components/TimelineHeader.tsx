@@ -1,5 +1,4 @@
-import { Pill, Text } from '@components';
-import { Skeleton } from 'antd';
+import { Pill, Skeleton, Text } from '@components';
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -13,12 +12,7 @@ const HeaderContainer = styled.div`
     gap: 8px;
 `;
 
-const PillSkeleton = styled(Skeleton.Button)`
-    .ant-skeleton-button {
-        height: 28px;
-        width: 50px;
-    }
-`;
+const PillSkeleton = styled(Skeleton.Button).attrs({ width: 50, height: 28 })``;
 
 type TimelineHeaderProps = {
     day?: string | null;

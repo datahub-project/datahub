@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -43,10 +43,13 @@ const StyledAssertionBadgeContainer = styled.div`
     align-items: center;
 `;
 
-const StyledAssertionName = styled(Typography.Paragraph)`
+const StyledAssertionName = styled(Text).attrs({ type: 'div' })`
+    color: ${(props) => props.theme.colors.text};
     margin-bottom: 0 !important;
     font-size: 14px;
     font-weight: 500;
+    line-height: inherit;
+    word-break: break-word;
 `;
 
 type Props = {

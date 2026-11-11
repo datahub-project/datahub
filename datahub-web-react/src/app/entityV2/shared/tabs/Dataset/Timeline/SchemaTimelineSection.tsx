@@ -1,5 +1,5 @@
+import { Text } from '@components';
 import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
-import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { VerticalTimeline, VerticalTimelineElement } from 'react-vertical-timeline-component';
@@ -40,19 +40,22 @@ const TimeLine = styled(VerticalTimeline)`
     }
 `;
 
-const DateText = styled(Typography.Text)`
+const DateText = styled(Text).attrs({ type: 'span' })`
     font-size: 10px;
     font-style: normal;
     font-weight: 500;
     line-height: 16px;
     color: ${(props) => props.theme.colors.textSecondary};
+    word-break: break-word;
 `;
 
-const Event = styled(Typography.Text)`
+const Event = styled(Text).attrs({ type: 'span' })`
     color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 500;
     letter-spacing: -0.12px;
+    line-height: inherit;
+    word-break: break-word;
 `;
 
 export const SchemaTimelineSection = () => {
