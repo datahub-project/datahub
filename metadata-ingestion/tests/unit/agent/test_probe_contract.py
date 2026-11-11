@@ -14,6 +14,7 @@ Each rule below is proved to fire against a deliberately-bad provider, because a
 lint whose failure path is never exercised is a lint nobody can trust.
 """
 
+import dataclasses
 import difflib
 import inspect
 import re
@@ -1307,16 +1308,43 @@ def _dropped_markers(config_cls: type) -> List[str]:
                 continue
             if _is_hidden_field(klass, name):
                 continue
-            kept = {
+            kept = [
                 marker for info in fields.values() for marker in _field_markers(info)
-            }
-            lost = [m for m in _field_markers(inherited) if m not in kept]
+            ]
+            lost = [
+                m
+                for m in _field_markers(inherited)
+                if not any(_marker_covers(k, m) for k in kept)
+            ]
             if lost:
                 problems.append(
                     f"{klass.__module__}.{klass.__qualname__}.{name} redeclares "
                     f"an inherited field and drops {lost}"
                 )
     return problems
+
+
+def _marker_covers(kept: object, inherited: object) -> bool:
+    """Whether `kept` still says everything `inherited` said.
+
+    A redeclaration may legitimately say MORE about the same field -- Unity
+    adds `also_filters` to the `Filters(Table)` it inherits -- so equality
+    read that as a drop. Saying LESS is the drop this check exists to catch,
+    and collapsing to the kind stopped catching it: `also_filters` could be
+    lost, and a `Qualifier` could flip `authoritative`, unseen. So every
+    attribute has to survive -- a collection may grow, anything else must
+    match.
+    """
+    if type(kept) is not type(inherited):
+        return False
+    for field in dataclasses.fields(inherited):  # type: ignore[arg-type]
+        mine, theirs = getattr(kept, field.name), getattr(inherited, field.name)
+        if isinstance(theirs, (tuple, frozenset, list, set)):
+            if not set(theirs).issubset(set(mine)):
+                return False
+        elif mine != theirs:
+            return False
+    return True
 
 
 def test_no_config_drops_a_marker_by_redeclaring_its_field():
@@ -1361,6 +1389,42 @@ def test_the_redeclaration_check_catches_a_dropped_marker():
 
     problems = _dropped_markers(_Redeclares)
     assert len(problems) == 1 and "include_things" in problems[0]
+
+
+def test_a_redeclaration_may_say_more_but_not_less_about_a_marker():
+    """Matching on the kind alone let a redeclaration quietly say less.
+
+    Pydantic replaces a redeclared field's metadata wholesale, so a subclass
+    repeating `Filters(Table)` over an inherited `Filters(Table,
+    also_filters=[View])` drops the extra kind unseen -- and nothing else
+    checks it, since the declaration walk only validates what IS declared.
+    The same goes for a `Qualifier` flipping `authoritative`, which decides
+    whether a --parent may override the field.
+    """
+
+    class _Base(ConfigModel):
+        table_pattern: Annotated[
+            AllowDenyPattern, Filters("Table", also_filters=["View"])
+        ] = Field(default=AllowDenyPattern.allow_all())
+        host: Annotated[str, Qualifier(authoritative=True)] = "h"
+
+    class _DropsAlsoFilters(_Base):
+        table_pattern: Annotated[AllowDenyPattern, Filters("Table")] = Field(
+            default=AllowDenyPattern.allow_all()
+        )
+
+    class _FlipsAuthoritative(_Base):
+        host: Annotated[str, Qualifier(authoritative=False)] = "h"
+
+    class _SaysMore(_Base):
+        table_pattern: Annotated[
+            AllowDenyPattern, Filters("Table", also_filters=["View", "Metric"])
+        ] = Field(default=AllowDenyPattern.allow_all())
+
+    assert _dropped_markers(_DropsAlsoFilters)
+    assert _dropped_markers(_FlipsAuthoritative)
+    # Unity's real shape: adding a kind to an inherited Filters is not a drop.
+    assert _dropped_markers(_SaysMore) == []
 
 
 def test_the_framework_reads_no_config_hook_outside_its_list():

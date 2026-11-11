@@ -57,7 +57,7 @@ def test_trino_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_path):
     # Run the metadata ingestion pipeline.
     with fs_helpers.isolated_filesystem(tmp_path):
         # Run the metadata ingestion pipeline for trino catalog referring to postgres database
-        mce_out_file = "trino_mces.json"
+        mce_out_file = "trino.json"
         events_file = tmp_path / mce_out_file
 
         pipeline_config = {
@@ -108,15 +108,16 @@ def test_trino_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_path):
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
-            output_path="trino_mces.json",
-            golden_path=test_resources_dir / "trino_mces_golden.json",
+            fail_on_output_mces=True,
+            output_path="trino.json",
+            golden_path=test_resources_dir / "trino_golden.json",
         )
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_trino_hive_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_path):
     # Run the metadata ingestion pipeline for trino catalog referring to postgres database
-    mce_out_file = "trino_hive_mces.json"
+    mce_out_file = "trino_hive.json"
     events_file = tmp_path / mce_out_file
 
     pipeline_config = {
@@ -154,12 +155,13 @@ def test_trino_hive_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_p
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
+        fail_on_output_mces=True,
         output_path=events_file,
-        golden_path=test_resources_dir / "trino_hive_mces_golden.json",
+        golden_path=test_resources_dir / "trino_hive_golden.json",
         ignore_paths=[
-            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastddltime'\]",
-            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['numfiles'\]",
-            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['totalsize'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['transient_lastddltime'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['numfiles'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['totalsize'\]",
         ],
     )
 
@@ -170,7 +172,7 @@ def test_trino_hive_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_p
 def test_trino_instance_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path
 ):
-    mce_out_file = "trino_instance_mces.json"
+    mce_out_file = "trino_instance.json"
     events_file = tmp_path / mce_out_file
     pipeline_config = {
         "run_id": "trino-hive-instance-test",
@@ -205,9 +207,10 @@ def test_trino_instance_ingest(
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
+        fail_on_output_mces=True,
         output_path=events_file,
-        golden_path=test_resources_dir / "trino_hive_instance_mces_golden.json",
+        golden_path=test_resources_dir / "trino_hive_instance_golden.json",
         ignore_paths=[
-            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastddltime'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['transient_lastddltime'\]",
         ],
     )

@@ -159,6 +159,7 @@ class Constant:
     ACTIVE = ACTIVE_WORKSPACE_STATE
     SQL_PARSING_FAILURE = "SQL Parsing Failure"
     EXTERNAL_QUERY_NOT_MAPPED = "BigQuery EXTERNAL_QUERY connection not mapped"
+    M_QUERY_NAVIGATION_UNRESOLVED = "M-Query navigation not resolved to a table"
     M_QUERY_NULL = '"null"'
     REPORT_WEB_URL = "reportWebUrl"
     USERS = "users"
@@ -820,7 +821,7 @@ class PowerBiDashboardSourceConfig(
     include_workspace_name_in_dataset_urn: bool = pydantic.Field(
         default=False,
         description="It is recommended to set this to true, as it helps prevent the overwriting of datasets."
-        "Read section #11560 at https://docs.datahub.com/docs/how/updating-datahub/ before enabling this option."
+        "Read section #11560 at https://docs.datahub.com/docs/how/breaking-changes/ before enabling this option."
         "To maintain backward compatibility, this is set to False.",
     )
 

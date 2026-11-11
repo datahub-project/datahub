@@ -128,6 +128,16 @@ class DremioSourceMapping(EnvConfigMixin, PlatformInstanceConfigMixin, ConfigMod
     source_name: str = Field(
         description="Alias of platform in Dremio connection",
     )
+    convert_urns_to_lowercase: Optional[bool] = Field(
+        default=None,
+        description="Database sources only: lowercase the upstream dataset name so it "
+        "matches the target connector's URNs. Unset keeps the target platform's "
+        "default: lowercase for "
+        "Snowflake, lowercase ALL-UPPERCASE names for Oracle, Dremio's case otherwise. "
+        "Set `true` for a SQL Server source ingested with `convert_urns_to_lowercase: "
+        "true` (which that connector recommends for lineage); set `false` for a "
+        "Snowflake source ingested with `convert_urns_to_lowercase: false`.",
+    )
 
 
 class DremioSourceTypeOverride(ConfigModel):
@@ -137,6 +147,10 @@ class DremioSourceTypeOverride(ConfigModel):
     category: Optional[Literal["database", "file_object_storage"]] = Field(
         default=None,
         description="Whether the Dremio source uses dot-notation database/schema paths (`database`) or slash-notation file paths (`file_object_storage`). Defaults to `unknown`.",
+    )
+    database_in_path: Optional[bool] = Field(
+        default=None,
+        description="For a `database` source: whether Dremio lists databases as folders under the source, so the path already starts with the database (`true`), or lists only the schemas of the configured database, which is then prepended (`false`). Unset: the database is prepended unless the first path component equals it.",
     )
 
 

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /** Probe checks that sit beside nDCG and are never averaged with it. */
 public final class TopHitScorer {
@@ -93,6 +94,24 @@ public final class TopHitScorer {
         failures.add("expected the first score to be strictly greater than the second");
       }
     }
+    JsonNode scoreRatioAtMost = judgment.get("scoreRatioAtMost");
+    if (scoreRatioAtMost != null && !scoreRatioAtMost.isNull()) {
+      RankedSearchHit numerator = hit(result, scoreRatioAtMost.path("numerator").asText());
+      RankedSearchHit denominator = hit(result, scoreRatioAtMost.path("denominator").asText());
+      double max = scoreRatioAtMost.path("max").asDouble();
+      if (numerator == null
+          || denominator == null
+          || denominator.getScore() <= 0.0
+          || numerator.getScore() / denominator.getScore() > max) {
+        failures.add(
+            "score ratio "
+                + scoreRatioAtMost.path("numerator").asText()
+                + "/"
+                + scoreRatioAtMost.path("denominator").asText()
+                + " should be at most "
+                + max);
+      }
+    }
     JsonNode matched = judgment.get("matchedFieldContains");
     if (matched != null && !matched.isNull()) {
       String value = matched.path("value").asText();
@@ -144,5 +163,15 @@ public final class TopHitScorer {
       }
     }
     return -1;
+  }
+
+  @Nullable
+  private static RankedSearchHit hit(RankedSearchResult result, String urn) {
+    for (RankedSearchHit hit : result.getHits()) {
+      if (urn.equals(hit.getUrn())) {
+        return hit;
+      }
+    }
+    return null;
   }
 }

@@ -1,13 +1,15 @@
 """Write search-quality judgments and the Cranfield shard into the datapack.
 
-The long-tail catalog is the committed MCP shards. This script does not read
-Elasticsearch index snapshots. Judgments stay in judgments.json and are not
-listed in index.json. Regeneration is deterministic: audit stamps use one
-fixed time.
+The longtail-ecommerce catalog is the committed business shard. Ecommerce
+entities in that shard came from showcase-ecommerce and are not rebuilt.
+This script does not read Elasticsearch index snapshots. Judgments stay in
+judgments.json and are not listed in index.json. Regeneration is
+deterministic: audit stamps use one fixed time.
 """
 
 from __future__ import annotations
 
+import gc
 import json
 from collections import Counter
 from pathlib import Path
@@ -52,7 +54,45 @@ FIELD_PROBE_TOKENS = (
     FIELD_PROBE_STEM,
     FIELD_PROBE_STEM_QUERY,
 )
-LONG_TAIL_SHARDS = ("03-long-tail.json", "04-long-tail-timeseries.json")
+BUSINESS_SHARD = "03-longtail-ecommerce.json"
+TIMESERIES_SHARD = "04-longtail-ecommerce-timeseries.json"
+LONG_TAIL_SHARDS = (BUSINESS_SHARD, TIMESERIES_SHARD)
+SHOWCASE_PREFIX = "b2fd91."
+# Container ids from the imported catalog. They do not carry the b2fd91 prefix.
+IMPORTED_CONTAINER_URNS = frozenset(
+    {
+        "urn:li:container:0e66a4ce3f0b2777d96fa518517c02fb",
+        "urn:li:container:1a138c9fcb5dc4d763aed13939e022f2",
+        "urn:li:container:4aa1e0be707b5eb015fd4ae8a0cee4e6",
+        "urn:li:container:50c5d36097aca2fe8b0041805c21f13a",
+        "urn:li:container:64a5f47928e5c808819f1385be046bc0",
+        "urn:li:container:6c6be2267e33f5735445a49ee7a37573",
+        "urn:li:container:6f8674b1605468e8622e14df196d84d1",
+        "urn:li:container:7ca6ea867f3c1038d55fda4688e26dab",
+        "urn:li:container:7eeb369896b78a39b55f38238779bd8b",
+        "urn:li:container:82b021ed6470183a388677899ff77153",
+        "urn:li:container:a1b63f1e0516d47949181f804bc4ae9b",
+        "urn:li:container:d14215d4dacbab259f768b155825550e",
+        "urn:li:container:d6b6aada30bc0a4a5a891d06c9c1815a",
+        "urn:li:container:d6fc0dbb637e11fe788d53f86f587a96",
+    }
+)
+IMPORTED_PROPOSAL_COUNT = 2826
+IMPORTED_PROPERTY_URNS = (
+    "urn:li:structuredProperty:showcase.dataFreshnessSla",
+    "urn:li:structuredProperty:showcase.dataQualityScore",
+    "urn:li:structuredProperty:showcase.retentionPeriod",
+    "urn:li:structuredProperty:showcase.costCenter",
+    "urn:li:structuredProperty:showcase.escalationContact",
+)
+ENTITY_BOOST_NAME = "Order Entry Analytics entityboost"
+ENTITY_BOOST_TERM = "urn:li:glossaryTerm:entityboost.orderEntry"
+ENTITY_BOOST_NODE = "urn:li:glossaryNode:entityboost.orderEntry"
+ENTITY_BOOST_PRODUCT = "urn:li:dataProduct:entityboost.orderEntry"
+ENTITY_BOOST_DOMAIN = "urn:li:domain:entityboost.orderEntry"
+ENTITY_BOOST_DATASET = (
+    "urn:li:dataset:(urn:li:dataPlatform:catalogprobe,entityboost.orderEntry,PROD)"
+)
 
 KEYWORD_ENTITY_TYPES = [
     "chart",
@@ -62,6 +102,13 @@ KEYWORD_ENTITY_TYPES = [
     "domain",
     "tag",
 ]
+# The smoke suite searches "sample" against the quickstart bootstrap, which this
+# pack does not load. These copies give the search-quality instance the same names.
+QUICKSTART_SEARCH_DATASETS = (
+    ("kafka", "SampleKafkaDataset"),
+    ("hdfs", "SampleHdfsDataset"),
+    ("hive", "SampleHiveDataset"),
+)
 
 
 def repo_root() -> Path:
@@ -108,6 +155,22 @@ def dataset_urn(platform: str, name: str, origin: str = "PROD") -> str:
 
 AUTOCOMPLETE_NAME = "zzprefixprobe"
 AUTOCOMPLETE_DATASET = dataset_urn("catalogprobe", AUTOCOMPLETE_NAME)
+PHRASE_AUTOCOMPLETE_QUERY = "Xylarvene Orders Model"
+PHRASE_AUTOCOMPLETE_DATASET = dataset_urn("catalogprobe", "xylarvene_orders_model")
+REORDERED_AUTOCOMPLETE_DATASET = dataset_urn("catalogprobe", "orders_model_xylarvene")
+DESCRIPTION_CONTAIN_DELETED = dataset_urn("catalogprobe", "users_deleted_asset")
+DESCRIPTION_CONTAIN_CREATED = dataset_urn("catalogprobe", "users_created_asset")
+SHARED_TOKEN_APPLE = dataset_urn("catalogprobe", "shared_token_apple")
+SHARED_TOKEN_BANANA = dataset_urn("catalogprobe", "shared_token_banana")
+SHARED_TOKEN_QUERY = "xylarvene sources search apple"
+# "v3" splits into two tokens, so this three-word query skips light.
+UI_FILTER_QUERY = "mirkapath v3 filter"
+UI_FILTER_SOURCE = dataset_urn("catalogprobe", "mirka_filter_source")
+UI_FILTER_CLI_SOURCE = dataset_urn("catalogprobe", "mirka_filter_cli_source")
+UI_FILTER_STRAY = dataset_urn("catalogprobe", "mirka_file")
+# Four underscore parts. An empty light result stops instead of continuing.
+FOUR_PART_TAG_NAME = "zindle_search_filter_tag"
+FOUR_PART_TAG = f"urn:li:tag:{FOUR_PART_TAG_NAME}"
 
 STRING_OPT_IN_DATASET = dataset_urn(
     "dbt", "long_tail_companions.analytics.dogs_in_movies"
@@ -118,6 +181,21 @@ URN_OPT_IN_DATASET = dataset_urn(
 BOOSTED_PROPERTY_DATASET = dataset_urn(
     "dbt", "long_tail_companions.adoption.pet_profiles"
 )
+
+# The three tables whose name is exactly pet_profiles.
+PET_PROFILE_TABLES = [
+    dataset_urn("dbt", "long_tail_companions.adoption.pet_profiles"),
+    dataset_urn("mongodb", "adoption.pet_profiles"),
+    dataset_urn("snowflake", "long_tail_companions.adoption.pet_profiles"),
+]
+PET_PROFILE_S3 = dataset_urn("s3", "longtail-core-data/mongo/adoption/pet_profiles")
+PET_PROFILE_DASHBOARD = "urn:li:dashboard:(looker,dashboards.14)"
+PET_PROFILE_DEEP_DIVE = "urn:li:dashboard:(looker,dashboards.30)"
+PET_PROFILE_GRADES = [
+    *[(urn, 4) for urn in PET_PROFILE_TABLES],
+    (PET_PROFILE_S3, 2),
+    (PET_PROFILE_DASHBOARD, 2),
+]
 
 
 def parse_cranfield_documents(path: Path) -> list[dict[str, str]]:
@@ -401,6 +479,19 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     urn_opt_out = dataset_urn("catalogprobe", "urn_filter_asset")
     description_competitor = dataset_urn("catalogprobe", "boosted_description_asset")
     fulltext = dataset_urn("catalogprobe", "analyzer_asset")
+    identity_name_only = dataset_urn("catalogprobe", "identity_name_only")
+    identity_name_and_qualified = dataset_urn(
+        "catalogprobe", "identity_name_and_qualified"
+    )
+    # A dataset key name is the name label, so it cannot stand in for id. These flows
+    # keep the same display name and put the query tokens on the id label alone.
+    identity_flow_name_only = "urn:li:dataFlow:(catalogprobe,flow_name_only,prod)"
+    identity_flow_name_and_id = (
+        "urn:li:dataFlow:(catalogprobe,identityprobe_parity,prod)"
+    )
+    identity_path = dataset_urn("catalogprobe", "identity_path")
+    identity_path_partial = dataset_urn("catalogprobe", "identity_path_partial")
+    identity_earlier_segment = dataset_urn("catalogprobe", "identity_earlier_segment")
     entities = [
         (
             exact,
@@ -468,8 +559,72 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             AUTOCOMPLETE_NAME,
             AUTOCOMPLETE_NAME,
         ),
+        (
+            PHRASE_AUTOCOMPLETE_DATASET,
+            PHRASE_AUTOCOMPLETE_QUERY,
+            "catalogprobe.xylarvene_orders_model",
+            "Phrase-named catalog probe for autocomplete.",
+        ),
+        (
+            REORDERED_AUTOCOMPLETE_DATASET,
+            "Catalogprobe Reordered Name",
+            "orders_model.xylarvene",
+            "Tokens from the phrase query, stored out of order.",
+        ),
+        (
+            DESCRIPTION_CONTAIN_DELETED,
+            "Catalogprobe Users Deleted",
+            "catalogprobe.users_deleted_asset",
+            "fct_users_deleted",
+        ),
+        (
+            DESCRIPTION_CONTAIN_CREATED,
+            "Catalogprobe Users Created",
+            "catalogprobe.users_created_asset",
+            "fct_users_created",
+        ),
+        (
+            SHARED_TOKEN_APPLE,
+            SHARED_TOKEN_QUERY,
+            "catalogprobe.shared_token_apple",
+            "Shared-token name probe, distinguished by apple.",
+        ),
+        (
+            SHARED_TOKEN_BANANA,
+            "xylarvene sources search banana",
+            "catalogprobe.shared_token_banana",
+            "Shared-token name probe, distinguished by banana.",
+        ),
+        (
+            UI_FILTER_SOURCE,
+            "mirkapath v3 filter source",
+            "catalogprobe.mirka_filter_source",
+            "Filter-query name probe, the UI source.",
+        ),
+        (
+            UI_FILTER_CLI_SOURCE,
+            "mirkapath v3 filter cli source",
+            "catalogprobe.mirka_filter_cli_source",
+            "Filter-query name probe, the CLI source.",
+        ),
+        (
+            UI_FILTER_STRAY,
+            "file (mirkapath)",
+            "catalogprobe.mirka_file",
+            "One-token overlap probe.",
+        ),
     ]
     proposals: list[dict[str, Any]] = []
+    proposals.append(
+        mcp(
+            identity_name_only,
+            "datasetProperties",
+            {
+                "name": "identityprobe parity",
+                "description": "Name-only identity comparison asset.",
+            },
+        )
+    )
     for urn, name, qualified, description in entities:
         proposals.append(
             mcp(
@@ -482,6 +637,62 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                 },
             )
         )
+    proposals.extend(
+        [
+            mcp(
+                identity_name_and_qualified,
+                "datasetProperties",
+                {
+                    "name": "identityprobe parity",
+                    "qualifiedName": "catalogprobe.identityprobe.parity",
+                    "description": "Name and qualified-name identity comparison asset.",
+                },
+            ),
+            mcp(
+                identity_flow_name_only,
+                "dataFlowInfo",
+                {
+                    "name": "identityprobe parity",
+                    "description": "Name-only identity comparison flow.",
+                },
+            ),
+            mcp(
+                identity_flow_name_and_id,
+                "dataFlowInfo",
+                {
+                    "name": "identityprobe parity",
+                    "description": "Name and id identity comparison flow.",
+                },
+            ),
+            mcp(
+                identity_path,
+                "datasetProperties",
+                {
+                    "name": "identityprobe_ledger",
+                    "qualifiedName": "catalogprobe.analytics.identityprobe_ledger",
+                    "description": "Bounded qualified-name path asset.",
+                },
+            ),
+            mcp(
+                identity_path_partial,
+                "datasetProperties",
+                {
+                    "name": "identityprobe_ledger_archive",
+                    "qualifiedName": "catalogprobe.analytics.identityprobe_ledger_archive",
+                    "description": "Partial qualified-name path distractor.",
+                },
+            ),
+            mcp(
+                identity_earlier_segment,
+                "datasetProperties",
+                {
+                    "name": "identityprobe_customer_snapshot",
+                    "qualifiedName": "catalogprobe.identityprobe.ancestry.customer_snapshot",
+                    "description": "Earlier qualified-name segment asset.",
+                },
+            ),
+        ]
+    )
     proposals.append(
         mcp(
             prop,
@@ -587,6 +798,67 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         probe("catalog-synonym", "stg catalogprobeledger", synonym),
         probe("catalog-quoted", '"catalogprobe quoted phrase"', quoted),
         probe("catalog-property", "catalogprobegold", prop),
+        {
+            "id": "identity-name-qualified-parity",
+            "group": "keyword-probe",
+            "query": "identityprobe parity",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [
+                {"urn": identity_name_only, "relevance": 1},
+                {"urn": identity_name_and_qualified, "relevance": 1},
+            ],
+            "containsInTop": {
+                "n": 3,
+                "values": [identity_name_only, identity_name_and_qualified],
+            },
+            "scoreRatioAtMost": {
+                "numerator": identity_name_and_qualified,
+                "denominator": identity_name_only,
+                "max": 1.02,
+            },
+        },
+        {
+            "id": "identity-name-id-parity",
+            "group": "keyword-probe",
+            "query": "identityprobe parity",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataFlow"],
+            "grades": [
+                {"urn": identity_flow_name_only, "relevance": 1},
+                {"urn": identity_flow_name_and_id, "relevance": 1},
+            ],
+            "containsInTop": {
+                "n": 2,
+                "values": [identity_flow_name_only, identity_flow_name_and_id],
+            },
+            "scoreRatioAtMost": {
+                "numerator": identity_flow_name_and_id,
+                "denominator": identity_flow_name_only,
+                "max": 1.02,
+            },
+        },
+        {
+            "id": "identity-bounded-qualified-path",
+            "group": "keyword-probe",
+            "query": "analytics.identityprobe_ledger",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [{"urn": identity_path, "relevance": 1}],
+            "rankAbove": {
+                "urn": identity_path,
+                "above": [identity_path_partial],
+            },
+        },
+        {
+            "id": "identity-earlier-qualified-segment",
+            "group": "keyword-probe",
+            "query": "identityprobe.ancestry",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [{"urn": identity_earlier_segment, "relevance": 1}],
+            "exactTopHit": identity_earlier_segment,
+        },
         {
             "id": "structured-property-string-opt-in",
             "group": "structured-property",
@@ -698,6 +970,94 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             fulltext,
         ),
     ]
+    judgments.extend(
+        [
+            {
+                "id": "description-contain-stacked-token",
+                "group": "keyword-probe",
+                "query": "*",
+                "surfaces": ["keyword"],
+                "entityTypes": ["dataset"],
+                "grades": [{"urn": DESCRIPTION_CONTAIN_DELETED, "relevance": 1}],
+                "filter": {
+                    "field": "description",
+                    "condition": "CONTAIN",
+                    "value": "fct_users_deleted",
+                },
+                "candidateUrns": [
+                    DESCRIPTION_CONTAIN_DELETED,
+                    DESCRIPTION_CONTAIN_CREATED,
+                ],
+                "expectedOrder": [DESCRIPTION_CONTAIN_DELETED],
+            },
+            {
+                "id": "shared-token-name",
+                "group": "keyword-probe",
+                "query": SHARED_TOKEN_QUERY,
+                "surfaces": ["keyword"],
+                "entityTypes": ["dataset"],
+                "grades": [
+                    {"urn": SHARED_TOKEN_APPLE, "relevance": 1},
+                    {"urn": SHARED_TOKEN_BANANA, "relevance": 1},
+                ],
+                "candidateUrns": [SHARED_TOKEN_APPLE, SHARED_TOKEN_BANANA],
+                "rankAbove": {
+                    "urn": SHARED_TOKEN_APPLE,
+                    "above": [SHARED_TOKEN_BANANA],
+                },
+            },
+            {
+                "id": "shared-token-name-quoted",
+                "group": "keyword-probe",
+                "query": f'"{SHARED_TOKEN_QUERY}"',
+                "surfaces": ["keyword"],
+                "entityTypes": ["dataset"],
+                "grades": [{"urn": SHARED_TOKEN_APPLE, "relevance": 1}],
+                "candidateUrns": [SHARED_TOKEN_APPLE, SHARED_TOKEN_BANANA],
+                "expectedOrder": [SHARED_TOKEN_APPLE],
+            },
+            {
+                "id": "ui-filter-full-names",
+                "group": "keyword-probe",
+                "query": UI_FILTER_QUERY,
+                "surfaces": ["keyword"],
+                "entityTypes": ["dataset"],
+                "grades": [
+                    {"urn": UI_FILTER_SOURCE, "relevance": 1},
+                    {"urn": UI_FILTER_CLI_SOURCE, "relevance": 1},
+                ],
+                "candidateUrns": [UI_FILTER_SOURCE, UI_FILTER_CLI_SOURCE],
+                "present": [UI_FILTER_SOURCE, UI_FILTER_CLI_SOURCE],
+            },
+            {
+                "id": "ui-filter-shared-token",
+                "group": "keyword-probe",
+                "query": UI_FILTER_QUERY,
+                "surfaces": ["keyword"],
+                "entityTypes": ["dataset"],
+                "grades": [],
+                "candidateUrns": [UI_FILTER_STRAY],
+                "expectNoHits": True,
+            },
+            {
+                "id": "tag-four-part-name",
+                "group": "keyword-probe",
+                "query": FOUR_PART_TAG_NAME,
+                "surfaces": ["keyword"],
+                "entityTypes": ["tag"],
+                "grades": [{"urn": FOUR_PART_TAG, "relevance": 1}],
+                "candidateUrns": [FOUR_PART_TAG],
+                "exactTopHit": FOUR_PART_TAG,
+            },
+        ]
+    )
+    proposals.append(
+        mcp(
+            FOUR_PART_TAG,
+            "tagProperties",
+            {"name": FOUR_PART_TAG_NAME},
+        )
+    )
     proposals.extend(sort_probe_entities())
     judgments.extend(sort_judgments())
     proposals.extend(field_probe_entities())
@@ -1023,6 +1383,16 @@ def autocomplete_judgments() -> list[dict[str, Any]]:
             "grades": [],
             "expectedUrns": [],
         },
+        {
+            "id": "autocomplete-phrase-not-reordered",
+            "group": "autocomplete",
+            "query": PHRASE_AUTOCOMPLETE_QUERY,
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [],
+            "expectedUrns": [PHRASE_AUTOCOMPLETE_DATASET],
+            "absentUrns": [REORDERED_AUTOCOMPLETE_DATASET],
+        },
     ]
 
 
@@ -1143,7 +1513,7 @@ def interactive_ranking_probes() -> tuple[list[dict[str, Any]], list[dict[str, A
         preferred_urn = datasets[preferred]
         return {
             "id": judgment_id,
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "*",
             "surfaces": ["keyword"],
             "entityTypes": ["dataset"],
@@ -1210,9 +1580,13 @@ def catalog_query(
     description is the query; 3 is that asset on another platform or a close
     variant; 2 is a related asset a user would still open; 1 is a neighbor.
     """
+    if query_id.startswith("longtail-") and not query_id.startswith(
+        "longtail-ecommerce-"
+    ):
+        query_id = "longtail-ecommerce-" + query_id[len("longtail-") :]
     return {
         "id": query_id,
-        "group": "longtail",
+        "group": "longtail-ecommerce",
         "query": query,
         "surfaces": ["keyword"],
         "entityTypes": KEYWORD_ENTITY_TYPES,
@@ -1236,7 +1610,7 @@ def fulltext_property_probe(query_id: str, query: str, urn: str) -> dict[str, An
 def probe(query_id: str, query: str, urn: str) -> dict[str, Any]:
     return {
         "id": query_id,
-        "group": "catalog-probe",
+        "group": "keyword-probe",
         "query": query,
         "surfaces": ["keyword"],
         "entityTypes": ["dataset"],
@@ -1353,13 +1727,6 @@ Performance Metrics
 
 def longtail_judgments() -> list[dict[str, Any]]:
     """Catalog searches over the long-tail entities in this datapack."""
-    pet_dbt = dataset_urn("dbt", "long_tail_companions.adoption.pet_profiles")
-    pet_mongo = dataset_urn("mongodb", "adoption.pet_profiles")
-    pet_s3 = dataset_urn("s3", "longtail-core-data/mongo/adoption/pet_profiles")
-    pet_snowflake = dataset_urn(
-        "snowflake", "long_tail_companions.adoption.pet_profiles"
-    )
-    pet_dashboard = "urn:li:dashboard:(looker,dashboards.14)"
     orders = [
         dataset_urn("bigquery", "calm-pagoda-323403.jaffle_shop.orders"),
         dataset_urn("dbt", "calm-pagoda-323403.jaffle_shop.orders"),
@@ -1405,15 +1772,12 @@ def longtail_judgments() -> list[dict[str, Any]]:
         dataset_urn("dbt", "long_tail_companions.analytics.dogs_in_movies"),
         dataset_urn("snowflake", "long_tail_companions.analytics.dogs_in_movies"),
     ]
-    pet_grades = [
-        (pet_dbt, 4),
-        (pet_mongo, 4),
-        (pet_snowflake, 4),
-        (pet_s3, 2),
-        (pet_dashboard, 2),
-    ]
+    pet_grades = PET_PROFILE_GRADES
+    # The column path is identical on all three platforms and has no field
+    # description. BigQuery's missing dataset description applies only to
+    # description_grades.
     column_grades = [
-        (customers[0], 3),
+        (customers[0], 4),
         (customers[1], 4),
         (customers[2], 4),
     ]
@@ -1587,30 +1951,47 @@ def ranking_judgments() -> list[dict[str, Any]]:
         dataset_urn("dbt", "long_tail_companions.adoption.pet_profiles"),
         dataset_urn("snowflake", "long_tail_companions.adoption.pet_profiles"),
     ]
+    pet_profile_tables = [
+        "dbt,long_tail_companions.adoption.pet_profiles",
+        "mongodb,adoption.pet_profiles",
+        "snowflake,long_tail_companions.adoption.pet_profiles",
+    ]
     return [
         {
             "id": "ranking-pet-profiles",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "pet profiles",
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
-            "grades": [{"urn": urn, "relevance": 1} for urn in pet_profiles],
-            "orderedContains": ["pet_profiles", "pet_profiles"],
+            "grades": [
+                {"urn": urn, "relevance": relevance}
+                for urn, relevance in [
+                    *PET_PROFILE_GRADES,
+                    (PET_PROFILE_DEEP_DIVE, 1),
+                ]
+            ],
+            # The plural query puts a table named pet_profiles first. The
+            # "Pet Profile" and "Pet Profile Deep Dive" dashboards match the
+            # phrase too and may sit between the tables, so the three
+            # exact-name tables only have to fill the top 5 with them.
+            "orderedContains": ["pet_profiles"],
+            "containsInTop": {"n": 5, "values": pet_profile_tables},
         },
         {
             "id": "ranking-pet-profile",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "pet profile",
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
             "grades": [{"urn": urn, "relevance": 1} for urn in pet_profiles],
-            # Exact title "Pet Profile" may occupy one of these slots. The check is
-            # that both tables are still in the top 3, in either order.
-            "containsInTop": {"n": 3, "values": ["pet_profiles", "pet_profiles"]},
+            # Looker dashboards.14 ("Pet Profile") and dashboards.30 ("Pet Profile
+            # Deep Dive") can occupy slots ahead of the tables. Both pet_profiles
+            # tables still have to appear in the top 5, in either order.
+            "containsInTop": {"n": 5, "values": ["pet_profiles", "pet_profiles"]},
         },
         {
             "id": "ranking-return-rate",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "*",
             "surfaces": ["keyword"],
             "entityTypes": ["dataset"],
@@ -1628,7 +2009,7 @@ def ranking_judgments() -> list[dict[str, Any]]:
         },
         {
             "id": "ranking-partial-pet-details",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "analytics.pet_details",
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
@@ -1646,19 +2027,22 @@ def ranking_judgments() -> list[dict[str, Any]]:
                     "relevance": 1,
                 },
             ],
-            "orderedContains": [
-                "snowflake,long_tail_companions.analytics.pet_details",
-            ],
-            # Elasticsearch 8 places the dbt copy third, behind a neighboring
-            # Snowflake table. Require it in the top 3 rather than a fixed slot.
+            # Snowflake qualifiedName is long_tail_companions.analytics.pet_details.
+            # The dbt copy's name is only pet_details and it has no qualified name,
+            # which is why Snowflake is graded 2 and dbt is graded 1. The dbt and
+            # Snowflake order_details siblings are the same table and can tie ahead
+            # of pet_details, so this probe does not pin a first hit. The dbt
+            # pet_details copy must remain in the top five. The Looker namesake
+            # long_tail_companions.view.pet_details has no analytics segment and
+            # is not promoted.
             "containsInTop": {
-                "n": 3,
+                "n": 5,
                 "values": ["dbt,long_tail_companions.analytics.pet_details"],
             },
         },
         {
             "id": "ranking-collaborative-actionitems",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "collaborative actionitems",
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
@@ -1670,7 +2054,7 @@ def ranking_judgments() -> list[dict[str, Any]]:
         },
         {
             "id": "ranking-customer-orders",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "customer orders",
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
@@ -1680,7 +2064,7 @@ def ranking_judgments() -> list[dict[str, Any]]:
         },
         {
             "id": "ranking-row-count",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "*",
             "surfaces": ["keyword"],
             "entityTypes": ["dataset"],
@@ -1699,7 +2083,7 @@ def ranking_judgments() -> list[dict[str, Any]]:
         },
         {
             "id": "ranking-lineage-pet-profiles",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "pet profiles",
             "surfaces": ["lineage"],
             "entityTypes": ["dataset"],
@@ -1709,7 +2093,7 @@ def ranking_judgments() -> list[dict[str, Any]]:
         },
         {
             "id": "ranking-pet-profiles-identifier",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "pet_profiles",
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
@@ -1722,7 +2106,7 @@ def ranking_judgments() -> list[dict[str, Any]]:
         },
         {
             "id": "ranking-pet-profiles-case",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "PET PROFILES",
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
@@ -1731,16 +2115,23 @@ def ranking_judgments() -> list[dict[str, Any]]:
         },
         {
             "id": "ranking-pet-profiles-quoted",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": '"pet_profiles"',
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
-            "grades": [{"urn": urn, "relevance": 1} for urn in pet_profiles],
-            "orderedContains": ["pet_profiles"],
+            "grades": [
+                {"urn": urn, "relevance": relevance}
+                for urn, relevance in PET_PROFILE_GRADES
+                if urn != PET_PROFILE_DASHBOARD
+            ],
+            # Only the three tables are named exactly pet_profiles. The Pet
+            # Adoptions domain that owns them can still lead on entity weight,
+            # so the tables have to fill the top 4 behind at most one other hit.
+            "containsInTop": {"n": 4, "values": pet_profile_tables},
         },
         {
             "id": "ranking-pii",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "pii",
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
@@ -1749,7 +2140,7 @@ def ranking_judgments() -> list[dict[str, Any]]:
         },
         {
             "id": "ranking-campaign-adoptions",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "campaign driven adoptions",
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
@@ -1763,7 +2154,7 @@ def ranking_judgments() -> list[dict[str, Any]]:
         },
         {
             "id": "ranking-shipping-quoted",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": '"Shipping Logistics"',
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
@@ -1777,6 +2168,45 @@ def ranking_judgments() -> list[dict[str, Any]]:
 
 def write_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, separators=(",", ":"), sort_keys=True) + "\n")
+
+
+def write_catalog(path: Path, proposals: list[dict[str, Any]]) -> None:
+    # Leave record key order alone. Sorting would rewrite the committed catalog.
+    path.write_text(json.dumps(proposals, separators=(",", ":")) + "\n")
+
+
+def take_property_definitions(
+    directory: Path, proposals: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Definitions found in a catalog shard, or the ones already moved."""
+    found = [
+        proposal
+        for proposal in proposals
+        if proposal["aspectName"] == "propertyDefinition"
+    ]
+    if not found:
+        path = directory / "01-definitions.json"
+        if path.is_file():
+            found = [
+                proposal
+                for proposal in json.loads(path.read_text())
+                if proposal["aspectName"] == "propertyDefinition"
+                and proposal["entityUrn"] in IMPORTED_PROPERTY_URNS
+            ]
+    order = {urn: index for index, urn in enumerate(IMPORTED_PROPERTY_URNS)}
+    return sorted(
+        found, key=lambda proposal: order.get(proposal["entityUrn"], len(order))
+    )
+
+
+def without_property_definitions(
+    proposals: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    return [
+        proposal
+        for proposal in proposals
+        if proposal["aspectName"] != "propertyDefinition"
+    ]
 
 
 def platform_name(urn: str) -> str | None:
@@ -1836,14 +2266,16 @@ def assert_fulltext_probe_tokens_absent(
 def validate_judgments(judgments: dict[str, Any], seen: set[str]) -> None:
     allowed_groups = {
         "benchmark",
-        "ranking",
-        "catalog-probe",
+        "keyword-probe",
         "semantic-probe",
-        "longtail",
+        "longtail-ecommerce",
+        "entity-boost",
+        "entity-search",
         "structured-property",
         "sort",
         "field-probe",
         "autocomplete",
+        "quickstart-search",
     }
     allowed_surfaces = {"keyword", "semantic", "hybrid", "lineage"}
     for judgment in judgments["judgments"]:
@@ -1898,6 +2330,11 @@ def assert_probe_judgment(judgment: dict[str, Any], seen: set[str]) -> None:
                 raise AssertionError(
                     f"Judgment {judgment['id']} expects unloaded {urn}"
                 )
+        for urn in judgment.get("absentUrns") or []:
+            if urn not in seen:
+                raise AssertionError(
+                    f"Judgment {judgment['id']} excludes unloaded {urn}"
+                )
     if judgment["group"] == "field-probe":
         if judgment.get("grades"):
             raise AssertionError(f"{judgment['id']} must not carry nDCG grades")
@@ -1950,6 +2387,16 @@ def assert_field_probe_tokens_absent(
 
 
 def validate_pack(directory: Path) -> None:
+    was_enabled = gc.isenabled()
+    gc.disable()
+    try:
+        _validate_pack(directory)
+    finally:
+        if was_enabled:
+            gc.enable()
+
+
+def _validate_pack(directory: Path) -> None:
     loaded = load_mcps(directory)
     seen: set[str] = set()
     for path, proposals in loaded.items():
@@ -1995,16 +2442,363 @@ def validate_pack(directory: Path) -> None:
     autocomplete = [
         item for item in judgments["judgments"] if item["group"] == "autocomplete"
     ]
-    if len(autocomplete) != 3:
+    if len(autocomplete) != 4:
         raise AssertionError(
-            f"Expected 3 autocomplete probes, found {len(autocomplete)}"
+            f"Expected 4 autocomplete probes, found {len(autocomplete)}"
         )
     assert_fulltext_probe_tokens_absent(loaded)
     assert_field_probe_tokens_absent(loaded)
     assert_autocomplete_token_isolated(loaded)
+    assert_imported_catalog(loaded)
+    assert_entity_boost_isolated(loaded)
+    counts = Counter(item["group"] for item in judgments["judgments"])
+    if counts["entity-boost"] != 3 or counts["entity-search"] != 2:
+        raise AssertionError(
+            "Expected 3 entity-boost probes and 2 entity-search probes, "
+            f"found {counts['entity-boost']} and {counts['entity-search']}"
+        )
+
+
+def is_imported_catalog_urn(urn: str) -> bool:
+    return (
+        SHOWCASE_PREFIX in urn
+        or urn.startswith("urn:li:document:ecomm-")
+        or urn.startswith("urn:li:structuredProperty:showcase.")
+        or urn in IMPORTED_CONTAINER_URNS
+    )
+
+
+def imported_proposals(proposals: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        proposal
+        for proposal in proposals
+        if is_imported_catalog_urn(proposal["entityUrn"])
+    ]
+
+
+def assert_imported_catalog(loaded: dict[str, list[dict[str, Any]]]) -> None:
+    """The ecommerce section stays in the committed catalog.
+
+    Every property definition is in the first shard, which waits for completion
+    before the business shard assigns those properties.
+    """
+    business = loaded[BUSINESS_SHARD]
+    imported = imported_proposals(business)
+    if len(imported) != IMPORTED_PROPOSAL_COUNT:
+        raise AssertionError(
+            f"Expected {IMPORTED_PROPOSAL_COUNT} imported catalog proposals, "
+            f"found {len(imported)}"
+        )
+    stray = [
+        (path, proposal["entityUrn"])
+        for path, proposals in loaded.items()
+        if path != "01-definitions.json"
+        for proposal in proposals
+        if proposal["aspectName"] == "propertyDefinition"
+    ]
+    if stray:
+        raise AssertionError(
+            f"Property definitions belong in 01-definitions.json, found {stray[:8]}"
+        )
+    leading = [
+        proposal["entityUrn"]
+        for proposal in loaded["01-definitions.json"]
+        if proposal["aspectName"] == "propertyDefinition"
+        and proposal["entityUrn"].startswith("urn:li:structuredProperty:showcase.")
+    ]
+    if leading != list(IMPORTED_PROPERTY_URNS):
+        raise AssertionError(
+            "Imported property definitions must be in 01-definitions.json, "
+            f"found {leading}"
+        )
+
+
+def assert_entity_boost_isolated(loaded: dict[str, list[dict[str, Any]]]) -> None:
+    for path, proposals in loaded.items():
+        for proposal in proposals:
+            if "entityboost" in proposal["entityUrn"]:
+                continue
+            payload = proposal.get("aspect", {}).get("json")
+            for text in iter_searchable_text(payload):
+                if "entityboost" in text.casefold():
+                    raise AssertionError(
+                        f"entityboost appears in {path} {proposal.get('aspectName')} "
+                        f"on {proposal.get('entityUrn')}"
+                    )
+
+
+def unique_display(
+    proposals: list[dict[str, Any]], entity_type: str, aspect: str, field: str
+) -> tuple[str, str]:
+    names: dict[str, set[str]] = {}
+    for proposal in proposals:
+        if proposal["entityType"] != entity_type or proposal["aspectName"] != aspect:
+            continue
+        name = proposal["aspect"]["json"].get(field)
+        if isinstance(name, str) and name.strip():
+            names.setdefault(name, set()).add(proposal["entityUrn"])
+    for name, urns in names.items():
+        if len(urns) == 1:
+            return name, next(iter(urns))
+    raise AssertionError(f"No unique {entity_type} {field}")
+
+
+def entity_weight_probes(
+    ecommerce: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    assets = [
+        proposal["entityUrn"]
+        for proposal in ecommerce
+        if proposal["entityType"] == "dataset"
+        and proposal["aspectName"] == "datasetProperties"
+    ]
+    if not assets:
+        raise AssertionError("Imported catalog has no dataset to place in the product")
+    mcps = [
+        mcp(
+            ENTITY_BOOST_NODE,
+            "glossaryNodeInfo",
+            {"name": ENTITY_BOOST_NAME, "definition": ENTITY_BOOST_NAME},
+        ),
+        mcp(
+            ENTITY_BOOST_TERM,
+            "glossaryTermInfo",
+            {
+                "name": ENTITY_BOOST_NAME,
+                "definition": ENTITY_BOOST_NAME,
+                "termSource": "INTERNAL",
+                "parentNode": ENTITY_BOOST_NODE,
+            },
+        ),
+        mcp(
+            ENTITY_BOOST_DOMAIN,
+            "domainProperties",
+            {"name": ENTITY_BOOST_NAME, "description": ENTITY_BOOST_NAME},
+        ),
+        mcp(
+            ENTITY_BOOST_PRODUCT,
+            "dataProductProperties",
+            {
+                "name": ENTITY_BOOST_NAME,
+                "description": ENTITY_BOOST_NAME,
+                "assets": [{"destinationUrn": assets[0], "outputPort": False}],
+            },
+        ),
+        mcp(ENTITY_BOOST_PRODUCT, "domains", {"domains": [ENTITY_BOOST_DOMAIN]}),
+        mcp(
+            ENTITY_BOOST_DATASET,
+            "datasetProperties",
+            {"name": ENTITY_BOOST_NAME, "description": ENTITY_BOOST_NAME},
+        ),
+    ]
+    judgments: list[dict[str, Any]] = [
+        {
+            "id": "entity-boost-glossary-term",
+            "group": "entity-boost",
+            "query": ENTITY_BOOST_NAME,
+            "entityTypes": ["glossaryTerm", "dataProduct", "dataset"],
+            "surfaces": ["keyword"],
+            # Glossary term and data product share the name, and their scores are close
+            # enough that either can lead. Both stay in the top three with the dataset.
+            "containsInTop": {
+                "n": 3,
+                "values": [
+                    "glossaryTerm:entityboost",
+                    "dataProduct:entityboost",
+                    "catalogprobe,entityboost",
+                ],
+            },
+            "grades": [
+                {"urn": ENTITY_BOOST_TERM, "relevance": 1},
+                {"urn": ENTITY_BOOST_PRODUCT, "relevance": 2},
+                {"urn": ENTITY_BOOST_DATASET, "relevance": 1},
+            ],
+        },
+        {
+            "id": "entity-boost-glossary-node",
+            "group": "entity-boost",
+            "query": ENTITY_BOOST_NAME,
+            "entityTypes": ["glossaryNode", "dataProduct"],
+            "surfaces": ["keyword"],
+            "orderedContains": [
+                "dataProduct:entityboost",
+                "glossaryNode:entityboost",
+            ],
+            # The data product weight is above the glossary node, so an equal name
+            # ranks the data product first.
+            "grades": [
+                {"urn": ENTITY_BOOST_NODE, "relevance": 1},
+                {"urn": ENTITY_BOOST_PRODUCT, "relevance": 2},
+            ],
+        },
+        {
+            "id": "entity-boost-domain",
+            "group": "entity-boost",
+            "query": ENTITY_BOOST_NAME,
+            "entityTypes": ["domain", "dataProduct"],
+            "surfaces": ["keyword"],
+            "present": ["domain:entityboost", "dataProduct:entityboost"],
+            "grades": [
+                {"urn": ENTITY_BOOST_DOMAIN, "relevance": 1},
+                {"urn": ENTITY_BOOST_PRODUCT, "relevance": 1},
+            ],
+        },
+    ]
+    user_name, user_urn = unique_display(
+        ecommerce, "corpuser", "corpUserInfo", "displayName"
+    )
+    group_name, group_urn = unique_display(
+        ecommerce, "corpGroup", "corpGroupInfo", "displayName"
+    )
+    judgments.extend(
+        [
+            {
+                "id": "entity-search-user",
+                "group": "entity-search",
+                "query": user_name,
+                "entityTypes": ["corpuser"],
+                "surfaces": ["keyword"],
+                "exactTopHit": user_urn,
+                "grades": [{"urn": user_urn, "relevance": 2}],
+            },
+            {
+                "id": "entity-search-group",
+                "group": "entity-search",
+                "query": group_name,
+                "entityTypes": ["corpGroup"],
+                "surfaces": ["keyword"],
+                "exactTopHit": group_urn,
+                "grades": [{"urn": group_urn, "relevance": 2}],
+            },
+        ]
+    )
+    return mcps, judgments
+
+
+def shared_label_judgments() -> list[dict[str, Any]]:
+    """Probes for shared labels whose entities live in the ecommerce shard."""
+    return [
+        {
+            "id": "label-tool",
+            "group": "keyword-probe",
+            "query": "sigma",
+            "surfaces": ["keyword"],
+            "entityTypes": ["chart"],
+            "grades": [],
+            "expectNoHits": True,
+        },
+        {
+            "id": "label-id",
+            "group": "keyword-probe",
+            "query": "zqcollarflowid",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataFlow"],
+            "grades": [
+                {
+                    "urn": "urn:li:dataFlow:(prefect,zqcollarflowid,zqcollarcluster)",
+                    "relevance": 4,
+                }
+            ],
+            "containsInTop": {"n": 5, "values": ["zqcollarflowid"]},
+        },
+        {
+            "id": "label-text",
+            "group": "keyword-probe",
+            "query": "zqdocbodypolicy",
+            "surfaces": ["keyword"],
+            "entityTypes": ["document"],
+            "grades": [
+                {"urn": "urn:li:document:collar-returns-policy", "relevance": 4}
+            ],
+            "containsInTop": {"n": 5, "values": ["collar-returns-policy"]},
+        },
+        {
+            "id": "label-description",
+            "group": "keyword-probe",
+            "query": "zqdeprecatednote",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [
+                {
+                    "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,jaffle_shop.collar_returns,PROD)",
+                    "relevance": 4,
+                }
+            ],
+            "containsInTop": {"n": 5, "values": ["collar_returns"]},
+        },
+        {
+            "id": "label-name",
+            "group": "keyword-probe",
+            "query": "zqoriginalfilename",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataHubFile"],
+            "grades": [{"urn": "urn:li:dataHubFile:collar-photo", "relevance": 4}],
+            "containsInTop": {"n": 5, "values": ["collar-photo"]},
+        },
+        {
+            "id": "label-custom-properties",
+            "group": "keyword-probe",
+            "query": "zqcustompropvalue",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataFlow"],
+            "grades": [
+                {
+                    "urn": "urn:li:dataFlow:(prefect,zqcollarflowid,zqcollarcluster)",
+                    "relevance": 4,
+                }
+            ],
+            "containsInTop": {"n": 5, "values": ["zqcollarflowid"]},
+        },
+    ]
+
+
+def quickstart_search_mcps() -> list[dict[str, Any]]:
+    mcps: list[dict[str, Any]] = []
+    for platform, name in QUICKSTART_SEARCH_DATASETS:
+        urn = dataset_urn(platform, name)
+        mcps.append(
+            mcp(
+                urn,
+                "datasetProperties",
+                {
+                    "name": name,
+                    "description": f"{platform} dataset from the quickstart catalog.",
+                },
+            )
+        )
+        mcps.append(mcp(urn, "status", {"removed": False}))
+    return mcps
+
+
+def quickstart_search_judgments() -> list[dict[str, Any]]:
+    """Quickstart "sample" recall. Recorded, not gated: the light rung stops on camelCase names."""
+    urns = [
+        dataset_urn(platform, name) for platform, name in QUICKSTART_SEARCH_DATASETS
+    ]
+    return [
+        {
+            "id": "quickstart-sample-datasets",
+            "group": "quickstart-search",
+            "query": "sample",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [],
+            "containsInTop": {"n": 10, "values": urns},
+        },
+        {
+            "id": "quickstart-sample-across-entities",
+            "group": "quickstart-search",
+            "query": "sample",
+            "surfaces": ["keyword"],
+            "entityTypes": [],
+            "grades": [],
+            "containsInTop": {"n": 10, "values": urns},
+        },
+    ]
 
 
 def generate(root: Path | None = None) -> Path:
+    gc.disable()
     root = root or repo_root()
     directory = pack_dir(root)
     directory.mkdir(parents=True, exist_ok=True)
@@ -2022,21 +2816,39 @@ def generate(root: Path | None = None) -> Path:
         _urn, proposals = cranfield_dataset(document)
         cranfield_mcps.extend(proposals)
 
+    timeseries = directory / TIMESERIES_SHARD
+    if not timeseries.is_file():
+        raise AssertionError(
+            f"{TIMESERIES_SHARD} is the longtail-ecommerce profile shard. "
+            "It is not rebuilt from an Elasticsearch snapshot."
+        )
+    business_path = directory / BUSINESS_SHARD
+    if not business_path.is_file():
+        raise AssertionError(
+            f"{BUSINESS_SHARD} is the longtail-ecommerce catalog. "
+            "It is not rebuilt from the ecommerce snapshot."
+        )
+    business = json.loads(business_path.read_text())
+    profile = json.loads(timeseries.read_text())
+    property_definitions = take_property_definitions(directory, business + profile)
+    if any(proposal["aspectName"] == "propertyDefinition" for proposal in business):
+        business = without_property_definitions(business)
+        write_catalog(business_path, business)
+    if any(proposal["aspectName"] == "propertyDefinition" for proposal in profile):
+        write_catalog(timeseries, without_property_definitions(profile))
+        profile = without_property_definitions(profile)
+    imported = imported_proposals(business)
+
     platforms = {"cranfield", "catalogprobe", "ranking"}
-    for name in LONG_TAIL_SHARDS:
-        path = directory / name
-        if not path.is_file():
-            raise AssertionError(
-                f"{name} is the long-tail catalog in the datapack. "
-                "It is not rebuilt from an Elasticsearch snapshot."
-            )
-        for proposal in json.loads(path.read_text()):
-            platform = platform_name(proposal["entityUrn"])
-            if platform:
-                platforms.add(platform)
+    platforms.update(platform for platform, _ in QUICKSTART_SEARCH_DATASETS)
+    for proposal in business + profile:
+        platform = platform_name(proposal["entityUrn"])
+        if platform:
+            platforms.add(platform)
 
     probe_mcps, probe_judgments = catalog_probes()
     ranking_mcps, interactive_ranking_judgments = interactive_ranking_probes()
+    boost_mcps, boost_judgments = entity_weight_probes(imported)
     semantic_mcps, semantic_judgment = semantic_documents()
     benchmark = []
     for query in queries:
@@ -2059,9 +2871,15 @@ def generate(root: Path | None = None) -> Path:
         )
 
     shards = {
-        "01-definitions.json": definitions(platforms),
+        # Assignments sit later in the business shard, which is ingested
+        # asynchronously. The definitions have to commit first or those writes
+        # are rejected as unknown properties.
+        "01-definitions.json": definitions(platforms) + property_definitions,
         "02-cranfield-datasets.json": cranfield_mcps,
-        "05-catalog-probes.json": probe_mcps + ranking_mcps,
+        "05-catalog-probes.json": probe_mcps
+        + ranking_mcps
+        + boost_mcps
+        + quickstart_search_mcps(),
         "06-semantic-probes.json": semantic_mcps,
     }
     index = {
@@ -2069,10 +2887,12 @@ def generate(root: Path | None = None) -> Path:
         "files": [
             {"path": "01-definitions.json", "wait_for_completion": True},
             {"path": "02-cranfield-datasets.json"},
-            {"path": "03-long-tail.json"},
-            {"path": "04-long-tail-timeseries.json"},
+            {"path": BUSINESS_SHARD},
+            {"path": TIMESERIES_SHARD},
             {"path": "05-catalog-probes.json"},
             {"path": "06-semantic-probes.json"},
+            # Pack data. The generator does not rebuild this shard.
+            {"path": "08-stage2-default.json", "wait_for_completion": True},
         ],
     }
     for name, payload in shards.items():
@@ -2087,16 +2907,16 @@ def generate(root: Path | None = None) -> Path:
             "elasticsearch": {
                 "benchmarkNdcgAt10": 0.31,
                 "javaBuilderBenchmarkNdcgAt10": 0.20,
-                # Catalog mean. Both paths clear 0.72; the earlier run was
-                # 0.717 (template) and 0.703 (Java builder).
-                "longtailNdcgAt10": 0.72,
-                "javaBuilderLongtailNdcgAt10": 0.72,
+                # 0.75 fails when one currently perfect catalog query drops out of
+                # the top 10. 0.76 is tight against queries already in the 0.61-0.82 band.
+                "longtailEcommerceNdcgAt10": 0.75,
+                "javaBuilderLongtailEcommerceNdcgAt10": 0.72,
             },
             "opensearch": {
                 "benchmarkNdcgAt10": 0.31,
                 "javaBuilderBenchmarkNdcgAt10": 0.20,
-                "longtailNdcgAt10": 0.72,
-                "javaBuilderLongtailNdcgAt10": 0.72,
+                "longtailEcommerceNdcgAt10": 0.75,
+                "javaBuilderLongtailEcommerceNdcgAt10": 0.72,
             },
         },
         "judgments": benchmark
@@ -2104,6 +2924,9 @@ def generate(root: Path | None = None) -> Path:
         + ranking_judgments()
         + interactive_ranking_judgments
         + probe_judgments
+        + shared_label_judgments()
+        + quickstart_search_judgments()
+        + boost_judgments
         + [semantic_judgment],
     }
     write_json(directory / "judgments.json", judgments)

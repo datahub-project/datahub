@@ -1,0 +1,26 @@
+"""
+An entity that can belong to applications
+"""
+interface HasApplications {
+  """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+}
+
+extend type Chart implements HasApplications
+extend type Container implements HasApplications
+extend type Dashboard implements HasApplications
+extend type DataFlow implements HasApplications
+extend type DataJob implements HasApplications
+extend type DataProduct implements HasApplications
+extend type Dataset implements HasApplications
+extend type GlossaryNode implements HasApplications
+extend type GlossaryTerm implements HasApplications
+extend type MLFeature implements HasApplications
+extend type MLFeatureTable implements HasApplications
+extend type MLModel implements HasApplications
+extend type MLModelGroup implements HasApplications
+extend type MLPrimaryKey implements HasApplications
+extend type Notebook implements HasApplications
+extend type VersionedDataset implements HasApplications

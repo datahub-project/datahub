@@ -3,6 +3,7 @@ import { StructuredPropertiesPage } from '../../pages/structured-properties.page
 import { DatasetPage } from '../../pages/dataset.page';
 import { TEST_DATA, TOAST_MESSAGES, TIMEOUTS } from './constants';
 import { withRandomSuffix } from '../../utils/random';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 /**
  * Entity-level Structured Properties tests
@@ -22,26 +23,30 @@ test.describe('Entity-level Structured Properties', () => {
     await structuredPropertiesPage.navigate();
   });
 
-  test('Verify adding a structured property to an entity', async ({ cleanup }) => {
-    const propertyName = withRandomSuffix('prop-add');
-    const propertyUrn = await structuredPropertiesPage.createStructuredProperty({
-      name: propertyName,
-      entity: 'Dataset',
-    });
+  test(
+    'Verify adding a structured property to an entity',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ cleanup }) => {
+      const propertyName = withRandomSuffix('prop-add');
+      const propertyUrn = await structuredPropertiesPage.createStructuredProperty({
+        name: propertyName,
+        entity: 'Dataset',
+      });
 
-    await datasetPage.navigateToDataset(TEST_DATA.ENTITY_LEVEL_DATASET_ADD);
-    await datasetPage.viewProperties();
-    await structuredPropertiesPage.clickAddPropertyButton();
+      await datasetPage.navigateToDataset(TEST_DATA.ENTITY_LEVEL_DATASET_ADD);
+      await datasetPage.viewProperties();
+      await structuredPropertiesPage.clickAddPropertyButton();
 
-    await structuredPropertiesPage.selectPropertyFromDropdown(propertyName);
-    await structuredPropertiesPage.fillPropertyValue(TEST_DATA.PROPERTY_VALUE);
-    await structuredPropertiesPage.submitPropertyValue();
+      await structuredPropertiesPage.selectPropertyFromDropdown(propertyName);
+      await structuredPropertiesPage.fillPropertyValue(TEST_DATA.PROPERTY_VALUE);
+      await structuredPropertiesPage.submitPropertyValue();
 
-    await structuredPropertiesPage.expectPageContains(TOAST_MESSAGES.PROPERTY_ADDED);
-    await structuredPropertiesPage.expectPageContains(TEST_DATA.PROPERTY_VALUE);
+      await structuredPropertiesPage.expectPageContains(TOAST_MESSAGES.PROPERTY_ADDED);
+      await structuredPropertiesPage.expectPageContains(TEST_DATA.PROPERTY_VALUE);
 
-    cleanup.track(propertyUrn);
-  });
+      cleanup.track(propertyUrn);
+    },
+  );
 
   test('Verify removing a structured property from an entity', async ({ cleanup }) => {
     const propertyName = withRandomSuffix('prop-remove');

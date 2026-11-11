@@ -90,4 +90,30 @@ describe('Tag (sharedV2)', () => {
         renderTag(baseTag);
         expect(screen.queryByTestId('deprecation-icon')).not.toBeInTheDocument();
     });
+
+    it('renders the ingested indicator for an externally-ingested tag', () => {
+        renderTag({
+            ...baseTag,
+            attribution: {
+                sourceDetail: [
+                    { key: 'external', value: 'true' },
+                    { key: 'origin', value: 'lake-formation' },
+                ],
+            },
+        });
+        expect(screen.getByTestId('tag-TestTag-ingested')).toBeInTheDocument();
+    });
+
+    it('does not render the ingested indicator for a tag added in DataHub', () => {
+        renderTag(baseTag);
+        expect(screen.queryByTestId('tag-TestTag-ingested')).not.toBeInTheDocument();
+    });
+
+    it('does not treat a propagated tag as ingested', () => {
+        renderTag({
+            ...baseTag,
+            attribution: { sourceDetail: [{ key: 'propagated', value: 'true' }] },
+        });
+        expect(screen.queryByTestId('tag-TestTag-ingested')).not.toBeInTheDocument();
+    });
 });

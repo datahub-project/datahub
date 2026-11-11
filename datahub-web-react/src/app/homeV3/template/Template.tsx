@@ -2,7 +2,7 @@ import { spacing } from '@components';
 import React, { memo, useMemo } from 'react';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import ModuleModalMapper from '@app/homeV3/moduleModals/ModuleModalMapper';
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';

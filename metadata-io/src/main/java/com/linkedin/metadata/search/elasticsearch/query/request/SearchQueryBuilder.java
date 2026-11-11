@@ -27,7 +27,7 @@ import com.linkedin.metadata.models.annotation.SearchableRefAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRollout;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.utils.ESUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -95,7 +95,7 @@ public class SearchQueryBuilder {
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String query,
       boolean fulltext) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     if (coordinator != null && coordinator.executes(opContext)) {
       return buildPlan(opContext, entitySpecs, query, fulltext, null, false).query();
     }
@@ -148,7 +148,7 @@ public class SearchQueryBuilder {
       boolean fulltext,
       @Nullable String renderUrn,
       boolean scroll) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     if (coordinator != null && coordinator.executes(opContext)) {
       if (searchValidationConfiguration.isEnabled()) {
         validateSearchQuery(query);
@@ -268,12 +268,14 @@ public class SearchQueryBuilder {
     fields.add(
         SearchFieldConfig.detectSubFieldType(
             "urn", urnBoost, SearchableAnnotation.FieldType.URN, true));
-    fields.add(
-        SearchFieldConfig.detectSubFieldType(
-            "urn.delimited",
-            urnBoost * partialConfiguration.getUrnFactor(),
-            SearchableAnnotation.FieldType.URN,
-            true));
+    if (includeDelimitedSubfields()) {
+      fields.add(
+          SearchFieldConfig.detectSubFieldType(
+              "urn.delimited",
+              urnBoost * partialConfiguration.getUrnFactor(),
+              SearchableAnnotation.FieldType.URN,
+              true));
+    }
 
     entitySpecs.stream()
         .map(spec -> getFieldsFromEntitySpec(opContext.getEntityRegistry(), spec))
@@ -300,6 +302,14 @@ public class SearchQueryBuilder {
                         value.stream().anyMatch(SearchFieldConfig::isWordGramSubfield))));
 
     return fields;
+  }
+
+  /**
+   * Search V2 indexes a {@code .delimited} subfield beside a text field. Search V3 does not map
+   * that subfield; word splitting is inside the {@code .text} analyzer.
+   */
+  protected boolean includeDelimitedSubfields() {
+    return true;
   }
 
   /**
@@ -337,12 +347,14 @@ public class SearchQueryBuilder {
       fields.add(searchFieldConfig);
 
       if (searchFieldConfig.hasDelimitedSubfield()) {
-        fields.add(
-            SearchFieldConfig.detectSubFieldType(
-                searchFieldConfig.fieldName() + ".delimited",
-                searchFieldConfig.boost() * partialConfiguration.getFactor(),
-                annotation.getFieldType(),
-                true));
+        if (includeDelimitedSubfields()) {
+          fields.add(
+              SearchFieldConfig.detectSubFieldType(
+                  searchFieldConfig.fieldName() + ".delimited",
+                  searchFieldConfig.boost() * partialConfiguration.getFactor(),
+                  annotation.getFieldType(),
+                  true));
+        }
 
         if (searchFieldConfig.hasWordGramSubfields()) {
           addWordGramSearchConfig(fields, searchFieldConfig);
@@ -366,7 +378,7 @@ public class SearchQueryBuilder {
       Map<String, SearchableAnnotation.FieldType> fieldTypeMap =
           getAllFieldTypeFromSearchableRef(refFieldSpec, depth, entityRegistry, "");
       for (SearchFieldConfig fieldConfig : searchFieldConfigs) {
-        if (fieldConfig.hasDelimitedSubfield()) {
+        if (includeDelimitedSubfields() && fieldConfig.hasDelimitedSubfield()) {
           fields.add(
               SearchFieldConfig.detectSubFieldType(
                   fieldConfig.fieldName() + ".delimited",
@@ -429,12 +441,14 @@ public class SearchQueryBuilder {
     fields.add(
         SearchFieldConfig.detectSubFieldType(
             "urn", urnBoost, SearchableAnnotation.FieldType.URN, true));
-    fields.add(
-        SearchFieldConfig.detectSubFieldType(
-            "urn.delimited",
-            urnBoost * partialConfiguration.getUrnFactor(),
-            SearchableAnnotation.FieldType.URN,
-            true));
+    if (includeDelimitedSubfields()) {
+      fields.add(
+          SearchFieldConfig.detectSubFieldType(
+              "urn.delimited",
+              urnBoost * partialConfiguration.getUrnFactor(),
+              SearchableAnnotation.FieldType.URN,
+              true));
+    }
 
     fields.addAll(getFieldsFromEntitySpec(opContext.getEntityRegistry(), entitySpec));
 

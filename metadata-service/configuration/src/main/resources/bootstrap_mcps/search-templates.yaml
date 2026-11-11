@@ -1,6 +1,8 @@
 # Search V3 query templates. Query bodies are Mustache for the search renderer.
 # BootstrapMCP also uses Mustache, so each body switches delimiters around its
 # {{tags}} so those tags are stored literally.
+# fulltext, exact, structured, and identity set the entity-type weights.
+# list and autocomplete do not. A child that does not set entityTypeBoosts keeps them.
 - entityUrn: urn:li:searchTemplate:search
   entityType: searchTemplate
   aspectName: searchTemplateProperties
@@ -58,6 +60,7 @@
     dialect: ELASTICSEARCH
     apiVersion: 1
     editable: false
+    matchedFields: true
     query: |
       {{=<% %>=}}
       {
@@ -68,31 +71,130 @@
               "simple_query_string": {
                 "query": "{{fuzzy}}",
                 "default_operator": "OR",
-                "fields": {{&defaultQueryFieldsJson}},
+                "fields": {{&defaultFieldsWithoutIdentityJson}},
                 "fuzzy_max_expansions": {{fuzzyMaxExpansions}},
                 "fuzzy_prefix_length": 0,
                 "fuzzy_transpositions": true
               }
             }
+            {{#nameFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{fuzzy}}",
+                "default_operator": "OR",
+                "minimum_should_match": "2<50%",
+                "fields": {{&nameFieldsJson}}
+              }
+            }
+            {{/nameFields}}
+            {{#qualifiedNameFields}}
+            {{^spacelessDotted}}
+            ,{
+              "simple_query_string": {
+                "query": "{{fuzzy}}",
+                "default_operator": "OR",
+                "minimum_should_match": "2<50%",
+                "fields": {{&qualifiedNameFieldsJson}}
+              }
+            }
+            {{/spacelessDotted}}
+            {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{fuzzy}}",
+                "default_operator": "OR",
+                "minimum_should_match": "2<50%",
+                "fields": {{&idFieldsJson}}
+              }
+            }
+            {{/idFields}}
             {{#synonyms}}
             ,{
               "simple_query_string": {
-                "query": "{{.}}",
+                "query": "{{synonym}}",
                 "default_operator": "AND",
-                "fields": {{&defaultQueryFieldsJson}},
+                "fields": {{&defaultFieldsWithoutIdentityJson}},
                 "boost": 1.5
               }
             }
+            {{#nameFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{synonym}}",
+                "default_operator": "AND",
+                "fields": {{&nameFieldsJson}},
+                "boost": 1.5
+              }
+            }
+            {{/nameFields}}
+            {{#qualifiedNameFields}}
+            {{^spacelessDotted}}
+            ,{
+              "simple_query_string": {
+                "query": "{{synonym}}",
+                "default_operator": "AND",
+                "fields": {{&qualifiedNameFieldsJson}},
+                "boost": 1.5
+              }
+            }
+            {{/spacelessDotted}}
+            {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{synonym}}",
+                "default_operator": "AND",
+                "fields": {{&idFieldsJson}},
+                "boost": 1.5
+              }
+            }
+            {{/idFields}}
             {{/synonyms}}
             {{#flags.alphanumericSplit}}
             ,{
               "simple_query_string": {
                 "query": "{{broadQuery}}",
                 "default_operator": "OR",
-                "fields": {{&defaultQueryFieldsJson}},
+                "fields": {{&defaultFieldsWithoutIdentityJson}},
                 "boost": 1.5
               }
             }
+            {{#nameFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{broadQuery}}",
+                "default_operator": "OR",
+                "minimum_should_match": "2<50%",
+                "fields": {{&nameFieldsJson}},
+                "boost": 1.5
+              }
+            }
+            {{/nameFields}}
+            {{#qualifiedNameFields}}
+            {{^spacelessDotted}}
+            ,{
+              "simple_query_string": {
+                "query": "{{broadQuery}}",
+                "default_operator": "OR",
+                "minimum_should_match": "2<50%",
+                "fields": {{&qualifiedNameFieldsJson}},
+                "boost": 1.5
+              }
+            }
+            {{/spacelessDotted}}
+            {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{broadQuery}}",
+                "default_operator": "OR",
+                "minimum_should_match": "2<50%",
+                "fields": {{&idFieldsJson}},
+                "boost": 1.5
+              }
+            }
+            {{/idFields}}
             {{/flags.alphanumericSplit}}
             {{#prefixFields}}
             ,{
@@ -106,33 +208,51 @@
             }
             {{/prefixFields}}
             ,{
-              "constant_score": {
-                "filter": {
-                  "term": {
-                    "{{nameKeyword}}": {
-                      "value": "{{unquoted}}",
-                      "case_insensitive": true
-                    }
-                  }
-                },
-                "boost": 1000
+              "term": {
+                "{{nameKeyword}}": {
+                  "value": "{{unquoted}}",
+                  "case_insensitive": true,
+                  "boost": 100.0,
+                  "_name": "matchedField:name"
+                }
               }
             }
             {{#synonyms}}
             ,{
-              "constant_score": {
-                "filter": {
-                  "term": {
-                    "{{nameKeyword}}": {
-                      "value": "{{.}}",
-                      "case_insensitive": true
-                    }
-                  }
-                },
-                "boost": 1000
+              "term": {
+                "{{nameKeyword}}": {
+                  "value": "{{synonym}}",
+                  "case_insensitive": true,
+                  "boost": 100.0,
+                  "_name": "matchedField:name"
+                }
               }
             }
             {{/synonyms}}
+            {{#qualifiedNameFields}}
+            ,{
+              "term": {
+                "{{qualifiedNameKeyword}}": {
+                  "value": "{{normalizedKeyword}}",
+                  "case_insensitive": true,
+                  "boost": 100.0,
+                  "_name": "matchedField:qualifiedName"
+                }
+              }
+            }
+            {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "term": {
+                "{{idKeyword}}": {
+                  "value": "{{normalizedKeyword}}",
+                  "case_insensitive": true,
+                  "boost": 100.0,
+                  "_name": "matchedField:id"
+                }
+              }
+            }
+            {{/idFields}}
             {{#wildcardTerm}}
             {{#wildcardFields}}
             ,{
@@ -150,30 +270,198 @@
               "simple_query_string": {
                 "query": "{{alphanumericSplit}}",
                 "default_operator": "AND",
-                "fields": {{&identityQueryFieldsJson}},
+                "fields": {{&nameFieldsJson}},
                 "boost": 3.0
               }
             }
-            {{/multiWord}}
-            {{#dotted}}
+            {{#qualifiedNameFields}}
+            {{^spacelessDotted}}
             ,{
-              "match": {
-                "{{qualifiedNameText}}": {
-                  "query": "{{unquoted}}",
-                  "operator": "AND",
-                  "boost": 50.0
-                }
+              "simple_query_string": {
+                "query": "{{alphanumericSplit}}",
+                "default_operator": "AND",
+                "fields": {{&qualifiedNameFieldsJson}},
+                "boost": 3.0
               }
             }
+            {{/spacelessDotted}}
+            {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{alphanumericSplit}}",
+                "default_operator": "AND",
+                "fields": {{&idFieldsJson}},
+                "boost": 3.0
+              }
+            }
+            {{/idFields}}
+            {{/multiWord}}
+            {{#dotted}}
             ,{
               "term": {
                 "{{idKeyword}}": {
                   "value": "{{unquoted}}",
-                  "case_insensitive": true
+                  "case_insensitive": true,
+                  "_name": "matchedField:id"
                 }
               }
             }
             {{/dotted}}
+            {{#spacelessDotted}}
+            {{#qualifiedNameFields}}
+            ,{
+              "bool": {
+                "must": [
+                  {
+                    "simple_query_string": {
+                      "query": "{{unquoted}}",
+                      "default_operator": "AND",
+                      "fields": {{&qualifiedNameFieldsJson}}
+                    }
+                  }
+                ],
+                "filter": [
+                  {
+                    "bool": {
+                    "should": [
+                      {
+                        "term": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{dottedPath}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{dottedPathPrefix}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{dottedPathSuffix}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{dottedPathContains}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      }
+                    ],
+                    "minimum_should_match": 1
+                    }
+                  }
+                ]
+              }
+            }
+            {{/qualifiedNameFields}}
+            ,{
+              "bool": {
+                "must": [
+                  {
+                    "simple_query_string": {
+                      "query": "{{terminalSegment}}",
+                      "default_operator": "AND",
+                      "fields": {{&nameFieldsJson}}
+                    }
+                  }
+                ],
+                "filter": [
+                  {
+                    "bool": {
+                    "must": [
+                      {
+                        "term": {
+                          "{{nameKeyword}}": {
+                            "value": "{{terminalSegment}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      }
+                    ],
+                    "should": [
+                      {
+                        "term": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{qualifierPath}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{qualifierPathPrefix}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{qualifierPathSuffix}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{qualifierPathContains}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "term": {
+                          "{{urnParsedField}}": {
+                            "value": "{{qualifierPath}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{urnParsedField}}": {
+                            "value": "{{qualifierPathPrefix}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{urnParsedField}}": {
+                            "value": "{{qualifierPathSuffix}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{urnParsedField}}": {
+                            "value": "{{qualifierPathContains}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      }
+                    ],
+                    "minimum_should_match": 1
+                    }
+                  }
+                ]
+              }
+            }
+            {{/spacelessDotted}}
             {{#longPhrase}}
             ,{
               "match": {
@@ -224,7 +512,7 @@
           }
           {{/fieldScoreFunctions}}
         ],
-        "score_mode": "avg",
+        "score_mode": "multiply",
         "boost_mode": "multiply"
       }
       <%={{ }}=%>
@@ -242,6 +530,23 @@
         operator: OR
       exactValue:
         enabled: true
+    entityTypeBoosts:
+      - entityType: glossaryTerm
+        weight: 6.0
+      - entityType: glossaryNode
+        weight: 6.0
+      - entityType: domain
+        weight: 5.0
+      - entityType: container
+        weight: 2.0
+      - entityType: dataProduct
+        weight: 10.0
+      - entityType: tag
+        weight: 2.0
+      - entityType: chart
+        weight: 2.0
+      - entityType: dashboard
+        weight: 2.0
     routes: []
 - entityUrn: urn:li:searchTemplate:light
   entityType: searchTemplate
@@ -261,6 +566,7 @@
           "tie_breaker": 0.01,
           "queries": [
             {{^flags.exactNameLetterDigit}}
+            {{^nameOnly}}
             {
               "multi_match": {
                 "query": "{{shortened}}",
@@ -269,59 +575,446 @@
                 "operator": "{{lightOperator}}"
               }
             },
+            {{/nameOnly}}
+            {{#nameFields}}
+            {
+              "multi_match": {
+                "query": "{{shortened}}",
+                "type": "best_fields",
+                "fields": {{&nameFieldsJson}},
+                "operator": "{{lightOperator}}"
+              }
+            },
+            {{/nameFields}}
+            {{#qualifiedNameFields}}
+            {{^spacelessDotted}}
+            {
+              "multi_match": {
+                "query": "{{shortened}}",
+                "type": "best_fields",
+                "fields": {{&qualifiedNameFieldsJson}},
+                "operator": "{{lightOperator}}"
+              }
+            },
+            {{/spacelessDotted}}
+            {{/qualifiedNameFields}}
+            {{#idFields}}
+            {
+              "multi_match": {
+                "query": "{{shortened}}",
+                "type": "best_fields",
+                "fields": {{&idFieldsJson}},
+                "operator": "{{lightOperator}}"
+              }
+            },
+            {{/idFields}}
             {{/flags.exactNameLetterDigit}}
             {
-              "constant_score": {
-                "filter": {
-                  "term": {
-                    "{{nameKeyword}}": {
-                      "value": "{{unquoted}}",
-                      "case_insensitive": true
-                    }
-                  }
-                },
-                "boost": 1000
+              "term": {
+                "{{nameKeyword}}": {
+                  "value": "{{unquoted}}",
+                  "case_insensitive": true,
+                  "boost": 100.0,
+                  "_name": "matchedField:name"
+                }
               }
             }
+            {{#qualifiedNameFields}}
+            ,{
+              "term": {
+                "{{qualifiedNameKeyword}}": {
+                  "value": "{{normalizedKeyword}}",
+                  "case_insensitive": true,
+                  "boost": 100.0,
+                  "_name": "matchedField:qualifiedName"
+                }
+              }
+            }
+            {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "term": {
+                "{{idKeyword}}": {
+                  "value": "{{normalizedKeyword}}",
+                  "case_insensitive": true,
+                  "boost": 100.0,
+                  "_name": "matchedField:id"
+                }
+              }
+            }
+            {{/idFields}}
             {{#synonyms}}
+            {{^nameOnly}}
             ,{
               "multi_match": {
-                "query": "{{.}}",
+                "query": "{{synonym}}",
                 "type": "best_fields",
                 "fields": {{&lightFieldsJson}},
                 "operator": "AND"
               }
             }
+            {{/nameOnly}}
+            {{#nameFields}}
+            ,{
+              "multi_match": {
+                "query": "{{synonym}}",
+                "type": "best_fields",
+                "fields": {{&nameFieldsJson}},
+                "operator": "AND"
+              }
+            }
+            {{/nameFields}}
+            {{#qualifiedNameFields}}
+            {{^spacelessDotted}}
+            ,{
+              "multi_match": {
+                "query": "{{synonym}}",
+                "type": "best_fields",
+                "fields": {{&qualifiedNameFieldsJson}},
+                "operator": "AND"
+              }
+            }
+            {{/spacelessDotted}}
+            {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "multi_match": {
+                "query": "{{synonym}}",
+                "type": "best_fields",
+                "fields": {{&idFieldsJson}},
+                "operator": "AND"
+              }
+            }
+            {{/idFields}}
             {{/synonyms}}
             {{#wholeIdentifier}}
+            {{^spacelessDotted}}
             ,{
               "simple_query_string": {
                 "query": "{{escaped}}",
-                "fields": {{&identityQueryFieldsJson}},
+                "fields": {{&nameFieldsJson}},
                 "default_operator": "AND"
               }
             }
+            {{/spacelessDotted}}
+            {{#spacelessDotted}}
+            ,{
+              "bool": {
+                "must": [
+                  {
+                    "simple_query_string": {
+                      "query": "{{escaped}}",
+                      "fields": {{&nameFieldsJson}},
+                      "default_operator": "AND"
+                    }
+                  }
+                ],
+                "filter": [
+                  {
+                    "bool": {
+                    "should": [
+                      {
+                        "term": {
+                          "{{nameKeyword}}": {
+                            "value": "{{dottedPath}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{nameKeyword}}": {
+                            "value": "{{dottedPathPrefix}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{nameKeyword}}": {
+                            "value": "{{dottedPathSuffix}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{nameKeyword}}": {
+                            "value": "{{dottedPathContains}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "term": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{dottedPath}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{dottedPathPrefix}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{dottedPathSuffix}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{dottedPathContains}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "term": {
+                          "{{urnParsedField}}": {
+                            "value": "{{dottedPath}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{urnParsedField}}": {
+                            "value": "{{dottedPathPrefix}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{urnParsedField}}": {
+                            "value": "{{dottedPathSuffix}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{urnParsedField}}": {
+                            "value": "{{dottedPathContains}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      }
+                    ],
+                    "minimum_should_match": 1
+                    }
+                  }
+                ]
+              }
+            }
+            {{/spacelessDotted}}
+            {{#qualifiedNameFields}}
+            {{^spacelessDotted}}
+            ,{
+              "simple_query_string": {
+                "query": "{{escaped}}",
+                "fields": {{&qualifiedNameFieldsJson}},
+                "default_operator": "AND"
+              }
+            }
+            {{/spacelessDotted}}
+            {{/qualifiedNameFields}}
             {{/wholeIdentifier}}
             {{#multiWord}}
             ,{
               "simple_query_string": {
                 "query": "{{alphanumericSplit}}",
-                "fields": {{&identityQueryFieldsJson}},
+                "fields": {{&nameFieldsJson}},
                 "default_operator": "AND",
                 "boost": 3.0
               }
             }
-            {{/multiWord}}
-            {{#fullyQualifiedName}}
+            {{#qualifiedNameFields}}
+            {{^spacelessDotted}}
             ,{
               "simple_query_string": {
-                "query": "{{fqnQuery}}",
-                "fields": ["{{qualifiedNameText}}"],
+                "query": "{{alphanumericSplit}}",
+                "fields": {{&qualifiedNameFieldsJson}},
                 "default_operator": "AND",
-                "boost": 50.0
+                "boost": 3.0
               }
             }
-            {{/fullyQualifiedName}}
+            {{/spacelessDotted}}
+            {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{alphanumericSplit}}",
+                "fields": {{&idFieldsJson}},
+                "default_operator": "AND",
+                "boost": 3.0
+              }
+            }
+            {{/idFields}}
+            {{/multiWord}}
+            {{#spacelessDotted}}
+            {{#qualifiedNameFields}}
+            ,{
+              "bool": {
+                "must": [
+                  {
+                    "simple_query_string": {
+                      "query": "{{unquoted}}",
+                      "default_operator": "AND",
+                      "fields": {{&qualifiedNameFieldsJson}}
+                    }
+                  }
+                ],
+                "filter": [
+                  {
+                    "bool": {
+                    "should": [
+                      {
+                        "term": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{dottedPath}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{dottedPathPrefix}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{dottedPathSuffix}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{dottedPathContains}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      }
+                    ],
+                    "minimum_should_match": 1
+                    }
+                  }
+                ]
+              }
+            }
+            {{/qualifiedNameFields}}
+            ,{
+              "bool": {
+                "must": [
+                  {
+                    "simple_query_string": {
+                      "query": "{{terminalSegment}}",
+                      "default_operator": "AND",
+                      "fields": {{&nameFieldsJson}}
+                    }
+                  }
+                ],
+                "filter": [
+                  {
+                    "bool": {
+                    "must": [
+                      {
+                        "term": {
+                          "{{nameKeyword}}": {
+                            "value": "{{terminalSegment}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      }
+                    ],
+                    "should": [
+                      {
+                        "term": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{qualifierPath}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{qualifierPathPrefix}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{qualifierPathSuffix}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{qualifiedNameKeyword}}": {
+                            "value": "{{qualifierPathContains}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "term": {
+                          "{{urnParsedField}}": {
+                            "value": "{{qualifierPath}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{urnParsedField}}": {
+                            "value": "{{qualifierPathPrefix}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{urnParsedField}}": {
+                            "value": "{{qualifierPathSuffix}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      },
+                      {
+                        "wildcard": {
+                          "{{urnParsedField}}": {
+                            "value": "{{qualifierPathContains}}",
+                            "case_insensitive": true
+                          }
+                        }
+                      }
+                    ],
+                    "minimum_should_match": 1
+                    }
+                  }
+                ]
+              }
+            }
+            {{/spacelessDotted}}
             {{#longPhrase}}
             ,{
               "match": {
@@ -357,6 +1050,8 @@
     dialect: ELASTICSEARCH
     apiVersion: 1
     editable: false
+    matchedFields: false
+    searchType: QUERY_THEN_FETCH
     query: '{ "match_all": {} }'
     functionScore: |
       {
@@ -374,7 +1069,7 @@
             "weight": 1.4
           },
           {
-            "filter": { "term": { "hasActiveIncidents": { "value": true } } },
+            "filter": { "exists": { "field": "activeIncidents_urn" } },
             "weight": 6.0
           },
           {
@@ -398,11 +1093,11 @@
             "weight": 1.15
           },
           {
-            "filter": { "term": { "hasRowCount": { "value": true } } },
+            "filter": { "exists": { "field": "rowCount" } },
             "weight": 1.05
           },
           {
-            "filter": { "term": { "hasColumnCount": { "value": true } } },
+            "filter": { "exists": { "field": "columnCount" } },
             "weight": 1.05
           },
           {
@@ -441,6 +1136,7 @@
     apiVersion: 1
     editable: false
     parent: urn:li:searchTemplate:list
+    searchType: QUERY_THEN_FETCH
     functionScore: ""
     boosts: []
     sort: '[ { "urn": { "order": "asc" } } ]'
@@ -472,7 +1168,8 @@
                 "{{entityNameField}}": {
                   "value": "{{unquoted}}",
                   "case_insensitive": true,
-                  "boost": {{exactFactor}}
+                  "boost": {{exactFactor}},
+                  "_name": "matchedField:name"
                 }
               }
             },
@@ -481,7 +1178,7 @@
                 "{{urnFoldedField}}": {
                   "value": "{{normalizedKeyword}}",
                   "boost": {{exactFactor}},
-                  "_name": "urn"
+                  "_name": "matchedField:urn"
                 }
               }
             },
@@ -490,7 +1187,7 @@
                 "{{urnExactField}}": {
                   "value": "{{unquoted}}",
                   "boost": {{caseSensitivityFactor}},
-                  "_name": "urn"
+                  "_name": "matchedField:urn"
                 }
               }
             }
@@ -532,7 +1229,7 @@
           }
           {{/fieldScoreFunctions}}
         ],
-        "score_mode": "avg",
+        "score_mode": "multiply",
         "boost_mode": "multiply"
       }
       <%={{ }}=%>
@@ -542,6 +1239,23 @@
         operator: OR
       exactValue:
         enabled: true
+    entityTypeBoosts:
+      - entityType: glossaryTerm
+        weight: 6.0
+      - entityType: glossaryNode
+        weight: 6.0
+      - entityType: domain
+        weight: 5.0
+      - entityType: container
+        weight: 2.0
+      - entityType: dataProduct
+        weight: 10.0
+      - entityType: tag
+        weight: 2.0
+      - entityType: chart
+        weight: 2.0
+      - entityType: dashboard
+        weight: 2.0
     routes: []
 - entityUrn: urn:li:searchTemplate:structured
   entityType: searchTemplate
@@ -572,7 +1286,8 @@
                 "{{entityNameField}}": {
                   "value": "{{unquoted}}",
                   "case_insensitive": true,
-                  "boost": {{exactFactor}}
+                  "boost": {{exactFactor}},
+                  "_name": "matchedField:name"
                 }
               }
             },
@@ -581,7 +1296,7 @@
                 "{{urnFoldedField}}": {
                   "value": "{{normalizedKeyword}}",
                   "boost": {{exactFactor}},
-                  "_name": "urn"
+                  "_name": "matchedField:urn"
                 }
               }
             },
@@ -590,7 +1305,7 @@
                 "{{urnExactField}}": {
                   "value": "{{unquoted}}",
                   "boost": {{caseSensitivityFactor}},
-                  "_name": "urn"
+                  "_name": "matchedField:urn"
                 }
               }
             }
@@ -621,7 +1336,7 @@
           }
           {{/fieldScoreFunctions}}
         ],
-        "score_mode": "avg",
+        "score_mode": "multiply",
         "boost_mode": "multiply"
       }
       <%={{ }}=%>
@@ -631,6 +1346,23 @@
         operator: OR
       exactValue:
         enabled: true
+    entityTypeBoosts:
+      - entityType: glossaryTerm
+        weight: 6.0
+      - entityType: glossaryNode
+        weight: 6.0
+      - entityType: domain
+        weight: 5.0
+      - entityType: container
+        weight: 2.0
+      - entityType: dataProduct
+        weight: 10.0
+      - entityType: tag
+        weight: 2.0
+      - entityType: chart
+        weight: 2.0
+      - entityType: dashboard
+        weight: 2.0
     routes:
       - queryRegex: "(?i)^(?:urn:li:[a-z][a-z0-9]*[:()].*|(?:s3|gs|hdfs):\\\\?/\\\\?/.*)"
         template: urn:li:searchTemplate:identity
@@ -669,7 +1401,8 @@
               "term": {
                 "{{urnKeyword}}": {
                   "value": "{{unquoted}}",
-                  "boost": 100.0
+                  "boost": 100.0,
+                  "_name": "matchedField:urn"
                 }
               }
             },
@@ -677,7 +1410,8 @@
               "term": {
                 "{{urnFoldedField}}": {
                   "value": "{{normalizedKeyword}}",
-                  "boost": 50.0
+                  "boost": 50.0,
+                  "_name": "matchedField:urn"
                 }
               }
             },
@@ -702,7 +1436,8 @@
                 "{{nameKeyword}}": {
                   "value": "{{lastSegment}}",
                   "case_insensitive": true,
-                  "boost": 20.0
+                  "boost": 20.0,
+                  "_name": "matchedField:name"
                 }
               }
             }
@@ -711,7 +1446,8 @@
                 "{{idKeyword}}": {
                   "value": "{{unquoted}}",
                   "case_insensitive": true,
-                  "boost": 10.0
+                  "boost": 10.0,
+                  "_name": "matchedField:id"
                 }
               }
             }
@@ -749,7 +1485,7 @@
           }
           {{/fieldScoreFunctions}}
         ],
-        "score_mode": "avg",
+        "score_mode": "multiply",
         "boost_mode": "multiply"
       }
       <%={{ }}=%>
@@ -759,6 +1495,23 @@
         operator: OR
       exactValue:
         enabled: true
+    entityTypeBoosts:
+      - entityType: glossaryTerm
+        weight: 6.0
+      - entityType: glossaryNode
+        weight: 6.0
+      - entityType: domain
+        weight: 5.0
+      - entityType: container
+        weight: 2.0
+      - entityType: dataProduct
+        weight: 10.0
+      - entityType: tag
+        weight: 2.0
+      - entityType: chart
+        weight: 2.0
+      - entityType: dashboard
+        weight: 2.0
     routes: []
 - entityUrn: urn:li:searchTemplate:autocomplete
   entityType: searchTemplate
@@ -766,19 +1519,38 @@
   changeType: UPSERT
   aspect:
     name: Autocomplete
-    description: "Typeahead prefix on one field. A one- or two-character prefix is kept, and expansions are capped. Java sets the field, the limit, the filters, and skips the total-hit count."
+    description: "Typeahead prefix on one field. The lowercase keyword of the name matches a prefix of the whole name, so a one- or two-character prefix still finds it. The analyzed text matches a later word. Expansions are capped. Java sets the field, the keyword field when the field has one, the limit, the filters, and skips the total-hit count."
     dialect: ELASTICSEARCH
     apiVersion: 1
     editable: false
+    matchedFields: false
     query: |
       {{=<% %>=}}
       {
-        "match_phrase_prefix": {
-          "{{prefixField}}": {
-            "query": "{{unquoted}}",
-            "analyzer": "partial",
-            "max_expansions": {{prefixMaxExpansions}}
-          }
+        "bool": {
+          "should": [
+            {{#prefixKeyword}}
+            {
+              "prefix": {
+                "{{prefixKeyword}}": {
+                  "value": "{{normalizedKeyword}}",
+                  "rewrite": "top_terms_{{prefixMaxExpansions}}",
+                  "boost": 10.0
+                }
+              }
+            },
+            {{/prefixKeyword}}
+            {
+              "match_phrase_prefix": {
+                "{{prefixField}}": {
+                  "query": "{{unquoted}}",
+                  "analyzer": "partial",
+                  "max_expansions": {{prefixMaxExpansions}}
+                }
+              }
+            }
+          ],
+          "minimum_should_match": 1
         }
       }
       <%={{ }}=%>
