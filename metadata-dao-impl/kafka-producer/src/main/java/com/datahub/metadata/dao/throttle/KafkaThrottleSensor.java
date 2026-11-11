@@ -12,6 +12,7 @@ import com.linkedin.metadata.dao.throttle.ThrottleType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -47,7 +48,7 @@ import org.springframework.util.backoff.ExponentialBackOff;
  */
 @Slf4j
 @Builder(toBuilder = true)
-public class KafkaThrottleSensor implements ThrottleSensor {
+public class KafkaThrottleSensor implements ThrottleSensor, AutoCloseable {
   private static final Set<ThrottleType> SUPPORTED_THROTTLE_TYPES =
       Set.of(MCL_VERSIONED_LAG, MCL_TIMESERIES_LAG);
   @Nonnull private final EntityRegistry entityRegistry;
@@ -59,6 +60,9 @@ public class KafkaThrottleSensor implements ThrottleSensor {
   private final MetricUtils metricUtils;
 
   /** A list of throttle event listeners to execute when throttling occurs and ceases */
+  /** How long close() waits for a refresh in flight, and then for the admin client, to finish */
+  @Builder.Default @Nonnull private final Duration shutdownTimeout = Duration.ofSeconds(5);
+
   @Builder.Default @Nonnull
   private final List<Function<ThrottleEvent, ThrottleControl>> throttleCallbacks =
       new ArrayList<>();
@@ -112,6 +116,25 @@ public class KafkaThrottleSensor implements ThrottleSensor {
   @VisibleForTesting
   public void stop() {
     scheduler.shutdown();
+  }
+
+  /**
+   * Stops the lag refresh and closes the admin client this sensor owns. Spring calls this when the
+   * context closes.
+   */
+  @Override
+  public void close() {
+    // shutdownNow interrupts a throttle() sleeping through a backoff. Wait for a refresh already
+    // in flight so it is not still using the admin client when it closes.
+    scheduler.shutdownNow();
+    try {
+      if (!scheduler.awaitTermination(shutdownTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
+        log.warn("MCL lag refresh did not stop within {}.", shutdownTimeout);
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+    kafkaAdmin.close(shutdownTimeout);
   }
 
   /**
@@ -270,7 +293,11 @@ public class KafkaThrottleSensor implements ThrottleSensor {
                 return Map.entry(mclType, lag);
               })
           .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    } catch (ExecutionException | InterruptedException e) {
+    } catch (InterruptedException e) {
+      // close() interrupts a refresh in flight; this is shutdown, not a failure
+      Thread.currentThread().interrupt();
+      return Map.of(MCL_VERSIONED_LAG, 0L, MCL_TIMESERIES_LAG, 0L);
+    } catch (ExecutionException e) {
       log.error("Error fetching consumer group offsets.", e);
       return Map.of(MCL_VERSIONED_LAG, 0L, MCL_TIMESERIES_LAG, 0L);
     }

@@ -12,6 +12,7 @@ import com.linkedin.metadata.dao.throttle.ThrottleType;
 import com.linkedin.metadata.queue.MetadataQueueStore;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -38,7 +39,7 @@ import org.springframework.util.backoff.ExponentialBackOff;
  */
 @Slf4j
 @Builder(toBuilder = true)
-public class PgQueueThrottleSensor implements ThrottleSensor {
+public class PgQueueThrottleSensor implements ThrottleSensor, AutoCloseable {
 
   private static final Set<ThrottleType> SUPPORTED_THROTTLE_TYPES =
       Set.of(MCL_VERSIONED_LAG, MCL_TIMESERIES_LAG);
@@ -49,6 +50,9 @@ public class PgQueueThrottleSensor implements ThrottleSensor {
   @Nonnull private final String versionedTopicName;
   @Nonnull private final String timeseriesTopicName;
   private final MetricUtils metricUtils;
+
+  /** How long close() waits for a refresh in flight to finish */
+  @Builder.Default @Nonnull private final Duration shutdownTimeout = Duration.ofSeconds(5);
 
   @Builder.Default @Nonnull
   private final List<Function<ThrottleEvent, ThrottleControl>> throttleCallbacks =
@@ -96,6 +100,23 @@ public class PgQueueThrottleSensor implements ThrottleSensor {
   @VisibleForTesting
   public void stop() {
     scheduler.shutdown();
+  }
+
+  /**
+   * Stops the lag refresh. Spring calls this when the context closes. The queue store is a shared
+   * bean, so it is left open.
+   */
+  @Override
+  public void close() {
+    // shutdownNow interrupts a throttle() sleeping through a backoff
+    scheduler.shutdownNow();
+    try {
+      if (!scheduler.awaitTermination(shutdownTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
+        log.warn("MCL lag refresh did not stop within {}.", shutdownTimeout);
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   @VisibleForTesting
