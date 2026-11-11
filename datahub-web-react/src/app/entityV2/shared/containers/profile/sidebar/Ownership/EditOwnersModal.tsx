@@ -1,4 +1,4 @@
-import { Form, Typography, message } from 'antd';
+import { Form } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -14,11 +14,17 @@ import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useR
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Modal } from '@src/alchemy-components';
+import { Modal, Text, toast } from '@src/alchemy-components';
 import { getModalDomContainer } from '@utils/focus';
 
 import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
 import { DataHubPageModuleType, Entity, EntityType, OwnerEntityType } from '@types';
+
+const HelpText = styled(Text)`
+    && {
+        margin-bottom: 1em;
+    }
+`;
 
 const FormSection = styled.div`
     margin-bottom: 16px;
@@ -123,17 +129,16 @@ export const EditOwnersModal = ({
                     },
                 },
             });
-            message.success({ content: t('sidebar.ownership.ownersAddedSuccess'), duration: 2 });
+            toast.success(t('sidebar.ownership.ownersAddedSuccess'), { duration: 2 });
             emitAnalytics();
         } catch (e: unknown) {
-            message.destroy();
+            toast.destroy();
             if (e instanceof Error) {
-                message.error(
-                    handleBatchError(urns, e, {
-                        content: t('sidebar.ownership.ownersAddFailed', { message: e.message || '' }),
-                        duration: 3,
-                    }),
-                );
+                const batchError = handleBatchError(urns, e, {
+                    content: t('sidebar.ownership.ownersAddFailed', { message: e.message || '' }),
+                    duration: 3,
+                });
+                toast.error(batchError.content, { duration: batchError.duration });
             }
         } finally {
             refetch?.();
@@ -151,17 +156,16 @@ export const EditOwnersModal = ({
                     },
                 },
             });
-            message.success({ content: t('sidebar.ownership.ownersRemovedSuccess'), duration: 2 });
+            toast.success(t('sidebar.ownership.ownersRemovedSuccess'), { duration: 2 });
             emitAnalytics();
         } catch (e: unknown) {
-            message.destroy();
+            toast.destroy();
             if (e instanceof Error) {
-                message.error(
-                    handleBatchError(urns, e, {
-                        content: t('sidebar.ownership.ownersRemoveFailed', { message: e.message || '' }),
-                        duration: 3,
-                    }),
-                );
+                const batchError = handleBatchError(urns, e, {
+                    content: t('sidebar.ownership.ownersRemoveFailed', { message: e.message || '' }),
+                    duration: 3,
+                });
+                toast.error(batchError.content, { duration: batchError.duration });
             }
         } finally {
             refetch?.();
@@ -243,9 +247,13 @@ export const EditOwnersModal = ({
                 <Form.Item
                     key="owners"
                     name="owners"
-                    label={<Typography.Text strong>{t('sidebar.ownership.ownerLabel')}</Typography.Text>}
+                    label={
+                        <Text type="span" weight="semiBold">
+                            {t('sidebar.ownership.ownerLabel')}
+                        </Text>
+                    }
                 >
-                    <Typography.Paragraph>{t('sidebar.ownership.findUserOrGroupText')}</Typography.Paragraph>
+                    <HelpText>{t('sidebar.ownership.findUserOrGroupText')}</HelpText>
                     <FormSection>
                         <ActorsSearchSelect
                             selectedActorUrns={selectedActorUrns}
@@ -257,8 +265,14 @@ export const EditOwnersModal = ({
                     </FormSection>
                 </Form.Item>
                 {!hideOwnerType && (
-                    <Form.Item label={<Typography.Text strong>{t('sidebar.ownership.typeLabel')}</Typography.Text>}>
-                        <Typography.Paragraph>{t('sidebar.ownership.chooseOwnerTypeText')}</Typography.Paragraph>
+                    <Form.Item
+                        label={
+                            <Text type="span" weight="semiBold">
+                                {t('sidebar.ownership.typeLabel')}
+                            </Text>
+                        }
+                    >
+                        <HelpText>{t('sidebar.ownership.chooseOwnerTypeText')}</HelpText>
                         <Form.Item name="type">
                             {ownershipTypesLoading && <div />}
                             {!ownershipTypesLoading && (
