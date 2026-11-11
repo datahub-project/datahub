@@ -313,52 +313,54 @@ export const SearchResultList = ({
                     const expandedSection = isFullViewCard ? urnToExpandedSection[item.entity.urn] : undefined;
                     const siblingGroup = showSiblings ? siblingGroups.get(item.entity.urn) : undefined;
                     return (
-                        <div style={{ position: 'relative' }}>
-                            <MatchContextContainer
-                                item={item}
-                                selected={highlightedIndex === index}
-                                onClick={() => onClickResult(item, index)}
-                                urnToExpandedSection={urnToExpandedSection}
-                                setUrnToExpandedSection={setUrnToExpandedSection}
-                            >
-                                <ResultWrapper
-                                    showUpdatedStyles={showSearchFiltersV2}
-                                    className={`entityUrn-${item.entity.urn}`}
+                        <div>
+                            <div style={{ position: 'relative' }}>
+                                <MatchContextContainer
+                                    item={item}
                                     selected={highlightedIndex === index}
-                                    areMatchesExpanded={!!expandedSection}
                                     onClick={() => onClickResult(item, index)}
-                                    ref={refs[index]}
-                                    isFullViewCard={isFullViewCard}
-                                    $isShowNavBarRedesign={isShowNavBarRedesign}
+                                    urnToExpandedSection={urnToExpandedSection}
+                                    setUrnToExpandedSection={setUrnToExpandedSection}
                                 >
-                                    <ListItem
-                                        isSelectMode={isSelectMode}
-                                        // class name for counting in test purposes only
-                                        className="test-search-result"
-                                        data-testid="search-result-item"
+                                    <ResultWrapper
+                                        showUpdatedStyles={showSearchFiltersV2}
+                                        className={`entityUrn-${item.entity.urn}`}
+                                        selected={highlightedIndex === index}
+                                        areMatchesExpanded={!!expandedSection}
+                                        onClick={() => onClickResult(item, index)}
+                                        ref={refs[index]}
+                                        isFullViewCard={isFullViewCard}
+                                        $isShowNavBarRedesign={isShowNavBarRedesign}
                                     >
-                                        {isSelectMode && (
-                                            <StyledCheckbox
-                                                checked={selectedEntityUrns.indexOf(item.entity.urn) >= 0}
-                                                onChange={(e) =>
-                                                    onSelectEntity(
-                                                        {
-                                                            urn: item.entity.urn,
-                                                            type: item.entity.type,
-                                                        },
-                                                        e.target.checked,
-                                                    )
-                                                }
-                                                onClick={(e) => e.stopPropagation()}
-                                            />
-                                        )}
-                                        {entityRegistry.renderSearchResult(item.entity.type, item)}
-                                    </ListItem>
-                                    {/* an entity is always going to be inserted in the sibling group, so if the sibling group is just one do not
+                                        <ListItem
+                                            isSelectMode={isSelectMode}
+                                            // class name for counting in test purposes only
+                                            className="test-search-result"
+                                            data-testid="search-result-item"
+                                        >
+                                            {isSelectMode && (
+                                                <StyledCheckbox
+                                                    checked={selectedEntityUrns.indexOf(item.entity.urn) >= 0}
+                                                    onChange={(e) =>
+                                                        onSelectEntity(
+                                                            {
+                                                                urn: item.entity.urn,
+                                                                type: item.entity.type,
+                                                            },
+                                                            e.target.checked,
+                                                        )
+                                                    }
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                            )}
+                                            {entityRegistry.renderSearchResult(item.entity.type, item)}
+                                        </ListItem>
+                                        {/* an entity is always going to be inserted in the sibling group, so if the sibling group is just one do not
                         render. */}
-                                    {!showSearchFiltersV2 && <ThinDivider />}
-                                </ResultWrapper>
-                            </MatchContextContainer>
+                                        {!showSearchFiltersV2 && <ThinDivider />}
+                                    </ResultWrapper>
+                                </MatchContextContainer>
+                            </div>
                             {siblingGroup && (
                                 <SearchResultSiblings
                                     // keyed by urn so expanded state never carries over to another result
