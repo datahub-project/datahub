@@ -268,4 +268,22 @@ describe('Table virtualization', () => {
         expect(scroller.scrollTop).toBeGreaterThan(690 * ROW_HEIGHT);
         expect(scroller.scrollTop).toBeLessThanOrEqual(700 * ROW_HEIGHT);
     });
+
+    it('does not re-render cells that stay in view while scrolling', () => {
+        const renderType = vi.fn((field: Field) => field.type);
+        const spiedColumns: Column<Field>[] = [columns[0], { ...columns[1], render: renderType }];
+        const { container } = renderVirtualTable({ columns: spiedColumns });
+        // 10 visible rows plus 2 overscan, each rendered once.
+        expect(renderType).toHaveBeenCalledTimes(12);
+        renderType.mockClear();
+
+        const scroller = container.firstElementChild as HTMLElement;
+        act(() => {
+            scroller.scrollTop = ROW_HEIGHT;
+            fireEvent.scroll(scroller);
+        });
+
+        // Only the row that scrolled into the window renders; rows already on screen are reused.
+        expect(renderType).toHaveBeenCalledTimes(1);
+    });
 });

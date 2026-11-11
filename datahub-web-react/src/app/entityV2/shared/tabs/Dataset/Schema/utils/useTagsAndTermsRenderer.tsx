@@ -1,6 +1,6 @@
 import { Text, Tooltip } from '@components';
 import { Info } from '@phosphor-icons/react/dist/csr/Info';
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -50,50 +50,65 @@ export default function useTagsAndTermsRenderer(
         ? entityRegistry.getDisplayName(EntityType.DataPlatform, entityData?.platform)
         : null;
 
-    const refresh: any = () => {
-        refetch?.();
-        schemaRefetch?.();
-    };
+    const { showTags, showTerms } = options;
 
-    const tagAndTermRender = (tags: GlobalTags, record: SchemaField) => {
-        const { directTerms, editableTerms, uneditableTerms } = extractFieldGlossaryTermsInfo(record);
-        const { directTags, editableTags, uneditableTags } = extractFieldTagsInfo(record, tags);
+    return useCallback(
+        (tags: GlobalTags, record: SchemaField) => {
+            const { directTerms, editableTerms, uneditableTerms } = extractFieldGlossaryTermsInfo(record);
+            const { directTags, editableTags, uneditableTags } = extractFieldTagsInfo(record, tags);
 
-        return (
-            <div data-testid={`schema-field-${record.fieldPath}-${options.showTags ? 'tags' : 'terms'}`}>
-                {/* If can edit, show disclaimer for uneditable tags */}
-                {canEdit && options.showTags && !!uneditableTags?.tags?.length && (
-                    <Tooltip
-                        title={t('tagTermRenderer.externalPlatformTooltip', {
-                            platform: platformName || t('tagTermRenderer.externalPlatformFallback'),
-                        })}
-                    >
-                        <TagDisclaimer type="span">
-                            <Info /> {t('tagTermRenderer.tagsNotEditable')}
-                        </TagDisclaimer>
-                    </Tooltip>
-                )}
-                <TagTermGroup
-                    directTags={options.showTags ? directTags : null}
-                    uneditableTags={options.showTags ? uneditableTags : null}
-                    editableTags={options.showTags ? editableTags : null}
-                    directGlossaryTerms={options.showTerms ? directTerms : null}
-                    uneditableGlossaryTerms={options.showTerms ? uneditableTerms : null}
-                    editableGlossaryTerms={options.showTerms ? editableTerms : null}
-                    canRemove={canEdit}
-                    buttonProps={{ size: 'small' }}
-                    canAddTag={canEdit && options.showTags}
-                    canAddTerm={canEdit && options.showTerms}
-                    entityUrn={urn}
-                    entityType={EntityType.Dataset}
-                    entitySubresource={record.fieldPath}
-                    highlightText={filterText}
-                    refetch={refresh}
-                    showOneAndCount={showOneAndCount}
-                    fontSize={12}
-                />
-            </div>
-        );
-    };
-    return tagAndTermRender;
+            return (
+                <div data-testid={`schema-field-${record.fieldPath}-${showTags ? 'tags' : 'terms'}`}>
+                    {/* If can edit, show disclaimer for uneditable tags */}
+                    {canEdit && showTags && !!uneditableTags?.tags?.length && (
+                        <Tooltip
+                            title={t('tagTermRenderer.externalPlatformTooltip', {
+                                platform: platformName || t('tagTermRenderer.externalPlatformFallback'),
+                            })}
+                        >
+                            <TagDisclaimer type="span">
+                                <Info /> {t('tagTermRenderer.tagsNotEditable')}
+                            </TagDisclaimer>
+                        </Tooltip>
+                    )}
+                    <TagTermGroup
+                        directTags={showTags ? directTags : null}
+                        uneditableTags={showTags ? uneditableTags : null}
+                        editableTags={showTags ? editableTags : null}
+                        directGlossaryTerms={showTerms ? directTerms : null}
+                        uneditableGlossaryTerms={showTerms ? uneditableTerms : null}
+                        editableGlossaryTerms={showTerms ? editableTerms : null}
+                        canRemove={canEdit}
+                        buttonProps={{ size: 'small' }}
+                        canAddTag={canEdit && showTags}
+                        canAddTerm={canEdit && showTerms}
+                        entityUrn={urn}
+                        entityType={EntityType.Dataset}
+                        entitySubresource={record.fieldPath}
+                        highlightText={filterText}
+                        refetch={async () => {
+                            refetch?.();
+                            schemaRefetch?.();
+                        }}
+                        showOneAndCount={showOneAndCount}
+                        fontSize={12}
+                    />
+                </div>
+            );
+        },
+        [
+            extractFieldGlossaryTermsInfo,
+            extractFieldTagsInfo,
+            showTags,
+            showTerms,
+            canEdit,
+            platformName,
+            t,
+            urn,
+            filterText,
+            showOneAndCount,
+            refetch,
+            schemaRefetch,
+        ],
+    );
 }

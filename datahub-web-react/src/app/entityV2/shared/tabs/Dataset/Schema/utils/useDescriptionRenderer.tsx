@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 
 import { sanitizeRichText } from '@components/components/Editor/utils';
 
@@ -28,49 +28,50 @@ export default function useDescriptionRenderer(
     const maps = fieldInfoMaps ?? fallbackMaps;
     const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata, maps);
 
-    const refresh: any = () => {
-        refetch?.();
-        schemaRefetch?.();
-    };
+    return useCallback(
+        (description: string | undefined, record: SchemaField, index: number): JSX.Element => {
+            const editableFieldInfo = maps.exactMap.get(record.fieldPath);
+            const { displayedDescription, sanitizedDescription, isPropagated, attribution } = extractFieldDescription(
+                record,
+                description,
+            );
+            const original = record.description ? sanitizeRichText(record.description) : undefined;
 
-    return (description: string | undefined, record: SchemaField, index: number): JSX.Element => {
-        const editableFieldInfo = maps.exactMap.get(record.fieldPath);
-        const { displayedDescription, sanitizedDescription, isPropagated, attribution } = extractFieldDescription(
-            record,
-            description,
-        );
-        const original = record.description ? sanitizeRichText(record.description) : undefined;
+            const handleExpandedRows = (expanded) => setExpandedRows((prev) => ({ ...prev, [index]: expanded }));
 
-        const handleExpandedRows = (expanded) => setExpandedRows((prev) => ({ ...prev, [index]: expanded }));
+            if (isCompact) {
+                return <CompactMarkdownViewer content={displayedDescription} />;
+            }
 
-        if (isCompact) {
-            return <CompactMarkdownViewer content={displayedDescription} />;
-        }
-
-        return (
-            <DescriptionField
-                onExpanded={handleExpandedRows}
-                expanded={!!expandedRows[index]}
-                description={sanitizedDescription}
-                original={original}
-                isEdited={!!editableFieldInfo?.description}
-                onUpdate={(updatedDescription) =>
-                    updateDescription({
-                        variables: {
-                            input: {
-                                description: sanitizeRichText(updatedDescription),
-                                resourceUrn: urn,
-                                subResource: record.fieldPath,
-                                subResourceType: SubResourceType.DatasetField,
+            return (
+                <DescriptionField
+                    onExpanded={handleExpandedRows}
+                    expanded={!!expandedRows[index]}
+                    description={sanitizedDescription}
+                    original={original}
+                    isEdited={!!editableFieldInfo?.description}
+                    onUpdate={(updatedDescription) =>
+                        updateDescription({
+                            variables: {
+                                input: {
+                                    description: sanitizeRichText(updatedDescription),
+                                    resourceUrn: urn,
+                                    subResource: record.fieldPath,
+                                    subResourceType: SubResourceType.DatasetField,
+                                },
                             },
-                        },
-                    }).then(refresh)
-                }
-                isReadOnly
-                isPropagated={isPropagated}
-                attribution={attribution}
-                dataTestId={`schema-field-${record.fieldPath}-description`}
-            />
-        );
-    };
+                        }).then(() => {
+                            refetch?.();
+                            schemaRefetch?.();
+                        })
+                    }
+                    isReadOnly
+                    isPropagated={isPropagated}
+                    attribution={attribution}
+                    dataTestId={`schema-field-${record.fieldPath}-description`}
+                />
+            );
+        },
+        [maps, extractFieldDescription, isCompact, expandedRows, updateDescription, urn, refetch, schemaRefetch],
+    );
 }

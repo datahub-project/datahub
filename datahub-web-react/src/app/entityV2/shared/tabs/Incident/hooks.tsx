@@ -31,11 +31,8 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
                 dataIndex: 'name',
                 key: 'name',
                 // The priority icon stays on every row; grouping by stage, category or state would hide it otherwise.
-                render: (record) => (
-                    <span data-testid={record?.title}>
-                        <IncidentPriorityLabel priority={record?.priority} title={record?.title} />
-                    </span>
-                ),
+                // IncidentPriorityLabel tags the title with data-testid={title}, which e2e tests look up.
+                render: (record) => <IncidentPriorityLabel priority={record?.priority} title={record?.title} />,
                 width: '25%',
                 sorter: (a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }),
             },

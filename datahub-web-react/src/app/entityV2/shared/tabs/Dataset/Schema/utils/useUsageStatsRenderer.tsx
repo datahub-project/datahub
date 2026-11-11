@@ -1,6 +1,6 @@
 import { Tooltip } from '@components';
 import { ChartLineUp } from '@phosphor-icons/react/dist/csr/ChartLineUp';
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -41,33 +41,37 @@ export default function useUsageStatsRenderer(
 
     const latestProfile = latestFullTableProfile || latestPartitionProfile;
 
-    const usageStatsRenderer = (fieldPath: string) => {
-        const isFieldSelected = expandedDrawerFieldPath === fieldPath;
+    return useCallback(
+        (fieldPath: string) => {
+            const isFieldSelected = expandedDrawerFieldPath === fieldPath;
 
-        const fieldProfile = latestProfile?.fieldProfiles?.find((profile) =>
-            pathMatchesInsensitiveToV2(profile.fieldPath, fieldPath),
-        );
+            const fieldProfile = latestProfile?.fieldProfiles?.find((profile) =>
+                pathMatchesInsensitiveToV2(profile.fieldPath, fieldPath),
+            );
 
-        return (
-            <IconsContainer>
-                <FieldPopularity isFieldSelected={isFieldSelected} usageStats={usageStats} fieldPath={fieldPath} />
+            return (
+                <IconsContainer>
+                    <FieldPopularity isFieldSelected={isFieldSelected} usageStats={usageStats} fieldPath={fieldPath} />
 
-                {/* <Icon>
+                    {/* <Icon>
                         <LineageDisabledIcon height={20} width={20} />
                     </Icon> */}
 
-                <Tooltip
-                    placement="top"
-                    title={
-                        !fieldProfile ? t('usageStatsRenderer.noColumnStats') : t('usageStatsRenderer.hasColumnStats')
-                    }
-                >
-                    <IconWrapper hasStats={!!fieldProfile} isFieldSelected={isFieldSelected}>
-                        <ChartLineUp />
-                    </IconWrapper>
-                </Tooltip>
-            </IconsContainer>
-        );
-    };
-    return usageStatsRenderer;
+                    <Tooltip
+                        placement="top"
+                        title={
+                            !fieldProfile
+                                ? t('usageStatsRenderer.noColumnStats')
+                                : t('usageStatsRenderer.hasColumnStats')
+                        }
+                    >
+                        <IconWrapper hasStats={!!fieldProfile} isFieldSelected={isFieldSelected}>
+                            <ChartLineUp />
+                        </IconWrapper>
+                    </Tooltip>
+                </IconsContainer>
+            );
+        },
+        [expandedDrawerFieldPath, latestProfile, usageStats, t],
+    );
 }
