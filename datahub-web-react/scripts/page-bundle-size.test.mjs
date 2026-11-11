@@ -180,6 +180,72 @@ test('module script is the entry when the manifest has no isEntry', () => {
     assert.equal(measured.home, null);
 });
 
+test('measures from the manifest entry when a federation bootstrap script comes first', () => {
+    const html = `<!doctype html><html><head>
+        <script type="module" crossorigin src="./assets/mf-entry-bootstrap.js"></script>
+        <link rel="modulepreload" crossorigin href="./assets/hostInit.js">
+        <link rel="modulepreload" crossorigin href="./assets/index.js">
+        <link rel="modulepreload" crossorigin href="assets/shared.js">
+        </head><body></body></html>`;
+    assert.equal(moduleScriptSrc(html), 'assets/mf-entry-bootstrap.js');
+
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'page-bundle-'));
+    fs.mkdirSync(path.join(dir, '.vite'));
+    fs.mkdirSync(path.join(dir, 'assets'));
+    fs.writeFileSync(path.join(dir, 'assets', 'mf-entry-bootstrap.js'), 'bootstrap');
+    fs.writeFileSync(path.join(dir, 'assets', 'hostInit.js'), 'host-init');
+    fs.writeFileSync(path.join(dir, 'assets', 'index.js'), 'entry');
+    fs.writeFileSync(path.join(dir, 'assets', 'shared.js'), 'shared-chunk');
+    fs.writeFileSync(path.join(dir, 'index.html'), html);
+    fs.writeFileSync(
+        path.join(dir, '.vite', 'manifest.json'),
+        JSON.stringify({
+            'index.html': { file: 'assets/index.js', src: 'index.html', imports: ['_shared.js'] },
+            '_shared.js': { file: 'assets/shared.js' },
+        }),
+    );
+
+    const size = (file) => gzipSize(path.join(dir, 'assets', file));
+    const measured = measureDist(dir);
+    assert.deepEqual(measured.eagerMismatch.onlyHtml.sort(), ['assets/hostInit.js', 'assets/mf-entry-bootstrap.js']);
+    assert.equal(measured.indexHtml, size('index.js') + size('shared.js') + size('mf-entry-bootstrap.js') + size('hostInit.js'));
+    assert.equal(measured.indexHtml, measured.indexHtmlEagerBytes);
+});
+
+test('adds index.html-only federation scripts to every page total', () => {
+    const html = `<!doctype html><html><head>
+        <script type="module" crossorigin src="./assets/mf-entry-bootstrap.js"></script>
+        <link rel="modulepreload" crossorigin href="./assets/hostInit.js">
+        <link rel="modulepreload" crossorigin href="./assets/index.js">
+        <link rel="modulepreload" crossorigin href="assets/shared.js">
+        </head><body></body></html>`;
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'page-bundle-routes-'));
+    fs.mkdirSync(path.join(dir, '.vite'));
+    fs.mkdirSync(path.join(dir, 'assets'));
+    const manifestFiles = [...new Set(Object.values(manifest).map((chunk) => chunk.file))];
+    for (const file of manifestFiles) {
+        fs.writeFileSync(path.join(dir, file), `${file} `.repeat(sizes[file]));
+    }
+    fs.writeFileSync(path.join(dir, 'assets', 'mf-entry-bootstrap.js'), 'bootstrap '.repeat(30));
+    fs.writeFileSync(path.join(dir, 'assets', 'hostInit.js'), 'host-init '.repeat(50));
+    fs.writeFileSync(path.join(dir, 'index.html'), html);
+    fs.writeFileSync(path.join(dir, '.vite', 'manifest.json'), JSON.stringify(manifest));
+
+    const size = (file) => gzipSize(path.join(dir, file));
+    const routesOnly = measureManifest(manifest, 'assets/index.js', size);
+    const federation = ['assets/mf-entry-bootstrap.js', 'assets/hostInit.js'];
+    const federationBytes = size(federation[0]) + size(federation[1]);
+
+    const measured = measureDist(dir);
+    for (const id of ['indexHtml', 'shell', 'search', 'home']) {
+        assert.equal(typeof routesOnly[id], 'number', `${id} is measured`);
+        assert.equal(measured[id], routesOnly[id] + federationBytes, `${id} includes the federation scripts`);
+        for (const file of federation) {
+            assert.equal(measured.files[id].filter((f) => f === file).length, 1, `${id} lists ${file} once`);
+        }
+    }
+});
+
 test('page budget accepts shell and search within the slack', () => {
     const findings = evaluatePageBudget({ shell: 1_000_000, search: 1_100_000 }, { shell: 1_000_000, search: 1_100_000 });
     assert.deepEqual(findings, { hard: [], soft: [] });
