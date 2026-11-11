@@ -219,6 +219,24 @@ describe('SidebarSiblingsSection', () => {
             await waitFor(() => expect(container.firstChild).toBeNull());
         });
 
+        it("never shows another dataset's group", async () => {
+            // Moving between datasets, the previous dataset's data can be returned on the first render.
+            const otherUrn = 'urn:li:dataset:(urn:li:dataPlatform:glue,db.other,PROD)';
+            renderSection(entityDataWithSiblings, [
+                {
+                    ...groupMock(fiveMembers, 120),
+                    result: {
+                        data: {
+                            siblingGroups: [{ urn: otherUrn, total: 120, truncated: false, members: fiveMembers }],
+                        },
+                    },
+                },
+            ]);
+            await waitFor(() => expect(screen.getByText('Composed of')).toBeInTheDocument());
+            expect(screen.queryByTestId('siblings-more')).toBeNull();
+            expect(screen.queryByTestId(`compact-entity-link-${fiveMembers[0].entity.urn}`)).toBeNull();
+        });
+
         it('falls back to the one-link siblings list when the group request fails', async () => {
             const { container } = renderSection(entityDataWithSiblings, [
                 { ...groupMock([], 0), error: new Error('boom') },
