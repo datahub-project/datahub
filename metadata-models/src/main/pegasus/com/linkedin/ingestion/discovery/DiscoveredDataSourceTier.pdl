@@ -1,0 +1,22 @@
+namespace com.linkedin.ingestion.discovery
+
+/**
+ * How strongly the evidence suggests that a data platform is in use. Ordered from weakest to strongest.
+ */
+enum DiscoveredDataSourceTier {
+  /**
+   * Indirect signal only, e.g. lineage references to the platform or loader column signatures.
+   */
+  FINGERPRINT
+
+  /**
+   * An explicit, configured connection points at the platform, e.g. a BI datasource or a warehouse integration.
+   */
+  CONFIGURED_CONNECTION
+
+  /**
+   * Two or more independent ingestion sources report the platform. Derived from the collected evidence,
+   * never reported by a single detector.
+   */
+  CORROBORATED
+}

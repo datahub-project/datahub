@@ -1,0 +1,43 @@
+namespace com.linkedin.ingestion.discovery
+
+import com.linkedin.common.Urn
+
+/**
+ * A single piece of evidence that a data platform is in use, as reported by one detector in one ingestion source.
+ */
+record DiscoveredDataSourceEvidenceEntry {
+  /**
+   * The detector that produced this evidence, e.g. "lineage.referenced" or "tableau.datasource".
+   */
+  detector: string
+
+  /**
+   * The ingestion source whose run reported this evidence, when known.
+   */
+  observedBy: optional Urn
+
+  /**
+   * Strength of this evidence. Must be FINGERPRINT or CONFIGURED_CONNECTION; CORROBORATED is only derived.
+   */
+  tier: DiscoveredDataSourceTier
+
+  /**
+   * How many entities reference the platform according to this detector, e.g. the number of dashboards reading from it.
+   */
+  referenceCount: optional long
+
+  /**
+   * A small sample of entities that reference the platform, used to explain the recommendation.
+   */
+  sampleUrns: array[Urn] = [ ]
+
+  /**
+   * Detector-specific details. Must not contain hosts, credentials or connection strings.
+   */
+  details: map[string, string] = { }
+
+  /**
+   * When this evidence was last reported, in epoch milliseconds. Entries not refreshed for 30 days are removed.
+   */
+  lastSeen: long
+}

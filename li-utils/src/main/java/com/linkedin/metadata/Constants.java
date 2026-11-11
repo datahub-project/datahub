@@ -412,6 +412,15 @@ public class Constants {
   public static final String INGESTION_SOURCE_KEY_ASPECT_NAME = "dataHubIngestionSourceKey";
   public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";
 
+  // Discovered Data Source
+  public static final String DISCOVERED_DATA_SOURCE_ENTITY_NAME = "discoveredDataSource";
+  public static final String DISCOVERED_DATA_SOURCE_KEY_ASPECT_NAME = "discoveredDataSourceKey";
+  public static final String DISCOVERED_DATA_SOURCE_INFO_ASPECT_NAME = "discoveredDataSourceInfo";
+  public static final String DISCOVERED_DATA_SOURCE_EVIDENCE_ASPECT_NAME =
+      "discoveredDataSourceEvidence";
+  public static final String DISCOVERED_DATA_SOURCE_DECISION_ASPECT_NAME =
+      "discoveredDataSourceDecision";
+
   // DataHub Secret
   public static final String SECRET_VALUE_ASPECT_NAME = "dataHubSecretValue";
 

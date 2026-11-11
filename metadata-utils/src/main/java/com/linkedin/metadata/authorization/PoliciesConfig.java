@@ -1360,6 +1360,23 @@ public class PoliciesConfig {
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
                       .build())
               .put(
+                  Constants.DISCOVERED_DATA_SOURCE_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(ApiOperation.CREATE, Disjunctive.disjoint(MANAGE_INGESTION_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.READ))
+                      .put(
+                          ApiOperation.UPDATE,
+                          Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE, MANAGE_INGESTION_PRIVILEGE))
+                      .put(
+                          ApiOperation.DELETE,
+                          Disjunctive.disjoint(DELETE_ENTITY_PRIVILEGE, MANAGE_INGESTION_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
+                      .build())
+              .put(
                   Constants.DOCUMENT_ENTITY_NAME,
                   ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
                       // Standard ENTITY create (CREATE_ENTITY | EDIT_ENTITY) plus MANAGE_DOCUMENTS.

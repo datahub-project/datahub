@@ -1,0 +1,43 @@
+namespace com.linkedin.ingestion.discovery
+
+import com.linkedin.common.Urn
+
+/**
+ * The recommendation state of a discovered data source. Written by the ingestion agent, the UI and the
+ * discovery system source; never by the connectors that collect evidence.
+ */
+@Aspect = {
+  "name": "discoveredDataSourceDecision"
+}
+record DiscoveredDataSourceDecision {
+  /**
+   * Current lifecycle status.
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  status: DiscoveredDataSourceStatus
+
+  /**
+   * The evidence tier when the source was declined. Required when status is DECLINED.
+   */
+  tierAtDecision: optional DiscoveredDataSourceTier
+
+  /**
+   * When a snoozed source becomes eligible again, in epoch milliseconds. Required when status is SNOOZED.
+   */
+  @Searchable = {
+    "fieldType": "DATETIME"
+  }
+  snoozeUntil: optional long
+
+  /**
+   * The ingestion source that connected this platform, when status is CONNECTED.
+   */
+  connectedIngestionSource: optional Urn
+
+  /**
+   * Every transition, oldest first.
+   */
+  history: array[DiscoveredDataSourceDecisionEvent] = [ ]
+}
