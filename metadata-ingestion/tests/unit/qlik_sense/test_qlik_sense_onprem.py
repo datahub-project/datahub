@@ -551,6 +551,8 @@ def test_onprem_reads_charts_after_a_failed_chart(
         ("GetChild", 2),
         ("GetLayout", 3),
         ("GetProperties", 3),
+        # The app's variables, read on the app handle.
+        ("CreateSessionObject", 1),
     ]
     assert engine.handles == [-1, 1]
 
@@ -824,7 +826,13 @@ def test_chart_input_fields_match_app_fields() -> None:
     "expressions, fields_complete, unknown_schema, matched_fields, keeps_all_tables",
     [
         pytest.param(
-            ["Sum(unknown_field)"], True, False, [], True, id="no_field_matches"
+            # Every table's fields are known, so the chart reads none of them.
+            ["Sum(unknown_field)"],
+            True,
+            False,
+            [],
+            False,
+            id="no_field_matches",
         ),
         pytest.param(
             ["Region", "Sum($(vSales))"],
@@ -833,6 +841,14 @@ def test_chart_input_fields_match_app_fields() -> None:
             ["Region"],
             True,
             id="variable_measure",
+        ),
+        pytest.param(
+            [],
+            True,
+            False,
+            [],
+            False,
+            id="text_object_without_fields",
         ),
         pytest.param(
             ["Count({<Year={$(vYear)}>} Region)"],
@@ -962,7 +978,9 @@ def test_chart_inputs_when_fields_are_unknown(
         None, (wu.get_aspect_of_type(InputFieldsClass) for wu in workunits)
     )
 
-    assert chart_info.inputs == (app_tables if keeps_all_tables else app_tables[1:])
+    # Region is the only field, of customers; a chart reading none has no input.
+    read_tables = app_tables[1:] if matched_fields else []
+    assert chart_info.inputs == (app_tables if keeps_all_tables else read_tables)
     assert [
         field.schemaField.fieldPath
         for field in input_fields.fields

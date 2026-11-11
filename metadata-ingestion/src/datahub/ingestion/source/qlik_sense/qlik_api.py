@@ -334,6 +334,7 @@ class QlikAPI(QlikBaseAPI):
             )
             app = App.model_validate(response[Constant.QLAYOUT])
             app.sheets = self._get_app_sheets(websocket_connection, app_id, errors)
+            app.variables = self._read_variables(websocket_connection, app_id)
             read_errors = len(errors.messages)
             app.tables = self._get_app_used_tables(websocket_connection, app_id, errors)
             if not app.tables and len(errors.messages) == read_errors:

@@ -178,6 +178,28 @@ class WebsocketConnection:
         response = self.websocket_send_request(method="GetScript")
         return response.get(Constant.QSCRIPT) or ""
 
+    def get_variables(self) -> Dict[str, str]:
+        """Definitions of the app's variables, by name, as the app was last
+        saved or reloaded, including variables set in included script files.
+        Must be called on the app handle."""
+        with self.restore_handle():
+            self.websocket_send_request(
+                method="CreateSessionObject",
+                params={
+                    "qProp": {
+                        "qInfo": {"qType": "VariableList"},
+                        "qVariableListDef": {
+                            "qType": "variable",
+                            "qShowReserved": False,
+                            "qShowConfig": False,
+                        },
+                    }
+                },
+            )
+            layout = self.websocket_send_request(method="GetLayout")
+        items = layout[Constant.QLAYOUT]["qVariableList"]["qItems"]
+        return {item["qName"]: item.get("qDefinition") or "" for item in items}
+
     def get_data_model_tables(self) -> List[Dict]:
         """The tables of the app's data model, with their fields, as the last
         reload left them. Needs the app opened with its data."""
