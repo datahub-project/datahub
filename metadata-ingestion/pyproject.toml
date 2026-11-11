@@ -2152,6 +2152,10 @@ constraint-dependencies = [
     # dask; not in setup.py. s3fs pins fsspec to its own version, so this also moves
     # s3fs/adlfs. Docker snippet: docker/snippets/ingestion/constraints.txt.
     "fsspec>=2026.6.0",
+    # pyasn1: CVE-2026-119194, CVE-2026-119195, CVE-2026-119196, CVE-2026-119197;
+    # fixed in 0.6.5. Transitive via rsa / pyasn1-modules (google-auth, ldap); not in
+    # setup.py. Docker snippet: docker/snippets/ingestion/constraints.txt.
+    "pyasn1>=0.6.5,<0.7.0",
 ]
 
 [tool.ruff]
