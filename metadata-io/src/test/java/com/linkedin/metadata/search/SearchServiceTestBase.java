@@ -112,7 +112,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     // Create real SearchContext using ESUtils methods
     MappingsBuilder mappingsBuilder =
-        createDelegatingMappingsBuilder(SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
+        createDelegatingMappingsBuilder(
+            SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION, getSearchClient());
     SearchContext searchContext =
         SearchContext.builder()
             .indexConvention(indexConvention)

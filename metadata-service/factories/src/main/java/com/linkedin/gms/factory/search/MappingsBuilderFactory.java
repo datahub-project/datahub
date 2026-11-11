@@ -83,6 +83,9 @@ public class MappingsBuilderFactory {
     try {
       // V3 documents carry hashed ids. Recording the running scheme on every V3 index at creation
       // lets the incremental upgrade detect a later hasher change and rebuild the index.
+      // The V3 client supplies the engine's partial-ngram shape: ES8 strips doc_values:false from
+      // search_as_you_type fields, so authoring the OpenSearch shape there leaves a permanent
+      // mapping diff and a reindex on every system update.
       return new DocumentIdSchemeStampingMappingsBuilder(
           new MultiEntityMappingsBuilder(
               entityIndexConfig, v3Client, keywordMaxLength, contributors),

@@ -52,7 +52,6 @@ com.linkedin.metadata.search.elasticsearch.client.shim.impl.AwsRequestSigningApa
 com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.Es8BulkListener
 com.linkedin.metadata.search.elasticsearch.index.SearchEngineStructuredPropertyMappingLookup
 com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder
-com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder
 com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2SemanticSearchMappingsBuilder
 com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2SemanticSearchSettingsBuilder
 com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntitySettingsBuilder
