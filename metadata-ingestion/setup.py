@@ -444,6 +444,10 @@ file_profiling = {
     "datasketches>=5.0.0,<6.0.0",
     # The profiler reads Avro files with fastavro.
     "fastavro>=1.2.0,<2.0.0",
+    # pyarrow resolves tz-aware timestamps (e.g. CSV values ending in "Z" infer as
+    # tz=UTC) through zoneinfo, which needs a tz database. Slim images have no system
+    # zoneinfo, so ship IANA data via tzdata. Same pin as databricks_common.
+    "tzdata>=2022.7,<2030",
     # cachetools is used by the profiling config
     *cachetools_lib,
 }
