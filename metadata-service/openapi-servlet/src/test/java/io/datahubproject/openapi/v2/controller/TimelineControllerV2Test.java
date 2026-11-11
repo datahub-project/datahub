@@ -21,7 +21,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
-import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import io.datahubproject.metadata.context.OperationContext;
@@ -116,7 +115,10 @@ public class TimelineControllerV2Test {
     verify(timelineService)
         .getTimeline(
             any(),
-            eq(EntityUtils.toMissingUrn(HIDDEN_URN)),
+            argThat(
+                (Urn urn) ->
+                    !HIDDEN_URN.equals(urn)
+                        && HIDDEN_URN.getEntityType().equals(urn.getEntityType())),
             eq(Set.of(ChangeCategory.TAG)),
             anyLong(),
             anyLong(),

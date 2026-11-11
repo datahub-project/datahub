@@ -57,7 +57,6 @@ import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
-import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
@@ -298,7 +297,9 @@ public class AspectResourceTest {
     verify(timeseriesAspectService)
         .getAspectValues(
             any(OperationContext.class),
-            eq(EntityUtils.toMissingUrn(hiddenUrn)),
+            argThat(
+                (Urn urn) ->
+                    !hiddenUrn.equals(urn) && hiddenUrn.getEntityType().equals(urn.getEntityType())),
             eq(DATASET_ENTITY_NAME),
             eq(DATASET_PROFILE_ASPECT_NAME),
             any(),

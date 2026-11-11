@@ -43,9 +43,11 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ReadPreference;
 import java.net.URISyntaxException;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -64,7 +66,8 @@ public class EntityUtils {
   private static final UnknownDataGuard UNKNOWN_REFERENCES =
       UnknownDataGuard.forSite(EntityUtils.class, "references to unknown entity types in");
 
-  private static final String MISSING_URN_SUFFIX = "__datahub_missing__";
+  private static final String MISSING_URN_MARKER = "__datahub_missing_";
+  private static final SecureRandom MISSING_URN_RANDOM = new SecureRandom();
 
   private EntityUtils() {}
 
@@ -72,6 +75,9 @@ public class EntityUtils {
    * A distinct urn of the same entity type and key shape that is never stored. Reads for an urn the
    * actor may not read run against it, so they validate input, fail and answer exactly as for a
    * nonexistent urn.
+   *
+   * <p>Each call returns a new random urn. A predictable one could be created by a caller, and a
+   * read of the hidden urn would then answer with the caller's entity.
    */
   @Nonnull
   public static Urn toMissingUrn(@Nonnull final Urn urn) {
@@ -85,7 +91,9 @@ public class EntityUtils {
         break;
       }
     }
-    parts.set(index, parts.get(index) + MISSING_URN_SUFFIX);
+    final byte[] nonce = new byte[16];
+    MISSING_URN_RANDOM.nextBytes(nonce);
+    parts.set(index, parts.get(index) + MISSING_URN_MARKER + HexFormat.of().formatHex(nonce));
     return Urn.createFromTuple(urn.getEntityType(), parts.toArray());
   }
 

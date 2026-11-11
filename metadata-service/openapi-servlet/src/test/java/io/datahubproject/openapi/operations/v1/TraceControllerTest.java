@@ -37,6 +37,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
@@ -235,7 +236,8 @@ public class TraceControllerTest extends AbstractTestNGSpringContextTests {
     Urn readableUrn =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,PROD)");
     Urn hiddenUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,/hidden,PROD)");
-    Urn missingUrn = EntityUtils.toMissingUrn(hiddenUrn);
+    Urn missingUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,/hidden_missing,PROD)");
     TraceStatus noWrite =
         TraceStatus.builder()
             .success(false)
@@ -261,7 +263,10 @@ public class TraceControllerTest extends AbstractTestNGSpringContextTests {
     requestBody.put(hiddenUrn, List.of("datasetProperties"));
 
     try (MockedStatic<EntityAuthorizationUtils> authUtils =
-        mockStatic(EntityAuthorizationUtils.class)) {
+            mockStatic(EntityAuthorizationUtils.class);
+        MockedStatic<EntityUtils> entityUtils =
+            mockStatic(EntityUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      entityUtils.when(() -> EntityUtils.toMissingUrn(hiddenUrn)).thenReturn(missingUrn);
       authUtils
           .when(
               () ->

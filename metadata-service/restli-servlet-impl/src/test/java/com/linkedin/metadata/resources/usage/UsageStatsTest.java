@@ -91,12 +91,17 @@ public class UsageStatsTest {
         TestOperationContexts.systemContextNoSearchAuthorization());
     AuthenticationContext.setAuthentication(
         new Authentication(new Actor(ActorType.USER, "test"), ""));
-    String missingResource = EntityUtils.toMissingUrn(TEST_DATASET_URN).toString();
+    Urn missingUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,missing_table,PROD)");
+    String missingResource = missingUrn.toString();
     UsageQueryResult missingResult = new UsageQueryResult();
 
     try (MockedStatic<TimeseriesAuthUtil> auth =
             Mockito.mockStatic(TimeseriesAuthUtil.class, Mockito.CALLS_REAL_METHODS);
-        MockedStatic<UsageServiceUtil> usage = Mockito.mockStatic(UsageServiceUtil.class)) {
+        MockedStatic<UsageServiceUtil> usage = Mockito.mockStatic(UsageServiceUtil.class);
+        MockedStatic<EntityUtils> entityUtils =
+            Mockito.mockStatic(EntityUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      entityUtils.when(() -> EntityUtils.toMissingUrn(TEST_DATASET_URN)).thenReturn(missingUrn);
       auth.when(
               () ->
                   TimeseriesAuthUtil.canViewAspect(

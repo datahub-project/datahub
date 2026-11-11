@@ -540,4 +540,11 @@ public class EntityUtilsTest {
     assertEquals(key.getPlatform().toString(), "urn:li:dataPlatform:hdfs");
     assertEquals(key.getOrigin().toString(), "PROD");
   }
+
+  @Test
+  public void testToMissingUrnIsUnpredictable() {
+    assertNotEquals(
+        EntityUtils.toMissingUrn(MISSING_DATASET_URN),
+        EntityUtils.toMissingUrn(MISSING_DATASET_URN));
+  }
 }
