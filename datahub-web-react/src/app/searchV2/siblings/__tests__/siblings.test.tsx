@@ -7,7 +7,7 @@ import { useLocation } from 'react-router-dom';
 import SearchResultSiblings, { EXPANDED_PAGE_SIZE } from '@app/searchV2/siblings/SearchResultSiblings';
 import { RESULT_URN, group as fixtureGroup, member, settle } from '@app/searchV2/siblings/__tests__/siblingFixtures';
 import { SHOW_SIBLINGS_URL_PARAM, useShowSiblings } from '@app/searchV2/siblings/useShowSiblings';
-import { useSiblingGroups } from '@app/searchV2/siblings/useSiblingGroups';
+import { SiblingMemberData, useSiblingGroups } from '@app/searchV2/siblings/useSiblingGroups';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 import { GetSiblingGroupsDocument } from '@graphql/siblings.generated';
@@ -102,6 +102,30 @@ describe('useSiblingGroups', () => {
         });
         await waitForNextUpdate();
         expect(result.current.groups.get(RESULT_URN)?.members).toHaveLength(5);
+    });
+
+    it('skips a member that failed to load', async () => {
+        const failed = { ...member('broken'), entity: null } as unknown as SiblingMemberData;
+        const { result, waitForNextUpdate } = renderHook(() => useSiblingGroups([RESULT_URN], true), {
+            wrapper: ({ children }) => (
+                <MockedProvider
+                    mocks={[
+                        {
+                            ...siblingGroupsMock(0, 5),
+                            result: { data: { siblingGroups: [group([MEMBERS[0], failed, MEMBERS[1]], 7)] } },
+                        },
+                    ]}
+                    addTypename
+                >
+                    <TestPageContainer>{children}</TestPageContainer>
+                </MockedProvider>
+            ),
+        });
+        await waitForNextUpdate();
+        expect(result.current.groups.get(RESULT_URN)?.members.map((m) => m.entity.urn)).toEqual([
+            MEMBERS[0].entity.urn,
+            MEMBERS[1].entity.urn,
+        ]);
     });
 
     it('sends one request for the same datasets in a different order, and keeps the groups meanwhile', async () => {

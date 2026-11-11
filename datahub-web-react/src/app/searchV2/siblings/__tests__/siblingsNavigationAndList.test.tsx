@@ -89,6 +89,31 @@ describe('expanded sibling list paging', () => {
         expect(second).toHaveBeenCalledTimes(1);
     });
 
+    it('skips members that failed to load, and pages from the server offset', async () => {
+        // Members whose entity failed to load come back with entity null.
+        const unloaded = (m: SiblingMemberData) => ({ ...m, entity: null }) as unknown as SiblingMemberData;
+        const firstPage = ALL.slice(0, 200).map((m, i) => (i % 2 ? unloaded(m) : m));
+        const first = vi.fn(() => ({ data: { siblingGroups: [group(firstPage, 250)] } }));
+        const second = vi.fn(() => ({ data: { siblingGroups: [group(ALL.slice(200), 250)] } }));
+        render(
+            <MockedProvider
+                mocks={[pageMock(0, EXPANDED_PAGE_SIZE, first), pageMock(200, EXPANDED_PAGE_SIZE, second)]}
+                addTypename
+            >
+                <TestPageContainer>
+                    <SearchResultSiblings urn={RESULT_URN} resultName="orders" group={group(ALL.slice(0, 5), 250)} />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+        fireEvent.click(screen.getByText('+ 245 more siblings of orders'));
+        await waitFor(() => expect(screen.getAllByTestId('sibling-compact-row')).toHaveLength(100));
+
+        // The next request starts after the 200 the server returned, not after the 100 shown.
+        scrollToBottom(screen.getByRole('list', { name: '250 siblings of orders' }));
+        await waitFor(() => expect(screen.getAllByTestId('sibling-compact-row')).toHaveLength(150));
+        expect(second).toHaveBeenCalledTimes(1);
+    });
+
     it('shows an error with Retry when a page fails, and retries', async () => {
         render(
             <MockedProvider
