@@ -4,10 +4,10 @@ import styled from 'styled-components';
 
 import { Button } from '@components/components/Button';
 import { Loader } from '@components/components/Loader/Loader';
-import { SelectItemCheckboxGroup } from '@components/components/SelectItemsPopover/SelectItemCheckboxGroup';
-import { useEntityOperations } from '@components/components/SelectItemsPopover/hooks';
 import { Text } from '@components/components/Text';
 
+import { SelectItemCheckboxGroup } from '@app/sharedV2/selectItemsPopover/SelectItemCheckboxGroup';
+import { useEntityOperations } from '@app/sharedV2/selectItemsPopover/hooks';
 import { InlineListSearch } from '@src/app/entityV2/shared/components/search/InlineListSearch';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Entity, EntityType } from '@src/types.generated';
@@ -91,7 +91,7 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
     handleSelectionChange,
     renderOption,
 }) => {
-    const { t } = useTranslation('alchemy');
+    const { t } = useTranslation('entity.shared.selectors');
     const { t: tc } = useTranslation('common.actions');
     const {
         filteredAddableOptions,

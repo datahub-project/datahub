@@ -219,11 +219,6 @@ const ALCHEMY_APP_IMPORT_EXCLUDED_FILES = [
     'src/alchemy-components/components/IncidentStagePill/constant.ts',
     'src/alchemy-components/components/LineageCard/LineageCard.stories.tsx',
     'src/alchemy-components/components/Modal/Modal.tsx',
-    'src/alchemy-components/components/SelectItemsPopover/SelectItemPopover.tsx',
-    'src/alchemy-components/components/SelectItemsPopover/SelectItems.stories.tsx',
-    'src/alchemy-components/components/SelectItemsPopover/SelectItems.tsx',
-    'src/alchemy-components/components/SelectItemsPopover/__mock.data.ts',
-    'src/alchemy-components/components/SelectItemsPopover/hooks.tsx',
     'src/alchemy-components/components/Timeline/types.ts',
 ];
 
