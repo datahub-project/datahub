@@ -72,7 +72,9 @@ export const SidebarSiblingsSection = () => {
         skip: !groupQueried,
         variables: { input: { urns: [urn], start: 0, count: SIBLINGS_SHOWN_INLINE } },
     });
-    const rawGroup = groupData?.siblingGroups?.[0];
+    // Only this dataset's group: when moving between datasets, the previous one's data can still be
+    // returned while the new request is in flight.
+    const rawGroup = groupData?.siblingGroups?.find((candidate) => candidate.urn === urn);
     const group = rawGroup ? withLoadedMembers(rawGroup) : undefined;
 
     if (!entityData) {
