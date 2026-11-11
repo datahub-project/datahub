@@ -128,6 +128,7 @@ buildscript {
   // CVE-2026-59902 (netty-transport-sctp): 4.2.17+
   // CVE-2026-100660..100665 (netty-codec-http3 / QUIC): 4.2.18+
   ext.nettyVersion = '4.2.19.Final' // align all io.netty modules (excl. netty-tcnative line)
+  ext.nettyTcnativeVersion = '2.0.84.Final' // CVE-2026-116541; matches tcnative.version in netty-parent 4.2.19.Final; bump together with nettyVersion
   // CVE-2026-45799: wire-runtime skipGroup() negative-length crash (fixed in 6.3.0+);
   // transitive via schema-registry-serde → wire-compiler → wire-runtime-jvm
   ext.wireVersion = '6.3.0'
@@ -787,10 +788,14 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
         details.because("Jackson aligned to ${v}")
       }
       // Align all Netty modules to nettyVersion (e.g. from awssdk netty-nio-client).
-      // Exclude netty-tcnative-*: they use a separate 2.x version line and have no 4.1.x release.
+      // netty-tcnative-* use a separate 2.0.x version line, aligned to nettyTcnativeVersion instead.
       if (details.requested.group == 'io.netty' && !details.requested.name.startsWith('netty-tcnative')) {
         details.useVersion(rootProject.ext.nettyVersion)
         details.because("Netty aligned to ${rootProject.ext.nettyVersion} for CVE fixes")
+      }
+      if (details.requested.group == 'io.netty' && details.requested.name.startsWith('netty-tcnative')) {
+        details.useVersion(rootProject.ext.nettyTcnativeVersion)
+        details.because("netty-tcnative aligned to ${rootProject.ext.nettyTcnativeVersion} for CVE-2026-116541")
       }
       if (details.requested.group == 'com.squareup.wire') {
         details.useVersion(rootProject.ext.wireVersion)
