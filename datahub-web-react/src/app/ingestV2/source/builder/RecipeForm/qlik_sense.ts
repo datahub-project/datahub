@@ -305,17 +305,17 @@ export const QLIK_INGEST_OWNER: RecipeField = {
 };
 
 const maxWorkersFieldPath = 'source.config.max_workers';
-// Left unset by default: the connector reads 1 app at a time on Qlik Cloud, where every
-// open app's data is loaded, and 4 on-prem, where apps are opened without their data.
+// Left unset by default: the connector reads 1 app at a time when it loads app data, as on
+// Qlik Cloud and on-prem by default, and 4 on-prem when apps are opened without their data.
 export const QLIK_MAX_WORKERS: RecipeField = {
     name: 'max_workers',
     label: 'Max Workers',
-    helper: 'Apps read at the same time. Defaults to 1 on Qlik Cloud, 4 on-prem',
+    helper: 'Apps read at the same time. Defaults to 1, or 4 on-prem without app data',
     tooltip:
-        'Number of apps and datasets read at the same time, across all spaces and streams. Each app read holds one Engine session open. Defaults to 1 on Qlik Cloud, where every open app loads its data, and 4 on Qlik Sense Enterprise, where apps are opened without their data. Lower it if Qlik Cloud rate-limits the run.',
+        'Number of apps and datasets read at the same time, across all spaces and streams. Each app read holds one Engine session open. Defaults to 1, as every open app loads its data into Engine memory, and to 4 on Qlik Sense Enterprise when Read Data Model is turned off. Lower it if Qlik Cloud rate-limits the run.',
     type: FieldType.TEXT,
     fieldPath: maxWorkersFieldPath,
-    placeholder: '1 on Qlik Cloud, 4 on-prem',
+    placeholder: '1',
     rules: [integerRangeRule(1)],
     setValueOnRecipeOverride: (recipe: any, value: string) =>
         setIntegerValueOnRecipe(recipe, value, maxWorkersFieldPath),
@@ -345,6 +345,20 @@ export const QLIK_ON_PREM_INGEST_UNPUBLISHED_APPS: RecipeField = {
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.on_prem.ingest_unpublished_apps',
     rules: null,
+    dynamicHidden: isCloud,
+};
+
+const readDataModelFieldPath = 'source.config.on_prem.read_data_model';
+export const QLIK_ON_PREM_READ_DATA_MODEL: RecipeField = {
+    name: 'on_prem.read_data_model',
+    label: 'Read Data Model',
+    helper: 'Open apps with their data to read table fields and types',
+    tooltip:
+        'Open each app with its data to read its data model, which gives every table its fields and types, including tables loaded with LOAD * and from QVDs. The Engine keeps each app in memory until the app cache time set in the QMC has passed. Turn off to open apps without their data; table fields then come only from the load script. Qlik Sense Enterprise on Windows only.',
+    type: FieldType.BOOLEAN,
+    fieldPath: readDataModelFieldPath,
+    rules: null,
+    getValueFromRecipeOverride: (recipe: any) => get(recipe, readDataModelFieldPath) !== false,
     dynamicHidden: isCloud,
 };
 

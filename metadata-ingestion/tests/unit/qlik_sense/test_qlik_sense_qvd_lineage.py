@@ -19,9 +19,11 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     parse_script,
 )
 from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
     DatasetPropertiesClass,
     SchemaMetadataClass,
     SubTypesClass,
+    UpstreamClass,
     UpstreamLineageClass,
 )
 from tests.unit.qlik_sense.qlik_fakes import ONPREM_CONFIG
@@ -170,7 +172,12 @@ def _app(app_id: str, script: Optional[str]) -> App:
     )
 
 
-def _run(apps: List[App]) -> "tuple[QlikSenseSource, Dict[str, Dict[str, Any]]]":
+def _run(
+    apps: List[App], current: Optional[UpstreamLineageClass] = None
+) -> "tuple[QlikSenseSource, Dict[str, Dict[str, Any]]]":
+    graph = MagicMock()
+    # The QVDs' lineage as DataHub holds it before the run.
+    graph.get_aspect.return_value = current
     with patch(
         "datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI"
     ) as mock_api_cls:
@@ -188,7 +195,7 @@ def _run(apps: List[App]) -> "tuple[QlikSenseSource, Dict[str, Dict[str, Any]]]"
         api.get_items.return_value = apps
         source = QlikSenseSource(
             QlikSourceConfig.model_validate(ONPREM_CONFIG),
-            PipelineContext(run_id="test-qvd-lineage"),
+            PipelineContext(run_id="test-qvd-lineage", graph=graph),
         )
         aspects: Dict[str, Dict[str, Any]] = {}
         for wu in source.get_workunits_internal():
@@ -248,6 +255,24 @@ def test_qvd_lineage_is_kept_when_an_app_script_could_not_be_read() -> None:
     assert "Lineage of Qlik QVDs not updated" in [
         w.title for w in source.reporter.warnings
     ]
+
+
+def test_qvd_lineage_keeps_edges_not_from_app_tables() -> None:
+    manual = make_dataset_urn("snowflake", "db.schema.orders")
+    _, aspects = _run(
+        [_app("etl-app", ETL_SCRIPT)],
+        current=UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(dataset=manual, type=DatasetLineageTypeClass.COPY),
+                # An app table that no longer stores into the QVD.
+                UpstreamClass(
+                    dataset=_urn("old-app.orders"), type=DatasetLineageTypeClass.COPY
+                ),
+            ]
+        ),
+    )
+    lineage = aspects[CLEAN]["UpstreamLineageClass"]
+    assert [u.dataset for u in lineage.upstreams] == [manual, _urn("etl-app.orders")]
 
 
 def test_connection_names_match_without_case() -> None:

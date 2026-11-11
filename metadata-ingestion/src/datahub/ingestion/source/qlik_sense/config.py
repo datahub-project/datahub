@@ -323,9 +323,10 @@ class QlikSourceConfig(
         default=None,
         ge=1,
         description="Number of apps and datasets read at the same time, across "
-        "all spaces and streams. Each app read holds one Engine session open. Defaults to 4 on-prem, where apps "
-        "are opened without their data, and to 1 on Qlik Cloud, where every open "
-        "app's data is loaded.",
+        "all spaces and streams. Each app read holds one Engine session open. "
+        "Defaults to 1, as every app opened with its data is loaded into Engine "
+        "memory, and to 4 on-prem when `on_prem.read_data_model` is false and apps "
+        "are opened without their data.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
@@ -374,7 +375,7 @@ class QlikSourceConfig(
     def resolved_max_workers(self) -> int:
         if self.max_workers is not None:
             return self.max_workers
-        return 4 if self.on_prem is not None else 1
+        return 4 if self.on_prem is not None and not self.on_prem.read_data_model else 1
 
     def skips_unchanged_apps(self) -> bool:
         return self.on_prem is not None and self.on_prem.skip_unchanged_apps
