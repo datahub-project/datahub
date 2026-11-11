@@ -1208,6 +1208,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             ScriptTableLineage(
                 label=script_table.label,
                 identifier=identifier,
+                label_unknown=script_table.label_unknown,
                 connection=connection_name,
                 mapping=script_table.mapping,
             ),
@@ -1607,6 +1608,41 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if upstream_lineage_workunit:
                 yield upstream_lineage_workunit
 
+    @staticmethod
+    def _name_unknown_tables(app: App, script_tables: List[ScriptTableLineage]) -> None:
+        """Gives a script table the parser could not name its name in the data
+        model, when exactly one data model table no other table claims has
+        exactly its columns. Otherwise it keeps its made-up name."""
+        claimed = {
+            name.lower()
+            for name in (
+                *(table.label for table in script_tables if not table.label_unknown),
+                *(table.label for table in app.lineage_tables),
+            )
+        }
+        unclaimed = [
+            table
+            for table in app.data_model_tables
+            if table.name.lower() not in claimed
+        ]
+        by_fields: Dict[frozenset, List[str]] = {}
+        for model_table in unclaimed:
+            fields = frozenset(field.name.lower() for field in model_table.fields)
+            by_fields.setdefault(fields, []).append(model_table.name)
+        unknown = [
+            table
+            for table in script_tables
+            if table.label_unknown and not table.mapping and table.column_upstreams
+        ]
+        columns = [frozenset(c.lower() for c in t.column_upstreams) for t in unknown]
+        for table, table_columns in zip(unknown, columns, strict=True):
+            names = by_fields.get(table_columns, [])
+            # Two unnamed tables with the same columns can't be told apart.
+            if len(names) == 1 and columns.count(table_columns) == 1:
+                table.label = names[0]
+                table.identifier = f"{app.id}.{names[0]}".lower()
+                table.label_unknown = False
+
     def _table_schema(
         self, identifier: str, parsed: List[QlikDatasetSchemaField]
     ) -> List[QlikDatasetSchemaField]:
@@ -1651,6 +1687,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.apps_without_load_model.append(app.id)
         parsed = self._parsed_script(app)
         script_tables = self._build_script_tables(app, parsed=parsed)
+        self._name_unknown_tables(app, script_tables)
         qvd_lineage = (
             self._app_qvd_lineage(app, parsed, script_tables)
             if self.config.on_prem is not None
