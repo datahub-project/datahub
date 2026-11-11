@@ -199,8 +199,9 @@ class QlikDataset(Item):
     rowCount: int
     itemId: str
     datasetSchema: List[SchemaField]
-    # App tables that store into this dataset.
-    stored_from_qris: List[str] = []
+    # App tables that store into this dataset; None when Qlik's lineage graph
+    # for it could not be read.
+    stored_from_qris: Optional[List[str]] = None
 
     @model_validator(mode="before")
     @classmethod
