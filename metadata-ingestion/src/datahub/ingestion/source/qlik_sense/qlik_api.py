@@ -108,11 +108,13 @@ class QlikAPI(QlikBaseAPI):
         response_dict[Constant.ITEMID] = item_id
         dataset = QlikDataset.model_validate(response_dict)
         try:
-            dataset.stored_from_qris = [
-                qri
-                for table in self.get_table_lineage(dataset.secureQri) or []
-                for qri in table.source_qris
-            ]
+            tables = self.get_table_lineage(dataset.secureQri)
+            # No graph (404) leaves the storing apps unknown, while an empty
+            # graph means none store into it any more.
+            if tables is not None:
+                dataset.stored_from_qris = [
+                    qri for table in tables for qri in table.source_qris
+                ]
         except Exception as e:
             log_read_error(
                 f"Unable to fetch table lineage of dataset {dataset_id}. Exception: {e}"
