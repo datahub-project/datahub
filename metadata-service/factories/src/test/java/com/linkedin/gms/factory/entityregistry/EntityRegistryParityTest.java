@@ -204,11 +204,7 @@ public class EntityRegistryParityTest {
           Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME);
 
   /** Generator registrations whose key is not an aspect name in the registry. */
-  private static final Set<String> GENERATOR_ASPECT_ALLOWLIST =
-      Set.of(
-          // A record inside the businessAttributes aspect, not an aspect. Change events for it come
-          // from BusinessAttributesChangeEventGenerator; this registration is never looked up.
-          Constants.BUSINESS_ATTRIBUTE_ASSOCIATION);
+  private static final Set<String> GENERATOR_ASPECT_ALLOWLIST = Set.of();
 
   private EntityRegistry registry;
   private Set<String> searchTypes;
