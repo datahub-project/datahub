@@ -152,7 +152,9 @@ export default function LineageDisplay({
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [nodes, dataVersion],
     );
-    const settled = useLineageSettled(!loaded || expanding || entitiesLoading, fitting);
+    // Not `loaded`: a home node whose lineage is empty, or only soft-deleted, never bumps nodeVersion
+    const fetched = initialized ?? nodeVersion > 0;
+    const settled = useLineageSettled(!fetched || expanding || entitiesLoading, fitting);
 
     return (
         <LineageDisplayContext.Provider
