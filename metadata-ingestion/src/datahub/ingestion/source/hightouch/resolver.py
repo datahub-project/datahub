@@ -46,11 +46,19 @@ def normalize_column_name(name: str) -> str:
 
 
 def match_field(name: str, candidates: Iterable[str]) -> Optional[str]:
-    """The candidate naming the same column as `name`, ignoring case, `_` and `-`."""
-    normalized = normalize_column_name(name)
-    for candidate in candidates:
-        if normalize_column_name(candidate) == normalized:
-            return candidate
+    """The candidate naming the same column as `name`: an exact match, else the
+    only case-insensitive match, else the only match ignoring case, `_` and `-`.
+    None when a step is ambiguous, because lineage to the wrong column is worse
+    than none (`first_name` must not be wired to `firstname` by chance)."""
+    candidates = list(candidates)
+    if name in candidates:
+        return name
+    for key in (str.lower, normalize_column_name):
+        matches = {c for c in candidates if key(c) == key(name)}
+        if len(matches) == 1:
+            return matches.pop()
+        if matches:
+            return None
     return None
 
 

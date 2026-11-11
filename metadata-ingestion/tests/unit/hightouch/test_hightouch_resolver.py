@@ -12,7 +12,7 @@ from datahub.ingestion.source.hightouch.models import (
     HightouchModel,
     HightouchSourceConnection,
 )
-from datahub.ingestion.source.hightouch.resolver import HightouchResolver
+from datahub.ingestion.source.hightouch.resolver import HightouchResolver, match_field
 
 
 def make_resolver(
@@ -200,3 +200,19 @@ def test_datahub_lookup_failures_degrade_and_are_cached():
         "dataset schema": 1,
         "dataset existence": 1,
     }
+
+
+@pytest.mark.parametrize(
+    "name, candidates, expected",
+    [
+        ("user_email", ["USER_EMAIL", "ID"], "USER_EMAIL"),
+        ("first_name", ["first_name", "firstname"], "first_name"),
+        # Only a unique loose match is trusted.
+        ("first-name", ["FIRST_NAME", "ID"], "FIRST_NAME"),
+        ("first_name", ["firstname", "first-name"], None),
+        ("Name", ["NAME", "name"], None),
+        ("missing", ["ID"], None),
+    ],
+)
+def test_match_field_prefers_exact_and_refuses_ambiguity(name, candidates, expected):
+    assert match_field(name, candidates) == expected
