@@ -568,3 +568,41 @@ def test_graph_tables_take_their_schema_from_the_data_model(
         (field.fieldPath, field.nativeDataType)
         for field in schemas[_urn("etl-app.curve")].fields
     ] == [("Day", "DATE"), ("Price", "DOUBLE")]
+
+
+def test_unnamed_script_table_takes_its_data_model_name() -> None:
+    app = _app("etl-app", [])
+    app.data_model_tables = [
+        DataModelTable.from_engine(
+            {"qName": name, "qFields": [{"qName": f} for f in fields]}
+        )
+        for name, fields in [
+            ("Orders", ["id", "amount"]),
+            ("Customers", ["id", "name"]),
+            # Already claimed by a named script table.
+            ("Prices", ["sku", "price"]),
+        ]
+    ]
+    unnamed = ScriptTableLineage(
+        label="table_1",
+        identifier="etl-app.table_1",
+        label_unknown=True,
+        column_upstreams={"ID": [], "Amount": []},
+    )
+    # SELECT * against a table DataHub has no schema for: no columns to match.
+    unknown_columns = ScriptTableLineage(
+        label="table_2", identifier="etl-app.table_2", label_unknown=True
+    )
+    named = ScriptTableLineage(
+        label="Prices",
+        identifier="etl-app.prices",
+        column_upstreams={"sku": [], "price": []},
+    )
+
+    QlikSenseSource._name_unknown_tables(app, [unnamed, unknown_columns, named])
+
+    assert (unnamed.label, unnamed.identifier) == ("Orders", "etl-app.orders")
+    assert (unknown_columns.label, unknown_columns.identifier) == (
+        "table_2",
+        "etl-app.table_2",
+    )

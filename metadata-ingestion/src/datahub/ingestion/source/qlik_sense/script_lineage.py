@@ -297,6 +297,9 @@ class PrecedingLoad(BaseModel):
 
 class ScriptTable(BaseModel):
     label: str
+    # True when the parser made the label up, as the table's name in Qlik
+    # could not be read from the statement.
+    label_unknown: bool = False
     connection: Optional[str] = None
     sql: str
     # The LOAD statements stacked on the SQL, top first.
@@ -313,6 +316,7 @@ class ScriptTable(BaseModel):
 class ScriptTableLineage(BaseModel):
     label: str
     identifier: str
+    label_unknown: bool = False
     connection: Optional[str] = None
     upstream_urns: List[str] = []
     # Downstream column name to upstream schema field URNs.
@@ -796,15 +800,14 @@ class _ScriptParser(BaseModel):
                 else:
                     # A reshaping under the preceding loads hides the fields.
                     crosstable = None if reshaped else self.pending_crosstable
-                table_label = (
-                    label
-                    or self.pending_label
-                    or _from_table_name(sql.group("sql"))
-                    or f"table_{len(self.tables) + 1}"
+                known_label = (
+                    label or self.pending_label or _from_table_name(sql.group("sql"))
                 )
+                table_label = known_label or f"table_{len(self.tables) + 1}"
                 self.tables.append(
                     ScriptTable(
                         label=table_label,
+                        label_unknown=known_label is None,
                         connection=self.flow.state.connection,
                         sql=sql.group("sql"),
                         preceding_loads=self.pending_loads,
