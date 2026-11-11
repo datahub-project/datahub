@@ -27,16 +27,11 @@ import org.testng.annotations.Test;
 public class EntityChangeEventGeneratorHookParityTest {
 
   /**
-   * Generators registered in the factory that the hook deliberately does not route. Routing
-   * institutionalMemory or glossaryTermInfo would publish change event types that are not emitted
-   * today; businessAttributeAssociation is a field name, not an aspect, so no change log event ever
-   * carries it.
+   * Generators registered in the factory that the hook deliberately does not route. Routing them
+   * would publish change event types that are not emitted today.
    */
   private static final Set<String> NOT_ROUTED_BY_HOOK =
-      Set.of(
-          INSTITUTIONAL_MEMORY_ASPECT_NAME,
-          GLOSSARY_TERM_INFO_ASPECT_NAME,
-          BUSINESS_ATTRIBUTE_ASSOCIATION);
+      Set.of(INSTITUTIONAL_MEMORY_ASPECT_NAME, GLOSSARY_TERM_INFO_ASPECT_NAME);
 
   /**
    * Aspects the hook routes although the factory registers no generator for them, so they produce
