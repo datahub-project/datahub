@@ -10,10 +10,13 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Entity, EntityType, GlossaryNode, GlossaryTerm } from '@src/types.generated';
 
 const ImageIcon = styled(Image)<{ $size: number }>`
-    height: ${(props) => props.$size}px;
-    width: ${(props) => props.$size}px;
-    object-fit: contain;
-    background-color: transparent;
+    /* antd 5 sizes .ant-image .ant-image-img with two classes; && keeps these sizes winning */
+    && {
+        height: ${(props) => props.$size}px;
+        width: ${(props) => props.$size}px;
+        object-fit: contain;
+        background-color: transparent;
+    }
 `;
 
 const EntityIcon = styled.div`

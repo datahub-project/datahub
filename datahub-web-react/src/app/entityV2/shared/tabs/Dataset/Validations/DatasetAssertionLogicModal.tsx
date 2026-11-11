@@ -13,7 +13,7 @@ type Props = {
 export const DatasetAssertionLogicModal = ({ logic, visible, onClose }: Props) => {
     const { t: tc } = useTranslation('common.actions');
     return (
-        <Modal visible={visible} onCancel={onClose} footer={<Button onClick={onClose}>{tc('close')}</Button>}>
+        <Modal open={visible} onCancel={onClose} footer={<Button onClick={onClose}>{tc('close')}</Button>}>
             <Query query={logic} />
         </Modal>
     );

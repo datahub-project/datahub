@@ -38,12 +38,15 @@ const PopoverContentSection = styled.div`
 `;
 
 const PreviewImage = styled(Image)`
-    max-height: 9px;
-    width: auto;
-    object-fit: contain;
-    background-color: transparent;
-    padding-left: 1px;
-    margin-right: 4px;
+    /* antd 5 sizes .ant-image .ant-image-img with two classes; && keeps these sizes winning */
+    && {
+        max-height: 9px;
+        width: auto;
+        object-fit: contain;
+        background-color: transparent;
+        padding-left: 1px;
+        margin-right: 4px;
+    }
 `;
 
 function PlatformLabel({ logoUrl, name, children }: { logoUrl?: string; name?: string; children?: React.ReactNode }) {

@@ -363,7 +363,7 @@ describe('Schema', () => {
             },
         };
 
-        const { queryByText } = render(
+        const { getByRole } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <EntityContext.Provider
@@ -395,6 +395,7 @@ describe('Schema', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        expect(queryByText('Stats')).toBeInTheDocument();
+        // antd copies headers into a hidden measure row, so match the visible column header only
+        expect(getByRole('columnheader', { name: /Stats/ })).toBeInTheDocument();
     });
 });

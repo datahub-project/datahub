@@ -1,8 +1,4 @@
-import generatePicker from 'antd/es/date-picker/generatePicker';
-import dayjsGenerateConfig from 'rc-picker/es/generate/dayjs';
-
-import type { Dayjs } from '@utils/dayjs';
-
-const DatePicker = generatePicker<Dayjs>(dayjsGenerateConfig);
+// antd 5's DatePicker is dayjs-based out of the box; kept as the single import point for it
+import { DatePicker } from 'antd';
 
 export default DatePicker;

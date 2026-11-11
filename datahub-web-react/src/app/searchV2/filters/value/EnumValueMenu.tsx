@@ -11,7 +11,6 @@ import {
     useFilterOptionsBySearchQuery,
     useLoadAggregationOptions,
 } from '@app/searchV2/filters/value/utils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityType } from '@src/types.generated';
 
 const DEBOUNCE_MS = 300;
@@ -41,7 +40,6 @@ export default function EnumValueMenu({
     aggregationsEntityTypes,
     showDefaultOptions = true,
 }: Props) {
-    const entityRegistry = useEntityRegistry();
     const displayName = useFilterDisplayName(field);
 
     // Ideally we would not have staged values, and filters would update automatically.
@@ -89,7 +87,6 @@ export default function EnumValueMenu({
                 entity: option.entity,
                 displayName: getFilterDisplayName(option, field),
             },
-            entityRegistry,
             selectedFilterOptions: values.map((value) => {
                 return { field: field.field, value: value.value };
             }),

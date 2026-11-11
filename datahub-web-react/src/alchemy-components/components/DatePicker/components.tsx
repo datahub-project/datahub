@@ -46,7 +46,7 @@ export const StyledCalendarWrapper = styled.div`
         border: 1px solid ${({ theme }) => theme.colors.borderBrand} !important;
     }
 
-    & .ant-picker-today-btn {
+    & .ant-picker-now-btn {
         color: ${({ theme }) => theme.colors.textBrand};
     }
 

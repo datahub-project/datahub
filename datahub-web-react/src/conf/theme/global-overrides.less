@@ -1,3 +1,65 @@
+// antd 4's stylesheet set these document-wide base styles; antd 5's reset.css leaves them out
+body {
+    color: rgba(0, 0, 0, 0.85);
+    font-size: 12px;
+    font-family:
+        'Manrope',
+        -apple-system,
+        BlinkMacSystemFont,
+        'Segoe UI',
+        Roboto,
+        'Helvetica Neue',
+        Arial,
+        'Noto Sans',
+        sans-serif,
+        'Apple Color Emoji',
+        'Segoe UI Emoji',
+        'Segoe UI Symbol',
+        'Noto Color Emoji';
+    font-variant: tabular-nums;
+    line-height: 1.5715;
+    background-color: #fff;
+    font-feature-settings: 'tnum';
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: rgba(0, 0, 0, 0.85);
+}
+
+a {
+    color: #533fd1;
+    text-decoration: none;
+    background-color: transparent;
+    outline: none;
+    cursor: pointer;
+    transition: color 0.3s;
+
+    &:hover {
+        color: #7a66de;
+    }
+
+    &:active {
+        color: #382bab;
+    }
+
+    &:active,
+    &:hover,
+    &:focus {
+        text-decoration: none;
+        outline: 0;
+    }
+
+    &[disabled] {
+        color: rgba(0, 0, 0, 0.25);
+        cursor: not-allowed;
+    }
+}
+
 body {
     margin: 0;
     font-weight: 500;
@@ -5,11 +67,75 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-.ant-modal-title {
+.ant-modal .ant-modal-title {
     font-weight: 700;
 }
 .ant-form-item-label {
     font-weight: 600;
+}
+
+// antd 5 fixes single selects at the control height; selects that render their own input (AutoComplete
+// search bars) need to grow with it as they did in antd 4
+.ant-select-single.ant-select-customize-input {
+    height: auto;
+}
+
+// antd 5 puts an 8px gap between every child of a button, which widens buttons built from custom
+// icons and labels. antd 4 only spaced an antd icon from its text, so restore that.
+.ant-btn {
+    gap: 0;
+}
+.ant-btn > .ant-btn-icon + span,
+.ant-btn > span + .ant-btn-icon,
+.ant-btn > .anticon + span,
+.ant-btn > span + .anticon {
+    margin-inline-start: 8px;
+}
+
+// antd 5 pads the whole modal box; restore antd 4's padded header, body and footer with dividers
+.ant-modal .ant-modal-content {
+    padding: 0;
+}
+.ant-modal .ant-modal-header {
+    padding: 16px 24px;
+    margin-bottom: 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+.ant-modal .ant-modal-body {
+    padding: 24px;
+}
+.ant-modal .ant-modal-footer {
+    padding: 10px 16px;
+    margin-top: 0;
+    border-top: 1px solid #f0f0f0;
+}
+.ant-modal .ant-modal-close {
+    top: 16px;
+    inset-inline-end: 16px;
+}
+.ant-modal.ant-modal-confirm .ant-modal-body {
+    padding: 32px 32px 24px;
+}
+
+// antd 5 sets the token font size and line height on Typography; antd 4 let both inherit
+.ant-typography {
+    font-size: inherit;
+    line-height: inherit;
+}
+
+// antd 5 sizes table sort arrows from fontSizeSM (10px here); antd 4 fixed them at 11px
+.ant-table-wrapper .ant-table-column-sorter-up,
+.ant-table-wrapper .ant-table-column-sorter-down {
+    font-size: 11px;
+}
+
+// antd 5 has no title-weight token: titles share fontWeightStrong with <strong>, which should stay 600
+h1.ant-typography,
+h2.ant-typography,
+h3.ant-typography,
+h4.ant-typography,
+h5.ant-typography {
+    font-weight: 700;
 }
 
 .ant-btn .anticon {

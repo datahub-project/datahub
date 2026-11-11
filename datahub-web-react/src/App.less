@@ -1,8 +1,6 @@
-@import 'antd/dist/antd.less';
-@import './conf/theme/global-variables.less';
+// antd 5 is styled with CSS-in-JS; its theme tokens live in src/alchemy-components/theme/antdTheme.ts
+@import (inline) 'antd/dist/reset.css';
 @import './conf/theme/global-overrides.less';
-// Note that theme variables are also applied via an override in the
-// less preprocessor configuration.
 
 @font-face {
     font-family: 'Manrope';

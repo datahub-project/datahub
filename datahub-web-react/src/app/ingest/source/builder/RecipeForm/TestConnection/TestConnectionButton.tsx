@@ -23,7 +23,7 @@ export function getRecipeJson(recipeYaml: string) {
         const messageText = (e as any).parsedLine
             ? `Please fix line ${(e as any).parsedLine} in your recipe.`
             : 'Please check your recipe configuration.';
-        message.warn(`Found invalid YAML. ${messageText}`);
+        message.warning(`Found invalid YAML. ${messageText}`);
         return null;
     }
     return recipeJson;

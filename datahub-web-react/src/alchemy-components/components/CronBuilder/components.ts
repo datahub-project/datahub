@@ -37,7 +37,7 @@ export const CronBuilderContainer = styled.div`
  * only be styled globally. `react-js-cron` puts this class on every dropdown.
  */
 export const CronDropdownGlobalStyles = createGlobalStyle`
-    .react-js-cron-select-dropdown {
+    .react-js-cron-select-dropdown.ant-select-dropdown {
         .ant-select-item {
             color: ${(props) => props.theme.colors.textSecondary};
             font-size: 14px;

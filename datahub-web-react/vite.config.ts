@@ -151,13 +151,6 @@ export default defineConfig(async ({ mode }) => {
     process.env = { ...process.env, ...env };
     const isCI = process.env.CI === 'true';
 
-    let antThemeConfig: any;
-    if (process.env.ANT_THEME_CONFIG) {
-        const themeConfigFile = `./src/conf/theme/${process.env.ANT_THEME_CONFIG}`;
-        // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
-        antThemeConfig = require(themeConfigFile);
-    }
-
     // common extra logging setup for proxies
     const proxyDebugConfig = (proxy, options) => {
         proxy.on('proxyReq', (proxyReq, req, _res) => {
@@ -321,16 +314,6 @@ export default defineConfig(async ({ mode }) => {
             port: 3000,
             proxy: proxyOptions,
             https: isHttps,
-        },
-        css: {
-            preprocessorOptions: {
-                less: {
-                    javascriptEnabled: true,
-                    // Override antd theme variables.
-                    // https://4x.ant.design/docs/react/customize-theme#Ant-Design-Less-variables
-                    modifyVars: antThemeConfig,
-                },
-            },
         },
         test: {
             // scripts/*.test.mjs uses node:test and is run from the frontend-build job.

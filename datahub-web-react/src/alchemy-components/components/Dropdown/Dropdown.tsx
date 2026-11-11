@@ -13,6 +13,7 @@ export default function Dropdown({
     children,
     overlayClassName,
     resetDefaultMenuStyles,
+    onOpenChange,
     ...props
 }: React.PropsWithChildren<DropdownProps>) {
     // Get all overlay classes from parents
@@ -30,8 +31,20 @@ export default function Dropdown({
         return overlayClassNamesWithDefault.join(' ');
     }, [overlayClassName, overlayClassNames, resetDefaultMenuStyles]);
 
+    // antd 5 also asks to close when a Menu inside custom dropdownRender content is clicked (source
+    // 'menu'); antd 4 only did that for the menu prop. Keep custom content (e.g. filter checkboxes) open.
+    const handleOpenChange: DropdownProps['onOpenChange'] = (open, info) => {
+        if (!open && info?.source === 'menu' && props.dropdownRender && !props.menu) return;
+        onOpenChange?.(open, info);
+    };
+
     return (
-        <AntdDropdown trigger={['click']} {...props} overlayClassName={finalOverlayClassName}>
+        <AntdDropdown
+            trigger={['click']}
+            {...props}
+            onOpenChange={handleOpenChange}
+            overlayClassName={finalOverlayClassName}
+        >
             {children}
         </AntdDropdown>
     );

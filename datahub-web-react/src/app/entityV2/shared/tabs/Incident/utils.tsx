@@ -1,4 +1,3 @@
-import { format } from 'date-fns';
 import Fuse from 'fuse.js';
 import React from 'react';
 
@@ -37,6 +36,7 @@ import {
     IncidentState,
     IncidentType,
 } from '@src/types.generated';
+import dayjs from '@utils/dayjs';
 
 //  Fuse.js setup for search functionality
 const fuse = new Fuse<any>([], {
@@ -468,13 +468,7 @@ export const getLinkedAssetsData = (assets) => {
 };
 
 export const getFormattedDateForResolver = (lastUpdate) => {
-    // Create a Date object from the timestamp
-    const date = new Date(lastUpdate);
-
-    // Format the date and time
-    const resolvedDateTime = format(date, "M/d/yyyy 'at' h:mm a");
-
-    return resolvedDateTime;
+    return dayjs(lastUpdate).format('M/D/YYYY [at] h:mm A');
 };
 
 // Helper function for validating the form errors

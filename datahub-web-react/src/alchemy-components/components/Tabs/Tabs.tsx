@@ -52,7 +52,8 @@ const StyledTabsPrimary = styled(AntTabs)<{
     ${({ $addPaddingLeft }) =>
         $addPaddingLeft
             ? `
-            .ant-tabs-tab {
+            .ant-tabs-tab,
+            .ant-tabs-tab + .ant-tabs-tab {
                 margin-left: 16px;
             }
             `
@@ -78,7 +79,7 @@ const StyledTabsPrimary = styled(AntTabs)<{
                 background-color: ${props.theme.colors.bg};
             }
         `}
-    .ant-tabs-tab-active .ant-tabs-tab-btn {
+    .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
         color: ${(props) => props.theme.colors.textBrand};
         font-weight: 600;
     }
@@ -144,7 +145,8 @@ const StyledTabsSecondary = styled(AntTabs)<{
     ${({ $addPaddingLeft }) =>
         $addPaddingLeft
             ? `
-            .ant-tabs-tab {
+            .ant-tabs-tab,
+            .ant-tabs-tab + .ant-tabs-tab {
                 margin-left: 8px;
             }
             `
@@ -164,7 +166,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
         background-color: ${(props) => props.theme.colors.bgSurfaceBrand}80;
     }
 
-    .ant-tabs-tab-active .ant-tabs-tab-btn {
+    .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
         color: ${(props) => props.theme.colors.textBrand};
         font-weight: 600;
     }
