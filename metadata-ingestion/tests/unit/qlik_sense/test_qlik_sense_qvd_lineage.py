@@ -10,6 +10,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import App
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.qvd_lineage import (
     QvdPathResolver,
+    app_qvd_lineage,
     canonical_path,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import (
@@ -246,4 +247,37 @@ def test_qvd_lineage_is_kept_when_an_app_script_could_not_be_read() -> None:
     assert "SchemaMetadataClass" not in aspects.get(CLEAN, {})
     assert "Lineage of Qlik QVDs not updated" in [
         w.title for w in source.reporter.warnings
+    ]
+
+
+def test_connection_names_match_without_case() -> None:
+    resolver = QvdPathResolver(
+        folders={"QVD Data": "//nas/qvd"},
+        ignored_connections=[],
+        folder_aliases={},
+    )
+    assert resolver.resolve(QvdReference(connection="qvd data", path="x.qvd")) == (
+        "//nas/qvd/x.qvd"
+    )
+
+
+def test_stored_qvd_takes_the_data_model_fields_a_load_star_hides() -> None:
+    parsed = parse_script(
+        "Orders: LOAD * FROM [lib://QVD Data/raw.qvd] (qvd);\n"
+        "STORE Orders INTO [lib://QVD Data/clean.qvd] (qvd);"
+    )
+    resolver = QvdPathResolver(
+        folders={"QVD Data": "//nas/qvd"}, ignored_connections=[], folder_aliases={}
+    )
+    lineage = app_qvd_lineage(
+        "etl-app",
+        parsed,
+        resolver,
+        _urn,
+        table_fields={"etl-app.orders": ["id", "amount"]},
+    )
+    [write] = lineage.qvds.writes[_urn("//nas/qvd/clean.qvd")]
+    assert [(f.name, f.source) for f in write.fields or []] == [
+        ("id", "id"),
+        ("amount", "amount"),
     ]

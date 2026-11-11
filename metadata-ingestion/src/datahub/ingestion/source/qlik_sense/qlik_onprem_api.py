@@ -330,9 +330,12 @@ class QlikOnPremAPI(QlikBaseAPI):
         try:
             websocket_connection.websocket_send_request(
                 method="OpenDoc",
-                # Only metadata is read, and loading each app's data into the
-                # Engine takes minutes per app on large sites.
-                params={"qDocName": app.id, "qNoData": True},
+                # Without its data the app has no data model to read, but it
+                # opens much faster on large sites.
+                params={
+                    "qDocName": app.id,
+                    "qNoData": not self.on_prem.read_data_model,
+                },
             )
             app.sheets = self._get_app_sheets(
                 websocket_connection,
@@ -345,6 +348,10 @@ class QlikOnPremAPI(QlikBaseAPI):
                 websocket_connection, app.id, on_error=errors.record
             )
             app.tables_read_failed = app.script is None
+            if self.on_prem.read_data_model:
+                app.data_model_tables = self._read_data_model(
+                    websocket_connection, app.id, errors
+                )
         except Exception as e:
             errors.record(f"Unable to open app {app.id} in the Engine. Exception: {e}")
         finally:

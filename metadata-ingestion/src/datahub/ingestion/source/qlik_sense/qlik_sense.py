@@ -1845,9 +1845,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             resolver,
             self._gen_qlik_dataset_urn,
             table_fields={
-                table.identifier: list(table.column_upstreams)
-                for table in script_tables
-                if not table.mapping
+                **{
+                    table.identifier: list(table.column_upstreams)
+                    for table in script_tables
+                    if not table.mapping
+                },
+                **{
+                    identifier: [field.name for field in fields]
+                    for identifier, fields in self._data_model_fields.items()
+                },
             },
         )
         for path in [*parsed.unresolved_qvd_paths, *resolver.unresolved]:

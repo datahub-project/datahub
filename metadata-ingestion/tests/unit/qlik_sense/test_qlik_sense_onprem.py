@@ -2205,3 +2205,45 @@ def test_reshaped_script_tables_keep_only_traceable_fields(
         field: [f"urn:li:schemaField:({upstream},{column})" for column in columns]
         for field, columns in expected_fields.items()
     }
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_opens_app_with_data_to_read_its_data_model(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = fake_qrs_get
+    websocket = MagicMock()
+    websocket.websocket_send_request.side_effect = fake_engine_calls()
+    websocket.get_script.return_value = LOAD_SCRIPT
+    websocket.get_data_model_tables.return_value = [
+        {
+            "qName": "Orders",
+            "qFields": [
+                {"qName": "order_id", "qTags": ["$numeric", "$integer"]},
+                {"qName": "amount", "qTags": ["$numeric"]},
+            ],
+        },
+        {"qName": "$Syn 1 Table", "qIsSynthetic": True},
+    ]
+    mock_engine.return_value = websocket
+    config = QlikSourceConfig.model_validate(
+        {"on_prem": {**ON_PREM, "read_data_model": True}}
+    )
+
+    api = QlikOnPremAPI(config)
+    api.get_spaces()
+    [app] = list(api.get_items(["stream-1"]))
+
+    open_doc = websocket.websocket_send_request.call_args_list[0].kwargs
+    assert open_doc["params"]["qNoData"] is False
+    assert isinstance(app, App)
+    assert [
+        (table.name, [(f.name, f.dataType) for f in table.fields])
+        for table in app.data_model_tables
+    ] == [("Orders", [("order_id", "INTEGER"), ("amount", "DOUBLE")])]
+    assert app.read_complete

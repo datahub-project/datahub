@@ -10,7 +10,6 @@ from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfi
 from datahub.ingestion.source.qlik_sense.data_classes import (
     PERSONAL_SPACE_DICT,
     App,
-    DataModelTable,
     Item,
     LineageTable,
     ListedDataset,
@@ -370,16 +369,9 @@ class QlikAPI(QlikBaseAPI):
             if not app.tables or not all(table.tableQri for table in app.tables):
                 # Graph and script tables carry no fields of their own; the
                 # data model has them as the last reload left them.
-                try:
-                    app.data_model_tables = [
-                        DataModelTable.from_engine(table)
-                        for table in websocket_connection.get_data_model_tables()
-                        if not table.get("qIsSynthetic")
-                    ]
-                except Exception as e:
-                    errors.record(
-                        f"Unable to read the data model of app {app_id}. Exception: {e}"
-                    )
+                app.data_model_tables = self._read_data_model(
+                    websocket_connection, app_id, errors
+                )
             app.read_errors = errors.messages
             app.read_fallbacks = errors.fallbacks
             return app

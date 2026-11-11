@@ -247,6 +247,17 @@ class QlikOnPremConfig(ConfigModel):
         "lineage should resolve against.",
     )
 
+    read_data_model: bool = Field(
+        default=True,
+        description="Open each app with its data to read its data model, which "
+        "gives every table its fields and types, including tables loaded with "
+        "`LOAD *` and from QVDs, and lets charts link to exactly the tables and "
+        "fields they use. The Engine keeps an app it opened with its data in "
+        "memory until the app cache time set on the engine in the QMC has passed "
+        "since its last session, as it does for users. Set to false to open apps "
+        "without their data, which is faster and uses no Engine memory on large "
+        "sites; table fields then come only from the load script.",
+    )
     qvd_folder_aliases: Dict[str, str] = Field(
         default={},
         description="Folder paths to treat as the same folder when matching QVD "
