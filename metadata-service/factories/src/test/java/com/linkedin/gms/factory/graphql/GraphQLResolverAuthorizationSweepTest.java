@@ -227,9 +227,6 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
               // REFUSED IN PAYLOAD: refuses with success=false in the result instead of an error.
               Map.entry("patchEntities", Outcome.RETURNED),
               Map.entry("patchEntity", Outcome.RETURNED),
-              // UNWIRED: declared in the schema without a resolver, so it always returns null.
-              Map.entry("deleteERModelRelationship", Outcome.RETURNED),
-              Map.entry("updateApplication", Outcome.RETURNED),
               // FOLLOW-UP: baselined, see follow-up.
               Map.entry("batchUpdateStepStates", Outcome.WROTE),
               Map.entry("createDataHubFile", Outcome.FAILED),
@@ -306,8 +303,6 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
               Map.entry("entity", Outcome.RETURNED),
               Map.entry("getPresignedUploadUrl", Outcome.FAILED),
               Map.entry("versionedDataset", Outcome.RETURNED),
-              // UNWIRED: declared in the schema without a resolver, so it always returns null.
-              Map.entry("listApplicationAssets", Outcome.RETURNED),
               // FOLLOW-UP: baselined, see follow-up.
               Map.entry("batchGetStepStates", Outcome.RETURNED),
               Map.entry("dataProcessInstance", Outcome.RETURNED),
