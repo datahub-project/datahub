@@ -27,6 +27,12 @@ A `SELECT` whose connection resolves to no platform is skipped, and the connecti
 
 On Qlik Cloud, only the Owner and users with **Can manage** or **Can operate** in a managed space can read an app's load script. When the Engine denies access to the script, the app is still ingested and the run reports a warning. Charts of an app whose script was denied get their inputs from the data model. Charts of an app whose data model or load script could not be read for another reason keep the inputs from their last read. Any other failure to read the script marks the app as partly read and reports a failure for the run, which keeps stale metadata removal from deleting its lineage.
 
+#### Lineage through QVDs and other Qlik datasets (Qlik Cloud)
+
+For an app without a data model, such as an app built in the data load editor, the connector reads the app's tables from Qlik Cloud's lineage graph. Each table links upstream to the Qlik datasets it loads, such as QVD files. Each Qlik dataset links upstream to the app tables that `STORE` into it, so lineage runs from an ETL app, through the QVDs it writes, to the apps that load them. A table that the load script parser also finds with a `SELECT` is ingested once, with the upstreams from both.
+
+Only datasets in spaces allowed by `space_pattern`, and visible to the API key, are linked. A dataset in any other space is left out of lineage, so give the API key's user access to the spaces that hold the QVDs to see the whole chain. Database tables in the lineage graph are not linked, as Qlik identifies them by an opaque hash; their lineage comes from the load script instead. A dataset gets lineage only when an app table that stores into it was read or kept in the same run.
+
 #### Charts in containers
 
 Charts inside a container object's tabs are ingested as charts of the sheet. An untitled chart takes its tab label as its title. Objects with no data, such as buttons, filter panes and variable inputs, are skipped.

@@ -21,6 +21,7 @@ import requests
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     Item,
+    ListedDataset,
     Sheet,
     Space,
     UnchangedApp,
@@ -80,6 +81,8 @@ class QlikBaseAPI(ABC):
         self.unread_items: List[UnreadItem] = []
         # Apps read again because checking whether they changed failed.
         self.change_check_failures: List[str] = []
+        # Datasets whose lineage graph could not be read.
+        self.lineage_read_failures: List[str] = []
 
     def _record_failed_user_lookup(self, user_id: str, e: Exception) -> None:
         log_read_error(f"Unable to fetch user with id {user_id}. Exception: {e}")
@@ -97,6 +100,10 @@ class QlikBaseAPI(ABC):
 
     @abstractmethod
     def get_data_connections(self) -> Dict[str, DataConnectionInfo]: ...
+
+    def list_datasets(self) -> List[ListedDataset]:
+        # Enterprise on Windows has no Qlik datasets.
+        return []
 
     @abstractmethod
     def _list_items(self, space_id: str) -> Iterable[Dict]:

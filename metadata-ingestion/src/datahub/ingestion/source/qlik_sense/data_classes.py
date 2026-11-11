@@ -134,6 +134,21 @@ class SchemaField(_QlikBaseModel):
         return values
 
 
+class LineageTable(BaseModel):
+    """A table node of Qlik Cloud's lineage graph, with the table nodes it is
+    loaded or stored from."""
+
+    qri: str
+    label: str
+    source_qris: List[str] = []
+
+
+class ListedDataset(BaseModel):
+    space_id: str
+    name: str
+    secure_qri: str
+
+
 class QlikDataset(Item):
     name: str
     secureQri: str
@@ -142,6 +157,8 @@ class QlikDataset(Item):
     rowCount: int
     itemId: str
     datasetSchema: List[SchemaField]
+    # App tables that store into this dataset.
+    stored_from_qris: List[str] = []
 
     @model_validator(mode="before")
     @classmethod
@@ -293,6 +310,8 @@ class App(Item):
     qUsage: Optional[str] = None
     sheets: List[Sheet] = []
     tables: List[QlikTable] = []
+    # Tables of an app without a data model, from Qlik Cloud's lineage graph.
+    lineage_tables: List[LineageTable] = []
     script: Optional[str] = None
     fingerprint: Optional[str] = None
     script_read_failed: bool = False

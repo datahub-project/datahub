@@ -131,6 +131,7 @@ def test_partly_read_app_is_marked_incomplete(
     with (
         patch.object(api, "_get_app_sheets", side_effect=unreadable_sheets),
         patch.object(api, "_get_app_used_tables", return_value=[]),
+        patch.object(api, "get_table_lineage", return_value=[]),
         patch.object(api, "_read_load_script", return_value=None),
     ):
         assert api._get_app("app-1") is app
@@ -273,6 +274,7 @@ def test_denied_load_script_is_a_warning(mock_api_cls: MagicMock) -> None:
     ]
     mock_api_cls.return_value.unread_items = []
     mock_api_cls.return_value.failed_user_lookups = {}
+    mock_api_cls.return_value.lineage_read_failures = []
     source = QlikSenseSource(
         QlikSourceConfig.model_validate(CLOUD_CONFIG),
         PipelineContext(run_id="test-cloud"),
