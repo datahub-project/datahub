@@ -306,12 +306,17 @@ const EntityDropdown = (props: Props) => {
     }
 
     if (!isDomainMoveHidden && menuItems.has(EntityMenuItems.MOVE)) {
+        const moveDisabled = isMoveDisabled(entityType, entityData, me.platformPrivileges);
         menuItemsList.push({
             type: 'item' as const,
             key: '4',
             title: tc('move'),
             icon: FolderOpen,
-            disabled: isMoveDisabled(entityType, entityData, me.platformPrivileges),
+            disabled: moveDisabled,
+            tooltip:
+                moveDisabled && entityType === EntityType.DataProduct
+                    ? t('move.noPermission', { entityName: entityRegistry.getEntityName(entityType) })
+                    : undefined,
             onClick: () => setIsMoveModalVisible(true),
             'data-testid': 'entity-menu-move-button',
         });

@@ -27,7 +27,7 @@ export function getCanEditEntityProperties(
         case EntityType.Domain:
             return privileges?.manageDomains;
         case EntityType.DataProduct:
-            return true; // TODO: add permissions for data products
+            return !!entityData?.privileges?.canManageEntity;
         default:
             return false;
     }

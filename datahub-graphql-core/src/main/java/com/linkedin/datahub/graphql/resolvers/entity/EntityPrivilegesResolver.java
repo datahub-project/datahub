@@ -6,7 +6,6 @@ import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
 import com.datahub.authorization.AuthUtil;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -28,7 +27,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.domain.Domains;
-import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.Aspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
@@ -243,33 +242,32 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
   private EntityPrivileges getDataProductPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     addCommonPrivileges(result, urn, context);
-    final boolean canManage =
-        DataProductAuthorizationUtils.isAuthorizedToManageDataProduct(
-            context, urn, getDataProductDomains(urn, context));
+    boolean canManage;
+    try {
+      canManage =
+          DataProductAuthorizationUtils.isAuthorizedToManageDataProduct(
+              context, urn, getDataProductDomains(urn, context));
+    } catch (Exception e) {
+      // Fail closed: treating a failed read as "no domain" would apply the orphan fallback.
+      log.warn("Failed to fetch domains for data product {}", urn, e);
+      canManage = false;
+    }
     result.setCanManageEntity(canManage);
     // Deleting also falls back to the DELETE privilege on the product itself.
     result.setCanDeleteEntity(canManage || AuthorizationUtils.canDeleteEntity(urn, context));
     return result;
   }
 
+  /** Bypasses the EntityClient cache, matching DataProductService.getDataProductDomains. */
   @Nullable
   private Domains getDataProductDomains(Urn urn, QueryContext context) {
-    try {
-      final EntityResponse response =
-          _entityClient.getV2(
-              context.getOperationContext(),
-              Constants.DATA_PRODUCT_ENTITY_NAME,
-              urn,
-              ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME));
-      if (response != null && response.getAspects().containsKey(Constants.DOMAINS_ASPECT_NAME)) {
-        return new Domains(
-            response.getAspects().get(Constants.DOMAINS_ASPECT_NAME).getValue().data());
-      }
-    } catch (Exception e) {
-      // Without domains the check falls back to product EDIT_ENTITY or MANAGE_DOMAINS.
-      log.warn("Failed to fetch domains for data product {}", urn, e);
-    }
-    return null;
+    final Aspect domainsAspect =
+        context
+            .getOperationContext()
+            .getAspectRetriever()
+            .getLatestAspectObject(
+                context.getOperationContext(), urn, Constants.DOMAINS_ASPECT_NAME);
+    return domainsAspect == null ? null : new Domains(domainsAspect.data());
   }
 
   private EntityPrivileges getDocumentPrivileges(Urn urn, QueryContext context) {

@@ -6,6 +6,7 @@ import {
     getSelectableStages,
     isDeleteDisabled,
     isGlossaryTermVersion,
+    isMoveDisabled,
     suggestNextVersionLabel,
 } from '@app/entityV2/shared/EntityDropdown/utils';
 
@@ -141,5 +142,14 @@ describe('isDeleteDisabled', () => {
             const entityData = { privileges: { canDeleteEntity: true } as EntityPrivileges };
             expect(isDeleteDisabled(EntityType.DataProduct, entityData as GenericEntityProperties, null)).toBe(false);
         });
+    });
+});
+
+describe('isMoveDisabled', () => {
+    it('follows canManageEntity for data products', () => {
+        const canManage = { privileges: { canManageEntity: true } as EntityPrivileges };
+        const cannotManage = { privileges: { canManageEntity: false } as EntityPrivileges };
+        expect(isMoveDisabled(EntityType.DataProduct, canManage as GenericEntityProperties, null)).toBe(false);
+        expect(isMoveDisabled(EntityType.DataProduct, cannotManage as GenericEntityProperties, null)).toBe(true);
     });
 });

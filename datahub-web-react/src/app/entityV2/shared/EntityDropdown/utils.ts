@@ -82,6 +82,9 @@ export function isMoveDisabled(
         const canManageDomains = !!platformPrivileges?.manageDomains;
         return !canManageDomains;
     }
+    if (entityType === EntityType.DataProduct) {
+        return !entityData?.privileges?.canManageEntity;
+    }
     return false;
 }
 

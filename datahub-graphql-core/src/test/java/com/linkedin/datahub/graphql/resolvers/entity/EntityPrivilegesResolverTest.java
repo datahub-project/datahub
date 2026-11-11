@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BusinessAttribute;
@@ -19,10 +21,16 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
+import com.linkedin.domain.Domains;
+import com.linkedin.entity.Aspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -40,6 +48,7 @@ public class EntityPrivilegesResolverTest {
   final String documentUrn = "urn:li:document:test-document";
   final String domainUrn = "urn:li:domain:test-domain";
   final String dataProductUrn = "urn:li:dataProduct:test-product";
+  final String productDomainUrn = "urn:li:domain:product-domain";
 
   private DataFetchingEnvironment setUpTestWithPermissions(Entity entity) {
     QueryContext mockContext = getMockAllowContext();
@@ -540,11 +549,63 @@ public class EntityPrivilegesResolverTest {
     assertFalse(result.getCanDeleteEntity());
   }
 
+  @Test
+  public void testGetDataProductPrivilegesFollowDomainManageDataProducts() throws Exception {
+    // EDIT_ENTITY on the product only applies to products without a live domain.
+    EntityPrivileges editOnly =
+        getDataProductPrivilegesInDomain(
+            getMockAllowContextForResource(
+                "urn:li:corpuser:test", "EDIT_ENTITY", UrnUtils.getUrn(dataProductUrn)));
+    assertFalse(editOnly.getCanManageEntity());
+    assertFalse(editOnly.getCanDeleteEntity());
+
+    EntityPrivileges domainManager =
+        getDataProductPrivilegesInDomain(
+            getMockAllowContextForResource(
+                "urn:li:corpuser:test", "MANAGE_DATA_PRODUCTS", UrnUtils.getUrn(productDomainUrn)));
+    assertTrue(domainManager.getCanManageEntity());
+    assertTrue(domainManager.getCanDeleteEntity());
+  }
+
+  @Test
+  public void testGetDataProductPrivilegesDomainReadFailureDeniesManage() throws Exception {
+    AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
+    Mockito.when(aspectRetriever.getLatestAspectObject(any(), any(), any()))
+        .thenThrow(new RuntimeException("gms down"));
+
+    EntityPrivileges result =
+        getDataProductPrivileges(
+            withAspectRetriever(contextGrantingOnly("EDIT_ENTITY"), aspectRetriever));
+
+    assertFalse(result.getCanManageEntity());
+  }
+
+  private EntityPrivileges getDataProductPrivilegesInDomain(QueryContext context) throws Exception {
+    Urn productUrn = UrnUtils.getUrn(dataProductUrn);
+    Urn domain = UrnUtils.getUrn(productDomainUrn);
+    Domains domains = new Domains().setDomains(new UrnArray(List.of(domain)));
+
+    AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
+    Mockito.when(
+            aspectRetriever.getLatestAspectObject(
+                any(), Mockito.eq(productUrn), Mockito.eq(Constants.DOMAINS_ASPECT_NAME)))
+        .thenReturn(new Aspect(domains.data()));
+    Mockito.when(aspectRetriever.entityExists(any(), any())).thenReturn(Map.of(domain, true));
+
+    return getDataProductPrivileges(withAspectRetriever(context, aspectRetriever));
+  }
+
+  private QueryContext withAspectRetriever(QueryContext context, AspectRetriever aspectRetriever) {
+    OperationContext opContext = Mockito.spy(context.getOperationContext());
+    Mockito.when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    Mockito.when(context.getOperationContext()).thenReturn(opContext);
+    return context;
+  }
+
   private EntityPrivileges getDataProductPrivileges(QueryContext context) throws Exception {
     DataProduct dataProduct = new DataProduct();
     dataProduct.setUrn(dataProductUrn);
 
-    // No domains aspect: the product has no Domain.
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     DataFetchingEnvironment mockEnv = setUpTestWithContext(dataProduct, context);
 

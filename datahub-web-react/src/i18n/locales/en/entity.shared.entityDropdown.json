@@ -91,6 +91,7 @@
     "menuItem.showVersions": "Show Versions",
     "menuItem.unlinkVersion": "Unlink from Previous Version",
     "move.error": "Failed to move: \n {{errorMessage}}",
+    "move.noPermission": "You do not have permission to move this {{entityName}}",
     "move.success": "Moved {{entityName}}!",
     "move.toLabel": "Move To <optional>(optional)</optional>",
     "moveDataProduct.title": "Move Data Product",
