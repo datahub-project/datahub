@@ -10,6 +10,7 @@ from docs_impact_check import (  # noqa: E402
     FileChange,
     PrInfo,
     classify_path,
+    docs_now_cover,
     new_undocumented_env_vars,
     prefilter,
     render_comment,
@@ -96,6 +97,15 @@ def test_env_rule_accepts_docs_in_same_pr_and_renames() -> None:
     assert new_undocumented_env_vars([moved], NO_DOCS) == []
 
 
+def test_sync_needs_the_env_var_documented_not_just_any_page() -> None:
+    env = _f(APP_YAML, "+  enabled: ${NEW_FEATURE_ENABLED:false}\n")
+    unrelated_doc = _f("docs/cli.md", "+Some unrelated wording.\n")
+    assert not docs_now_cover([env, unrelated_doc], NO_DOCS)
+    env_doc = _f("docs/deploy/environment-vars.md", "+| `NEW_FEATURE_ENABLED` | false | ... |\n")
+    assert docs_now_cover([env, unrelated_doc, env_doc], NO_DOCS)
+    assert docs_now_cover([_f("metadata-ingestion/src/datahub/cli/x.py"), unrelated_doc], NO_DOCS)
+
+
 def test_model_doc_paths_are_validated() -> None:
     assert valid_doc_paths(["./docs/cli.md", "docs/made-up.md"], NO_DOCS.paths) == ["docs/cli.md"]
 
@@ -109,3 +119,34 @@ def test_comments_are_general_optional_and_marked() -> None:
         assert "Linear:" not in body  # pr-to-linear.yml keys off "Linear: <ID>" comments
     assert "optional" in community.lower() and "no-docs-needed" in community
     assert "no-docs-needed" in internal
+
+
+class _FakeGitHub:
+    def __init__(self, pr: PrInfo, files: list) -> None:
+        self._pr, self._files, self.labels_added = pr, files, []
+
+    def pr(self, number: int, members: object) -> PrInfo:
+        return self._pr
+
+    def files(self, number: int) -> list:
+        return self._files
+
+    def add_label(self, number: int, label: str) -> None:
+        self.labels_added.append(label)
+
+
+def test_merge_keeps_the_follow_up_promise_for_flagged_prs(monkeypatch, tmp_path) -> None:
+    import docs_impact_check as dic
+
+    created = []
+    monkeypatch.setattr(dic, "create_linear_ticket", lambda pr, result: created.append(result) or "OSS-1")
+    # Title type "chore" makes the re-check skip, as a disagreeing re-check would.
+    flagged = _pr("chore: tidy", labels=["docs-needed"], is_external=False)
+    gh = _FakeGitHub(flagged, [_f("metadata-ingestion/src/datahub/cli/x.py")])
+    dic.cmd_merged(gh, 1, tmp_path)  # type: ignore[arg-type]
+    assert len(created) == 1 and gh.labels_added == ["docs-ticket-created"]
+
+    created.clear()
+    waived = _pr("chore: tidy", labels=["docs-needed", "no-docs-needed"])
+    dic.cmd_merged(_FakeGitHub(waived, []), 1, tmp_path)  # type: ignore[arg-type]
+    assert created == []

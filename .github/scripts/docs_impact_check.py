@@ -262,7 +262,7 @@ class CheckResult:
     outcome: str
     detail: str
     verdict: Optional[Verdict] = None
-    source: str = "rules"  # rules | env_rule | model
+    source: str = "rules"  # rules | env_rule | model | label
 
     @property
     def wants_ticket(self) -> bool:
@@ -471,7 +471,7 @@ def valid_doc_paths(paths: List[str], doc_index: List[str], limit: int = 3) -> L
     known = set(doc_index)
     out: List[str] = []
     for p in paths:
-        p = p.strip().lstrip("./")
+        p = p.strip().removeprefix("./")
         if p in known and p not in out:
             out.append(p)
     return out[:limit]
@@ -637,12 +637,20 @@ def create_linear_ticket(pr: PrInfo, result: CheckResult) -> str:
         "title": f"[Docs] Update docs for #{pr.number}: {pr.title}"[:250],
         "description": description,
     }
+    mutation = "mutation($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { identifier } } }"
     if assignee:
         issue_input["assigneeId"] = assignee
-    data = _linear(
-        "mutation($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { identifier } } }",
-        {"input": issue_input},
-    )
+    try:
+        data = _linear(mutation, {"input": issue_input})
+    except RuntimeError:
+        # Linear can reject an author who is not on the team; fall back to DevRel
+        # rather than losing the follow-up.
+        if assignee == devrel_id:
+            raise
+        issue_input.pop("assigneeId", None)
+        if devrel_id:
+            issue_input["assigneeId"] = devrel_id
+        data = _linear(mutation, {"input": issue_input})
     created = data.get("issueCreate") or {}
     if not created.get("success"):  # type: ignore[union-attr]
         raise RuntimeError("Linear issueCreate failed")
@@ -707,11 +715,22 @@ def cmd_check(gh: GitHub, number: int, repo_root: Path) -> None:
     gh.upsert_comment(number, render_comment(pr))
 
 
-def cmd_sync(gh: GitHub, number: int) -> None:
+def docs_now_cover(files: List[FileChange], docs: DocsContext) -> bool:
+    """True once a flagged PR changes a docs page and documents any new env vars.
+
+    A docs page alone is not enough when the flag came from the env-var rule:
+    the PR may already have touched a page without mentioning the variable.
+    """
+    if new_undocumented_env_vars(files, docs):
+        return False
+    return any(classify_path(f.path) == "doc" for f in files)
+
+
+def cmd_sync(gh: GitHub, number: int, repo_root: Path) -> None:
     pr = gh.pr(number, team_members())
     if LABEL_NEEDED not in pr.labels:
         return
-    if any(classify_path(f.path) == "doc" for f in gh.files(number)):
+    if docs_now_cover(gh.files(number), load_docs(repo_root)):
         gh.remove_label(number, LABEL_NEEDED)
         gh.add_label(number, LABEL_INCLUDED)
         gh.upsert_comment(number, render_included_comment(pr))
@@ -724,7 +743,22 @@ def cmd_merged(gh: GitHub, number: int, repo_root: Path) -> None:
     if LABEL_TICKET in pr.labels:
         return
     pr.draft = False
-    result = run_check(pr, gh.files(number), load_docs(repo_root))
+    files = gh.files(number)
+    docs = load_docs(repo_root)
+    result = run_check(pr, files, docs)
+    # A PR flagged on open was told a follow-up would be opened if it merged
+    # without docs, so keep that promise even if the re-check now disagrees.
+    flagged_without_docs = (
+        LABEL_NEEDED in pr.labels and LABEL_SKIP not in pr.labels and not docs_now_cover(files, docs)
+    )
+    if flagged_without_docs and not result.wants_ticket:
+        result = CheckResult(
+            number,
+            "docs_needed",
+            result.verdict.reason if result.verdict else "Flagged as needing docs when the PR was opened.",
+            result.verdict,
+            "label",
+        )
     _summary(_result_lines("Docs follow-up on merge", pr, result))
     if not result.wants_ticket:
         return
@@ -818,7 +852,7 @@ def main() -> int:
         if args.cmd == "check":
             cmd_check(gh, args.pr, root)
         elif args.cmd == "sync":
-            cmd_sync(gh, args.pr)
+            cmd_sync(gh, args.pr, root)
         elif args.cmd == "merged":
             cmd_merged(gh, args.pr, root)
         elif args.cmd == "backtest":
