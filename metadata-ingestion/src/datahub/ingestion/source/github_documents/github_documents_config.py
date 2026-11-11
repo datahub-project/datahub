@@ -80,10 +80,12 @@ class GitHubDocumentsSourceConfig(
         description="Whether imported documents appear in global search and navigation.",
     )
     enable_okf: bool = Field(
-        default=True,
+        default=False,
         description=(
-            "Recognize OKF concepts inside discovered or configured bundles. "
-            "Disable to import every file verbatim without OKF metadata."
+            "Opt in to importing OKF concepts inside discovered or configured bundles. "
+            "Requires a server that supports the okfProperties aspect; enabling "
+            "this on an unsupported server fails the run. Disabled by default "
+            "to import every file verbatim without OKF metadata."
         ),
     )
     okf_bundle_roots: List[str] = Field(

@@ -36,6 +36,14 @@ public class AdminClientFactory {
           AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, Arrays.asList(bootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092 or environment variables
 
+    // Pair the producer-side bootstrap above with the producer-side security protocol, as the
+    // producer itself does; otherwise a split migration dials the producer listener with the base
+    // protocol.
+    String producerSecurityProtocol = kafkaConfiguration.getProducer().getSecurityProtocol();
+    if (StringUtils.isNotBlank(producerSecurityProtocol)) {
+      adminProperties.put(AdminClientConfig.SECURITY_PROTOCOL_CONFIG, producerSecurityProtocol);
+    }
+
     return KafkaAdminClient.create(adminProperties);
   }
 }
