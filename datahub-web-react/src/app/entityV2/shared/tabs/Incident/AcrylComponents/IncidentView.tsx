@@ -25,7 +25,7 @@ import {
     Text,
 } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import { getOnOpenAssertionLink } from '@app/entityV2/shared/tabs/Incident/hooks';
-import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
+import { IncidentTableRow, TimelineContentDetails } from '@app/entityV2/shared/tabs/Incident/types';
 import { getAssigneeNamesWithAvatarUrl } from '@app/entityV2/shared/tabs/Incident/utils';
 import { Avatar } from '@src/alchemy-components';
 import { IconLabel } from '@src/alchemy-components/components/IconLabel';
@@ -139,8 +139,9 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
         });
     };
 
-    const renderActivities = (() => {
-        const baseActivity = {
+    const renderActivities = ((): TimelineContentDetails[] => {
+        const baseActivity: TimelineContentDetails = {
+            key: 'raised',
             actor: incidentCreator,
             action: INCIDENT_STATE_TO_ACTIVITY.RAISED,
             time: incident?.creator?.time,
@@ -151,6 +152,7 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
             return [
                 baseActivity,
                 {
+                    key: 'resolved',
                     actor: incidentResolver,
                     action: INCIDENT_STATE_TO_ACTIVITY.RESOLVED,
                     time: incident?.lastUpdated?.time,
