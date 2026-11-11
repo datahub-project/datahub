@@ -117,3 +117,20 @@ def test_a_unity_table_under_a_catalog_outside_the_pinned_list_is_excluded() -> 
         False,
         "catalogs",
     )
+
+
+def test_a_default_recipe_excludes_information_schema_but_not_lookalikes() -> None:
+    """The deny ingestion always adds is anchored at the schema name, so only
+    the catalog's own information_schema reads as excluded."""
+    result = check_filters(
+        source_type="unity-catalog",
+        config_dict=UNITY_CONFIG,
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=["my_cat"],
+        names=["analytics", "information_schema", "information_schema_archive"],
+    )
+    assert [(r.target, r.included) for r in result.results] == [
+        ("my_cat.analytics", True),
+        ("my_cat.information_schema", False),
+        ("my_cat.information_schema_archive", True),
+    ]

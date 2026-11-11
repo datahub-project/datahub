@@ -69,6 +69,12 @@ logger = logging.getLogger(__name__)
 INCLUDE_TAGS_DEFAULT = True
 INCLUDE_HIVE_METASTORE_DEFAULT = True
 
+# Each catalog's information_schema holds Databricks metadata views, never
+# user data. The deny is anchored so a schema such as information_schema_archive
+# is still ingested.
+INFORMATION_SCHEMA = "information_schema"
+INFORMATION_SCHEMA_DENY = rf".*\.{INFORMATION_SCHEMA}$"
+
 # The kinds process_tables judges in one loop, by table_like_rejected_by.
 _TABLE_LIKE_KINDS = (
     DatasetSubTypes.TABLE,
@@ -282,7 +288,7 @@ class UnityCatalogSourceConfig(
         default=AllowDenyPattern.allow_all(),
         # pydantic v2 skips validators on defaults, and the information_schema deny lives in one.
         validate_default=True,
-        description="Regex patterns for schemas to filter in ingestion. Specify regex to the full `metastore.catalog.schema` name. e.g. to match all tables in schema analytics, use the regex `^mymetastore\\.mycatalog\\.analytics$`.",
+        description="Regex patterns for schemas to filter in ingestion. Specify regex to the full `metastore.catalog.schema` name. e.g. to match all tables in schema analytics, use the regex `^mymetastore\\.mycatalog\\.analytics$`. Every catalog's `information_schema` is always denied, whether or not this is set.",
     )
 
     # also_filters: process_tables checks table_pattern first whatever the
@@ -1004,13 +1010,12 @@ class UnityCatalogSourceConfig(
     def schema_pattern_should__always_deny_information_schema(
         cls, v: AllowDenyPattern
     ) -> AllowDenyPattern:
-        deny_rule = ".*\\.information_schema"
-        if deny_rule in v.deny:
+        if INFORMATION_SCHEMA_DENY in v.deny:
             return v
-        # A new instance, not model_copy: that would carry over the compiled-regex
-        # caches in __dict__, and the shared default must never be mutated.
-        return AllowDenyPattern(
-            allow=v.allow, deny=[*v.deny, deny_rule], ignoreCase=v.ignoreCase
+        # Rebuilt rather than mutated: a caller-supplied pattern object passes
+        # through by identity, and model_copy would keep its compiled-regex caches.
+        return type(v).model_validate(
+            {**v.model_dump(), "deny": [*v.deny, INFORMATION_SCHEMA_DENY]}
         )
 
     @field_validator("profiling", mode="before")

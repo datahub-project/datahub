@@ -49,6 +49,7 @@ from datahub.ingestion.source.unity.tag_entities import (
 )
 from datahub.metadata.schema_classes import (
     ContainerClass,
+    ContainerPropertiesClass,
     DatasetLineageTypeClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
@@ -916,6 +917,16 @@ def test_information_schema_is_not_ingested_when_the_recipe_sets_no_schema_patte
 
     run = run_source(workspace_client, config)
 
-    urns = run.urns(DatasetPropertiesClass)
-    assert any("my_catalog.my_schema.my_table" in urn for urn in urns)
-    assert not any("information_schema" in urn for urn in urns)
+    report = run.source.report
+    assert list(report.schemas.processed_entities) == ["my_catalog.my_schema"]
+    assert list(report.schemas.dropped_entities) == ["my_catalog.information_schema"]
+    # No golden file pins this exclusion, so every emitted urn is checked,
+    # schema containers included.
+    assert run.urns(DatasetPropertiesClass) == [
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.my_table,PROD)"
+    ]
+    container_names = {
+        run.aspect(urn, ContainerPropertiesClass).name
+        for urn in run.urns(ContainerPropertiesClass)
+    }
+    assert container_names == {"my_catalog", "my_schema"}

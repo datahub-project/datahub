@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.verdicts import ClassifyContext
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
@@ -46,18 +47,32 @@ def test_information_schema_is_denied_alongside_an_explicit_schema_pattern() -> 
     assert config.schema_pattern.allowed("my_catalog.my_schema")
 
 
-def test_a_recipe_that_already_denies_information_schema_keeps_its_deny_list() -> None:
-    config = unity_config(schema_pattern={"deny": [".*\\.information_schema"]})
+def test_schemas_that_only_start_with_information_schema_are_still_ingested() -> None:
+    config = unity_config()
 
-    assert config.schema_pattern.deny == [".*\\.information_schema"]
-    assert not config.schema_pattern.allowed("my_catalog.information_schema")
+    assert config.schema_pattern.allowed("my_catalog.information_schema_archive")
+    assert config.schema_pattern.allowed("my_catalog.my_information_schema")
+    assert not config.schema_pattern.allowed(
+        "my_metastore.my_catalog.information_schema"
+    )
 
 
-def test_building_configs_does_not_grow_the_default_schema_deny_list() -> None:
-    unity_config()
-    second = unity_config()
+def test_the_information_schema_deny_is_listed_once() -> None:
+    written = unity_config(schema_pattern={"deny": [".*\\.information_schema$"]})
+    round_tripped = UnityCatalogSourceConfig.model_validate(unity_config().model_dump())
 
-    assert second.schema_pattern.deny == [".*\\.information_schema"]
+    assert written.schema_pattern.deny == [".*\\.information_schema$"]
+    assert round_tripped.schema_pattern.deny == [".*\\.information_schema$"]
+
+
+def test_a_caller_supplied_schema_pattern_object_is_not_mutated() -> None:
+    mine = AllowDenyPattern(allow=["^prod.*"])
+
+    config = unity_config(schema_pattern=mine)
+
+    assert mine.deny == []
+    assert not config.schema_pattern.allowed("prod_catalog.information_schema")
+    assert config.schema_pattern.allowed("prod_catalog.my_schema")
 
 
 class _Warnings:
