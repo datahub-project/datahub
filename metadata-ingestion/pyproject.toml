@@ -95,6 +95,7 @@ abs = [
     "azure-storage-file-datalake>=12.14.0,<13.0.0",
     "cachetools<6.0.0",
     "datasketches>=5.0.0,<6.0.0",
+    "fastavro>=1.2.0,<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
     "parse>=1.19.0,<2.0.0",
     "pyarrow>14.0.0,<24.0.0",
@@ -257,8 +258,10 @@ confluence = [
     "markdownify>=0.14.1,<2.0.0",
     "nltk!=3.10.1",
     "unstructured-ingest[confluence]==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
 ]
+
+csv-enricher = []
 
 cube = [
     "requests<3.0.0",
@@ -275,6 +278,7 @@ databricks = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.22.0",
     "sqlparse>=0.6.0,<1.0.0",
+    "tzdata>=2022.7,<2030",
 ]
 
 datahub = [
@@ -302,7 +306,7 @@ datahub-documents = [
     "jsonpath-ng==1.7.0",
     "nltk!=3.10.1",
     "unstructured-ingest==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
 ]
 
 datahub-gc = []
@@ -503,6 +507,7 @@ fivetran = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.22.0",
     "tenacity>=8.0.1,<9.0.0",
+    "tzdata>=2022.7,<2030",
     "wcmatch>=10.1,<11.0.0",
 ]
 
@@ -521,6 +526,7 @@ gcs = [
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "datasketches>=5.0.0,<6.0.0",
+    "fastavro>=1.2.0,<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
     "parse>=1.19.0,<2.0.0",
     "pyarrow>14.0.0,<24.0.0",
@@ -535,6 +541,7 @@ gcs-slim = [
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "datasketches>=5.0.0,<6.0.0",
+    "fastavro>=1.2.0,<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
     "parse>=1.19.0,<2.0.0",
     "pyarrow>14.0.0,<24.0.0",
@@ -564,7 +571,7 @@ google-drive = [
     "markdownify>=0.14.1,<2.0.0",
     "nltk!=3.10.1",
     "unstructured-ingest==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
 ]
 
 grafana = [
@@ -586,6 +593,12 @@ hana = [
 hex = [
     "requests<3.0.0",
     "sqlglot[c]==30.22.0",
+]
+
+hightouch = [
+    "requests<3.0.0",
+    "sqlglot[c]==30.22.0",
+    "sqlparse>=0.6.0,<1.0.0",
 ]
 
 hive = [
@@ -646,6 +659,7 @@ kafka = [
     "grpcio-tools>=1.44.0,<2.0.0",
     "grpcio>=1.84.0,<2.0.0",
     "networkx>=2.6.2,<4.0.0",
+    "sqlglot[c]==30.22.0",
 ]
 
 kafka-connect = [
@@ -793,7 +807,7 @@ notion = [
     "jsonpath-ng==1.7.0",
     "nltk!=3.10.1",
     "unstructured-ingest[notion]==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
 ]
 
 odcs = [
@@ -948,6 +962,7 @@ s3 = [
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "datasketches>=5.0.0,<6.0.0",
+    "fastavro>=1.2.0,<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
     "parse>=1.19.0,<2.0.0",
     "pyarrow>14.0.0,<24.0.0",
@@ -962,6 +977,7 @@ s3-slim = [
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "datasketches>=5.0.0,<6.0.0",
+    "fastavro>=1.2.0,<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
     "parse>=1.19.0,<2.0.0",
     "pyarrow>14.0.0,<24.0.0",
@@ -1125,7 +1141,7 @@ superset = [
 ]
 
 sync-file-emitter = [
-    "filelock>=3.13.1,<4.0.0",
+    "filelock>=3.13.1,<5.0.0",
 ]
 
 tableau = [
@@ -1189,6 +1205,7 @@ unity-catalog = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.22.0",
     "sqlparse>=0.6.0,<1.0.0",
+    "tzdata>=2022.7,<2030",
 ]
 
 unstructured = [
@@ -1198,7 +1215,7 @@ unstructured = [
     "jsonpath-ng==1.7.0",
     "nltk!=3.10.1",
     "unstructured-ingest==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
 ]
 
 vertexai = [
@@ -1242,7 +1259,7 @@ all = [
     "dlt>=1.0.0,<2.0.0",
     "dnspython==2.7.0",
     "fastavro>=1.2.0,<2.0.0",
-    "filelock>=3.13.1,<4.0.0",
+    "filelock>=3.13.1,<5.0.0",
     "flatdict!=4.0.1",
     "GeoAlchemy2<0.19.0",
     "GitPython>=3.1.58,<4.0.0",
@@ -1332,6 +1349,7 @@ all = [
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
     "thrift-sasl>=0.4.3,<1.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
+    "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
     "wcmatch>=10.1,<11.0.0",
     "websocket-client<2.0.0",
@@ -1526,9 +1544,10 @@ dev = [
     "types-ujson>=5.2.0,<6.0.0",
     "typing-inspect<0.10.0",
     "typing_extensions>=4.8.0,<5.0.0",
+    "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
     "unstructured-ingest[confluence,notion]==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
     "urllib3>=2.5.0,<3.0",
     "uvicorn<0.41.0",
     "wcmatch>=10.1,<11.0.0",
@@ -1724,9 +1743,10 @@ docs = [
     "types-ujson>=5.2.0,<6.0.0",
     "typing-inspect<0.10.0",
     "typing_extensions>=4.8.0,<5.0.0",
+    "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
     "unstructured-ingest[confluence,notion]==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
     "urllib3>=2.5.0,<3.0",
     "uvicorn<0.41.0",
     "wcmatch>=10.1,<11.0.0",
@@ -1956,6 +1976,7 @@ neo4j = "datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource"
 odcs = "datahub.ingestion.source.odcs.odcs_source:ODCSSource"
 vertexai = "datahub.ingestion.source.vertexai.vertexai:VertexAISource"
 hex = "datahub.ingestion.source.hex.hex:HexSource"
+hightouch = "datahub.ingestion.source.hightouch.hightouch:HightouchSource"
 timescaledb = "datahub.ingestion.source.sql.timescaledb:TimescaleDBSource"
 omni = "datahub.ingestion.source.omni.omni:OmniSource"
 pinecone = "datahub.ingestion.source.pinecone.pinecone_source:PineconeSource"

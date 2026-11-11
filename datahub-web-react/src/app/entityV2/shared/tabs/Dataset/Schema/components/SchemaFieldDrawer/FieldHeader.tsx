@@ -97,9 +97,10 @@ const StyleLink = styled(Link)`
 interface Props {
     expandedField: SchemaField;
     setExpandedDrawerFieldPath: (fieldPath: string | null) => void;
+    isPrimaryKey: boolean;
 }
 
-export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath }: Props) {
+export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath, isPrimaryKey }: Props) {
     const { t: tc } = useTranslation('common.labels');
     const { config } = useAppConfig();
     const displayName = translateFieldPath(expandedField.fieldPath || '');
@@ -128,7 +129,7 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath 
                     )}
                     <StyledDivider type="vertical" />
                     <StyledTypeLabel type={expandedField.type} nativeDataType={expandedField.nativeDataType} />
-                    {expandedField.isPartOfKey && <PrimaryKeyLabel />}
+                    {isPrimaryKey && <PrimaryKeyLabel />}
                     {expandedField.isPartitioningKey && <PartitioningKeyLabel />}
                     {expandedField.nullable && <NullableLabel />}
                     <FieldPath displayName={displayName} setExpandedDrawerFieldPath={setExpandedDrawerFieldPath} />
