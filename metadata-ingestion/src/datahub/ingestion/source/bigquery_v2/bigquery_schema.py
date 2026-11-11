@@ -57,6 +57,11 @@ logger: logging.Logger = logging.getLogger(__name__)
 # the whole call rather than one HTTP attempt of DEFAULT_RETRY's ~600s storm.
 _MV_STATS_TIMEOUT_SEC = 30
 
+# tables.list page size. The API's default page is small, so datasets with many tables
+# (date-sharded tables list every shard) took many round trips. The API may still return
+# fewer per page; pagination continues either way.
+_LIST_TABLES_PAGE_SIZE = 1000
+
 # INFORMATION_SCHEMA.PARTITIONS rejects a query that reads more than 1000 tables.
 _PARTITIONS_MAX_TABLES_PER_QUERY = 1000
 
@@ -555,7 +560,9 @@ class BigQuerySchemaApi:
         self, dataset_name: str, project_id: str
     ) -> Iterator[TableListItem]:
         with PerfTimer() as current_timer:
-            for table in self.bq_client.list_tables(f"{project_id}.{dataset_name}"):
+            for table in self.bq_client.list_tables(
+                f"{project_id}.{dataset_name}", page_size=_LIST_TABLES_PAGE_SIZE
+            ):
                 with current_timer.pause():
                     yield table
             self.report.num_list_tables_api_requests += 1

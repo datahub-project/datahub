@@ -57,6 +57,7 @@ type InteriorTitleProps = {
     fieldPath: string;
     record: ExtendedSchemaFields;
     isCompact?: boolean;
+    isPrimaryKey: boolean;
 };
 
 export const InteriorTitleContent = ({
@@ -66,6 +67,7 @@ export const InteriorTitleContent = ({
     fieldPath,
     record,
     isCompact,
+    isPrimaryKey,
 }: InteriorTitleProps) => {
     const fieldPathWithoutAnnotations = translateFieldPath(fieldPath);
     const parentPathWithoutAnnotations = translateFieldPath(record.parent?.fieldPath || '');
@@ -113,7 +115,7 @@ export const InteriorTitleContent = ({
             </FieldPathContainer>
             {!isCompact && (
                 <>
-                    {(schemaMetadata?.primaryKeys?.includes(fieldPath) || record.isPartOfKey) && <PrimaryKeyLabel />}
+                    {isPrimaryKey && <PrimaryKeyLabel />}
                     {record.isPartitioningKey && <PartitioningKeyLabel />}
                     {record.nullable && <NullableLabel />}
                     {/* {record.nullable && <NullableLabel />} */}

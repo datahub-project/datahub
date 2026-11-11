@@ -537,9 +537,11 @@ onnx_embeddings = {
 
 unstructured_lib = {
     # Unstructured.io core library for document partitioning with markdown support
-    # CVE-2026-71428: SSRF in partition(url=...) fixed in 0.24.0+ (requires Python 3.11+)
-    "unstructured[md]==0.24.1",
-    # unstructured 0.24.x requires ingest >=1.4.0
+    # CVE-2026-71428: SSRF in partition(url=...) fixed in 0.24.0+ (requires Python 3.11+).
+    # 0.24.x capped filelock<4, holding resolved envs on the 3.x line affected by
+    # CVE-2026-112940; 0.27.x requires filelock>=4.2.1, which carries the fix.
+    "unstructured[md]==0.27.37",
+    # unstructured 0.27.x accepts ingest >=1.4.0,<2
     "unstructured-ingest==1.4.28",
     # JSONPath for custom property extraction
     "jsonpath-ng==1.7.0",
@@ -600,7 +602,7 @@ plugins: Dict[str, Set[str]] = {
     | aws_common,
     "datahub-rest": rest_common,
     # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility; Docker/constraints enforce >=3.20.3 where needed.
-    "sync-file-emitter": {"filelock>=3.13.1,<4.0.0"},
+    "sync-file-emitter": {"filelock>=3.13.1,<5.0.0"},
     # DataHub Lite defaults to the stdlib sqlite3 engine, so this extra only
     # pulls in the `datahub lite serve` stack. The optional duckdb engine lives
     # in its own extra below.
@@ -678,6 +680,7 @@ plugins: Dict[str, Set[str]] = {
     | postgres_common
     | aws_common
     | {"sqlalchemy-cockroachdb>=2.0.0,<3.0.0"},
+    "csv-enricher": set(),
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "dataplex": dataplex_common | cachetools_lib,
@@ -940,6 +943,7 @@ plugins: Dict[str, Set[str]] = {
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
+    "hightouch": {"requests<3.0.0"} | usage_common | sqlglot_lib,
     "pinecone": {"pinecone-client>=3.0.0,<6.0.0"},
     # Debug/utility plugins
     "debug-recording": {
@@ -1107,6 +1111,7 @@ base_dev_requirements = {
             "druid",
             "elasticsearch",
             "feast",
+            "hightouch",
             "iceberg",
             "iceberg-catalog",
             "microstrategy",
@@ -1367,6 +1372,7 @@ entry_points = {
         "odcs = datahub.ingestion.source.odcs.odcs_source:ODCSSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
+        "hightouch = datahub.ingestion.source.hightouch.hightouch:HightouchSource",
         "timescaledb = datahub.ingestion.source.sql.timescaledb:TimescaleDBSource",
         "omni = datahub.ingestion.source.omni.omni:OmniSource",
         "pinecone = datahub.ingestion.source.pinecone.pinecone_source:PineconeSource",

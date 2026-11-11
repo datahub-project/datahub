@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -76,18 +77,20 @@ public class V2MappingsBuilder implements MappingsBuilder {
   private final EntityIndexConfiguration entityIndexConfiguration;
   private final int keywordMaxLength;
 
-  public V2MappingsBuilder(
-      @Nonnull final EntityIndexConfiguration entityIndexConfiguration,
-      @Nonnull final Map<String, String> partialNgramConfig) {
-    this(entityIndexConfiguration, partialNgramConfig, ESUtils.KEYWORD_MAXLENGTH);
-  }
-
+  /**
+   * The only constructor. Every dependency is required so a production factory cannot build a
+   * builder that silently drops configuration a test built with the full signature would have.
+   *
+   * @param keywordMaxLength configured keyword byte limit (structuredProperties.keywordMaxLength);
+   *     a non-positive value falls back to {@link ESUtils#KEYWORD_MAXLENGTH}
+   */
   public V2MappingsBuilder(
       @Nonnull final EntityIndexConfiguration entityIndexConfiguration,
       @Nonnull final Map<String, String> partialNgramConfig,
       int keywordMaxLength) {
-    this.entityIndexConfiguration = entityIndexConfiguration;
-    this.partialNgramConfig = partialNgramConfig;
+    this.entityIndexConfiguration =
+        Objects.requireNonNull(entityIndexConfiguration, "entityIndexConfiguration");
+    this.partialNgramConfig = Objects.requireNonNull(partialNgramConfig, "partialNgramConfig");
     this.keywordMaxLength = keywordMaxLength > 0 ? keywordMaxLength : ESUtils.KEYWORD_MAXLENGTH;
   }
 

@@ -156,6 +156,7 @@ type Props = {
     rows: Array<ExtendedSchemaFields>;
     schemaMetadata: SchemaMetadata | undefined | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
+    editedPrimaryKeys?: string[] | null;
     usageStats?: UsageQueryResult | null;
     expandedRowsFromFilter?: Set<string>;
     filterText?: string;
@@ -183,6 +184,7 @@ export default function SchemaTable({
     rows,
     schemaMetadata,
     editableSchemaMetadata,
+    editedPrimaryKeys,
     usageStats,
     expandedRowsFromFilter = EMPTY_SET,
     filterText = '',
@@ -241,7 +243,7 @@ export default function SchemaTable({
     const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata, fieldInfoMaps);
     const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata, fieldInfoMaps);
     const businessAttributeRenderer = useBusinessAttributeRenderer(filterText, false);
-    const schemaTitleRenderer = useSchemaTitleRenderer(entityUrn, schemaMetadata, filterText);
+    const schemaTitleRenderer = useSchemaTitleRenderer(entityUrn, schemaMetadata, editedPrimaryKeys, filterText);
     const schemaTypeRenderer = useSchemaTypeRenderer();
     const businessAttributesFlag = useBusinessAttributesFlag();
 
@@ -617,6 +619,8 @@ export default function SchemaTable({
             {!!schemaFields && (
                 <SchemaFieldDrawer
                     schemaFields={schemaFields}
+                    schemaPrimaryKeys={schemaMetadata?.primaryKeys}
+                    editedPrimaryKeys={editedPrimaryKeys}
                     expandedDrawerFieldPath={schemaFieldDrawerFieldPath}
                     editableSchemaMetadata={editableSchemaMetadata}
                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
