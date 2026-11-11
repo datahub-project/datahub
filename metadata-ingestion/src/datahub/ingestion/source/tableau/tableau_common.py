@@ -137,6 +137,7 @@ sheet_graphql_query = """
         id
         name
         description
+        __INHERITED_DESCRIPTION__
         datasource {
         id
         name
@@ -247,6 +248,7 @@ embedded_datasource_graphql_query = """
         id
         name
         description
+        __INHERITED_DESCRIPTION__
         isHidden
         folderName
         upstreamColumns {
@@ -416,6 +418,7 @@ published_datasource_graphql_query = """
         id
         name
         description
+        __INHERITED_DESCRIPTION__
         isHidden
         folderName
         upstreamColumns {
@@ -586,6 +589,29 @@ def get_tags_from_params(params: Optional[List[str]] = None) -> GlobalTagsClass:
     return GlobalTagsClass(tags=tags)
 
 
+# Placeholder in the field selections of the datasource and sheet queries.
+# descriptionInherited needs Tableau Server 2021.2+, so it is only requested
+# when ingest_inherited_field_descriptions is enabled.
+INHERITED_DESCRIPTION_PLACEHOLDER = "__INHERITED_DESCRIPTION__"
+
+
+def with_inherited_field_descriptions(query: str, enabled: bool) -> str:
+    return query.replace(
+        INHERITED_DESCRIPTION_PLACEHOLDER,
+        "descriptionInherited { value }" if enabled else "",
+    )
+
+
+def get_field_description(field: dict) -> str:
+    """The field's own description, else the one Tableau inherits from upstream."""
+    if field.get("description"):
+        return field["description"]
+    for inherited in field.get("descriptionInherited") or []:
+        if inherited and inherited.get("value"):
+            return inherited["value"]
+    return ""
+
+
 def tableau_field_to_schema_field(field, ingest_tags):
     # The check here makes sure that even if 'dataType' key exists in the 'field' dictionary but has value None,
     # it will be set as "UNKNOWN" (nativeDataType field can not be None in the SchemaField).
@@ -599,7 +625,7 @@ def tableau_field_to_schema_field(field, ingest_tags):
         fieldPath=field["name"],
         type=SchemaFieldDataType(type=TypeClass()),
         description=make_description_from_params(
-            field.get("description", ""), field.get("formula")
+            get_field_description(field), field.get("formula")
         ),
         nativeDataType=nativeDataType,
         globalTags=(
@@ -1031,8 +1057,11 @@ def make_fine_grained_lineage_class(
     # 3) corresponding Custom SQL output columns can be in any case lower/upper/mix
     #
     # we need a map between 2 and 3 that will be used during building column level linage links (see below)
+    #
+    # The Metadata API can return columns with an explicit null name, so filter them out
+    # rather than relying on a .get() default.
     out_columns_map = {
-        col.get(c.NAME, "").lower(): col.get(c.NAME, "") for col in out_columns
+        col[c.NAME].lower(): col[c.NAME] for col in out_columns if col.get(c.NAME)
     }
 
     fine_grained_lineages: List[FineGrainedLineage] = []

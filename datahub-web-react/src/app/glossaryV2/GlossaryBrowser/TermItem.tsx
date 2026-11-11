@@ -5,7 +5,9 @@ import styled from 'styled-components/macro';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { EDITING_DOCUMENTATION_URL_PARAM } from '@app/entityV2/shared/constants';
-import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/utils';
+import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/entityData';
+import LifecycleStageBadge from '@app/entityV2/shared/containers/profile/header/LifecycleStageBadge';
+import { VersionPill } from '@app/entityV2/shared/versioning/common';
 import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
 import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
@@ -39,6 +41,7 @@ interface Props {
     includeActiveTabPath?: boolean;
     depth: number;
     selectedUrns?: string[];
+    termUrnToHide?: string;
     iconColor?: string;
     /**
      * SaaS: pass lifecycle / version badges here (or compose in a fork wrapper).
@@ -48,7 +51,17 @@ interface Props {
 }
 
 function TermItem(props: Props) {
-    const { term, isSelecting, selectTerm, includeActiveTabPath, depth, selectedUrns, iconColor, afterLabel } = props;
+    const {
+        term,
+        isSelecting,
+        selectTerm,
+        includeActiveTabPath,
+        depth,
+        selectedUrns,
+        termUrnToHide,
+        iconColor,
+        afterLabel,
+    } = props;
 
     const history = useHistory();
     const { entityData } = useGlossaryEntityData();
@@ -84,6 +97,10 @@ function TermItem(props: Props) {
 
     const displayName = entityRegistry.getDisplayName(term.type, isOnEntityPage ? entityData : term);
 
+    const versionProperties = isOnEntityPage ? entityData?.versionProperties : term.versionProperties;
+    const versionTag = versionProperties?.version?.versionTag;
+    const lifecycleStage = (isOnEntityPage ? entityData?.status : term.status)?.lifecycleStage ?? null;
+
     const deprecation = isOnEntityPage ? entityData?.deprecation : term.deprecation;
 
     const deprecationBadge = deprecation?.deprecated ? (
@@ -92,14 +109,19 @@ function TermItem(props: Props) {
         </DeprecationSlot>
     ) : null;
 
-    // SaaS can pass lifecycle/version via `afterLabel`; OSS deprecation composes with it.
-    const resolvedAfterLabel =
-        afterLabel != null || deprecationBadge != null ? (
-            <>
-                {deprecationBadge}
-                {afterLabel}
-            </>
-        ) : undefined;
+    const hasBadges = !!versionTag || !!lifecycleStage || deprecationBadge != null || afterLabel != null;
+    const resolvedAfterLabel = hasBadges ? (
+        <>
+            {!!versionTag && (
+                <VersionPill label={versionTag} isLatest={versionProperties?.isLatest ?? false} size="xs" />
+            )}
+            <LifecycleStageBadge lifecycleStage={lifecycleStage} size="xs" />
+            {deprecationBadge}
+            {afterLabel}
+        </>
+    ) : undefined;
+
+    if (termUrnToHide === term.urn) return null;
 
     return (
         <HierarchicalBrowseTreeRow

@@ -6,7 +6,7 @@ description: "Developer documentation for DataHub's semantic search, which uses 
 
 This directory contains documentation for DataHub's semantic search capability, which enables natural language search across metadata entities using vector embeddings.
 
-> **Note:** This is developer documentation for the semantic search feature. For a working example, see the smoke test at `smoke-test/tests/semantic/test_semantic_search.py`.
+> **Note:** This is developer documentation for the semantic search feature. For a working example, see the smoke test at `smoke-test/tests/e2e/semantic/test_semantic_search.py`.
 
 ## Overview
 
@@ -106,7 +106,7 @@ The best way to verify semantic search is working is to run the smoke test:
 
 ```bash
 cd smoke-test
-ENABLE_SEMANTIC_SEARCH_TESTS=true pytest tests/semantic/test_semantic_search.py -v
+ENABLE_SEMANTIC_SEARCH_TESTS=true pytest tests/e2e/semantic/test_semantic_search.py -v
 ```
 
 This test:
@@ -171,7 +171,7 @@ For a working example of semantic search:
 ```bash
 # Run the smoke test
 cd smoke-test
-ENABLE_SEMANTIC_SEARCH_TESTS=true pytest tests/semantic/test_semantic_search.py -v
+ENABLE_SEMANTIC_SEARCH_TESTS=true pytest tests/e2e/semantic/test_semantic_search.py -v
 ```
 
 ## Further Reading

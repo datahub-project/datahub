@@ -1199,17 +1199,19 @@ class BigQuerySchemaGenerator:
         if table.partition_info:
             custom_properties["partition_info"] = str(table.partition_info)
 
-        if table.size_in_bytes:
-            custom_properties["size_in_bytes"] = str(table.size_in_bytes)
+        # A collapsed sharded table reports the totals of all its shards.
+        stats = table.sharded_table_stats or table
+        if stats.size_in_bytes:
+            custom_properties["size_in_bytes"] = str(stats.size_in_bytes)
 
-        if table.active_billable_bytes:
+        if stats.active_billable_bytes:
             custom_properties["billable_bytes_active"] = str(
-                table.active_billable_bytes
+                stats.active_billable_bytes
             )
 
-        if table.long_term_billable_bytes:
+        if stats.long_term_billable_bytes:
             custom_properties["billable_bytes_long_term"] = str(
-                table.long_term_billable_bytes
+                stats.long_term_billable_bytes
             )
 
         if table.max_partition_id:
@@ -1648,8 +1650,12 @@ class BigQuerySchemaGenerator:
 
             # We get the list of tables in the dataset to get core table properties and to be able to process the tables in batches
             # We collect only the latest shards from sharded tables (tables with _YYYYMMDD suffix) and ignore temporary tables
+            shard_families: Dict[str, List[str]] = {}
             table_items = self.get_core_table_details(
-                dataset.name, project_id, self.config.temp_table_dataset_prefix
+                dataset.name,
+                project_id,
+                self.config.temp_table_dataset_prefix,
+                shard_families=shard_families,
             )
 
             if with_partitions:
@@ -1667,38 +1673,104 @@ class BigQuerySchemaGenerator:
             for table_item in table_items:
                 items_to_get[table_item] = table_items[table_item]
                 if len(items_to_get) % max_batch_size == 0:
-                    yield from self.schema_api.get_tables_for_dataset(
+                    yield from self._get_table_batch(
                         project_id,
                         dataset.name,
                         items_to_get,
-                        with_partitions=with_partitions,
-                        use_legacy_table_stats=self.config.use_legacy_table_stats,
-                        report=self.report,
+                        with_partitions,
+                        shard_families,
                     )
                     items_to_get.clear()
 
             if items_to_get:
-                yield from self.schema_api.get_tables_for_dataset(
+                yield from self._get_table_batch(
                     project_id,
                     dataset.name,
                     items_to_get,
-                    with_partitions=with_partitions,
-                    use_legacy_table_stats=self.config.use_legacy_table_stats,
-                    report=self.report,
+                    with_partitions,
+                    shard_families,
                 )
 
         self.report.metadata_extraction_sec[f"{project_id}.{dataset.name}"] = (
             timer.elapsed_seconds(digits=2)
         )
 
+    def _get_table_batch(
+        self,
+        project_id: str,
+        dataset_name: str,
+        items_to_get: Dict[str, TableListItem],
+        with_partitions: bool,
+        shard_families: Dict[str, List[str]],
+    ) -> Iterable[BigqueryTable]:
+        tables = self.schema_api.get_tables_for_dataset(
+            project_id,
+            dataset_name,
+            items_to_get,
+            with_partitions=with_partitions,
+            use_legacy_table_stats=self.config.use_legacy_table_stats,
+            report=self.report,
+        )
+        # Only the latest shard of a collapsed sharded table is queried above, so its
+        # stats cover that one shard. Sum the whole family separately.
+        families = {
+            name: shard_families[name]
+            for name in items_to_get
+            if name in shard_families
+        }
+        if not with_partitions or not families:
+            yield from tables
+            return
+
+        try:
+            totals = self.schema_api.get_sharded_table_stats(
+                project_id, dataset_name, families
+            )
+        except Exception as e:
+            totals = {}
+            self.report.warning(
+                title="Failed to sum sharded table stats",
+                message="Sharded tables keep the stats of their latest shard only",
+                context=f"{project_id}.{dataset_name}",
+                exc=e,
+            )
+        for table in tables:
+            table.sharded_table_stats = totals.get(table.name)
+            yield table
+
+    @staticmethod
+    def _collides_with_base_table(
+        project_id: str, dataset_name: str, table_id: str, base_name: str
+    ) -> bool:
+        """Whether collapsing the shard suffix off `table_id` yields the same DataHub
+        name as the un-suffixed `base_name` table, i.e. the two would share a URN."""
+        shard = BigqueryTableIdentifier(project_id, dataset_name, table_id)
+        base = BigqueryTableIdentifier(project_id, dataset_name, base_name)
+        return shard.get_table_name() == base.get_table_name()
+
     def get_core_table_details(
-        self, dataset_name: str, project_id: str, temp_table_dataset_prefix: str
+        self,
+        dataset_name: str,
+        project_id: str,
+        temp_table_dataset_prefix: str,
+        shard_families: Optional[Dict[str, List[str]]] = None,
     ) -> Dict[str, TableListItem]:
+        """List the dataset's tables, keeping only the latest shard of each sharded
+        table. If shard_families is given, it is filled with each kept latest shard
+        mapped to every shard of its family, for families of more than one shard."""
         table_items: Dict[str, TableListItem] = {}
         sharded_tables: Dict[str, Tuple[TableListItem, str]] = {}
+        shard_ids: Dict[str, List[str]] = defaultdict(list)
+        # Every table id in the dataset, including ones dropped by the filters below.
+        # Whether an un-suffixed table physically exists is a fact about BigQuery, so
+        # it must not depend on which tables the recipe happens to select. Otherwise an
+        # un-suffixed view hidden by include_views/view_pattern would let the copies
+        # take its URN, and they would lose it again once the view is ingested.
+        all_table_ids: Set[str] = set()
 
         for table in self.schema_api.list_tables(dataset_name, project_id):
             table_id = table.table_id
+            all_table_ids.add(table_id)
 
             match = self.shard_matcher.match(table_id)
 
@@ -1707,6 +1779,8 @@ class BigQuerySchemaGenerator:
                     table_id, dataset_name, match
                 )
                 shard = match[3]
+
+                self.report.num_sharded_tables_scanned += 1
 
                 if table.table_type == "VIEW":
                     table_identifier = BigqueryTableIdentifier(
@@ -1726,12 +1800,14 @@ class BigQuerySchemaGenerator:
                         self.report.report_dropped(qualified_base)
                         continue
 
+                shard_ids[base_name].append(table_id)
                 if base_name not in sharded_tables:
                     sharded_tables[base_name] = (table, shard)
                 else:
                     stored_shard = sharded_tables[base_name][1]
                     if is_shard_newer(shard, stored_shard):
                         sharded_tables[base_name] = (table, shard)
+                    self.report.num_sharded_tables_deduped += 1
                 continue
 
             table_identifier = BigqueryTableIdentifier(
@@ -1763,8 +1839,44 @@ class BigQuerySchemaGenerator:
 
             table_items[table_id] = table
 
-        table_items.update(
-            {value[0].table_id: value[0] for value in sharded_tables.values()}
-        )
+        for base_name, (table, _shard) in sharded_tables.items():
+            # A genuine sharded set has no un-suffixed member: `events_20251121` is a
+            # shard of the wildcard table `events_*`, and no table named `events`
+            # exists. When one does, the date-suffixed tables are separate physical
+            # tables (a dated copy, a backup) that merely look like shards.
+            #
+            # That only causes harm if collapsing lands them on the base table's URN,
+            # where their schema and profile overwrite the real table's. Compare the
+            # names rather than reading the config: with
+            # enable_legacy_sharded_table_support disabled the shard keeps a
+            # `_yyyymmdd` suffix and stays a dataset of its own, so it is safe to
+            # ingest and dropping it would lose metadata.
+            if base_name in all_table_ids and self._collides_with_base_table(
+                project_id, dataset_name, table.table_id, base_name
+            ):
+                self.report.num_sharded_tables_shadowed_by_base_table += len(
+                    shard_ids[base_name]
+                )
+                self.report.warning(
+                    title="Date-suffixed tables skipped",
+                    message="Table(s) with a date suffix were skipped because a table "
+                    "of the same name without the suffix exists, so they are copies "
+                    "rather than shards, and ingesting them would overwrite the "
+                    "un-suffixed table's schema and profile. Rename them, or set "
+                    "enable_legacy_sharded_table_support to false to give sharded "
+                    "tables their own URNs, if they should be ingested.",
+                    context=f"{project_id}.{dataset_name}.{base_name}",
+                )
+                continue
+
+            table_items[table.table_id] = table
+            # INFORMATION_SCHEMA.PARTITIONS has no rows for views, so a view family
+            # would only cost a query that returns nothing.
+            if (
+                shard_families is not None
+                and table.table_type != "VIEW"
+                and len(shard_ids[base_name]) > 1
+            ):
+                shard_families[table.table_id] = shard_ids[base_name]
 
         return table_items

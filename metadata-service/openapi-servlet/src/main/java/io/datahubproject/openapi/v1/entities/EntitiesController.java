@@ -12,8 +12,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
+import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -35,12 +38,14 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.propertyeditors.StringArrayPropertyEditor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -72,6 +77,11 @@ public class EntitiesController {
   private final ObjectMapper _objectMapper;
   private final AuthorizerChain _authorizerChain;
   @Nullable private final MetricUtils metricUtils;
+
+  // Optional: absent in applications that do not build the hard delete service.
+  @Autowired(required = false)
+  @Nullable
+  protected HardDeleteService hardDeleteService;
 
   public EntitiesController(
       OperationContext systemOperationContext,
@@ -148,12 +158,15 @@ public class EntitiesController {
             : new HashSet<>(Arrays.asList(aspectNames));
     Throwable exceptionally = null;
     try {
+      Map<Urn, EntityResponse> serviceResponse =
+          _entityService.getEntitiesV2(opContext, entityName, entityUrns, projectedAspects);
+      EntityAuthorizationUtils.completelyRedactUnauthorizedQuerySqlAspects(
+          opContext, serviceResponse);
       return ResponseEntity.ok(
           UrnResponseMap.builder()
               .responses(
                   MappingUtil.mapServiceResponse(
-                      _entityService.getEntitiesV2(
-                          opContext, entityName, entityUrns, projectedAspects),
+                      SensitiveAspectAuthUtil.omitUnauthorizedAspects(opContext, serviceResponse),
                       _objectMapper))
               .build());
     } catch (Exception e) {
@@ -326,8 +339,9 @@ public class EntitiesController {
 
       if (!soft) {
         return ResponseEntity.ok(
-            entityUrns.stream()
-                .map(urn -> _entityService.deleteUrn(opContext, urn))
+            (hardDeleteService != null
+                    ? hardDeleteService.deleteEntities(opContext, entityUrns).stream()
+                    : entityUrns.stream().map(urn -> _entityService.deleteUrn(opContext, urn)))
                 .map(
                     rollbackRunResult ->
                         MappingUtil.mapRollbackRunResult(rollbackRunResult, _objectMapper))

@@ -29,8 +29,10 @@ import fivetranLogo from '@images/fivetranlogo.png';
 import flinkLogo from '@images/flinklogo.svg';
 import githubLogo from '@images/githublogo.png';
 import glueLogo from '@images/gluelogo.png';
+import googleDocsLogo from '@images/googledocslogo.svg';
 import grafanaLogo from '@images/grafana.png';
 import hexLogo from '@images/hex.png';
+import hightouchLogo from '@images/hightouchlogo.png';
 import hiveLogo from '@images/hivelogo.png';
 import icebergLogo from '@images/iceberglogo.png';
 import informaticaLogo from '@images/informaticalogo.png';
@@ -113,11 +115,13 @@ const FEAST_LEGACY = 'feast-legacy';
 const FEAST_URN = `urn:li:dataPlatform:${FEAST}`;
 const FLINK = 'flink';
 const FLINK_URN = `urn:li:dataPlatform:${FLINK}`;
+const GOOGLE_DOCS = 'google_docs';
+const GOOGLE_DOCS_URN = `urn:li:dataPlatform:${GOOGLE_DOCS}`;
 const GRAFANA = 'grafana';
 const GRAFANA_URN = `urn:li:dataPlatform:${GRAFANA}`;
 const GLUE = 'glue';
 const GLUE_URN = `urn:li:dataPlatform:${GLUE}`;
-export const HEX = 'hex';
+const HEX = 'hex';
 const HEX_URN = `urn:li:dataPlatform:${HEX}`;
 const HIVE = 'hive';
 const HIVE_URN = `urn:li:dataPlatform:${HIVE}`;
@@ -152,7 +156,7 @@ const MYSQL_URN = `urn:li:dataPlatform:${MYSQL}`;
 export const CONFLUENCE = 'confluence';
 const CONFLUENCE_URN = `urn:li:dataPlatform:${CONFLUENCE}`;
 export const NOTION = 'notion';
-export const GITHUB = 'github';
+const GITHUB = 'github';
 export const GITHUB_DOCUMENTS = 'github-documents';
 const GITHUB_URN = `urn:li:dataPlatform:${GITHUB}`;
 const NOTION_URN = `urn:li:dataPlatform:${NOTION}`;
@@ -206,13 +210,15 @@ export const VERTICA = 'vertica';
 const VERTICA_URN = `urn:li:dataPlatform:${VERTICA}`;
 const FIVETRAN = 'fivetran';
 const FIVETRAN_URN = `urn:li:dataPlatform:${FIVETRAN}`;
+const HIGHTOUCH = 'hightouch';
+const HIGHTOUCH_URN = `urn:li:dataPlatform:${HIGHTOUCH}`;
 export const CSV = 'csv-enricher';
 const CSV_URN = `urn:li:dataPlatform:${CSV}`;
 const SPARK = 'spark';
 const SPARK_URN = `urn:li:dataPlatform:${SPARK}`;
 export const SQLMESH = 'sqlmesh';
 export const SQLMESH_URN = `urn:li:dataPlatform:${SQLMESH}`;
-const QLIK_SENSE = 'qlik-sense';
+export const QLIK_SENSE = 'qlik-sense';
 const QLIK_SENSE_URN = `urn:li:dataPlatform:${QLIK_SENSE}`;
 const S3 = 's3';
 const S3_URN = `urn:li:dataPlatform:${S3}`;
@@ -272,6 +278,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [FLINK_URN]: flinkLogo,
     [GRAFANA_URN]: grafanaLogo,
     [GLUE_URN]: glueLogo,
+    [GOOGLE_DOCS_URN]: googleDocsLogo,
     [HEX_URN]: hexLogo,
     [HIVE_URN]: hiveLogo,
     [ICEBERG_URN]: icebergLogo,
@@ -317,6 +324,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [DATAPROC_METASTORE_URN]: dataprocMetastoreLogo,
     [VERTICA_URN]: verticaLogo,
     [FIVETRAN_URN]: fivetranLogo,
+    [HIGHTOUCH_URN]: hightouchLogo,
     [CSV_URN]: csvLogo,
     [QLIK_SENSE_URN]: qlikLogo,
     [SIGMA_URN]: sigmaLogo,

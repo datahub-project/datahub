@@ -3,7 +3,7 @@ import functools
 import os
 import pathlib
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from typing import Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -21,7 +21,7 @@ from datahub.metadata.schema_classes import (
     QueryUsageStatisticsClass,
     UpstreamLineageClass,
 )
-from datahub.metadata.urns import CorpUserUrn, DatasetUrn, QueryUrn
+from datahub.metadata.urns import CorpUserUrn, DatasetUrn, QueryUrn, SchemaFieldUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
     ObservedQuery,
@@ -73,6 +73,21 @@ def make_basic_aggregator(store: bool = False) -> SqlParsingAggregator:
     )
 
     return aggregator
+
+
+def test_delete_is_not_counted_as_column_lineage_failure() -> None:
+    aggregator = make_basic_aggregator()
+
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="delete from foo where a = 1",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    assert aggregator.report.num_observed_queries_failed == 0
+    assert aggregator.report.num_observed_queries_column_failed == 0
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -1291,6 +1306,328 @@ def test_temp_table_composite_query_operations_and_repeated_execution() -> None:
     usage_aspect = usage_mcps[0].aspect
     assert isinstance(usage_aspect, QueryUsageStatisticsClass)
     assert usage_aspect.queryCount == 2
+
+
+def _snowflake_urn(name: str) -> str:
+    return DatasetUrn("snowflake", name).urn()
+
+
+def _preparsed_insert(
+    query_text: str,
+    downstream: str,
+    column_upstreams: Dict[str, List[str]],
+    timestamp: datetime,
+    session_id: str = "session1",
+) -> PreparsedQuery:
+    """column_upstreams maps each downstream column to the upstream tables it reads
+    the same-named column from."""
+    upstreams = list(
+        dict.fromkeys(table for tables in column_upstreams.values() for table in tables)
+    )
+    return PreparsedQuery(
+        query_id=None,
+        query_text=query_text,
+        upstreams=upstreams,
+        downstream=downstream,
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream, column=column),
+                upstreams=[ColumnRef(table=table, column=column) for table in tables],
+            )
+            for column, tables in column_upstreams.items()
+        ],
+        timestamp=timestamp,
+        session_id=session_id,
+        query_type=QueryType.INSERT,
+    )
+
+
+def _temp_table_aggregator(generate_operations: bool = False) -> SqlParsingAggregator:
+    return SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_queries=True,
+        generate_usage_statistics=False,
+        generate_operations=generate_operations,
+        is_temp_table=lambda name: ".tmp." in name,
+    )
+
+
+def test_temp_table_with_overlapping_writers_keeps_upstream_order() -> None:
+    tmp = _snowflake_urn("db.tmp.stage")
+    src1, src2, src3 = (_snowflake_urn(f"db.src.src{i}") for i in (1, 2, 3))
+    target = _snowflake_urn("db.dst.target")
+
+    aggregator = _temp_table_aggregator()
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.tmp.stage select x from db.src.src1 join db.src.src2",
+            tmp,
+            {"x": [src1, src2]},
+            _ts(1),
+        )
+    )
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.tmp.stage select x from db.src.src3 join db.src.src1",
+            tmp,
+            {"x": [src3, src1]},
+            _ts(2),
+        )
+    )
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.dst.target select x from db.tmp.stage",
+            target,
+            {"x": [tmp]},
+            _ts(3),
+        )
+    )
+
+    [lineage] = [
+        mcp.aspect
+        for mcp in aggregator.gen_metadata()
+        if isinstance(mcp.aspect, UpstreamLineageClass)
+    ]
+    assert [upstream.dataset for upstream in lineage.upstreams] == [src1, src2, src3]
+    assert lineage.fineGrainedLineages is not None
+    assert [fgl.upstreams for fgl in lineage.fineGrainedLineages] == [
+        [SchemaFieldUrn(src, "x").urn() for src in (src1, src2, src3)]
+    ]
+
+
+def test_self_referencing_temp_writers_resolve_without_duplicates() -> None:
+    # Every writer reads the temp table it writes.
+    columns = [f"col_{i}" for i in range(2)]
+    tmp = _snowflake_urn("db.tmp.work")
+    base = _snowflake_urn("db.src.base")
+    extras = [_snowflake_urn(f"db.src.extra_{i}") for i in range(12)]
+    target = _snowflake_urn("db.dst.target")
+
+    aggregator = _temp_table_aggregator()
+    aggregator.add(
+        _preparsed_insert(
+            "create temp table db.tmp.work as select * from db.src.base",
+            tmp,
+            {column: [base] for column in columns},
+            _ts(0),
+        )
+    )
+    for i, extra in enumerate(extras):
+        aggregator.add(
+            _preparsed_insert(
+                f"insert into db.tmp.work select * from db.tmp.work join db.src.extra_{i}",
+                tmp,
+                {column: [tmp, extra] for column in columns},
+                _ts(i + 1),
+            )
+        )
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.dst.target select * from db.tmp.work",
+            target,
+            {column: [tmp] for column in columns},
+            _ts(100),
+        )
+    )
+
+    # gen_metadata() already dedupes upstreams, so check the resolver directly.
+    [query_id] = aggregator._lineage_map[target]
+    resolved = aggregator._resolve_query_with_temp_tables(
+        aggregator._query_map[query_id]
+    )
+
+    sources = [base, *extras]
+    assert len(resolved.column_lineage) == len(columns)
+    for column_lineage in resolved.column_lineage:
+        column = column_lineage.downstream.column
+        assert len(column_lineage.upstreams) == len(sources)
+        assert set(column_lineage.upstreams) == {
+            ColumnRef(table=source, column=column) for source in sources
+        }
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_temp_table_cycle() -> None:
+    # tmp.t is written from tmp.u and tmp.u from tmp.t.
+    t, u = _snowflake_urn("db.tmp.t"), _snowflake_urn("db.tmp.u")
+    src_a, src_b = _snowflake_urn("db.src.a"), _snowflake_urn("db.src.b")
+
+    aggregator = _temp_table_aggregator(generate_operations=True)
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.tmp.t select c from db.tmp.u join db.src.a",
+            t,
+            {"c": [u, src_a]},
+            _ts(1),
+        )
+    )
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.tmp.u select c from db.tmp.t join db.src.b",
+            u,
+            {"c": [t, src_b]},
+            _ts(2),
+        )
+    )
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.dst.d1 select c from db.tmp.t",
+            _snowflake_urn("db.dst.d1"),
+            {"c": [t]},
+            _ts(3),
+        )
+    )
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.dst.d2 select c from db.tmp.u",
+            _snowflake_urn("db.dst.d2"),
+            {"c": [u]},
+            _ts(4),
+        )
+    )
+
+    check_goldens_stream(
+        outputs=list(aggregator.gen_metadata()),
+        golden_path=RESOURCE_DIR / "test_temp_table_cycle.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_filtered_temp_fed_downstream_emits_only_composite_query() -> None:
+    tmp = _snowflake_urn("db.tmp.stage")
+    src = _snowflake_urn("db.src.source")
+    target = _snowflake_urn("db.dst.target")
+    frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_queries=True,
+        generate_query_usage_statistics=True,
+        generate_usage_statistics=False,
+        generate_operations=True,
+        usage_config=BaseUsageConfig(
+            start_time=get_time_bucket(frozen_timestamp, BucketDuration.DAY),
+            end_time=frozen_timestamp,
+        ),
+        is_temp_table=lambda name: ".tmp." in name,
+        is_allowed_table=lambda name: not name.startswith("db.dst."),
+    )
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.tmp.stage select x from db.src.source",
+            tmp,
+            {"x": [src]},
+            frozen_timestamp,
+        )
+    )
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.dst.target select x from db.tmp.stage",
+            target,
+            {"x": [tmp]},
+            frozen_timestamp,
+        )
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    assert not any(mcp.entityUrn == target for mcp in mcps)
+    query_urns = {
+        mcp.entityUrn
+        for mcp in mcps
+        if mcp.entityUrn and mcp.entityUrn.startswith("urn:li:query:")
+    }
+    [composite_id] = aggregator.report.queries_with_temp_upstreams.keys()
+    assert query_urns == {QueryUrn(composite_id).urn()}
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_same_query_in_two_sessions_resolves_with_latest_session() -> None:
+    tmp = _snowflake_urn("db.tmp.stage")
+    target = _snowflake_urn("db.dst.target")
+
+    aggregator = _temp_table_aggregator(generate_operations=True)
+    for i, session_id in enumerate(("session1", "session2")):
+        src = _snowflake_urn(f"db.src.source_{session_id}")
+        aggregator.add(
+            _preparsed_insert(
+                f"insert into db.tmp.stage select x from db.src.source_{session_id}",
+                tmp,
+                {"x": [src]},
+                _ts(2 * i),
+                session_id=session_id,
+            )
+        )
+        aggregator.add(
+            _preparsed_insert(
+                "insert into db.dst.target select x from db.tmp.stage",
+                target,
+                {"x": [tmp]},
+                _ts(2 * i + 1),
+                session_id=session_id,
+            )
+        )
+
+    mcps = list(aggregator.gen_metadata())
+
+    [lineage] = [
+        mcp.aspect for mcp in mcps if isinstance(mcp.aspect, UpstreamLineageClass)
+    ]
+    assert [upstream.dataset for upstream in lineage.upstreams] == [
+        _snowflake_urn("db.src.source_session2")
+    ]
+    [operation] = [mcp.aspect for mcp in mcps if isinstance(mcp.aspect, OperationClass)]
+    assert operation.queries == [lineage.upstreams[0].query]
+
+
+def test_slowest_downstreams_report_is_bounded(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    aggregator = _temp_table_aggregator()
+    slowest = aggregator.report.slowest_downstreams_lineage_seconds
+
+    for seconds in range(1, 16):
+        aggregator._track_downstream_resolution_time(
+            f"urn_{seconds}", 0, set(), float(seconds), slowest
+        )
+    aggregator._track_downstream_resolution_time("urn_slow", 0, set(), 61.0, slowest)
+    aggregator._track_downstream_resolution_time("urn_slow", 0, set(), 1.0, slowest)
+
+    assert set(slowest) == {"urn_slow", *(f"urn_{s}" for s in range(7, 16))}
+    assert slowest["urn_slow"] == 61.0
+    assert list(slowest.values()) == sorted(slowest.values(), reverse=True)
+    assert aggregator.report.num_slow_downstreams == 1
+    assert "urn_slow" in caplog.text
+
+
+def test_gen_metadata_records_downstream_resolution_times() -> None:
+    tmp = _snowflake_urn("db.tmp.stage")
+    src = _snowflake_urn("db.src.source")
+    target = _snowflake_urn("db.dst.target")
+
+    aggregator = _temp_table_aggregator(generate_operations=True)
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.tmp.stage select x from db.src.source",
+            tmp,
+            {"x": [src]},
+            _ts(1),
+        )
+    )
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.dst.target select x from db.tmp.stage",
+            target,
+            {"x": [tmp]},
+            _ts(2),
+        )
+    )
+    list(aggregator.gen_metadata())
+
+    assert target in aggregator.report.slowest_downstreams_lineage_seconds
+    assert target in aggregator.report.slowest_downstreams_operations_seconds
 
 
 def test_table_swap_id() -> None:
@@ -2528,3 +2865,281 @@ def test_report_serializes_twice_without_raising():
 
         borrower.report.as_obj()
         borrower.report.as_obj()
+
+
+_DAG_A_LABELS = {"airflow-dag": "dag_a", "airflow-task": "task_a"}
+_DAG_B_LABELS = {"airflow-dag": "dag_b", "airflow-task": "task_b"}
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.parametrize(
+    "observed_labels,expected",
+    [
+        pytest.param([None, _DAG_A_LABELS], _DAG_A_LABELS, id="labels_added"),
+        pytest.param(
+            [_DAG_A_LABELS, _DAG_B_LABELS], _DAG_B_LABELS, id="latest_labels_win"
+        ),
+        pytest.param([_DAG_A_LABELS, None], {}, id="unlabeled_run_clears"),
+    ],
+)
+def test_query_custom_properties_from_latest_observation(
+    observed_labels: List[Optional[Dict[str, str]]], expected: Dict[str, str]
+) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="bigquery",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    for i, labels in enumerate(observed_labels):
+        aggregator.add_observed_query(
+            ObservedQuery(
+                query="insert into my_db.my_schema.dst select a from my_db.my_schema.src",
+                timestamp=_ts(20 + i),
+                custom_properties=labels,
+            )
+        )
+
+    query_properties = [
+        mcp.aspect
+        for mcp in aggregator.gen_metadata()
+        if isinstance(mcp.aspect, QueryPropertiesClass)
+    ]
+    assert len(query_properties) == 1
+    assert query_properties[0].customProperties == expected
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_known_query_lineage_keeps_observed_custom_properties() -> None:
+    query = "insert into my_db.my_schema.dst select a from my_db.my_schema.src"
+    aggregator = SqlParsingAggregator(
+        platform="bigquery",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(query=query, timestamp=_ts(20), custom_properties=_DAG_A_LABELS)
+    )
+    aggregator.add_known_query_lineage(
+        KnownQueryLineageInfo(
+            query_text=query,
+            downstream=DatasetUrn("bigquery", "my_db.my_schema.dst").urn(),
+            upstreams=[DatasetUrn("bigquery", "my_db.my_schema.src").urn()],
+        ),
+        merge_lineage=True,
+    )
+
+    query_properties = [
+        mcp.aspect
+        for mcp in aggregator.gen_metadata()
+        if isinstance(mcp.aspect, QueryPropertiesClass)
+    ]
+    assert len(query_properties) == 1
+    assert query_properties[0].customProperties == _DAG_A_LABELS
+
+
+def _make_lineage_aggregator() -> SqlParsingAggregator:
+    return SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+
+def _target_lineage(
+    aggregator: SqlParsingAggregator, downstream: str
+) -> UpstreamLineageClass:
+    lineage = _upstream_lineage_aspect(list(aggregator.gen_metadata()), downstream)
+    assert lineage is not None
+    return lineage
+
+
+def test_lineage_queries_per_downstream_opt_in_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datahub.sql_parsing import sql_parsing_aggregator as aggregator_module
+
+    monkeypatch.setattr(aggregator_module, "MAX_QUERIES_PER_DOWNSTREAM", 3)
+
+    aggregator = _make_lineage_aggregator()
+    downstream = DatasetUrn("snowflake", "dev.public.target").urn()
+    copy_source = DatasetUrn("snowflake", "dev.public.copy_source").urn()
+    known_source = DatasetUrn("snowflake", "dev.public.known_source").urn()
+    sources = [DatasetUrn("snowflake", f"dev.public.src_{i}").urn() for i in range(10)]
+
+    # Known lineage outranks parsed queries and must survive the cap even though it
+    # was registered first.
+    aggregator.add_known_lineage_mapping(
+        upstream_urn=copy_source, downstream_urn=downstream
+    )
+    # Known query lineage keeps a fingerprinted id rather than a known_ prefix.
+    aggregator.add_known_query_lineage(
+        KnownQueryLineageInfo(
+            query_text="INSERT INTO target SELECT * FROM known_source",
+            downstream=downstream,
+            upstreams=[known_source],
+            timestamp=_ts(0),
+        )
+    )
+    for i, source in enumerate(sources):
+        aggregator.add_preparsed_query(
+            PreparsedQuery(
+                query_id=None,
+                query_text=f"INSERT INTO target SELECT * FROM src_{i}",
+                upstreams=[source],
+                downstream=downstream,
+                timestamp=_ts(i),
+            )
+        )
+
+    lineage = _target_lineage(aggregator, downstream)
+    assert {u.dataset for u in lineage.upstreams} == {
+        copy_source,
+        known_source,
+        *sources[-3:],
+    }
+    assert aggregator.report.num_downstreams_with_capped_lineage_queries == 1
+    assert aggregator.report.capped_lineage_downstreams[downstream] == 12
+
+
+def test_lineage_uses_every_query_by_default() -> None:
+    aggregator = _make_lineage_aggregator()
+    downstream = DatasetUrn("snowflake", "dev.public.target").urn()
+    sources = [DatasetUrn("snowflake", f"dev.public.src_{i}").urn() for i in range(50)]
+    for i, source in enumerate(sources):
+        aggregator.add_preparsed_query(
+            PreparsedQuery(
+                query_id=None,
+                query_text=f"INSERT INTO target SELECT * FROM src_{i}",
+                upstreams=[source],
+                downstream=downstream,
+                timestamp=_ts(i),
+            )
+        )
+
+    lineage = _target_lineage(aggregator, downstream)
+    assert {u.dataset for u in lineage.upstreams} == set(sources)
+    assert aggregator.report.num_downstreams_with_capped_lineage_queries == 0
+
+
+def test_lineage_walk_stops_once_output_caps_are_full(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datahub.sql_parsing import sql_parsing_aggregator as aggregator_module
+
+    monkeypatch.setattr(aggregator_module, "MAX_UPSTREAM_TABLES_COUNT", 2)
+    monkeypatch.setattr(aggregator_module, "MAX_FINEGRAINEDLINEAGE_COUNT", 2)
+
+    aggregator = _make_lineage_aggregator()
+    downstream = DatasetUrn("snowflake", "dev.public.target").urn()
+    sources = [DatasetUrn("snowflake", f"dev.public.src_{i}").urn() for i in range(6)]
+    for i, source in enumerate(sources):
+        aggregator.add_preparsed_query(
+            PreparsedQuery(
+                query_id=None,
+                query_text=f"INSERT INTO target (col_{i}) SELECT col_{i} FROM src_{i}",
+                upstreams=[source],
+                downstream=downstream,
+                column_lineage=[
+                    ColumnLineageInfo(
+                        downstream=DownstreamColumnRef(
+                            table=downstream, column=f"col_{i}"
+                        ),
+                        upstreams=[ColumnRef(table=source, column=f"col_{i}")],
+                    )
+                ],
+                timestamp=_ts(i),
+            )
+        )
+
+    lineage = _target_lineage(aggregator, downstream)
+    # Latest timestamp wins, and the walk ends once both caps are satisfied.
+    assert [u.dataset for u in lineage.upstreams] == [sources[5], sources[4]]
+    assert lineage.fineGrainedLineages is not None
+    assert len(lineage.fineGrainedLineages) == 2
+    assert aggregator.report.num_downstreams_with_lineage_walk_stopped_early == 1
+    assert aggregator.report.lineage_walk_stopped_early_downstreams == {downstream: 6}
+
+
+@pytest.mark.parametrize(
+    "max_column_edges, expected_columns, expected_created_ts, stopped_early",
+    [
+        # Both caps full after the newer query: the walk stops, so the older query's
+        # second upstream for column `a` is never merged and `b` stays inside the cap.
+        (2, [("a", "src_new"), ("b", "src_new")], 2, 1),
+        # Only the table cap is full: the walk must go on and merge the older query,
+        # whose edge for `a` lands next to `a`'s first edge.
+        (3, [("a", "src_new"), ("a", "src_old"), ("b", "src_new")], 1, 0),
+    ],
+)
+def test_lineage_walk_stop_keeps_highest_precedence_column_lineage(
+    monkeypatch: pytest.MonkeyPatch,
+    max_column_edges: int,
+    expected_columns: List[tuple],
+    expected_created_ts: int,
+    stopped_early: int,
+) -> None:
+    from datahub.sql_parsing import sql_parsing_aggregator as aggregator_module
+
+    monkeypatch.setattr(aggregator_module, "MAX_UPSTREAM_TABLES_COUNT", 1)
+    monkeypatch.setattr(
+        aggregator_module, "MAX_FINEGRAINEDLINEAGE_COUNT", max_column_edges
+    )
+
+    aggregator = _make_lineage_aggregator()
+    downstream = DatasetUrn("snowflake", "dev.public.target").urn()
+    sources = {
+        name: DatasetUrn("snowflake", f"dev.public.{name}").urn()
+        for name in ("src_new", "src_old")
+    }
+
+    def _cll(column: str, source: str) -> ColumnLineageInfo:
+        return ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table=downstream, column=column),
+            upstreams=[ColumnRef(table=source, column=column)],
+        )
+
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id=None,
+            query_text="INSERT INTO target (a, b) SELECT a, b FROM src_new",
+            upstreams=[sources["src_new"]],
+            downstream=downstream,
+            column_lineage=[
+                _cll("a", sources["src_new"]),
+                _cll("b", sources["src_new"]),
+            ],
+            timestamp=_ts(2),
+        )
+    )
+    # An older query adding a second upstream to an already-seen column.
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id=None,
+            query_text="INSERT INTO target (a) SELECT a FROM src_old",
+            upstreams=[sources["src_old"]],
+            downstream=downstream,
+            column_lineage=[_cll("a", sources["src_old"])],
+            timestamp=_ts(1),
+        )
+    )
+
+    lineage = _target_lineage(aggregator, downstream)
+    assert [u.dataset for u in lineage.upstreams] == [sources["src_new"]]
+    created = lineage.upstreams[0].created
+    assert created is not None
+    assert created.time == expected_created_ts * 1000
+    assert lineage.fineGrainedLineages is not None
+    assert [(f.downstreams, f.upstreams) for f in lineage.fineGrainedLineages] == [
+        (
+            [f"urn:li:schemaField:({downstream},{column})"],
+            [f"urn:li:schemaField:({sources[source]},{column})"],
+        )
+        for column, source in expected_columns
+    ]
+    assert (
+        aggregator.report.num_downstreams_with_lineage_walk_stopped_early
+        == stopped_early
+    )

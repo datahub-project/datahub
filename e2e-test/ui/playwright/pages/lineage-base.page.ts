@@ -135,10 +135,14 @@ export class LineageBasePage extends BasePage {
     await expect(this.page.getByText(datasetName).first()).toBeVisible({ timeout: 15000 });
   }
 
-  /** Navigate to a dataset entity page and open the Lineage tab. */
+  /**
+   * Open a dataset's Lineage tab by deep link (see LineageV3Page.navigateToDatasetLineage for
+   * why this avoids landing on the Summary tab first).
+   */
   async goToDatasetLineage(urn: string, name: string): Promise<void> {
-    await this.goToDataset(urn, name);
-    await this.clickLineageTab();
+    await this.navigate(`/dataset/${urn}/Lineage`);
+    await this.page.waitForLoadState('domcontentloaded');
+    await expect(this.page.getByText(name).first()).toBeVisible({ timeout: 15000 });
   }
 
   // ── Node existence checks ───────────────────────────────────────────────────
@@ -412,6 +416,14 @@ export class LineageBasePage extends BasePage {
     await this.editDownstreamLineageButton.click();
   }
 
+  async expectCurrentLineageContains(name: string): Promise<void> {
+    await expect(this.page.getByTestId('lineage-entity-item').getByText(name)).toBeVisible();
+  }
+
+  async expectCurrentLineageNotContains(name: string): Promise<void> {
+    await expect(this.page.getByTestId('lineage-entity-item').getByText(name)).toHaveCount(0);
+  }
+
   // ── Lineage tab / entity page ─────────────────────────────────────────────
 
   async clickLineageTab(): Promise<void> {
@@ -518,8 +530,6 @@ export class LineageBasePage extends BasePage {
   /** Open the column selector dropdown and pick a column by name. */
   async selectColumnFromDropdown(columnName: string): Promise<void> {
     await this.page.getByText('Select column').click({ force: true });
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(1000);
     await this.columnDropdownVirtualList.getByText(columnName, { exact: true }).click();
   }
 

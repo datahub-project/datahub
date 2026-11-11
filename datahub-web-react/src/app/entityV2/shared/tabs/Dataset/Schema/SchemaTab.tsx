@@ -1,4 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import { Empty } from 'antd';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,12 +6,12 @@ import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
 import SchemaHeader from '@app/entityV2/dataset/profile/schema/components/SchemaHeader';
 import SchemaRawView from '@app/entityV2/dataset/profile/schema/components/SchemaRawView';
 import { SEMANTIC_VERSION_PARAM } from '@app/entityV2/dataset/profile/schema/components/VersionSelector';
 import { KEY_SCHEMA_PREFIX } from '@app/entityV2/dataset/profile/schema/utils/constants';
 import { groupByFieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { useBaseEntity, useEntityData } from '@app/entityV2/shared/EntityContext';
 import { isLogicalModel } from '@app/entityV2/shared/logicalModels/logicalModels.utils';
 import CompactSchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/CompactSchemaTable';
 import SchemaContext from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
@@ -31,7 +31,7 @@ import {
 import useUpdateSchemaFilterQueryString from '@app/entityV2/shared/tabs/Dataset/Schema/utils/updateSchemaFilterQueryString';
 import { TabRenderType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import SchemaEditableContext from '@app/sharedV2/SchemaEditableContext';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -63,7 +63,6 @@ const LoadingWrapper = styled.div`
     align-items: center;
     justify-content: center;
     height: 350px;
-    font-size: 30px;
 `;
 
 const DEFAULT_SCHEMA_FILTER_TYPES = [
@@ -160,6 +159,8 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
         skip: !urn || hideSemanticVersions,
     });
 
+    // The edited primary key is not versioned, so older schema versions show only their source key.
+    const editedPrimaryKeys = isLatestVersion ? entityWithSchema?.editablePrimaryKeys?.primaryKeys : undefined;
     let editMode = true;
     if (!isLatestVersion) {
         schemaMetadata = versionedSchema;
@@ -255,7 +256,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
 
     if (renderType === TabRenderType.COMPACT) {
         if (loading && !schemaMetadata) {
-            return <LoadingOutlined />;
+            return <Loader size="md" />;
         }
         return (
             // Provided here as well as below: the compact table renders the same field drawer, whose
@@ -271,6 +272,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                     rows={rows}
                     schemaMetadata={schemaMetadata}
                     editableSchemaMetadata={editableSchemaMetadata}
+                    editedPrimaryKeys={editedPrimaryKeys}
                     expandedDrawerFieldPath={expandedDrawerFieldPath}
                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                     openTimelineDrawer={openTimelineDrawer}
@@ -328,7 +330,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
             />
             {loading && !schemaMetadata ? (
                 <LoadingWrapper>
-                    <LoadingOutlined />
+                    <Loader size="md" />
                 </LoadingWrapper>
             ) : (
                 <>
@@ -354,6 +356,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                                     schemaMetadata={schemaMetadata}
                                     rows={rows}
                                     editableSchemaMetadata={editableSchemaMetadata}
+                                    editedPrimaryKeys={editedPrimaryKeys}
                                     usageStats={usageStats}
                                     expandedRowsFromFilter={expandedRowsFromFilter}
                                     filterText={filterText}
@@ -371,7 +374,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                                     an empty result while Phase 2 is still loading is "not yet", not "none". */}
                                 {fullMetadataLoading ? (
                                     <LoadingWrapper>
-                                        <LoadingOutlined />
+                                        <Loader size="md" />
                                     </LoadingWrapper>
                                 ) : (
                                     <NoSchema />

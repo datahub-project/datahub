@@ -19,8 +19,8 @@ import {
     mergeDataProductEntities,
 } from '@app/marketplace/utils/marketplaceDataProductEntity';
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
-import { toCompactRelativeTimeString } from '@app/shared/time/timeUtils';
 import { SummaryStatIconBadge } from '@app/sharedV2/cards/SummaryStatIconBadge';
+import { toCompactRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import { PageRoutes } from '@conf/Global';
 
 import {

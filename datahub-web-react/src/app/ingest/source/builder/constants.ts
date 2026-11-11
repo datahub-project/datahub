@@ -30,6 +30,7 @@ import flinkLogo from '@images/flinklogo.svg';
 import glueLogo from '@images/gluelogo.png';
 import googleSheetsLogo from '@images/google-sheets-logo.png';
 import grafanaLogo from '@images/grafana.png';
+import hightouchLogo from '@images/hightouchlogo.png';
 import hiveLogo from '@images/hivelogo.png';
 import informixLogo from '@images/informixlogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
@@ -165,6 +166,7 @@ export const REDSHIFT_URN = `urn:li:dataPlatform:${REDSHIFT}`;
 const S3 = 's3';
 const S3_URN = `urn:li:dataPlatform:${S3}`;
 const SNOWFLAKE = 'snowflake';
+export { SNOWFLAKE };
 const SNOWFLAKE_BETA = 'snowflake-beta';
 const SNOWFLAKE_USAGE = 'snowflake-usage';
 export const SNOWFLAKE_URN = `urn:li:dataPlatform:${SNOWFLAKE}`;
@@ -200,6 +202,8 @@ export const VERTICA = 'vertica';
 const VERTICA_URN = `urn:li:dataPlatform:${VERTICA}`;
 const FIVETRAN = 'fivetran';
 const FIVETRAN_URN = `urn:li:dataPlatform:${FIVETRAN}`;
+const HIGHTOUCH = 'hightouch';
+const HIGHTOUCH_URN = `urn:li:dataPlatform:${HIGHTOUCH}`;
 export const CSV = 'csv-enricher';
 const CSV_URN = `urn:li:dataPlatform:${CSV}`;
 const FILE = 'file';
@@ -299,6 +303,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [VERTICA_URN]: verticaLogo,
     [DLT_URN]: dltLogo,
     [FIVETRAN_URN]: fivetranLogo,
+    [HIGHTOUCH_URN]: hightouchLogo,
     [CSV_URN]: csvLogo,
     [FILE_URN]: fileLogo,
     [QLIK_SENSE_URN]: qlikLogo,

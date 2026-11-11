@@ -1,48 +1,14 @@
 [
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
-            "urn": "urn:li:glossaryNode:Different-Owner-Types",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
-                        "customProperties": {},
-                        "definition": "Testing multiple owners with different types",
-                        "name": "Different Owner Types"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:dev1",
-                                "type": "DEVELOPER"
-                            },
-                            {
-                                "owner": "urn:li:corpGroup:engineering",
-                                "type": "DEVELOPER"
-                            },
-                            {
-                                "owner": "urn:li:corpuser:owner1",
-                                "type": "DATAOWNER"
-                            },
-                            {
-                                "owner": "urn:li:corpGroup:data_stewards",
-                                "type": "DATAOWNER"
-                            },
-                            {
-                                "owner": "urn:li:corpuser:producer1",
-                                "type": "PRODUCER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                }
-            ]
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:Different-Owner-Types",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Testing multiple owners with different types",
+            "name": "Different Owner Types"
         }
     },
     "systemMetadata": {
@@ -52,49 +18,99 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-            "urn": "urn:li:glossaryTerm:Different-Owner-Types.Mixed-Ownership",
-            "aspects": [
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:Different-Owner-Types",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
                 {
-                    "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
-                        "customProperties": {},
-                        "name": "Mixed Ownership",
-                        "definition": "Term with different owner types",
-                        "parentNode": "urn:li:glossaryNode:Different-Owner-Types",
-                        "termSource": "INTERNAL",
-                        "sourceRef": "DataHub",
-                        "sourceUrl": "https://github.com/datahub-project/datahub/"
-                    }
+                    "owner": "urn:li:corpuser:dev1",
+                    "type": "DEVELOPER"
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:stakeholder1",
-                                "type": "STAKEHOLDER"
-                            },
-                            {
-                                "owner": "urn:li:corpGroup:business",
-                                "type": "STAKEHOLDER"
-                            },
-                            {
-                                "owner": "urn:li:corpuser:dev2",
-                                "type": "DEVELOPER"
-                            },
-                            {
-                                "owner": "urn:li:corpGroup:compliance",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
+                    "owner": "urn:li:corpGroup:engineering",
+                    "type": "DEVELOPER"
+                },
+                {
+                    "owner": "urn:li:corpuser:owner1",
+                    "type": "DATAOWNER"
+                },
+                {
+                    "owner": "urn:li:corpGroup:data_stewards",
+                    "type": "DATAOWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:producer1",
+                    "type": "PRODUCER"
                 }
-            ]
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-8vduoq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Different-Owner-Types.Mixed-Ownership",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "Mixed Ownership",
+            "definition": "Term with different owner types",
+            "parentNode": "urn:li:glossaryNode:Different-Owner-Types",
+            "termSource": "INTERNAL",
+            "sourceRef": "DataHub",
+            "sourceUrl": "https://github.com/datahub-project/datahub/"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-8vduoq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Different-Owner-Types.Mixed-Ownership",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:stakeholder1",
+                    "type": "STAKEHOLDER"
+                },
+                {
+                    "owner": "urn:li:corpGroup:business",
+                    "type": "STAKEHOLDER"
+                },
+                {
+                    "owner": "urn:li:corpuser:dev2",
+                    "type": "DEVELOPER"
+                },
+                {
+                    "owner": "urn:li:corpGroup:compliance",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {

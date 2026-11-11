@@ -1,18 +1,16 @@
 export const SIDEBAR_TRANSITION_MS = 300;
 export const SIDEBAR_COLLAPSED_WIDTH = 63;
 
-/** Drag-resize bounds (same ballpark as search BrowseSidebar). */
-export const SIDEBAR_MIN_WIDTH = 260;
+/** Drag-resize bounds. Below the minimum, collapse the sidebar instead. */
+export const SIDEBAR_MIN_WIDTH = 220;
 export const SIDEBAR_MAX_WIDTH = 500;
 
 /** Shared across Glossary / Domains / Documents / Metrics. */
 export const SIDEBAR_WIDTH_STORAGE_KEY = 'hierarchicalBrowseSidebarWidth';
 
-/** Gap between the browse sidebar and the page container. */
-export const HIERARCHICAL_BROWSE_GAP_PX = 8;
-
-/** Outer inset of the sidebar + page layout from the nav shell. */
-export const HIERARCHICAL_BROWSE_LAYOUT_PADDING_PX = 5;
+/** Search "Navigate" sidebar keeps its own width so it can start narrow. */
+export const SEARCH_BROWSE_SIDEBAR_WIDTH_STORAGE_KEY = 'searchBrowseSidebarWidth';
+export const SEARCH_BROWSE_SIDEBAR_DEFAULT_WIDTH = 260;
 
 /**
  * Leading entity glyph size for tree rows (expanded + collapsed).

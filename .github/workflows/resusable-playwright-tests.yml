@@ -13,7 +13,7 @@ on:
         required: true
         type: string
       test_runner_type:
-        description: "Runner type (e.g. depot-ubuntu-24.04-4 or ubuntu-latest)"
+        description: "Runner type (e.g. depot-ubuntu-24.04-4 or ubuntu-24.04)"
         required: true
         type: string
       depot_build_id:
@@ -89,21 +89,11 @@ jobs:
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
 
-      - name: Set up JDK 25
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          distribution: "temurin"
-          java-version: 25
-
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "22"
+          gradle: false
+          node: true
 
       # Path 1: Pull images from depot cache (docker-unified non fork trigger)
       - name: Set up Depot CLI
@@ -236,8 +226,15 @@ jobs:
           # once reusable-playwright-report.yml flattens blobs into one directory to merge
           # them -- set this explicitly instead.
           PLAYWRIGHT_BLOB_OUTPUT_FILE: blob-report/report-${{ inputs.shard }}.zip
+          TEST_RUNNER_TYPE: ${{ inputs.test_runner_type }}
         run: |
           mapfile -t ARGS < shard-files.txt
+          # *-scale specs assert wall-clock budgets tuned for Depot runners; GitHub-hosted
+          # runners (fork PRs without the "depot" label) are ~1.5-2x slower and fail them.
+          if [[ "$TEST_RUNNER_TYPE" != depot-* ]]; then
+            mapfile -t ARGS < <(printf '%s\n' "${ARGS[@]}" | grep -v -- '^[^/]*-scale/')
+            echo "Skipping *-scale specs on non-Depot runner $TEST_RUNNER_TYPE"
+          fi
           if [ "${#ARGS[@]}" -eq 0 ]; then
             echo "No spec files assigned to shard ${{ inputs.shard }}/${{ inputs.shard_count }} — skipping."
             exit 0
@@ -335,9 +332,3 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
-
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ github.ref == 'refs/heads/master' && inputs.shard == '1' }}
-        with:
-          path: ~/.cache/yarn
-          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}

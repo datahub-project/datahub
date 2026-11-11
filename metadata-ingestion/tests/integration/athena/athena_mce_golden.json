@@ -230,182 +230,201 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD)",
-            "aspects": [
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "key": "value",
+                "table_type": "EXTERNAL_TABLE",
+                "is_view": "True",
+                "view_definition": "CREATE VIEW \"test_schema\".test_view_1 AS\nSELECT *\nFROM\n  \"test_schema\".\"test_table\""
+            },
+            "name": "test_table",
+            "description": "Test table description",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "test_schema.test_table",
+            "platform": "urn:li:dataPlatform:athena",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
+                    "fieldPath": "[version=2.0].[type=string].employee_id",
+                    "nullable": false,
+                    "description": "Unique identifier for the employee",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "key": "value",
-                            "table_type": "EXTERNAL_TABLE",
-                            "is_view": "True",
-                            "view_definition": "CREATE VIEW \"test_schema\".test_view_1 AS\nSELECT *\nFROM\n  \"test_schema\".\"test_table\""
-                        },
-                        "name": "test_table",
-                        "description": "Test table description",
-                        "tags": []
-                    }
+                    "fieldPath": "[version=2.0].[type=long].annual_salary",
+                    "nullable": true,
+                    "description": "Annual salary of the employee in USD",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "BIGINT",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "test_schema.test_table",
-                        "platform": "urn:li:dataPlatform:athena",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
+                    "fieldPath": "[version=2.0].[type=string].employee_name",
+                    "nullable": false,
+                    "description": "Full name of the employee",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history",
+                    "nullable": true,
+                    "description": "Job history map: year to details (company, role)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.MapType": {
+                                "keyType": "string",
+                                "valueType": "record"
                             }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "[version=2.0].[type=string].employee_id",
-                                "nullable": false,
-                                "description": "Unique identifier for the employee",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "VARCHAR",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=long].annual_salary",
-                                "nullable": true,
-                                "description": "Annual salary of the employee in USD",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "BIGINT",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=string].employee_name",
-                                "nullable": false,
-                                "description": "Full name of the employee",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "VARCHAR",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history",
-                                "nullable": true,
-                                "description": "Job history map: year to details (company, role)",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.MapType": {
-                                            "keyType": "string",
-                                            "valueType": "record"
-                                        }
-                                    }
-                                },
-                                "nativeDataType": "MapType(String(), STRUCT(year=INTEGER(), company=String(), role=String()))",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=int].year",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "INTEGER",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].company",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "VARCHAR",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].role",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "VARCHAR",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=long].department_budgets",
-                                "nullable": true,
-                                "description": "Map of department names to their respective budgets",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.MapType": {
-                                            "keyType": "string",
-                                            "valueType": "long"
-                                        }
-                                    }
-                                },
-                                "nativeDataType": "MapType(String(), BIGINT())",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=string].skills",
-                                "nullable": true,
-                                "description": "List of skills possessed by the employee",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": [
-                                                "string"
-                                            ]
-                                        }
-                                    }
-                                },
-                                "nativeDataType": "array<VARCHAR>",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false
+                        }
+                    },
+                    "nativeDataType": "MapType(String(), STRUCT(year=INTEGER(), company=String(), role=String()))",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false,
+                    "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=int].year",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INTEGER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].company",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].role",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=long].department_budgets",
+                    "nullable": true,
+                    "description": "Map of department names to their respective budgets",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.MapType": {
+                                "keyType": "string",
+                                "valueType": "long"
                             }
-                        ]
-                    }
+                        }
+                    },
+                    "nativeDataType": "MapType(String(), BIGINT())",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false,
+                    "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=string].skills",
+                    "nullable": true,
+                    "description": "List of skills possessed by the employee",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "string"
+                                ]
+                            }
+                        }
+                    },
+                    "nativeDataType": "array<VARCHAR>",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 }
             ]
         }
@@ -472,182 +491,201 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD)",
-            "aspects": [
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "key": "value",
+                "table_type": "EXTERNAL_TABLE",
+                "is_view": "True",
+                "view_definition": "CREATE VIEW \"test_schema\".test_view_2 AS\nSELECT employee_id, employee_name, skills\nFROM\n  \"test_schema\".\"test_view_1\""
+            },
+            "name": "test_view_1",
+            "description": "Test table description",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "test_schema.test_view_1",
+            "platform": "urn:li:dataPlatform:athena",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
+                    "fieldPath": "[version=2.0].[type=string].employee_id",
+                    "nullable": false,
+                    "description": "Unique identifier for the employee",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "key": "value",
-                            "table_type": "EXTERNAL_TABLE",
-                            "is_view": "True",
-                            "view_definition": "CREATE VIEW \"test_schema\".test_view_2 AS\nSELECT employee_id, employee_name, skills\nFROM\n  \"test_schema\".\"test_view_1\""
-                        },
-                        "name": "test_view_1",
-                        "description": "Test table description",
-                        "tags": []
-                    }
+                    "fieldPath": "[version=2.0].[type=long].annual_salary",
+                    "nullable": true,
+                    "description": "Annual salary of the employee in USD",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "BIGINT",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "test_schema.test_view_1",
-                        "platform": "urn:li:dataPlatform:athena",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
+                    "fieldPath": "[version=2.0].[type=string].employee_name",
+                    "nullable": false,
+                    "description": "Full name of the employee",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history",
+                    "nullable": true,
+                    "description": "Job history map: year to details (company, role)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.MapType": {
+                                "keyType": "string",
+                                "valueType": "record"
                             }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "[version=2.0].[type=string].employee_id",
-                                "nullable": false,
-                                "description": "Unique identifier for the employee",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "VARCHAR",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=long].annual_salary",
-                                "nullable": true,
-                                "description": "Annual salary of the employee in USD",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "BIGINT",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=string].employee_name",
-                                "nullable": false,
-                                "description": "Full name of the employee",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "VARCHAR",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history",
-                                "nullable": true,
-                                "description": "Job history map: year to details (company, role)",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.MapType": {
-                                            "keyType": "string",
-                                            "valueType": "record"
-                                        }
-                                    }
-                                },
-                                "nativeDataType": "MapType(String(), STRUCT(year=INTEGER(), company=String(), role=String()))",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=int].year",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "INTEGER",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].company",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "VARCHAR",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].role",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "VARCHAR",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=long].department_budgets",
-                                "nullable": true,
-                                "description": "Map of department names to their respective budgets",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.MapType": {
-                                            "keyType": "string",
-                                            "valueType": "long"
-                                        }
-                                    }
-                                },
-                                "nativeDataType": "MapType(String(), BIGINT())",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=string].skills",
-                                "nullable": true,
-                                "description": "List of skills possessed by the employee",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": [
-                                                "string"
-                                            ]
-                                        }
-                                    }
-                                },
-                                "nativeDataType": "array<VARCHAR>",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false
+                        }
+                    },
+                    "nativeDataType": "MapType(String(), STRUCT(year=INTEGER(), company=String(), role=String()))",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false,
+                    "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=int].year",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INTEGER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].company",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].role",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=long].department_budgets",
+                    "nullable": true,
+                    "description": "Map of department names to their respective budgets",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.MapType": {
+                                "keyType": "string",
+                                "valueType": "long"
                             }
-                        ]
-                    }
+                        }
+                    },
+                    "nativeDataType": "MapType(String(), BIGINT())",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false,
+                    "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=string].skills",
+                    "nullable": true,
+                    "description": "List of skills possessed by the employee",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "string"
+                                ]
+                            }
+                        }
+                    },
+                    "nativeDataType": "array<VARCHAR>",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 }
             ]
         }
@@ -732,182 +770,201 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD)",
-            "aspects": [
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "key": "value",
+                "table_type": "EXTERNAL_TABLE",
+                "is_view": "True",
+                "view_definition": "CREATE VIEW \"test_schema\".test_view_2 AS\nSELECT employee_id, employee_name, skills\nFROM\n  \"test_schema\".\"test_view_1\""
+            },
+            "name": "test_view_2",
+            "description": "Test table description",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "test_schema.test_view_2",
+            "platform": "urn:li:dataPlatform:athena",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
+                    "fieldPath": "[version=2.0].[type=string].employee_id",
+                    "nullable": false,
+                    "description": "Unique identifier for the employee",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "key": "value",
-                            "table_type": "EXTERNAL_TABLE",
-                            "is_view": "True",
-                            "view_definition": "CREATE VIEW \"test_schema\".test_view_2 AS\nSELECT employee_id, employee_name, skills\nFROM\n  \"test_schema\".\"test_view_1\""
-                        },
-                        "name": "test_view_2",
-                        "description": "Test table description",
-                        "tags": []
-                    }
+                    "fieldPath": "[version=2.0].[type=long].annual_salary",
+                    "nullable": true,
+                    "description": "Annual salary of the employee in USD",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "BIGINT",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "test_schema.test_view_2",
-                        "platform": "urn:li:dataPlatform:athena",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
+                    "fieldPath": "[version=2.0].[type=string].employee_name",
+                    "nullable": false,
+                    "description": "Full name of the employee",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history",
+                    "nullable": true,
+                    "description": "Job history map: year to details (company, role)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.MapType": {
+                                "keyType": "string",
+                                "valueType": "record"
                             }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "[version=2.0].[type=string].employee_id",
-                                "nullable": false,
-                                "description": "Unique identifier for the employee",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "VARCHAR",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=long].annual_salary",
-                                "nullable": true,
-                                "description": "Annual salary of the employee in USD",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "BIGINT",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=string].employee_name",
-                                "nullable": false,
-                                "description": "Full name of the employee",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "VARCHAR",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history",
-                                "nullable": true,
-                                "description": "Job history map: year to details (company, role)",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.MapType": {
-                                            "keyType": "string",
-                                            "valueType": "record"
-                                        }
-                                    }
-                                },
-                                "nativeDataType": "MapType(String(), STRUCT(year=INTEGER(), company=String(), role=String()))",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=int].year",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "INTEGER",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].company",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "VARCHAR",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].role",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "VARCHAR",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=map].[type=long].department_budgets",
-                                "nullable": true,
-                                "description": "Map of department names to their respective budgets",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.MapType": {
-                                            "keyType": "string",
-                                            "valueType": "long"
-                                        }
-                                    }
-                                },
-                                "nativeDataType": "MapType(String(), BIGINT())",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=string].skills",
-                                "nullable": true,
-                                "description": "List of skills possessed by the employee",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": [
-                                                "string"
-                                            ]
-                                        }
-                                    }
-                                },
-                                "nativeDataType": "array<VARCHAR>",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false
+                        }
+                    },
+                    "nativeDataType": "MapType(String(), STRUCT(year=INTEGER(), company=String(), role=String()))",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false,
+                    "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=int].year",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INTEGER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].company",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].role",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=long].department_budgets",
+                    "nullable": true,
+                    "description": "Map of department names to their respective budgets",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.MapType": {
+                                "keyType": "string",
+                                "valueType": "long"
                             }
-                        ]
-                    }
+                        }
+                    },
+                    "nativeDataType": "MapType(String(), BIGINT())",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false,
+                    "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=string].skills",
+                    "nullable": true,
+                    "description": "List of skills possessed by the employee",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "string"
+                                ]
+                            }
+                        }
+                    },
+                    "nativeDataType": "array<VARCHAR>",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
                 }
             ]
         }

@@ -12,6 +12,7 @@ import com.linkedin.datahub.upgrade.system.dataplatforminstances.IngestDataPlatf
 import com.linkedin.datahub.upgrade.system.dataplatforms.IndexDataPlatforms;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
 import com.linkedin.datahub.upgrade.system.dataproducts.ResyncDataProductAssets;
+import com.linkedin.datahub.upgrade.system.documents.DeleteOrphanedDocumentChildren;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.entityconsistency.FixEntityConsistency;
 import com.linkedin.datahub.upgrade.system.homepagelinks.MigrateHomePageLinks;
@@ -20,6 +21,8 @@ import com.linkedin.datahub.upgrade.system.ingestion.IngestEntityTypes;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
 import com.linkedin.datahub.upgrade.system.migrations.MigrateAspects;
 import com.linkedin.datahub.upgrade.system.policyfields.BackfillPolicyFields;
+import com.linkedin.datahub.upgrade.system.policyprivileges.BackfillViewAllQueriesPrivilege;
+import com.linkedin.datahub.upgrade.system.policyprivileges.BackfillViewEntityQueriesPrivilege;
 import com.linkedin.datahub.upgrade.system.restoreindices.RestoreDbtSiblingsIndices;
 import com.linkedin.datahub.upgrade.system.restoreindices.columnlineage.RestoreColumnLineageIndices;
 import com.linkedin.datahub.upgrade.system.restoreindices.forminfo.RestoreFormInfoIndices;
@@ -41,6 +44,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,6 +75,26 @@ public class NonBlockingConfigs {
   }
 
   @Bean
+  public NonBlockingSystemUpgrade deleteOrphanedDocumentChildren(
+      final OperationContext opContext,
+      EntityService<?> entityService,
+      SearchService searchService,
+      DocumentService documentService,
+      @Value("${systemUpdate.deleteOrphanedDocumentChildren.enabled}") final boolean enabled,
+      @Value("${systemUpdate.deleteOrphanedDocumentChildren.reprocess.enabled}")
+          final boolean reprocessEnabled,
+      @Value("${systemUpdate.deleteOrphanedDocumentChildren.batchSize}") final Integer batchSize) {
+    return new DeleteOrphanedDocumentChildren(
+        opContext,
+        entityService,
+        searchService,
+        documentService,
+        enabled,
+        reprocessEnabled,
+        batchSize);
+  }
+
+  @Bean
   public NonBlockingSystemUpgrade backfillBrowsePathsV2(
       final OperationContext opContext,
       EntityService<?> entityService,
@@ -86,11 +110,15 @@ public class NonBlockingConfigs {
   public NonBlockingSystemUpgrade resyncDataProductAssets(
       final OperationContext opContext,
       EntityService<?> entityService,
-      SearchService searchService,
-      @Value("${systemUpdate.dataProductAssets.reprocess.enabled}") final boolean reprocessEnabled,
-      @Value("${systemUpdate.dataProductAssets.batchSize}") final Integer batchSize) {
+      AspectDao aspectDao,
+      @Value("${systemUpdate.dataProductAssets.enabled}") final boolean enabled,
+      @Value("${systemUpdate.dataProductAssets.batchSize}") final Integer batchSize,
+      @Value("${systemUpdate.dataProductAssets.delayMs}") final Integer delayMs,
+      @Value("${systemUpdate.dataProductAssets.limit}") final Integer limit,
+      @Value("${systemUpdate.dataProductAssets.reprocess.enabled}")
+          final boolean reprocessEnabled) {
     return new ResyncDataProductAssets(
-        opContext, entityService, searchService, reprocessEnabled, batchSize);
+        opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit, reprocessEnabled);
   }
 
   @Bean
@@ -150,6 +178,32 @@ public class NonBlockingConfigs {
       @Value("${systemUpdate.policyFields.reprocess.enabled}") final boolean reprocessEnabled,
       @Value("${systemUpdate.policyFields.batchSize}") final Integer batchSize) {
     return new BackfillPolicyFields(
+        opContext, entityService, searchService, enabled, reprocessEnabled, batchSize);
+  }
+
+  @Bean
+  public BackfillViewEntityQueriesPrivilege backfillViewEntityQueriesPrivilege(
+      final OperationContext opContext,
+      EntityService<?> entityService,
+      SearchService searchService,
+      @Value("${systemUpdate.viewEntityQueriesPrivilege.enabled}") final boolean enabled,
+      @Value("${systemUpdate.viewEntityQueriesPrivilege.reprocess.enabled}")
+          final boolean reprocessEnabled,
+      @Value("${systemUpdate.viewEntityQueriesPrivilege.batchSize}") final Integer batchSize) {
+    return new BackfillViewEntityQueriesPrivilege(
+        opContext, entityService, searchService, enabled, reprocessEnabled, batchSize);
+  }
+
+  @Bean
+  public BackfillViewAllQueriesPrivilege backfillViewAllQueriesPrivilege(
+      final OperationContext opContext,
+      EntityService<?> entityService,
+      SearchService searchService,
+      @Value("${systemUpdate.viewAllQueriesPrivilege.enabled}") final boolean enabled,
+      @Value("${systemUpdate.viewAllQueriesPrivilege.reprocess.enabled}")
+          final boolean reprocessEnabled,
+      @Value("${systemUpdate.viewAllQueriesPrivilege.batchSize}") final Integer batchSize) {
+    return new BackfillViewAllQueriesPrivilege(
         opContext, entityService, searchService, enabled, reprocessEnabled, batchSize);
   }
 

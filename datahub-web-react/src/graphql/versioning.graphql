@@ -42,6 +42,15 @@ fragment versionsSearchResults on SearchResults {
         entity {
             urn
             type
+            ... on HasStatus {
+                status {
+                    lifecycleStage {
+                        urn
+                        name
+                        description
+                    }
+                }
+            }
             ... on SupportsVersions {
                 versionProperties {
                     ...versionProperties
@@ -57,7 +66,9 @@ fragment entityProfileVersionProperties on SupportsVersions {
         versionSet {
             urn
             type
-            versionsSearch(input: { query: "*", count: 5, searchFlags: { skipCache: true } }) {
+            versionsSearch(
+                input: { query: "*", count: 5, searchFlags: { skipCache: true, includeHiddenLifecycleStages: true } }
+            ) {
                 ...versionsSearchResults
             }
         }
@@ -85,7 +96,9 @@ query searchAcrossVersions($versionSetUrn: String!, $input: SearchAcrossEntities
 
 mutation linkAssetVersion($input: LinkVersionInput!) {
     linkAssetVersion(input: $input) {
-        versionsSearch(input: { query: "*", count: 5, searchFlags: { skipCache: true } }) {
+        versionsSearch(
+            input: { query: "*", count: 5, searchFlags: { skipCache: true, includeHiddenLifecycleStages: true } }
+        ) {
             ...versionsSearchResults
         }
     }
@@ -93,7 +106,9 @@ mutation linkAssetVersion($input: LinkVersionInput!) {
 
 mutation unlinkAssetVersion($input: UnlinkVersionInput!) {
     unlinkAssetVersion(input: $input) {
-        versionsSearch(input: { query: "*", count: 5, searchFlags: { skipCache: true } }) {
+        versionsSearch(
+            input: { query: "*", count: 5, searchFlags: { skipCache: true, includeHiddenLifecycleStages: true } }
+        ) {
             ...versionsSearchResults
         }
     }

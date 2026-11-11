@@ -1,0 +1,27 @@
+{
+  "bool" : {
+    "adjust_pure_negative" : true,
+    "boost" : 1.0,
+    "minimum_should_match" : "1",
+    "should" : [ {
+      "prefix" : {
+        "name.lowercase" : {
+          "boost" : 10.0,
+          "rewrite" : "top_terms_50",
+          "value" : "ord"
+        }
+      }
+    }, {
+      "match_phrase_prefix" : {
+        "name.text" : {
+          "analyzer" : "partial",
+          "boost" : 1.0,
+          "max_expansions" : 50,
+          "query" : "ord",
+          "slop" : 0,
+          "zero_terms_query" : "NONE"
+        }
+      }
+    } ]
+  }
+}

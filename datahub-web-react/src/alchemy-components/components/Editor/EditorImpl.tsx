@@ -1,6 +1,7 @@
 import { EditorComponent, Remirror, TableComponents, ThemeProvider, useRemirror } from '@remirror/react';
 import DOMPurify from 'dompurify';
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
 import { useMount } from 'react-use';
 import {
     BlockquoteExtension,
@@ -25,33 +26,49 @@ import {
     TableExtension,
     UnderlineExtension,
 } from 'remirror/extensions';
+import type { CodeBlockOptions } from 'remirror/extensions';
 import { useTheme } from 'styled-components';
 
 import { EditorContainer, getEditorTheme } from '@components/components/Editor/EditorTheme';
 import { OnChangeMarkdown } from '@components/components/Editor/OnChangeMarkdown';
 import RemirrorLocaleProvider from '@components/components/Editor/RemirrorLocaleProvider';
+import { registerEditorCodeLanguages } from '@components/components/Editor/editorCodeLanguages';
 import { DetailsExtension } from '@components/components/Editor/extensions/details/DetailsExtension';
 import { DetailsSummaryExtension } from '@components/components/Editor/extensions/details/DetailsSummaryExtension';
 import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
 import { htmlToMarkdown } from '@components/components/Editor/extensions/htmlToMarkdown';
 import { markdownToHtml } from '@components/components/Editor/extensions/markdownToHtml';
 import { DataHubMentionsExtension } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
-import { MentionsComponent } from '@components/components/Editor/extensions/mentions/MentionsComponent';
 import { CodeBlockToolbar } from '@components/components/Editor/toolbar/CodeBlockToolbar';
 import { FloatingToolbar } from '@components/components/Editor/toolbar/FloatingToolbar';
 import { TableCellMenu } from '@components/components/Editor/toolbar/TableCellMenu';
 import { Toolbar } from '@components/components/Editor/toolbar/Toolbar';
 import { EditorProps } from '@components/components/Editor/types';
 
-import { notEmpty } from '@app/entityV2/shared/utils';
+import isPresent from '@utils/isPresent';
 
 // CSS class applied to the editor surface for antd typography styling.
 const EDITOR_CLASS_NAMES = ['ant-typography'];
+
+// Register the full grammar catalog on the shared refractor instance before
+// the editor or a file preview asks it to highlight.
+registerEditorCodeLanguages();
+
+/**
+ * Picks the prism syntax theme that matches the app theme. The light theme's
+ * token colors are mid-tone by design and become unreadable on a dark surface,
+ * so dark mode needs a genuinely dark-tuned palette rather than a recolored
+ * background.
+ */
+function getSyntaxTheme(themeId: string): CodeBlockOptions['syntaxTheme'] {
+    return themeId === 'themeV2Dark' ? 'a11y_dark' : 'base16_ateliersulphurpool_light';
+}
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
     const {
         content,
         readOnly,
+        editingDisabled,
         onChange,
         className,
         placeholder,
@@ -63,11 +80,17 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         hideBorder,
         uploadFileProps,
         fixedBottomToolbar,
+        belowToolbar,
         hideToolbar,
         compact,
+        mentionsComponent,
+        mentionsPicker: MentionsPicker,
+        mentionNodeView,
+        imageUploadEnabled,
     } = props;
     const styledTheme = useTheme();
     const editorTheme = useMemo(() => getEditorTheme(styledTheme), [styledTheme]);
+    const syntaxTheme = getSyntaxTheme(styledTheme.id);
 
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
@@ -76,9 +99,9 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new BlockquoteExtension(),
             new BoldExtension({}),
             new BulletListExtension({}),
-            new CodeBlockExtension({ syntaxTheme: 'base16_ateliersulphurpool_light' }),
+            new CodeBlockExtension({ syntaxTheme }),
             new CodeExtension(),
-            new DataHubMentionsExtension({}),
+            new DataHubMentionsExtension({ mentionNodeView }),
             new DropCursorExtension({
                 color: styledTheme.colors.borderBrandFocused,
                 width: 2,
@@ -113,12 +136,20 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             manager.view.focus();
         }
     });
+    // The extensions factory only runs on mount, so an editor that is already open
+    // when the user toggles dark mode has to be told about the new syntax theme.
     useEffect(() => {
-        if (readOnly && notEmpty(content)) {
+        manager.getExtension(CodeBlockExtension).setOptions({ syntaxTheme });
+    }, [manager, syntaxTheme]);
+
+    useEffect(() => {
+        if (readOnly && isPresent(content)) {
             manager.store.commands.setContent(content);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [readOnly, content]);
+
+    const defaultMentionsPicker = MentionsPicker ? <MentionsPicker renderOutsideEditor={compact} /> : null;
 
     return (
         <EditorContainer
@@ -135,7 +166,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                 <RemirrorLocaleProvider>
                     <Remirror
                         classNames={EDITOR_CLASS_NAMES}
-                        editable={!readOnly}
+                        editable={!readOnly && !editingDisabled}
                         manager={manager}
                         initialContent={state}
                         placeholder={placeholder || ''}
@@ -144,13 +175,24 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                             <>
                                 {!hideToolbar && (
                                     <>
-                                        <Toolbar styles={toolbarStyles} fixedBottom={fixedBottomToolbar} />
+                                        <Toolbar
+                                            styles={toolbarStyles}
+                                            fixedBottom={fixedBottomToolbar}
+                                            belowToolbar={belowToolbar}
+                                            imageUploadEnabled={imageUploadEnabled}
+                                        />
                                         <CodeBlockToolbar />
                                         {!hideHighlightToolbar && <FloatingToolbar />}
                                         <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />
                                     </>
                                 )}
-                                <MentionsComponent renderOutsideEditor={compact} />
+                                {mentionsComponent ? (
+                                    // A custom picker that fails (e.g. its lazy chunk can't load) falls
+                                    // back to the default dropdown rather than taking the editor down.
+                                    <ErrorBoundary fallback={defaultMentionsPicker}>{mentionsComponent}</ErrorBoundary>
+                                ) : (
+                                    defaultMentionsPicker
+                                )}
                                 {onChange && <OnChangeMarkdown onChange={onChange} />}
                             </>
                         )}

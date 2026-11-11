@@ -38,6 +38,8 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     size?: SelectSizeOptions;
     icon?: React.ComponentType<any>;
     showSearch?: boolean;
+    /** With `showSearch`, focus the search box whenever the dropdown opens. */
+    autoFocusSearch?: boolean;
     isDisabled?: boolean;
     isReadOnly?: boolean;
     isRequired?: boolean;
@@ -60,6 +62,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     optionListStyle?: React.CSSProperties;
     selectedOptionListStyle?: React.CSSProperties;
     optionListTestId?: string;
+    optionDataTestId?: (option: OptionType) => string;
     optionSwitchable?: boolean;
     selectLabelProps?: SelectLabelProps;
     position?: OptionPosition;

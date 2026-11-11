@@ -572,6 +572,12 @@ public class SearchClientShimUtil {
     private Integer socketTimeout = 30000;
     private SSLContext sSLContext;
     private boolean engineTypeAutoDetected = false;
+    @Nullable private String proxyHost;
+    @Nullable private Integer proxyPort;
+    @Nullable private String proxyScheme;
+    @Nullable private String proxyUsername;
+    @Nullable private String proxyPassword;
+    @Nullable private String engineVersionOverride;
 
     public ShimConfigurationBuilder() {}
 
@@ -591,6 +597,12 @@ public class SearchClientShimUtil {
       this.socketTimeout = existing.getSocketTimeout();
       this.sSLContext = existing.getSSLContext();
       this.engineTypeAutoDetected = existing.isEngineTypeAutoDetected();
+      this.proxyHost = existing.getProxyHost();
+      this.proxyPort = existing.getProxyPort();
+      this.proxyScheme = existing.getProxyScheme();
+      this.proxyUsername = existing.getProxyUsername();
+      this.proxyPassword = existing.getProxyPassword();
+      this.engineVersionOverride = existing.getEngineVersionOverride();
     }
 
     public ShimConfigurationBuilder withEngineType(SearchEngineType engineType) {
@@ -661,6 +673,29 @@ public class SearchClientShimUtil {
       return this;
     }
 
+    public ShimConfigurationBuilder withEngineVersionOverride(
+        @Nullable String engineVersionOverride) {
+      this.engineVersionOverride =
+          engineVersionOverride == null || engineVersionOverride.isBlank()
+              ? null
+              : engineVersionOverride.trim();
+      return this;
+    }
+
+    public ShimConfigurationBuilder withHttpProxy(
+        @Nullable String proxyHost,
+        @Nullable Integer proxyPort,
+        @Nullable String proxyScheme,
+        @Nullable String proxyUsername,
+        @Nullable String proxyPassword) {
+      this.proxyHost = proxyHost;
+      this.proxyPort = proxyPort;
+      this.proxyScheme = proxyScheme;
+      this.proxyUsername = proxyUsername;
+      this.proxyPassword = proxyPassword;
+      return this;
+    }
+
     public ShimConfiguration build() {
       return new ShimConfigurationImpl(
           engineType,
@@ -677,7 +712,13 @@ public class SearchClientShimUtil {
           socketTimeout,
           sSLContext,
           engineTypeAutoDetected,
-          awsCredentialsProvider);
+          awsCredentialsProvider,
+          proxyHost,
+          proxyPort,
+          proxyScheme,
+          proxyUsername,
+          proxyPassword,
+          engineVersionOverride);
     }
   }
 
@@ -699,6 +740,12 @@ public class SearchClientShimUtil {
     private final SSLContext sSLContext;
     private final boolean engineTypeAutoDetected;
     @Nullable private final AwsCredentialsProvider awsCredentialsProvider;
+    @Nullable private final String proxyHost;
+    @Nullable private final Integer proxyPort;
+    @Nullable private final String proxyScheme;
+    @Nullable private final String proxyUsername;
+    @Nullable private final String proxyPassword;
+    @Nullable private final String engineVersionOverride;
 
     public ShimConfigurationImpl(
         SearchEngineType engineType,
@@ -715,7 +762,13 @@ public class SearchClientShimUtil {
         Integer socketTimeout,
         SSLContext sslContext,
         boolean engineTypeAutoDetected,
-        @Nullable AwsCredentialsProvider awsCredentialsProvider) {
+        @Nullable AwsCredentialsProvider awsCredentialsProvider,
+        @Nullable String proxyHost,
+        @Nullable Integer proxyPort,
+        @Nullable String proxyScheme,
+        @Nullable String proxyUsername,
+        @Nullable String proxyPassword,
+        @Nullable String engineVersionOverride) {
       this.engineType = engineType;
       this.host = host;
       this.port = port;
@@ -731,6 +784,12 @@ public class SearchClientShimUtil {
       this.sSLContext = sslContext;
       this.engineTypeAutoDetected = engineTypeAutoDetected;
       this.awsCredentialsProvider = awsCredentialsProvider;
+      this.proxyHost = proxyHost;
+      this.proxyPort = proxyPort;
+      this.proxyScheme = proxyScheme;
+      this.proxyUsername = proxyUsername;
+      this.proxyPassword = proxyPassword;
+      this.engineVersionOverride = engineVersionOverride;
     }
   }
 }

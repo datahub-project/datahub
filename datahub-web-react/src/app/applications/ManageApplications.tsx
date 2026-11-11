@@ -10,8 +10,8 @@ import CreateNewApplicationModal from '@app/applications/CreateNewApplicationMod
 import EmptyApplications from '@app/applications/EmptyApplications';
 import { useUserContext } from '@app/context/useUserContext';
 import { PageContainer } from '@app/govern/structuredProperties/styledComponents';
-import { Message } from '@src/app/shared/Message';
-import { DEBOUNCE_SEARCH_MS } from '@src/app/shared/constants';
+import { Message } from '@src/app/sharedV2/Message';
+import { DEBOUNCE_SEARCH_MS } from '@src/app/sharedV2/constants';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType } from '@src/types.generated';

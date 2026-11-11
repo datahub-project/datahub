@@ -26,6 +26,11 @@ record SearchEntity {
     value: string
   }] = []
 
+  /**
+   * How each field matched. Set when the caller asks for an explanation.
+   */
+  explainMatches: optional array[ExplainMatch]
+
   features: optional map[string, double]
 
   score: optional double

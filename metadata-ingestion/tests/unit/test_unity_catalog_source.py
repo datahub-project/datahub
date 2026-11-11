@@ -1,4 +1,4 @@
-from unittest.mock import ANY, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 from databricks.sdk.service.catalog import TableType
@@ -123,6 +123,84 @@ class TestUnityCatalogSource:
             usage_data_source=config_with_page_size.usage_data_source,
             databricks_api_page_size=75,  # Custom value
         )
+
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    def test_sql_parser_schema_resolver_never_queries_graph(
+        self, mock_hive_proxy, mock_unity_proxy, minimal_config
+    ):
+        """A table name the run did not ingest must never cost a DataHub call."""
+        graph = MagicMock()
+        source = UnityCatalogSource.create(
+            minimal_config, PipelineContext(run_id="test_run", graph=graph)
+        )
+
+        resolver = source.sql_parser_schema_resolver
+        assert resolver.graph is None
+        _, schema_info = resolver.resolve_table_parts(
+            database="other_catalog", db_schema="staging", table="events"
+        )
+        assert schema_info is None
+        graph.get_entities.assert_not_called()
+
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    def test_hive_metastore_view_lineage_resolves_schemas_from_graph(
+        self, mock_hive_proxy, mock_unity_proxy
+    ):
+        """View lineage may look up tables this run did not ingest in DataHub, while
+        the usage resolver stays local."""
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": True,
+            }
+        )
+        graph = MagicMock()
+        source = UnityCatalogSource.create(
+            config, PipelineContext(run_id="test_run", graph=graph)
+        )
+
+        assert source.sql_parsing_aggregator is not None
+        assert source.sql_parsing_aggregator._schema_resolver.graph is graph
+        assert source.sql_parser_schema_resolver.graph is None
+
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    def test_schema_resolvers_keep_platform_instance_case(
+        self, mock_hive_proxy, mock_unity_proxy
+    ):
+        """Unknown tables must get the platform_instance prefix the source emits."""
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": True,
+                "platform_instance": "ProdWS",
+            }
+        )
+        graph = MagicMock()
+        graph.get_entities.return_value = {}
+        source = UnityCatalogSource.create(
+            config, PipelineContext(run_id="test_run", graph=graph)
+        )
+
+        assert source.view_lineage_schema_resolver is not None
+        for resolver in (
+            source.sql_parser_schema_resolver,
+            source.view_lineage_schema_resolver,
+        ):
+            urn, schema_info = resolver.resolve_table_parts(
+                database="other_catalog", db_schema="staging", table="events"
+            )
+            assert schema_info is None
+            assert urn == (
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,"
+                "ProdWS.other_catalog.staging.events,PROD)"
+            )
 
     @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
     @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
@@ -1245,8 +1323,6 @@ class TestUnityCatalogMetricViews:
         assert source.report.num_metric_views_yaml_parse_failures == 0
 
     def test_metric_view_skips_sql_parsing_aggregator(self):
-        from unittest.mock import MagicMock
-
         source = self._build_source(include_metric_views=True)
         # Force the Hive-metastore-only branch to fire so we can observe whether
         # the SQL aggregator gets called for a metric view.
@@ -2768,99 +2844,6 @@ class TestUnityCatalogExternalS3Lineage:
         from datahub.ingestion.source.unity.source import _strip_s3_partition_from_path
 
         assert _strip_s3_partition_from_path(raw) == expected
-
-    @patch("datahub.ingestion.source.unity.source.create_workspace_client")
-    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
-    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
-    def test_external_lineage_with_braces_produces_valid_urn(
-        self, mock_hive_proxy, mock_unity_proxy, mock_ws
-    ):
-        from datahub.ingestion.source.unity.proxy_types import (
-            Catalog,
-            ExternalTableReference,
-            Metastore,
-            Schema,
-            Table,
-        )
-        from datahub.metadata.urns import DatasetUrn
-
-        config = UnityCatalogSourceConfig.model_validate(
-            {
-                "token": "test_token",
-                "workspace_url": "https://test.databricks.com",
-                "warehouse_id": "test_warehouse",
-                "include_hive_metastore": False,
-                "include_external_lineage": True,
-            }
-        )
-        source = UnityCatalogSource.create(config, PipelineContext(run_id="t"))
-
-        metastore = Metastore(
-            id="m",
-            name="m",
-            comment=None,
-            global_metastore_id=None,
-            metastore_id=None,
-            owner=None,
-            region=None,
-            cloud=None,
-        )
-        catalog = Catalog(
-            id="c",
-            name="c",
-            metastore=metastore,
-            comment=None,
-            owner=None,
-            type=None,
-        )
-        schema = Schema(
-            id="c.s",
-            name="s",
-            catalog=catalog,
-            comment=None,
-            owner=None,
-        )
-        table = Table(
-            id="c.s.t",
-            name="t",
-            comment=None,
-            schema=schema,
-            columns=[],
-            storage_location=None,
-            data_source_format=None,
-            table_type=None,
-            owner=None,
-            generation=None,
-            created_at=None,
-            created_by=None,
-            updated_at=None,
-            updated_by=None,
-            table_id=None,
-            view_definition=None,
-            properties={},
-        )
-        table.external_upstreams.add(
-            ExternalTableReference(
-                path="s3://bucket/topics/event/{20260410,20260411,20260412}",
-                has_permission=True,
-                name=None,
-                type=None,
-                storage_location="s3://bucket/topics/event/{20260410,20260411,20260412}",
-                last_updated=None,
-            )
-        )
-
-        aspect = source._generate_lineage_aspect(
-            source.gen_dataset_urn(table.ref), table
-        )
-        assert aspect is not None
-        s3_upstreams = [u for u in aspect.upstreams if "s3" in u.dataset]
-        assert len(s3_upstreams) == 1
-        # Must be a parseable URN with no braces/commas in the name segment
-        urn = s3_upstreams[0].dataset
-        assert "{" not in urn and "}" not in urn
-        parsed = DatasetUrn.from_string(urn)  # raises if malformed
-        assert parsed.name == "bucket/topics/event"
 
 
 class TestUnityCatalogMlModelControls:

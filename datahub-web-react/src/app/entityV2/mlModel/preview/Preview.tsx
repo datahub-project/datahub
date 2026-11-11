@@ -1,11 +1,11 @@
 import React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { getDataProduct } from '@app/entityV2/shared/utils';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityPath, EntityType, MlModel } from '@types';
@@ -41,7 +41,6 @@ export const Preview = ({
             entityType={EntityType.Mlmodel}
             typeIcon={entityRegistry.getIcon(EntityType.Mlmodel, 14, IconStyleType.ACCENT)}
             platform={model?.platform?.properties?.displayName || capitalizeFirstLetterOnly(model?.platform?.name)}
-            qualifier={model.origin}
             tags={model.globalTags || undefined}
             owners={model?.ownership?.owners}
             dataProduct={getDataProduct(genericProperties?.dataProduct)}

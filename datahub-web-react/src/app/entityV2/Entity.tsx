@@ -1,10 +1,10 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/types';
-import { FetchedEntity } from '@app/lineage/types';
+import { EntitySidebarSection, EntitySidebarTab, GenericEntityProperties } from '@app/entityV2/shared/types';
+import { FetchedEntity } from '@app/lineageV3/types';
+import { FeatureFlags } from '@src/appConfigContext';
 
-import { EntityType, Exact, FeatureFlagsConfig, SearchResult } from '@types';
+import { DataPlatform, EntityType, Exact, SearchResult } from '@types';
 
 export enum PreviewType {
     /**
@@ -23,10 +23,6 @@ export enum PreviewType {
      * A tiny search preview for text-box search.
      */
     MINI_SEARCH,
-    /**
-     * Previews rendered when hovering over the entity in a compact list
-     */
-    HOVER_CARD,
 }
 
 export enum IconStyleType {
@@ -205,9 +201,15 @@ export interface Entity<T> {
     displayName: (data: T) => string;
 
     /**
+     * Returns the created time for the entity
+     *
+     */
+    createdTime?: (data: T) => number | undefined | null;
+
+    /**
      * Returns generic entity properties for the entity
      */
-    getGenericEntityProperties: (data: T, flags?: FeatureFlagsConfig) => GenericEntityProperties | null;
+    getGenericEntityProperties: (data: T, flags?: FeatureFlags) => GenericEntityProperties | null;
 
     /**
      * Returns the supported features for the entity
@@ -223,6 +225,11 @@ export interface Entity<T> {
      * Returns the profile component to be displayed in our Chrome extension
      */
     renderEmbeddedProfile?: (urn: string) => JSX.Element;
+
+    /**
+     * Returns entity platform properties for the entity
+     */
+    getPlatformProperties?: (data: T) => DataPlatform | null | undefined;
 
     /**
      * Returns the entity profile sidebar sections for an entity type. Only implemented on Datasets for now.

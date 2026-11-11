@@ -1,15 +1,29 @@
+import warnings
 from typing import Dict, Optional
 
-from pydantic import Field, PositiveFloat, PositiveInt, SecretStr, model_validator
+from pydantic import (
+    Field,
+    PositiveFloat,
+    PositiveInt,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
+from typing_extensions import Annotated
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    ConfigurationWarning,
+    Filters,
+)
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.confluent.config import ConfluentStreamCatalogConfig
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_MAX_MESSAGES_PER_TOPIC,
@@ -19,6 +33,7 @@ from datahub.ingestion.source.kafka.kafka_constants import (
     OffsetResetStrategy,
     SamplingStrategy,
 )
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -27,6 +42,46 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
 from datahub.masking.secret_registry import SecretRegistry
+from datahub.utilities.global_warning_util import add_global_warning
+from datahub.utilities.str_enum import StrEnum
+
+
+class ConfluentCloudProvider(StrEnum):
+    AWS = "aws"
+    GCP = "gcp"
+    AZURE = "azure"
+
+
+def _normalize_endpoint(endpoint: str, field: str, *, require_https: bool) -> str:
+    if require_https and not endpoint.lower().startswith("https://"):
+        raise ValueError(
+            f"Configuration error: '{field}' must use HTTPS "
+            f"to protect credentials in transit. Got: '{endpoint}'."
+        )
+    return endpoint.rstrip("/")
+
+
+def _secret_configured(value: Optional[SecretStr]) -> bool:
+    return value is not None and bool(value.get_secret_value().strip())
+
+
+def _require_secret_pair(
+    api_key: Optional[SecretStr],
+    api_secret: Optional[SecretStr],
+    prefix: str,
+    *,
+    required: bool,
+) -> None:
+    key_set = _secret_configured(api_key)
+    secret_set = _secret_configured(api_secret)
+    if required and not (key_set and secret_set):
+        raise ValueError(
+            f"Configuration error: '{prefix}.api_key' and '{prefix}.api_secret' must both be set."
+        )
+    if key_set != secret_set:
+        raise ValueError(
+            f"Configuration error: '{prefix}.api_key' and '{prefix}.api_secret' must be provided together."
+        )
 
 
 class SchemaResolutionFallback(ConfigModel):
@@ -49,7 +104,7 @@ class SchemaResolutionFallback(ConfigModel):
     )
 
 
-class ProfilerConfig(GEProfilingConfig):
+class ProfilerConfig(ProfilingConfig):
     max_sample_time_seconds: PositiveInt = Field(
         default=DEFAULT_MAX_SAMPLE_TIME_SECONDS,
         description="Maximum time to spend sampling messages in seconds. Must be positive.",
@@ -69,6 +124,128 @@ class ProfilerConfig(GEProfilingConfig):
     )
 
 
+class FlinkLineageConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description="Emit topic-to-topic lineage from Confluent Cloud Flink SQL statements. Each "
+        "`INSERT INTO sink SELECT ... FROM source` statement is a DataJob on the `flink` "
+        "platform mapping the source topics to the sink topic. Requires a Flink API key.",
+    )
+    organization_id: Optional[str] = Field(
+        default=None, description="Confluent Cloud organization id."
+    )
+    environment_id: Optional[str] = Field(
+        default=None,
+        description="Confluent Cloud environment id, e.g. `env-xxxxx`. Flink calls an "
+        "environment a catalog.",
+    )
+    environment_name: Optional[str] = Field(
+        default=None,
+        description="Display name of the environment, if statements refer to the Flink "
+        "catalog by name rather than by id.",
+    )
+    kafka_cluster_id: Optional[str] = Field(
+        default=None,
+        description="Id of the Kafka cluster this recipe ingests, e.g. `lkc-xxxxx`. Flink "
+        "calls a cluster a database. Only tables in this environment and cluster are "
+        "mapped to topics; statements reading or writing other clusters lose those edges. "
+        "Defaults to `confluent_catalog.cluster_id`.",
+    )
+    kafka_cluster_name: Optional[str] = Field(
+        default=None,
+        description="Display name of the Kafka cluster, if statements refer to the Flink "
+        "database by name rather than by id.",
+    )
+    include_non_running_statements: bool = Field(
+        default=False,
+        description="Also emit lineage for statements that no longer run (STOPPED, "
+        "COMPLETED, FAILED, DELETING). Off by default so lineage reflects live "
+        "pipelines; PENDING, RUNNING, DEGRADED, FAILING and STOPPING statements are "
+        "always read.",
+    )
+    region: Optional[str] = Field(
+        default=None,
+        description="Confluent Cloud region, e.g. `us-east-1`. Used to build the Flink REST host "
+        "`https://flink.<region>.<cloud>.confluent.cloud` unless `endpoint` is set.",
+    )
+    cloud: Optional[ConfluentCloudProvider] = Field(
+        default=None, description="Confluent Cloud provider: `aws`, `gcp`, or `azure`."
+    )
+    endpoint: Optional[str] = Field(
+        default=None,
+        description="Optional explicit Flink REST base URL, overriding the region/cloud-derived host.",
+    )
+    compute_pool_id: Optional[str] = Field(
+        default=None,
+        description="Optional Flink compute pool id to restrict statements to a single pool.",
+    )
+    api_key: Optional[SecretStr] = Field(
+        default=None,
+        description="Flink API key for the environment's cloud region (Basic auth against "
+        "the Flink REST API). A Cloud resource-management or Kafka cluster key is rejected.",
+    )
+    api_secret: Optional[SecretStr] = Field(
+        default=None, description="Secret of the Flink API key."
+    )
+    timeout_seconds: PositiveInt = Field(
+        default=30, description="Timeout in seconds for each Flink REST request."
+    )
+
+    @field_validator("cloud", mode="before")
+    @classmethod
+    def lowercase_cloud(cls, value: object) -> object:
+        return value.lower() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def validate_flink(self) -> "FlinkLineageConfig":
+        if not self.enabled:
+            return self
+        if self.endpoint:
+            self.endpoint = _normalize_endpoint(
+                self.endpoint,
+                "stream_processing_lineage.flink.endpoint",
+                require_https=True,
+            )
+        elif not (self.region and self.cloud):
+            raise ValueError(
+                "Configuration error: 'stream_processing_lineage.flink.enabled' is true but the "
+                "Flink REST host cannot be resolved. Set either 'endpoint' or both 'region' and 'cloud'."
+            )
+        missing = [
+            name
+            for name, value in (
+                ("organization_id", self.organization_id),
+                ("environment_id", self.environment_id),
+            )
+            if not value
+        ]
+        if missing:
+            raise ValueError(
+                "Configuration error: 'stream_processing_lineage.flink.enabled' is true but "
+                f"{', '.join(repr(f'stream_processing_lineage.flink.{name}') for name in missing)} "
+                f"{'is' if len(missing) == 1 else 'are'} not set."
+            )
+        _require_secret_pair(
+            self.api_key,
+            self.api_secret,
+            "stream_processing_lineage.flink",
+            required=True,
+        )
+        return self
+
+
+class StreamProcessingLineageConfig(ConfigModel):
+    flink: FlinkLineageConfig = Field(
+        default_factory=FlinkLineageConfig,
+        description="Confluent Cloud Flink SQL statements to read topic lineage from.",
+    )
+    include_column_lineage: bool = Field(
+        default=True,
+        description="Parse Flink SQL to emit best-effort column-level lineage, resolving "
+        "topic schemas from DataHub when available.",
+    )
+
+
 class KafkaConfluentCatalogConfig(ConfluentStreamCatalogConfig):
     cluster_id: Optional[str] = Field(
         default=None,
@@ -76,15 +253,43 @@ class KafkaConfluentCatalogConfig(ConfluentStreamCatalogConfig):
         "behind this Schema Registry holds more than one Kafka cluster, since the catalog "
         "covers the whole environment and topic names can repeat across clusters.",
     )
-    include_tags: bool = Field(
-        default=True,
-        description="Emit Confluent Cloud tags on topics as DataHub tags.",
+    include_lineage: bool = Field(
+        default=False,
+        description="Emit topic-to-topic lineage from Stream Catalog cluster links (mirror "
+        "topics). A mirror topic gets an upstream edge to its source topic only when the "
+        "source topic's cluster is `cluster_id` or is listed in "
+        "`cluster_id_to_platform_instance`; other mirror topics are skipped and reported. "
+        "Connector and external-system lineage is handled by the kafka-connect source.",
     )
-    include_business_metadata: bool = Field(
-        default=True,
-        description="Emit Confluent Cloud business metadata attributes on topics as DataHub "
-        "custom properties.",
+    cluster_id_to_platform_instance: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Map of source Kafka cluster id (e.g. `lkc-xxxxx`) to the "
+        "`platform_instance` that the recipe ingesting that cluster uses. Mirror topics "
+        "live in a different cluster from their source, so the upstream topic URN needs "
+        "the source cluster's platform instance (an empty string if that recipe sets "
+        "none); without a mapping no edge is emitted. The upstream URN uses this "
+        "recipe's `env`, so both recipes must use the same `env`.",
     )
+
+    @model_validator(mode="after")
+    def validate_mirror_lineage(self) -> "KafkaConfluentCatalogConfig":
+        if not self.include_lineage:
+            return self
+        if not self.enabled:
+            message = (
+                "confluent_catalog.include_lineage is set but confluent_catalog.enabled "
+                "is false, so no mirror-topic lineage is emitted."
+            )
+            add_global_warning(message)
+            warnings.warn(message, ConfigurationWarning, stacklevel=2)
+            return self
+        if not self.cluster_id and not self.cluster_id_to_platform_instance:
+            raise ValueError(
+                "confluent_catalog.include_lineage needs "
+                "confluent_catalog.cluster_id_to_platform_instance (or cluster_id): "
+                "without them no mirror topic's source cluster can be placed."
+            )
+        return self
 
 
 class KafkaSourceConfig(
@@ -96,9 +301,10 @@ class KafkaSourceConfig(
         default_factory=KafkaConsumerConnectionConfig
     )
 
-    topic_patterns: AllowDenyPattern = Field(
+    topic_patterns: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TOPIC)] = Field(
         default_factory=lambda: AllowDenyPattern(allow=[".*"], deny=["^_.*"])
     )
+
     domain: Dict[str, AllowDenyPattern] = Field(
         default={},
         description="A map of domain names to allow deny patterns. Domains can be urn-based (`urn:li:domain:13ae4d85-d955-49fc-8474-9004c663a810`) or bare (`13ae4d85-d955-49fc-8474-9004c663a810`).",
@@ -165,6 +371,35 @@ class KafkaSourceConfig(
         description="Read topic tags and business metadata from the Confluent Cloud Stream Catalog. "
         "Connection details default to the Schema Registry ones already set under `connection`.",
     )
+    stream_processing_lineage: StreamProcessingLineageConfig = Field(
+        default_factory=StreamProcessingLineageConfig,
+        description="Emit topic-to-topic transform lineage from Confluent Cloud Flink SQL "
+        "statements, each modeled as a DataJob with input and output topics.",
+    )
+
+    @model_validator(mode="after")
+    def resolve_flink_kafka_cluster_id(self) -> "KafkaSourceConfig":
+        flink = self.stream_processing_lineage.flink
+        if not flink.enabled:
+            return self
+        catalog_cluster_id = self.confluent_catalog.cluster_id
+        if (
+            flink.kafka_cluster_id
+            and catalog_cluster_id
+            and flink.kafka_cluster_id != catalog_cluster_id
+        ):
+            raise ValueError(
+                "Configuration error: 'stream_processing_lineage.flink.kafka_cluster_id' "
+                "and 'confluent_catalog.cluster_id' name different Kafka clusters."
+            )
+        flink.kafka_cluster_id = flink.kafka_cluster_id or catalog_cluster_id
+        if not flink.kafka_cluster_id:
+            raise ValueError(
+                "Configuration error: 'stream_processing_lineage.flink.enabled' is true but "
+                "no Kafka cluster id is set. Set 'stream_processing_lineage.flink."
+                "kafka_cluster_id' or 'confluent_catalog.cluster_id'."
+            )
+        return self
 
     @model_validator(mode="after")
     def inherit_catalog_connection_from_schema_registry(self) -> "KafkaSourceConfig":
@@ -201,3 +436,9 @@ class KafkaSourceConfig(
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
         )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        from datahub.ingestion.source.kafka.kafka_probe import KafkaMetadataProbe
+
+        return KafkaMetadataProbe

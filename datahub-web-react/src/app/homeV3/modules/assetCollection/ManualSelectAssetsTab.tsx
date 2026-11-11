@@ -12,7 +12,7 @@ import useGetAssetResults from '@app/homeV3/modules/assetCollection/useGetAssetR
 import { LoaderContainer } from '@app/homeV3/styledComponents';
 import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
 import useAppliedFilters from '@app/searchV2/filtersV2/context/useAppliedFilters';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataHubPageModuleType, Entity } from '@types';
 
@@ -26,10 +26,14 @@ const ResultsContainer = styled.div`
     position: relative;
     max-height: 300px;
     padding-right: 8px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 `;
 
 const ScrollableResultsContainer = styled.div`
-    max-height: inherit;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
 `;
 
@@ -37,16 +41,24 @@ const Container = styled.div`
     display: flex;
     width: 100%;
     gap: 8px;
+    flex: 1 1 auto;
+    min-height: 0;
 `;
 
 const LeftSection = styled.div`
     flex: 6;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 `;
 
 const RightSection = styled.div`
     flex: 4;
     width: calc(40% - 20px);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 `;
 
 const VerticalDivider = styled(Divider)`
@@ -58,6 +70,10 @@ const SearchHeader = styled(Text)`
     margin-bottom: 8px;
 `;
 
+const HintText = styled(Text)`
+    flex-shrink: 0;
+`;
+
 type Props = {
     selectedAssetUrns: string[];
     setSelectedAssetUrns: React.Dispatch<React.SetStateAction<string[]>>;
@@ -65,7 +81,7 @@ type Props = {
 
 const ManualSelectAssetsTab = ({ selectedAssetUrns, setSelectedAssetUrns }: Props) => {
     const { t } = useTranslation('modules');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const [searchQuery, setSearchQuery] = useState<string | undefined>();
     const { appliedFilters, updateFieldFilters } = useAppliedFilters();
@@ -142,9 +158,9 @@ const ManualSelectAssetsTab = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
                     />
                 </RightSection>
             </Container>
-            <Text size="sm" color="gray" data-testid="manual-view-all-hint">
+            <HintText size="sm" color="gray" data-testid="manual-view-all-hint">
                 {t('assetCollection.viewAllManualHint')}
-            </Text>
+            </HintText>
         </>
     );
 };

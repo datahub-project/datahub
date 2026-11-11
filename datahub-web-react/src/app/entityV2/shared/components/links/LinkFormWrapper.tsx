@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { UploadFileForm } from '@app/entityV2/shared/components/links/UploadFileForm';
 import { UrlLinkForm } from '@app/entityV2/shared/components/links/UrlLinkForm';
 import { LinkFormData, LinkFormVariant } from '@app/entityV2/shared/components/links/types';
-import { useIsDocumentationFileUploadV1Enabled } from '@app/shared/hooks/useIsDocumentationFileUploadV1Enabled';
+import { useIsDocumentationFileUploadV1Enabled } from '@app/sharedV2/hooks/useIsDocumentationFileUploadV1Enabled';
 
 interface Props {
     initialValues?: Partial<LinkFormData>;

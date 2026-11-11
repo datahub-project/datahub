@@ -9,10 +9,12 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
@@ -154,6 +156,16 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
 
     Integer getThreadCount();
 
+    /**
+     * Connections a client keeps open to the cluster at once: the pool is sized from the thread
+     * count with a floor of two. A caller that runs that many synchronous requests concurrently
+     * waits for a lease past this, and fails after {@link #getConnectionRequestTimeout()}. The one
+     * formula for both shims and for whatever paces itself by the pool.
+     */
+    static int maxConnectionsPerRoute(final int threadCount) {
+      return Math.max(2, threadCount);
+    }
+
     Integer getConnectionRequestTimeout();
 
     Integer getSocketTimeout();
@@ -169,6 +181,41 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
     /** Whether the engine type was auto-detected rather than explicitly configured. */
     default boolean isEngineTypeAutoDetected() {
       return false;
+    }
+
+    /**
+     * Configured engine version (e.g. "2.19.0"). When set, it replaces the cluster info probe,
+     * which needs cluster:monitor/main and is denied to restricted users. Null means probe.
+     */
+    @Nullable
+    default String getEngineVersionOverride() {
+      return null;
+    }
+
+    /** Explicit or JVM-resolved HTTP proxy host. Null means a direct connection. */
+    @Nullable
+    default String getProxyHost() {
+      return null;
+    }
+
+    @Nullable
+    default Integer getProxyPort() {
+      return null;
+    }
+
+    @Nullable
+    default String getProxyScheme() {
+      return null;
+    }
+
+    @Nullable
+    default String getProxyUsername() {
+      return null;
+    }
+
+    @Nullable
+    default String getProxyPassword() {
+      return null;
     }
   }
 
@@ -495,6 +542,9 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
   }
 
   @OperationContextExempt(reason = "Bulk processor lifecycle, not a per-event call.")
+  BulkProcessorFlushResult flushBulkProcessorAndAwait(long timeout, @Nonnull TimeUnit timeUnit);
+
+  @OperationContextExempt(reason = "Bulk processor lifecycle, not a per-event call.")
   void closeBulkProcessor();
 
   // -- Semantic search operations --------------------------------------------------
@@ -526,4 +576,12 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
   @OperationContextExempt(reason = "Escape-hatch accessor, no I/O.")
   @Nonnull
   T getNativeClient();
+
+  /**
+   * Register gauges for this client's HTTP connection pool (leased, waiting), tagged with {@code
+   * clusterName}. No-op for implementations without a pool.
+   */
+  @OperationContextExempt(reason = "Metrics registration at startup, no I/O.")
+  default void registerConnectionPoolMetrics(
+      @Nonnull MeterRegistry registry, @Nonnull String clusterName) {}
 }

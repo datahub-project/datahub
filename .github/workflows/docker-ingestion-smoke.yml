@@ -18,7 +18,7 @@ env:
 
 jobs:
   setup:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       publish: ${{ steps.publish.outputs.publish }}
@@ -52,7 +52,7 @@ jobs:
           echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> "$GITHUB_OUTPUT"
   build-smoke:
     name: Build and Push Docker Image to Docker Hub
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: setup
     timeout-minutes: 60
     if: ${{ needs.setup.outputs.publish == 'true' }}

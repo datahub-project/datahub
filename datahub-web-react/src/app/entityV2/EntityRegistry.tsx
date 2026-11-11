@@ -1,20 +1,25 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
 import React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import DefaultEntity from '@app/entityV2/DefaultEntity';
 import { Entity, EntityCapabilityType, EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import PreviewContext, { PreviewContextProps } from '@app/entityV2/shared/PreviewContext';
 import { GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
-import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/types';
+import { EntitySidebarSection, EntitySidebarTab, GenericEntityProperties } from '@app/entityV2/shared/types';
 import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from '@app/entityV2/shared/utils';
-import { FetchedEntity } from '@app/lineage/types';
-import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '@app/lineageV3/types';
-import { downgradeV2FieldPath } from '@app/lineageV3/utils/lineageUtils';
+import {
+    FetchedEntity,
+    FetchedEntityV2,
+    FetchedEntityV2Relationship,
+    LineageAsset,
+    LineageAssetType,
+} from '@app/lineageV3/types';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import { SearchResultProvider } from '@app/search/context/SearchResultContext';
+import { FeatureFlags } from '@src/appConfigContext';
 
 import { EntityLineageV2Fragment, LineageSchemaFieldFragment } from '@graphql/lineage.generated';
-import { Entity as EntityInterface, EntityType, Exact, FeatureFlagsConfig, SearchResult } from '@types';
+import { DataPlatform, Entity as EntityInterface, EntityType, Exact, SearchResult } from '@types';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>, def: V): V {
     if (map.has(key)) {
@@ -149,7 +154,7 @@ export default class EntityRegistry {
         const previewData = entity.getGenericEntityProperties(searchResult.entity);
         return (
             <SearchResultProvider searchResult={searchResult}>
-                <PreviewContext.Provider value={{ previewData }}>
+                <PreviewContext.Provider value={{ previewData, previewType: PreviewType.SEARCH }}>
                     {entity.renderSearch(searchResult)}
                 </PreviewContext.Provider>
             </SearchResultProvider>
@@ -219,7 +224,7 @@ export default class EntityRegistry {
         } as FetchedEntity;
     }
 
-    getLineageVizConfigV2<T>(type: EntityType, data: T, flags?: FeatureFlagsConfig): FetchedEntityV2 | null {
+    getLineageVizConfigV2<T>(type: EntityType, data: T, flags?: FeatureFlags): FetchedEntityV2 | null {
         const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         const genericEntityProperties = this.getGenericEntityProperties(type, data, flags);
         if (!genericEntityProperties || !entity.getLineageVizConfig) return null;
@@ -264,9 +269,12 @@ export default class EntityRegistry {
                 .filter((r): r is FetchedEntityV2Relationship => !!r.urn),
             upstreamRelationships: genericEntityProperties.upstream?.relationships
                 ?.map((r) => ({ ...r, urn: r.entity?.urn }))
-                .filter((r): r is FetchedEntityV2Relationship => !!r.urn),
-            // TODO: Clean up redundant values
-            exists: genericEntityProperties.exists,
+                .filter((r): r is FetchedEntityV2Relationship => !!r.urn), // TODO: Clean up redundant values
+            // Entity types that don't expose an `exists` field in GraphQL leave this undefined.
+            // Default those to true so they aren't treated as ghost entities and filtered out of
+            // the lineage graph. Types that do fetch `exists` keep their real boolean, so removed
+            // entities stay hidden.
+            exists: genericEntityProperties.exists ?? true,
             health: genericEntityProperties.health ?? undefined,
             status: genericEntityProperties.status ?? undefined,
             schemaMetadata: genericEntityProperties.schemaMetadata ?? undefined,
@@ -307,6 +315,11 @@ export default class EntityRegistry {
         return entity.displayName(data);
     }
 
+    getCreatedTime<T>(type: EntityType, data: T): number | undefined | null {
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
+        return entity.createdTime?.(data);
+    }
+
     getSidebarTabs(type: EntityType): EntitySidebarTab[] {
         const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.getSidebarTabs ? entity.getSidebarTabs() : [];
@@ -317,11 +330,7 @@ export default class EntityRegistry {
         return entity.getSidebarSections ? entity.getSidebarSections() : [];
     }
 
-    getGenericEntityProperties<T>(
-        type: EntityType,
-        data: T,
-        flags?: FeatureFlagsConfig,
-    ): GenericEntityProperties | null {
+    getGenericEntityProperties<T>(type: EntityType, data: T, flags?: FeatureFlags): GenericEntityProperties | null {
         const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.getGenericEntityProperties(data, flags);
     }
@@ -398,6 +407,11 @@ export default class EntityRegistry {
      */
     getFirstSubType(data?: { subTypes?: { typeNames?: string[] | null } | null } | null): string | undefined {
         return data?.subTypes?.typeNames?.[0];
+    }
+
+    getPlatformProperties<T>(type: EntityType, data: T): DataPlatform | null | undefined {
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
+        return entity.getPlatformProperties?.(data);
     }
 }
 
