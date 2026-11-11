@@ -229,19 +229,12 @@ def _read_stored_upstream_lineage(
     raw = raw_aspects.get("upstreamLineage")
     if raw is None:
         return None
-    if isinstance(raw, models.UpstreamLineageClass):
-        return raw
     try:
-        parsed = models.UpstreamLineageClass.from_obj(post_json_transform(raw))
+        return models.UpstreamLineageClass.from_obj(post_json_transform(raw))
     except Exception as exc:
         raise _UnreadableUpstreamLineage(
             f"could not parse stored upstreamLineage for {entity_urn}"
         ) from exc
-    if not isinstance(parsed, models.UpstreamLineageClass):
-        raise _UnreadableUpstreamLineage(
-            f"stored upstreamLineage for {entity_urn} is not a typed UpstreamLineage aspect"
-        )
-    return parsed
 
 
 def _get_lineage_mcp(

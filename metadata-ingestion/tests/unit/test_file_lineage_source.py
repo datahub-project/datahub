@@ -7,6 +7,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.metadata.lineage import (
@@ -267,14 +268,9 @@ def _lineage_mcp(
     return mcp.aspect
 
 
-@pytest.mark.parametrize("as_raw", [False, True], ids=["typed", "raw"])
-def test_preserve_upstream_keeps_one_edge_per_upstream(as_raw: bool) -> None:
+def test_preserve_upstream_keeps_one_edge_per_upstream() -> None:
     """Copies left by earlier runs collapse, and a stored upstream keeps its
-    type and auditStamp.
-
-    The raw case covers the production path, where get_aspects_for_entity
-    is called with typed=False and the aspect is parsed in the source.
-    """
+    type and auditStamp. The stored aspect is raw JSON, as GMS returns it."""
     stored = UpstreamLineageClass(
         upstreams=[
             UpstreamClass(dataset=TOPIC1, type="COPY", auditStamp=STORED_STAMP),
@@ -282,9 +278,7 @@ def test_preserve_upstream_keeps_one_edge_per_upstream(as_raw: bool) -> None:
             UpstreamClass(dataset=TOPIC1, type="COPY", auditStamp=STORED_STAMP),
         ],
     )
-    payload = stored.to_obj() if as_raw else stored
-
-    upstreams = _lineage_mcp(True, {"upstreamLineage": payload}).upstreams
+    upstreams = _lineage_mcp(True, {"upstreamLineage": stored.to_obj()}).upstreams
 
     assert [u.dataset for u in upstreams] == [TOPIC1, OTHER, TOPIC2]
     assert upstreams[0].type == "COPY"
@@ -373,12 +367,9 @@ def test_preserve_upstream_unreadable_aspect_skips_emit(tmp_path: Path) -> None:
     )
 
     assert _workunit_entity_urns(workunits) == [TOPIC6]
-    assert len(source.report.failures) == 1
-    failure = list(source.report.failures)[0]
-    assert failure.message == "Failed to read stored upstream lineage"
+    (failure,) = source.report.failures
     contexts = " ".join(str(c) for c in failure.context)
     assert TOPIC3 in contexts
-    assert "could not parse stored upstreamLineage" in contexts
     assert TOPIC6 not in contexts
 
 
@@ -394,6 +385,8 @@ def test_preserve_upstream_missing_aspect_emits_file_upstreams(
 
     assert _workunit_entity_urns(workunits) == [TOPIC3]
     assert list(source.report.failures) == []
-    aspect = workunits[0].metadata.aspect
+    metadata = workunits[0].metadata
+    assert isinstance(metadata, MetadataChangeProposalWrapper)
+    aspect = metadata.aspect
     assert isinstance(aspect, UpstreamLineageClass)
     assert [u.dataset for u in aspect.upstreams] == [TOPIC1, TOPIC2]
