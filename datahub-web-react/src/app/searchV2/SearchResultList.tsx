@@ -9,7 +9,10 @@ import { EntityAndType } from '@app/entityV2/shared/types';
 import { useSearchContext } from '@app/search/context/SearchContext';
 import EmptySearchResults from '@app/searchV2/EmptySearchResults';
 import { MatchContextContainer } from '@app/searchV2/matches/MatchContextContainer';
-import SearchResultSiblings, { SIBLINGS_LIST_CLASS_NAME } from '@app/searchV2/siblings/SearchResultSiblings';
+import SearchResultSiblings, {
+    SIBLINGS_LIST_CLASS_NAME,
+    SiblingsLinkButton,
+} from '@app/searchV2/siblings/SearchResultSiblings';
 import { useShowSiblings } from '@app/searchV2/siblings/useShowSiblings';
 import { SiblingMemberData, useSiblingGroups } from '@app/searchV2/siblings/useSiblingGroups';
 import { useIsSearchV2 } from '@app/searchV2/useSearchAndBrowseVersion';
@@ -107,14 +110,6 @@ const ResultWrapper = styled.div<{
 const SiblingsError = styled.div`
     margin: 8px 0 0 ${PAGE_GAP_PX}px;
     color: ${(props) => props.theme.colors.textError};
-`;
-
-const RetryButton = styled.button`
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    color: ${(props) => props.theme.colors.hyperlinks};
 `;
 
 const ListItem = styled.div<{ isSelectMode: boolean }>`
@@ -250,7 +245,9 @@ export const SearchResultList = ({
         setHighlightedIndex(index);
     };
 
-    const onClickSibling = (sibling: SiblingMemberData, parentIndex: number) => {
+    // Logged as a result click at the parent's position, with siblingOf so these clicks can be told
+    // apart from clicks on ranked results.
+    const onClickSibling = (sibling: SiblingMemberData, parentIndex: number, parentUrn: string) => {
         analytics.event({
             type: EventType.SearchResultClickEvent,
             query,
@@ -259,6 +256,7 @@ export const SearchResultList = ({
             index: parentIndex,
             total: totalResultCount,
             pageNumber,
+            siblingOf: parentUrn,
         });
     };
 
@@ -300,9 +298,9 @@ export const SearchResultList = ({
             {showSiblings && siblingsError && (
                 <SiblingsError role="alert">
                     {t('siblings.loadError')}{' '}
-                    <RetryButton type="button" onClick={retrySiblings}>
+                    <SiblingsLinkButton type="button" onClick={retrySiblings}>
                         {t('siblings.retry')}
-                    </RetryButton>
+                    </SiblingsLinkButton>
                 </SiblingsError>
             )}
             <ResultList<React.FC<ListProps<CombinedSearchResult>>>
@@ -368,7 +366,7 @@ export const SearchResultList = ({
                                     urn={item.entity.urn}
                                     resultName={entityRegistry.getDisplayName(item.entity.type, item.entity)}
                                     group={siblingGroup}
-                                    onSiblingClick={(sibling) => onClickSibling(sibling, index)}
+                                    onSiblingClick={(sibling) => onClickSibling(sibling, index, item.entity.urn)}
                                 />
                             )}
                         </div>

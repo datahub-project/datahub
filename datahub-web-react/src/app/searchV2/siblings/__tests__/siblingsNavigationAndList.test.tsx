@@ -9,7 +9,8 @@ import { PLATFORM_URN_TO_LOGO } from '@app/ingestV2/source/builder/constants';
 import { SearchResultList } from '@app/searchV2/SearchResultList';
 import SearchFilters from '@app/searchV2/filters/SearchFilters';
 import SearchResultSiblings, { EXPANDED_PAGE_SIZE } from '@app/searchV2/siblings/SearchResultSiblings';
-import { SiblingGroupData, SiblingMemberData } from '@app/searchV2/siblings/useSiblingGroups';
+import { RESULT_URN, group, member, settle } from '@app/searchV2/siblings/__tests__/siblingFixtures';
+import { SiblingMemberData } from '@app/searchV2/siblings/useSiblingGroups';
 import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearchResults';
 import { UnionType } from '@app/searchV2/utils/constants';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
@@ -37,30 +38,9 @@ vi.mock('@app/useEntityRegistry', () => ({
     }),
 }));
 
-const RESULT_URN = 'urn:li:dataset:(urn:li:dataPlatform:glue,db.orders,PROD)';
 const CHART_URN = 'urn:li:chart:(looker,c1)';
 
-function member(name: string, isPrimary = false): SiblingMemberData {
-    return {
-        __typename: 'SiblingMember',
-        isPrimary,
-        entity: {
-            __typename: 'Dataset',
-            urn: `urn:li:dataset:(urn:li:dataPlatform:glue,db.${name},PROD)`,
-            type: EntityType.Dataset,
-            name,
-            platform: null,
-            properties: { __typename: 'DatasetProperties', name },
-            container: null,
-        },
-    } as unknown as SiblingMemberData;
-}
-
 const ALL = Array.from({ length: 250 }, (_, i) => member(`copy_${String(i).padStart(3, '0')}`, i === 0));
-
-function group(members: SiblingMemberData[], total: number): SiblingGroupData {
-    return { __typename: 'SiblingGroup', urn: RESULT_URN, total, truncated: false, members } as SiblingGroupData;
-}
 
 function pageMock(start: number, count: number, result: () => FetchResult): MockedResponse {
     return {
@@ -104,9 +84,7 @@ describe('expanded sibling list paging', () => {
 
         // The second page was short, so the list is complete: scrolling again requests nothing.
         scrollToBottom(list);
-        await new Promise((resolve) => {
-            setTimeout(resolve, 20);
-        });
+        await settle();
         expect(first).toHaveBeenCalledTimes(1);
         expect(second).toHaveBeenCalledTimes(1);
     });
@@ -243,14 +221,14 @@ describe('navigateToSearchUrl and showSiblings', () => {
         expect(history.push.mock.calls[1][0].search).toContain('urn%3Ali%3AdataPlatform%3Aglue');
     });
 
-    it('leaves it off when it was off, or when explicitly turned off', () => {
+    it('leaves it off when it was off, or when navigating from a page without it', () => {
         const off = historyAt('?query=orders');
         navigateToSearchUrl({ query: 'orders', page: 2, history: asHistory(off) });
         expect(off.push.mock.calls[0][0].search).not.toContain('showSiblings');
 
-        const on = historyAt('?query=orders&showSiblings=true');
-        navigateToSearchUrl({ query: 'orders', history: asHistory(on), showSiblings: false });
-        expect(on.push.mock.calls[0][0].search).not.toContain('showSiblings');
+        const home = historyAt('');
+        navigateToSearchUrl({ query: 'orders', history: asHistory(home) });
+        expect(home.push.mock.calls[0][0].search).not.toContain('showSiblings');
     });
 });
 
@@ -299,9 +277,8 @@ describe('SearchResultList with siblings', () => {
     it('fetches and renders nothing while the toggle is off', async () => {
         const fetched = vi.fn(() => ({ data: { siblingGroups: [group(ALL.slice(0, 5), 7)] } }));
         renderList('?query=orders', [listMock(fetched)]);
-        await new Promise((resolve) => {
-            setTimeout(resolve, 20);
-        });
+        expect(screen.getAllByTestId('result')).toHaveLength(2);
+        await settle();
         expect(fetched).not.toHaveBeenCalled();
         expect(screen.queryAllByTestId('sibling-row')).toHaveLength(0);
     });
@@ -353,7 +330,7 @@ describe('SearchResultList with siblings', () => {
         expect(setHighlightedIndex).toHaveBeenCalledWith(null);
     });
 
-    it('logs a search result click for a sibling, with the parent result position', async () => {
+    it('logs a sibling click at the parent result position, marked with siblingOf', async () => {
         const event = vi.spyOn(analytics, 'event').mockResolvedValue(undefined);
         renderList('?query=orders&showSiblings=true', [
             listMock(() => ({ data: { siblingGroups: [group(ALL.slice(0, 5), 7)] } })),
@@ -368,6 +345,7 @@ describe('SearchResultList with siblings', () => {
             index: 0,
             total: 2,
             pageNumber: 1,
+            siblingOf: RESULT_URN,
         });
         event.mockRestore();
     });
@@ -376,9 +354,8 @@ describe('SearchResultList with siblings', () => {
         separateSiblings = false;
         const fetched = vi.fn(() => ({ data: { siblingGroups: [group(ALL.slice(0, 5), 7)] } }));
         renderList('?query=orders&showSiblings=true', [listMock(fetched)]);
-        await new Promise((resolve) => {
-            setTimeout(resolve, 20);
-        });
+        expect(screen.getAllByTestId('result')).toHaveLength(2);
+        await settle();
         expect(fetched).not.toHaveBeenCalled();
         expect(screen.queryAllByTestId('sibling-row')).toHaveLength(0);
 

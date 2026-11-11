@@ -15,7 +15,6 @@ export const navigateToSearchUrl = ({
     unionType = UnionType.AND,
     selectedSortOption,
     history,
-    showSiblings,
 }: {
     query?: string;
     page?: number;
@@ -23,11 +22,11 @@ export const navigateToSearchUrl = ({
     history: RouteComponentProps['history'];
     selectedSortOption?: string;
     unionType?: UnionType;
-    /** "Show siblings" on the search page; defaults to the current URL's value, so it survives paging and filtering. */
-    showSiblings?: boolean;
 }) => {
+    // "Show siblings" is carried over from the current URL, so it survives paging, filtering and new
+    // searches. Pages other than search don't have the param, so navigating from them leaves it off.
     const keepShowSiblings =
-        showSiblings ?? new URLSearchParams(history.location?.search || '').get(SHOW_SIBLINGS_URL_PARAM) === 'true';
+        new URLSearchParams(history.location?.search || '').get(SHOW_SIBLINGS_URL_PARAM) === 'true';
     const search = QueryString.stringify(
         {
             ...filtersToQueryStringParams(filters || []),
