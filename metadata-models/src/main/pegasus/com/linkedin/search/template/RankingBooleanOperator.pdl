@@ -1,0 +1,17 @@
+namespace com.linkedin.search.template
+
+/**
+ * How the values in a {@code booleanMatch} combine. Unset is {@code OR}.
+ */
+enum RankingBooleanOperator {
+  /**
+   * The signal is true when any value matches. {@code NOT_EXISTS} with {@code FALSE} is true when
+   * the field is missing or false.
+   */
+  OR
+
+  /**
+   * The signal is true when every value matches.
+   */
+  AND
+}

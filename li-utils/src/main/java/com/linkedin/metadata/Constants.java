@@ -241,6 +241,7 @@ public class Constants {
   public static final String UPSTREAM_LINEAGE_ASPECT_NAME = "upstreamLineage";
   public static final String SCHEMA_METADATA_ASPECT_NAME = "schemaMetadata";
   public static final String EDITABLE_SCHEMA_METADATA_ASPECT_NAME = "editableSchemaMetadata";
+  public static final String EDITABLE_PRIMARY_KEYS_ASPECT_NAME = "editablePrimaryKeys";
   public static final String VIEW_PROPERTIES_ASPECT_NAME = "viewProperties";
   public static final String DATASET_PROFILE_ASPECT_NAME = "datasetProfile";
   public static final String DATASET_USAGE_STATISTICS_ASPECT_NAME = "datasetUsageStatistics";
@@ -555,6 +556,7 @@ public class Constants {
   public static final String DOCUMENT_KEY_ASPECT_NAME = "documentKey";
   public static final String DOCUMENT_INFO_ASPECT_NAME = "documentInfo";
   public static final String DOCUMENT_SETTINGS_ASPECT_NAME = "documentSettings";
+  public static final String OKF_PROPERTIES_ASPECT_NAME = "okfProperties";
   // Curated embedding-source text. A common aspect so any entity type can register it.
   public static final String SEMANTIC_TEXT_ASPECT_NAME = "semanticText";
 

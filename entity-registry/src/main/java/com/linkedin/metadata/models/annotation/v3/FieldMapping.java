@@ -306,6 +306,7 @@ public class FieldMapping {
 
   private static boolean hasAnalyzerFallback(@Nonnull FieldType fieldType) {
     return fieldType == FieldType.TEXT
+        || fieldType == FieldType.RICH_TEXT
         || fieldType == FieldType.TEXT_PARTIAL
         || fieldType == FieldType.WORD_GRAM
         || fieldType == FieldType.URN

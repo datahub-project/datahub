@@ -29,10 +29,13 @@ RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
 # can keep shipping a stale, vulnerable package set even after upstream fixes it (a
 # stale cache shipped setuptools 70.3.0 / CVE-2025-47273 at /usr/share/python-wheels/;
 # current Wolfi ships a fixed setuptools). Bump WOLFI_PKG_REFRESH to force a fresh
-# `apk add` whenever base packages need refreshing.
-ARG WOLFI_PKG_REFRESH=2026-10-02
+# `apk upgrade` + `apk add` whenever base packages need refreshing. `apk add` alone
+# never upgrades packages already installed (from wolfi-base or earlier steps), so
+# the upgrade keeps the whole OS package set current.
+ARG WOLFI_PKG_REFRESH=2026-10-27
 RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
     echo "wolfi pkg refresh: ${WOLFI_PKG_REFRESH}" && \
+    apk upgrade --no-cache --update-cache && \
     apk add --no-cache --update-cache \
     ca-certificates \
     python-${PYTHON_VERSION} \
@@ -76,6 +79,8 @@ ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 # Use the system CA bundle. uv: https://github.com/astral-sh/uv/issues/1474
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+# gRPC ignores SSL_CERT_FILE and trusts its own bundled roots.pem by default.
+ENV GRPC_DEFAULT_SSL_ROOTS_FILE_PATH="/etc/ssl/certs/ca-certificates.crt"
 
 ARG UV_PROFILE=default
 ARG DEFAULT_INDEX_URL=""

@@ -66,6 +66,17 @@ public class AspectMappingBuilderTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
+  public void testSearchableAspectKeepsSystemMetadata() {
+    Map<String, Object> aspect =
+        (Map<String, Object>)
+            AspectMappingBuilder.createAspectMappings(mockEntitySpec, null, null).get("testAspect");
+    Map<String, Object> fields = (Map<String, Object>) aspect.get(PROPERTIES);
+
+    assertTrue(fields.containsKey(V3SearchDocumentProjector.SYSTEM_METADATA_FIELD));
+  }
+
+  @Test
   public void testCreateAspectMappingsWithFieldNameConflicts() {
     // Test with field name conflicts
     Map<String, Set<String>> fieldNameConflicts = new HashMap<>();
@@ -93,7 +104,7 @@ public class AspectMappingBuilderTest {
 
   @Test
   @SuppressWarnings("unchecked")
-  public void testStructuredPropertiesKeepsParsedUrnNamesOnly() {
+  public void testStructuredPropertiesOmitsADedicatedParsedUrnName() {
     when(mockEntitySpec.getAspectSpecs())
         .thenReturn(Collections.singletonList(mockStructuredPropertiesAspect));
     when(mockStructuredPropertiesAspect.getName()).thenReturn(STRUCTURED_PROPERTIES_ASPECT_NAME);
@@ -106,31 +117,18 @@ public class AspectMappingBuilderTest {
     Map<String, Object> result =
         AspectMappingBuilder.createAspectMappings(mockEntitySpec, null, null);
 
-    assertTrue(result.containsKey(STRUCTURED_PROPERTIES_ASPECT_NAME));
-    Map<String, Object> fields =
-        (Map<String, Object>)
-            ((Map<String, Object>) result.get(STRUCTURED_PROPERTIES_ASPECT_NAME)).get(PROPERTIES);
-    assertTrue(fields.containsKey("testField__urn_name"), fields.toString());
-    assertEquals(
-        ((Map<String, Object>) fields.get("testField__urn_name")).get("normalizer"),
-        "keyword_normalizer");
-    assertFalse(fields.containsKey("testField"), fields.toString());
-    assertFalse(fields.containsKey("urnName"), fields.toString());
+    assertFalse(result.containsKey(STRUCTURED_PROPERTIES_ASPECT_NAME), result.toString());
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   public void testCreateAspectMappingsWithEmptyAspectFields() {
-    // An aspect with no searchable fields still maps the system metadata the projector writes
     when(mockAspectSpec1.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec1.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
 
     Map<String, Object> result =
         AspectMappingBuilder.createAspectMappings(mockEntitySpec, null, null);
 
-    Map<String, Object> aspect = (Map<String, Object>) result.get("testAspect");
-    assertEquals(
-        ((Map<String, Object>) aspect.get(PROPERTIES)).keySet(),
-        Set.of(V3SearchDocumentProjector.SYSTEM_METADATA_FIELD));
+    assertFalse(result.containsKey("testAspect"));
   }
 
   @Test

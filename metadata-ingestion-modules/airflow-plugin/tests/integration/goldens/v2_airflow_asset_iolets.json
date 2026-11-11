@@ -12,11 +12,12 @@
                 "doc_md": "",
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "",
+                "schedule": "None",
                 "start_date": "2023-01-01T00:00:00+00:00",
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=airflow_asset_iolets",
+            "externalUrl": "http://airflow.example.com/dags/airflow_asset_iolets",
             "name": "airflow_asset_iolets",
             "env": "PROD"
         }
@@ -190,11 +191,12 @@
                 "doc_md": "",
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "",
+                "schedule": "None",
                 "start_date": "2023-01-01T00:00:00+00:00",
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=airflow_asset_iolets",
+            "externalUrl": "http://airflow.example.com/dags/airflow_asset_iolets",
             "name": "airflow_asset_iolets",
             "env": "PROD"
         }
@@ -910,11 +912,12 @@
                 "doc_md": "",
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "",
+                "schedule": "None",
                 "start_date": "2023-01-01T00:00:00+00:00",
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=airflow_asset_iolets",
+            "externalUrl": "http://airflow.example.com/dags/airflow_asset_iolets",
             "name": "airflow_asset_iolets",
             "env": "PROD"
         }
@@ -1705,11 +1708,12 @@
                 "doc_md": "",
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "",
+                "schedule": "None",
                 "start_date": "2023-01-01T00:00:00+00:00",
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=airflow_asset_iolets",
+            "externalUrl": "http://airflow.example.com/dags/airflow_asset_iolets",
             "name": "airflow_asset_iolets",
             "env": "PROD"
         }
@@ -2416,11 +2420,12 @@
                 "doc_md": "",
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "",
+                "schedule": "None",
                 "start_date": "2023-01-01T00:00:00+00:00",
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=airflow_asset_iolets",
+            "externalUrl": "http://airflow.example.com/dags/airflow_asset_iolets",
             "name": "airflow_asset_iolets",
             "env": "PROD"
         }
@@ -2968,11 +2973,12 @@
                 "doc_md": "",
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "",
+                "schedule": "None",
                 "start_date": "2023-01-01T00:00:00+00:00",
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=airflow_asset_iolets",
+            "externalUrl": "http://airflow.example.com/dags/airflow_asset_iolets",
             "name": "airflow_asset_iolets",
             "env": "PROD"
         }

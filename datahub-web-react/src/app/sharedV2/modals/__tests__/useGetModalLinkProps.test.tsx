@@ -2,7 +2,8 @@ import { renderHook } from '@testing-library/react-hooks';
 import React, { PropsWithChildren } from 'react';
 import { describe, expect, it } from 'vitest';
 
-import { ModalContext, ModalContextType } from '@app/sharedV2/modals/ModalContext';
+import { ModalContext, ModalContextType } from '@components/components/Modal/ModalContext';
+
 import { useGetModalLinkProps } from '@app/sharedV2/modals/useGetModalLinkProps';
 
 function wrapperWithContext(value: ModalContextType) {

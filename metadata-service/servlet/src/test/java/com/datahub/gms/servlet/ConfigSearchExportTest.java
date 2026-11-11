@@ -80,8 +80,10 @@ public class ConfigSearchExportTest extends AbstractTestNGSpringContextTests {
     assertTrue(csv.contains("name.text"), csv);
     assertTrue(csv.contains("description.stemmed"), csv);
     assertTrue(csv.contains("prefix_match"), csv);
-    // Stage 1 clauses under the dis_max root: constant-score exact names on the root keywords
-    assertTrue(csv.contains("exact_match,ConstantScoreQueryBuilder,name.keyword"), csv);
+    // Stage 1 clauses under the dis_max root. V3 keyword reads exact-match the root, which has no
+    // .keyword subfield.
+    assertTrue(csv.contains("exact_match,ConstantScoreQueryBuilder,name,"), csv);
+    assertFalse(csv.contains("name.keyword"), csv);
     assertFalse(csv.contains(".delimited"), csv);
     assertFalse(csv.contains("query_word_delimited"), csv);
     assertFalse(csv.contains("phrase_match"), csv);

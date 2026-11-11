@@ -6,10 +6,17 @@ import useResetLineageGraph from '@app/lineageV3/initialize/useResetLineageGraph
 
 import { EntityType, LineageDirection } from '@types';
 
-const mocks = vi.hoisted(() => ({ ignoreSchemaFieldStatus: false }));
+const mocks = vi.hoisted(() => ({
+    ignoreSchemaFieldStatus: false,
+    startTimeMillis: undefined as number | undefined,
+    endTimeMillis: undefined as number | undefined,
+}));
 
 vi.mock('@app/lineageV3/utils/useGetLineageTimeParams', () => ({
-    useGetLineageTimeParams: () => ({ startTimeMillis: undefined, endTimeMillis: undefined }),
+    useGetLineageTimeParams: () => ({
+        startTimeMillis: mocks.startTimeMillis,
+        endTimeMillis: mocks.endTimeMillis,
+    }),
 }));
 
 vi.mock('@app/lineageV3/common', async (importOriginal) => ({
@@ -38,6 +45,8 @@ const makeInitialNode = () => ({ id: URN, urn: URN, type: EntityType.Dataset }) 
 describe('useResetLineageGraph', () => {
     beforeEach(() => {
         mocks.ignoreSchemaFieldStatus = false;
+        mocks.startTimeMillis = undefined;
+        mocks.endTimeMillis = undefined;
     });
 
     it('clears stale graph state, seeds the home node, and resets versions on mount', () => {
@@ -58,6 +67,18 @@ describe('useResetLineageGraph', () => {
         expect(context.setDisplayVersion).toHaveBeenCalledWith([0, []]);
     });
 
+    it('resets the graph when the time range changes', () => {
+        const context = makeContext();
+        const { rerender } = renderHook(() => useResetLineageGraph(context, URN, EntityType.Dataset, makeInitialNode));
+
+        context.edges.set('fetched-edge', {} as never);
+        mocks.startTimeMillis = 1_600_000_000_000;
+        rerender();
+
+        expect(context.edges.size).toBe(0);
+        expect(Array.from(context.nodes.keys())).toEqual([URN]);
+    });
+
     it('clears fetched edges and node entities when showGhostEntities changes', () => {
         const context = makeContext();
         const { rerender } = renderHook(
@@ -76,6 +97,26 @@ describe('useResetLineageGraph', () => {
         expect(context.edges.size).toBe(0);
         expect(context.adjacencyList[LineageDirection.Upstream].size).toBe(0);
         expect(homeNode.entity).toBeUndefined();
+    });
+
+    it('leaves fetched state intact when ignoreSchemaFieldStatus flips on a non-schema-field page', () => {
+        // appConfig resolving on load flips this flag; for a DataFlow that must not count as a reset.
+        mocks.ignoreSchemaFieldStatus = false;
+        const context = makeContext();
+        const { rerender } = renderHook(
+            ({ ctx }) => useResetLineageGraph(ctx, URN, EntityType.DataFlow, makeInitialNode),
+            { initialProps: { ctx: context } },
+        );
+
+        const homeNode = context.nodes.get(URN) as LineageEntity;
+        homeNode.entity = {} as never;
+        context.edges.set('e', {} as never);
+
+        mocks.ignoreSchemaFieldStatus = true;
+        rerender({ ctx: context });
+
+        expect(context.edges.size).toBe(1);
+        expect(homeNode.entity).not.toBeUndefined();
     });
 
     it('leaves fetched state intact on showGhostEntities change for schema fields when ignoring status', () => {

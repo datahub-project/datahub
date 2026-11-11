@@ -15,7 +15,7 @@ const meta = {
         layout: 'centered',
         badges: [BADGE.STABLE, 'readyForDesignReview'],
         docs: {
-            subtitle: 'This component allows to add autocompletion',
+            subtitle: 'Opens an overlay with custom content or a menu when its child trigger is clicked.',
         },
     },
 

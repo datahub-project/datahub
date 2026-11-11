@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.utils;
 
+import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
@@ -63,6 +64,33 @@ public class SearchDocumentSanitizer {
     sanitized = HTML_IMG_BASE64_PATTERN.matcher(sanitized).replaceAll("[Image]");
 
     return sanitized.trim();
+  }
+
+  /**
+   * Truncates a string so that its UTF-8 encoding is at most {@code maxBytes} bytes, cutting on a
+   * code-point boundary so a multi-byte character is never split.
+   *
+   * <p>Analyzed-text fields ({@code TEXT}, {@code TEXT_PARTIAL}, {@code WORD_GRAM}) are backed by a
+   * {@code keyword} parent in the Elasticsearch mapping, which enforces Lucene's hard 32,766-byte
+   * per-term limit. A value over that limit is rejected by OpenSearch and the entire document write
+   * is dropped, silently removing the document from search. Truncating the indexed value keeps the
+   * document searchable; the full value is unaffected in primary storage.
+   */
+  @Nullable
+  public static String truncateForIndexing(@Nullable String value, int maxBytes) {
+    if (value == null || value.isEmpty()) {
+      return value;
+    }
+    final byte[] utf8 = value.getBytes(StandardCharsets.UTF_8);
+    if (utf8.length <= maxBytes) {
+      return value;
+    }
+    // Walk back off any UTF-8 continuation byte (10xxxxxx) so we don't slice through a character.
+    int end = maxBytes;
+    while (end > 0 && (utf8[end] & 0xC0) == 0x80) {
+      end--;
+    }
+    return new String(utf8, 0, end, StandardCharsets.UTF_8);
   }
 
   public static boolean containsBase64Images(@Nullable String value) {

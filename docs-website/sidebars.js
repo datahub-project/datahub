@@ -32,6 +32,11 @@ module.exports = {
         },
         {
           type: "link",
+          label: "Product Tours",
+          href: "https://tours.datahub.com/?utm_source=oss-docs&utm_medium=oss-referral&utm_campaign=oss-product-tours&utm_content=docs-sidebar",
+        },
+        {
+          type: "link",
           label: "Customer Stories",
           href: "https://datahub.com/resources/?2004611554=dh-stories",
         },
@@ -535,6 +540,12 @@ module.exports = {
               className: "saasOnly",
             },
             {
+              label: "Certification",
+              type: "doc",
+              id: "docs/features/feature-guides/context/certification",
+              className: "saasOnly",
+            },
+            {
               label: "Context Feedback",
               type: "doc",
               id: "docs/features/feature-guides/context/context-feedback",
@@ -589,6 +600,11 @@ module.exports = {
               ],
             },
           ],
+        },
+        {
+          label: "Analytics Dashboards",
+          type: "doc",
+          id: "docs/features/feature-guides/analytics-dashboards",
         },
         {
           label: "Asset Summaries",
@@ -972,6 +988,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_2_4_0",
         "docs/managed-datahub/release-notes/v_2_3_0",
         "docs/managed-datahub/release-notes/v_2_2_0",
         "docs/managed-datahub/release-notes/v_2_1_0",
@@ -1621,6 +1638,7 @@ module.exports = {
         "docs/deploy/azure",
         "docker/README",
         "docs/deploy/kubernetes",
+        "docs/how/upgrading-datahub",
         "docs/deploy/rendered-manifest-upgrade",
       ],
     },
@@ -1656,6 +1674,7 @@ module.exports = {
         "docs/developers",
         "docs/developers/java-sdk-v2-design",
         "docs/developers/search-v3-design",
+        "gradle/wiring/README",
         "docs/docker/development",
         "metadata-ingestion/developing",
         "docs/api/graphql/graphql-endpoint-development",
@@ -1751,7 +1770,7 @@ module.exports = {
       ],
     },
     {
-      "Release History": ["releases", "docs/how/updating-datahub"],
+      "Release History": ["releases", "docs/how/breaking-changes"],
     },
     {
       type: "doc",

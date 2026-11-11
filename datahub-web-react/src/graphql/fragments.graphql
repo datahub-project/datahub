@@ -5,6 +5,9 @@ fragment globalTagsFields on GlobalTags {
             type
             name
             description
+            status {
+                removed
+            }
             properties {
                 name
                 colorHex
@@ -142,23 +145,21 @@ fragment glossaryNode on GlossaryNode {
         relationships {
             type
             entity {
-                ... on GlossaryTerm {
-                    urn
-                    name
-                    type
-                    hierarchicalName
+                ... on HasProperties {
                     properties {
                         name
                         description
                     }
                 }
+                ... on GlossaryTerm {
+                    urn
+                    name
+                    type
+                    hierarchicalName
+                }
                 ... on GlossaryNode {
                     urn
                     type
-                    properties {
-                        name
-                        description
-                    }
                     displayProperties {
                         ...displayPropertiesFields
                     }
@@ -173,6 +174,9 @@ fragment glossaryTerm on GlossaryTerm {
     name
     type
     hierarchicalName
+    status {
+        removed
+    }
     properties {
         name
         description
@@ -1510,8 +1514,10 @@ fragment browsePathV2Fields on BrowsePathV2 {
 fragment entityDisplayNameFields on Entity {
     urn
     type
-    ... on Dataset {
+    ... on HasName {
         name
+    }
+    ... on Dataset {
         properties {
             name
             qualifiedName
@@ -1542,7 +1548,6 @@ fragment entityDisplayNameFields on Entity {
         }
     }
     ... on CorpGroup {
-        name
         info {
             displayName
         }
@@ -1592,21 +1597,6 @@ fragment entityDisplayNameFields on Entity {
         properties {
             name
         }
-    }
-    ... on MLFeatureTable {
-        name
-    }
-    ... on MLFeature {
-        name
-    }
-    ... on MLPrimaryKey {
-        name
-    }
-    ... on MLModel {
-        name
-    }
-    ... on MLModelGroup {
-        name
     }
     ... on Tag {
         name
@@ -1962,6 +1952,7 @@ fragment entityPrivileges on EntityPrivileges {
     canViewDatasetProfile
     canViewDatasetOperations
     canManageAssetSummary
+    canEditLifecycleStage
 }
 
 fragment businessAttribute on BusinessAttributeAssociation {
@@ -1985,6 +1976,9 @@ fragment businessAttribute on BusinessAttributeAssociation {
                 tags {
                     tag {
                         urn
+                        status {
+                            removed
+                        }
                         name
                         properties {
                             name
@@ -1997,6 +1991,9 @@ fragment businessAttribute on BusinessAttributeAssociation {
                 terms {
                     term {
                         urn
+                        status {
+                            removed
+                        }
                         type
                         properties {
                             name
