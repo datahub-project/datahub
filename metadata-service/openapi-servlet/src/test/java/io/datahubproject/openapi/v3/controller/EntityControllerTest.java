@@ -2509,7 +2509,6 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), anyBoolean());
   }
 
-  @Test
   /**
    * Deleting an assertion's run history removes timeseries values without an aspect write the
    * assertion validator sees, so the endpoint itself requires Edit Assertions on the assets the
