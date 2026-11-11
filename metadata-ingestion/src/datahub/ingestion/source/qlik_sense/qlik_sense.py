@@ -208,6 +208,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._data_connections: Optional[Dict[str, DataConnectionInfo]] = None
         self._allowed_space_ids: Set[str] = set()
         self._dataset_urns_by_qri: Optional[Dict[str, str]] = None
+        self._datasets_listed = False
+        # Lineage graph table QRI -> its dataset URN. A graph table that is also
+        # a load script table keeps the script table's URN.
+        self._app_table_urns_by_qri: Dict[str, str] = {}
         # Entities of apps emitted or kept this run. Datasets only link to app
         # tables in here, as other URNs may never be ingested.
         self._app_entity_urns: Set[str] = set()
@@ -1238,26 +1242,46 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if upstreams
         ] or None
 
-    def _get_dataset_urns_by_qri(self) -> Dict[str, str]:
-        if self._dataset_urns_by_qri is None:
+    def _get_dataset_urns_by_qri(self) -> Optional[Dict[str, str]]:
+        """Dataset URNs by QRI, or None when the datasets could not be listed."""
+        if not self._datasets_listed:
+            self._datasets_listed = True
+            datasets = self.qlik_api.list_datasets()
             # Only datasets of allowed spaces are ingested.
-            self._dataset_urns_by_qri = {
-                dataset.secure_qri: self._gen_qlik_dataset_urn(
-                    self._qlik_dataset_identifier(dataset.space_id, dataset.name)
-                )
-                for dataset in self.qlik_api.list_datasets()
-                if dataset.space_id in self._allowed_space_ids
-            }
+            self._dataset_urns_by_qri = (
+                None
+                if datasets is None
+                else {
+                    dataset.secure_qri: self._gen_qlik_dataset_urn(
+                        self._qlik_dataset_identifier(dataset.space_id, dataset.name)
+                    )
+                    for dataset in datasets
+                    if dataset.space_id in self._allowed_space_ids
+                }
+            )
         return self._dataset_urns_by_qri
+
+    def _dataset_sources_unresolved(self, source_qris: List[str]) -> bool:
+        return (
+            any(qri.startswith(QLIK_DATASET_QRI_PREFIX) for qri in source_qris)
+            and self._get_dataset_urns_by_qri() is None
+        )
+
+    def _app_table_urn(self, qri: str) -> str:
+        return self._app_table_urns_by_qri.get(qri) or self._gen_qlik_dataset_urn(
+            qri.lower()
+        )
 
     def _resolve_lineage_source(
         self, source_qri: str, app_table_urns: Set[str]
     ) -> Optional[str]:
         if source_qri.startswith(QLIK_DATASET_QRI_PREFIX):
-            return self._get_dataset_urns_by_qri().get(source_qri.rpartition("#")[0])
+            return (self._get_dataset_urns_by_qri() or {}).get(
+                source_qri.rpartition("#")[0]
+            )
         # Database table QRIs are opaque hashes; the load script parser traces
         # SQL loads instead.
-        urn = self._gen_qlik_dataset_urn(source_qri.lower())
+        urn = self._app_table_urn(source_qri)
         return urn if urn in app_table_urns else None
 
     def _resolve_lineage_sources(
@@ -1273,15 +1297,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_lineage_tables_workunit(
         self, app: App, script_tables: Dict[str, ScriptTableLineage]
     ) -> Iterable[MetadataWorkUnit]:
-        table_urns = {
-            self._gen_qlik_dataset_urn(table.qri.lower())
-            for table in app.lineage_tables
-        }
+        table_urns = {self._app_table_urn(table.qri) for table in app.lineage_tables}
         self._app_entity_urns.update(table_urns)
         for table in app.lineage_tables:
-            identifier = table.qri.lower()
-            dataset_urn = self._gen_qlik_dataset_urn(identifier)
             script_table = script_tables.get(table.qri)
+            identifier = script_table.identifier if script_table else table.qri.lower()
+            dataset_urn = self._gen_qlik_dataset_urn(identifier)
             yield from self._gen_app_table_entity(
                 identifier,
                 self._script_table_fields(script_table) if script_table else [],
@@ -1298,6 +1319,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     },
                 ),
             ).as_workunit()
+            if self._dataset_sources_unresolved(table.source_qris):
+                # Writing the lineage without the datasets would replace edges
+                # from an earlier run; the failed listing already fails the run.
+                self.reporter.warning(
+                    title="Lineage of Qlik app table not updated",
+                    message="The table loads Qlik datasets, which could not be "
+                    "listed, so its lineage from the last run is kept.",
+                    context=f"app={app.id}, table={table.label}",
+                )
+                continue
             upstream_urns = self._resolve_lineage_sources(
                 table.source_qris, table_urns, dataset_urn
             )
@@ -1402,8 +1433,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self._gen_qlik_dataset_urn(table.identifier) for table in script_tables
         }
         for table in app.lineage_tables:
-            urn = self._gen_qlik_dataset_urn(table.qri.lower())
             matched = matched_script_tables.get(table.qri)
+            if matched:
+                # Script tables were ingested under the script identifier before
+                # the lineage graph was read, so they keep that URN.
+                self._app_table_urns_by_qri[table.qri] = self._gen_qlik_dataset_urn(
+                    matched.identifier
+                )
+            urn = self._app_table_urn(table.qri)
             table_fields[urn] = self._script_table_fields(matched) if matched else []
             if matched:
                 script_table_urns.add(urn)

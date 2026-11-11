@@ -139,7 +139,7 @@ class QlikAPI(QlikBaseAPI):
                 table.source_qris.append(edge[Constant.SOURCE])
         return list(tables.values())
 
-    def list_datasets(self) -> List[ListedDataset]:
+    def list_datasets(self) -> Optional[List[ListedDataset]]:
         datasets: List[ListedDataset] = []
         try:
             for item in self._paginate(
@@ -161,6 +161,7 @@ class QlikAPI(QlikBaseAPI):
             self._record_unread(
                 "datasets", f"Unable to list datasets. Exception: {e}", e
             )
+            return None
         return datasets
 
     def get_user_name(self, user_id: str) -> Optional[str]:

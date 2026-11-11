@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 from urllib.parse import quote
 
@@ -15,6 +15,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
 )
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
+from datahub.ingestion.source.qlik_sense.script_lineage import ScriptTableLineage
 from datahub.metadata.schema_classes import UpstreamLineageClass
 
 BASE_URL = "https://tenant.example.com/api/v1"
@@ -96,8 +97,12 @@ def _urn(name: str) -> str:
     return make_dataset_urn("qlik-sense", name.lower())
 
 
-@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
-def test_qvd_lineage_links_apps_through_datasets(mock_api_cls: MagicMock) -> None:
+POSTGRES_ORDERS = make_dataset_urn("postgres", "db.public.orders")
+
+
+def _run(
+    mock_api_cls: MagicMock, datasets: Optional[List[ListedDataset]]
+) -> Tuple[QlikSenseSource, Dict[str, List[str]]]:
     space = MagicMock(id="space-1")
     space.name = "Finance"
     api = mock_api_cls.return_value
@@ -107,12 +112,7 @@ def test_qvd_lineage_links_apps_through_datasets(mock_api_cls: MagicMock) -> Non
     api.change_check_failures = []
     api.lineage_read_failures = []
     api.get_user_name.return_value = None
-    api.list_datasets.return_value = [
-        ListedDataset(space_id="space-1", name="src.qvd", secure_qri=SOURCE_QVD),
-        ListedDataset(space_id="space-1", name="stored.qvd", secure_qri=STORED_QVD),
-        # In a space the recipe leaves out, so it is never ingested.
-        ListedDataset(space_id="space-2", name="hidden.qvd", secure_qri=HIDDEN_QVD),
-    ]
+    api.list_datasets.return_value = datasets
     api.get_items.return_value = [
         _app(
             "etl-app",
@@ -144,12 +144,25 @@ def test_qvd_lineage_links_apps_through_datasets(mock_api_cls: MagicMock) -> Non
         QlikSourceConfig.model_validate(CLOUD_CONFIG),
         PipelineContext(run_id="test-lineage-graph"),
     )
-
     upstreams: Dict[str, List[str]] = {}
     for wu in source.get_workunits_internal():
         lineage = wu.get_aspect_of_type(UpstreamLineageClass)
         if lineage:
             upstreams[wu.get_urn()] = [u.dataset for u in lineage.upstreams]
+    return source, upstreams
+
+
+DATASETS = [
+    ListedDataset(space_id="space-1", name="src.qvd", secure_qri=SOURCE_QVD),
+    ListedDataset(space_id="space-1", name="stored.qvd", secure_qri=STORED_QVD),
+    # In a space the recipe leaves out, so it is never ingested.
+    ListedDataset(space_id="space-2", name="hidden.qvd", secure_qri=HIDDEN_QVD),
+]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_qvd_lineage_links_apps_through_datasets(mock_api_cls: MagicMock) -> None:
+    source, upstreams = _run(mock_api_cls, DATASETS)
 
     curve = _urn(f"{ETL_APP}#Curve")
     assert upstreams == {
@@ -158,3 +171,36 @@ def test_qvd_lineage_links_apps_through_datasets(mock_api_cls: MagicMock) -> Non
         _urn("space-1.stored.qvd"): [curve],
     }
     assert not source.reporter.failures
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_script_table_in_lineage_graph_keeps_its_urn(mock_api_cls: MagicMock) -> None:
+    # Script tables were ingested as `{app_id}.{label}` before the lineage graph
+    # was read; moving them to the graph QRI would soft-delete the old entity.
+    script_table = ScriptTableLineage(
+        label="Curve", identifier="etl-app.curve", upstream_urns=[POSTGRES_ORDERS]
+    )
+    with patch.object(
+        QlikSenseSource,
+        "_build_script_tables",
+        lambda self, app: [script_table] if app.id == "etl-app" else [],
+    ):
+        _, upstreams = _run(mock_api_cls, DATASETS)
+
+    curve = _urn("etl-app.curve")
+    assert upstreams[curve] == [_urn("space-1.src.qvd"), POSTGRES_ORDERS]
+    assert upstreams[_urn("space-1.stored.qvd")] == [curve]
+    assert _urn(f"{ETL_APP}#Curve") not in upstreams
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_failed_dataset_listing_keeps_table_lineage(mock_api_cls: MagicMock) -> None:
+    source, upstreams = _run(mock_api_cls, None)
+
+    # Both tables load datasets, so their lineage from the last run is kept
+    # rather than replaced by lineage without the dataset edges.
+    assert _urn(f"{ETL_APP}#Curve") not in upstreams
+    assert _urn(f"{REPORT_APP}#Tbl") not in upstreams
+    assert [w.title for w in source.reporter.warnings] == [
+        "Lineage of Qlik app table not updated"
+    ]

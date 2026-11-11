@@ -101,7 +101,8 @@ class QlikBaseAPI(ABC):
     @abstractmethod
     def get_data_connections(self) -> Dict[str, DataConnectionInfo]: ...
 
-    def list_datasets(self) -> List[ListedDataset]:
+    def list_datasets(self) -> Optional[List[ListedDataset]]:
+        """Datasets of every space, or None when they could not be listed."""
         # Enterprise on Windows has no Qlik datasets.
         return []
 
