@@ -758,11 +758,17 @@ public class SearchDocumentTransformer {
       searchDocument.set("embeddings", JsonNodeFactory.instance.nullNode());
       searchDocument.set("skipReason", JsonNodeFactory.instance.nullNode());
       searchDocument.set("skippedAt", JsonNodeFactory.instance.nullNode());
+      // V3 stores the entity marker at the document root. A delete has to null it or
+      // doc_as_upsert keeps the previous marker.
+      if (v3Projection()) {
+        searchDocument.set("refreshMarker", JsonNodeFactory.instance.nullNode());
+      }
       return;
     }
     try {
       // Direct pass-through - PDL camelCase matches OpenSearch camelCase
       ObjectMapper mapper = new ObjectMapper();
+      boolean projectProfileState = v3Projection();
       Object embeddings = aspect.data().get("embeddings");
       // An empty embeddings map (skip marker) must project as an explicit null: under
       // doc_as_upsert an empty object is a merge no-op, so {} could not clear a previous
@@ -772,7 +778,21 @@ public class SearchDocumentTransformer {
       if (embeddings instanceof Map && ((Map<?, ?>) embeddings).isEmpty()) {
         searchDocument.set("embeddings", JsonNodeFactory.instance.nullNode());
       } else {
-        searchDocument.set("embeddings", mapper.valueToTree(embeddings));
+        JsonNode embeddingsNode = mapper.valueToTree(embeddings);
+        // The V2 sidecar maps chunks and the source digest only. V3 mappings include the
+        // profile state, and the lift step copies whatever this projection wrote.
+        if (!projectProfileState) {
+          stripProfileControlFields(embeddingsNode);
+        }
+        searchDocument.set("embeddings", embeddingsNode);
+      }
+      if (projectProfileState) {
+        Object refreshMarker = aspect.data().get("refreshMarker");
+        searchDocument.set(
+            "refreshMarker",
+            refreshMarker != null
+                ? mapper.valueToTree(refreshMarker)
+                : JsonNodeFactory.instance.nullNode());
       }
       // Skip marker fields are ALWAYS set (value or explicit null): index updates merge via
       // doc_as_upsert, so omitting them after a real embed would leave a previous skip marker
@@ -793,6 +813,37 @@ public class SearchDocumentTransformer {
     } catch (Exception e) {
       log.error("Error transforming SemanticContent aspect to search document", e);
     }
+  }
+
+  /**
+   * The V2 semantic sidecar maps chunks and sourceTextSha256 only. Control fields stay on the
+   * aspect and on the V3 document.
+   */
+  private static final List<String> PROFILE_CONTROL_FIELDS =
+      List.of(
+          "vectorState",
+          "workState",
+          "stateReason",
+          "policyVersion",
+          "current",
+          "refreshMarker",
+          "dirty",
+          "partial",
+          "contentHash",
+          "vectorDimension");
+
+  private static void stripProfileControlFields(JsonNode embeddingsNode) {
+    if (!(embeddingsNode instanceof ObjectNode embeddings)) {
+      return;
+    }
+    embeddings
+        .fields()
+        .forEachRemaining(
+            entry -> {
+              if (entry.getValue() instanceof ObjectNode profile) {
+                profile.remove(PROFILE_CONTROL_FIELDS);
+              }
+            });
   }
 
   public void setSearchableRefValue(

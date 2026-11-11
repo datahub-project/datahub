@@ -115,7 +115,9 @@ public final class SemanticEmbeddingMappings {
         SKIP_REASON_FIELD,
         ImmutableMap.of("type", "keyword"),
         SKIPPED_AT_FIELD,
-        ImmutableMap.of("type", "date"));
+        ImmutableMap.of("type", "date"),
+        "refreshMarker",
+        ImmutableMap.of("type", "object", "enabled", false));
   }
 
   /**
@@ -164,6 +166,16 @@ public final class SemanticEmbeddingMappings {
       Map<String, Object> modelEntryProps =
           new HashMap<>((Map<String, Object>) modelEntry.get("properties"));
       modelEntryProps.put("sourceTextSha256", ImmutableMap.of("type", "keyword"));
+      modelEntryProps.put("vectorState", ImmutableMap.of("type", "keyword"));
+      modelEntryProps.put("workState", ImmutableMap.of("type", "keyword"));
+      modelEntryProps.put("stateReason", ImmutableMap.of("type", "keyword"));
+      modelEntryProps.put("policyVersion", ImmutableMap.of("type", "keyword"));
+      modelEntryProps.put("contentHash", ImmutableMap.of("type", "keyword"));
+      modelEntryProps.put("current", ImmutableMap.of("type", "boolean"));
+      modelEntryProps.put("partial", ImmutableMap.of("type", "boolean"));
+      modelEntryProps.put("dirty", ImmutableMap.of("type", "boolean"));
+      modelEntryProps.put("generatedAt", ImmutableMap.of("type", "date"));
+      modelEntryProps.put("refreshMarker", ImmutableMap.of("type", "object", "enabled", false));
       Map<String, Object> augmentedModelEntry = new HashMap<>(modelEntry);
       augmentedModelEntry.put("properties", modelEntryProps);
 

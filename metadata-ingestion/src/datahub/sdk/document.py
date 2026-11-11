@@ -1253,6 +1253,18 @@ class Document(
         self._set_aspect(semantic_content)
         return self
 
+    def patch_semantic_profile(
+        self, profile_key: str, profile: models.EmbeddingModelDataClass
+    ) -> List[models.MetadataChangeProposalClass]:
+        """Patch one embedding profile. ``set_semantic_content`` replaces every profile."""
+        from datahub.specific.semantic_content import SemanticContentPatchBuilder
+
+        return (
+            SemanticContentPatchBuilder(str(self.urn))
+            .set_profile(profile_key, profile)
+            .build()
+        )
+
     @property
     def is_native(self) -> bool:
         """Check if this is a native document (created in DataHub)."""

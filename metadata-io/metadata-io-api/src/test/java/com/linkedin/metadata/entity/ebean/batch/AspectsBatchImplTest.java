@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertThrows;
@@ -22,6 +23,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
@@ -51,6 +53,7 @@ import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
@@ -214,6 +217,33 @@ public class AspectsBatchImplTest {
             (changeMCP, systemAspect) -> systemAspect),
         Pair.of(Map.of(), testItems),
         "Expected noop, pass through with no additional MCPs or changes");
+  }
+
+  @Test
+  public void buildStripsAppSourceAndSemanticApplyTogether() {
+    StringMap properties = new StringMap();
+    properties.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
+    properties.put(SEMANTIC_APPLY_PROPERTY, "true");
+    SystemMetadata systemMetadata = new SystemMetadata().setProperties(properties);
+    ChangeItemImpl item =
+        ChangeItemImpl.builder()
+            .urn(
+                UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"))
+            .changeType(ChangeType.UPSERT)
+            .aspectName(STATUS_ASPECT_NAME)
+            .entitySpec(testRegistry.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectSpec(
+                testRegistry.getEntitySpec(DATASET_ENTITY_NAME).getAspectSpec(STATUS_ASPECT_NAME))
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .recordTemplate(new Status().setRemoved(false))
+            .systemMetadata(systemMetadata)
+            .build(mockAspectRetriever);
+
+    AspectsBatchImpl.builder().items(List.of(item)).retrieverContext(retrieverContext).build(null);
+
+    StringMap remaining = item.getSystemMetadata().getProperties();
+    assertFalse(remaining.containsKey(APP_SOURCE));
+    assertFalse(remaining.containsKey(SEMANTIC_APPLY_PROPERTY));
   }
 
   @Test

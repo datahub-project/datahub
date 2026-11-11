@@ -74,6 +74,8 @@ Requirements:
 
 ### Breaking Changes
 
+- [#21178](https://github.com/datahub-project/datahub/pull/21178) **(GMS / semantic search)** The `semanticContent` aspect is schema version 2. Each embedding profile can now carry its own state, including whether its vectors are current, a refresh marker, and a content hash. The new fields are optional, so a reader that ignores fields it does not know keeps working, and existing aspects do not need a migration. **Action:** upgrade a client that refuses a `semanticContent` write or read because it requires schema version 1.
+
 - [#21159](https://github.com/datahub-project/datahub/pull/21159) **(Ingestion / GitHub documents)** OKF import is now off by default. The default-on behavior only shipped in 1.7.0.20 release candidates. Files, including their frontmatter, are imported as plain text unless you opt in. Server support is no longer detected automatically. **Action:** set `enable_okf: true` to import OKF concepts; this requires a DataHub server with the `okfProperties` aspect and fails the run if the server does not support it. Turning OKF off clears previously imported OKF metadata when a graph connection is available.
 
 - [#21095](https://github.com/datahub-project/datahub/pull/21095) **(GMS / Search)** The opt-in setting `ELASTICSEARCH_SEARCH_HIDE_NON_PRIMARY_SIBLINGS` is removed. It was never in an OSS release, but some builds had it. With it on, a search could leave out a whole sibling group, and API, SDK and CLI listings could skip datasets. Search, autocomplete and browse no longer hide non-primary siblings. **Action:** remove the variable if you set it; it is ignored.

@@ -2,6 +2,7 @@ package com.linkedin.metadata.utils;
 
 import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
+import static com.linkedin.metadata.Constants.SEMANTIC_APPLY_PROPERTY;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 
@@ -60,6 +61,24 @@ public class SystemMetadataUtils {
     StringMap properties = systemMetadata.getProperties();
     if (SYSTEM_UPDATE_SOURCE.equals(properties.get(APP_SOURCE))) {
       properties.remove(APP_SOURCE);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Removes the apply marker from client-supplied system metadata. Only a system writer may keep
+   * it, and the profile validator treats a write without it as a connector write.
+   *
+   * @return {@code true} if the marker was stripped
+   */
+  public static boolean stripSemanticApply(@Nullable SystemMetadata systemMetadata) {
+    if (systemMetadata == null || !systemMetadata.hasProperties()) {
+      return false;
+    }
+    StringMap properties = systemMetadata.getProperties();
+    if (properties.containsKey(SEMANTIC_APPLY_PROPERTY)) {
+      properties.remove(SEMANTIC_APPLY_PROPERTY);
       return true;
     }
     return false;

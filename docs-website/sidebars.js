@@ -1705,6 +1705,7 @@ module.exports = {
           "Semantic Search": [
             "docs/dev-guides/semantic-search/README",
             "docs/dev-guides/semantic-search/ARCHITECTURE",
+            "docs/dev-guides/semantic-search/SEMANTIC_CONTENT_MODEL",
             "docs/dev-guides/semantic-search/CONFIGURATION",
             "docs/dev-guides/semantic-search/SWITCHING_PROVIDERS",
           ],

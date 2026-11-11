@@ -11,6 +11,7 @@ import static org.testng.Assert.assertThrows;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
+import com.linkedin.metadata.config.search.SemanticProfilesConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -115,7 +116,11 @@ public class V3HybridKnnRequestBuilderTest {
   public void testRerankDedupesASharedIndex() {
     SemanticSearchConfiguration config =
         new SemanticSearchConfiguration(
-            true, Set.of("dataset", "chart"), Map.of(MODEL_KEY, new ModelEmbeddingConfig()), null);
+            true,
+            Set.of("dataset", "chart"),
+            Map.of(MODEL_KEY, new ModelEmbeddingConfig()),
+            null,
+            new SemanticProfilesConfiguration());
     V3HybridKnnRequestBuilder rerank = new V3HybridKnnRequestBuilder(config);
     EntityRegistry registry = TestOperationContexts.defaultEntityRegistry();
     EntitySpec dataset = spy(registry.getEntitySpec("dataset"));
@@ -185,6 +190,10 @@ public class V3HybridKnnRequestBuilderTest {
 
   public static SemanticSearchConfiguration semanticSearch(boolean enabled) {
     return new SemanticSearchConfiguration(
-        enabled, Set.of("document"), Map.of(MODEL_KEY, new ModelEmbeddingConfig()), null);
+        enabled,
+        Set.of("document"),
+        Map.of(MODEL_KEY, new ModelEmbeddingConfig()),
+        null,
+        new SemanticProfilesConfiguration());
   }
 }

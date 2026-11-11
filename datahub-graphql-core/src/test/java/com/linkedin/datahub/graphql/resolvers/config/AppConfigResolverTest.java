@@ -629,8 +629,11 @@ public class AppConfigResolverTest {
     assertEquals(result.getSemanticSearchConfig().getEnabledEntities().size(), 2);
     assertTrue(result.getSemanticSearchConfig().getEnabledEntities().contains("document"));
     assertTrue(result.getSemanticSearchConfig().getEnabledEntities().contains("chart"));
+    assertTrue(result.getSemanticSearchConfig().getSemanticContentPatchSupported());
 
     assertNotNull(result.getSemanticSearchConfig().getEmbeddingConfig());
+    assertTrue(
+        result.getSemanticSearchConfig().getEmbeddingConfig().getSemanticContentPatchSupported());
     assertEquals(
         result.getSemanticSearchConfig().getEmbeddingConfig().getProvider(), "aws-bedrock");
     assertEquals(
@@ -865,6 +868,20 @@ public class AppConfigResolverTest {
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
     assertNotNull(result);
+  }
+
+  @Test
+  public void testSemanticSearchConfigWithoutProviderReportsPatchSupport() throws Exception {
+    SemanticSearchConfiguration semanticSearchConfig = new SemanticSearchConfiguration();
+    semanticSearchConfig.setEnabled(true);
+    semanticSearchConfig.setEnabledEntities(java.util.Set.of("document"));
+    resolver = resolverWithSemanticSearchConfig(semanticSearchConfig);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getSemanticSearchConfig());
+    assertNull(result.getSemanticSearchConfig().getEmbeddingConfig());
+    assertTrue(result.getSemanticSearchConfig().getSemanticContentPatchSupported());
   }
 
   /**
