@@ -1,6 +1,6 @@
 import re
 from datetime import datetime, timedelta
-from typing import List, Optional, Union
+from typing import Optional, Sequence
 
 
 class DremioSQLQueries:
@@ -326,25 +326,33 @@ class DremioSQLQueries:
         """
 
     # Normalized schema field: Dremio's "[a, b]" path format flattened to dotted
-    # text. pattern_condition matches it case-insensitively.
+    # text, UPPER()-ed: pattern_condition upper-cases non-ASCII pattern letters to match it.
     SCHEMA_FILTER_FIELD = "CONCAT(REPLACE(REPLACE(REPLACE(UPPER(TABLE_SCHEMA), ', ', '.'), '[', ''), ']', ''))"
 
     # Enterprise/Cloud FULL_TABLE_PATH ends with the dataset name; cut it to the schema path.
+    # UPPER()-ed: pattern_condition upper-cases non-ASCII pattern letters to match it.
     SYS_SCHEMA_FILTER_FIELD = (
         "UPPER(SUBSTR(FULL_TABLE_PATH, 1, "
         "LENGTH(FULL_TABLE_PATH) - LENGTH(TABLE_NAME) - 1))"
     )
 
     @staticmethod
+    def _upper_non_ascii(pattern: str) -> str:
+        # Java's `(?i)` without `u` folds ASCII letters only, and `u` is not used
+        # (see pattern_condition), so non-ASCII letters are upper-cased to match
+        # the UPPER()-ed field. Escapes and inline flags are ASCII and stay as written.
+        return "".join(c if c.isascii() else c.upper() for c in pattern)
+
+    @staticmethod
     def pattern_condition(
-        patterns: Union[str, List[str]], field: str, allow: bool = True
+        patterns: Sequence[str], field: str, allow: bool = True
     ) -> str:
-        """Build an `AND [NOT] REGEXP_LIKE(field, '...')` schema-pattern predicate."""
+        """Build an `AND [NOT] REGEXP_LIKE(field, '...')` schema-pattern predicate.
+
+        `field` must be UPPER()-ed; see `_upper_non_ascii`.
+        """
         if not patterns:
             return ""
-
-        if isinstance(patterns, str):
-            patterns = [patterns]
 
         # An allow of ".*" admits everything, so it needs no filter. A deny of
         # ".*" is kept: it excludes everything, as in AllowDenyPattern.
@@ -352,16 +360,13 @@ class DremioSQLQueries:
             return ""
 
         operator = "REGEXP_LIKE" if allow else "NOT REGEXP_LIKE"
-        # Dremio's REGEXP_LIKE is Java's Matcher.find(); AllowDenyPattern is
-        # re.match with IGNORECASE. Anchor at the start and match
-        # case-insensitively to agree with it. Uppercasing the pattern instead
+        # Dremio's REGEXP_LIKE is Java's Matcher.find(); AllowDenyPattern uses
+        # re.match. Anchor at the start so a pattern matches from the start of
+        # the schema path, as it does there. Uppercasing the whole pattern
         # would also uppercase escapes (\d -> \D) and inline flags. Only the
         # `i` flag: RE2, which some Dremio execution paths use, rejects `u`.
-        # Without `u`, Java folds ASCII letters only, so non-ASCII letters are
-        # upper-cased to match the upper-cased field. Escapes and flags are ASCII.
         alternatives = "|".join(
-            "(" + "".join(c if c.isascii() else c.upper() for c in p) + ")"
-            for p in patterns
+            f"({DremioSQLQueries._upper_non_ascii(p)})" for p in patterns
         )
         pattern_str = f"(?i)^(?:{alternatives})".replace("'", "''")
         return f"AND {operator}({field}, '{pattern_str}')"
@@ -371,9 +376,13 @@ class DremioSQLQueries:
         """Outer per-container `REGEXP_LIKE` bound (system-table side + final sort).
 
         Not pushable into the info-schema scan — `container_columns_filter` is the
-        pushable half. Matches the root and nested paths; name is regex-escaped.
+        pushable half. Matches the root and nested paths, not siblings that share the prefix;
+        name is regex-escaped.
         """
-        pattern = f"{re.escape(container_name)}(\\..*)?"
+        # `($|\..*)`, not `(\..*)?`: the pattern is anchored at the start only,
+        # so the optional form would also match sibling containers that share
+        # the prefix (`src_a` matching `src_ab`).
+        pattern = f"{re.escape(container_name)}($|\\..*)"
         return DremioSQLQueries.pattern_condition([pattern], field)
 
     @staticmethod

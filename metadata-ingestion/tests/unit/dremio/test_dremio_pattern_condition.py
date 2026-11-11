@@ -61,12 +61,20 @@ def test_pushed_schema_pattern_matches_like_allow_deny_pattern(
     assert _dremio_matches([pattern], schema, allow=False) is not denied
 
 
-def test_multiple_patterns_each_anchored() -> None:
+@pytest.mark.parametrize("allow", [True, False])
+def test_multiple_patterns_each_anchored(allow: bool) -> None:
     patterns = ["raw", "staging"]
-    assert _dremio_matches(patterns, "staging.orders")
-    assert not _dremio_matches(patterns, "prod.staging")
+    assert _dremio_matches(patterns, "staging.orders", allow=allow) is allow
+    assert _dremio_matches(patterns, "prod.staging", allow=allow) is not allow
 
 
 def test_deny_everything_is_pushed() -> None:
     assert not _dremio_matches([".*"], "my_space.staging", allow=False)
     assert DremioSQLQueries.pattern_condition([".*"], _FIELD) == ""
+    assert DremioSQLQueries.pattern_condition([".*", "x"], _FIELD) == ""
+
+
+def test_empty_list_pushes_no_filter() -> None:
+    # An empty deny must not become NOT REGEXP_LIKE(f, '(?i)^(?:)'), which
+    # excludes everything.
+    assert DremioSQLQueries.pattern_condition([], _FIELD, allow=False) == ""
