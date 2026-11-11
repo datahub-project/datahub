@@ -49,6 +49,7 @@ from datahub.ingestion.source.unity.tag_entities import (
 )
 from datahub.metadata.schema_classes import (
     ContainerClass,
+    ContainerPropertiesClass,
     DatasetLineageTypeClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
@@ -876,3 +877,56 @@ def test_hive_metastore_without_a_warehouse_aborts_before_any_metadata(
 
     assert run.workunits == []
     assert "SQL warehouse not found" in failure_messages(run.source.report)
+
+
+def test_information_schema_is_not_ingested_when_the_recipe_sets_no_schema_pattern(
+    workspace_client: MagicMock, run_source: RunSource
+) -> None:
+    columns = [_column("col_a")]
+
+    def tables_for(*, catalog_name: str, schema_name: str, **_: Any) -> List[Any]:
+        is_info_schema = schema_name == "information_schema"
+        return [
+            TableInfoWithGeneration(
+                name="tables" if is_info_schema else "my_table",
+                catalog_name=catalog_name,
+                schema_name=schema_name,
+                table_type=TableType.VIEW if is_info_schema else TableType.MANAGED,
+                columns=columns,
+            )
+        ]
+
+    workspace_client.catalogs.list.return_value = [CatalogInfo(name="my_catalog")]
+    workspace_client.schemas.list.return_value = [
+        SchemaInfo(name="my_schema"),
+        SchemaInfo(name="information_schema"),
+    ]
+    workspace_client.tables.list.side_effect = tables_for
+    workspace_client.tables.get.return_value = TableInfoWithGeneration(
+        name="my_table", columns=columns
+    )
+    workspace_client.registered_models.list.return_value = []
+    config = unity_config(
+        include_usage_statistics=False,
+        include_tags=False,
+        include_ml_models=False,
+        include_table_lineage=False,
+        include_column_lineage=False,
+        include_external_lineage=False,
+    )
+
+    run = run_source(workspace_client, config)
+
+    report = run.source.report
+    assert list(report.schemas.processed_entities) == ["my_catalog.my_schema"]
+    assert list(report.schemas.dropped_entities) == ["my_catalog.information_schema"]
+    # No golden file pins this exclusion, so every emitted urn is checked,
+    # schema containers included.
+    assert run.urns(DatasetPropertiesClass) == [
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.my_table,PROD)"
+    ]
+    container_names = {
+        run.aspect(urn, ContainerPropertiesClass).name
+        for urn in run.urns(ContainerPropertiesClass)
+    }
+    assert container_names == {"my_catalog", "my_schema"}

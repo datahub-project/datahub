@@ -36,6 +36,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_queries import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    _LIST_TABLES_PAGE_SIZE,
     BigqueryDataset,
     BigqueryProject,
     BigQuerySchemaApi,
@@ -1412,6 +1413,23 @@ def test_get_views_and_snapshots_legacy_tables_selection(
 
     executed_query = query_mock.call_args[0][0]
     assert ("__TABLES__" in executed_query) is use_legacy_table_stats
+
+
+def test_list_tables_uses_large_page_size() -> None:
+    # tables.list is paginated; passing an explicit large page size avoids hundreds of
+    # round trips on datasets with many (e.g. date-sharded) tables.
+    client = MagicMock()
+    client.list_tables.return_value = []
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=client,
+        projects_client=MagicMock(),
+    )
+
+    list(schema_api.list_tables("test-dataset", "test-project"))
+
+    client.list_tables.assert_called_once()
+    assert client.list_tables.call_args.kwargs["page_size"] == _LIST_TABLES_PAGE_SIZE
 
 
 def test_tables_for_dataset_with_partition_stats_query_exposes_mapper_aliases() -> None:

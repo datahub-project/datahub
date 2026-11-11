@@ -32,6 +32,11 @@ module.exports = {
         },
         {
           type: "link",
+          label: "Product Tours",
+          href: "https://tours.datahub.com/?utm_source=oss-docs&utm_medium=oss-referral&utm_campaign=oss-product-tours&utm_content=docs-sidebar",
+        },
+        {
+          type: "link",
           label: "Customer Stories",
           href: "https://datahub.com/resources/?2004611554=dh-stories",
         },
@@ -1669,6 +1674,7 @@ module.exports = {
         "docs/developers",
         "docs/developers/java-sdk-v2-design",
         "docs/developers/search-v3-design",
+        "gradle/wiring/README",
         "docs/docker/development",
         "metadata-ingestion/developing",
         "docs/api/graphql/graphql-endpoint-development",
