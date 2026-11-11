@@ -50,6 +50,8 @@ def test_classify_path() -> None:
     assert classify_path("docs/cli.md") == "doc"
     assert classify_path("metadata-ingestion/docs/sources/snowflake/snowflake_pre.md") == "doc"
     assert classify_path("docs/how/breaking-changes.md") == "upgrade_note"
+    assert classify_path("docs/tests/metadata-tests.md") == "doc"  # published page in a "tests" folder
+    assert classify_path("metadata-ingestion/tests/unit/README.md") == "ignored"
     for not_docs in (
         "docs/generated/ingestion/sources/snowflake.md",
         "docs-website/static/img/logos/platforms/sns.svg",

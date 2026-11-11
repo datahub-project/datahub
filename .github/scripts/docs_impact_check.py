@@ -60,15 +60,15 @@ SKIP_TITLE_TYPES = ("docs", "test", "ci", "build", "chore", "style", "refactor")
 # Upgrade notes are not a substitute for updating the feature's own page.
 UPGRADE_NOTE_FILES = ("docs/how/breaking-changes.md", "docs/how/updating-datahub.md")
 
-DOC_GLOBS = (
+# Docs folders. Checked before the test globs below, because published pages
+# can live in folders named like tests (e.g. docs/tests/metadata-tests.md).
+DOC_DIR_GLOBS = (
     "docs/*",
     "metadata-ingestion/docs/*",
-    "*.md",
 )
 
-# Matched before DOC_GLOBS: files that look like docs but never reach the docs
-# site, plus tests, lockfiles and CI config.
-IGNORED_GLOBS = (
+# Files that look like docs but never reach the docs site. Checked first.
+UNPUBLISHED_GLOBS = (
     "docs/generated/*",
     "docs/_archive/*",
     "docs-website/*",
@@ -77,6 +77,10 @@ IGNORED_GLOBS = (
     "*CLAUDE.md",
     "*_AGENT_CONTEXT.md",
     "*.mdx",
+)
+
+# Tests, lockfiles and CI config outside the docs folders.
+IGNORED_GLOBS = (
     "*/test/*",
     "*/tests/*",
     "*/__tests__/*",
@@ -284,9 +288,13 @@ def classify_path(path: str) -> str:
     """Return one of: upgrade_note, doc, ignored, user_facing, other."""
     if path in UPGRADE_NOTE_FILES:
         return "upgrade_note"
+    if _matches(path, UNPUBLISHED_GLOBS):
+        return "ignored"
+    if _matches(path, DOC_DIR_GLOBS):
+        return "doc"
     if _matches(path, IGNORED_GLOBS):
         return "ignored"
-    if _matches(path, DOC_GLOBS):
+    if path.endswith(".md"):
         return "doc"
     if _matches(path, USER_FACING_GLOBS):
         return "user_facing"
