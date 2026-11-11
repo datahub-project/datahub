@@ -38,9 +38,7 @@ tasks.register('bootTest', Test) {
   testClassesDirs = sourceSets.bootTest.output.classesDirs
   classpath = sourceSets.bootTest.runtimeClasspath
   useTestNG()
-  // The root build sets this to false for every Test task; a boot suite that discovers nothing
-  // must fail, not pass green.
-  failOnNoDiscoveredTests = true
+  // A boot suite that discovers or runs nothing fails via the root build's dead-suite guard.
   timeout = java.time.Duration.ofMinutes(20)
   // One JVM per module: each test boots one full context and closes it.
   maxParallelForks = 1
