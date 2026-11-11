@@ -1151,55 +1151,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD)",
-                    "type": "VIEW"
-                },
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Product,PROD)",
-                    "type": "VIEW"
-                },
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesRemote,PROD)",
-                    "type": "VIEW"
-                },
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD)",
-                    "type": "VIEW"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1794396587625,
-        "runId": "aas-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {

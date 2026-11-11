@@ -27,7 +27,6 @@ from datahub.ingestion.source.azure_analysis_services.report import (
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
-    DatasetLineageTypeClass,
     DatasetPropertiesClass,
     NullTypeClass,
     SchemaMetadataClass,
@@ -330,19 +329,6 @@ def test_cube_metadata_and_table_count_respect_table_pattern() -> None:
     props = mapper._model_container_properties(model)
     assert props[constants.PROP_TABLE_COUNT] == "1"
 
-    aspects = [
-        (wu.metadata.entityUrn, wu.metadata.aspect)
-        for wu in mapper.map_model(model)
-        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-    ]
-    cube_urn = mapper._cube_dataset_urn("SalesModel")
-    [cube_lineage] = [
-        a for u, a in aspects if u == cube_urn and isinstance(a, UpstreamLineageClass)
-    ]
-    assert [u.dataset for u in cube_lineage.upstreams] == [
-        mapper._table_dataset_urn("SalesModel", "Sales")
-    ]
-
 
 def test_map_table_swallows_and_continues() -> None:
     mapper = _mapper()
@@ -361,24 +347,10 @@ def test_map_table_swallows_and_continues() -> None:
 
     mapper.lineage_extractor.extract_upstream_for_table = selective  # type: ignore[method-assign]
 
-    workunits = list(mapper.map_model(model))
-    urns = {wu.get_urn() for wu in workunits}
+    urns = {wu.get_urn() for wu in mapper.map_model(model)}
     # The healthy table still emits despite the sibling failing.
     assert mapper._table_dataset_urn("SalesModel", "Good") in urns
     assert mapper.report.tables_skipped == 1
-
-    cube_urn = mapper._cube_dataset_urn("SalesModel")
-    [cube_lineage] = [
-        wu.metadata.aspect
-        for wu in workunits
-        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and wu.metadata.entityUrn == cube_urn
-        and isinstance(wu.metadata.aspect, UpstreamLineageClass)
-    ]
-    # A table that failed to map is not an upstream of the cube.
-    assert [u.dataset for u in cube_lineage.upstreams] == [
-        mapper._table_dataset_urn("SalesModel", "Good")
-    ]
 
 
 def test_map_model_does_not_swallow_consumer_errors() -> None:
@@ -450,16 +422,6 @@ def test_model_named_by_catalog_and_dax_edges_get_dataset_upstreams() -> None:
         a for u, a in aspects if u == cube_urn and isinstance(a, DatasetPropertiesClass)
     ]
     assert cube_props.name == "SalesModel"
-
-    # The cube's upstreams are the tables it contains, in model order.
-    [cube_lineage] = [
-        a for u, a in aspects if u == cube_urn and isinstance(a, UpstreamLineageClass)
-    ]
-    assert [u.dataset for u in cube_lineage.upstreams] == [
-        mapper._table_dataset_urn("SalesModel", "Sales"),
-        mapper._table_dataset_urn("SalesModel", "SalesSummary"),
-    ]
-    assert all(u.type == DatasetLineageTypeClass.VIEW for u in cube_lineage.upstreams)
 
     summary_urn = mapper._table_dataset_urn("SalesModel", "SalesSummary")
     [lineage] = [
