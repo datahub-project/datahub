@@ -105,6 +105,8 @@ public class DataHubAuthorizerTest {
   private static final Urn INSTANCE_SCOPED_USER =
       UrnUtils.getUrn("urn:li:corpuser:instanceScopedWriter");
   private static final Urn EXISTING_CONTAINER_URN = UrnUtils.getUrn("urn:li:container:existing");
+  private static final Urn OWNED_RESOURCE = UrnUtils.getUrn("urn:li:dataset:testOwned");
+  private static final Urn RESOURCE_OWNER = UrnUtils.getUrn("urn:li:corpuser:user3");
   private static final String STORED_INSTANCE =
       "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mysql,instance_a)";
 
@@ -962,6 +964,75 @@ public class DataHubAuthorizerTest {
   }
 
   @Test
+  public void testOwnersFetchedOncePerRequestAcrossPrivilegeChecks() throws Exception {
+    Map<EntitySpec, ResolvedEntitySpec> requestCache =
+        systemOpContext.getAuthorizationContext().getSessionResourceSpecCache();
+
+    for (String privilege : ImmutableList.of("EDIT_ENTITY_TAGS", "EDIT_ENTITY_DOCS")) {
+      assertEquals(
+          _dataHubAuthorizer
+              .authorize(ownerPolicyRequest(privilege), requestCache, systemOpContext)
+              .getType(),
+          AuthorizationResult.Type.ALLOW);
+    }
+
+    verify(_entityClient, times(1))
+        .getV2(
+            any(OperationContext.class),
+            eq("dataset"),
+            eq(OWNED_RESOURCE),
+            eq(Collections.singleton(OWNERSHIP_ASPECT_NAME)));
+  }
+
+  @Test
+  public void testOwnersNotCachedWithoutRequestScopedCache() throws Exception {
+    for (String privilege : ImmutableList.of("EDIT_ENTITY_TAGS", "EDIT_ENTITY_DOCS")) {
+      assertEquals(
+          _dataHubAuthorizer.authorize(ownerPolicyRequest(privilege), new HashMap<>()).getType(),
+          AuthorizationResult.Type.ALLOW);
+    }
+
+    verify(_entityClient, times(2))
+        .getV2(
+            any(OperationContext.class),
+            eq("dataset"),
+            eq(OWNED_RESOURCE),
+            eq(Collections.singleton(OWNERSHIP_ASPECT_NAME)));
+    assertTrue(systemOpContext.getAuthorizationContext().getSessionResourceOwnersCache().isEmpty());
+  }
+
+  @Test
+  public void testFailedOwnersFetchIsNotCached() throws Exception {
+    EnvelopedAspectMap ownershipAspectMap = new EnvelopedAspectMap();
+    ownershipAspectMap.put(
+        OWNERSHIP_ASPECT_NAME,
+        new EnvelopedAspect()
+            .setValue(
+                new com.linkedin.entity.Aspect(
+                    createOwnershipAspect(List.of(RESOURCE_OWNER), null).data())));
+    when(_entityClient.getV2(
+            any(OperationContext.class),
+            eq("dataset"),
+            eq(OWNED_RESOURCE),
+            eq(Collections.singleton(OWNERSHIP_ASPECT_NAME))))
+        .thenThrow(new RuntimeException("transient"))
+        .thenReturn(new EntityResponse().setAspects(ownershipAspectMap));
+    Map<EntitySpec, ResolvedEntitySpec> requestCache =
+        systemOpContext.getAuthorizationContext().getSessionResourceSpecCache();
+
+    assertEquals(
+        _dataHubAuthorizer
+            .authorize(ownerPolicyRequest("EDIT_ENTITY_TAGS"), requestCache, systemOpContext)
+            .getType(),
+        AuthorizationResult.Type.DENY);
+    assertEquals(
+        _dataHubAuthorizer
+            .authorize(ownerPolicyRequest("EDIT_ENTITY_DOCS"), requestCache, systemOpContext)
+            .getType(),
+        AuthorizationResult.Type.ALLOW);
+  }
+
+  @Test
   public void testAuthorizationOnContainerWithPrivilegeIsAllowed() throws Exception {
     EntitySpec resourceSpec = new EntitySpec("dataset", RESOURCE_WITH_CONTAINER.toString());
 
@@ -1798,6 +1869,18 @@ public class DataHubAuthorizerTest {
 
     DomainWriteAuthorizationUtils.seedProposedDomainsForApiAuth(
         systemOpContext, systemOpContext, batchRetriever, List.of(domainsUpsert));
+  }
+
+  private AuthorizationRequest ownerPolicyRequest(final String privilege) throws Exception {
+    final DataHubPolicyInfo ownerPolicy =
+        createDataHubPolicyInfoFor(
+            true, List.of(privilege), null, null, new DataHubActorFilter().setResourceOwners(true));
+    return new AuthorizationRequest(
+        RESOURCE_OWNER.toString(),
+        privilege,
+        Optional.of(new EntitySpec("dataset", OWNED_RESOURCE.toString())),
+        Collections.emptyList(),
+        Map.of(privilege, List.<RecordTemplate>of(ownerPolicy)));
   }
 
   private AuthorizationRequest editOnContainerRequest(final DataHubPolicyInfo policy) {
