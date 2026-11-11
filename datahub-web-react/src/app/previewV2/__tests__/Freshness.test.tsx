@@ -3,13 +3,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 
 import Freshness from '@app/previewV2/Freshness';
-import { hexToRgb } from '@app/sharedV2/colors/colorUtils';
-import lightTheme from '@conf/theme/colorThemes/light';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
-
-const SIXTY_DAYS_AGO = Date.now() - 60 * 24 * 60 * 60 * 1000;
-const AGE_RED = 'rgb(245, 34, 45)';
-const NEUTRAL = `rgb(${hexToRgb(lightTheme.icon).join(', ')})`;
+import { AGE_COLOR, NEUTRAL, SIXTY_DAYS_AGO, clockColor } from '@utils/test-utils/freshnessClock';
 
 function renderClock(neutral?: boolean) {
     render(
@@ -19,12 +14,6 @@ function renderClock(neutral?: boolean) {
             </TestPageContainer>
         </MockedProvider>,
     );
-}
-
-function clockColor(neutral?: boolean) {
-    renderClock(neutral);
-    const icon = screen.getByTestId('freshness').querySelector('svg');
-    return icon && getComputedStyle(icon).color;
 }
 
 async function popoverText(neutral?: boolean) {
@@ -37,11 +26,13 @@ async function popoverText(neutral?: boolean) {
 
 describe('Freshness', () => {
     it('colors an old time by its age', () => {
-        expect(clockColor()).toBe(AGE_RED);
+        renderClock();
+        expect(clockColor()).toBe(AGE_COLOR);
     });
 
     it('shows an old definition time in the neutral icon color', () => {
-        expect(clockColor(true)).toBe(NEUTRAL);
+        renderClock(true);
+        expect(clockColor()).toBe(NEUTRAL);
     });
 
     it('keeps the popover text when the color is neutral', async () => {

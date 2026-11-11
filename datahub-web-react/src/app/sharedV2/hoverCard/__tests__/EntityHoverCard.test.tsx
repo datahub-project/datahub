@@ -1,16 +1,12 @@
-import { InMemoryCache } from '@apollo/client';
 import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { hexToRgb } from '@app/sharedV2/colors/colorUtils';
 import EntityHoverCard from '@app/sharedV2/hoverCard/EntityHoverCard';
-import lightTheme from '@conf/theme/colorThemes/light';
-import possibleTypesResult from '@src/possibleTypes.generated';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
+import { NEUTRAL, SIXTY_DAYS_AGO, clockColor } from '@utils/test-utils/freshnessClock';
 
-import { GetSearchResultsForMultipleCardsDocument } from '@graphql/search.generated';
 import {
     CorpGroup,
     CorpUser,
@@ -53,11 +49,6 @@ const dataset = {
     statsSummary: { queryCountLast30Days: 42 },
     upstream: { total: 3, filtered: 0, relationships: [] },
 } as unknown as Dataset;
-
-const SIXTY_DAYS_AGO = Date.now() - 60 * 24 * 60 * 60 * 1000;
-const AGE_RED = 'rgb(245, 34, 45)';
-const NEUTRAL = `rgb(${hexToRgb(lightTheme.icon).join(', ')})`;
-const clockColor = () => getComputedStyle(screen.getByTestId('freshness').querySelector('svg') as SVGElement).color;
 
 function renderCard(entity: Entity) {
     return render(
@@ -211,77 +202,13 @@ describe('EntityHoverCard', () => {
 });
 
 describe('EntityHoverCard freshness clock', () => {
-    const withKind = (typeNames: string[], viewProperties?: { materialized: boolean }) =>
-        ({
+    it('shows the time of a view in the neutral icon color', () => {
+        renderCard({
             ...dataset,
-            subTypes: { typeNames },
-            ...(viewProperties && { viewProperties }),
+            subTypes: { typeNames: ['View'] },
+            viewProperties: { materialized: false },
             properties: { ...(dataset as any).properties, lastModified: { time: SIXTY_DAYS_AGO } },
-        }) as unknown as Dataset;
-
-    it('shows the time of a view in the neutral icon color', () => {
-        renderCard(withKind(['View'], { materialized: false }));
+        } as unknown as Dataset);
         expect(clockColor()).toBe(NEUTRAL);
-    });
-
-    it('colors an old table time by its age', () => {
-        renderCard(withKind(['Table']));
-        expect(clockColor()).toBe(AGE_RED);
-    });
-
-    it('keeps the age color when the card query did not fetch viewProperties', () => {
-        renderCard(withKind(['View']));
-        expect(clockColor()).toBe(AGE_RED);
-    });
-});
-
-describe('EntityHoverCard freshness clock for rows of the home asset modules', () => {
-    // The home asset modules load their rows with this query and pass each row to the hover card.
-    // Apollo returns only the fields that the query selects.
-    const loadWithCardQuery = (materialized: boolean): Dataset => {
-        const cache = new InMemoryCache({ possibleTypes: possibleTypesResult.possibleTypes });
-        const variables = { input: { query: '*', start: 0, count: 10 }, skipSiblingsSearch: true };
-        const entity = {
-            __typename: 'Dataset',
-            urn: DATASET_URN,
-            type: EntityType.Dataset,
-            properties: {
-                __typename: 'DatasetProperties',
-                name: 'orders',
-                lastModified: { __typename: 'AuditStamp', time: SIXTY_DAYS_AGO, actor: null },
-            },
-            subTypes: { __typename: 'SubTypes', typeNames: ['View'] },
-            viewProperties: { __typename: 'ViewProperties', materialized },
-        };
-        cache.writeQuery({
-            query: GetSearchResultsForMultipleCardsDocument,
-            variables,
-            data: {
-                searchAcrossEntities: {
-                    __typename: 'SearchResults',
-                    start: 0,
-                    count: 1,
-                    total: 1,
-                    searchResults: [{ __typename: 'SearchResult', entity }],
-                },
-            },
-        });
-        const { result } = cache.diff<any>({
-            query: GetSearchResultsForMultipleCardsDocument,
-            variables,
-            returnPartialData: true,
-            optimistic: false,
-        });
-        return result.searchAcrossEntities.searchResults[0].entity;
-    };
-
-    it('shows the time of a view in the neutral icon color', () => {
-        renderCard(loadWithCardQuery(false));
-        expect(clockColor()).toBe(NEUTRAL);
-    });
-
-    it('colors an old materialized view time by its age', () => {
-        renderCard(loadWithCardQuery(true));
-        expect(clockColor()).toBe(AGE_RED);
     });
 });
