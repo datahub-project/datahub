@@ -7,6 +7,7 @@ import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { getRelatedEntitiesUrl as getBusinessAttributeRelatedEntitiesUrl } from '@app/businessAttribute/businessAttributeUtils';
 import { getRelatedAssetsUrl } from '@app/entityV2/glossaryTerm/utils';
+import { TabType } from '@app/entityV2/group/types';
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
@@ -18,7 +19,7 @@ import HoverCardHeader from '@app/sharedV2/hoverCard/HoverCardHeader';
 import HoverCardLinks, { HoverCardLink } from '@app/sharedV2/hoverCard/HoverCardLinks';
 import HoverCardSection from '@app/sharedV2/hoverCard/HoverCardSection';
 import HoverCardStatusBadges from '@app/sharedV2/hoverCard/HoverCardStatusBadges';
-import useGroupMemberCount from '@app/sharedV2/hoverCard/useGroupMemberCount';
+import useGroupMembers from '@app/sharedV2/hoverCard/useGroupMembers';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { hasPropagationDetails } from '@app/sharedV2/propagation/utils';
@@ -119,7 +120,7 @@ export default function EntityHoverCard({ entity, propagationDetails, ownershipR
               undefined
             : undefined;
 
-    const memberCount = useGroupMemberCount(entity);
+    const { total: memberCount, members } = useGroupMembers(entity);
     const subtitle =
         jobTitle || (memberCount != null ? tTypes('shared.membersCount', { count: memberCount }) : undefined);
 
@@ -134,6 +135,13 @@ export default function EntityHoverCard({ entity, propagationDetails, ownershipR
         relatedLinks.push({
             href: resolveRuntimePath(getBusinessAttributeRelatedEntitiesUrl(entityRegistry, entity.urn)),
             label: tTypes('businessAttribute.viewRelatedEntities'),
+        });
+    } else if (memberCount != null && memberCount > members.length) {
+        relatedLinks.push({
+            href: resolveRuntimePath(
+                `${entityRegistry.getEntityUrl(entity.type, entity.urn)}/${TabType.Members.toLowerCase()}`,
+            ),
+            label: tTypes('group.viewAllMembers'),
         });
     }
 
@@ -160,6 +168,7 @@ export default function EntityHoverCard({ entity, propagationDetails, ownershipR
     // section renders only for propagated attribution, not whenever attribution exists.
     const hasSections =
         !!description ||
+        members.length > 0 ||
         owners.length > 0 ||
         tags.length > 0 ||
         terms.length > 0 ||
@@ -213,6 +222,22 @@ export default function EntityHoverCard({ entity, propagationDetails, ownershipR
                     {ownershipRole && (
                         <HoverCardSection title={ownershipRole.name}>
                             {ownershipRole.description && <Text size="md">{ownershipRole.description}</Text>}
+                        </HoverCardSection>
+                    )}
+                    {members.length > 0 && (
+                        <HoverCardSection title={tTypes('group.tab.members')}>
+                            <PillRow>
+                                {members.map((member) => (
+                                    <Avatar
+                                        key={member.urn}
+                                        name={entityRegistry.getDisplayName(EntityType.CorpUser, member)}
+                                        imageUrl={member.editableProperties?.pictureLink}
+                                        type={AvatarType.user}
+                                        showInPill
+                                        size="sm"
+                                    />
+                                ))}
+                            </PillRow>
                         </HoverCardSection>
                     )}
                     {owners.length > 0 && (
