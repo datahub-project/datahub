@@ -1541,9 +1541,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if table.name.lower() not in claimed
         ]
         by_fields: Dict[frozenset, List[str]] = {}
-        for table in unclaimed:
-            fields = frozenset(field.name.lower() for field in table.fields)
-            by_fields.setdefault(fields, []).append(table.name)
+        for model_table in unclaimed:
+            fields = frozenset(field.name.lower() for field in model_table.fields)
+            by_fields.setdefault(fields, []).append(model_table.name)
         unknown = [
             table
             for table in script_tables
