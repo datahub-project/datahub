@@ -7,6 +7,7 @@ import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.FieldResolver;
 import com.datahub.authorization.ResolvedEntitySpec;
+import com.datahub.authorization.ResourceOwner;
 import com.datahub.authorization.SessionActorIdentity;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.plugins.auth.authorization.ResourceSpecCachingAuthorizer;
@@ -15,6 +16,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.policy.DataHubPolicyInfo;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -45,6 +47,14 @@ public class AuthorizationContext implements ContextInterface {
    */
   @Builder.Default
   private final ConcurrentHashMap<EntitySpec, ResolvedEntitySpec> sessionResourceSpecCache =
+      new ConcurrentHashMap<>();
+
+  /**
+   * Request-scoped cache of resource owners, keyed by resource URN. Ownership is actor-independent,
+   * so owner-based policies fetch it once per resource across all privileges in the request.
+   */
+  @Builder.Default
+  private final ConcurrentHashMap<String, List<ResourceOwner>> sessionResourceOwnersCache =
       new ConcurrentHashMap<>();
 
   /**
