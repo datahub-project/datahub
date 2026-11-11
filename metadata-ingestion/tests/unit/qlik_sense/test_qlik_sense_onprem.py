@@ -1881,7 +1881,14 @@ def test_partly_read_app_does_not_overwrite_relationships(
     def emitted(aspect: type) -> bool:
         return any(wu.get_aspect_of_type(aspect) for wu in workunits)
 
-    assert emitted(DashboardInfoClass) is charts_complete
+    sheet_urn = source._gen_dashboard_urn(sheet.id)
+    assert (
+        any(
+            wu.get_urn() == sheet_urn and wu.get_aspect_of_type(DashboardInfoClass)
+            for wu in workunits
+        )
+        is charts_complete
+    )
     assert emitted(ChartInfoClass) is not tables_read_failed
     assert emitted(InputFieldsClass) is not tables_read_failed
     chart_info_patches = [

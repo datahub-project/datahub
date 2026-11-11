@@ -137,6 +137,7 @@ from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     DashboardInfoClass,
     DataPlatformInstanceClass,
+    EdgeClass,
     InputFieldClass,
     InputFieldsClass,
     OwnerClass,
@@ -844,6 +845,48 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 if dataset_urn in script_table_urns:
                     index.folded.setdefault(field.name.lower(), []).append(app_field)
         return index
+
+    def _gen_app_dashboard_workunit(
+        self, app: App, owner_username: Optional[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        """The app as a dashboard of its sheets, as well as their container, so it
+        shows in lineage downstream of its sheets and charts."""
+        dashboard_urn = self._gen_dashboard_urn(app.id)
+        yield self._gen_entity_status_aspect(dashboard_urn)
+        # A partly read app may miss sheets, and the edges replace the last
+        # full read's.
+        if app.read_complete:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn,
+                aspect=DashboardInfoClass(
+                    title=app.qTitle,
+                    description=app.description or "",
+                    dashboards=[
+                        EdgeClass(destinationUrn=self._gen_dashboard_urn(sheet.id))
+                        for sheet in app.sheets
+                    ],
+                    lastModified=ChangeAuditStampsClass(
+                        created=self._get_audit_stamp(app.createdAt, app.ownerId),
+                        lastModified=self._get_audit_stamp(app.updatedAt, app.ownerId),
+                    ),
+                    customProperties={Constant.QRI: app.qri},
+                    dashboardUrl=f"https://{self.ui_host}/sense/app/{app.id}/overview",
+                ),
+            ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
+            aspect=SubTypes(typeNames=[BIContainerSubTypes.QLIK_APP]),
+        ).as_workunit()
+        yield from add_entity_to_container(
+            container_key=self._gen_space_key(app.spaceId),
+            entity_type="dashboard",
+            entity_urn=dashboard_urn,
+        )
+        dpi_aspect = self._gen_dataplatform_instance_aspect(dashboard_urn)
+        if dpi_aspect:
+            yield dpi_aspect
+        if self.config.ingest_owner and owner_username:
+            yield self._gen_entity_owner_aspect(dashboard_urn, owner_username)
 
     def _gen_sheets_workunit(
         self,
@@ -1598,6 +1641,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
         )
         yield from container_workunits
+        yield from self._gen_app_dashboard_workunit(app, owner_username)
         yield from self._gen_sheets_workunit(
             app,
             None if app.tables_read_failed else input_tables_urns,
