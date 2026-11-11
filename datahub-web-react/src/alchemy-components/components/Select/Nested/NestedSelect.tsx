@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
 
 import { Dropdown } from '@components/components/Dropdown';
 import { NestedOption } from '@components/components/Select/Nested/NestedOption';
@@ -22,6 +23,15 @@ import { CustomOptionRenderer, SelectLabelProps, SelectSizeOptions } from '@comp
 import { getFooterButtonSize } from '@components/components/Select/utils';
 
 const NO_PARENT_VALUE = 'no_parent_value';
+
+// Inside the scrolling list so it shares the list's width, keeping its content aligned with the
+// options when a scrollbar takes up space.
+const StickyDropdownHeader = styled.div`
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: ${(props) => props.theme.colors.bg};
+`;
 
 export interface SelectProps<OptionType extends NestedSelectOption = NestedSelectOption> {
     options: OptionType[];
@@ -56,7 +66,7 @@ export interface SelectProps<OptionType extends NestedSelectOption = NestedSelec
     selectLabelProps?: SelectLabelProps;
     renderCustomOptionText?: CustomOptionRenderer<OptionType>;
     renderCustomSelectedValue?: (option: OptionType) => React.ReactNode;
-    // Rendered inside the dropdown, between the search bar and the options.
+    // Rendered inside the dropdown, pinned above the options as they scroll.
     dropdownHeader?: React.ReactNode;
     // Applied to every selection change before it is stored, e.g. to drop redundant options.
     normalizeSelection?: (options: OptionType[]) => OptionType[];
@@ -316,8 +326,8 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                                     size={size}
                                 />
                             )}
-                            {dropdownHeader}
                             <OptionList>
+                                {dropdownHeader && <StickyDropdownHeader>{dropdownHeader}</StickyDropdownHeader>}
                                 {rootOptions.map((option) => {
                                     const isParentOptionLabelExpanded = stagedOptions.find(
                                         (opt) => opt.parentValue === option.value,
