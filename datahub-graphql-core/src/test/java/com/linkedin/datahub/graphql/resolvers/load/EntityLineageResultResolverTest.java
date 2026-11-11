@@ -91,6 +91,7 @@ public class EntityLineageResultResolverTest {
             eq(DATASET_URN),
             eq(LineageDirection.UPSTREAM),
             anyInt(),
+            anyInt(),
             anyBoolean(),
             anyBoolean()))
         .thenReturn(counted);
@@ -134,15 +135,22 @@ public class EntityLineageResultResolverTest {
 
   /** A totals-only result is an empty page at the requested start, not at 0. */
   @Test
-  public void testCountPathReturnsTheRequestedStart() throws Exception {
+  public void testCountPathPassesTheRequestedStart() throws Exception {
     when(environment.getArgument(eq("input")))
         .thenReturn(ImmutableMap.of("direction", "UPSTREAM", "start", 40, "count", 100));
     selecting("{ lineage { start total } }");
 
-    EntityLineageResult result = resolver.get(environment).get();
+    resolver.get(environment).get();
 
-    assertEquals(result.getStart().intValue(), 40);
-    assertEquals(result.getTotal().intValue(), 13);
+    verify(siblingGraphService)
+        .getLineageCount(
+            any(OperationContext.class),
+            eq(DATASET_URN),
+            eq(LineageDirection.UPSTREAM),
+            eq(40),
+            eq(100),
+            anyBoolean(),
+            anyBoolean());
   }
 
   @Test
@@ -156,6 +164,7 @@ public class EntityLineageResultResolverTest {
             any(OperationContext.class),
             any(Urn.class),
             any(LineageDirection.class),
+            anyInt(),
             anyInt(),
             anyBoolean(),
             anyBoolean());
@@ -173,6 +182,7 @@ public class EntityLineageResultResolverTest {
             any(OperationContext.class),
             any(Urn.class),
             any(LineageDirection.class),
+            anyInt(),
             anyInt(),
             anyBoolean(),
             anyBoolean());

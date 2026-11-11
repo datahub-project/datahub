@@ -725,7 +725,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             operationContext, dataset1Urn, LineageDirection.DOWNSTREAM, 0, 100, 1, false, false);
     EntityLineageResult counted =
         siblingGraphService.getLineageCount(
-            operationContext, dataset1Urn, LineageDirection.DOWNSTREAM, 100, false, false);
+            operationContext, dataset1Urn, LineageDirection.DOWNSTREAM, 0, 100, false, false);
 
     // dataset1 -> {dataset2, dataJobOne, dataJobTwo}; dataset2 -> {dataset3, dataset4, dataJobOne,
     // dataJobTwo}. Outside the pair: dataset3, dataset4, dataJobOne, dataJobTwo.

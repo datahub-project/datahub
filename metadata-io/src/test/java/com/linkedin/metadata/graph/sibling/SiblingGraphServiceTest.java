@@ -1097,13 +1097,14 @@ public class SiblingGraphServiceTest {
 
     EntityLineageResult result =
         _client.getLineageCount(
-            opContext, datasetFourUrn, LineageDirection.UPSTREAM, 100, true, false);
+            opContext, datasetFourUrn, LineageDirection.UPSTREAM, 5, 100, true, false);
 
     assertEquals(result.getTotal().intValue(), 3);
     assertEquals(result.getFiltered().intValue(), 0);
     assertEquals(result.getRelationships().size(), 0);
     // count describes the returned relationships, and a totals-only result returns none.
     assertEquals(result.getCount().intValue(), 0);
+    assertEquals(result.getStart().intValue(), 5);
   }
 
   @Test
@@ -1130,7 +1131,7 @@ public class SiblingGraphServiceTest {
 
     EntityLineageResult result =
         fixture.service.getLineageCount(
-            opContext, datasetFourUrn, LineageDirection.UPSTREAM, 100, false, false);
+            opContext, datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, false, false);
 
     assertEquals(result.getTotal().intValue(), 3);
     assertEquals(result.getFiltered().intValue(), 2);
@@ -1160,7 +1161,7 @@ public class SiblingGraphServiceTest {
 
     EntityLineageResult result =
         fixture.service.getLineageCount(
-            opContext, dbtOneUrn, LineageDirection.UPSTREAM, 100, false, false);
+            opContext, dbtOneUrn, LineageDirection.UPSTREAM, 0, 100, false, false);
 
     assertEquals(result.getTotal().intValue(), 2);
   }

@@ -119,15 +119,14 @@ public class EntityLineageResultResolver
             if (countOnly) {
               return mapEntityRelationships(
                   context,
-                  _siblingGraphService
-                      .getLineageCount(
-                          lineageOpContext,
-                          finalUrn,
-                          resolvedDirection,
-                          count != null ? count : 100,
-                          resolvedSeparateSiblings,
-                          includeGhostEntities)
-                      .setStart(start != null ? start : 0),
+                  _siblingGraphService.getLineageCount(
+                      lineageOpContext,
+                      finalUrn,
+                      resolvedDirection,
+                      start != null ? start : 0,
+                      count != null ? count : 100,
+                      resolvedSeparateSiblings,
+                      includeGhostEntities),
                   Set.of());
             }
 

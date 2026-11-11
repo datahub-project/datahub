@@ -86,6 +86,7 @@ import org.opensearch.search.SearchHit;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
+import org.opensearch.search.aggregations.bucket.filter.Filter;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.metrics.Cardinality;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -995,16 +996,13 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     boolean truncated = false;
     for (Aggregation aggregation : response.getAggregations()) {
       if (!aggregation.getName().startsWith(COUNT_AGG_PREFIX)
-          || !(aggregation instanceof org.opensearch.search.aggregations.bucket.filter.Filter)) {
+          || !(aggregation instanceof Filter countFilter)) {
         continue;
       }
-      Aggregations sub =
-          ((org.opensearch.search.aggregations.bucket.filter.Filter) aggregation).getAggregations();
-      Aggregation viaFilter = sub.get(VIA_OUTSIDE_GROUP_AGG);
+      Aggregations sub = countFilter.getAggregations();
       Aggregations vias =
-          viaFilter instanceof org.opensearch.search.aggregations.bucket.filter.Filter
-              ? ((org.opensearch.search.aggregations.bucket.filter.Filter) viaFilter)
-                  .getAggregations()
+          sub.get(VIA_OUTSIDE_GROUP_AGG) instanceof Filter viaFilter
+              ? viaFilter.getAggregations()
               : null;
       for (Cardinality cardinality :
           Arrays.asList(
@@ -1032,11 +1030,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         }
       }
     }
-    // Group members are excluded from the neighbours and the vias in the query; dropping them
-    // here guards against a response that lacks those filters. This has to come before the
-    // correction below: that subtraction is what takes a sampled group member back out of the
-    // cardinalities, so running it first leaves the member counted in `estimated` while
-    // `reached` no longer has it, and a truncated group then reports its own members as lineage.
+    // Must run before the repeat correction below, or a sampled group member stays counted in
+    // `estimated`.
     reached.removeAll(groupUrns);
     // The four cardinalities (neighbour and via, per direction) each count a URN seen in more than
     // one role or direction, so remove the repeats the samples show.

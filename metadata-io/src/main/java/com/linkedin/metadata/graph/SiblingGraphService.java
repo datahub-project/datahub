@@ -202,6 +202,7 @@ public class SiblingGraphService {
       @Nonnull OperationContext opContext,
       @Nonnull Urn entityUrn,
       @Nonnull LineageDirection direction,
+      final int start,
       @Nullable Integer count,
       boolean separateSiblings,
       boolean includeGhostEntities) {
@@ -230,7 +231,7 @@ public class SiblingGraphService {
     }
 
     return new EntityLineageResult()
-        .setStart(0)
+        .setStart(start)
         // count is the size of the returned relationships, which a totals-only result leaves empty.
         .setCount(0)
         .setTotal(counted.getTotal())
