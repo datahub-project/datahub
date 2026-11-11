@@ -140,7 +140,9 @@ def _build_pairs(suffix: str) -> Dict[str, HiddenPair]:
     base = f"hvm-{suffix}"
     return {
         "dataset": _pair("dataset", _dataset_urn, f"{base}-ds"),
-        "container": _pair("container", lambda i: f"urn:li:container:{i}", f"{base}-ct"),
+        "container": _pair(
+            "container", lambda i: f"urn:li:container:{i}", f"{base}-ct"
+        ),
         "domain": _pair("domain", lambda i: f"urn:li:domain:{i}", f"{base}-dm"),
         "tag": _pair("tag", lambda i: f"urn:li:tag:{i}", f"{base}-tg"),
         "glossaryTerm": _pair(
@@ -162,7 +164,9 @@ def _build_pairs(suffix: str) -> Dict[str, HiddenPair]:
     }
 
 
-def _mcps(suffix: str, pairs: Dict[str, HiddenPair]) -> List[MetadataChangeProposalWrapper]:
+def _mcps(
+    suffix: str, pairs: Dict[str, HiddenPair]
+) -> List[MetadataChangeProposalWrapper]:
     now = int(time.time() * 1000)
     base = f"hvm-{suffix}"
     visible_container = f"urn:li:container:{base}-visible-ct"
@@ -197,12 +201,17 @@ def _mcps(suffix: str, pairs: Dict[str, HiddenPair]) -> List[MetadataChangePropo
 
     return [
         # Visible entities the hidden ones hang off.
-        mcp(visible_container, ContainerPropertiesClass(name=f"{base} visible container")),
+        mcp(
+            visible_container,
+            ContainerPropertiesClass(name=f"{base} visible container"),
+        ),
         mcp(visible_domain, DomainPropertiesClass(name=f"{base} visible domain")),
         mcp(visible_tag, TagPropertiesClass(name=f"{base} visible tag")),
         mcp(
             visible_node,
-            GlossaryNodeInfoClass(definition="visible node", name=f"{base} visible node"),
+            GlossaryNodeInfoClass(
+                definition="visible node", name=f"{base} visible node"
+            ),
         ),
         mcp(
             visible_term,
@@ -216,7 +225,9 @@ def _mcps(suffix: str, pairs: Dict[str, HiddenPair]) -> List[MetadataChangePropo
         mcp(upstream, DatasetPropertiesClass(name=f"{base} upstream")),
         mcp(
             visible_chart,
-            ChartInfoClass(title=f"{base} visible chart", description="", lastModified=audit),
+            ChartInfoClass(
+                title=f"{base} visible chart", description="", lastModified=audit
+            ),
         ),
         # The hidden dataset, with data on as many aspects as practical.
         mcp(
@@ -249,20 +260,25 @@ def _mcps(suffix: str, pairs: Dict[str, HiddenPair]) -> List[MetadataChangePropo
         mcp(
             ds,
             GlossaryTermsClass(
-                terms=[GlossaryTermAssociationClass(urn=visible_term)], auditStamp=_stamp()
+                terms=[GlossaryTermAssociationClass(urn=visible_term)],
+                auditStamp=_stamp(),
             ),
         ),
         mcp(
             ds,
             OwnershipClass(
-                owners=[OwnerClass(owner=_ACTOR, type=OwnershipTypeClass.TECHNICAL_OWNER)]
+                owners=[
+                    OwnerClass(owner=_ACTOR, type=OwnershipTypeClass.TECHNICAL_OWNER)
+                ]
             ),
         ),
         mcp(
             ds,
             UpstreamLineageClass(
                 upstreams=[
-                    UpstreamClass(dataset=upstream, type=DatasetLineageTypeClass.TRANSFORMED)
+                    UpstreamClass(
+                        dataset=upstream, type=DatasetLineageTypeClass.TRANSFORMED
+                    )
                 ]
             ),
         ),
@@ -299,7 +315,9 @@ def _mcps(suffix: str, pairs: Dict[str, HiddenPair]) -> List[MetadataChangePropo
         mcp(
             downstream,
             UpstreamLineageClass(
-                upstreams=[UpstreamClass(dataset=ds, type=DatasetLineageTypeClass.TRANSFORMED)]
+                upstreams=[
+                    UpstreamClass(dataset=ds, type=DatasetLineageTypeClass.TRANSFORMED)
+                ]
             ),
         ),
         mcp(
@@ -335,13 +353,25 @@ def _mcps(suffix: str, pairs: Dict[str, HiddenPair]) -> List[MetadataChangePropo
         mcp(child, GlobalTagsClass(tags=[TagAssociationClass(tag=tg)])),
         mcp(
             child,
-            GlossaryTermsClass(terms=[GlossaryTermAssociationClass(urn=gt)], auditStamp=_stamp()),
+            GlossaryTermsClass(
+                terms=[GlossaryTermAssociationClass(urn=gt)], auditStamp=_stamp()
+            ),
         ),
         # Hidden domain under a visible domain, holding the visible child.
-        mcp(dm, DomainPropertiesClass(name=secret, description=secret, parentDomain=visible_domain)),
+        mcp(
+            dm,
+            DomainPropertiesClass(
+                name=secret, description=secret, parentDomain=visible_domain
+            ),
+        ),
         # Hidden tag and glossary entries, attached to the visible child.
         mcp(tg, TagPropertiesClass(name=secret, description=secret)),
-        mcp(gn, GlossaryNodeInfoClass(definition=secret, name=secret, parentNode=visible_node)),
+        mcp(
+            gn,
+            GlossaryNodeInfoClass(
+                definition=secret, name=secret, parentNode=visible_node
+            ),
+        ),
         mcp(
             gt,
             GlossaryTermInfoClass(
@@ -351,12 +381,17 @@ def _mcps(suffix: str, pairs: Dict[str, HiddenPair]) -> List[MetadataChangePropo
         # Hidden chart and dashboard, wired to visible ones.
         mcp(
             ch,
-            ChartInfoClass(title=secret, description=secret, lastModified=audit, inputs=[upstream]),
+            ChartInfoClass(
+                title=secret, description=secret, lastModified=audit, inputs=[upstream]
+            ),
         ),
         mcp(
             db,
             DashboardInfoClass(
-                title=secret, description=secret, lastModified=audit, charts=[visible_chart]
+                title=secret,
+                description=secret,
+                lastModified=audit,
+                charts=[visible_chart],
             ),
         ),
         # Hidden flow with a visible job.
@@ -364,7 +399,9 @@ def _mcps(suffix: str, pairs: Dict[str, HiddenPair]) -> List[MetadataChangePropo
         mcp(job, DataJobInfoClass(name=f"{base} job", type="COMMAND")),
         mcp(
             job,
-            DataJobInputOutputClass(inputDatasets=[upstream], outputDatasets=[downstream]),
+            DataJobInputOutputClass(
+                inputDatasets=[upstream], outputDatasets=[downstream]
+            ),
         ),
         # Hidden data product holding the visible upstream.
         mcp(
@@ -388,11 +425,15 @@ def _metadata_privileges(admin_session: Any) -> List[str]:
         },
     )
     response.raise_for_status()
-    groups = response.json()["data"]["getAppConfig"]["policiesConfig"]["resourcePrivileges"]
+    groups = response.json()["data"]["getAppConfig"]["policiesConfig"][
+        "resourcePrivileges"
+    ]
     return sorted({p["type"] for group in groups for p in group["privileges"]})
 
 
-def _create_hiding_policy(admin_session: Any, user_urn: str, hidden_urns: List[str]) -> str:
+def _create_hiding_policy(
+    admin_session: Any, user_urn: str, hidden_urns: List[str]
+) -> str:
     """Grants the user every metadata privilege on everything except the hidden urns.
 
     This is the policy shape that made existence checkable: a urn that was never written matches

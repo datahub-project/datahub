@@ -66,7 +66,9 @@ def _specs(auth_session) -> List[Dict[str, Any]]:
     config.raise_for_status()
     specs = []
     for entry in config.json().get("urls", []):
-        response = auth_session.get(urllib.parse.urljoin(gms + "/", entry["url"].lstrip("/")))
+        response = auth_session.get(
+            urllib.parse.urljoin(gms + "/", entry["url"].lstrip("/"))
+        )
         response.raise_for_status()
         specs.append(response.json())
     return specs
@@ -107,8 +109,10 @@ def _filler(parameter: Dict[str, Any], pair: HiddenPair) -> Optional[str]:
         return pair.entity_type
     schema = parameter.get("schema", {})
     if "default" in schema:
-        return str(schema["default"]).lower() if isinstance(schema["default"], bool) else str(
-            schema["default"]
+        return (
+            str(schema["default"]).lower()
+            if isinstance(schema["default"], bool)
+            else str(schema["default"])
         )
     if schema.get("enum"):
         return str(schema["enum"][0])
@@ -154,7 +158,9 @@ def _request(session, endpoint: Endpoint, pair: HiddenPair, urn: str) -> Any:
 
 def test_openapi_reads_answer_hidden_entities_like_missing_ones(world, auth_session):
     endpoints = _endpoints(_specs(auth_session))
-    assert len(endpoints) > 20, f"only {len(endpoints)} urn-keyed endpoints found in the spec"
+    assert len(endpoints) > 20, (
+        f"only {len(endpoints)} urn-keyed endpoints found in the spec"
+    )
 
     session = world.user_session()
     failures: List[str] = []
