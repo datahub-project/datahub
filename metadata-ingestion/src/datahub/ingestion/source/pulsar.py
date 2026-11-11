@@ -238,13 +238,6 @@ class PulsarSource(StatefulIngestionSourceBase):
     @classmethod
     def create(cls, config_dict, ctx):
         config = PulsarSourceConfig.model_validate(config_dict)
-
-        # Do not include each individual partition for partitioned topics,
-        if config.exclude_individual_partitions:
-            config.topic_patterns = config.topic_patterns.with_deny(
-                r".*-partition-[0-9]+"
-            )
-
         return cls(config, ctx)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
