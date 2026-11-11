@@ -2,6 +2,9 @@ package com.linkedin.datahub.graphql.resolvers.post;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -20,6 +23,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -32,6 +36,7 @@ import com.linkedin.post.PostType;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.Map;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -128,5 +133,43 @@ public class ListPostsResolverTest {
     assertEquals(result.getCount(), 10);
     assertEquals(result.getTotal(), 1);
     assertEquals(result.getPosts().size(), 1);
+  }
+
+  @Test
+  public void testListPostsWithResourceUrnPassesValuesOnlyFilter() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getAuthentication()).thenReturn(_authentication);
+
+    final String resourceUrn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.tbl,PROD)";
+    ListPostsInput input = new ListPostsInput();
+    input.setResourceUrn(resourceUrn);
+    when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
+
+    final SearchResult roleSearchResult =
+        new SearchResult()
+            .setMetadata(new SearchResultMetadata())
+            .setFrom(0)
+            .setPageSize(10)
+            .setNumEntities(1);
+    roleSearchResult.setEntities(
+        new SearchEntityArray(
+            ImmutableList.of(new SearchEntity().setEntity(Urn.createFromString(POST_URN_STRING)))));
+
+    when(_entityClient.search(
+            any(), eq(POST_ENTITY_NAME), any(), any(Filter.class), any(), anyInt(), anyInt()))
+        .thenReturn(roleSearchResult);
+    when(_entityClient.batchGetV2(any(), eq(POST_ENTITY_NAME), any(), any()))
+        .thenReturn(_entityResponseMap);
+
+    _resolver.get(_dataFetchingEnvironment).join();
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(_entityClient)
+        .search(any(), eq(POST_ENTITY_NAME), eq(""), filterCaptor.capture(), any(), eq(0), eq(20));
+
+    Filter passed = filterCaptor.getValue();
+    assertEquals(passed.getOr().get(0).getAnd().get(0).getValues().get(0), resourceUrn);
+    assertEquals(passed.getOr().get(0).getAnd().get(0).getField(), "target");
   }
 }
