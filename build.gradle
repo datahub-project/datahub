@@ -616,6 +616,9 @@ allprojects {
         }
       }
     }
+
+    // A TestNG run silently skips JUnit test methods; fail instead (see JUnitInTestNGGuard).
+    task.doFirst(new io.datahubproject.JUnitInTestNGGuard())
   }
 
   /**
