@@ -46,6 +46,8 @@ public class KafkaThrottleSensorTest {
   private static final List<String> STANDARD_TOPICS =
       List.of(Topics.METADATA_CHANGE_LOG_VERSIONED, Topics.METADATA_CHANGE_LOG_TIMESERIES);
   private static final String STANDARD_MCL_CONSUMER_GROUP_ID = "generic-mae-consumer-job-client";
+  private static final String LOST_OFFSETS = "no longer has committed offsets on MCL topic ";
+  private static final String NO_OFFSETS = "has no committed offsets on MCL topic ";
 
   @Test
   public void testLagCalculation() throws ExecutionException, InterruptedException {
@@ -368,7 +370,7 @@ public class KafkaThrottleSensorTest {
   }
 
   @Test
-  public void testFreshInstallWithoutCommittedOffsetsReportsNoLagAndWarnsOnce()
+  public void testFreshInstallWithoutCommittedOffsetsReportsNoLagAndLogsOnce()
       throws ExecutionException, InterruptedException {
     // The consumer group has never committed on either topic
     AdminClient mockAdmin = mockKafka(Pair.of(Map.of(), Map.of()));
@@ -399,25 +401,23 @@ public class KafkaThrottleSensorTest {
             ThrottleType.MCL_VERSIONED_LAG, 0L,
             ThrottleType.MCL_TIMESERIES_LAG, 0L));
     assertFalse(test.isThrottled(ThrottleType.MCL_VERSIONED_LAG));
-    List<String> warnings = warnings(logs);
-    assertEquals(warnings.size(), 2, "Expected one warning per topic, not one per refresh");
-    assertTrue(
-        warnings.stream().anyMatch(w -> w.contains(STANDARD_TOPICS.get(0))), warnings.toString());
-    assertTrue(
-        warnings.stream().anyMatch(w -> w.contains(STANDARD_TOPICS.get(1))), warnings.toString());
-    assertTrue(
-        warnings.stream().noneMatch(w -> w.contains("last lag")),
-        "No lag was seen, so the warning shouldn't name one: " + warnings);
+    assertTrue(logs(logs, Level.WARN, LOST_OFFSETS).isEmpty(), "Nothing was lost, so no warning");
+    for (String topic : STANDARD_TOPICS) {
+      assertEquals(
+          logs(logs, Level.INFO, NO_OFFSETS + topic).size(),
+          1,
+          "Expected one line per topic, not one per refresh: " + topic);
+    }
   }
 
   @Test
   public void testOffsetsVanishingAfterLagWasSeenReportsNoLagAndWarnsOncePerTransition()
       throws ExecutionException, InterruptedException {
-    // Versioned topic only, lag 1, 2, 3 -> median 2. Refreshes see: lag, no offsets, no offsets,
-    // lag again, no offsets.
+    // Both topics, lag 1, 2, 3 -> median 2. Refreshes see: lag, no offsets, no offsets, lag
+    // again, no offsets. Versioned throttling is on, timeseries throttling is off.
     Pair<Map<TopicPartition, OffsetAndMetadata>, Map<TopicPartition, Long>> lag =
         generateLag(
-            List.of(STANDARD_TOPICS.get(0)),
+            STANDARD_TOPICS,
             topicPart -> (long) topicPart.partition() + 1,
             topicPart -> ((long) topicPart.partition() + 1) * 2,
             3);
@@ -441,36 +441,46 @@ public class KafkaThrottleSensorTest {
             .mclConsumerGroupId(STANDARD_MCL_CONSUMER_GROUP_ID)
             .build();
     String versionedTopic = STANDARD_TOPICS.get(0);
+    String timeseriesTopic = STANDARD_TOPICS.get(1);
 
     ListAppender<ILoggingEvent> logs = captureLogs();
     try {
       test.refresh();
       assertEquals(test.getLag().get(ThrottleType.MCL_VERSIONED_LAG), 2L);
       assertTrue(test.isThrottled(ThrottleType.MCL_VERSIONED_LAG));
-      assertTrue(warningsFor(logs, versionedTopic).isEmpty());
+      assertTrue(logs(logs, Level.WARN, LOST_OFFSETS).isEmpty());
 
       // Offsets vanish: zero lag, not the last value, so throttling stops; one warning naming it
       test.refresh();
       assertEquals(test.getLag().get(ThrottleType.MCL_VERSIONED_LAG), 0L);
       assertFalse(test.isThrottled(ThrottleType.MCL_VERSIONED_LAG));
-      List<String> warnings = warningsFor(logs, versionedTopic);
+      List<String> warnings = logs(logs, Level.WARN, LOST_OFFSETS);
       assertEquals(warnings.size(), 1, warnings.toString());
-      assertTrue(warnings.get(0).contains("last lag was 2"), warnings.get(0));
+      assertTrue(warnings.get(0).contains(versionedTopic), warnings.get(0));
+      assertTrue(warnings.get(0).contains("last median lag was 2 messages"), warnings.get(0));
+      // Timeseries throttling is off, so losing its offsets changes nothing: INFO, not WARN
+      assertEquals(logs(logs, Level.INFO, NO_OFFSETS + timeseriesTopic).size(), 1);
 
-      // Still no offsets: no repeat warning
+      // Still no offsets: no repeat
       test.refresh();
       assertEquals(test.getLag().get(ThrottleType.MCL_VERSIONED_LAG), 0L);
-      assertEquals(warningsFor(logs, versionedTopic).size(), 1);
+      assertEquals(logs(logs, Level.WARN, LOST_OFFSETS).size(), 1);
+      assertEquals(logs(logs, Level.INFO, NO_OFFSETS + timeseriesTopic).size(), 1);
 
-      // Offsets come back: lag and throttling return
+      // Offsets come back: lag and throttling return, and the recovery is logged
       test.refresh();
       assertEquals(test.getLag().get(ThrottleType.MCL_VERSIONED_LAG), 2L);
       assertTrue(test.isThrottled(ThrottleType.MCL_VERSIONED_LAG));
+      assertEquals(
+          logs(logs, Level.INFO, "has committed offsets on MCL topic " + versionedTopic + ";")
+              .size(),
+          1,
+          logs.list.toString());
 
       // And vanish again: warned again
       test.refresh();
       assertEquals(test.getLag().get(ThrottleType.MCL_VERSIONED_LAG), 0L);
-      assertEquals(warningsFor(logs, versionedTopic).size(), 2);
+      assertEquals(logs(logs, Level.WARN, LOST_OFFSETS + versionedTopic).size(), 2);
     } finally {
       stopCapturingLogs(logs);
     }
@@ -489,16 +499,12 @@ public class KafkaThrottleSensorTest {
     appender.stop();
   }
 
-  private static List<String> warnings(ListAppender<ILoggingEvent> appender) {
+  /** Messages logged at {@code level} that contain {@code text}. */
+  private static List<String> logs(ListAppender<ILoggingEvent> appender, Level level, String text) {
     return appender.list.stream()
-        .filter(event -> event.getLevel() == Level.WARN)
+        .filter(event -> event.getLevel() == level)
         .map(ILoggingEvent::getFormattedMessage)
-        .collect(Collectors.toList());
-  }
-
-  private static List<String> warningsFor(ListAppender<ILoggingEvent> appender, String topic) {
-    return warnings(appender).stream()
-        .filter(message -> message.contains(topic))
+        .filter(message -> message.contains(text))
         .collect(Collectors.toList());
   }
 
