@@ -146,7 +146,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     SchemaFieldDataTypeClass,
 )
-from datahub.metadata.urns import DatasetUrn
+from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -1570,12 +1570,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         """Gives a script table the parser could not name its name in the data
         model, when exactly one data model table no other table claims has
         exactly its columns. Otherwise it keeps its made-up name."""
+        # A lineage graph table stays claimable: an unlabelled load the graph
+        # also traces must take its name, so both are ingested as one table.
         claimed = {
-            name.lower()
-            for name in (
-                *(table.label for table in script_tables if not table.label_unknown),
-                *(table.label for table in app.lineage_tables),
-            )
+            table.label.lower() for table in script_tables if not table.label_unknown
         }
         unclaimed = [
             table
@@ -1599,6 +1597,29 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 table.label = names[0]
                 table.identifier = f"{app.id}.{names[0]}".lower()
                 table.label_unknown = False
+
+    def _use_data_model_field_names(
+        self, script_tables: List[ScriptTableLineage]
+    ) -> None:
+        """Spells each column as the data model does, so column lineage lands on
+        the schema's fields. The SQL parser may change a column's case."""
+        for table in script_tables:
+            fields = self._data_model_fields.get(table.identifier)
+            if not fields:
+                continue
+            names = {field.name for field in fields}
+            by_lower: Dict[str, List[str]] = {}
+            for name in names:
+                by_lower.setdefault(name.lower(), []).append(name)
+            column_upstreams: Dict[str, List[str]] = {}
+            for column, upstreams in table.column_upstreams.items():
+                matches = by_lower.get(column.lower(), [])
+                # Qlik field names are case-sensitive, so a column matching two
+                # fields keeps its own spelling.
+                name = column if column in names or len(matches) != 1 else matches[0]
+                merged = column_upstreams.setdefault(name, [])
+                merged.extend(u for u in upstreams if u not in merged)
+            table.column_upstreams = column_upstreams
 
     def _table_schema(
         self, identifier: str, parsed: List[QlikDatasetSchemaField]
@@ -1652,6 +1673,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
         if qvd_lineage is not None:
             script_tables = self._merge_qvd_tables(script_tables, qvd_lineage)
+        self._use_data_model_field_names(script_tables)
         matched_script_tables = self._match_script_tables(
             app.lineage_tables, script_tables
         )
@@ -1994,35 +2016,71 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     ),
                 ).as_workunit()
             if urn in writes:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=urn,
-                    aspect=UpstreamLineage(
-                        upstreams=[
-                            Upstream(dataset=table_urn, type=DatasetLineageType.COPY)
-                            for table_urn in dict.fromkeys(
-                                write.table_urn for write in writes[urn]
-                            )
-                        ],
-                        fineGrainedLineages=[
-                            FineGrainedLineage(
-                                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                                upstreams=[
-                                    builder.make_schema_field_urn(
-                                        write.table_urn, field.source
-                                    )
-                                ],
-                                downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                                downstreams=[
-                                    builder.make_schema_field_urn(urn, field.name)
-                                ],
-                            )
-                            for write in writes[urn]
-                            for field in write.fields or []
-                            if field.source
-                        ]
-                        or None,
+                yield from self._gen_qvd_upstreams(urn, writes[urn])
+
+    def _from_app_table(self, urn: str) -> bool:
+        """An on-prem Qlik dataset other than a QVD is an app table, whose
+        edges this connector owns."""
+        dataset = DatasetUrn.from_string(urn)
+        return dataset.platform == builder.make_data_platform_urn(
+            self.platform
+        ) and not dataset.name.endswith(".qvd")
+
+    def _gen_qvd_upstreams(
+        self, qvd_urn: str, writes: List[QvdWrite]
+    ) -> Iterable[MetadataWorkUnit]:
+        table_urns = list(dict.fromkeys(write.table_urn for write in writes))
+        fine_grained = [
+            FineGrainedLineage(
+                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                upstreams=[
+                    builder.make_schema_field_urn(write.table_urn, field.source)
+                ],
+                downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                downstreams=[builder.make_schema_field_urn(qvd_urn, field.name)],
+            )
+            for write in writes
+            for field in write.fields or []
+            if field.source
+        ]
+        current = self._current_upstreams(qvd_urn)
+        if current is None:
+            # Without the current lineage, edges can only be added, as lineage
+            # from elsewhere, such as added in DataHub, must stay.
+            yield from self._patch_upstreams(
+                qvd_urn, table_urns, DatasetLineageType.COPY, fine_grained
+            )
+            return
+        # Edges from app tables that no longer store into the QVD are dropped;
+        # lineage from anywhere else is kept.
+        yield MetadataChangeProposalWrapper(
+            entityUrn=qvd_urn,
+            aspect=UpstreamLineage(
+                upstreams=[
+                    *(
+                        u
+                        for u in current.upstreams
+                        if not self._from_app_table(u.dataset)
                     ),
-                ).as_workunit()
+                    *(
+                        Upstream(dataset=table_urn, type=DatasetLineageType.COPY)
+                        for table_urn in table_urns
+                    ),
+                ],
+                fineGrainedLineages=[
+                    *(
+                        lineage
+                        for lineage in current.fineGrainedLineages or []
+                        if not any(
+                            self._from_app_table(SchemaFieldUrn.from_string(u).parent)
+                            for u in lineage.upstreams or []
+                        )
+                    ),
+                    *fine_grained,
+                ]
+                or None,
+            ),
+        ).as_workunit()
 
     def _check_missing_lineage_graph(self, app: App) -> None:
         # Qlik also answers 404 for lineage it has not computed yet, so a 404
