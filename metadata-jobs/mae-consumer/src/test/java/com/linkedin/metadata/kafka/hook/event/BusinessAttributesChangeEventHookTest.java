@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -30,12 +31,17 @@ import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
 import org.springframework.context.ApplicationContext;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.util.PropertyPlaceholderHelper;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -44,6 +50,12 @@ import org.testng.annotations.Test;
  * PlatformEventGeneratorHook}, using the generator registry built by the production {@link
  * EntityChangeEventGeneratorRegistryFactory} and the real entity registry. This covers the
  * registration key, the hook's supported-aspect filter, aspect deserialization and the generator.
+ *
+ * <p>{@code businessAttributes} is only attached to {@code schemaField}, and the default {@code
+ * entityChangeEvents.entityExclusions} excludes {@code schemaField}, so these events are only
+ * emitted when that default is overridden ({@code ECE_ENTITY_EXCLUSIONS}). The emitting tests build
+ * the hook without exclusions; {@link #testDefaultExclusionsDropBusinessAttributeChanges()} pins
+ * the default behavior.
  */
 public class BusinessAttributesChangeEventHookTest {
 
@@ -56,6 +68,7 @@ public class BusinessAttributesChangeEventHookTest {
   private static final Urn ACTOR = UrnUtils.getUrn("urn:li:corpuser:test");
 
   private EventProducer producer;
+  private EntityChangeEventGeneratorRegistry registry;
   private PlatformEventGeneratorHook hook;
   private OperationContext opContext;
 
@@ -73,7 +86,8 @@ public class BusinessAttributesChangeEventHookTest {
     // The factory reads this @Autowired field before building; the bean it returns is unused here.
     ReflectionTestUtils.setField(factory, "applicationContext", mock(ApplicationContext.class));
     producer = mock(EventProducer.class);
-    hook = new PlatformEventGeneratorHook(factory.build(), producer, true);
+    registry = factory.build();
+    hook = new PlatformEventGeneratorHook(registry, producer, true);
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
   }
 
@@ -107,6 +121,39 @@ public class BusinessAttributesChangeEventHookTest {
     hook.invoke(opContext, changeLog(ATTRIBUTE_A, ATTRIBUTE_A));
 
     verifyNoInteractions(producer);
+  }
+
+  @Test
+  public void testDefaultExclusionsDropBusinessAttributeChanges() throws Exception {
+    PlatformEventGeneratorHook defaultHook =
+        new PlatformEventGeneratorHook(
+            registry, producer, true, "", defaultEntityExclusions(), List.of(), false);
+
+    defaultHook.invoke(opContext, changeLog(ATTRIBUTE_A, ATTRIBUTE_B));
+
+    // Relationship change events for BusinessAttributeOf are not subject to the exclusion list and
+    // are still emitted; only the entity change events are dropped.
+    verify(producer, never())
+        .producePlatformEvent(
+            any(OperationContext.class),
+            eq(CHANGE_EVENT_PLATFORM_EVENT_NAME),
+            anyString(),
+            any(PlatformEvent.class));
+  }
+
+  /** The hook's {@code entityChangeEvents.entityExclusions} default, read from application.yaml. */
+  private static List<String> defaultEntityExclusions() {
+    YamlPropertiesFactoryBean yaml = new YamlPropertiesFactoryBean();
+    yaml.setResources(new ClassPathResource("application.yaml"));
+    Properties properties = yaml.getObject();
+    PropertyPlaceholderHelper helper = new PropertyPlaceholderHelper("${", "}", ":", null, true);
+    // Resolve against the yaml alone, so an ECE_ENTITY_EXCLUSIONS set where the test runs is
+    // ignored.
+    String exclusions =
+        helper.replacePlaceholders(
+            properties.getProperty("entityChangeEvents.entityExclusions"), properties::getProperty);
+    assertEquals(exclusions, SCHEMA_FIELD_ENTITY_NAME);
+    return Arrays.asList(exclusions.split(","));
   }
 
   private static MetadataChangeLog changeLog(String previousAttribute, String newAttribute)
