@@ -7,6 +7,7 @@ from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
     _CLICKHOUSE_DICTIONARY_FUNCTIONS,
+    SqlParsingResult,
     sqlglot_lineage,
 )
 from datahub.testing.check_sql_parser_result import assert_sql_result
@@ -87,6 +88,115 @@ FROM mytable
         },
         expected_file=RESOURCE_DIR / "test_select_max_with_schema_all_resolved.json",
     )
+
+
+def _upstream_columns(result: SqlParsingResult) -> List[str]:
+    assert result.column_lineage is not None
+    return [u.column for c in result.column_lineage for u in c.upstreams]
+
+
+def test_postgres_mixed_case_default_db_resolves_to_stored_casing() -> None:
+    # The recipe's database is `MyDb` and the source stores it that way, but the
+    # parser folds the default db to `mydb`. The quoted schema and table survive,
+    # so the URN tried first, `mydb.SCHEMA_X.TABLE_A`, matches nothing, and neither
+    # does the all-lowercase fallback. Resolution has to find the stored casing,
+    # and only then can `SELECT *` expand into column lineage.
+    table_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,MyDb.SCHEMA_X.TABLE_A,PROD)"
+    )
+    schema_resolver = SchemaResolver(platform="postgres", env="PROD")
+    schema_resolver.add_raw_schema_info(table_urn, {"col_a": "int", "col_b": "text"})
+
+    result = sqlglot_lineage(
+        'SELECT * FROM "SCHEMA_X"."TABLE_A"',
+        schema_resolver=schema_resolver,
+        default_db="MyDb",
+        default_schema="public",
+    )
+
+    assert result.in_tables == [table_urn]
+    assert result.debug_info.table_schemas_resolved == 1
+    assert sorted(_upstream_columns(result)) == ["col_a", "col_b"]
+
+
+@pytest.mark.parametrize("schema_ref", ["my_schema", "MY_SCHEMA"])
+def test_oracle_quoted_identifier_resolves_to_stored_casing(schema_ref: str) -> None:
+    # The Oracle source lowercases all-uppercase identifiers and keeps quoted
+    # mixed-case ones, so `MY_SCHEMA."MixedCase"` is stored as `my_schema.MixedCase`:
+    # a casing no uniform rule over the parsed name produces. Both spellings of the
+    # case-insensitive schema reference must land on it.
+    table_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,my_db.my_schema.MixedCase,PROD)"
+    )
+    schema_resolver = SchemaResolver(platform="oracle", env="PROD")
+    schema_resolver.add_raw_schema_info(table_urn, {"MyValueCol": "NUMBER"})
+
+    result = sqlglot_lineage(
+        f'SELECT t."MyValueCol" FROM {schema_ref}."MixedCase" t',
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+    )
+
+    assert result.in_tables == [table_urn]
+    assert result.debug_info.table_schemas_resolved == 1
+    assert _upstream_columns(result) == ["MyValueCol"]
+
+
+def test_mssql_mixed_case_identifier_resolves_to_stored_casing() -> None:
+    # SQL Server's catalog is case-preserving but case-insensitive, so a query may
+    # spell a mixed-case name however it likes, and sqlglot folds it to lowercase.
+    table_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.my_schema.MixedCaseTable,PROD)"
+    )
+    schema_resolver = SchemaResolver(platform="mssql", env="PROD")
+    schema_resolver.add_raw_schema_info(table_urn, {"MyValueCol": "NUMBER"})
+
+    result = sqlglot_lineage(
+        "SELECT t.myvaluecol FROM MY_SCHEMA.mixedcasetable AS t",
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+    )
+
+    assert result.in_tables == [table_urn]
+    assert result.debug_info.table_schemas_resolved == 1
+    assert _upstream_columns(result) == ["MyValueCol"]
+
+
+def test_stored_casing_lookup_leaves_absent_tables_alone() -> None:
+    # A table DataHub does not hold in any casing keeps the same best-effort URN.
+    schema_resolver = SchemaResolver(platform="mssql", env="PROD")
+
+    result = sqlglot_lineage(
+        "SELECT t.MyValueCol FROM my_schema.MixedCaseTable AS t",
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+    )
+
+    assert result.in_tables == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.my_schema.mixedcasetable,PROD)"
+    ]
+    assert result.debug_info.table_schemas_resolved == 0
+
+
+def test_stored_casing_lookup_survives_a_cte_named_like_its_table() -> None:
+    # The staging idiom `WITH orders AS (SELECT * FROM ORDERS)`: the CTE reference
+    # must not shadow the real table it stages.
+    table_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.my_schema.MixedCaseTable,PROD)"
+    )
+    schema_resolver = SchemaResolver(platform="mssql", env="PROD")
+    schema_resolver.add_raw_schema_info(table_urn, {"MyValueCol": "NUMBER"})
+
+    result = sqlglot_lineage(
+        "WITH mixedcasetable AS (SELECT MyValueCol FROM my_schema.MixedCaseTable) "
+        "SELECT MyValueCol FROM mixedcasetable",
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+    )
+
+    assert result.in_tables == [table_urn]
+    assert result.debug_info.table_schemas_resolved == 1
+    assert _upstream_columns(result) == ["MyValueCol"]
 
 
 def test_select_count() -> None:
