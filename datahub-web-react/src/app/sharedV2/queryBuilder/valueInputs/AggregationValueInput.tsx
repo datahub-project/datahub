@@ -6,6 +6,12 @@ import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useAggregateAcrossEntitiesLazyQuery } from '@graphql/search.generated';
+import { DataPlatformInstance, Entity, EntityType } from '@types';
+
+// The backend default (20) silently hides values past the top-N by count, and search only filters
+// client-side, so ask for enough to cover every platform/instance. The backend clamps this to its
+// own max term bucket size.
+const MAX_AGGREGATION_VALUES = 1000;
 
 type Props = {
     facetField: string;
@@ -38,6 +44,7 @@ export default function AggregationValueInput({
                 input: {
                     query: '*',
                     facets: [facetField],
+                    searchFlags: { maxAggValues: MAX_AGGREGATION_VALUES },
                 },
             },
         });
@@ -48,14 +55,23 @@ export default function AggregationValueInput({
         [data, facetField],
     );
 
+    const getEntityLabel = useCallback(
+        (entity: Entity) => {
+            const name = entityRegistry.getDisplayName(entity.type, entity);
+            // Instance IDs like `prod` repeat across platforms; prefix the platform so they're distinguishable.
+            const platform =
+                entity.type === EntityType.DataPlatformInstance && (entity as DataPlatformInstance).platform;
+            return platform ? `${entityRegistry.getDisplayName(EntityType.DataPlatform, platform)} ${name}` : name;
+        },
+        [entityRegistry],
+    );
+
     const options: SelectOption[] = useMemo(() => {
         const aggOptions = aggregations.map((agg) => ({
             value: agg.value,
             // Entity-backed facets (platform, platformInstance, …) aggregate on URNs; resolve those
             // to the entity's display name so the dropdown isn't a list of raw URNs.
-            label: agg.entity
-                ? entityRegistry.getDisplayName(agg.entity.type, agg.entity)
-                : capitalizeFirstLetterOnly(agg.value) || agg.value,
+            label: agg.entity ? getEntityLabel(agg.entity) : capitalizeFirstLetterOnly(agg.value) || agg.value,
         }));
 
         const selectedSet = new Set(selectedValues);
@@ -79,7 +95,7 @@ export default function AggregationValueInput({
             const bSelected = selectedSet.has(b.value) ? 0 : 1;
             return aSelected - bSelected;
         });
-    }, [aggregations, selectedValues, searchQuery, entityRegistry]);
+    }, [aggregations, selectedValues, searchQuery, getEntityLabel]);
 
     const onSearch = useCallback((text: string) => {
         setSearchQuery(text);
