@@ -109,7 +109,9 @@ describe('useBulkEntityLineage', () => {
 
         renderHook(() => useBulkEntityLineage([URN]), { wrapper });
 
-        await waitFor(() => expect(notificationError).toHaveBeenCalled());
+        await waitFor(() =>
+            expect(notificationError).toHaveBeenCalledWith(expect.objectContaining({ key: 'lineage-load-error' })),
+        );
         // The failed urn is not re-requested in a loop.
         expect(requestCount).toBe(1);
     });

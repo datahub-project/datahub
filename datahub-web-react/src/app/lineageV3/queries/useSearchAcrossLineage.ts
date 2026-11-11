@@ -27,7 +27,7 @@ import { Entity, EntityType, LineageDirection, Maybe, SearchAcrossLineageInput }
 const PER_HOP_LIMIT = 2;
 
 // Shared key so the upstream and downstream instances of this hook show one toast, not two.
-const LOAD_ERROR_NOTIFICATION_KEY = 'lineage-load-error';
+export const LOAD_ERROR_NOTIFICATION_KEY = 'lineage-load-error';
 
 export const DEFAULT_SEARCH_FLAGS = {
     groupingSpec: { groupingCriteria: [] },
@@ -93,10 +93,7 @@ export default function useSearchAcrossLineage(
     const [processed] = useState(new Set<string>());
 
     const handleFetchFailure = () => {
-        // Stop the spinner and release the loading gate WITHOUT marking the fetch COMPLETE: a failed
-        // node must stay retryable. COMPLETE + isExpanded hides the expand control and makes
-        // useOnClickExpandLineage skip the refetch, so a failed expand would look finished. UNFETCHED
-        // clears LOADING; the gate is released by the nodeVersion bump below, not by the status.
+        // UNFETCHED, not COMPLETE, so a failed expand stays retryable.
         const node = nodes.get(urn);
         if (node) {
             node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.UNFETCHED };
@@ -104,7 +101,7 @@ export default function useSearchAcrossLineage(
         processed.add(urn);
         setNodeVersion((version) => version + 1);
         setDisplayVersion(([version]) => [version + 1, []]);
-        notification.error({ key: LOAD_ERROR_NOTIFICATION_KEY, message: i18next.t('lineage:timeSelector.loadError') });
+        notification.error({ key: LOAD_ERROR_NOTIFICATION_KEY, message: i18next.t('lineage:loadError') });
     };
 
     const [fetchLineage] = useSearchAcrossLineageStructureLazyQuery({

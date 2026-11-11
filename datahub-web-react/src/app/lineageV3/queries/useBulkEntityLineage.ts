@@ -16,7 +16,11 @@ import {
 } from '@app/lineageV3/common';
 import pruneAllDuplicateEdges from '@app/lineageV3/queries/pruneAllDuplicateEdges';
 import { getNodeForBulkResult } from '@app/lineageV3/queries/useBulkEntityLineage.utils';
-import { addQueryNodes, setEntityNodeDefault } from '@app/lineageV3/queries/useSearchAcrossLineage';
+import {
+    LOAD_ERROR_NOTIFICATION_KEY,
+    addQueryNodes,
+    setEntityNodeDefault,
+} from '@app/lineageV3/queries/useSearchAcrossLineage';
 import { FetchedEntityV2Relationship } from '@app/lineageV3/types';
 import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
 import usePrevious from '@app/sharedV2/usePrevious';
@@ -74,7 +78,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
         setUrnsToFetch([]);
         if (!errorShownRef.current) {
             errorShownRef.current = true;
-            notification.error({ message: i18next.t('lineage:timeSelector.loadError') });
+            notification.error({ key: LOAD_ERROR_NOTIFICATION_KEY, message: i18next.t('lineage:loadError') });
         }
     };
 
