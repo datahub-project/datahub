@@ -1399,11 +1399,12 @@ sqlalchemy2-stubs==0.0.2a38 ; python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   sqlalchemy
-sqlglot==30.8.0 ; python_full_version < '3.14'
+sqlglot==30.11.0 ; python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   dlt
-sqlglotc==30.8.0 ; python_full_version < '3.14'
+    #   sqlglotc
+sqlglotc==30.11.0 ; python_full_version < '3.14'
     # via sqlglot
 sqlparse==0.5.5 ; python_full_version < '3.14'
     # via

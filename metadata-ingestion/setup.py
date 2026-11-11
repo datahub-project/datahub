@@ -143,7 +143,9 @@ sqlglot_lib = {
     # sqlglot[c] was removed in a prior PR as a workaround for a memory leak
     # (https://github.com/tobymao/sqlglot/issues/7506). 30.8.0 fixes the leak
     # upstream, so we restore [c] here for performance.
-    "sqlglot[c]==30.8.0",
+    # 30.11.0: PyPI no longer serves sqlglotc wheels for 30.7.0-30.10.0 (sdist only, which
+    # does not build without a C toolchain), so 30.8.0 broke fresh installs.
+    "sqlglot[c]==30.11.0",
     "patchy==2.8.0",
 }
 
