@@ -209,15 +209,9 @@ const COLOR_RULE_EXCLUDED_FILES = [
 // violations: remove an entry once its file is fixed, never add new ones.
 // --------------------------------------------------------------------------
 const ALCHEMY_APP_IMPORT_EXCLUDED_FILES = [
-    'src/alchemy-components/components/Avatar/Avatar.tsx',
-    'src/alchemy-components/components/Avatar/AvatarPillWithLinkAndHover.tsx',
     'src/alchemy-components/components/Avatar/utils.ts',
-    'src/alchemy-components/components/AvatarStack/AvatarStackWithHover.tsx',
-    'src/alchemy-components/components/AvatarStack/HoverSectionContent.tsx',
-    'src/alchemy-components/components/FileNode/FileNode.tsx',
     'src/alchemy-components/components/IncidentStagePill/IncidentStagePill.tsx',
     'src/alchemy-components/components/IncidentStagePill/constant.ts',
-    'src/alchemy-components/components/Modal/Modal.tsx',
     'src/alchemy-components/components/Timeline/types.ts',
 ];
 
