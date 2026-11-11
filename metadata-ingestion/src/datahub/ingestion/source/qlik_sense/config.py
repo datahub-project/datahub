@@ -141,6 +141,8 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     script_tables_found: int = 0
     script_tables_with_lineage: int = 0
     apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
+    # Apps Qlik Cloud has no lineage graph for, read as having no tables.
+    apps_without_lineage_graph: LossyList[str] = field(default_factory=LossyList)
     unresolved_data_connections: LossyList[str] = field(default_factory=LossyList)
     apps_read: int = 0
     apps_skipped_unchanged: int = 0
