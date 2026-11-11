@@ -23,6 +23,7 @@ import com.linkedin.dataset.DatasetUserUsageCounts;
 import com.linkedin.dataset.DatasetUserUsageCountsArray;
 import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.resources.restli.RestliUtils;
@@ -158,17 +159,12 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
             _authorizer, auth, true);
     return RestliUtils.toTask(opContext,
         () -> {
-
-          if (!TimeseriesAuthUtil.canViewAspect(
-                  opContext,
-                  resourceUrn,
-                  resourceUrn.getEntityType(),
-                  USAGE_STATS_ASPECT_NAME)) {
-            throw new RestLiServiceException(
-                HttpStatus.S_403_FORBIDDEN, "User is unauthorized to query usage.");
-          }
-
-          UsageQueryResult result = UsageServiceUtil.query(opContext, _timeseriesAspectService, resource, duration, startTime, endTime, maxBuckets, timeZone);
+          final String readResource =
+              TimeseriesAuthUtil.canViewAspect(
+                      opContext, resourceUrn, resourceUrn.getEntityType(), USAGE_STATS_ASPECT_NAME)
+                  ? resource
+                  : EntityUtils.toMissingUrn(resourceUrn).toString();
+          UsageQueryResult result = UsageServiceUtil.query(opContext, _timeseriesAspectService, readResource, duration, startTime, endTime, maxBuckets, timeZone);
           stripTopSqlQueriesIfRestricted(opContext, resourceUrn, result);
           return result;
         },
@@ -192,18 +188,15 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
                     ACTION_QUERY_RANGE, resourceUrn.getEntityType()).withUsageOperation(UsageOperation.METADATA_QUERY), _authorizer, auth, true);
 
 
-    if (!TimeseriesAuthUtil.canViewAspect(
-            opContext,
-            resourceUrn,
-            resourceUrn.getEntityType(),
-            USAGE_STATS_ASPECT_NAME)) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to query usage.");
-    }
+    final String readResource =
+        TimeseriesAuthUtil.canViewAspect(
+                opContext, resourceUrn, resourceUrn.getEntityType(), USAGE_STATS_ASPECT_NAME)
+            ? resource
+            : EntityUtils.toMissingUrn(resourceUrn).toString();
 
     return RestliUtils.toTask(opContext,
             () -> {
-              UsageQueryResult result = UsageServiceUtil.queryRange(opContext, _timeseriesAspectService, resource, duration, range, timeZone);
+              UsageQueryResult result = UsageServiceUtil.queryRange(opContext, _timeseriesAspectService, readResource, duration, range, timeZone);
               stripTopSqlQueriesIfRestricted(opContext, resourceUrn, result);
               return result;
             }, MetricRegistry.name(this.getClass(), "queryRange"));

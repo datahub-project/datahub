@@ -277,87 +277,156 @@ public class LineageSearchService {
         }
       }
 
-      long filterStart = System.nanoTime();
-      if (SearchUtils.convertSchemaFieldToDataset(
-          finalOpContext.getSearchContext().getSearchFlags())) {
-        // Copy so the cached graph result keeps its original schemaField URNs
-        lineageResult = copyEntityLineageResult(lineageResult);
-        lineageResult.setRelationships(convertSchemaFieldRelationships(lineageResult));
-      }
-
-      // Filter hopped result based on the set of entities to return and inputFilters before sending
-      // to search
-      List<LineageRelationship> lineageRelationships =
-          filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
-      log.debug("Lineage relationships found: {}", lineageRelationships);
-      cascade.recordPhase(PHASE_FILTER, System.nanoTime() - filterStart);
-      cascade.recordEntitiesProcessed(lineageRelationships.size());
-
-      Filter reducedFilters =
-          SearchUtils.removeCriteria(
-              inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER));
-
-      boolean forceLightningMode =
-          Optional.ofNullable(finalOpContext.getSearchContext().getLineageFlags())
-              .map(LineageFlags::isForceLightningMode)
-              .orElse(false);
-
-      if (canDoLightning(
-          lineageRelationships, finalInput, reducedFilters, sortCriteria, forceLightningMode)) {
-        cascade.tag(TAG_SEARCH_PATH, SEARCH_PATH_LIGHTNING);
-        long searchStart = System.nanoTime();
-        // use lightning approach to return lineage search results
-        List<LineageRelationship> countable =
-            dropSchemaFieldsMissingFromParent(finalOpContext, lineageRelationships);
-        LineageSearchResult lineageSearchResult =
-            getLightningSearchResult(
-                finalOpContext, countable, reducedFilters, from, size, new HashSet<>(entities));
-        cascade.recordPhase(PHASE_SEARCH, System.nanoTime() - searchStart);
-        if (!lineageSearchResult.getEntities().isEmpty()) {
-          log.debug(
-              "Lightning Lineage entity result: {}", lineageSearchResult.getEntities().get(0));
-        }
-        lineageSearchResult.setLineageSearchPath(LineageSearchPath.LIGHTNING);
-        if (lineageResult.hasPartial()) {
-          lineageSearchResult.setIsPartial(lineageResult.isPartial());
-        }
-        return lineageSearchResult;
-      } else if (forceLightningMode) {
-        // Falling through would answer from the entity index, which has nothing to return for an
-        // entity that does not exist -- so the caller would silently get a short result rather than
-        // what it asked for
-        throw new IllegalArgumentException(
-            unservableLightningMessage(finalInput, sortCriteria, reducedFilters));
-      } else {
-        cascade.tag(TAG_SEARCH_PATH, SEARCH_PATH_TORTOISE);
-        long searchStart = System.nanoTime();
-        LineageSearchResult lineageSearchResult =
-            getSearchResultInBatches(
-                finalOpContext,
-                lineageRelationships,
-                finalInput,
-                reducedFilters,
-                sortCriteria,
-                from,
-                size);
-        cascade.recordPhase(PHASE_SEARCH, System.nanoTime() - searchStart);
-        if (!lineageSearchResult.getEntities().isEmpty()) {
-          log.debug(
-              "Lineage entity results number -> {}; first -> {}",
-              lineageSearchResult.getNumEntities(),
-              lineageSearchResult.getEntities().get(0));
-        }
-        lineageSearchResult.setLineageSearchPath(LineageSearchPath.TORTOISE);
-        if (lineageResult.hasPartial()) {
-          lineageSearchResult.setIsPartial(lineageResult.isPartial());
-        }
-        return lineageSearchResult;
-      }
+      return searchLineageRelationships(
+          finalOpContext,
+          cascade,
+          lineageResult,
+          entities,
+          finalInput,
+          inputFilters,
+          sortCriteria,
+          from,
+          size);
     } catch (RuntimeException e) {
       recordFailure(cascade, e);
       throw e;
     } finally {
       cascade.close();
+    }
+  }
+
+  /**
+   * What {@link #searchAcrossLineage} answers for an entity with no lineage, without reading the
+   * graph. Callers use it to answer for a source urn the actor may not read exactly as for one that
+   * does not exist.
+   */
+  @Nonnull
+  public LineageSearchResult searchAcrossEmptyLineage(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nullable String input,
+      @Nullable Filter inputFilters,
+      List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size) {
+    final CascadeOperationContext cascade =
+        beginLineageOperation(opContext, "searchAcrossLineage", null, SEARCH_PATH_UNKNOWN);
+    try {
+      final String finalInput = input == null || input.isEmpty() ? "*" : input;
+      final OperationContext finalOpContext =
+          opContext.withSearchFlags(
+              flags -> applyDefaultSearchFlags(flags, finalInput, DEFAULT_SERVICE_SEARCH_FLAGS));
+      return searchLineageRelationships(
+          finalOpContext,
+          cascade,
+          emptyLineageResult(),
+          entities,
+          finalInput,
+          inputFilters,
+          sortCriteria,
+          from,
+          size);
+    } catch (RuntimeException e) {
+      recordFailure(cascade, e);
+      throw e;
+    } finally {
+      cascade.close();
+    }
+  }
+
+  private static EntityLineageResult emptyLineageResult() {
+    return new EntityLineageResult()
+        .setRelationships(new LineageRelationshipArray())
+        .setStart(0)
+        .setCount(0)
+        .setTotal(0)
+        .setPartial(false);
+  }
+
+  private LineageSearchResult searchLineageRelationships(
+      @Nonnull OperationContext finalOpContext,
+      @Nonnull CascadeOperationContext cascade,
+      @Nonnull EntityLineageResult lineageResult,
+      @Nonnull List<String> entities,
+      @Nonnull String finalInput,
+      @Nullable Filter inputFilters,
+      List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size) {
+    long filterStart = System.nanoTime();
+    if (SearchUtils.convertSchemaFieldToDataset(
+        finalOpContext.getSearchContext().getSearchFlags())) {
+      // Copy so the cached graph result keeps its original schemaField URNs
+      lineageResult = copyEntityLineageResult(lineageResult);
+      lineageResult.setRelationships(convertSchemaFieldRelationships(lineageResult));
+    }
+
+    // Filter hopped result based on the set of entities to return and inputFilters before sending
+    // to search
+    List<LineageRelationship> lineageRelationships =
+        filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
+    log.debug("Lineage relationships found: {}", lineageRelationships);
+    cascade.recordPhase(PHASE_FILTER, System.nanoTime() - filterStart);
+    cascade.recordEntitiesProcessed(lineageRelationships.size());
+
+    Filter reducedFilters =
+        SearchUtils.removeCriteria(
+            inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER));
+
+    boolean forceLightningMode =
+        Optional.ofNullable(finalOpContext.getSearchContext().getLineageFlags())
+            .map(LineageFlags::isForceLightningMode)
+            .orElse(false);
+
+    if (canDoLightning(
+        lineageRelationships, finalInput, reducedFilters, sortCriteria, forceLightningMode)) {
+      cascade.tag(TAG_SEARCH_PATH, SEARCH_PATH_LIGHTNING);
+      long searchStart = System.nanoTime();
+      // use lightning approach to return lineage search results
+      List<LineageRelationship> countable =
+          dropSchemaFieldsMissingFromParent(finalOpContext, lineageRelationships);
+      LineageSearchResult lineageSearchResult =
+          getLightningSearchResult(
+              finalOpContext, countable, reducedFilters, from, size, new HashSet<>(entities));
+      cascade.recordPhase(PHASE_SEARCH, System.nanoTime() - searchStart);
+      if (!lineageSearchResult.getEntities().isEmpty()) {
+        log.debug("Lightning Lineage entity result: {}", lineageSearchResult.getEntities().get(0));
+      }
+      lineageSearchResult.setLineageSearchPath(LineageSearchPath.LIGHTNING);
+      if (lineageResult.hasPartial()) {
+        lineageSearchResult.setIsPartial(lineageResult.isPartial());
+      }
+      return lineageSearchResult;
+    } else if (forceLightningMode) {
+      // Falling through would answer from the entity index, which has nothing to return for an
+      // entity that does not exist -- so the caller would silently get a short result rather than
+      // what it asked for
+      throw new IllegalArgumentException(
+          unservableLightningMessage(finalInput, sortCriteria, reducedFilters));
+    } else {
+      cascade.tag(TAG_SEARCH_PATH, SEARCH_PATH_TORTOISE);
+      long searchStart = System.nanoTime();
+      LineageSearchResult lineageSearchResult =
+          getSearchResultInBatches(
+              finalOpContext,
+              lineageRelationships,
+              finalInput,
+              reducedFilters,
+              sortCriteria,
+              from,
+              size);
+      cascade.recordPhase(PHASE_SEARCH, System.nanoTime() - searchStart);
+      if (!lineageSearchResult.getEntities().isEmpty()) {
+        log.debug(
+            "Lineage entity results number -> {}; first -> {}",
+            lineageSearchResult.getNumEntities(),
+            lineageSearchResult.getEntities().get(0));
+      }
+      lineageSearchResult.setLineageSearchPath(LineageSearchPath.TORTOISE);
+      if (lineageResult.hasPartial()) {
+        lineageSearchResult.setIsPartial(lineageResult.isPartial());
+      }
+      return lineageSearchResult;
     }
   }
 
@@ -1137,42 +1206,103 @@ public class LineageSearchService {
         }
       }
 
-      long filterStart = System.nanoTime();
-      lineageResult = copyEntityLineageResult(lineageResult);
-      lineageResult.setRelationships(convertSchemaFieldRelationships(lineageResult));
-
-      // Filter hopped result based on the set of entities to return and inputFilters before sending
-      // to search
-      List<LineageRelationship> lineageRelationships =
-          filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
-      cascade.recordPhase(PHASE_FILTER, System.nanoTime() - filterStart);
-      cascade.recordEntitiesProcessed(lineageRelationships.size());
-
-      Filter reducedFilters =
-          SearchUtils.removeCriteria(
-              inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER));
-      long searchStart = System.nanoTime();
-      LineageScrollResult scrollResult =
-          getScrollResultInBatches(
-              opContext,
-              lineageRelationships,
-              input != null ? input : "*",
-              reducedFilters,
-              sortCriteria,
-              scrollId,
-              keepAlive,
-              ConfigUtils.applyLimit(appConfig.getGraphService(), size));
-      cascade.recordPhase(PHASE_SEARCH, System.nanoTime() - searchStart);
-      if (lineageResult.hasPartial()) {
-        scrollResult.setIsPartial(lineageResult.isPartial());
-      }
-      return scrollResult;
+      return scrollLineageRelationships(
+          opContext,
+          cascade,
+          lineageResult,
+          entities,
+          input,
+          inputFilters,
+          sortCriteria,
+          scrollId,
+          keepAlive,
+          size);
     } catch (RuntimeException e) {
       recordFailure(cascade, e);
       throw e;
     } finally {
       cascade.close();
     }
+  }
+
+  /**
+   * What {@link #scrollAcrossLineage} answers for an entity with no lineage, without reading the
+   * graph. See {@link #searchAcrossEmptyLineage}.
+   */
+  @Nonnull
+  public LineageScrollResult scrollAcrossEmptyLineage(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nullable String input,
+      @Nullable Filter inputFilters,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nonnull String keepAlive,
+      @Nullable Integer size) {
+    final CascadeOperationContext cascade =
+        beginLineageOperation(opContext, "scrollAcrossLineage", null, SEARCH_PATH_TORTOISE);
+    try {
+      rejectUnsupportedScrollFlags(opContext.getSearchContext().getLineageFlags());
+      return scrollLineageRelationships(
+          opContext,
+          cascade,
+          emptyLineageResult(),
+          entities,
+          input,
+          inputFilters,
+          sortCriteria,
+          scrollId,
+          keepAlive,
+          size);
+    } catch (RuntimeException e) {
+      recordFailure(cascade, e);
+      throw e;
+    } finally {
+      cascade.close();
+    }
+  }
+
+  private LineageScrollResult scrollLineageRelationships(
+      @Nonnull OperationContext opContext,
+      @Nonnull CascadeOperationContext cascade,
+      @Nonnull EntityLineageResult lineageResult,
+      @Nonnull List<String> entities,
+      @Nullable String input,
+      @Nullable Filter inputFilters,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nonnull String keepAlive,
+      @Nullable Integer size) {
+    long filterStart = System.nanoTime();
+    lineageResult = copyEntityLineageResult(lineageResult);
+    lineageResult.setRelationships(convertSchemaFieldRelationships(lineageResult));
+
+    // Filter hopped result based on the set of entities to return and inputFilters before sending
+    // to search
+    List<LineageRelationship> lineageRelationships =
+        filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
+    cascade.recordPhase(PHASE_FILTER, System.nanoTime() - filterStart);
+    cascade.recordEntitiesProcessed(lineageRelationships.size());
+
+    Filter reducedFilters =
+        SearchUtils.removeCriteria(
+            inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER));
+    long searchStart = System.nanoTime();
+    LineageScrollResult scrollResult =
+        getScrollResultInBatches(
+            opContext,
+            lineageRelationships,
+            input != null ? input : "*",
+            reducedFilters,
+            sortCriteria,
+            scrollId,
+            keepAlive,
+            ConfigUtils.applyLimit(appConfig.getGraphService(), size));
+    cascade.recordPhase(PHASE_SEARCH, System.nanoTime() - searchStart);
+    if (lineageResult.hasPartial()) {
+      scrollResult.setIsPartial(lineageResult.isPartial());
+    }
+    return scrollResult;
   }
 
   // Search service can only take up to 50K term filter, so query search service in batches
@@ -1322,7 +1452,7 @@ public class LineageSearchService {
   private CascadeOperationContext beginLineageOperation(
       @Nonnull OperationContext opContext,
       @Nonnull String operationType,
-      @Nonnull Urn sourceUrn,
+      @Nullable Urn sourceUrn,
       @Nonnull String searchPath) {
     return CascadeOperationContext.begin(
             metricUtils, operationType, sourceUrn, -1, "datahub.lineage")

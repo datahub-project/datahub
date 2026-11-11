@@ -8,6 +8,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 
 import com.datahub.authentication.Actor;
@@ -375,6 +377,42 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
             MockMvcRequestBuilders.get(
                 "/openapi/v1/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID))
         .andExpect(status().isForbidden());
+  }
+
+  @Test
+  public void testGetFileDeniedAnswersLikeMissingFile() throws Exception {
+    authUtilMock
+        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), anyCollection()))
+        .thenReturn(false);
+    String deniedBody =
+        mockMvc
+            .perform(
+                MockMvcRequestBuilders.get(
+                    "/openapi/v1/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID))
+            .andExpect(status().isForbidden())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+    when(mockEntityService.getEntityV2(
+            any(OperationContext.class),
+            eq(Constants.DATAHUB_FILE_ENTITY_NAME),
+            any(Urn.class),
+            any(HashSet.class),
+            anyBoolean()))
+        .thenReturn(null);
+    String missingBody =
+        mockMvc
+            .perform(
+                MockMvcRequestBuilders.get(
+                    "/openapi/v1/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID))
+            .andExpect(status().isForbidden())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+    assertEquals(deniedBody, missingBody);
+    assertFalse(deniedBody.contains(TEST_ASSET_URN.toString()));
   }
 
   @Test

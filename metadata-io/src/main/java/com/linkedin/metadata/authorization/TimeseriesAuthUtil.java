@@ -13,6 +13,8 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.EntitySpec;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
@@ -38,6 +40,9 @@ import org.apache.commons.lang3.StringUtils;
 public final class TimeseriesAuthUtil {
 
   private static final String URN_FIELD = "urn";
+
+  /** An urn of an entity type no timeseries document is ever written for. */
+  private static final String UNREADABLE_URN_PLACEHOLDER = "urn:li:restricted:unreadable";
 
   private static final Map<Pair<String, String>, PoliciesConfig.Privilege> SENSITIVE_ASPECTS =
       Map.of(
@@ -168,6 +173,60 @@ public final class TimeseriesAuthUtil {
       return canReadAspects(opContext, extractUrnsFromFilter(filter), entityName, aspectName);
     }
     return AuthUtil.isAPIAuthorizedEntityType(opContext, TIMESERIES, READ, entityName);
+  }
+
+  /**
+   * Copy of a {@link #isFilterFullyUrnScoped fully URN-scoped} filter in which every urn the actor
+   * may not read is swapped for a value no timeseries document carries, so that an aggregation
+   * answers for it exactly as for an urn with no data. Callers keep the original filter for
+   * anything they echo back.
+   */
+  @Nonnull
+  public static Filter withUnreadableUrnsAsMissing(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull Filter filter) {
+    final Filter copy;
+    try {
+      copy = filter.copy();
+    } catch (CloneNotSupportedException e) {
+      throw new IllegalStateException("Failed to copy timeseries filter", e);
+    }
+    if (opContext.isSystemAuth()) {
+      return copy;
+    }
+    final Function<String, String> asMissingIfUnreadable =
+        value ->
+            StringUtils.isBlank(value)
+                    || canReadAspect(opContext, UrnUtils.getUrn(value), entityName, aspectName)
+                ? value
+                : UNREADABLE_URN_PLACEHOLDER;
+    if (copy.hasOr()) {
+      copy.getOr().forEach(andGroup -> replaceUrnValues(andGroup.getAnd(), asMissingIfUnreadable));
+    } else if (copy.hasCriteria()) {
+      replaceUrnValues(copy.getCriteria(), asMissingIfUnreadable);
+    }
+    return copy;
+  }
+
+  private static void replaceUrnValues(
+      @Nullable Iterable<Criterion> criteria, @Nonnull Function<String, String> replacement) {
+    if (criteria == null) {
+      return;
+    }
+    for (Criterion criterion : criteria) {
+      if (isPositiveUrnEqual(criterion) && criterion.getValues() != null) {
+        criterion.setValues(
+            new StringArray(criterion.getValues().stream().map(replacement).toList()));
+      }
+    }
+  }
+
+  private static boolean isPositiveUrnEqual(@Nonnull Criterion criterion) {
+    return !criterion.isNegated()
+        && URN_FIELD.equals(criterion.getField())
+        && (!criterion.hasCondition() || criterion.getCondition() == Condition.EQUAL);
   }
 
   /**

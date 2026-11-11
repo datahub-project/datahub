@@ -5,8 +5,10 @@ import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -106,6 +108,53 @@ public class EntityAuthorizationUtilsTest {
   public void tearDown() {
     documentAuthMock.close();
     authUtilMock.close();
+  }
+
+  @Test
+  public void testFilterAPIAuthorizedEntityUrnsKeepsAuthorizedSubsetInOrder() {
+    documentAuthMock
+        .when(() -> DocumentAuthorizationUtils.isDocumentEntity(ALLOWED_DATASET_URN))
+        .thenReturn(false);
+    authUtilMock
+        .when(
+            () -> AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, List.of(ALLOWED_DATASET_URN)))
+        .thenReturn(true);
+    authUtilMock
+        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, List.of(DATASET_URN)))
+        .thenReturn(false);
+
+    assertEquals(
+        EntityAuthorizationUtils.filterAPIAuthorizedEntityUrns(
+            opContext, READ, List.of(DATASET_URN, ALLOWED_DATASET_URN)),
+        List.of(ALLOWED_DATASET_URN));
+  }
+
+  @Test
+  public void testFilterAPIAuthorizedEntityUrnsChecksFullyAuthorizedBatchOnce() {
+    List<Urn> urns = List.of(DATASET_URN, ALLOWED_DATASET_URN);
+    authUtilMock
+        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, urns))
+        .thenReturn(true);
+
+    assertEquals(
+        EntityAuthorizationUtils.filterAPIAuthorizedEntityUrns(opContext, READ, urns), urns);
+    authUtilMock.verify(
+        () -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), anyCollection()), times(1));
+  }
+
+  @Test
+  public void testFilterAPIAuthorizedUrnsChecksEachUrnForNonEntityGroups() {
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedUrns(
+                    opContext, ApiGroup.RELATIONSHIP, READ, List.of(ALLOWED_DATASET_URN)))
+        .thenReturn(true);
+
+    assertEquals(
+        EntityAuthorizationUtils.filterAPIAuthorizedUrns(
+            opContext, ApiGroup.RELATIONSHIP, READ, List.of(DATASET_URN, ALLOWED_DATASET_URN)),
+        List.of(ALLOWED_DATASET_URN));
   }
 
   @Test

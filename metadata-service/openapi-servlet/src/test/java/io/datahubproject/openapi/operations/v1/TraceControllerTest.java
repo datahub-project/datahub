@@ -3,6 +3,7 @@ package io.datahubproject.openapi.operations.v1;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.testng.Assert.assertNotNull;
@@ -16,6 +17,9 @@ import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.authorization.ApiOperation;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.system_info.SystemInfoService;
 import com.linkedin.metadata.systemmetadata.TraceService;
@@ -32,6 +36,7 @@ import io.datahubproject.openapi.v1.models.TraceWriteStatus;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
+import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
@@ -223,6 +228,63 @@ public class TraceControllerTest extends AbstractTestNGSpringContextTests {
             MockMvcResultMatchers.jsonPath(
                     "$['urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,PROD)'].datasetProfile.searchStorage.writeStatus")
                 .value("TRACE_NOT_IMPLEMENTED"));
+  }
+
+  @Test
+  public void testGetTraceTracesUnreadableUrnAsMissingOne() throws Exception {
+    Urn readableUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,PROD)");
+    Urn hiddenUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,/hidden,PROD)");
+    Urn missingUrn = EntityUtils.toMissingUrn(hiddenUrn);
+    TraceStatus noWrite =
+        TraceStatus.builder()
+            .success(false)
+            .primaryStorage(TraceStorageStatus.fail(TraceWriteStatus.ERROR, "Missing"))
+            .searchStorage(TraceStorageStatus.fail(TraceWriteStatus.ERROR, "Missing"))
+            .build();
+    when(mockTraceService.trace(
+            any(OperationContext.class),
+            eq("trace456"),
+            eq(
+                Map.of(
+                    readableUrn, List.of("datasetProperties"),
+                    missingUrn, List.of("datasetProperties"))),
+            eq(true),
+            eq(false),
+            eq(false)))
+        .thenReturn(
+            Map.of(
+                readableUrn, Map.of("datasetProperties", OK),
+                missingUrn, Map.of("datasetProperties", noWrite)));
+    TraceRequestV1 requestBody = new TraceRequestV1();
+    requestBody.put(readableUrn, List.of("datasetProperties"));
+    requestBody.put(hiddenUrn, List.of("datasetProperties"));
+
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        mockStatic(EntityAuthorizationUtils.class)) {
+      authUtils
+          .when(
+              () ->
+                  EntityAuthorizationUtils.filterAPIAuthorizedEntityUrns(
+                      any(OperationContext.class), eq(ApiOperation.READ), any()))
+          .thenReturn(List.of(readableUrn));
+
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.post("/openapi/v1/trace/write/test-trace456-id")
+                  .content(new ObjectMapper().writeValueAsString(requestBody))
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().isOk())
+          .andExpect(
+              MockMvcResultMatchers.jsonPath(
+                      "$['urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,PROD)'].datasetProperties.success")
+                  .value(true))
+          .andExpect(
+              MockMvcResultMatchers.jsonPath(
+                      "$['urn:li:dataset:(urn:li:dataPlatform:hdfs,/hidden,PROD)'].datasetProperties.success")
+                  .value(false));
+    }
   }
 
   @SpringBootConfiguration

@@ -11,8 +11,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.codahale.metrics.MetricRegistry;
@@ -50,7 +50,6 @@ import com.linkedin.query.QuerySubjects;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.dto.RollbackRunResultDto;
-import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.util.MappingUtil;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.servlet.http.HttpServletRequest;
@@ -180,19 +179,24 @@ public class EntitiesControllerTest {
     }
   }
 
-  @Test(expectedExceptions = UnauthorizedException.class)
-  public void testGetEntitiesUnauthorized() throws Exception {
-    // Given
-    String[] urns = {"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"};
+  @Test
+  public void testGetEntitiesUnauthorizedAnswersWithKeyOnlyEntity() throws Exception {
+    Urn hiddenUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,hidden,PROD)");
+    String[] urns = {hiddenUrn.toString()};
 
     try (MockedStatic<AuthenticationContext> authContext =
             Mockito.mockStatic(AuthenticationContext.class);
         MockedStatic<OperationContext> opContext = Mockito.mockStatic(OperationContext.class);
-        MockedStatic<AuthUtil> authUtil = Mockito.mockStatic(AuthUtil.class)) {
+        MockedStatic<AuthUtil> authUtil = Mockito.mockStatic(AuthUtil.class);
+        MockedStatic<MappingUtil> mappingUtil = Mockito.mockStatic(MappingUtil.class)) {
 
       authContext.when(AuthenticationContext::getAuthentication).thenReturn(authentication);
 
       OperationContext mockOpContext = mock(OperationContext.class);
+      when(mockOpContext.getEntityRegistry())
+          .thenReturn(systemOperationContext.getEntityRegistry());
+      when(mockOpContext.getEntityAspectNames(anyString()))
+          .thenReturn(Set.of(Constants.STATUS_ASPECT_NAME));
       opContext
           .when(() -> OperationContext.asSession(any(), any(), any(), any(), anyBoolean()))
           .thenReturn(mockOpContext);
@@ -200,9 +204,30 @@ public class EntitiesControllerTest {
       authUtil
           .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), any()))
           .thenReturn(false);
+      java.util.concurrent.atomic.AtomicReference<Map<Urn, EntityResponse>> captured =
+          new java.util.concurrent.atomic.AtomicReference<>();
+      mappingUtil
+          .when(() -> MappingUtil.mapServiceResponse(any(), any()))
+          .thenAnswer(
+              invocation -> {
+                captured.set(invocation.getArgument(0));
+                return new HashMap<>();
+              });
 
-      // When/Then
-      controller.getEntities(request, urns, null);
+      ResponseEntity<?> response = controller.getEntities(request, urns, null);
+
+      assertEquals(response.getStatusCode(), HttpStatus.OK);
+      assertEquals(
+          captured.get().get(hiddenUrn).getAspects().keySet(),
+          Set.of(Constants.DATASET_KEY_ASPECT_NAME));
+      assertFalse(
+          captured
+              .get()
+              .get(hiddenUrn)
+              .getAspects()
+              .get(Constants.DATASET_KEY_ASPECT_NAME)
+              .hasSystemMetadata());
+      verify(entityService, never()).getEntitiesV2(any(), anyString(), anySet(), anySet());
     }
   }
 
@@ -263,9 +288,22 @@ public class EntitiesControllerTest {
           .when(() -> MappingUtil.mapServiceResponse(any(), any()))
           .thenReturn(new HashMap<>());
 
-      assertThrows(
-          UnauthorizedException.class,
-          () -> queryController.getEntities(request, urns, aspectNames));
+      java.util.concurrent.atomic.AtomicReference<Map<Urn, EntityResponse>> captured =
+          new java.util.concurrent.atomic.AtomicReference<>();
+      mappingUtil
+          .when(() -> MappingUtil.mapServiceResponse(any(), any()))
+          .thenAnswer(
+              invocation -> {
+                captured.set(invocation.getArgument(0));
+                return new HashMap<>();
+              });
+
+      ResponseEntity<?> response = queryController.getEntities(request, urns, aspectNames);
+
+      assertEquals(response.getStatusCode(), HttpStatus.OK);
+      assertEquals(
+          captured.get().get(QUERY_URN).getAspects().keySet(),
+          Set.of(Constants.QUERY_KEY_ASPECT_NAME));
       verify(entityService, never()).getEntitiesV2(any(), anyString(), anySet(), anySet());
     }
   }

@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
 
 import com.datahub.authentication.Actor;
@@ -52,7 +53,12 @@ import java.util.List;
 import java.util.Optional;
 
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.metadata.authorization.ApiOperation;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
+import com.linkedin.metadata.entity.EntityUtils;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
 import io.datahubproject.metadata.context.OperationContext;
@@ -60,6 +66,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import mock.MockEntityRegistry;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.AfterMethod;
+import org.mockito.MockedStatic;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -229,6 +236,77 @@ public class AspectResourceTest {
 
     assertEquals(stamp.getActor().toString(), "urn:li:corpuser:bob");
     assertNull(stamp.getImpersonator(GetMode.NULL));
+  }
+
+  @Test
+  public void testGetAnswersReadDeniedUrnLikeMissingAspect() throws URISyntaxException {
+    reset(aspectDao);
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+    Urn hiddenUrn = new DatasetUrn(new DataPlatformUrn("platform"), "hidden", FabricType.PROD);
+
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        mockStatic(EntityAuthorizationUtils.class, CALLS_REAL_METHODS)) {
+      authUtils
+          .when(
+              () ->
+                  EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+                      any(OperationContext.class), eq(ApiOperation.READ), eq(List.of(hiddenUrn))))
+          .thenReturn(false);
+
+      RestLiServiceException denied =
+          expectThrows(
+              RestLiServiceException.class,
+              () -> aspectResource.get(hiddenUrn.toString(), STATUS_ASPECT_NAME, 0L));
+
+      assertEquals(denied.getStatus(), HttpStatus.S_404_NOT_FOUND);
+      verifyNoInteractions(aspectDao);
+    }
+  }
+
+  @Test
+  public void testGetTimeseriesAspectValuesRunsReadDeniedUrnAsMissingOne() throws URISyntaxException {
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+    Urn hiddenUrn = new DatasetUrn(new DataPlatformUrn("platform"), "hidden", FabricType.PROD);
+    TimeseriesAspectService timeseriesAspectService = mock(TimeseriesAspectService.class);
+    aspectResource.setTimeseriesAspectService(timeseriesAspectService);
+
+    try (MockedStatic<TimeseriesAuthUtil> authUtils =
+        mockStatic(TimeseriesAuthUtil.class, CALLS_REAL_METHODS)) {
+      authUtils
+          .when(
+              () ->
+                  TimeseriesAuthUtil.canReadAspect(
+                      any(OperationContext.class), eq(hiddenUrn), any(), any()))
+          .thenReturn(false);
+
+      aspectResource.getTimeseriesAspectValues(
+          hiddenUrn.toString(),
+          DATASET_ENTITY_NAME,
+          DATASET_PROFILE_ASPECT_NAME,
+          null,
+          null,
+          10,
+          false,
+          null,
+          null);
+    }
+
+    verify(timeseriesAspectService)
+        .getAspectValues(
+            any(OperationContext.class),
+            eq(EntityUtils.toMissingUrn(hiddenUrn)),
+            eq(DATASET_ENTITY_NAME),
+            eq(DATASET_PROFILE_ASPECT_NAME),
+            any(),
+            any(),
+            eq(10),
+            any(),
+            any());
+    verifyNoMoreInteractions(timeseriesAspectService);
   }
 
   @Test

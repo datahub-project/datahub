@@ -1,6 +1,5 @@
 package io.datahubproject.openapi.v2.controller;
 
-import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.authentication.Actor;
@@ -20,6 +19,7 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -40,7 +40,6 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.controller.GenericEntitiesController;
 import io.datahubproject.openapi.exception.InvalidUrnException;
-import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.util.RequestInputUtil;
 import io.datahubproject.openapi.v2.models.BatchGetUrnRequestV2;
 import io.datahubproject.openapi.v2.models.BatchGetUrnResponseV2;
@@ -118,17 +117,12 @@ public class EntityController
             authentication,
             true);
 
-    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, urns)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
-    }
-
     return ResponseEntity.of(
         Optional.of(
             BatchGetUrnResponseV2.<GenericAspectV2, GenericEntityV2>builder()
                 .entities(
                     new ArrayList<>(
-                        buildEntityList(
+                        buildReadableEntityList(
                             opContext,
                             urns,
                             new HashSet<>(request.getAspectNames()),
@@ -257,10 +251,34 @@ public class EntityController
       boolean expandEmpty)
       throws URISyntaxException {
 
-    Map<Urn, List<EnvelopedAspect>> aspects =
+    return toGenericEntities(
+        opContext,
+        urnAspectVersions,
         entityService.getEnvelopedVersionedAspects(
-            opContext, aspectSpecsToAspectNames(urnAspectVersions, false), true);
+            opContext, aspectSpecsToAspectNames(urnAspectVersions, false), true),
+        withSystemMetadata);
+  }
 
+  @Override
+  protected List<GenericEntityV2> buildMissingEntityVersionedAspectList(
+      @Nonnull OperationContext opContext,
+      Collection<Urn> requestedUrns,
+      LinkedHashMap<Urn, Map<AspectSpec, Long>> urnAspectVersions,
+      boolean withSystemMetadata,
+      boolean expandEmpty) {
+    return toGenericEntities(
+        opContext,
+        urnAspectVersions,
+        EntityUtils.toMissingEnvelopedVersionedAspects(
+            entityRegistry, aspectSpecsToAspectNames(urnAspectVersions, false), true),
+        withSystemMetadata);
+  }
+
+  private List<GenericEntityV2> toGenericEntities(
+      @Nonnull OperationContext opContext,
+      @Nonnull LinkedHashMap<Urn, Map<AspectSpec, Long>> urnAspectVersions,
+      @Nonnull Map<Urn, List<EnvelopedAspect>> aspects,
+      boolean withSystemMetadata) {
     return urnAspectVersions.keySet().stream()
         .map(
             u -> {

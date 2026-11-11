@@ -13,6 +13,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -34,8 +35,10 @@ import io.datahubproject.openapi.v2.models.GenericRelationship;
 import io.datahubproject.openapi.v3.models.LineageRelationship;
 import io.datahubproject.openapi.v3.models.ScrollRelationshipsRequestBody;
 import jakarta.servlet.http.HttpServletRequest;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,6 +46,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
@@ -174,6 +178,14 @@ public final class ScrollUtils {
             sliceMax);
     checkAuthorized(opContext);
 
+    // An empty anchor list means every edge, so a request whose anchors are all unreadable must
+    // not reach the scroll.
+    final List<String> anchorUrns = readableAnchorUrns(opContext, urns);
+    if (urns != null && !urns.isEmpty() && anchorUrns.isEmpty()) {
+      return ResponseEntity.ok(
+          GenericScrollResult.<LineageRelationship>builder().results(List.of()).build());
+    }
+
     LineageRegistry lineageRegistry = graphService.getLineageRegistry();
 
     GraphFilters graphFilters =
@@ -184,7 +196,7 @@ public final class ScrollUtils {
             null,
             toRelationshipTypesSet(relationshipTypes),
             QueryUtils.newRelationshipFilter(
-                buildUrnEndpointFilter(urns), RelationshipDirection.UNDIRECTED));
+                buildUrnEndpointFilter(anchorUrns), RelationshipDirection.UNDIRECTED));
     graphFilters.setAllowedEdgeTriplets(
         GraphFilters.forLineage(lineageRegistry).getAllowedEdgeTriplets());
 
@@ -198,7 +210,7 @@ public final class ScrollUtils {
         cachedRestrictFunction(opContext, restrictedService, restrictCache);
     List<LineageRelationship> lineage =
         toLineageRelationships(result.getEntities(), lineageRegistry).stream()
-            .filter(edge -> keepByLineageDirection(edge, urns, direction))
+            .filter(edge -> keepByLineageDirection(edge, anchorUrns, direction))
             .map(edge -> restrictUnauthorizedLineageEndpoints(cachedRestrict, edge))
             .collect(Collectors.toList());
 
@@ -236,6 +248,33 @@ public final class ScrollUtils {
                             ? new SliceOptions().setId(sliceId).setMax(sliceMax)
                             : null,
                         SetMode.IGNORE_NULL));
+  }
+
+  /**
+   * Drops anchor urns the caller cannot read, so that edges of an unreadable anchor are left out
+   * exactly as for an anchor that does not exist. Unparseable anchors match no edge and are kept.
+   */
+  @Nullable
+  private static List<String> readableAnchorUrns(
+      @Nonnull OperationContext opContext, @Nullable List<String> urns) {
+    if (urns == null || urns.isEmpty()) {
+      return urns;
+    }
+    final Map<String, Urn> parsedUrns = new HashMap<>();
+    for (String urn : urns) {
+      try {
+        parsedUrns.put(urn, Urn.createFromString(urn));
+      } catch (URISyntaxException e) {
+        // Left out of parsedUrns.
+      }
+    }
+    final Set<Urn> readableUrns =
+        new HashSet<>(
+            EntityAuthorizationUtils.filterAPIAuthorizedUrns(
+                opContext, RELATIONSHIP, READ, parsedUrns.values()));
+    return urns.stream()
+        .filter(urn -> !parsedUrns.containsKey(urn) || readableUrns.contains(parsedUrns.get(urn)))
+        .toList();
   }
 
   private static void checkAuthorized(OperationContext opContext) {

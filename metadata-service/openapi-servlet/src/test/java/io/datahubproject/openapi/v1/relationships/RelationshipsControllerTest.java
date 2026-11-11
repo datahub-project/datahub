@@ -16,7 +16,6 @@ import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.openapi.exception.UnauthorizedException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.*;
 import org.mockito.InjectMocks;
@@ -141,8 +140,8 @@ public class RelationshipsControllerTest {
     assertEquals(response.getStatusCode(), HttpStatus.OK);
   }
 
-  @Test(expectedExceptions = UnauthorizedException.class)
-  public void testGetRelationshipsUnauthorized() {
+  @Test
+  public void testGetRelationshipsUnauthorizedAnswersAsMissing() {
     // Arrange
     String urn = "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)";
     String[] relationshipTypes = {"DownstreamOf"};
@@ -159,9 +158,14 @@ public class RelationshipsControllerTest {
                     anyCollection()))
         .thenReturn(false);
 
-    // Act
-    relationshipsController.getRelationships(
-        httpServletRequest, urn, relationshipTypes, direction, 0, 10);
+    ResponseEntity<RelatedEntitiesResult> response =
+        relationshipsController.getRelationships(
+            httpServletRequest, urn, relationshipTypes, direction, 0, 10);
+
+    assertEquals(response.getStatusCode(), HttpStatus.OK);
+    assertEquals(response.getBody().getTotal(), 0);
+    assertTrue(response.getBody().getEntities().isEmpty());
+    verifyNoInteractions(graphService);
   }
 
   @Test

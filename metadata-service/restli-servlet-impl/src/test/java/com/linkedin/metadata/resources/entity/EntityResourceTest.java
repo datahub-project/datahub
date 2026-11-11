@@ -5,6 +5,7 @@ import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -31,6 +32,7 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.FilterExistingUrnsRequest;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
@@ -67,6 +69,7 @@ import java.util.Map;
 import org.testng.annotations.DataProvider;
 import java.lang.reflect.Field;
 import java.util.Collections;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executors;
@@ -274,6 +277,118 @@ public class EntityResourceTest {
     assertEquals(result.length, 1);
     verify(entityService, times(1))
         .exists(any(OperationContext.class), eq(Set.of(existingUrn)), eq(false));
+  }
+
+  @Test
+  public void testExistsReturnsFalseWhenDenied() throws Exception {
+    Urn hiddenUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,hidden,PROD)");
+
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      authUtils
+          .when(
+              () ->
+                  EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+                      any(OperationContext.class), eq(ApiOperation.EXISTS), argThat((Collection<Urn> urns) -> urns.contains(hiddenUrn))))
+          .thenReturn(false);
+
+      assertFalse(awaitTask(entityResource.exists(hiddenUrn.toString(), null)));
+    }
+    verify(entityService, never()).exists(any(OperationContext.class), any(Urn.class), anyBoolean());
+  }
+
+  @Test
+  public void testFilterExistingUrnsDropsDeniedUrns() throws Exception {
+    Urn visibleUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,visible,PROD)");
+    Urn hiddenUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,hidden,PROD)");
+    when(entityService.exists(any(OperationContext.class), eq(Set.of(visibleUrn)), eq(true)))
+        .thenReturn(Set.of(visibleUrn));
+
+    FilterExistingUrnsRequest request = new FilterExistingUrnsRequest();
+    request.setUrns(new StringArray(List.of(visibleUrn.toString(), hiddenUrn.toString())));
+
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      authUtils
+          .when(
+              () ->
+                  EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+                      any(OperationContext.class), eq(ApiOperation.EXISTS), argThat((Collection<Urn> urns) -> urns.contains(hiddenUrn))))
+          .thenReturn(false);
+
+      String[] result = awaitTask(entityResource.filterExistingUrns(request));
+
+      assertEquals(result, new String[] {visibleUrn.toString()});
+    }
+    verify(entityService, times(1))
+        .exists(any(OperationContext.class), eq(Set.of(visibleUrn)), eq(true));
+  }
+
+  @Test
+  public void testGetAnswersReadDeniedUrnWithKeyOnlySnapshot() throws Exception {
+    Urn hiddenUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,hidden,PROD)");
+
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      denyRead(authUtils, hiddenUrn);
+
+      Entity entity = new Entity(awaitTask(entityResource.get(hiddenUrn.toString(), null)).data());
+
+      DatasetSnapshot snapshot = entity.getValue().getDatasetSnapshot();
+      assertEquals(snapshot.getUrn().toString(), hiddenUrn.toString());
+      assertEquals(snapshot.getAspects().size(), 1);
+      assertTrue(snapshot.getAspects().get(0).isDatasetKey());
+    }
+    verify(entityService, never()).getEntity(any(OperationContext.class), any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testBatchGetAnswersReadDeniedUrnsWithKeyOnlySnapshots() throws Exception {
+    Urn visibleUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,visible,PROD)");
+    Urn hiddenUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,hidden,PROD)");
+    when(entityService.getEntities(any(OperationContext.class), eq(Set.of(visibleUrn)), any(), eq(true)))
+        .thenReturn(Map.of(visibleUrn, new Entity(new DataMap())));
+
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      denyRead(authUtils, hiddenUrn);
+
+      Map<String, AnyRecord> result =
+          awaitTask(
+              entityResource.batchGet(Set.of(visibleUrn.toString(), hiddenUrn.toString()), null));
+
+      assertEquals(result.keySet(), Set.of(visibleUrn.toString(), hiddenUrn.toString()));
+      DatasetSnapshot hiddenSnapshot =
+          new Entity(result.get(hiddenUrn.toString()).data()).getValue().getDatasetSnapshot();
+      assertEquals(hiddenSnapshot.getAspects().size(), 1);
+      assertTrue(hiddenSnapshot.getAspects().get(0).isDatasetKey());
+    }
+    verify(entityService, times(1))
+        .getEntities(any(OperationContext.class), eq(Set.of(visibleUrn)), any(), eq(true));
+  }
+
+  @Test
+  public void testGetBrowsePathsAnswersReadDeniedUrnWithNoPaths() throws Exception {
+    Urn hiddenUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,hidden,PROD)");
+    EntitySearchService entitySearchService = mock(EntitySearchService.class);
+    setEntitySearchService(entityResource, entitySearchService);
+
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      denyRead(authUtils, hiddenUrn);
+
+      assertTrue(awaitTask(entityResource.getBrowsePaths(hiddenUrn)).isEmpty());
+    }
+    verify(entitySearchService, never()).getBrowsePaths(any(), any(), any());
+  }
+
+  private static void denyRead(MockedStatic<EntityAuthorizationUtils> authUtils, Urn urn) {
+    authUtils
+        .when(
+            () ->
+                EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+                    any(OperationContext.class), eq(ApiOperation.READ), argThat((Collection<Urn> urns) -> urns.contains(urn))))
+        .thenReturn(false);
   }
 
   @Test

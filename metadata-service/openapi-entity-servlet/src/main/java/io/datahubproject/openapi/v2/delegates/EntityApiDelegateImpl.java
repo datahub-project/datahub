@@ -210,8 +210,7 @@ public class EntityApiDelegateImpl<I, O, S> {
 
       if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
           opContext, EXISTS, List.of(entityUrn))) {
-        throw new UnauthorizedException(
-            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
       }
 
       if (_entityService.exists(opContext, entityUrn, true)) {
@@ -276,8 +275,7 @@ public class EntityApiDelegateImpl<I, O, S> {
 
       if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
           opContext, EXISTS, List.of(entityUrn))) {
-        throw new UnauthorizedException(
-            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
       }
 
       if (_entityService.exists(opContext, entityUrn, aspect, true)) {

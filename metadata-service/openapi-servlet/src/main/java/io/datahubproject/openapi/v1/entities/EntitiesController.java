@@ -16,6 +16,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -36,6 +37,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLDecoder;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -143,10 +145,6 @@ public class EntitiesController {
             authentication,
             true);
 
-    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, entityUrns)) {
-      throw new UnauthorizedException(actorUrnStr + " is unauthorized to get entities.");
-    }
-
     if (entityUrns.size() <= 0) {
       return ResponseEntity.ok(UrnResponseMap.builder().responses(Collections.emptyMap()).build());
     }
@@ -156,10 +154,22 @@ public class EntitiesController {
         aspectNames == null
             ? opContext.getEntityAspectNames(entityName)
             : new HashSet<>(Arrays.asList(aspectNames));
+    final Set<Urn> readableUrns =
+        new HashSet<>(
+            EntityAuthorizationUtils.filterAPIAuthorizedEntityUrns(opContext, READ, entityUrns));
     Throwable exceptionally = null;
     try {
-      Map<Urn, EntityResponse> serviceResponse =
-          _entityService.getEntitiesV2(opContext, entityName, entityUrns, projectedAspects);
+      final Map<Urn, EntityResponse> serviceResponse =
+          new HashMap<>(
+              EntityUtils.toMissingEntityResponses(
+                  opContext.getEntityRegistry(),
+                  entityUrns.stream().filter(urn -> !readableUrns.contains(urn)).toList(),
+                  projectedAspects,
+                  true));
+      if (!readableUrns.isEmpty()) {
+        serviceResponse.putAll(
+            _entityService.getEntitiesV2(opContext, entityName, readableUrns, projectedAspects));
+      }
       EntityAuthorizationUtils.completelyRedactUnauthorizedQuerySqlAspects(
           opContext, serviceResponse);
       return ResponseEntity.ok(

@@ -5,7 +5,6 @@ import static com.datahub.authorization.AuthUtil.isAPIAuthorizedUrns;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
-import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedEntityUrns;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
@@ -21,10 +20,9 @@ import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.parseq.Task;
-import com.linkedin.restli.common.HttpStatus;
-import com.linkedin.restli.server.RestLiServiceException;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
@@ -36,6 +34,7 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -101,14 +100,8 @@ public class EntityVersionedV2Resource
               systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "authorizerChain", urns.stream()
                       .map(Urn::getEntityType).collect(Collectors.toList())).withUsageOperation(UsageOperation.METADATA_READ), _authorizer, auth, true);
 
-    if (!isAPIAuthorizedEntityUrns(
-            opContext,
-            READ,
-            urns)) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN,
-          "User is unauthorized to get entities " + versionedUrnStrs);
-    }
+    final Set<Urn> readableUrns =
+        new HashSet<>(EntityAuthorizationUtils.filterAPIAuthorizedEntityUrns(opContext, READ, urns));
 
 
       log.debug("BATCH GET VERSIONED V2 {}", versionedUrnStrs);
@@ -117,26 +110,46 @@ public class EntityVersionedV2Resource
     }
     return RestliUtils.toTask(opContext,
         () -> {
+          if (urns.size() < versionedUrnStrs.size()) {
+            throw new IllegalArgumentException(
+                "Each urn may be requested at only one version: " + versionedUrnStrs);
+          }
           final Set<String> projectedAspects =
               aspectNames == null
                   ? opContext.getEntityAspectNames(entityType)
                   : new HashSet<>(Arrays.asList(aspectNames));
           try {
-            Map<Urn, EntityResponse> response =
-                _entityService.getEntitiesVersionedV2(opContext,
-                    versionedUrnStrs.stream()
-                        .map(
-                            versionedUrnTyperef -> {
-                              VersionedUrn versionedUrn =
-                                  new VersionedUrn()
-                                      .setUrn(UrnUtils.getUrn(versionedUrnTyperef.getUrn()));
-                              if (versionedUrnTyperef.getVersionStamp() != null) {
-                                versionedUrn.setVersionStamp(versionedUrnTyperef.getVersionStamp());
-                              }
-                              return versionedUrn;
-                            })
-                        .collect(Collectors.toSet()),
-                    projectedAspects);
+            final Set<VersionedUrn> versionedUrns =
+                versionedUrnStrs.stream()
+                    .map(
+                        versionedUrnTyperef -> {
+                          VersionedUrn versionedUrn =
+                              new VersionedUrn()
+                                  .setUrn(UrnUtils.getUrn(versionedUrnTyperef.getUrn()));
+                          if (versionedUrnTyperef.getVersionStamp() != null) {
+                            versionedUrn.setVersionStamp(versionedUrnTyperef.getVersionStamp());
+                          }
+                          return versionedUrn;
+                        })
+                    .collect(Collectors.toSet());
+            final Map<Urn, EntityResponse> response =
+                new HashMap<>(
+                    EntityUtils.toMissingVersionedEntityResponses(
+                        opContext.getEntityRegistry(),
+                        versionedUrns.stream()
+                            .filter(versionedUrn -> !readableUrns.contains(versionedUrn.getUrn()))
+                            .toList(),
+                        projectedAspects,
+                        true));
+            final Set<VersionedUrn> readableVersionedUrns =
+                versionedUrns.stream()
+                    .filter(versionedUrn -> readableUrns.contains(versionedUrn.getUrn()))
+                    .collect(Collectors.toSet());
+            if (!readableVersionedUrns.isEmpty()) {
+              response.putAll(
+                  _entityService.getEntitiesVersionedV2(
+                      opContext, readableVersionedUrns, projectedAspects));
+            }
             // This endpoint has no per-field mapper the way GraphQL has, so SQL-bearing aspects
             // the actor lacks VIEW_ENTITY_QUERIES for are redacted from the response here, same
             // as EntityV2Resource/EntitiesController do for the non-versioned equivalents.

@@ -4,6 +4,7 @@ import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.testng.Assert.assertEquals;
 
@@ -13,6 +14,8 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.identity.CorpUserCredentials;
 import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.metadata.authorization.ApiOperation;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.parseq.Engine;
@@ -58,6 +61,7 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.lang.reflect.Method;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -219,6 +223,63 @@ public class EntityV2ResourceTest {
     if (parseqEngine != null) {
       parseqEngine.shutdown();
     }
+  }
+
+  @Test
+  public void testGetAnswersReadDeniedUrnLikeMissingUrn() throws Exception {
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      denyRead(authUtils, DATASET_URN);
+
+      EntityResponse withKey = awaitTask(entityV2Resource.get(DATASET_URN.toString(), null, null));
+      EntityResponse withoutKey =
+          awaitTask(entityV2Resource.get(DATASET_URN.toString(), null, false));
+
+      assertEquals(withKey.getAspects().keySet(), Set.of(Constants.DATASET_KEY_ASPECT_NAME));
+      assertFalse(
+          withKey.getAspects().get(Constants.DATASET_KEY_ASPECT_NAME).hasSystemMetadata());
+      assertTrue(withoutKey.getAspects().isEmpty());
+    }
+    verify(entityService, never()).getEntityV2(any(), any(), any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testBatchGetAnswersReadDeniedUrnsLikeMissingUrns() throws Exception {
+    Urn visibleUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,visible,PROD)");
+    EntityResponse visibleResponse =
+        new EntityResponse()
+            .setUrn(visibleUrn)
+            .setEntityName(Constants.DATASET_ENTITY_NAME)
+            .setAspects(new EnvelopedAspectMap());
+    when(entityService.getEntitiesV2(
+            any(OperationContext.class), eq("dataset"), eq(Set.of(visibleUrn)), anySet(), eq(true)))
+        .thenReturn(Map.of(visibleUrn, visibleResponse));
+
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      denyRead(authUtils, DATASET_URN);
+
+      Map<Urn, EntityResponse> result =
+          awaitTask(
+              entityV2Resource.batchGet(
+                  Set.of(DATASET_URN.toString(), visibleUrn.toString()), null, null));
+
+      assertEquals(result.keySet(), Set.of(DATASET_URN, visibleUrn));
+      assertEquals(
+          result.get(DATASET_URN).getAspects().keySet(), Set.of(Constants.DATASET_KEY_ASPECT_NAME));
+    }
+    verify(entityService)
+        .getEntitiesV2(
+            any(OperationContext.class), eq("dataset"), eq(Set.of(visibleUrn)), anySet(), eq(true));
+  }
+
+  private static void denyRead(MockedStatic<EntityAuthorizationUtils> authUtils, Urn urn) {
+    authUtils
+        .when(
+            () ->
+                EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+                    any(OperationContext.class), eq(ApiOperation.READ), argThat((Collection<Urn> urns) -> urns.contains(urn))))
+        .thenReturn(false);
   }
 
   /**

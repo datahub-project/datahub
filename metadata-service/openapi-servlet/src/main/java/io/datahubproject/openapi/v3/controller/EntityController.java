@@ -153,14 +153,9 @@ public class EntityController
             authentication,
             true);
 
-    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, requestMap.keySet())) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
-    }
-
     return ResponseEntity.of(
         Optional.of(
-            buildEntityVersionedAspectList(
+            buildReadableEntityVersionedAspectList(
                 opContext, requestMap.keySet(), requestMap, withSystemMetadata, true)));
   }
 
@@ -804,6 +799,21 @@ public class EntityController
           .collect(Collectors.toList());
     }
 
+    return List.of();
+  }
+
+  @Override
+  protected List<GenericEntityV3> buildMissingEntityVersionedAspectList(
+      @Nonnull OperationContext opContext,
+      Collection<Urn> requestedUrns,
+      LinkedHashMap<Urn, Map<AspectSpec, Long>> urnAspectVersions,
+      boolean withSystemMetadata,
+      boolean expandEmpty) {
+    if (urnAspectVersions.isEmpty() && !expandEmpty) {
+      return requestedUrns.stream()
+          .map(u -> GenericEntityV3.builder().build(objectMapper, u, Collections.emptyMap()))
+          .collect(Collectors.toList());
+    }
     return List.of();
   }
 
