@@ -2156,6 +2156,11 @@ constraint-dependencies = [
     # fixed in 0.6.5. Transitive via rsa / pyasn1-modules (google-auth, ldap); not in
     # setup.py. Docker snippet: docker/snippets/ingestion/constraints.txt.
     "pyasn1>=0.6.5,<0.7.0",
+    # markdown (Python-Markdown): CVE-2019-25781 advisories list 3.0-3.11.2 as affected.
+    # 3.11.3 is still quadratic on unclosed brackets (Python-Markdown/markdown#798), so the
+    # datahub-documents source also guards partitioning. Transitive via unstructured[md];
+    # not in setup.py. Docker snippet: docker/snippets/ingestion/constraints.txt.
+    "markdown>=3.11.3",
 ]
 
 [tool.ruff]

@@ -686,7 +686,7 @@ lz4==4.4.5 ; python_full_version < '3.14'
     #   trino
 mako==1.4.3 ; python_full_version < '3.14'
     # via alembic
-markdown==3.10.2 ; python_full_version < '3.14'
+markdown==3.11.3 ; python_full_version < '3.14'
     # via unstructured
 markdown-it-py==4.0.0 ; python_full_version < '3.14'
     # via

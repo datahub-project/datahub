@@ -19,6 +19,9 @@ pyopenssl>=26.4.0
 # pyasn1: CVE-2026-30922, CVE-2026-59885, CVE-2026-59886 (fixed in 0.6.4);
 # CVE-2026-119194, CVE-2026-119195, CVE-2026-119196, CVE-2026-119197 (fixed in 0.6.5)
 pyasn1>=0.6.5
+# markdown (Python-Markdown): CVE-2019-25781 scanners list 3.0-3.11.2 as affected; 3.11.3
+# is still quadratic on unclosed brackets, so datahub-documents also guards partitioning.
+markdown>=3.11.3
 # protobuf (6.x): CVE-2026-0994
 protobuf>=6.33.5,<7.0.0
 # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling; fixed in 3.13.3.
