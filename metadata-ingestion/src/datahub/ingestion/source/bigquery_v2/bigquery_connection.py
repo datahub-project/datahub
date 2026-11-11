@@ -1,3 +1,4 @@
+import inspect
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
@@ -10,6 +11,7 @@ if TYPE_CHECKING:
     # Only installed with the `bigquery` extra. This module is also imported by
     # bigquery-slim, bigquery-queries and fivetran, so it must not be imported eagerly.
     from google.cloud.bigquery_analyticshub_v1 import AnalyticsHubServiceClient
+    from sqlalchemy.engine import Engine
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from google.oauth2 import service_account
 from pydantic import Field, PrivateAttr, model_validator
@@ -25,21 +27,36 @@ from datahub.utilities.str_enum import StrEnum
 logger = logging.getLogger(__name__)
 
 # google-cloud sends timeout=None, so a reply lost on the network blocks forever. This
-# is above BigQuery's 4-minute server-side limit, so only a lost reply reaches it.
+# is above BigQuery's 4-minute server-side limit, so only a lost reply reaches it:
+# https://github.com/googleapis/python-bigquery/commit/30770fd
 _DEFAULT_REQUEST_TIMEOUT_SEC = 300
 
 
 def _default_request_timeout(session: requests.Session) -> None:
     request: Callable[..., requests.Response] = session.request
+    signature = inspect.signature(request)
 
-    def request_with_timeout(
-        *args: Any, timeout: Any = None, **kwargs: Any
-    ) -> requests.Response:
-        if timeout is None:
-            timeout = _DEFAULT_REQUEST_TIMEOUT_SEC
-        return request(*args, timeout=timeout, **kwargs)
+    def request_with_timeout(*args: object, **kwargs: object) -> requests.Response:
+        call = signature.bind(*args, **kwargs)
+        if "timeout" in call.arguments and call.arguments["timeout"] is None:
+            call.arguments["timeout"] = _DEFAULT_REQUEST_TIMEOUT_SEC
+        return request(*call.args, **call.kwargs)
 
     session.request = request_with_timeout  # type: ignore[method-assign]
+
+
+def default_engine_request_timeout(engine: "Engine") -> None:
+    """For an engine whose client sqlalchemy-bigquery built itself, as it does when
+    no client is passed. All of the engine's connections share that one client."""
+    from sqlalchemy import event
+
+    event.listen(
+        engine,
+        "first_connect",
+        lambda dbapi_connection, _: _default_request_timeout(
+            dbapi_connection._client._http
+        ),
+    )
 
 
 def _get_bigquery_client_info() -> ClientInfo:

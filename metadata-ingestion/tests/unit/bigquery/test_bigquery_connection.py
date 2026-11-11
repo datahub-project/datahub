@@ -3,18 +3,24 @@ import os
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterator, List
+from typing import Any, Callable, Dict, Iterator, List, Optional
 from unittest.mock import MagicMock, patch
 
+import google.auth
 import pytest
+import requests
 from google.auth.credentials import AnonymousCredentials
 from google.cloud import bigquery
+from sqlalchemy import text
 
 from datahub.ingestion.source.bigquery_v2 import bigquery_connection
+from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryAuthType,
     BigQueryConnectionConfig,
 )
+from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
 
 try:
     from datahub.ingestion.source.fivetran.config import BigQueryDestinationConfig
@@ -580,3 +586,82 @@ class TestBigQueryRequestTimeout:
             )
         assert outcome == {"value": []}
         assert api.calls == ["projects", "projects"]
+
+    @pytest.mark.parametrize("timeout,default", [(None, 1), (0.5, 30)])
+    def test_timeout_passed_by_position(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        timeout: Optional[float],
+        default: int,
+    ) -> None:
+        monkeypatch.setattr(
+            bigquery_connection, "_DEFAULT_REQUEST_TIMEOUT_SEC", default
+        )
+        with _FakeBigQueryApi(lose="projects") as api:
+            session = _client(api.url)._http
+            # AuthorizedSession.request(method, url, data, headers, max_allowed_time, timeout)
+            outcome = _run_with_deadline(
+                lambda: session.request(
+                    "GET", f"{api.url}/projects", None, None, None, timeout
+                ),
+                seconds=10,
+            )
+        assert isinstance(outcome["error"], requests.exceptions.Timeout)
+
+    def test_profiler_without_credential_retries_lost_reply(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            google.auth,
+            "default",
+            lambda *args, **kwargs: (AnonymousCredentials(), "my-project"),
+        )
+        with _FakeBigQueryApi(lose="insert") as api:
+            monkeypatch.setenv("BIGQUERY_EMULATOR_HOST", api.url)
+            config = BigQueryV2Config.model_validate(
+                {"project_on_behalf": "my-project"}
+            )
+            engine = (
+                BigqueryProfiler(config=config, report=BigQueryV2Report())
+                .get_profiler_instance("my-project")
+                .base_engine
+            )
+
+            def select_one() -> List[Any]:
+                with engine.connect() as conn:
+                    return [tuple(row) for row in conn.execute(text("select 1"))]
+
+            outcome = _run_with_deadline(select_one)
+        assert outcome == {"value": [(1,)]}
+        assert api.calls.count("insert") == 2
+
+    @pytest.mark.skipif(
+        BigQueryDestinationConfig is None, reason="fivetran extra not installed"
+    )
+    def test_fivetran_reader_without_credential_retries_lost_reply(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from datahub.ingestion.source.fivetran.config import (
+            FivetranLogConfig,
+            FivetranSourceReport,
+        )
+        from datahub.ingestion.source.fivetran.fivetran_log_db_reader import (
+            FivetranLogDbReader,
+        )
+
+        monkeypatch.setattr(
+            google.auth,
+            "default",
+            lambda *args, **kwargs: (AnonymousCredentials(), "my-project"),
+        )
+        with _FakeBigQueryApi(lose="insert") as api:
+            monkeypatch.setenv("BIGQUERY_EMULATOR_HOST", api.url)
+            config = FivetranLogConfig(
+                destination_platform="bigquery",
+                bigquery_destination_config={"dataset": "my_log_dataset"},
+            )
+            outcome = _run_with_deadline(
+                lambda: FivetranLogDbReader(config, FivetranSourceReport())
+            )
+        assert "error" not in outcome
+        assert api.calls.count("insert") == 2
