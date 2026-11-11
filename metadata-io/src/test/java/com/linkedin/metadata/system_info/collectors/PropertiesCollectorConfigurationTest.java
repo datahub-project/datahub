@@ -1213,6 +1213,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "visualConfig.theme.themeId",
           // Gradle and test-specific properties
           "org.gradle.internal.worker.tmpdir",
+          // Set on the `test` task's JVM by the wiring-coverage harness (gradle/wiring/); a
+          // build-output path, not GMS configuration. CI's metadata-io suite tasks don't set it.
+          "datahub.wiring.coverage.dir",
           "org.springframework.boot.test.context.SpringBootTestContextBootstrapper",
           "datahub.policies.systemPolicyUrnList",
           // Base Path
