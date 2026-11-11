@@ -26,8 +26,7 @@ public final class KafkaMskIamAuth {
           "(?<!\\S)awsDebugCreds\\s*=\\s*\"?true\"?(?=\\s|;|$)", Pattern.CASE_INSENSITIVE);
 
   /**
-   * Names exactly what the calling Spring context is missing, because CI never runs MSK IAM and
-   * this only fails in MSK IAM deployments.
+   * Names what the calling Spring context must load: CI never runs MSK IAM, so this is the signal.
    */
   static final String MISSING_SHARED_CREDENTIALS_MESSAGE =
       "MSK IAM is configured but the shared AWS credentials are not installed yet. The Spring"
@@ -35,7 +34,8 @@ public final class KafkaMskIamAuth {
           + AwsClientFactory.class.getName()
           + " and create its \"defaultAwsCredentialsProvider\" bean first: annotate the"
           + " @Configuration that builds the client with @Import(AwsClientFactory.class) and"
-          + " @DependsOn(\"defaultAwsCredentialsProvider\").";
+          + " @DependsOn(\"defaultAwsCredentialsProvider\"). If both are present, the bean was"
+          + " skipped because AwsClientFactory detected no AWS or MSK IAM setting in this context.";
 
   private KafkaMskIamAuth() {}
 

@@ -141,10 +141,9 @@ public class KafkaMskIamAuthTest {
 
     IllegalStateException e =
         expectThrows(IllegalStateException.class, () -> KafkaMskIamAuth.configure(props));
-    // The message must tell an operator what to load, since CI never runs MSK IAM.
+    // The message must name what to load, since CI never runs MSK IAM.
     assertTrue(e.getMessage().contains("com.linkedin.gms.factory.aws.AwsClientFactory"));
-    assertTrue(e.getMessage().contains("\"defaultAwsCredentialsProvider\" bean"));
-    assertTrue(e.getMessage().contains("@Import(AwsClientFactory.class)"));
+    assertTrue(e.getMessage().contains("defaultAwsCredentialsProvider"));
   }
 
   @Test

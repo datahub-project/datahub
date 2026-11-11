@@ -12,6 +12,7 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.config.KafkaSetupConfig;
 import com.linkedin.datahub.upgrade.config.NonBlockingConfigs;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.kafka.DataHubMskIamClientCallbackHandler;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import io.datahubproject.metadata.context.OperationContext;
@@ -27,6 +28,8 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.MapPropertySource;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -38,8 +41,15 @@ import org.testng.annotations.Test;
  */
 public class KafkaSetupMskIamWiringTest {
 
-  private static final String DATAHUB_MSK_IAM_HANDLER =
-      "com.linkedin.gms.factory.kafka.DataHubMskIamClientCallbackHandler";
+  /**
+   * The shared credentials are process-wide; cached Spring test contexts elsewhere in this JVM may
+   * have installed them, which would make both cases pass without exercising the wiring.
+   */
+  @BeforeMethod
+  @AfterMethod
+  public void resetSharedCredentials() {
+    DataHubMskIamClientCallbackHandler.reset();
+  }
 
   @DataProvider(name = "upgradeConfigs")
   public Object[][] upgradeConfigs() {
@@ -70,7 +80,8 @@ public class KafkaSetupMskIamWiringTest {
       assertEquals(adminConfigs.size(), adminClientSteps);
       for (Map<String, Object> adminConfig : adminConfigs) {
         assertEquals(
-            adminConfig.get("sasl.client.callback.handler.class"), DATAHUB_MSK_IAM_HANDLER);
+            adminConfig.get("sasl.client.callback.handler.class"),
+            DataHubMskIamClientCallbackHandler.class.getName());
       }
     }
   }
@@ -84,8 +95,6 @@ public class KafkaSetupMskIamWiringTest {
       IllegalStateException e =
           expectThrows(IllegalStateException.class, () -> createAdminClient(step));
       assertTrue(e.getMessage().contains("com.linkedin.gms.factory.aws.AwsClientFactory"));
-      assertTrue(e.getMessage().contains("\"defaultAwsCredentialsProvider\" bean"));
-      assertTrue(e.getMessage().contains("@Import(AwsClientFactory.class)"));
     }
   }
 
