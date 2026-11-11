@@ -198,11 +198,10 @@ public class EntityRegistryParityTest {
           // IncidentInfoPatchBuilder always sends forceGenericPatch, which PatchItemImpl applies
           // with GenericPatchTemplate, so it needs no registered template.
           Constants.INCIDENT_INFO_ASPECT_NAME,
-          // Known gaps: PATCH fails with UnsupportedOperationException when the aspect does not
-          // exist yet and with an NPE when it does. AssertionRunSummaryHook (mae-consumer) and the
-          // Java SDK v2 MLModel entity both send these patches.
-          Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME,
-          Constants.ML_MODEL_PROPERTIES_ASPECT_NAME);
+          // Known gap: PATCH fails with UnsupportedOperationException when the aspect does not
+          // exist yet and with an NPE when it does. AssertionRunSummaryHook (mae-consumer) sends
+          // these patches.
+          Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME);
 
   /** Generator registrations whose key is not an aspect name in the registry. */
   private static final Set<String> GENERATOR_ASPECT_ALLOWLIST =
