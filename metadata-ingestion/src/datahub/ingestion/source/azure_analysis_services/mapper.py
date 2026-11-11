@@ -204,6 +204,9 @@ class AasMapper:
         intra_model_fgl = self._intra_model_fgl_by_dataset(model, dataset_urn_by_table)
 
         emitted_keys: Set[str] = set()
+        # Same order and filter as the emitted table datasets, so the cube's
+        # upstream list cannot point at a table that was not written.
+        emitted_table_urns: List[str] = []
         for table in model.tables:
             if not self.config.table_pattern.allowed(table.name):
                 self.report.report_table_filtered(table.name)
@@ -235,9 +238,10 @@ class AasMapper:
                     exc=e,
                 )
                 continue
+            emitted_table_urns.append(dataset_urn_by_table[key])
             yield from workunits
 
-        yield from self._map_cube_dataset(model, model_key)
+        yield from self._map_cube_dataset(model, model_key, emitted_table_urns)
 
     # Model container properties
 
@@ -502,7 +506,10 @@ class AasMapper:
     # Model-level cube dataset
 
     def _map_cube_dataset(
-        self, model: AasTabularModel, model_key: AasModelContainerKey
+        self,
+        model: AasTabularModel,
+        model_key: AasModelContainerKey,
+        table_urns: Optional[List[str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self._cube_dataset_urn(model.catalog)
 
@@ -541,6 +548,21 @@ class AasMapper:
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=self._cube_schema_metadata(model)
         ).as_workunit()
+
+        # Tables the cube contains. This is the model's structure, not M-query
+        # lineage, so it is emitted even when extract_lineage is off.
+        if table_urns:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=UpstreamLineageClass(
+                    upstreams=[
+                        UpstreamClass(
+                            dataset=table_urn, type=DatasetLineageTypeClass.VIEW
+                        )
+                        for table_urn in table_urns
+                    ]
+                ),
+            ).as_workunit()
 
         yield from add_dataset_to_container(model_key, dataset_urn)
 
