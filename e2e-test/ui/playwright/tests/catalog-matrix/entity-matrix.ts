@@ -151,8 +151,11 @@ export async function writeEditableDescription(
     aspectName: entity.editableAspect,
     aspect: { json: { description } },
   };
+  // Ask for a synchronous write. Without `async`, GMS falls back to its ASYNC_INGEST_DEFAULT
+  // setting, and on an instance that defaults to async the response returns before the aspect is
+  // stored, so the test's first read could still see the previous run's state.
   const response = await gmsRequest.post(`${gmsUrl()}/aspects?action=ingestProposal`, {
-    data: { proposal: normalizeMcp(mcp) },
+    data: { proposal: normalizeMcp(mcp), async: 'false' },
   });
   if (!response.ok()) {
     throw new Error(
