@@ -214,14 +214,6 @@ const ALCHEMY_APP_IMPORT_EXCLUDED_FILES = [
     'src/alchemy-components/components/Avatar/utils.ts',
     'src/alchemy-components/components/AvatarStack/AvatarStackWithHover.tsx',
     'src/alchemy-components/components/AvatarStack/HoverSectionContent.tsx',
-    'src/alchemy-components/components/Editor/Editor.stories.tsx',
-    'src/alchemy-components/components/Editor/EditorImpl.tsx',
-    'src/alchemy-components/components/Editor/extensions/fileDragDrop/FileNodeView.tsx',
-    'src/alchemy-components/components/Editor/extensions/mentions/MentionsComponent.tsx',
-    'src/alchemy-components/components/Editor/extensions/mentions/MentionsDropdown.tsx',
-    'src/alchemy-components/components/Editor/extensions/mentions/MentionsNodeView.tsx',
-    'src/alchemy-components/components/Editor/readOnlyContent.tsx',
-    'src/alchemy-components/components/Editor/toolbar/Toolbar.tsx',
     'src/alchemy-components/components/FileNode/FileNode.tsx',
     'src/alchemy-components/components/IncidentStagePill/IncidentStagePill.tsx',
     'src/alchemy-components/components/IncidentStagePill/constant.ts',
@@ -251,20 +243,6 @@ const TS_RESTRICTED_IMPORT_PATHS = [
         allowTypeImports: true,
     },
 ];
-
-// App code renders Tabs through the app wrapper, which contains a crashing tab with the app error boundary.
-const ALCHEMY_TABS_IMPORT_PATHS = [
-    '@components',
-    '@components/components/Tabs',
-    '@components/components/Tabs/Tabs',
-    '@src/alchemy-components',
-    '@src/alchemy-components/components/Tabs',
-    '@src/alchemy-components/components/Tabs/Tabs',
-].map((name) => ({
-    name,
-    importNames: ['Tabs'],
-    message: "Import Tabs from '@app/sharedV2/tabs/Tabs': it adds the app error boundary to every tab.",
-}));
 
 module.exports = {
     parser: '@typescript-eslint/parser',
@@ -320,6 +298,16 @@ module.exports = {
         'import/prefer-default-export': 'off', // TODO: remove this lint rule
         '@typescript-eslint/no-restricted-imports': ['error', { paths: TS_RESTRICTED_IMPORT_PATHS }],
         'rulesdir/no-phosphor-generic-imports': 'error',
+        // Alchemy components that app code renders through an app wrapper: one entry per component.
+        'rulesdir/use-app-wrappers': [
+            'error',
+            {
+                components: [
+                    { name: 'Editor', folder: 'Editor', wrappers: ['src/app/sharedV2/editor/Editor.tsx'] },
+                    { name: 'Tabs', folder: 'Tabs', wrappers: ['src/app/sharedV2/tabs/Tabs.tsx'] },
+                ],
+            },
+        ],
         'no-console': 'off',
         'no-plusplus': 'off',
         'no-prototype-builtins': 'off',
@@ -429,17 +417,6 @@ module.exports = {
                             },
                         ],
                     },
-                ],
-            },
-        },
-        // App code uses the app Tabs wrapper. Sets the typescript-eslint rule, so it repeats the base paths.
-        {
-            files: ['src/**/*.ts', 'src/**/*.tsx'],
-            excludedFiles: ['src/alchemy-components/**', 'src/app/sharedV2/tabs/Tabs.tsx'],
-            rules: {
-                '@typescript-eslint/no-restricted-imports': [
-                    'error',
-                    { paths: [...TS_RESTRICTED_IMPORT_PATHS, ...ALCHEMY_TABS_IMPORT_PATHS] },
                 ],
             },
         },
