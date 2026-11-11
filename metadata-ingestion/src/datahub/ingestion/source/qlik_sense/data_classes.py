@@ -134,6 +134,48 @@ class SchemaField(_QlikBaseModel):
         return values
 
 
+# Qlik field tags, most specific first: a date is also tagged $numeric.
+_FIELD_TAG_TYPES = [
+    ("$timestamp", "TIMESTAMP"),
+    ("$date", "DATE"),
+    ("$integer", "INTEGER"),
+    ("$numeric", "DOUBLE"),
+    ("$text", "STRING"),
+]
+
+
+class DataModelTable(BaseModel):
+    """A table of an app's data model, from the Engine's GetTablesAndKeys."""
+
+    name: str
+    fields: List[SchemaField] = []
+
+    @classmethod
+    def from_engine(cls, table: Dict) -> "DataModelTable":
+        return cls(
+            name=table.get("qName") or "",
+            fields=[
+                SchemaField.model_validate(
+                    {
+                        "name": field["qName"],
+                        "dataType": {
+                            "type": next(
+                                (
+                                    data_type
+                                    for tag, data_type in _FIELD_TAG_TYPES
+                                    if tag in (field.get("qTags") or [])
+                                ),
+                                None,
+                            )
+                        },
+                    }
+                )
+                for field in table.get("qFields") or []
+                if field.get("qName") and not field.get("qIsSynthetic")
+            ],
+        )
+
+
 class LineageTable(BaseModel):
     """A table node of Qlik Cloud's lineage graph, with the table nodes it is
     loaded or stored from."""
@@ -314,6 +356,9 @@ class App(Item):
     lineage_tables: List[LineageTable] = []
     # Qlik Cloud answered 404 for the app's lineage graph.
     lineage_graph_missing: bool = False
+    # The tables of the app's data model as the last reload left them, read on
+    # Qlik Cloud for apps whose tables come from the lineage graph or script.
+    data_model_tables: List[DataModelTable] = []
     script: Optional[str] = None
     fingerprint: Optional[str] = None
     script_read_failed: bool = False

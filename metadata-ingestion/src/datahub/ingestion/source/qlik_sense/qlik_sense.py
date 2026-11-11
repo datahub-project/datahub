@@ -267,6 +267,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # the apps whose QVDs are unknown.
         self._app_qvds: Dict[str, AppQvds] = {}
         self._apps_qvds_unknown: Set[str] = set()
+        # The data model fields of the app being emitted, by table identifier.
+        self._data_model_fields: Dict[str, List[QlikDatasetSchemaField]] = {}
         # Datasets and the app table QRIs stored into them, linked once every
         # app has been read.
         self._dataset_store_sources: Dict[str, List[str]] = {}
@@ -1327,7 +1329,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         for table in tables:
             dataset_urn = self._gen_qlik_dataset_urn(table.identifier)
             yield from self._gen_app_table_entity(
-                table.identifier, self._script_table_fields(table), app_id
+                table.identifier,
+                self._table_schema(table.identifier, self._script_table_fields(table)),
+                app_id,
             )
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
@@ -1469,7 +1473,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             dataset_urn = self._gen_qlik_dataset_urn(identifier)
             yield from self._gen_app_table_entity(
                 identifier,
-                self._script_table_fields(script_table) if script_table else [],
+                self._table_schema(
+                    identifier,
+                    self._script_table_fields(script_table) if script_table else [],
+                ),
                 app.id,
             )
             yield MetadataChangeProposalWrapper(
@@ -1560,6 +1567,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if upstream_lineage_workunit:
                 yield upstream_lineage_workunit
 
+    def _table_schema(
+        self, identifier: str, parsed: List[QlikDatasetSchemaField]
+    ) -> List[QlikDatasetSchemaField]:
+        """A table's fields as the app's data model holds them, which the load
+        script only shows when its SELECT lists them."""
+        return self._data_model_fields.get(identifier) or parsed
+
     def _app_table_fields(
         self, tables: List[QlikTable], script_tables: List[ScriptTableLineage]
     ) -> Dict[str, List[QlikDatasetSchemaField]]:
@@ -1576,7 +1590,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if script_table.mapping:
                 continue
             table_fields[self._gen_qlik_dataset_urn(script_table.identifier)] = (
-                self._script_table_fields(script_table)
+                self._table_schema(
+                    script_table.identifier, self._script_table_fields(script_table)
+                )
             )
         return table_fields
 
@@ -1587,6 +1603,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         Map Qlik App to Datahub container
         """
         owner_username = self._get_owner_name(app.ownerId)
+        self._data_model_fields = {
+            f"{app.id}.{table.name}".lower(): table.fields
+            for table in app.data_model_tables
+        }
         if self.config.on_prem is None and not app.tables:
             self.reporter.apps_without_load_model.append(app.id)
         parsed = self._parsed_script(app)
@@ -1615,7 +1635,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             urn = self._gen_qlik_dataset_urn(
                 self._lineage_table_identifier(app.id, table)
             )
-            table_fields[urn] = self._script_table_fields(matched) if matched else []
+            table_fields[urn] = self._table_schema(
+                self._lineage_table_identifier(app.id, table),
+                self._script_table_fields(matched) if matched else [],
+            )
             if matched:
                 script_table_urns.add(urn)
         input_tables_urns = list(table_fields)
