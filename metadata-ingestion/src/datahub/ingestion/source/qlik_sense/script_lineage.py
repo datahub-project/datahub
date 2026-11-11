@@ -99,6 +99,19 @@ LOAD_SOURCE_RE = re.compile(
     re.IGNORECASE,
 )
 QUOTED_RE = re.compile(r"'[^']*'|\"[^\"]*\"|\[[^\]]*\]")
+_FILE_PATH = r"(?P<path>\[[^\]]*\]|'[^']*'|\"[^\"]*\"|[^\s;(]+)"
+_FORMAT_SPEC = r"(?:\s*\((?P<spec>[^)]*)\))?"
+# FROM followed by whitespace, so FROM_FIELD is not a file.
+FILE_SOURCE_RE = re.compile(rf"\bFROM\s+{_FILE_PATH}{_FORMAT_SPEC}", re.IGNORECASE)
+STORE_RE = re.compile(
+    rf"^STORE\s+(?P<what>.+?)\s+INTO\s+{_FILE_PATH}{_FORMAT_SPEC}\s*$",
+    re.IGNORECASE | re.DOTALL,
+)
+STORE_FROM_RE = re.compile(r"\bFROM\s+", re.IGNORECASE)
+LIB_PATH_RE = re.compile(r"^lib://(?P<connection>[^/]+)/(?P<path>.+)$", re.IGNORECASE)
+# A file system path, which only legacy mode allows: C:\..., \\server\... or //server/...
+ABSOLUTE_PATH_RE = re.compile(r"^(?:[A-Za-z]:[\\/]|\\\\|//)")
+QVD_EXTENSION = ".qvd"
 LOAD_FIELDS_RE = re.compile(
     r"^LOAD\s+(?:DISTINCT\s+)?(?P<fields>.*)$", re.IGNORECASE | re.DOTALL
 )
@@ -310,6 +323,37 @@ class ScriptTable(BaseModel):
     crosstable: Optional[CrossTable] = None
 
 
+class QvdReference(BaseModel):
+    """A QVD file a script names: a path in a folder data connection, as in
+    `lib://<connection>/<path>`, or, in legacy mode, a file system path."""
+
+    connection: Optional[str] = None
+    path: str
+
+
+class QvdLoad(BaseModel):
+    label: str
+    file: QvdReference
+    # The fields of the topmost LOAD, which names the table.
+    fields: PrecedingLoad
+
+
+class QvdStore(BaseModel):
+    label: str
+    file: QvdReference
+    # The fields of `STORE <fields> FROM <table>`; None stores all the table's.
+    fields: Optional[PrecedingLoad] = None
+
+
+class ParsedScript(BaseModel):
+    tables: List[ScriptTable] = []
+    qvd_loads: List[QvdLoad] = []
+    qvd_stores: List[QvdStore] = []
+    # QVD paths that name no single file the connector can resolve, such as a
+    # wildcard, a variable it could not expand or a relative path.
+    unresolved_qvd_paths: List[str] = []
+
+
 class ScriptTableLineage(BaseModel):
     label: str
     identifier: str
@@ -324,6 +368,8 @@ class DataConnectionInfo(BaseModel):
     name: str
     platform: Optional[str] = None
     database: Optional[str] = None
+    # The folder of a folder data connection, for QVD paths in it.
+    folder_path: Optional[str] = None
 
 
 class ResolvedConnection(BaseModel):
@@ -672,6 +718,9 @@ def _script_pieces(script: str) -> _Script:
 class _ScriptParser(BaseModel):
     subs: Dict[str, _Sub]
     tables: List[ScriptTable] = []
+    qvd_loads: List[QvdLoad] = []
+    qvd_stores: List[QvdStore] = []
+    unresolved_qvd_paths: List[str] = []
     flow: _ControlFlowTracker = Field(default_factory=_ControlFlowTracker)
     pending_label: Optional[str] = None
     pending_loads: List[PrecedingLoad] = []
@@ -768,6 +817,11 @@ class _ScriptParser(BaseModel):
             self.flow.state.connection = None
             self._clear_pending()
             return
+        store = STORE_RE.match(statement)
+        if store:
+            self._store(store)
+            self._clear_pending()
+            return
 
         label: Optional[str] = None
         label_match = LABEL_RE.match(statement)
@@ -832,15 +886,97 @@ class _ScriptParser(BaseModel):
             self.pending_loads.append(_parse_load_fields(statement))
         else:
             if LOAD_RE.match(statement):
+                if not (skip or mapping or self.pending_skip or self.pending_mapping):
+                    self._qvd_load(label or self.pending_label, statement)
                 self.last_label = label
             self._clear_pending()
 
+    def _qvd_file(
+        self, path: str, spec: Optional[str], default_qvd: bool
+    ) -> Optional[QvdReference]:
+        """The QVD file a LOAD or STORE names, or None when it names another
+        format or no single resolvable file."""
+        path = _unquote(path.strip()).strip()
+        format_name = (spec or "").split(",")[0].strip().lower()
+        if format_name:
+            is_qvd = format_name == "qvd"
+        else:
+            # LOAD assumes txt and STORE assumes qvd when the format is omitted.
+            is_qvd = default_qvd or path.lower().endswith(QVD_EXTENSION)
+        if not is_qvd:
+            return None
+        if "$(" in path or "*" in path or "?" in path:
+            self.unresolved_qvd_paths.append(path)
+            return None
+        lib_path = LIB_PATH_RE.match(path)
+        if lib_path:
+            return QvdReference(
+                connection=lib_path.group("connection"),
+                path=lib_path.group("path"),
+            )
+        if ABSOLUTE_PATH_RE.match(path):
+            return QvdReference(path=path)
+        # Relative to the Directory statement or the working directory.
+        self.unresolved_qvd_paths.append(path)
+        return None
 
-def parse_load_script(script: str) -> List[ScriptTable]:
+    def _qvd_load(self, label: Optional[str], statement: str) -> None:
+        # FROM is found with quoted text masked, so a quoted field or path
+        # can't hold it; the path itself is then read from the statement.
+        masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), statement)
+        keyword = STORE_FROM_RE.search(masked)
+        source = FILE_SOURCE_RE.match(statement, keyword.start()) if keyword else None
+        if source is None:
+            return
+        file = self._qvd_file(source.group("path"), source.group("spec"), False)
+        # Without a label the table is named by Qlik, which a STORE can't be
+        # matched against reliably.
+        if file is None or not label:
+            return
+        fields = (
+            self.pending_loads[0]
+            if self.pending_loads
+            else _parse_load_fields(statement[: source.start()])
+        )
+        self.qvd_loads.append(QvdLoad(label=label, file=file, fields=fields))
+
+    def _store(self, store: "re.Match[str]") -> None:
+        file = self._qvd_file(store.group("path"), store.group("spec"), True)
+        if file is None:
+            return
+        what = store.group("what")
+        masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), what)
+        # The last FROM, as a field list may itself hold one in an expression.
+        from_table = next(reversed(list(STORE_FROM_RE.finditer(masked))), None)
+        table = what[from_table.end() :] if from_table else what
+        fields = (
+            _parse_load_fields(f"LOAD {what[: from_table.start()]}")
+            if from_table
+            else None
+        )
+        self.qvd_stores.append(
+            QvdStore(
+                label=_unquote(table.strip()),
+                file=file,
+                fields=None if fields is not None and fields.keeps_all else fields,
+            )
+        )
+
+
+def parse_script(script: str) -> ParsedScript:
     parsed = _script_pieces(script)
     parser = _ScriptParser(subs=parsed.subs)
     parser.run(parsed.pieces)
-    return parser.tables
+    return ParsedScript(
+        tables=parser.tables,
+        qvd_loads=parser.qvd_loads,
+        qvd_stores=parser.qvd_stores,
+        unresolved_qvd_paths=parser.unresolved_qvd_paths,
+    )
+
+
+def parse_load_script(script: str) -> List[ScriptTable]:
+    return parse_script(script).tables
 
 
 def _block_end(text: str, position: int, opening: str, closing: str) -> int:

@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 from pydantic import Field, model_validator
 
@@ -141,6 +141,10 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     script_tables_found: int = 0
     script_tables_with_lineage: int = 0
     apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
+    qvds_found: int = 0
+    # QVD paths a load script names that resolve to no single file, such as a
+    # wildcard, a variable, a relative path or an unknown data connection.
+    unresolved_qvd_paths: LossyList[str] = field(default_factory=LossyList)
     # Apps Qlik Cloud has no lineage graph for, read as having no tables.
     apps_without_lineage_graph: LossyList[str] = field(default_factory=LossyList)
     unresolved_data_connections: LossyList[str] = field(default_factory=LossyList)
@@ -241,6 +245,21 @@ class QlikOnPremConfig(ConfigModel):
         "Requires stateful ingestion. Set `stateful_ingestion.ignore_old_state` for one run "
         "to force a full read, for example after ingesting upstream schemas that column-level "
         "lineage should resolve against.",
+    )
+
+    qvd_folder_aliases: Dict[str, str] = Field(
+        default={},
+        description="Folder paths to treat as the same folder when matching QVD "
+        "files across apps, as the path one app names -> the path to use. For "
+        "example `{'//qlik-sense/qvd': '//qlik-sense.corp.local/qvd'}`, when apps "
+        "reach one share by different host names or drive letters. A QVD is "
+        "identified by its file path, so files under these paths join into one "
+        "dataset.",
+    )
+    qvd_ignored_connections: List[str] = Field(
+        default=["ServerLogFolder", "ArchivedLogsFolder"],
+        description="Folder data connections whose QVDs are not ingested. By "
+        "default the connections the monitoring apps read their logs through.",
     )
 
     @model_validator(mode="after")

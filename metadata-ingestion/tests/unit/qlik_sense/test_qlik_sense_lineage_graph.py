@@ -198,7 +198,7 @@ def test_script_table_in_lineage_graph_keeps_its_urn(mock_api_cls: MagicMock) ->
     with patch.object(
         QlikSenseSource,
         "_build_script_tables",
-        lambda self, app: [script_table] if app.id == "etl-app" else [],
+        lambda self, app, parsed=None: [script_table] if app.id == "etl-app" else [],
     ):
         _, upstreams = _run(mock_api_cls, DATASETS)
 

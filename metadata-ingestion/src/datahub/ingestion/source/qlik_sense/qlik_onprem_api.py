@@ -420,9 +420,12 @@ class QlikOnPremAPI(QlikBaseAPI):
                 name = connection.get(Constant.NAME)
                 if not name:
                     continue
-                connections[name] = self._infer_connection(
+                info = self._infer_connection(
                     name, connection, (Constant.CONNECTIONSTRING, Constant.TYPE)
                 )
+                if str(connection.get(Constant.TYPE) or "").lower() == "folder":
+                    info.folder_path = connection.get(Constant.CONNECTIONSTRING)
+                connections[name] = info
         except Exception as e:
             self._record_unread(
                 "data connections",

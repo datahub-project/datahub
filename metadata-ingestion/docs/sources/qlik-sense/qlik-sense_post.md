@@ -37,6 +37,22 @@ Only datasets in spaces allowed by `space_pattern`, and visible to the API key, 
 
 A dataset's lineage is written only when an app table that stores into it was read, or kept from an earlier run, in the same run, and it then replaces the dataset's lineage. When a storing app, or the list of datasets, could not be read, the lineage of the tables and datasets it would change is kept as it was and the run reports a warning. If Qlik Cloud has no lineage graph for an app whose last read had tables, the app is treated as partly read rather than as having lost its tables.
 
+#### Lineage through QVDs (on-prem)
+
+On Qlik Sense Enterprise on Windows, QVD lineage comes from the load scripts. A table loaded with `LOAD ... FROM <file> (qvd)` links upstream to that QVD, and a QVD written with `STORE <table> INTO <file>` links upstream to the stored table, so lineage runs from an ETL app, through the QVDs it writes, to the apps that load them. Each QVD is a dataset with the `QVD` subtype, named after its file without the extension.
+
+A QVD is identified by its file path: a `lib://` path is resolved through the folder of its data connection, and file system paths, which only legacy mode allows, are used as they are. Paths are matched without regard to case or slash direction, so two connections to the same folder find the same QVD. When apps reach one share by different names, such as a short and a fully qualified host name, map them with `qvd_folder_aliases`:
+
+```yaml
+on_prem:
+  qvd_folder_aliases:
+    "//qlik-sense/qvd": "//qlik-sense.corp.local/qvd"
+```
+
+A QVD's schema comes from the table stored into it, or, when no app stores it, from the fields apps load from it. Column-level lineage follows the fields of each `LOAD` and `STORE` field list; a `LOAD *` leaves the table's fields unknown.
+
+A path the connector can't resolve to one file, such as a wildcard, a variable it can't expand (one set with `LET` or in an included file), a path relative to the `Directory` statement, or a `lib://` path of a connection that isn't a folder connection, is listed under `unresolved_qvd_paths` in the report. An unlabelled `LOAD` from a QVD is skipped, as Qlik names its table. QVDs of the connections in `qvd_ignored_connections` (by default the monitoring apps' `ServerLogFolder` and `ArchivedLogsFolder`) and the Engine's `BUFFER` QVDs are not ingested. When an app's load script can't be read, the QVDs it writes are unknown, so QVD schemas and lineage are kept from the last run.
+
 #### Charts in containers
 
 Charts inside a container object's tabs are ingested as charts of the sheet. An untitled chart takes its tab label as its title. Objects with no data, such as buttons, filter panes and variable inputs, are skipped.
