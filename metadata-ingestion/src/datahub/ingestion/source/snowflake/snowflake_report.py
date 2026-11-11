@@ -137,6 +137,12 @@ class SnowflakeV2Report(
     # sqlglot parse failures while resolving metric-to-metric derivedFrom refs;
     # best-effort, the metric is still emitted without those edges.
     num_semantic_view_metric_expr_parse_failures: int = 0
+    # semantic_views.include_verified_queries: verified queries emitted as Query
+    # entities, entries (or whole views) whose verified queries could not be read,
+    # and verified SQL that did not parse (linked to all base tables instead).
+    num_semantic_view_verified_queries_emitted: int = 0
+    num_semantic_view_verified_queries_skipped: int = 0
+    num_semantic_view_verified_query_parse_failures: int = 0
 
     marketplace_listings_scanned: int = 0
     marketplace_listings_filtered: int = 0

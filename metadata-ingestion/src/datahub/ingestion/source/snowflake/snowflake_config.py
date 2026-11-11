@@ -163,6 +163,22 @@ class SemanticViewsConfig(ConfigModel):
         "Only applicable when include_queries is True.",
     )
 
+    include_verified_queries: bool = Field(
+        default=False,
+        description="If enabled, import each semantic view's verified queries "
+        "(Cortex Analyst `AI_VERIFIED_QUERIES`: a question plus its verified SQL), "
+        "read from the view's GET_DDL definition. Each one is emitted as a Query "
+        "entity with source `MANUAL` (shown as a Highlighted Query), named after "
+        "its question, carrying the SQL, and with `verified_by`, `verified_at`, "
+        "`use_as_onboarding_question` and the verified query name as custom "
+        "properties. The query is attached to the semantic view and to the "
+        "physical tables its SQL reads. With emit_semantic_model_entities the "
+        "questions are also appended to the semantic model's AI context "
+        "examples (existing examples, synonyms and instructions are kept when "
+        "a DataHub connection is available). Requires include_technical_schema; "
+        "only applicable when enabled is True.",
+    )
+
     @model_validator(mode="after")
     def validate_column_lineage_requires_enabled(self) -> "SemanticViewsConfig":
         if self.column_lineage and not self.enabled:
@@ -178,6 +194,11 @@ class SemanticViewsConfig(ConfigModel):
             logger.warning(
                 "semantic_views.include_usage is set to True but semantic_views.enabled is False. "
                 "Usage statistics will not be extracted. Set semantic_views.enabled to True to enable usage tracking."
+            )
+        if self.include_verified_queries and not self.enabled:
+            logger.warning(
+                "semantic_views.include_verified_queries is set to True but semantic_views.enabled is False. "
+                "Verified queries will not be imported. Set semantic_views.enabled to True to import them."
             )
         if self.include_queries and not self.enabled:
             logger.warning(
@@ -948,6 +969,23 @@ class SnowflakeV2Config(
                 "semantic_views.emit_semantic_model_entities is set but "
                 "include_technical_schema is False; no semanticModel/metric entities "
                 "will be emitted. Set include_technical_schema to True."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_verified_queries_requires_technical_schema(
+        self,
+    ) -> "SnowflakeV2Config":
+        # Verified queries are read from the GET_DDL definition, which is only
+        # fetched when include_technical_schema is on.
+        if (
+            self.semantic_views.include_verified_queries
+            and not self.include_technical_schema
+        ):
+            logger.warning(
+                "semantic_views.include_verified_queries is set but "
+                "include_technical_schema is False; verified queries will not be "
+                "imported. Set include_technical_schema to True."
             )
         return self
 
