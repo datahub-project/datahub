@@ -444,6 +444,10 @@ file_profiling = {
     "datasketches>=5.0.0,<6.0.0",
     # The profiler reads Avro files with fastavro.
     "fastavro>=1.2.0,<2.0.0",
+    # pyarrow resolves tz-aware timestamps (e.g. CSV values ending in "Z" infer as
+    # tz=UTC) through zoneinfo, which needs a tz database. Slim images have no system
+    # zoneinfo, so ship IANA data via tzdata. Same pin as databricks_common.
+    "tzdata>=2022.7,<2030",
     # cachetools is used by the profiling config
     *cachetools_lib,
 }
@@ -537,10 +541,11 @@ onnx_embeddings = {
 
 unstructured_lib = {
     # Unstructured.io core library for document partitioning with markdown support
-    # CVE-2026-71428: SSRF in partition(url=...) fixed in 0.24.0+ (requires Python 3.11+)
-    # 0.27.37+ allows filelock 4.x (CVE-2026-112940 is fixed in filelock 4.2.1)
+    # CVE-2026-71428: SSRF in partition(url=...) fixed in 0.24.0+ (requires Python 3.11+).
+    # 0.24.x capped filelock<4, holding resolved envs on the 3.x line affected by
+    # CVE-2026-112940; 0.27.x requires filelock>=4.2.1, which carries the fix.
     "unstructured[md]==0.27.37",
-    # unstructured 0.24.x requires ingest >=1.4.0
+    # unstructured 0.27.x accepts ingest >=1.4.0,<2
     "unstructured-ingest==1.4.28",
     # JSONPath for custom property extraction
     "jsonpath-ng==1.7.0",
@@ -943,6 +948,7 @@ plugins: Dict[str, Set[str]] = {
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
+    "hightouch": {"requests<3.0.0"} | usage_common | sqlglot_lib,
     "pinecone": {"pinecone-client>=3.0.0,<6.0.0"},
     # Debug/utility plugins
     "debug-recording": {
@@ -1110,6 +1116,7 @@ base_dev_requirements = {
             "druid",
             "elasticsearch",
             "feast",
+            "hightouch",
             "iceberg",
             "iceberg-catalog",
             "microstrategy",
@@ -1370,6 +1377,7 @@ entry_points = {
         "odcs = datahub.ingestion.source.odcs.odcs_source:ODCSSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
+        "hightouch = datahub.ingestion.source.hightouch.hightouch:HightouchSource",
         "timescaledb = datahub.ingestion.source.sql.timescaledb:TimescaleDBSource",
         "omni = datahub.ingestion.source.omni.omni:OmniSource",
         "pinecone = datahub.ingestion.source.pinecone.pinecone_source:PineconeSource",

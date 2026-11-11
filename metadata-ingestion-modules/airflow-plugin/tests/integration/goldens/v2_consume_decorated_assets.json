@@ -17,7 +17,7 @@
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=consume_decorated_assets",
+            "externalUrl": "http://airflow.example.com/dags/consume_decorated_assets",
             "name": "consume_decorated_assets",
             "env": "PROD"
         }
@@ -152,7 +152,7 @@
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=consume_decorated_assets",
+            "externalUrl": "http://airflow.example.com/dags/consume_decorated_assets",
             "name": "consume_decorated_assets",
             "env": "PROD"
         }

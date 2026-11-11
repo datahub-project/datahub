@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -12,6 +13,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.Actor;
@@ -23,6 +25,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.datahub.graphql.GraphQLEngine;
+import com.linkedin.datahub.graphql.instrumentation.RootFieldNameInstrumentation;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.config.graphql.GraphQLQueryConfiguration;
@@ -45,6 +48,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.servlet.http.HttpServletRequest;
 import java.lang.reflect.Field;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.mockito.ArgumentCaptor;
@@ -127,7 +131,10 @@ public class GraphQLControllerUsageRecordingTest {
     Map<String, Object> data =
         Map.of("me", Map.of("corpUser", Map.of("urn", "urn:li:corpuser:datahub")));
     ExecutionResult executionResult =
-        new ExecutionResultImpl(data, Collections.emptyList(), Collections.emptyMap());
+        new ExecutionResultImpl(
+            data,
+            Collections.emptyList(),
+            new HashMap<>(Map.of(RootFieldNameInstrumentation.EXTENSION_KEY, "me")));
     when(engine.execute(anyString(), any(), anyMap(), any())).thenReturn(executionResult);
   }
 
@@ -246,6 +253,26 @@ public class GraphQLControllerUsageRecordingTest {
     ResponseEntity<Object> response = executeMeQuery();
 
     assertEquals(response.getStatusCode(), HttpStatus.SERVICE_UNAVAILABLE);
+  }
+
+  @Test
+  public void testFieldNameMetricIsTaggedWithRootFieldNameAndStrippedFromResponse() {
+    ResponseEntity<Object> response = executeMeQuery();
+    assertEquals(response.getStatusCode(), HttpStatus.OK);
+
+    verify(controller.metricUtils).histogram(eq(GraphQLController.class), eq("me"), anyLong());
+    assertFalse(response.getBody().toString().contains(RootFieldNameInstrumentation.EXTENSION_KEY));
+  }
+
+  @Test
+  public void testFieldNameMetricFallsBackWhenRootFieldUnknown() {
+    // e.g. the query failed validation, so execution never started
+    when(controller._engine.execute(anyString(), any(), anyMap(), any()))
+        .thenReturn(new ExecutionResultImpl(null, Collections.emptyList(), new HashMap<>()));
+
+    executeMeQuery();
+
+    verify(controller.metricUtils).histogram(eq(GraphQLController.class), eq("UNKNOWN"), anyLong());
   }
 
   private ResponseEntity<Object> executeMeQuery() {
