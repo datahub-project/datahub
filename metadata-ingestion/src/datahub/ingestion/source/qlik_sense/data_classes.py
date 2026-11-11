@@ -360,6 +360,8 @@ class App(Item):
     # The tables of the app's data model as the last reload left them, read on
     # Qlik Cloud for apps whose tables come from the lineage graph or script.
     data_model_tables: List[DataModelTable] = []
+    # Variable definitions by name, used to expand $(name) in chart expressions.
+    variables: Dict[str, str] = {}
     script: Optional[str] = None
     fingerprint: Optional[str] = None
     script_read_failed: bool = False

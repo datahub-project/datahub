@@ -202,6 +202,18 @@ class QlikBaseAPI(ABC):
             on_error(f"Unable to fetch load script of app {app_id}. Exception: {e}")
         return None
 
+    @staticmethod
+    def _read_variables(
+        websocket_connection: WebsocketConnection, app_id: str
+    ) -> Dict[str, str]:
+        # Without the variables, charts that expand one link to every table of
+        # the app, as before, so a failed read leaves the app complete.
+        try:
+            return websocket_connection.get_variables()
+        except Exception as e:
+            log_read_error(f"Unable to read the variables of app {app_id}: {e}")
+        return {}
+
     def _get_sheet(
         self,
         websocket_connection: WebsocketConnection,
