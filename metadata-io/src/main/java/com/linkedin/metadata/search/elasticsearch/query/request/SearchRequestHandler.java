@@ -1403,8 +1403,12 @@ public class SearchRequestHandler extends BaseRequestHandler {
   }
 
   @Nonnull
-  private Urn getUrnFromSearchHit(@Nonnull SearchHit hit) {
+  public static Urn urnFromSearchHit(@Nonnull SearchHit hit) {
     return UrnExtractionUtils.extractUrnFromSearchHit(hit);
+  }
+
+  private Urn getUrnFromSearchHit(@Nonnull SearchHit hit) {
+    return urnFromSearchHit(hit);
   }
 
   /**

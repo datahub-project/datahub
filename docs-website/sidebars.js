@@ -597,6 +597,11 @@ module.exports = {
           ],
         },
         {
+          label: "Analytics Dashboards",
+          type: "doc",
+          id: "docs/features/feature-guides/analytics-dashboards",
+        },
+        {
           label: "Asset Summaries",
           type: "doc",
           id: "docs/features/feature-guides/custom-asset-summaries",
@@ -1664,6 +1669,7 @@ module.exports = {
         "docs/developers",
         "docs/developers/java-sdk-v2-design",
         "docs/developers/search-v3-design",
+        "gradle/wiring/README",
         "docs/docker/development",
         "metadata-ingestion/developing",
         "docs/api/graphql/graphql-endpoint-development",

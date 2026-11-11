@@ -148,7 +148,6 @@
     "searchBar.noResults.clearFilters": "fjerne filtre",
     "searchBar.noResults.clearFiltersAndView": "fjerne filtre og valgt visning",
     "searchBar.noResults.clearView": "fjerne valgt visning",
-    "searchBar.noResults.defaultMessage": "Prøv å justere søket for å finne det du leter etter",
     "searchBar.noResults.orClearSuggestion": ", eller <clickable>{{clearText}}</clickable>.",
     "searchBar.placeholder": "Finn tabeller, dashboard, personer og mer",
     "searchBar.placeholderWithShortcut": "{{message}} ({{shortcut}})",
