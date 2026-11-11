@@ -122,42 +122,15 @@ jobs:
             **/build/test-results/sparkSmoke4Test/**/*.xml
 
   # Fails when an acryl-spark-lineage test class added or modified by the PR did not execute.
-  # Opt-outs: .github/new-tests-ran-optout.json.
   new-tests-ran:
     needs: [spark-smoke-test]
     if: ${{ !cancelled() && github.event_name == 'pull_request' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
     permissions:
       contents: read
       actions: read
       pull-requests: read
-    steps:
-      - name: Check out the repo
-        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - name: Download this run's JUnit results
-        # No matching artifact (e.g. the test jobs were skipped) leaves the dir empty, and the
-        # check below then reports every changed test class as not run: fail-safe.
-        continue-on-error: true
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: "Test Results (smoke tests)"
-          path: ${{ runner.temp }}/junit
-      - name: List files changed by the PR
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" \
-            --jq '.[] | select(.status != "removed") | .filename' > "$RUNNER_TEMP/changed-files.txt"
-          echo "$(wc -l < "$RUNNER_TEMP/changed-files.txt") changed files"
-      - name: Check that added/modified test classes ran
-        run: |
-          mkdir -p "$RUNNER_TEMP/junit"
-          python3 .github/scripts/check_new_tests_ran.py \
-            --changed-files-from "$RUNNER_TEMP/changed-files.txt" \
-            --results-dir "$RUNNER_TEMP/junit" \
-            --language java \
-            --include 'metadata-integration/java/acryl-spark-lineage/*' \
-            --github-annotations
+    uses: ./.github/workflows/reusable-new-tests-ran.yml
+    with:
+      artifact-pattern: "Test Results (smoke tests)"
+      include: |
+        metadata-integration/java/acryl-spark-lineage/*
