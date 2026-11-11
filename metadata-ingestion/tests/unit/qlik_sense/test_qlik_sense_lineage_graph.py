@@ -1,4 +1,5 @@
-from typing import Dict, List, Optional, Tuple
+import json
+from typing import Dict, Iterable, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 from urllib.parse import quote
 
@@ -7,6 +8,7 @@ import requests_mock as requests_mock_module
 
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.qlik_sense.app_state import AppCheckpoint
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
@@ -23,8 +25,10 @@ from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import ScriptTableLineage
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
+    MetadataChangeProposalClass,
     SchemaMetadataClass,
     SubTypesClass,
+    UpstreamClass,
     UpstreamLineageClass,
 )
 
@@ -114,11 +118,36 @@ def _urn(name: str) -> str:
 POSTGRES_ORDERS = make_dataset_urn("postgres", "db.public.orders")
 
 
+def _lineage(
+    workunits: Iterable[MetadataWorkUnit],
+) -> Tuple[Dict[str, List[str]], Dict[str, List[str]]]:
+    """Upstreams written whole, and upstreams only added by a patch, by URN."""
+    written: Dict[str, List[str]] = {}
+    added: Dict[str, List[str]] = {}
+    for wu in workunits:
+        lineage = wu.get_aspect_of_type(UpstreamLineageClass)
+        if lineage:
+            written[wu.get_urn()] = [u.dataset for u in lineage.upstreams]
+        elif (
+            isinstance(wu.metadata, MetadataChangeProposalClass)
+            and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+            and wu.metadata.aspect is not None
+        ):
+            added.setdefault(wu.get_urn(), []).extend(
+                op["value"]["dataset"]
+                for op in json.loads(wu.metadata.aspect.value)
+                if op["op"] == "add" and op["path"].startswith("/upstreams/")
+            )
+    return written, added
+
+
 def _run(
     mock_api_cls: MagicMock,
     datasets: Optional[List[ListedDataset]],
     keep_unread_items: bool = False,
-) -> Tuple[QlikSenseSource, Dict[str, List[str]]]:
+    graph: Optional[MagicMock] = None,
+    script_read_failed: bool = False,
+) -> Tuple[QlikSenseSource, Dict[str, List[str]], Dict[str, List[str]]]:
     space = MagicMock(id="space-1")
     space.name = "Finance"
     api = mock_api_cls.return_value
@@ -157,16 +186,15 @@ def _run(
             [f"{ETL_APP}#Curve", "qri:app:sense://unread-app#Tbl"],
         ),
     ]
+    for item in api.get_items.return_value:
+        if isinstance(item, App):
+            item.script_read_failed = script_read_failed
     source = QlikSenseSource(
         QlikSourceConfig.model_validate(CLOUD_CONFIG),
-        PipelineContext(run_id="test-lineage-graph"),
+        PipelineContext(run_id="test-lineage-graph", graph=graph),
     )
-    upstreams: Dict[str, List[str]] = {}
-    for wu in source.get_workunits_internal():
-        lineage = wu.get_aspect_of_type(UpstreamLineageClass)
-        if lineage:
-            upstreams[wu.get_urn()] = [u.dataset for u in lineage.upstreams]
-    return source, upstreams
+    written, added = _lineage(source.get_workunits_internal())
+    return source, written, added
 
 
 DATASETS = [
@@ -179,15 +207,67 @@ DATASETS = [
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_qvd_lineage_links_apps_through_datasets(mock_api_cls: MagicMock) -> None:
-    source, upstreams = _run(mock_api_cls, DATASETS)
+    source, written, added = _run(mock_api_cls, DATASETS)
 
     curve = _urn("etl-app.curve")
-    assert upstreams == {
+    assert written == {
         curve: [_urn("space-1.src.qvd")],
         _urn("report-app.prices"): [_urn("space-1.stored.qvd")],
-        _urn("space-1.stored.qvd"): [curve],
     }
+    # Without DataHub's current lineage, a dataset's storing tables can only be
+    # added, as the dataset is not built by one app.
+    assert added == {_urn("space-1.stored.qvd"): [curve]}
     assert not source.reporter.failures
+
+
+ORACLE_PRICES = make_dataset_urn("oracle", "erp.prices")
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_dataset_store_lineage_replaces_only_app_table_edges(
+    mock_api_cls: MagicMock,
+) -> None:
+    graph = MagicMock()
+    # The app table that stored into the QVD before, and lineage added in
+    # DataHub by hand.
+    graph.get_aspect.return_value = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=_urn("old-app.curve"), type="COPY"),
+            UpstreamClass(dataset=ORACLE_PRICES, type="TRANSFORMED"),
+        ]
+    )
+    _, written, _ = _run(mock_api_cls, DATASETS, graph=graph)
+
+    assert written[_urn("space-1.stored.qvd")] == [
+        ORACLE_PRICES,
+        _urn("etl-app.curve"),
+    ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_dataset_no_app_stores_into_loses_its_store_edge(
+    mock_api_cls: MagicMock,
+) -> None:
+    graph = MagicMock()
+    graph.get_aspect.return_value = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=_urn("etl-app.curve"), type="COPY"),
+            UpstreamClass(dataset=ORACLE_PRICES, type="TRANSFORMED"),
+        ]
+    )
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph", graph=graph),
+    )
+    mock_api_cls.return_value.unread_items = []
+    mock_api_cls.return_value.list_datasets.return_value = DATASETS
+    # Qlik's lineage graph for the QVD is read and no app stores into it any more.
+    source._dataset_store_sources = {_urn("space-1.stored.qvd"): []}
+
+    written, added = _lineage(source._gen_dataset_store_lineage())
+
+    assert written == {_urn("space-1.stored.qvd"): [ORACLE_PRICES]}
+    assert not added
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -202,12 +282,12 @@ def test_script_table_in_lineage_graph_keeps_its_urn(mock_api_cls: MagicMock) ->
         "_build_script_tables",
         lambda self, app, parsed=None: [script_table] if app.id == "etl-app" else [],
     ):
-        _, upstreams = _run(mock_api_cls, DATASETS)
+        _, written, added = _run(mock_api_cls, DATASETS)
 
     curve = _urn("etl-app.curve")
-    assert upstreams[curve] == [_urn("space-1.src.qvd"), POSTGRES_ORDERS]
-    assert upstreams[_urn("space-1.stored.qvd")] == [curve]
-    assert _urn(f"{ETL_APP}#Curve") not in upstreams
+    assert written[curve] == [_urn("space-1.src.qvd"), POSTGRES_ORDERS]
+    assert added[_urn("space-1.stored.qvd")] == [curve]
+    assert _urn(f"{ETL_APP}#Curve") not in written
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -216,21 +296,42 @@ def test_graph_table_urn_does_not_depend_on_script_sql(
 ) -> None:
     # Without a resolvable SQL load the table is not a script table, but it must
     # keep the same URN, or a failed connection would soft-delete it.
-    _, upstreams = _run(mock_api_cls, DATASETS)
-    assert _urn("etl-app.curve") in upstreams
+    _, written, _ = _run(mock_api_cls, DATASETS)
+    assert _urn("etl-app.curve") in written
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_failed_dataset_listing_keeps_table_lineage(mock_api_cls: MagicMock) -> None:
-    source, upstreams = _run(mock_api_cls, None)
+    script_table = ScriptTableLineage(
+        label="Curve", identifier="etl-app.curve", upstream_urns=[POSTGRES_ORDERS]
+    )
+    with patch.object(
+        QlikSenseSource,
+        "_build_script_tables",
+        lambda self, app, parsed=None: [script_table] if app.id == "etl-app" else [],
+    ):
+        source, written, added = _run(mock_api_cls, None)
 
     # Both tables load datasets, so their lineage from the last run is kept
-    # rather than replaced by lineage without the dataset edges.
-    assert _urn("etl-app.curve") not in upstreams
-    assert _urn("report-app.prices") not in upstreams
-    assert [w.title for w in source.reporter.warnings] == [
-        "Lineage of Qlik app table not updated"
+    # rather than replaced by lineage without the dataset edges, while the SQL
+    # lineage read this run is still added.
+    assert _urn("etl-app.curve") not in written
+    assert _urn("report-app.prices") not in written
+    assert added[_urn("etl-app.curve")] == [POSTGRES_ORDERS]
+    assert "Lineage of Qlik app table only added to" in [
+        w.title for w in source.reporter.warnings
     ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_denied_load_script_only_adds_to_table_lineage(
+    mock_api_cls: MagicMock,
+) -> None:
+    # The SQL lineage a run that could read the script wrote stays in place.
+    _, written, added = _run(mock_api_cls, DATASETS, script_read_failed=True)
+
+    assert _urn("etl-app.curve") not in written
+    assert added[_urn("etl-app.curve")] == [_urn("space-1.src.qvd")]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
@@ -242,10 +343,19 @@ def test_dataset_lineage_is_kept_when_a_storing_app_was_not_read(
     mock_api_cls.return_value.unread_items = [
         UnreadItem(name="items of space space-2", cause="timeout")
     ]
-    source, upstreams = _run(mock_api_cls, DATASETS, keep_unread_items=True)
+    graph = MagicMock()
+    graph.get_aspect.return_value = UpstreamLineageClass(
+        upstreams=[UpstreamClass(dataset=_urn("unread-app.tbl"), type="COPY")]
+    )
+    source, written, _ = _run(
+        mock_api_cls, DATASETS, keep_unread_items=True, graph=graph
+    )
 
-    assert _urn("space-1.stored.qvd") not in upstreams
-    assert "Lineage of Qlik dataset not updated" in [
+    assert written[_urn("space-1.stored.qvd")] == [
+        _urn("unread-app.tbl"),
+        _urn("etl-app.curve"),
+    ]
+    assert "Lineage of Qlik dataset only added to" in [
         w.title for w in source.reporter.warnings
     ]
 
@@ -267,11 +377,8 @@ def test_kept_app_tables_resolve_from_its_checkpoint(mock_api_cls: MagicMock) ->
     source._keep_unchanged_app(UnchangedApp(id="etl-app", fingerprint="f"))
     source._dataset_store_sources[_urn("space-1.stored.qvd")] = [f"{ETL_APP}#Curve"]
 
-    lineage = [
-        wu.get_aspect_of_type(UpstreamLineageClass)
-        for wu in source._gen_dataset_store_lineage()
-    ]
-    assert [[u.dataset for u in a.upstreams] for a in lineage if a] == [[curve]]
+    _, added = _lineage(source._gen_dataset_store_lineage())
+    assert added == {_urn("space-1.stored.qvd"): [curve]}
     recorded = source.app_state.record.call_args.args[1]
     assert recorded.table_urns_by_qri == {f"{ETL_APP}#Curve": curve}
 

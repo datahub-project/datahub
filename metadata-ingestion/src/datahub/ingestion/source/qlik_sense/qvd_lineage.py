@@ -31,8 +31,9 @@ class QvdPathResolver:
         ignored_connections: Iterable[str],
         folder_aliases: Dict[str, str],
     ):
-        # Folder data connection name -> folder path.
-        self.folders = folders
+        # Folder data connection name -> folder path. Qlik matches data
+        # connection names without regard to case.
+        self.folders = {name.lower(): folder for name, folder in folders.items()}
         self.ignored_connections = {name.lower() for name in ignored_connections}
         # Longest first, so a nested alias wins over its parent.
         self.folder_aliases = sorted(
@@ -51,7 +52,7 @@ class QvdPathResolver:
         elif file.connection.lower() in self.ignored_connections:
             return None
         else:
-            folder = self.folders.get(file.connection)
+            folder = self.folders.get(file.connection.lower())
             if folder is None:
                 self.unresolved.append(f"lib://{file.connection}/{file.path}")
                 return None
@@ -159,16 +160,18 @@ def app_qvd_lineage(
         if urn is None:
             continue
         stored = table(store.label)
-        known = (
-            None
-            if stored.identifier in unknown_fields
-            else list(
-                dict.fromkeys(
-                    [
-                        *table_fields.get(stored.identifier, []),
-                        *stored.column_upstreams,
-                    ]
-                )
+        # The data model's fields are complete even when a LOAD * hid them
+        # from the script.
+        known = list(
+            dict.fromkeys(
+                [
+                    *table_fields.get(stored.identifier, []),
+                    *(
+                        []
+                        if stored.identifier in unknown_fields
+                        else stored.column_upstreams
+                    ),
+                ]
             )
         )
         if store.fields is not None:

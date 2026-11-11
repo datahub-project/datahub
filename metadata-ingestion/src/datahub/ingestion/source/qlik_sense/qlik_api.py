@@ -10,7 +10,6 @@ from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfi
 from datahub.ingestion.source.qlik_sense.data_classes import (
     PERSONAL_SPACE_DICT,
     App,
-    DataModelTable,
     Item,
     LineageTable,
     ListedDataset,
@@ -108,11 +107,13 @@ class QlikAPI(QlikBaseAPI):
         response_dict[Constant.ITEMID] = item_id
         dataset = QlikDataset.model_validate(response_dict)
         try:
-            dataset.stored_from_qris = [
-                qri
-                for table in self.get_table_lineage(dataset.secureQri) or []
-                for qri in table.source_qris
-            ]
+            tables = self.get_table_lineage(dataset.secureQri)
+            # No graph (404) leaves the storing apps unknown, while an empty
+            # graph means none store into it any more.
+            if tables is not None:
+                dataset.stored_from_qris = [
+                    qri for table in tables for qri in table.source_qris
+                ]
         except Exception as e:
             log_read_error(
                 f"Unable to fetch table lineage of dataset {dataset_id}. Exception: {e}"
@@ -368,16 +369,9 @@ class QlikAPI(QlikBaseAPI):
             if not app.tables or not all(table.tableQri for table in app.tables):
                 # Graph and script tables carry no fields of their own; the
                 # data model has them as the last reload left them.
-                try:
-                    app.data_model_tables = [
-                        DataModelTable.from_engine(table)
-                        for table in websocket_connection.get_data_model_tables()
-                        if not table.get("qIsSynthetic")
-                    ]
-                except Exception as e:
-                    errors.record(
-                        f"Unable to read the data model of app {app_id}. Exception: {e}"
-                    )
+                app.data_model_tables = self._read_data_model(
+                    websocket_connection, app_id, errors
+                )
             app.read_errors = errors.messages
             app.read_fallbacks = errors.fallbacks
             return app

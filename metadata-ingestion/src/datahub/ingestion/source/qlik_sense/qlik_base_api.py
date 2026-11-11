@@ -20,6 +20,7 @@ import requests
 
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
+    DataModelTable,
     Item,
     ListedDataset,
     Sheet,
@@ -187,6 +188,22 @@ class QlikBaseAPI(ABC):
             websocket_connection.close_websocket()
         except Exception as e:
             logger.debug(f"Unable to close Engine session of app {app_id}: {e}")
+
+    @staticmethod
+    def _read_data_model(
+        websocket_connection: WebsocketConnection, app_id: str, errors: "ReadErrors"
+    ) -> List[DataModelTable]:
+        try:
+            return [
+                DataModelTable.from_engine(table)
+                for table in websocket_connection.get_data_model_tables()
+                if not table.get("qIsSynthetic")
+            ]
+        except Exception as e:
+            errors.record(
+                f"Unable to read the data model of app {app_id}. Exception: {e}"
+            )
+            return []
 
     @staticmethod
     def _read_load_script(
