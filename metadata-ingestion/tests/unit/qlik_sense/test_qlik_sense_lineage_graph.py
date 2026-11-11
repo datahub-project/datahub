@@ -11,6 +11,7 @@ from datahub.ingestion.source.qlik_sense.app_state import AppCheckpoint
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
+    DataModelTable,
     LineageTable,
     ListedDataset,
     QlikDataset,
@@ -22,6 +23,7 @@ from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import ScriptTableLineage
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
+    SchemaMetadataClass,
     SubTypesClass,
     UpstreamLineageClass,
 )
@@ -399,3 +401,63 @@ def test_qvd_datasets_get_their_own_subtype_and_name(
     assert subtypes.typeNames == [subtype]
     # The URN keeps the file name, so existing entities keep their URNs.
     assert {wu.get_urn() for wu in workunits} == {_urn(f"space-1.{name}")}
+
+
+def test_data_model_field_types_come_from_qlik_tags() -> None:
+    table = DataModelTable.from_engine(
+        {
+            "qName": "Curve",
+            "qFields": [
+                # A date is also numeric; the more specific tag wins.
+                {"qName": "Day", "qTags": ["$numeric", "$integer", "$date"]},
+                {"qName": "Price", "qTags": ["$numeric"]},
+                {"qName": "Zone", "qTags": ["$ascii", "$text"]},
+                {"qName": "Note", "qTags": []},
+                {"qName": "$Syn 1", "qIsSynthetic": True},
+            ],
+        }
+    )
+    assert [(f.name, f.dataType) for f in table.fields] == [
+        ("Day", "DATE"),
+        ("Price", "DOUBLE"),
+        ("Zone", "STRING"),
+        ("Note", None),
+    ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_graph_tables_take_their_schema_from_the_data_model(
+    mock_api_cls: MagicMock,
+) -> None:
+    api = mock_api_cls.return_value
+    api.unread_items = []
+    api.list_datasets.return_value = []
+    api.get_user_name.return_value = None
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    app = _app("etl-app", [LineageTable(qri=f"{ETL_APP}#Curve", label="Curve")])
+    app.data_model_tables = [
+        DataModelTable.from_engine(
+            {
+                "qName": "Curve",
+                "qFields": [
+                    {"qName": "Day", "qTags": ["$numeric", "$date"]},
+                    {"qName": "Price", "qTags": ["$numeric"]},
+                ],
+            }
+        )
+    ]
+
+    schemas = {
+        wu.get_urn(): schema
+        for wu in source._gen_app_workunit(app)
+        if (schema := wu.get_aspect_of_type(SchemaMetadataClass))
+    }
+
+    # The lineage graph names the table but not its fields.
+    assert [
+        (field.fieldPath, field.nativeDataType)
+        for field in schemas[_urn("etl-app.curve")].fields
+    ] == [("Day", "DATE"), ("Price", "DOUBLE")]

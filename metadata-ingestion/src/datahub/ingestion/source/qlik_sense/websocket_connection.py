@@ -178,6 +178,21 @@ class WebsocketConnection:
         response = self.websocket_send_request(method="GetScript")
         return response.get(Constant.QSCRIPT) or ""
 
+    def get_data_model_tables(self) -> List[Dict]:
+        """The tables of the app's data model, with their fields, as the last
+        reload left them. Needs the app opened with its data."""
+        response = self.websocket_send_request(
+            method="GetTablesAndKeys",
+            params={
+                "qWindowSize": {"qcx": 0, "qcy": 0},
+                "qNullSize": {"qcx": 0, "qcy": 0},
+                "qCellHeight": 0,
+                "qSyntheticMode": False,
+                "qIncludeSysVars": False,
+            },
+        )
+        return response.get("qtr") or []
+
     def get_object_properties(
         self, on_fallback: Callable[[str], None]
     ) -> Dict[str, Dict]:
