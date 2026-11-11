@@ -190,6 +190,14 @@ ingestion:
   # injects from the K8s namespace. Empty in single-tenant / OSS deployments — cohort matching
   # never fires in that case and only the per-connector `_default` from the matrix applies.
   deploymentId: "${DATAHUB_EXECUTOR_CUSTOMER_ID:}"
+  # Counts write requests (Rest.li ingest actions and OpenAPI entity writes) by client type, client
+  # version and actor, from the version headers the Python and Java clients send. Writes with no
+  # version header come from custom code. Observation only: nothing is rejected. Totals go to the
+  # gms.client_writes metric; per-actor totals are logged once per summary interval.
+  clientWriteTracking:
+    enabled: ${INGESTION_CLIENT_WRITE_TRACKING_ENABLED:true}
+    summaryIntervalSeconds: ${INGESTION_CLIENT_WRITE_TRACKING_SUMMARY_INTERVAL_SECONDS:3600}
+    maxTrackedKeys: ${INGESTION_CLIENT_WRITE_TRACKING_MAX_TRACKED_KEYS:5000}
   scheduler:
     refreshIntervalSeconds: ${INGESTION_SOURCE_REFRESH_INTERVAL_SECONDS:43200} # The interval at which the ingestion source scheduler will check for new or updated ingestion sources
 
