@@ -21,6 +21,7 @@ import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -93,15 +94,18 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     start = start == null ? 0 : start;
     count = count == null ? MAX_DOWNSTREAM_CNT : count;
 
-    return _graphService.findRelatedEntities(opContext,
-        null,
-        newFilter("urn", rawUrn),
-        null,
-        QueryUtils.EMPTY_FILTER,
-        relationshipTypes,
-        newRelationshipFilter(QueryUtils.EMPTY_FILTER, direction),
-        start,
-        count);
+    return EntityAuthorizationUtils.filterAPIAuthorizedRelatedEntities(
+        opContext,
+        LINEAGE,
+        _graphService.findRelatedEntities(opContext,
+            null,
+            newFilter("urn", rawUrn),
+            null,
+            QueryUtils.EMPTY_FILTER,
+            relationshipTypes,
+            newRelationshipFilter(QueryUtils.EMPTY_FILTER, direction),
+            start,
+            count));
   }
 
   static RelationshipDirection getOppositeDirection(RelationshipDirection direction) {
@@ -221,8 +225,16 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
                 .setTotal(0)
                 .setPartial(false);
           }
-          return _graphService.getLineage(
-              opContext, urn, lineageDirection, finalStart, finalCount, maxHops != null ? maxHops : 1);
+          return EntityAuthorizationUtils.filterAPIAuthorizedLineage(
+              opContext,
+              LINEAGE,
+              _graphService.getLineage(
+                  opContext,
+                  urn,
+                  lineageDirection,
+                  finalStart,
+                  finalCount,
+                  maxHops != null ? maxHops : 1));
         },
         MetricRegistry.name(this.getClass(), "getLineage"));
   }

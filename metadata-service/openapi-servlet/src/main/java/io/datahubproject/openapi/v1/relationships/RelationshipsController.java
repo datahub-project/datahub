@@ -11,6 +11,7 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
@@ -100,16 +101,19 @@ public class RelationshipsController {
         }
     }
 
-    return _graphService.findRelatedEntities(
+    return EntityAuthorizationUtils.filterAPIAuthorizedRelatedEntities(
         opContext,
-        null,
-        newFilter("urn", rawUrn),
-        null,
-        QueryUtils.EMPTY_FILTER,
-        relationshipTypes,
-        newRelationshipFilter(QueryUtils.EMPTY_FILTER, restLiDirection),
-        start,
-        count);
+        RELATIONSHIP,
+        _graphService.findRelatedEntities(
+            opContext,
+            null,
+            newFilter("urn", rawUrn),
+            null,
+            QueryUtils.EMPTY_FILTER,
+            relationshipTypes,
+            newRelationshipFilter(QueryUtils.EMPTY_FILTER, restLiDirection),
+            start,
+            count));
   }
 
   @GetMapping(
