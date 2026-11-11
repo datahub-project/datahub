@@ -11,6 +11,8 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     PERSONAL_SPACE_DICT,
     App,
     Item,
+    LineageTable,
+    ListedDataset,
     QlikDataset,
     QlikTable,
     Space,
@@ -103,7 +105,63 @@ class QlikAPI(QlikBaseAPI):
         response.raise_for_status()
         response_dict = response.json()
         response_dict[Constant.ITEMID] = item_id
-        return QlikDataset.model_validate(response_dict)
+        dataset = QlikDataset.model_validate(response_dict)
+        try:
+            dataset.stored_from_qris = [
+                qri
+                for table in self.get_table_lineage(dataset.secureQri)
+                for qri in table.source_qris
+            ]
+        except Exception as e:
+            log_read_error(
+                f"Unable to fetch table lineage of dataset {dataset_id}. Exception: {e}"
+            )
+            self.lineage_read_failures.append(f"{dataset_id}: {e}")
+        return dataset
+
+    def get_table_lineage(self, qri: str) -> List[LineageTable]:
+        node = quote(qri, safe="")
+        response = self.session.get(
+            f"{self.rest_api_url}/lineage-graphs/nodes/{node}/actions/expand?node={node}&level=TABLE"
+        )
+        # Qlik has no lineage for a resource it has not loaded or stored yet.
+        if response.status_code == 404:
+            return []
+        response.raise_for_status()
+        graph = response.json()[Constant.GRAPH]
+        tables = {
+            table_qri: LineageTable(qri=table_qri, label=node.get(Constant.LABEL) or "")
+            for table_qri, node in (graph.get(Constant.NODES) or {}).items()
+        }
+        for edge in graph.get(Constant.EDGES) or []:
+            table = tables.get(edge.get(Constant.TARGET))
+            if table and edge.get(Constant.SOURCE):
+                table.source_qris.append(edge[Constant.SOURCE])
+        return list(tables.values())
+
+    def list_datasets(self) -> List[ListedDataset]:
+        datasets: List[ListedDataset] = []
+        try:
+            for item in self._paginate(
+                f"{self.rest_api_url}/items?resourceType={Constant.DATASET}"
+            ):
+                secure_qri = (item.get(Constant.RESOURCEATTRIBUTES) or {}).get(
+                    Constant.SECUREQRI
+                )
+                if secure_qri:
+                    datasets.append(
+                        ListedDataset(
+                            space_id=item.get(Constant.SPACEID)
+                            or Constant.PERSONAL_SPACE_ID,
+                            name=item[Constant.NAME],
+                            secure_qri=secure_qri,
+                        )
+                    )
+        except Exception as e:
+            self._record_unread(
+                "datasets", f"Unable to list datasets. Exception: {e}", e
+            )
+        return datasets
 
     def get_user_name(self, user_id: str) -> Optional[str]:
         try:
@@ -266,6 +324,15 @@ class QlikAPI(QlikBaseAPI):
             app.sheets = self._get_app_sheets(websocket_connection, app_id, errors)
             read_errors = len(errors.messages)
             app.tables = self._get_app_used_tables(websocket_connection, app_id, errors)
+            if not app.tables:
+                # Script-built apps have no data model, but Qlik still traces
+                # their tables, including QVDs they load.
+                try:
+                    app.lineage_tables = self.get_table_lineage(app.qri)
+                except Exception as e:
+                    errors.record(
+                        f"Unable to fetch table lineage of app {app_id}. Exception: {e}"
+                    )
             app.tables_read_failed = len(errors.messages) > read_errors
             if not app.tables or not all(table.tableQri for table in app.tables):
                 try:
