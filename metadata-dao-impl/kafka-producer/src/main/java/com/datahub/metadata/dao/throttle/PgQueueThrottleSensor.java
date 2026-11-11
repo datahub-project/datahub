@@ -69,11 +69,15 @@ public class PgQueueThrottleSensor implements ThrottleSensor {
         && config.getUpdateIntervalMs() > 0) {
       scheduler.scheduleAtFixedRate(
           () -> {
-            refresh();
             try {
+              refresh();
               throttle();
             } catch (InterruptedException e) {
               throw new RuntimeException(e);
+            } catch (RuntimeException e) {
+              // An exception escaping this task would cancel it and stop lag refreshes for the
+              // life of the process, so log it and try again at the next interval.
+              log.error("MCL lag refresh or throttle failed; retrying at the next interval.", e);
             }
           },
           config.getUpdateIntervalMs(),
