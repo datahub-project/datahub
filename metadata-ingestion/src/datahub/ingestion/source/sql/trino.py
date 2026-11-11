@@ -304,7 +304,11 @@ class TrinoConfig(BasicSQLAlchemyConfig):
     include_column_lineage: bool = Field(
         default=True,
         description="When emitting upstreamLineage to connector sources (e.g. Iceberg, Hive), "
-        "include column-level (fine-grained) lineage. Requires schema to be available.",
+        "include column-level (fine-grained) lineage. Requires schema to be available. "
+        "Upstream column names are resolved from the connector source's schema in "
+        "DataHub (when a graph is configured) so they match the source's casing "
+        "(e.g. mixed-case Iceberg columns) rather than Trino's lowercased names; the "
+        "Trino column name is used as a fallback when the source schema is unavailable.",
     )
 
     trino_as_primary: bool = Field(
@@ -358,6 +362,43 @@ class TrinoSource(SQLAlchemySource):
         self, config: TrinoConfig, ctx: PipelineContext, platform: str = "trino"
     ):
         super().__init__(config, ctx, platform)
+
+    def _get_source_columns_by_lowercase(
+        self, source_dataset_urn: str
+    ) -> Optional[Dict[str, List[str]]]:
+        """The connector source's column names, keyed by their lowercased form.
+
+        Trino reports columns lowercased, but the connector source (e.g. Iceberg) may
+        use mixed-case names, and the upstream ``schemaField`` URNs have to carry the
+        source's own. A key holds more than one name when the source distinguishes
+        columns only by case.
+
+        Returns ``None`` when the source schema is unknown - no graph, the source is
+        not ingested yet, or the lookup failed - so callers keep Trino's own name.
+        """
+        schema_resolver = self.get_schema_resolver()
+        try:
+            _, schema_info = schema_resolver.resolve_urn(source_dataset_urn)
+        except Exception as e:
+            # A graph error would otherwise escape mid-iteration and abort this
+            # dataset's lineage after its sibling workunits were already emitted.
+            self.report.warning(
+                title="Could not resolve connector source schema",
+                message="Column lineage falls back to Trino's lowercased column names.",
+                context=source_dataset_urn,
+                exc=e,
+            )
+            # Remember the miss, so one outage is not retried for every table.
+            schema_resolver.add_schema_metadata_from_fetch(source_dataset_urn, None)
+            return None
+
+        if not schema_info:
+            return None
+
+        columns_by_lowercase: Dict[str, List[str]] = {}
+        for column in schema_info:
+            columns_by_lowercase.setdefault(column.lower(), []).append(column)
+        return columns_by_lowercase
 
     def get_db_name(self, inspector: Inspector) -> str:
         if self.config.database:
@@ -452,7 +493,15 @@ class TrinoSource(SQLAlchemySource):
         """
         Emit upstreamLineage from this Trino dataset to the connector dataset.
         When include_column_lineage is True and schema_metadata has fields,
-        also emits fineGrainedLineages (column-level lineage) with 1:1 field mapping.
+        also emits fineGrainedLineages (column-level lineage).
+
+        The downstream (Trino) column path is used as-is (Trino's lowercased name).
+        The upstream (source) column path is resolved from the connector source's
+        own schema in DataHub so it matches the source's real casing (e.g. Iceberg's
+        mixed-case columns); see ``_get_source_columns_by_lowercase``. When the source
+        schema cannot be resolved (no graph / not yet ingested), the upstream falls
+        back to the Trino path, preserving previous behaviour for sources whose
+        column names already match.
         """
         fine_grained_lineages: Optional[List[FineGrainedLineageClass]] = None
         if (
@@ -460,14 +509,28 @@ class TrinoSource(SQLAlchemySource):
             and schema_metadata is not None
             and schema_metadata.fields
         ):
+            source_columns = self._get_source_columns_by_lowercase(source_dataset_urn)
+            skipped_columns: List[str] = []
             fine_grained_lineages = []
             for field in schema_metadata.fields:
                 try:
                     path = get_simple_field_path_from_v2_field_path(field.fieldPath)
+                    upstream_path = path
+                    if source_columns is not None:
+                        candidates = source_columns.get(path.lower(), [])
+                        if len(candidates) != 1:
+                            # Absent on the source, or the source tells several
+                            # columns apart only by case. Skip rather than guess at
+                            # an upstream schemaField URN.
+                            skipped_columns.append(path)
+                            continue
+                        upstream_path = candidates[0]
                     fine_grained_lineages.append(
                         FineGrainedLineageClass(
                             upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[make_schema_field_urn(source_dataset_urn, path)],
+                            upstreams=[
+                                make_schema_field_urn(source_dataset_urn, upstream_path)
+                            ],
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                             downstreams=[make_schema_field_urn(dataset_urn, path)],
                         )
@@ -478,6 +541,13 @@ class TrinoSource(SQLAlchemySource):
                         field.fieldPath,
                         e,
                     )
+            if skipped_columns:
+                self.report.warning(
+                    title="Skipped column lineage to connector source",
+                    message="The connector source has no single column matching "
+                    "these Trino columns.",
+                    context=f"{source_dataset_urn} columns={skipped_columns}",
+                )
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=UpstreamLineage(
