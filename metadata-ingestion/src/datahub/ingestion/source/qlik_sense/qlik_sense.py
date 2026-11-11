@@ -1528,12 +1528,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         """Gives a script table the parser could not name its name in the data
         model, when exactly one data model table no other table claims has
         exactly its columns. Otherwise it keeps its made-up name."""
+        # A lineage graph table stays claimable: an unlabelled load the graph
+        # also traces must take its name, so both are ingested as one table.
         claimed = {
-            name.lower()
-            for name in (
-                *(table.label for table in script_tables if not table.label_unknown),
-                *(table.label for table in app.lineage_tables),
-            )
+            table.label.lower() for table in script_tables if not table.label_unknown
         }
         unclaimed = [
             table
@@ -1557,6 +1555,29 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 table.label = names[0]
                 table.identifier = f"{app.id}.{names[0]}".lower()
                 table.label_unknown = False
+
+    def _use_data_model_field_names(
+        self, script_tables: List[ScriptTableLineage]
+    ) -> None:
+        """Spells each column as the data model does, so column lineage lands on
+        the schema's fields. The SQL parser may change a column's case."""
+        for table in script_tables:
+            fields = self._data_model_fields.get(table.identifier)
+            if not fields:
+                continue
+            names = {field.name for field in fields}
+            by_lower: Dict[str, List[str]] = {}
+            for name in names:
+                by_lower.setdefault(name.lower(), []).append(name)
+            column_upstreams: Dict[str, List[str]] = {}
+            for column, upstreams in table.column_upstreams.items():
+                matches = by_lower.get(column.lower(), [])
+                # Qlik field names are case-sensitive, so a column matching two
+                # fields keeps its own spelling.
+                name = column if column in names or len(matches) != 1 else matches[0]
+                merged = column_upstreams.setdefault(name, [])
+                merged.extend(u for u in upstreams if u not in merged)
+            table.column_upstreams = column_upstreams
 
     def _table_schema(
         self, identifier: str, parsed: List[QlikDatasetSchemaField]
@@ -1602,6 +1623,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.apps_without_load_model.append(app.id)
         script_tables = self._build_script_tables(app)
         self._name_unknown_tables(app, script_tables)
+        self._use_data_model_field_names(script_tables)
         matched_script_tables = self._match_script_tables(
             app.lineage_tables, script_tables
         )
