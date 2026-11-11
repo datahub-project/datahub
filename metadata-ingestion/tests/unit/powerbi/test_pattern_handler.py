@@ -17,6 +17,7 @@ import sqlglot.errors
 from datahub.configuration.source_common import PlatformDetail
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
+    Constant,
     DataPlatformPair,
     OraclePlatformDetail,
     PowerBiDashboardSourceConfig,
@@ -1274,3 +1275,34 @@ def test_create_lineage_does_not_warn_when_sql_already_fully_qualified():
 
     warning_titles = [w.title for w in instance.reporter.warnings]
     assert "Unresolved database name in Value.NativeQuery" not in warning_titles
+
+
+def test_get_tables_using_old_parser_warns_when_sql_exceeds_parser_limits():
+    """sqlparse raises SQLParseError once its DoS-protection limits are hit. The
+    handler turns that into a structured warning and skips lineage for the query,
+    so the caller in parser.py still processes the table's other data-access
+    functions instead of abandoning the whole expression."""
+    instance = _build_native_query_lineage(config=_build_config())
+    oversized = "SELECT * FROM t WHERE (a,b) IN ({})".format(
+        ",".join("(1,2)" for _ in range(6000))
+    )
+
+    assert instance.get_tables_using_old_parser(oversized) == []
+    assert Constant.SQL_PARSING_FAILURE in [
+        entry.title for entry in instance.reporter.warnings
+    ]
+
+
+def test_get_tables_using_old_parser_lets_unexpected_exceptions_propagate():
+    """The handler catches only SQLParseError; a genuine bug inside get_tables
+    must surface rather than be relabelled as a SQL parsing failure."""
+    instance = _build_native_query_lineage(config=_build_config())
+    with (
+        patch(
+            "datahub.ingestion.source.powerbi.m_query.pattern_handler"
+            ".native_sql_parser.get_tables",
+            side_effect=RuntimeError("unexpected"),
+        ),
+        pytest.raises(RuntimeError, match="unexpected"),
+    ):
+        instance.get_tables_using_old_parser("SELECT 1")

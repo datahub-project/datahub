@@ -20,7 +20,7 @@
                 "odcs.tenant": "ClimateQuantumInc"
             },
             "name": "tbl",
-            "description": "Provides core payment metrics",
+            "description": "Provides core payment metrics\n\n**Grain:** Aggregation on columns txn_ref_dt, pmt_txn_id\n\n**purpose**: Views built on top of the seller tables.\n\n**usage**: Predict sales over time\n\n**limitations**: Data based on seller perspective, no buyer information",
             "tags": []
         }
     },
@@ -58,7 +58,7 @@
                 {
                     "fieldPath": "transaction_reference_date",
                     "nullable": true,
-                    "description": "Reference date for transaction",
+                    "description": "Reference date for transaction\n\n**Derivation:** defines the logic in business terms; logic for dummies\n\n```sql\nsel t1.txn_dt as txn_ref_dt from table_name_1 as t1, table_name_2 as t2, table_name_3 as t3 where t1.txn_dt=date-3\n```",
                     "type": {
                         "type": {
                             "com.linkedin.schema.DateType": {}
@@ -209,14 +209,6 @@
                 {
                     "url": "https://github.com/myorg/myrepo",
                     "description": "transformationImplementation",
-                    "createStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:datahub"
-                    }
-                },
-                {
-                    "url": "jdbc:postgresql://localhost:5432/adventureworks/tbl_1/rcvr_cntry_code",
-                    "description": "implementation",
                     "createStamp": {
                         "time": 0,
                         "actor": "urn:li:corpuser:datahub"
@@ -398,7 +390,7 @@
                         {
                             "fieldPath": "transaction_reference_date",
                             "nullable": true,
-                            "description": "Reference date for transaction",
+                            "description": "Reference date for transaction\n\n**Derivation:** defines the logic in business terms; logic for dummies\n\n```sql\nsel t1.txn_dt as txn_ref_dt from table_name_1 as t1, table_name_2 as t2, table_name_3 as t3 where t1.txn_dt=date-3\n```",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.DateType": {}
@@ -478,6 +470,68 @@
     }
 },
 {
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:9b7fd934a6433fa271bfc3b4cc6571af",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractProperties",
+    "aspect": {
+        "json": {
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553a.tbl,PROD)",
+            "schema": [
+                {
+                    "assertion": "urn:li:assertion:45137d08416fbfdb694c9d3b16a03359"
+                }
+            ],
+            "dataQuality": [
+                {
+                    "assertion": "urn:li:assertion:6cf441d05ae1fd79e4d07c5c149f565b"
+                },
+                {
+                    "assertion": "urn:li:assertion:329314d3c75736d97869a6a09243a8fc"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:9b7fd934a6433fa271bfc3b4cc6571af",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:9b7fd934a6433fa271bfc3b4cc6571af",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractStatus",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "state": "ACTIVE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pypl-edw.pp_access_views.tbl_1,PROD)",
     "changeType": "UPSERT",
@@ -516,7 +570,7 @@
                 "odcs.tenant": "ClimateQuantumInc"
             },
             "name": "receivers",
-            "description": "Master data for all receivers",
+            "description": "Master data for all receivers\n\n**purpose**: Views built on top of the seller tables.\n\n**usage**: Predict sales over time\n\n**limitations**: Data based on seller perspective, no buyer information",
             "tags": []
         }
     },
@@ -807,6 +861,60 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:odcs"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:2d1863c87eeec3d46935ef2cbccbd6f2",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractProperties",
+    "aspect": {
+        "json": {
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553a.receivers,PROD)",
+            "schema": [
+                {
+                    "assertion": "urn:li:assertion:98ae7533f9bd48ba3fb5cb63068ea997"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:2d1863c87eeec3d46935ef2cbccbd6f2",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:2d1863c87eeec3d46935ef2cbccbd6f2",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractStatus",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "state": "ACTIVE"
         }
     },
     "systemMetadata": {

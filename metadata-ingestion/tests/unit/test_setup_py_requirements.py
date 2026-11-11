@@ -28,12 +28,17 @@ def test_all_extras_require_are_valid_pep508() -> None:
     """
     script = """\
 import sys
+import types
 sys.path.insert(0, 'src')
 
-# Mock setuptools.setup to capture kwargs
+# Stub setuptools to capture setup() kwargs. py3.12 venvs no longer seed
+# setuptools and it is intentionally not a dependency.
 captured = {}
-import setuptools
+setuptools = types.ModuleType("setuptools")
 setuptools.setup = lambda **kw: captured.update(kw)
+setuptools.find_packages = lambda *a, **k: []
+setuptools.find_namespace_packages = lambda *a, **k: []
+sys.modules["setuptools"] = setuptools
 
 # Read and modify setup.py to use a release version
 # (in dev mode _self_pin is empty and bugs like "pkg{_self_pin}[extra]" won't manifest)

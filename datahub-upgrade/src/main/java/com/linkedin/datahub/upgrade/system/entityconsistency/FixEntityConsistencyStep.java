@@ -8,11 +8,14 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.aspect.consistency.ConsistencyIssue;
 import com.linkedin.metadata.aspect.consistency.ConsistencyService;
 import com.linkedin.metadata.aspect.consistency.SystemMetadataFilter;
-import com.linkedin.metadata.aspect.consistency.check.CheckBatchRequest;
 import com.linkedin.metadata.aspect.consistency.check.CheckContext;
-import com.linkedin.metadata.aspect.consistency.check.CheckResult;
 import com.linkedin.metadata.aspect.consistency.check.ConsistencyCheck;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixResult;
+import com.linkedin.metadata.aspect.consistency.scan.BatchHandleResult;
+import com.linkedin.metadata.aspect.consistency.scan.ConsistencyScanCheckpoint;
+import com.linkedin.metadata.aspect.consistency.scan.ConsistencyScanRequest;
+import com.linkedin.metadata.aspect.consistency.scan.ConsistencyScanResult;
+import com.linkedin.metadata.aspect.consistency.scan.ConsistencyScanRunner;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.config.ConsistencyCheckMode;
 import com.linkedin.metadata.config.ConsistencyCheckSchedule;
@@ -61,6 +64,9 @@ public class FixEntityConsistencyStep implements UpgradeStep {
   private static final String KEY_ISSUES_FOUND = "issuesFound";
   private static final String KEY_ISSUES_FIXED = "issuesFixed";
   private static final String KEY_ISSUES_FAILED = "issuesFailed";
+  private static final String KEY_TOTAL_ESTIMATE = "totalEstimate";
+  private static final String KEY_LAST_ETA_SEC = "lastEtaSec";
+  private static final String KEY_LAST_ETA_HUMAN = "lastEtaHuman";
   private static final String KEY_RUN_START_TIME = "runStartTime";
   private static final String KEY_LAST_COMPLETED_TIME =
       ConsistencyCheckCadence.KEY_LAST_COMPLETED_TIME;
@@ -68,6 +74,7 @@ public class FixEntityConsistencyStep implements UpgradeStep {
   private final OperationContext opContext;
   private final EntityService<?> entityService;
   private final ConsistencyService consistencyService;
+  private final ConsistencyScanRunner scanRunner;
   private final EntityConsistencyConfiguration config;
   private final Clock clock;
 
@@ -91,14 +98,17 @@ public class FixEntityConsistencyStep implements UpgradeStep {
     this.opContext = opContext;
     this.entityService = entityService;
     this.consistencyService = consistencyService;
+    this.scanRunner = new ConsistencyScanRunner(consistencyService);
     this.config = config;
     this.clock = clock;
     this.configFingerprint = computeConfigFingerprint();
 
+    long progressInterval =
+        config.getProgressLogIntervalMs() > 0 ? config.getProgressLogIntervalMs() : 60_000L;
     log.info(
         "{} initialized: dryRun={}, batchSize={}, batchDelayMs={}, limit={}, gracePeriodSeconds={}, "
             + "reprocessEnabled={}, entityTypes={}, checkIds={}, filterConfig={}, fingerprint={}, targetedRun={}, "
-            + "orphanMode={}, orphanSchedule={}",
+            + "orphanMode={}, orphanSchedule={}, progressLogIntervalMs={}",
         id(),
         config.isDryRun(),
         config.getBatchSize(),
@@ -119,7 +129,8 @@ public class FixEntityConsistencyStep implements UpgradeStep {
         configFingerprint,
         isTargetedRun(),
         config.getCheckMode(EntityConsistencyConfiguration.ORPHAN_INDEX_DOCUMENT_CHECK_ID),
-        config.getCheckSchedule(EntityConsistencyConfiguration.ORPHAN_INDEX_DOCUMENT_CHECK_ID));
+        config.getCheckSchedule(EntityConsistencyConfiguration.ORPHAN_INDEX_DOCUMENT_CHECK_ID),
+        progressInterval);
   }
 
   @Override
@@ -334,13 +345,21 @@ public class FixEntityConsistencyStep implements UpgradeStep {
         for (String entityType : typesToProcess) {
           log.info("Processing entity type: {}", entityType);
 
-          int[] typeResults =
+          EntityTypeProcessResult typeResults =
               processEntityType(
                   entityType, ctx, context, runStartTime, incrementalFilterTime, effectiveCheckIds);
-          totalEntitiesScanned += typeResults[0];
-          totalIssuesFound += typeResults[1];
-          totalFixed += typeResults[2];
-          totalFailed += typeResults[3];
+          if (typeResults.cancelled()) {
+            log.info(
+                "Scan interrupted during {}; preserving IN_PROGRESS checkpoints for resume",
+                entityType);
+            return new DefaultUpgradeStepResult(
+                id(), DataHubUpgradeState.IN_PROGRESS, UpgradeStepResult.Action.ABORT);
+          }
+
+          totalEntitiesScanned += typeResults.scanned();
+          totalIssuesFound += typeResults.issues();
+          totalFixed += typeResults.fixed();
+          totalFailed += typeResults.failed();
 
           // Clear caches between entity types to prevent memory buildup
           ctx.clearCaches();
@@ -464,9 +483,9 @@ public class FixEntityConsistencyStep implements UpgradeStep {
   /**
    * Process an entity type with pagination, supporting resume and incremental processing.
    *
-   * @return array of [scanned, issues, fixed, failed]
+   * @return scan counters; {@code cancelled} when interrupted during an inter-batch delay
    */
-  private int[] processEntityType(
+  private EntityTypeProcessResult processEntityType(
       String entityType,
       CheckContext ctx,
       UpgradeContext upgradeContext,
@@ -496,7 +515,7 @@ public class FixEntityConsistencyStep implements UpgradeStep {
 
       if (typeCheckIds.isEmpty()) {
         log.info("No applicable checks for entity type {}, skipping", entityType);
-        return new int[] {scanned, issues, fixed, failed};
+        return new EntityTypeProcessResult(0, 0, 0, 0, false);
       }
     }
 
@@ -532,74 +551,119 @@ public class FixEntityConsistencyStep implements UpgradeStep {
     // Build filter config, applying incremental filter if specified
     SystemMetadataFilterConfig effectiveFilterConfig =
         buildEffectiveFilterConfig(incrementalFilterTime);
-    // Convert to service-layer filter type
     SystemMetadataFilter serviceFilter = SystemMetadataFilter.from(effectiveFilterConfig);
+    boolean keyAspectOnly =
+        effectiveFilterConfig == null || effectiveFilterConfig.isKeyAspectOnly();
 
-    do {
-      // Fetch and check a batch for this entity type
-      CheckResult checkResult =
-          consistencyService.checkBatch(
-              opContext,
-              CheckBatchRequest.builder()
-                  .entityType(entityType)
-                  .checkIds(typeCheckIds)
-                  .batchSize(config.getBatchSize())
-                  .scrollId(scrollId)
-                  .filter(serviceFilter)
-                  .build(),
-              ctx);
+    long progressInterval =
+        config.getProgressLogIntervalMs() > 0 ? config.getProgressLogIntervalMs() : 60_000L;
+    long progressWarmup =
+        config.getProgressWarmupMs() >= 0 ? config.getProgressWarmupMs() : 30_000L;
 
-      if (checkResult.getEntitiesScanned() == 0) {
-        break;
-      }
+    final int resumeScanned = scanned;
+    final int resumeIssues = issues;
+    final int resumeFixed = fixed;
+    final int resumeFailed = failed;
+    final String resumeScrollId = scrollId;
 
-      scanned += checkResult.getEntitiesScanned();
-      issues += checkResult.getIssuesFound();
+    ConsistencyScanResult scanResult =
+        scanRunner.run(
+            opContext,
+            ConsistencyScanRequest.builder()
+                .entityType(entityType)
+                .checkIds(typeCheckIds)
+                .filter(serviceFilter)
+                .batchSize(config.getBatchSize())
+                .delayMs(config.getDelayMs())
+                .limit(config.getLimit())
+                .scrollId(resumeScrollId)
+                .initialProcessed(resumeScanned)
+                .initialIssues(resumeIssues)
+                .initialFixed(resumeFixed)
+                .initialFailed(resumeFailed)
+                .progressLogIntervalMs(progressInterval)
+                .progressWarmupMs(progressWarmup)
+                .entityEtaEligible(keyAspectOnly)
+                .checkContext(ctx)
+                .onStart(
+                    start -> {
+                      if (start.isEtaEnabled() && start.getTotalEstimate() != null) {
+                        log.info(
+                            "entity-check[{}]: starting scan, ~{} entities to check"
+                                + " (count-based total; time ETA appears after warmup)",
+                            entityType,
+                            start.getTotalEstimate());
+                      } else {
+                        log.info(
+                            "entity-check[{}]: starting scan, total unknown (rate-only progress,"
+                                + " no time ETA)",
+                            entityType);
+                      }
+                    })
+                .onBatch(
+                    checkResult -> {
+                      List<ConsistencyIssue> issuesList = checkResult.getIssues();
+                      if (issuesList.isEmpty()) {
+                        return BatchHandleResult.none();
+                      }
+                      logIssues(issuesList);
+                      int[] fixCounts = fixIssuesByMode(issuesList);
+                      return BatchHandleResult.of(fixCounts[0], fixCounts[1]);
+                    })
+                .onCheckpoint(
+                    checkpoint -> {
+                      if (!isLimitedRun()) {
+                        saveProgress(upgradeContext, entityType, checkpoint, runStartTime);
+                      }
+                    })
+                .onProgress(progress -> log.info("{}", progress.getMessage()))
+                .onComplete(
+                    result ->
+                        log.info(
+                            "Completed {}: {} entities scanned, {} issues found{}",
+                            entityType,
+                            result.getEntitiesScanned(),
+                            result.getIssuesFound(),
+                            result.getTotalEstimate() != null
+                                ? " (~" + result.getTotalEstimate() + " entities estimated)"
+                                : ""))
+                .build());
 
-      // Log and fix issues with per-check mode
-      List<ConsistencyIssue> issuesList = checkResult.getIssues();
-      if (!issuesList.isEmpty()) {
-        logIssues(issuesList);
-        int[] fixCounts = fixIssuesByMode(issuesList);
-        fixed += fixCounts[0];
-        failed += fixCounts[1];
-      }
-
-      scrollId = checkResult.getScrollId();
-
-      // Save progress after each batch (limited runs don't support resume)
-      if (!isLimitedRun()) {
-        saveProgress(
-            upgradeContext, entityType, scrollId, scanned, issues, fixed, failed, runStartTime);
-      }
-
-      // Check limit
-      if (config.getLimit() > 0 && scanned >= config.getLimit()) {
-        log.info("Reached limit of {} entities for {}", config.getLimit(), entityType);
-        break;
-      }
-
-      // Apply delay between batches
-      applyBatchDelay();
-
-    } while (scrollId != null);
+    if (scanResult.isCancelled()) {
+      return new EntityTypeProcessResult(
+          (int) scanResult.getEntitiesScanned(),
+          scanResult.getIssuesFound(),
+          scanResult.getIssuesFixed(),
+          scanResult.getIssuesFailed(),
+          true);
+    }
 
     // Mark entity type as completed (clear IN_PROGRESS state)
+    Map<String, String> doneState = new HashMap<>();
+    doneState.put(KEY_ENTITIES_SCANNED, String.valueOf(scanResult.getEntitiesScanned()));
+    doneState.put(KEY_ISSUES_FOUND, String.valueOf(scanResult.getIssuesFound()));
+    doneState.put(KEY_ISSUES_FIXED, String.valueOf(scanResult.getIssuesFixed()));
+    doneState.put(KEY_ISSUES_FAILED, String.valueOf(scanResult.getIssuesFailed()));
+    if (scanResult.getTotalEstimate() != null) {
+      doneState.put(KEY_TOTAL_ESTIMATE, String.valueOf(scanResult.getTotalEstimate()));
+    }
     BootstrapStep.setUpgradeResult(
         opContext,
         getUpgradeIdUrn(entityType),
         entityService,
         DataHubUpgradeState.SUCCEEDED,
-        Map.of(
-            KEY_ENTITIES_SCANNED, String.valueOf(scanned),
-            KEY_ISSUES_FOUND, String.valueOf(issues),
-            KEY_ISSUES_FIXED, String.valueOf(fixed),
-            KEY_ISSUES_FAILED, String.valueOf(failed)));
+        doneState);
 
-    log.info("Completed {}: {} entities scanned, {} issues found", entityType, scanned, issues);
-
-    return new int[] {scanned, issues, fixed, failed};
+    return new EntityTypeProcessResult(
+        (int) scanResult.getEntitiesScanned(),
+        scanResult.getIssuesFound(),
+        scanResult.getIssuesFixed(),
+        scanResult.getIssuesFailed(),
+        false);
   }
+
+  private record EntityTypeProcessResult(
+      int scanned, int issues, int fixed, int failed, boolean cancelled) {}
 
   /**
    * Apply fixes partitioned by per-check mode. Job-level dryRun is a ceiling.
@@ -715,27 +779,32 @@ public class FixEntityConsistencyStep implements UpgradeStep {
     return effective;
   }
 
-  /** Save progress state for resume capability. */
+  /** Save progress state for resume capability (silent — no INFO log). */
   private void saveProgress(
       UpgradeContext upgradeContext,
       String entityType,
-      @Nullable String scrollId,
-      int scanned,
-      int issues,
-      int fixed,
-      int failed,
+      @Nonnull ConsistencyScanCheckpoint checkpoint,
       long runStartTime) {
 
     Map<String, String> state = new HashMap<>();
     state.put(KEY_CURRENT_ENTITY_TYPE, entityType);
-    if (scrollId != null) {
-      state.put(KEY_SCROLL_ID, scrollId);
+    if (checkpoint.getScrollId() != null) {
+      state.put(KEY_SCROLL_ID, checkpoint.getScrollId());
     }
-    state.put(KEY_ENTITIES_SCANNED, String.valueOf(scanned));
-    state.put(KEY_ISSUES_FOUND, String.valueOf(issues));
-    state.put(KEY_ISSUES_FIXED, String.valueOf(fixed));
-    state.put(KEY_ISSUES_FAILED, String.valueOf(failed));
+    state.put(KEY_ENTITIES_SCANNED, String.valueOf(checkpoint.getEntitiesScanned()));
+    state.put(KEY_ISSUES_FOUND, String.valueOf(checkpoint.getIssuesFound()));
+    state.put(KEY_ISSUES_FIXED, String.valueOf(checkpoint.getIssuesFixed()));
+    state.put(KEY_ISSUES_FAILED, String.valueOf(checkpoint.getIssuesFailed()));
     state.put(KEY_RUN_START_TIME, String.valueOf(runStartTime));
+    if (checkpoint.getProgress().getTotal() != null) {
+      state.put(KEY_TOTAL_ESTIMATE, String.valueOf(checkpoint.getProgress().getTotal()));
+    }
+    if (checkpoint.getProgress().getEtaSeconds() != null) {
+      state.put(KEY_LAST_ETA_SEC, String.valueOf(checkpoint.getProgress().getEtaSeconds()));
+    }
+    if (checkpoint.getProgress().getEtaHuman() != null) {
+      state.put(KEY_LAST_ETA_HUMAN, checkpoint.getProgress().getEtaHuman());
+    }
 
     // Save per-entity-type progress
     upgradeContext
@@ -807,18 +876,6 @@ public class FixEntityConsistencyStep implements UpgradeStep {
           issue.getEntityUrn(),
           issue.getCheckId(),
           issue.getDescription());
-    }
-  }
-
-  /** Apply delay between batches if configured. */
-  private void applyBatchDelay() {
-    if (config.getDelayMs() > 0) {
-      try {
-        Thread.sleep(config.getDelayMs());
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        log.warn("Batch delay interrupted");
-      }
     }
   }
 

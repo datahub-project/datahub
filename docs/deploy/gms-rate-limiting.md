@@ -133,7 +133,7 @@ Enable one or both. Sub-pools (`capacity.default.enabled`, `capacity.graphql.ena
 
 Endpoint limits always use Bucket4j with shared Hazelcast buckets when `endpoint.enabled=true`. Limits are **cluster totals** — `capacity` and `refill*` apply across all GMS replicas, not per pod.
 
-Provision Hazelcast by setting **`endpoint.enabled=true`** (`RATE_LIMITS_ENDPOINT_ENABLED`). Startup fails if endpoint limits are enabled but Hazelcast cannot be reached. Bucket state is stored in `rateLimits.endpoint.hazelcastMapName` (default `gmsRateLimitEndpointBuckets`). Configure cluster connectivity via `searchService.hazelcast.*` / `SEARCH_SERVICE_HAZELCAST_*` in [Environment Variables — Search](./environment-vars.md#search-service-configuration).
+Provision Hazelcast by setting **`endpoint.enabled=true`** (`RATE_LIMITS_ENDPOINT_ENABLED`, or the same flag in `RATE_LIMITS_CONFIG_FILE` / `RATE_LIMITS_CONFIG_JSON`). Startup fails if endpoint limits are enabled but Hazelcast cannot be reached. Bucket state is stored in `rateLimits.endpoint.hazelcastMapName` (default `gmsRateLimitEndpointBuckets`). Configure cluster connectivity via `searchService.hazelcast.*` / `SEARCH_SERVICE_HAZELCAST_*` in [Environment Variables — Search](./environment-vars.md#search-service-configuration).
 
 **Planning limits:** Configure `capacity` / `refill*` as cluster-wide caps (e.g. 200 sign-ups/minute total across the fleet).
 
@@ -191,8 +191,8 @@ Bundled defaults live under **`datahub.gms.rateLimits`** in `application.yaml` (
 ### Production checklist
 
 1. Enable the limiter type(s) you need: `RATE_LIMITS_CAPACITY_ENABLED=true` and/or `RATE_LIMITS_ENDPOINT_ENABLED=true`
-2. For endpoint caps: `RATE_LIMITS_ENDPOINT_ENABLED=true` (provisions Hazelcast automatically)
-3. To override the bundled policy, mount a ConfigMap with your policy file and point `RATE_LIMITS_CONFIG_FILE` at it using a Spring resource prefix (e.g. `file:/etc/datahub/rate-limits.yaml`)
+2. For endpoint caps: enable `endpoint.enabled` via `RATE_LIMITS_ENDPOINT_ENABLED=true` or the policy file/JSON overlay (either provisions Hazelcast automatically)
+3. To override the bundled policy, mount a ConfigMap with your policy file and point `RATE_LIMITS_CONFIG_FILE` at it (`file:/etc/datahub/rate-limits.yaml` or `/etc/datahub/rate-limits.yaml`)
 4. Rollout-restart GMS pods (config changes require restart in v1)
 5. Verify (requires `Manage System Operations` privilege):
    - `GET /openapi/v1/rate-limits/config` — effective merged config
@@ -234,10 +234,13 @@ Per-actor bucket entries are stored under a composite Hazelcast key `{ruleId}:ac
 
 **Merge behavior when overriding via a mounted config file:**
 
-Bundled defaults live in `application.yaml`. A file mounted at `RATE_LIMITS_CONFIG_FILE` is loaded by Spring as a property source and layered on top (it must use a Spring resource prefix, e.g. `file:/etc/datahub/rate-limits.yaml`). Because this is Spring property binding:
+Spring-bound toggles live in `application.yaml` (Tier 1). `RATE_LIMITS_CONFIG_FILE` **replaces** bundled `rate-limit-config.yaml` (the two YAML documents are not merged). `RATE_LIMITS_CONFIG_JSON` then overlays that chosen file. Because this is Jackson merge onto the Spring-bound bean:
 
-- **Scalars and map entries** (e.g. the scoped bucket sizes, `scoped.heavyResolvers.*`) from the mounted file override or add to the bundled values key by key.
-- **Rule lists** (`capacity.rules`, `endpoint.rules`) are bound by index, not replaced wholesale — keep rule lists defined in a single source. `application.yaml` ships empty rule lists, so a mounted file that declares rules simply provides them.
+- **Scalars and nested objects** from the file overwrite Spring for keys the file sets; omitted keys keep env/yaml defaults.
+- **Rule lists** (`capacity.rules`, `endpoint.rules`) are replaced wholesale when present in the overlay.
+- **Maps** (`scoped.heavyResolvers`) merge by key.
+
+A missing `RATE_LIMITS_CONFIG_FILE` path or invalid JSON fails GMS startup. Documents may use `datahub.gms.rateLimits:`, a `rateLimits:` wrapper, or a bare fragment.
 
 ```yaml
 datahub:
@@ -280,7 +283,7 @@ datahub:
 
 ## Configuration reference
 
-Bundled defaults live entirely in `application.yaml` (every value env-overridable). No per-actor endpoint rule ships; `endpoint.rules` is empty:
+Bundled defaults live entirely in `application.yaml` (every value env-overridable). No per-actor endpoint rule ships; `endpoint.rules` is omitted (empty by default):
 
 ```yaml
 rateLimits:
@@ -302,13 +305,11 @@ rateLimits:
       initialLimit: 100 # RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT
       minLimit: 20 # RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT
       maxLimit: 2000 # RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT
-    rules: []
   endpoint:
     enabled: false # RATE_LIMITS_ENDPOINT_ENABLED
     hazelcastMapName: gmsRateLimitEndpointBuckets # RATE_LIMITS_ENDPOINT_HAZELCAST_MAP
     bucketMaxIdleSeconds: 300 # RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS
     bucketMaxSize: 100000 # RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE
-    rules: []
   scoped:
     enabled: false # RATE_LIMITS_SCOPED_ENABLED
     refundDisabled: false # RATE_LIMITS_SCOPED_REFUND_DISABLED
@@ -350,7 +351,8 @@ Key environment variables (full list at [Environment Variables — GMS Rate Limi
 | `RATE_LIMITS_MIN_RETRY_AFTER`                          | `60`                          | Minimum `Retry-After` seconds on 429 responses                                                                                                                                                                                        |
 | `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT`               | `10`                          | Jitter percentage added to `Retry-After`                                                                                                                                                                                              |
 | `RATE_LIMITS_EXCLUDED_PATHS`                           | `/health,/health/live,...`    | Comma-separated Ant paths excluded from all rate limiting                                                                                                                                                                             |
-| `RATE_LIMITS_CONFIG_FILE`                              | _(unset)_                     | Spring resource URI of an override policy file, layered on the bundled defaults — must include a prefix (e.g. `file:/etc/datahub/rate-limits.yaml`)                                                                                   |
+| `RATE_LIMITS_CONFIG_FILE`                              | `rate-limit-config.yaml`      | Policy file that **replaces** the bundled classpath YAML (`file:/etc/datahub/rate-limits.yaml` or a bare path). Missing file fails startup.                                                                                           |
+| `RATE_LIMITS_CONFIG_JSON`                              | _(unset)_                     | JSON overlay merged after the chosen policy file (lists replace; maps merge). Invalid JSON fails startup.                                                                                                                             |
 | `RATE_LIMITS_METRICS_DETAILED`                         | `false`                       | Enable detailed per-rule metric tags                                                                                                                                                                                                  |
 | `RATE_LIMITS_CAPACITY_DEFAULT_ENABLED`                 | `true`                        | Enable `_default_capacity` pool                                                                                                                                                                                                       |
 | `RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT`           | `200`                         | Gradient2 starting limit for default pool                                                                                                                                                                                             |
@@ -376,17 +378,14 @@ Key environment variables (full list at [Environment Variables — GMS Rate Limi
 
 ### Tier 2 — override policy file
 
-Bundled defaults ship in `application.yaml` (Tier 1). To override them per deployment, mount your own file and point `RATE_LIMITS_CONFIG_FILE` at it **with a Spring resource prefix** (e.g. `file:/etc/datahub/rate-limits.yaml`); it is loaded as a property source and layered on top. When `RATE_LIMITS_CONFIG_FILE` is unset it resolves to the bundled `rate-limit-config.yaml`, which is empty and contributes nothing. Override files use the full **`datahub.gms.rateLimits:`** path (the same keys Spring binds), not a bare `rateLimits:` fragment.
+Bundled defaults ship in `application.yaml` (Tier 1). The default policy file is classpath `rate-limit-config.yaml` (empty). Point `RATE_LIMITS_CONFIG_FILE` at a mounted file to **replace** that document (`file:/etc/datahub/rate-limits.yaml` or `/etc/datahub/rate-limits.yaml`). The classpath file and the mounted file are not merged.
 
-**Merge behavior:** scalars and map entries override/add key by key; rule lists are index-bound, so define each rule list in a single source (`application.yaml` ships empty rule lists). Most per-tenant tuning is done with `RATE_LIMITS_SCOPED_*` env vars rather than a file — the override file is mainly for the `scoped.heavyResolvers` map and rule lists, which a scalar env var can't express (and which are empty in the bundled defaults, so a mounted file simply provides them).
+**Merge behavior:** the chosen YAML is Jackson-overlaid onto the Spring-bound bean. Scalars/objects overwrite keys the file sets; rule lists replace wholesale when present; `heavyResolvers` map entries merge. Most per-tenant tuning is done with `RATE_LIMITS_SCOPED_*` env vars — the file is mainly for `scoped.heavyResolvers` and rule lists.
 
-**How it loads (and what changed):** both the bundled defaults and the mounted override are loaded as ordinary Spring `@PropertySource`s and bound to `RateLimitProperties` via relaxed `@ConfigurationProperties` binding — the same path `application.yaml` already uses. There is no bespoke config loader. This is intentionally simpler than an earlier design that used a custom Jackson loader, and it means:
+**How it loads:** `RateLimitEffectiveConfig` binds `application.yaml` toggles from the Spring `Environment`, then `RateLimitConfigLoader` applies the chosen YAML file and `RATE_LIMITS_CONFIG_JSON`. The result is loaded once (Hazelcast `@Conditional` needs `endpoint.enabled` / `scoped.enabled` before the engine bean exists) and reused by the engine. Overlay lists are not imported as Spring property sources. A missing mounted file or invalid JSON fails **GMS** startup (the engine). MAE/MCE/upgrade scan Hazelcast `CacheConfig` but do not construct the engine: a missing overlay does not fail those processes (they fall back to `RATE_LIMITS_ENDPOINT_ENABLED` / `RATE_LIMITS_SCOPED_ENABLED`).
 
-- The mounted override is enabled just by pointing `RATE_LIMITS_CONFIG_FILE` at a file (presence = enabled). There is **no** separate `RATE_LIMITS_CONFIG_FILE_ENABLED` flag.
-- There is **no** inline-JSON overlay env var (`RATE_LIMITS_CONFIG_JSON`). Put overrides in the mounted YAML file instead.
-- `${ENV:default}` placeholders resolve uniformly, and OS environment variables outrank both files — so `RATE_LIMITS_*` env vars always win, which is the recommended way to tune scalars per deployment.
-
-`RATE_LIMITS_CONFIG_FILE_ENABLED` and `RATE_LIMITS_CONFIG_JSON` are no longer honored; GMS logs a startup WARN if either is set so the change isn't silent. Benefits of the `@PropertySource` approach: one well-understood binding/precedence model (identical to the rest of GMS config), no custom merge code to maintain, and env-var overrides that reliably take precedence.
+- Presence of `RATE_LIMITS_CONFIG_FILE` means "replace the classpath policy file". There is **no** separate `RATE_LIMITS_CONFIG_FILE_ENABLED` flag (`RATE_LIMITS_CONFIG_FILE_ENABLED` is ignored with a startup WARN).
+- Documents may use `datahub.gms.rateLimits:`, a `rateLimits:` wrapper, or a bare fragment.
 
 ```yaml
 datahub:
@@ -422,7 +421,7 @@ env:
     value: "true"
   - name: RATE_LIMITS_CAPACITY_ENABLED
     value: "true"
-  # Spring resource URI — note the file: prefix.
+  # file: URI or a bare path both work.
   - name: RATE_LIMITS_CONFIG_FILE
     value: file:/etc/datahub/rate-limits/rate-limits.yaml
 volumeMounts:
@@ -433,6 +432,27 @@ volumes:
   - name: rate-limits-config
     configMap:
       name: datahub-rate-limits
+```
+
+### Tier 3 — JSON overlay
+
+`RATE_LIMITS_CONFIG_JSON` is an optional JSON document merged after the chosen policy file (same shapes as the YAML: `datahub.gms.rateLimits`, `rateLimits`, or a bare fragment). Use it for a surgical emergency overlay without remounting a file. Invalid JSON fails startup.
+
+```json
+{
+  "endpoint": {
+    "rules": [
+      {
+        "id": "auth-signup",
+        "pathPattern": "/auth/signUp",
+        "methods": ["POST"],
+        "capacity": 50,
+        "refillTokens": 50,
+        "refillPeriodSeconds": 60
+      }
+    ]
+  }
+}
 ```
 
 ### Base path

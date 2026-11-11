@@ -1,8 +1,6 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from gql import gql
-
 from datahub.api.graphql.base import BaseApi
 
 logger = logging.getLogger(__name__)
@@ -81,9 +79,9 @@ query dataset($urn: String!, $start: Int, $count: Int, $status: AssertionRunStat
         :param filter: Additional key value filters which will be applied as AND query
         """
 
-        result = self.client.execute(
-            gql(Assertion.ASSERTION_QUERY),
-            variable_values={
+        result = self.graph.execute_graphql(
+            Assertion.ASSERTION_QUERY,
+            variables={
                 "urn": urn,
                 "filter": self.gen_filter(filter) if filter else None,
                 "limit": limit,

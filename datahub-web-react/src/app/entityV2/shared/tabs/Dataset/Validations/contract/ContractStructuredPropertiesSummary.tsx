@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { EntityContext } from '@src/app/entity/shared/EntityContext';
+import { EntityContext } from '@src/app/entityV2/shared/EntityContext';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 import { DataContract, EntityType } from '@types';

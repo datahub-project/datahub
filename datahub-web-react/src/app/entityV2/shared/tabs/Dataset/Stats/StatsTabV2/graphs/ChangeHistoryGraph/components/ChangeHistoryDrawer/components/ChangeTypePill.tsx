@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 
 import { Pill } from '@src/alchemy-components';
-import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
+import { capitalizeFirstLetter } from '@src/app/sharedV2/textUtil';
 import { Operation, OperationType } from '@src/types.generated';
 
 type ChangeTypePillProps = {

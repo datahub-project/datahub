@@ -5,8 +5,13 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Optional;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
@@ -214,19 +219,33 @@ public class AwsBedrockEmbeddingProviderTest {
 
   @Test
   public void testConstructorWithRegion() {
-    // Test that constructor with region string doesn't throw
-    AwsBedrockEmbeddingProvider providerWithRegion = new AwsBedrockEmbeddingProvider("us-west-2");
+    AwsBedrockEmbeddingProvider providerWithRegion =
+        new AwsBedrockEmbeddingProvider(
+            "us-west-2",
+            "cohere.embed-english-v3",
+            2048,
+            StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
     assertNotNull(providerWithRegion);
     providerWithRegion.close();
   }
 
   @Test
   public void testConstructorWithAllParameters() {
-    // Test constructor with all parameters
     AwsBedrockEmbeddingProvider providerWithParams =
-        new AwsBedrockEmbeddingProvider("us-east-1", "cohere.embed-multilingual-v3", 1024);
+        new AwsBedrockEmbeddingProvider(
+            "us-east-1",
+            "cohere.embed-multilingual-v3",
+            1024,
+            StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
     assertNotNull(providerWithParams);
     providerWithParams.close();
+  }
+
+  @Test
+  public void testConstructorRejectsNullCredentialsProvider() {
+    assertThrows(
+        NullPointerException.class,
+        () -> new AwsBedrockEmbeddingProvider("us-west-2", "cohere.embed-english-v3", 2048, null));
   }
 
   @Test
@@ -265,5 +284,23 @@ public class AwsBedrockEmbeddingProviderTest {
     assertEquals(embedding1[0], 0.1f, 0.001);
     assertEquals(embedding2[0], 0.3f, 0.001);
     verify(mockBedrockClient, times(2)).invokeModel(any(InvokeModelRequest.class));
+  }
+
+  @Test
+  public void testEmbedWithTimeoutBoundsTheWholeCall() {
+    String responseJson = "{\"embeddings\": [[0.1, 0.2, 0.3]]}";
+    ArgumentCaptor<InvokeModelRequest> request = ArgumentCaptor.forClass(InvokeModelRequest.class);
+    when(mockBedrockClient.invokeModel(request.capture()))
+        .thenReturn(
+            InvokeModelResponse.builder()
+                .body(SdkBytes.fromString(responseJson, StandardCharsets.UTF_8))
+                .build());
+
+    provider.embed("revenue", null, EmbeddingTaskType.QUERY, Duration.ofMillis(1_500));
+
+    // The SDK's retries count against the same timeout
+    assertEquals(
+        request.getValue().overrideConfiguration().get().apiCallTimeout(),
+        Optional.of(Duration.ofMillis(1_500)));
   }
 }

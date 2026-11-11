@@ -1,6 +1,16 @@
-import { GraphStoreFields, LineageEntity, LineageNode, NodeContext } from '@app/lineageV3/common';
+import {
+    GraphStoreFields,
+    LineageEntity,
+    LineageNode,
+    NodeContext,
+    addToAdjacencyList,
+    cloneAdjacencyList,
+    parseEdgeId,
+} from '@app/lineageV3/common';
 import getConnectedComponents from '@app/lineageV3/traversals/getConnectedComponents';
 import topologicalSort from '@app/lineageV3/traversals/topologicalSort';
+
+import { LineageDirection } from '@types';
 
 interface Output {
     displayedNodesByRoots: Array<[LineageEntity[], LineageNode[]]>;
@@ -15,7 +25,8 @@ interface Output {
  *  parents: A map of each data job urn to its upstream parents
  */
 export default function computeConnectedComponents(context: Pick<NodeContext, GraphStoreFields>): Output {
-    const { nodes, adjacencyList } = context;
+    const { nodes } = context;
+    const adjacencyList = addQueryHops(context);
     const urns = Array.from(nodes.keys());
     const roots = new Set(Array.from(nodes.keys()).filter((id) => !adjacencyList.UPSTREAM.get(id)?.size));
 
@@ -39,4 +50,20 @@ export default function computeConnectedComponents(context: Pick<NodeContext, Gr
     });
 
     return { displayedNodesByRoots, parents: adjacencyList.UPSTREAM };
+}
+
+/**
+ * Copies the adjacency list, adding two-way links to displayed query nodes, which the graph store
+ * only records outward from the query, as it is otherwise entity to entity.
+ * Lets a query be sorted and grouped with the nodes it connects, rather than as its own component.
+ */
+function addQueryHops({ nodes, edges, adjacencyList }: Pick<NodeContext, GraphStoreFields>) {
+    const newAdjacencyList = cloneAdjacencyList(adjacencyList);
+    edges.forEach((edge, edgeId) => {
+        if (!edge.via || !nodes.has(edge.via)) return;
+        const [upstream, downstream] = parseEdgeId(edgeId);
+        addToAdjacencyList(newAdjacencyList, LineageDirection.Downstream, upstream, edge.via);
+        addToAdjacencyList(newAdjacencyList, LineageDirection.Downstream, edge.via, downstream);
+    });
+    return newAdjacencyList;
 }

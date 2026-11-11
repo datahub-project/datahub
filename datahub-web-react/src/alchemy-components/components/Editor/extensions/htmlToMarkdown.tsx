@@ -128,7 +128,9 @@ const turndownService = new TurndownService({
             const urn = node.getAttribute(DATAHUB_MENTION_ATTRS.urn);
             if (!urn) return '';
 
-            return `[${node.textContent}](${urn})`;
+            // Prefer the dedicated name attr — React node views may include icon letter glyphs in textContent.
+            const name = node.getAttribute(DATAHUB_MENTION_ATTRS.name) || node.textContent?.replace(/^@/, '') || urn;
+            return `[@${name}](${urn})`;
         },
     })
     /* Formats HTML file nodes to Markdown - looks for React components with file-node class */
@@ -175,6 +177,18 @@ const turndownService = new TurndownService({
             );
         },
         replacement: (content) => `<u>${content}</u>`,
+    })
+    /* Preserve <details>/<summary> disclosure widgets as raw HTML so they survive the
+       markdown roundtrip and are re-parsed by the DetailsExtension on load.
+       The `open` attribute is stripped here so expansion state is never written to the
+       stored markdown — it is purely ephemeral view state. */
+    .addRule('details', {
+        filter: (node) => node.nodeName === 'DETAILS',
+        replacement: (_, node: any) => {
+            const clone = (node as HTMLElement).cloneNode(true) as HTMLElement;
+            clone.removeAttribute('open');
+            return `\n\n${clone.outerHTML}\n\n`;
+        },
     })
     /* Add support for handling font size change */
     .addRule('fontSize', {

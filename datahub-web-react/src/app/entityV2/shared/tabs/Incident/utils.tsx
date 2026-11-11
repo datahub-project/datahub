@@ -25,10 +25,10 @@ import {
     IncidentTable,
     IncidentTableRow,
 } from '@app/entityV2/shared/tabs/Incident/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
-import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
+import { getCapitalizeWord } from '@app/sharedV2/textUtil';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import {
     EntityType,
     Incident,
@@ -559,4 +559,10 @@ export const useSiblingOptionsForIncidentBuilder = (
         });
     });
     return optionsToAuthorOn;
+};
+
+export const buildIncidentUrlSearch = ({ urn, baseUrl }: { urn: string; baseUrl?: string }): string => {
+    const queryParams = new URLSearchParams();
+    queryParams.set('incident_urn', urn);
+    return `${baseUrl}?${queryParams.toString()}`;
 };

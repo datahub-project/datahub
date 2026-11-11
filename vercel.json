@@ -1,5 +1,5 @@
 {
-  "buildCommand": "./gradlew -PuseSystemNode=true :docs-website:build",
+  "buildCommand": "./docs-website/vercel-build.sh",
   "github": {
     "silent": true,
     "autoJobCancelation": true

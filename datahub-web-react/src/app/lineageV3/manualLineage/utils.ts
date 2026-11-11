@@ -1,20 +1,25 @@
+import { extractTypeFromUrn } from '@app/entityV2/shared/utils';
+
 import { EntityType, LineageDirection } from '@types';
 
 export function getValidEntityTypes(lineageDirection: LineageDirection, entityType?: EntityType) {
     if (lineageDirection === LineageDirection.Upstream) {
         switch (entityType) {
             case EntityType.Dataset:
-                return [EntityType.Dataset, EntityType.DataJob];
+                return [EntityType.Dataset, EntityType.DataJob, EntityType.Metric];
             case EntityType.Chart:
-                return [EntityType.Dataset];
+                return [EntityType.Dataset, EntityType.Metric];
             case EntityType.Dashboard:
-                return [EntityType.Chart, EntityType.Dataset];
+                return [EntityType.Chart, EntityType.Dataset, EntityType.Metric];
             case EntityType.DataJob:
                 return [EntityType.DataJob, EntityType.Dataset, EntityType.Mlmodel, EntityType.MlmodelGroup];
             case EntityType.Mlmodel:
                 return [EntityType.DataJob, EntityType.DataProcessInstance];
             case EntityType.MlmodelGroup:
                 return [EntityType.DataJob];
+            case EntityType.Metric:
+                // updateLineage does not write metricUpstreams; do not offer a no-op picker
+                return [];
             default:
                 console.warn('Unexpected entity type to get valid upstream entity types for');
                 return [];
@@ -34,9 +39,17 @@ export function getValidEntityTypes(lineageDirection: LineageDirection, entityTy
                 return [EntityType.DataJob];
             case EntityType.MlmodelGroup:
                 return [EntityType.DataJob];
+            case EntityType.Metric:
+                return [EntityType.Dataset, EntityType.Chart, EntityType.Dashboard];
             default:
                 console.warn('Unexpected entity type to get valid downstream entity types for');
                 return [];
         }
     }
+}
+
+/** Keep the current-list and add/remove payload on types updateLineage can persist. */
+export function filterManualLineageUrns(urns: Iterable<string>, validTypes: EntityType[]): string[] {
+    const allowed = new Set(validTypes);
+    return Array.from(urns).filter((urn) => allowed.has(extractTypeFromUrn(urn)));
 }

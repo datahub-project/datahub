@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("SAP HANA", id="hana")
 @config_class(HanaConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
@@ -52,6 +52,10 @@ logger = logging.getLogger(__name__)
     SourceCapability.OPERATION_CAPTURE,
     "Derived from observed queries when `include_operational_stats` "
     "and `include_query_usage` are enabled",
+)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
 )
 class HanaSource(SQLAlchemySource):
     """DataHub source for SAP HANA.

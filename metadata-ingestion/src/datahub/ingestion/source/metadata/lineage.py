@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 from pydantic import field_validator
 from pydantic.fields import Field
@@ -15,6 +15,8 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.serialization_helper import post_json_transform
+from datahub.emitter.transform_operation import cap_transform_operation
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -121,7 +123,7 @@ class LineageFileSourceConfig(ConfigModel):
     file: str = Field(description="File path or URL to lineage file to ingest.")
     preserve_upstream: bool = Field(
         default=True,
-        description="Whether we want to query datahub-gms for upstream data. False means it will hard replace upstream data for a given entity. True means it will query the backend for existing upstreams and include it in the ingestion run",
+        description="Whether we want to query datahub-gms for upstream data. False means it will hard replace upstream data for a given entity. True means it will query the backend for existing upstreams and include it in the ingestion run. Only table-level upstreams are kept: an entity's existing column-level lineage is replaced by the file's.",
     )
 
 
@@ -137,7 +139,7 @@ class LineageConfig(VersionedConfig):
 
 @platform_name("File Based Lineage")
 @config_class(LineageFileSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.LINEAGE_COARSE, "Specified in the lineage file.")
 @capability(SourceCapability.LINEAGE_FINE, "Specified in the lineage file.")
 @dataclass
@@ -171,7 +173,18 @@ class LineageFileSource(Source):
         config = self.load_lineage_config(self.config.file)
         logger.debug(config)
         for entity_node in config.lineage:
-            mcp = _get_lineage_mcp(entity_node, self.config.preserve_upstream)
+            try:
+                mcp = _get_lineage_mcp(entity_node, self.config.preserve_upstream)
+            except _UnreadableUpstreamLineage as exc:
+                entity_urn = (
+                    _get_entity_urn(entity_node.entity) or entity_node.entity.name
+                )
+                self.report.failure(
+                    "Failed to read stored upstream lineage",
+                    context=entity_urn,
+                    exc=exc,
+                )
+                continue
             if mcp:
                 yield mcp.as_workunit()
 
@@ -189,6 +202,39 @@ def _get_entity_urn(entity_config: EntityConfig) -> Optional[str]:
             platform_instance=entity_config.platform_instance,
         )
     return None
+
+
+class _UnreadableUpstreamLineage(Exception):
+    """Stored upstreamLineage exists but could not be parsed into its typed class."""
+
+
+def _read_stored_upstream_lineage(
+    entity_urn: str,
+) -> Optional[models.UpstreamLineageClass]:
+    """Return stored upstreamLineage, or None if the aspect is missing.
+
+    The unreadable-vs-missing distinction lives here so other callers of
+    get_aspects_for_entity keep its current behavior: a typed parse
+    failure is logged and the aspect is omitted, which looks the same as
+    a missing aspect.
+    """
+    client = get_default_graph(ClientMode.INGESTION)
+    raw_aspects = get_aspects_for_entity(
+        client._session,
+        client.config.server,
+        entity_urn=entity_urn,
+        aspects=["upstreamLineage"],
+        typed=False,
+    )
+    raw = raw_aspects.get("upstreamLineage")
+    if raw is None:
+        return None
+    try:
+        return models.UpstreamLineageClass.from_obj(post_json_transform(raw))
+    except Exception as exc:
+        raise _UnreadableUpstreamLineage(
+            f"could not parse stored upstreamLineage for {entity_urn}"
+        ) from exc
 
 
 def _get_lineage_mcp(
@@ -211,27 +257,26 @@ def _get_lineage_mcp(
         )
         return None
 
+    # An upstream that is already stored wins over the file's, so a re-run keeps
+    # its type and auditStamp instead of refreshing them.
+    seen_upstream_urns: Set[str] = set()
     # extract the old lineage and save it for the new mcp
     if preserve_upstream:
-        client = get_default_graph(ClientMode.INGESTION)
-
-        old_upstream_lineage = get_aspects_for_entity(
-            client._session,
-            client.config.server,
-            entity_urn=entity_urn,
-            aspects=["upstreamLineage"],
-            typed=True,
-        ).get("upstreamLineage")
-        if old_upstream_lineage:
-            # Can't seem to get mypy to be happy about
-            # `Argument 1 to "list" has incompatible type "Optional[Any]";
-            # expected "Iterable[UpstreamClass]"`
-            new_upstreams.extend(old_upstream_lineage.get("upstreams"))  # type: ignore
+        old_upstream_lineage = _read_stored_upstream_lineage(entity_urn)
+        if old_upstream_lineage is not None:
+            # One edge per upstream, which also collapses copies left by earlier runs.
+            for upstream in old_upstream_lineage.upstreams:
+                if upstream.dataset not in seen_upstream_urns:
+                    seen_upstream_urns.add(upstream.dataset)
+                    new_upstreams.append(upstream)
 
     for upstream_entity_node in entity_node.upstream:
         upstream_entity = upstream_entity_node.entity
         upstream_entity_urn = _get_entity_urn(upstream_entity)
-        if upstream_entity_urn:
+        if upstream_entity_urn in seen_upstream_urns:
+            continue
+        elif upstream_entity_urn:
+            seen_upstream_urns.add(upstream_entity_urn)
             new_upstreams.append(
                 models.UpstreamClass(
                     dataset=upstream_entity_urn,
@@ -254,7 +299,10 @@ def _get_lineage_mcp(
                 downstreams=fine_grained_lineage.downstreams,
                 downstreamType=fine_grained_lineage.downstreamType,
                 confidenceScore=fine_grained_lineage.confidenceScore,
-                transformOperation=fine_grained_lineage.transformOperation,
+                # Cut before EnsureAspectSizeProcessor measures it; make_mcp() cuts only later.
+                transformOperation=cap_transform_operation(
+                    fine_grained_lineage.transformOperation
+                ),
             )
         )
 

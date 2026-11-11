@@ -12,12 +12,14 @@ import com.datahub.authorization.role.RoleService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.datahub.graphql.GraphQLEngine;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.gms.factory.search.MappingsBuilderFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
@@ -42,6 +44,13 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import com.linkedin.metadata.version.GitVersion;
+import graphql.schema.DataFetcher;
+import graphql.schema.FieldCoordinates;
+import graphql.schema.GraphQLCodeRegistry;
+import graphql.schema.GraphQLFieldDefinition;
+import graphql.schema.GraphQLObjectType;
+import graphql.schema.GraphQLSchema;
+import graphql.schema.PropertyDataFetcher;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.services.RestrictedService;
@@ -49,8 +58,14 @@ import io.datahubproject.metadata.services.SecretService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.opentelemetry.api.trace.Tracer;
+import java.util.Objects;
+import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.mockito.Answers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -78,6 +93,9 @@ import org.testng.annotations.Test;
     locations = "classpath:/application.yaml",
     properties = {
       "platformAnalytics.enabled=false",
+      // Pinned so an exported env var can't change which root fields are gated.
+      "featureFlags.businessAttributeEntityEnabled=false",
+      "featureFlags.entityVersioning=false",
       "graphQL.concurrency.separateThreadPool=true",
       "LINEAGE_DEFAULT_LAST_DAYS_FILTER=30",
       "authentication.tokenService.signingKey=test-signing-key-for-tests",
@@ -104,12 +122,20 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   private ExecutorService graphQLWorkerPool;
 
   @Autowired
+  @Qualifier("systemOperationContext")
+  private OperationContext systemOperationContext;
+
+  @Autowired
   @Qualifier("configurationProvider")
   private ConfigurationProvider configurationProvider;
 
   @MockitoBean(answers = Answers.RETURNS_MOCKS)
   @Qualifier("searchClientShim")
   private SearchClientShim<?> elasticClient;
+
+  @MockitoBean(answers = Answers.RETURNS_MOCKS)
+  @Qualifier("searchClusterRegistry")
+  private SearchClusterRegistry searchClusterRegistry;
 
   @MockitoBean
   @Qualifier("indexConvention")
@@ -369,7 +395,6 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     GraphQLEngineFactory factoryWithAnalytics = new GraphQLEngineFactory();
 
     // Set up dependencies using reflection
-    setField(factoryWithAnalytics, "elasticClient", elasticClient);
     setField(factoryWithAnalytics, "indexConvention", indexConvention);
     setField(factoryWithAnalytics, "graphClient", graphClient);
     setField(factoryWithAnalytics, "entityService", entityService);
@@ -411,7 +436,11 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     // When
     GraphQLEngine engineWithAnalytics =
         factoryWithAnalytics.graphQLEngine(
-            entityClient, systemEntityClient, entityVersioningService, metricUtils);
+            entityClient,
+            systemEntityClient,
+            systemOperationContext,
+            entityVersioningService,
+            metricUtils);
 
     // Then
     assertNotNull(engineWithAnalytics);
@@ -470,45 +499,23 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testGraphQLConcurrencyConfiguration() {
-    // Test the actual concurrency configuration from the default ConfigurationProvider
     var concurrencyConfig = configurationProvider.getGraphQL().getConcurrency();
     assertNotNull(concurrencyConfig);
-
-    // These should have default values
-    assertNotNull(concurrencyConfig.getCorePoolSize());
-    assertNotNull(concurrencyConfig.getMaxPoolSize());
+    assertFalse(concurrencyConfig.isScaleWithProcessors());
+    assertEquals(concurrencyConfig.getCorePoolSize(), 40);
+    assertEquals(concurrencyConfig.getMaxPoolSize(), 800);
+    assertEquals(concurrencyConfig.getQueueSize(), 0);
     assertNotNull(concurrencyConfig.getKeepAlive());
     assertNotNull(concurrencyConfig.getStackSize());
   }
 
   @Test
-  public void testGraphQLWorkerPoolWithDifferentConfiguration() {
-    // Test worker pool creation with different configurations
-    var concurrencyConfig = configurationProvider.getGraphQL().getConcurrency();
-
-    // Create a new factory to test different scenarios
-    ExecutorService executorService = graphQLEngineFactory.graphQLWorkerPool(metricUtils);
-    assertNotNull(executorService);
-
-    ThreadPoolExecutor threadPool = (ThreadPoolExecutor) executorService;
-
-    // If core pool size is negative, it should use default calculation
-    if (concurrencyConfig.getCorePoolSize() < 0) {
-      assertEquals(threadPool.getCorePoolSize(), Runtime.getRuntime().availableProcessors() * 5);
-    } else {
-      assertEquals(threadPool.getCorePoolSize(), concurrencyConfig.getCorePoolSize());
-    }
-
-    // If max pool size is zero or negative, it should use default calculation
-    if (concurrencyConfig.getMaxPoolSize() <= 0) {
-      assertEquals(
-          threadPool.getMaximumPoolSize(), Runtime.getRuntime().availableProcessors() * 100);
-    } else {
-      assertEquals(threadPool.getMaximumPoolSize(), concurrencyConfig.getMaxPoolSize());
-    }
-
-    // Cleanup
-    executorService.shutdown();
+  public void testGraphQLWorkerPoolUsesEightCoreDefaults() {
+    ThreadPoolExecutor threadPool = (ThreadPoolExecutor) graphQLWorkerPool;
+    assertEquals(threadPool.getCorePoolSize(), 40);
+    assertEquals(threadPool.getMaximumPoolSize(), 800);
+    assertTrue(threadPool.getQueue() instanceof java.util.concurrent.SynchronousQueue);
+    assertFalse(threadPool.allowsCoreThreadTimeOut());
   }
 
   @Test
@@ -523,6 +530,131 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     assertNotNull(
         objectStorageClient, "ObjectStorageClient should be injected into GraphQLEngineFactory");
     assertNotNull(graphQLEngine, "GraphQLEngine should be created with ObjectStorageClient");
+  }
+
+  /**
+   * Known gaps: fields the production engine leaves on graphql-java's property fetcher, which on a
+   * root type always returns null and on any other type ignores the field's arguments. Empty, and
+   * may only shrink: wire a resolver in GmsGraphQLEngine instead of adding a line.
+   */
+  private static final Set<String> KNOWN_UNWIRED_FIELDS = Set.of();
+
+  /**
+   * Root fields wired only when a setting that is off by default (or in this context) is on: the
+   * analytics engine, and the businessAttributeEntityEnabled and entityVersioning feature flags.
+   */
+  private static final Set<String> GATED_FIELDS =
+      Set.of(
+          "Query.getAnalyticsCharts",
+          "Query.getHighlights",
+          "Query.getMetadataAnalyticsCharts",
+          "Mutation.createBusinessAttribute",
+          "Mutation.updateBusinessAttribute",
+          "Mutation.deleteBusinessAttribute",
+          "Mutation.addBusinessAttribute",
+          "Mutation.removeBusinessAttribute",
+          "Mutation.linkAssetVersion",
+          "Mutation.unlinkAssetVersion",
+          "Mutation.createGlossaryTermVersion");
+
+  /**
+   * Every Query and Mutation field of the engine the production factory builds, and every field
+   * that takes arguments on any other object type, must have its own DataFetcher. Catches an SDL
+   * field added (or a resolver registration dropped) without wiring, which would otherwise resolve
+   * to null at runtime while every resolver unit test stays green.
+   */
+  @Test
+  public void testEveryFieldThatNeedsADataFetcherHasOne() {
+    SortedSet<String> missing =
+        fieldsWithoutDataFetcher(
+            buildEngineWithAllGatesOn().getGraphQL().getGraphQLSchema(), KNOWN_UNWIRED_FIELDS);
+    assertTrue(
+        missing.isEmpty(),
+        "GraphQL fields without a DataFetcher; register a resolver in GmsGraphQLEngine: "
+            + missing);
+
+    // With the gates at this context's settings, exactly the gated fields are left unwired.
+    assertEquals(
+        fieldsWithoutDataFetcher(
+            graphQLEngine.getGraphQL().getGraphQLSchema(), KNOWN_UNWIRED_FIELDS),
+        new TreeSet<>(GATED_FIELDS));
+  }
+
+  @Test
+  public void testKnownUnwiredFieldsAreStillUnwired() {
+    SortedSet<String> stillMissing =
+        fieldsWithoutDataFetcher(
+            buildEngineWithAllGatesOn().getGraphQL().getGraphQLSchema(), Set.of());
+    SortedSet<String> nowWired = new TreeSet<>(KNOWN_UNWIRED_FIELDS);
+    nowWired.removeAll(stillMissing);
+    assertTrue(nowWired.isEmpty(), "Now wired; remove from KNOWN_UNWIRED_FIELDS: " + nowWired);
+  }
+
+  /**
+   * Builds the engine through a fresh factory autowired from this context (the context's own bean
+   * is a CGLIB-enhanced @Configuration, whose @Bean methods return the existing singleton), with
+   * analytics and the gating feature flags on. The flags are read only while the runtime wiring is
+   * built and are restored before returning; this class runs its tests sequentially.
+   */
+  private GraphQLEngine buildEngineWithAllGatesOn() {
+    GraphQLEngineFactory factory = new GraphQLEngineFactory();
+    applicationContext.getAutowireCapableBeanFactory().autowireBean(factory);
+    setField(factory, "isAnalyticsEnabled", true);
+    FeatureFlags flags = configurationProvider.getFeatureFlags();
+    boolean businessAttributes = flags.isBusinessAttributeEntityEnabled();
+    boolean versioning = flags.isEntityVersioning();
+    flags.setBusinessAttributeEntityEnabled(true);
+    flags.setEntityVersioning(true);
+    try {
+      return factory.graphQLEngine(
+          entityClient,
+          systemEntityClient,
+          systemOperationContext,
+          entityVersioningService,
+          metricUtils);
+    } finally {
+      flags.setBusinessAttributeEntityEnabled(businessAttributes);
+      flags.setEntityVersioning(versioning);
+    }
+  }
+
+  /**
+   * The schema generator registers graphql-java's property fetcher for every field the runtime
+   * wiring leaves out, so "has a DataFetcher" means "has one other than the property fetcher". If a
+   * graphql-java upgrade changes the default fetcher's type, this stops matching and the
+   * GATED_FIELDS assertion in testEveryFieldThatNeedsADataFetcherHasOne fails, so the check cannot
+   * go silently vacuous.
+   */
+  private static boolean isDefaultDataFetcher(DataFetcher<?> fetcher) {
+    return fetcher instanceof PropertyDataFetcher;
+  }
+
+  /** Root fields, and fields with arguments elsewhere, left on the property fetcher. */
+  private static SortedSet<String> fieldsWithoutDataFetcher(
+      GraphQLSchema schema, Set<String> ignored) {
+    GraphQLCodeRegistry registry = schema.getCodeRegistry();
+    Set<GraphQLObjectType> roots =
+        Stream.of(schema.getQueryType(), schema.getMutationType(), schema.getSubscriptionType())
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+    SortedSet<String> missing = new TreeSet<>();
+    for (GraphQLObjectType type :
+        schema.getAllTypesAsList().stream()
+            .filter(GraphQLObjectType.class::isInstance)
+            .map(GraphQLObjectType.class::cast)
+            .filter(t -> !t.getName().startsWith("__"))
+            .toList()) {
+      boolean root = roots.contains(type);
+      for (GraphQLFieldDefinition field : type.getFieldDefinitions()) {
+        if ((root || !field.getArguments().isEmpty())
+            && isDefaultDataFetcher(
+                registry.getDataFetcher(FieldCoordinates.coordinates(type, field), field))) {
+          missing.add(type.getName() + "." + field.getName());
+        }
+      }
+    }
+    missing.removeAll(ignored);
+    return missing;
   }
 
   private void setField(Object target, String fieldName, Object value) {

@@ -34,7 +34,7 @@ CREATE API INTEGRATION datahub_mcp_api_integration
 
 `OAUTH_RESOURCE_URL` is where Snowflake looks for DataHub's OAuth metadata. It must match the `resource` value DataHub advertises at `/.well-known/oauth-protected-resource`, which is the **origin only** — no `/mcp` path. The MCP server `URL` in the next step still uses the full endpoint.
 
-To point at your tenant instead of the global endpoint, use `https://<tenant>.acryl.io` for both `API_ALLOWED_PREFIXES` and `OAUTH_RESOURCE_URL`, and `https://<tenant>.acryl.io/integrations/ai/mcp` for the MCP server `URL`.
+To point at your tenant instead of the global endpoint, use `https://<tenant>.acryl.io` for both `API_ALLOWED_PREFIXES` and `OAUTH_RESOURCE_URL`, and `https://<tenant>.acryl.io/mcp` for the MCP server `URL`.
 
 ### 2. Create the External MCP Server
 

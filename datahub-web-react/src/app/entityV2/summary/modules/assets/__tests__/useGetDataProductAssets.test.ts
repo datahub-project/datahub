@@ -2,21 +2,21 @@ import { act, renderHook } from '@testing-library/react-hooks';
 import { useHistory } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { useGetDataProductAssets } from '@app/entityV2/summary/modules/assets/useGetDataProductAssets';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListDataProductAssetsQuery } from '@graphql/search.generated';
 import { EntityType } from '@types';
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: vi.fn(),
 }));
 vi.mock('@graphql/search.generated', () => ({
     useListDataProductAssetsQuery: vi.fn(),
 }));
 vi.mock('@app/useEntityRegistry', () => ({
-    useEntityRegistryV2: vi.fn(),
+    useEntityRegistry: vi.fn(),
 }));
 vi.mock('react-router', () => ({
     useHistory: vi.fn(),
@@ -35,7 +35,7 @@ describe('useGetDataProductAssets', () => {
         mockRegistry.getEntityUrl.mockReturnValue('/entity/url');
         (useEntityData as unknown as any).mockReturnValue({ urn, entityType });
         (useHistory as unknown as any).mockReturnValue(mockHistory);
-        (useEntityRegistryV2 as unknown as any).mockReturnValue(mockRegistry);
+        (useEntityRegistry as unknown as any).mockReturnValue(mockRegistry);
         (useListDataProductAssetsQuery as unknown as any).mockReturnValue({
             loading: false,
             data: {

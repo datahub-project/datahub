@@ -1,8 +1,14 @@
+from typing import List
+
 import pytest
 import sqlglot
 
-from datahub.ingestion.source.dremio.dremio_source import DremioSchemaResolver
+from datahub.ingestion.source.dremio.dremio_naming import DremioSchemaResolver
 from datahub.sql_parsing._models import _TableName
+from datahub.sql_parsing.sqlglot_lineage import (
+    _table_name_from_sqlglot_table,
+    sqlglot_lineage,
+)
 
 
 class TestDremioSchemaResolver:
@@ -79,7 +85,7 @@ class TestDremioSchemaResolver:
                 "Samples",
                 "samples.dremio.com",
                 "NYC-weather.csv",
-                "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.Samples.samples.dremio.com.NYC-weather.csv,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD)",
             ),
         ],
     )
@@ -94,7 +100,8 @@ class TestDremioSchemaResolver:
         assert urn == expected_urn
 
     def test_table_already_with_dremio_prefix_mixed_case(self, resolver):
-        """Test when SQL includes 'Dremio' with different casing."""
+        """'Dremio' in any casing is the default database: the Dremio source
+        always names it 'dremio'."""
         table = _TableName(
             database="Dremio",
             db_schema="source",
@@ -103,7 +110,7 @@ class TestDremioSchemaResolver:
         urn = resolver.get_urn_for_table(table)
         assert (
             urn
-            == "urn:li:dataset:(urn:li:dataPlatform:dremio,Dremio.source.table,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.source.table,PROD)"
         )
 
     @pytest.mark.parametrize(
@@ -193,7 +200,7 @@ class TestDremioSchemaResolverWithSQLGlot:
         """Helper to parse a table reference from SQL using SQLGlot."""
         parsed = sqlglot.parse_one(sql, dialect="dremio")
         for table in parsed.find_all(sqlglot.exp.Table):
-            return _TableName.from_sqlglot_table(table)
+            return _table_name_from_sqlglot_table(table, None)
         raise ValueError(f"No table found in SQL: {sql}")
 
     @pytest.mark.parametrize(
@@ -262,7 +269,6 @@ class TestDremioSchemaResolverWithSQLGlot:
         table = self._parse_table_from_sql(sql)
 
         qualified_table = table.qualified(
-            dialect=sqlglot.Dialect.get_or_raise("dremio"),
             default_db="dremio",
             default_schema=None,
         )
@@ -287,7 +293,7 @@ class TestDremioSchemaResolverWithSQLGlot:
 
         parsed_tables = []
         for table in parsed.find_all(sqlglot.exp.Table):
-            parsed_tables.append(_TableName.from_sqlglot_table(table))
+            parsed_tables.append(_table_name_from_sqlglot_table(table, None))
 
         assert len(parsed_tables) == 2
 
@@ -315,7 +321,7 @@ class TestDremioSchemaResolverWithSQLGlot:
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table = tables[0]
 
-        table_name = _TableName.from_sqlglot_table(table)
+        table_name = _table_name_from_sqlglot_table(table, None)
         urn = resolver.get_urn_for_table(table_name)
 
         # Verify the full hierarchy is preserved
@@ -350,7 +356,7 @@ class TestDremioSchemaResolverWithSQLGlot:
         sql = "SELECT * FROM MySpace.folder1.folder2.folder3.table"
         parsed = sqlglot.parse_one(sql, dialect="dremio")
         tables = list(parsed.find_all(sqlglot.exp.Table))
-        table_name = _TableName.from_sqlglot_table(tables[0])
+        table_name = _table_name_from_sqlglot_table(tables[0], None)
 
         # Verify SQLGlot correctly populates parts for unquoted identifiers
         assert table_name.parts is not None
@@ -370,3 +376,54 @@ class TestDremioSchemaResolverWithSQLGlot:
         urn = resolver.get_urn_for_table(table, lower=True)
         assert "@john.doe" in urn.lower()
         assert "dremio.@john.doe.personal.analysis" in urn.lower()
+
+
+def _urn(name: str) -> str:
+    return f"urn:li:dataset:(urn:li:dataPlatform:dremio,{name},PROD)"
+
+
+@pytest.mark.parametrize(
+    "table_ref, expected_name",
+    [
+        ("orders", "dremio.my_space.folder.orders"),
+        ("other_space.orders", "dremio.other_space.orders"),
+        ('"dremio"."other_space"."orders"', "dremio.other_space.orders"),
+        (
+            '"dremio"."other_space"."folder"."orders"',
+            "dremio.other_space.folder.orders",
+        ),
+    ],
+)
+def test_view_definition_gets_one_dremio_prefix(
+    table_ref: str, expected_name: str
+) -> None:
+    # The Dremio source parses a view with default_db="dremio" and the view's
+    # folder path as default_schema; sqlglot then fills the default database in.
+    resolver = DremioSchemaResolver(platform="dremio", env="PROD")
+    result = sqlglot_lineage(
+        f"SELECT id FROM {table_ref}",
+        resolver,
+        default_db="dremio",
+        default_schema="my_space.folder",
+    )
+    assert result.in_tables == [_urn(expected_name)]
+
+
+def test_paths_over_3_parts_get_column_lineage() -> None:
+    # Before sqlglot 30.22 its schema mapping held 3 levels at most, so a
+    # longer path got no column-level lineage.
+    resolver = DremioSchemaResolver(platform="dremio", env="PROD")
+    for name in ("dremio.my_space.orders", "dremio.my_space.folder.sub.orders"):
+        resolver.add_raw_schema_info(_urn(name), {"id": "INT"})
+
+    def upstreams(sql: str) -> List[str]:
+        result = sqlglot_lineage(sql, resolver)
+        assert result.column_lineage
+        return [u.table for u in result.column_lineage[0].upstreams]
+
+    assert upstreams("SELECT id FROM my_space.orders") == [
+        _urn("dremio.my_space.orders")
+    ]
+    assert upstreams("SELECT id FROM my_space.folder.sub.orders") == [
+        _urn("dremio.my_space.folder.sub.orders")
+    ]

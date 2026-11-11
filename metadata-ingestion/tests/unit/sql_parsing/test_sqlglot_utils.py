@@ -40,6 +40,14 @@ def test_glue_and_athena_use_trino_dialect():
     assert is_dialect_instance(get_dialect("glue"), "trino")
 
 
+def test_informix_uses_postgres_dialect():
+    # sqlglot has no Informix dialect; Tableau / query lineage / aggregators
+    # resolve platform="informix" via get_dialect_str. Must map to postgres
+    # (same shape as HANA) or get_dialect("informix") raises.
+    assert get_dialect_str("informix") == "postgres"
+    assert is_dialect_instance(get_dialect("informix"), "postgres")
+
+
 def test_fabricspark_uses_spark_dialect():
     # dbt-fabricspark reports adapter_type "fabricspark", which sqlglot does
     # not know. Map to spark (Spark 3+), not spark2 or sqlglot's "fabric" (T-SQL).
@@ -220,6 +228,29 @@ def test_query_fingerprint():
     assert get_query_fingerprint(
         "select 1 + 1", platform="postgres"
     ) != get_query_fingerprint("select 2", platform="postgres")
+
+
+@pytest.mark.parametrize(
+    "sql, expected",
+    [
+        pytest.param(
+            "INSERT INTO public.active_users SELECT id, email FROM public.users "
+            "WHERE deleted_at IS NULL AND email IS NOT NULL",
+            "5b074995bf74d4bd7634f63f90f7f2edd18b1985a0a8dc162a70c0567333d49a",
+            id="is_not_null",
+        ),
+        pytest.param(
+            # The literal inside the negated IS still becomes a placeholder.
+            "SELECT a FROM t WHERE COALESCE(a, 1) IS NOT NULL",
+            "7901eee5a53b62eb96c0c1da449aff9ebb33447309524f819a798c1b23f331f1",
+            id="is_not_null_over_literal",
+        ),
+    ],
+)
+def test_postgres_is_not_null_fingerprint_is_stable(sql: str, expected: str) -> None:
+    # The fingerprint is the urn:li:query id for Postgres queries, so a sqlglot
+    # upgrade must not change it. These are the values sqlglot 30.12 produced.
+    assert get_query_fingerprint(sql, platform="postgres") == expected
 
 
 def test_redshift_query_fingerprint():

@@ -2,7 +2,7 @@ import { Popover } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { toLocalDateTimeString, toRelativeTimeString } from '@src/app/shared/time/timeUtils';
+import { toLocalDateTimeString, toRelativeTimeString } from '@src/app/sharedV2/time/timeUtils';
 
 const PopoverContent = styled.div`
     color: ${(props) => props.theme.colors.textSecondary};

@@ -161,7 +161,6 @@ public class LogicalModelController {
   @Tag(name = "Logical Models")
   @DeleteMapping(
       value = "{childDatasetUrn}/relationship/physicalInstanceOf",
-      consumes = MediaType.APPLICATION_JSON_VALUE,
       produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
       summary =

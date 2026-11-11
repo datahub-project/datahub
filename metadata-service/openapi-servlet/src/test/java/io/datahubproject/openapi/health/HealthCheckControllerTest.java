@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.config.HealthCheckConfiguration;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.GracefulShutdownHandler;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -43,6 +44,10 @@ public class HealthCheckControllerTest extends AbstractTestNGSpringContextTests 
   @MockitoBean
   @Qualifier("searchClientShim")
   private SearchClientShim<?> elasticClient;
+
+  @MockitoBean
+  @Qualifier("searchClusterRegistry")
+  private SearchClusterRegistry searchClusterRegistry;
 
   @MockitoBean
   @Qualifier("bootstrapManager")

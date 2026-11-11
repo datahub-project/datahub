@@ -5,7 +5,7 @@ import useRecentlySearchedQueriesOptions from '@app/searchV2/searchBarV2/hooks/u
 import useRecentlyViewedEntitiesOptions from '@app/searchV2/searchBarV2/hooks/useRecentlyViewedEntitiesOptions';
 import useViewAllResultsOptions from '@app/searchV2/searchBarV2/hooks/useViewAllResultsOptions';
 import { EntityWithMatchedFields } from '@app/searchV2/utils/combineSiblingsInEntitiesWithMatchedFields';
-import usePrevious from '@app/shared/usePrevious';
+import usePrevious from '@app/sharedV2/usePrevious';
 
 export default function useOptions(
     searchQuery: string,
@@ -34,7 +34,7 @@ export default function useOptions(
     }, [isDataLoading, previousIsLoading]);
 
     const recentlySearchedQueriesOptions = useRecentlySearchedQueriesOptions(skipRecommendations);
-    const recentlyViewedEntitiesOptions = useRecentlyViewedEntitiesOptions();
+    const recentlyViewedEntitiesOptions = useRecentlyViewedEntitiesOptions(skipRecommendations);
 
     const initialOptions = useMemo(() => {
         return [...recentlyViewedEntitiesOptions, ...recentlySearchedQueriesOptions];

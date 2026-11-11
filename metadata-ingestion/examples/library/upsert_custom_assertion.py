@@ -1,8 +1,4 @@
-import logging
-
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-
-log = logging.getLogger(__name__)
 
 graph = DataHubGraph(
     config=DatahubClientConfig(
@@ -29,4 +25,4 @@ res = graph.upsert_custom_assertion(
 )
 
 if res is not None:
-    log.info(f"Upserted assertion with urn: {new_assertion_urn}")
+    print(f"Upserted assertion with urn: {new_assertion_urn}")

@@ -81,8 +81,10 @@ public class AuthUtil {
     return isRestApiAuthorizationEnabled;
   }
 
+  // getEffectiveUnrestrictedEntityTypes() is Lombok-generated, so javadoc (which does not run
+  // annotation processors) cannot resolve it: {@link} here fails the auth-api javadoc task.
   /**
-   * Effective view-unrestricted entity types for a request. Resolved once onto {@link
+   * Effective view-unrestricted entity types for a request. Resolved once onto {@code
    * com.datahub.authorization.config.ViewAuthorizationConfiguration#getEffectiveUnrestrictedEntityTypes()}
    * from {@code authorization.view.unrestrictedEntityTypes} (YAML/env). When unset, returns an
    * empty set — with view authorization enabled, every entity type is restricted.
@@ -417,6 +419,36 @@ public class AuthUtil {
 
   private static Set<EntitySpec> tagSubResourceSpecs(@Nonnull final Collection<Urn> tagUrns) {
     return tagUrns.stream()
+        .map(urn -> new EntitySpec(urn.getEntityType(), urn.toString()))
+        .collect(Collectors.toSet());
+  }
+
+  /** Either {@code EDIT_ENTITY} or {@code EDIT_ENTITY_PROPERTIES} is sufficient. */
+  public static DisjunctivePrivilegeGroup structuredPropertyModificationPrivilegeGroup() {
+    return new DisjunctivePrivilegeGroup(
+        List.of(
+            new ConjunctivePrivilegeGroup(List.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType())),
+            new ConjunctivePrivilegeGroup(
+                List.of(PoliciesConfig.EDIT_ENTITY_PROPERTIES_PRIVILEGE.getType()))));
+  }
+
+  public static boolean isAPIAuthorizedForStructuredPropertyModification(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Collection<Urn> propertyUrns) {
+    if (propertyUrns.isEmpty()) {
+      return true;
+    }
+    return isAPIAuthorized(
+        session,
+        structuredPropertyModificationPrivilegeGroup(),
+        new EntitySpec(entityUrn.getEntityType(), entityUrn.toString()),
+        structuredPropertySubResourceSpecs(propertyUrns));
+  }
+
+  private static Set<EntitySpec> structuredPropertySubResourceSpecs(
+      @Nonnull final Collection<Urn> propertyUrns) {
+    return propertyUrns.stream()
         .map(urn -> new EntitySpec(urn.getEntityType(), urn.toString()))
         .collect(Collectors.toSet());
   }

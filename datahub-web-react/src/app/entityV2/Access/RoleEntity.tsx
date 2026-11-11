@@ -3,14 +3,19 @@ import i18next from 'i18next';
 import * as React from 'react';
 import styled from 'styled-components';
 
-import RoleEntityProfile from '@app/entityV2/Access/RoleEntityProfile';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import { urlEncodeUrn } from '@app/entityV2/shared/utils';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 
 import { EntityType, Role, SearchResult } from '@types';
+
+const RoleEntityProfile = lazyProfileComponent(
+    'RoleEntityProfile',
+    () => import('@app/entityV2/Access/RoleEntityProfile'),
+);
 
 const PreviewRoleIcon = styled(IdentificationBadge).attrs({ weight: 'regular' })`
     font-size: 20px;

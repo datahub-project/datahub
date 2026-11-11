@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import {
     AZURE_AUTHORITY_URL,
     AZURE_CLIENT_ID,
@@ -124,11 +126,30 @@ import {
     DORIS_USERNAME,
 } from '@app/ingest/source/builder/RecipeForm/doris';
 import {
+    HIGHTOUCH_API_KEY,
+    HIGHTOUCH_EMIT_MODELS,
+    HIGHTOUCH_INCLUDE_SYNC_RUNS,
+    HIGHTOUCH_MAX_SYNC_RUNS,
+    HIGHTOUCH_MODEL_ALLOW,
+    HIGHTOUCH_MODEL_DENY,
+    HIGHTOUCH_SYNC_ALLOW,
+    HIGHTOUCH_SYNC_DENY,
+} from '@app/ingest/source/builder/RecipeForm/hightouch';
+import {
     HIVE_DATABASE,
     HIVE_HOST_PORT,
     HIVE_PASSWORD,
     HIVE_USERNAME,
 } from '@app/ingest/source/builder/RecipeForm/hive';
+import {
+    INFORMIX_ACCEPT_IBM_JDBC_LICENSE,
+    INFORMIX_DATABASE,
+    INFORMIX_HOST_PORT,
+    INFORMIX_INCLUDE_VIEW_LINEAGE,
+    INFORMIX_PASSWORD,
+    INFORMIX_SERVER,
+    INFORMIX_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/informix';
 import {
     KAFKA_BOOTSTRAP,
     KAFKA_SASL_MECHANISM,
@@ -151,12 +172,12 @@ import {
 } from '@app/ingest/source/builder/RecipeForm/looker';
 import {
     CONNECTION_TO_PLATFORM_MAP,
-    DEPLOY_KEY,
     LOOKML,
     LOOKML_BASE_URL,
     LOOKML_CLIENT_ID,
     LOOKML_CLIENT_SECRET,
-    LOOKML_GITHUB_INFO_REPO,
+    LOOKML_GIT_INFO_DEPLOY_KEY,
+    LOOKML_GIT_INFO_REPO,
     PARSE_TABLE_NAMES_FROM_SQL,
     PROJECT_NAME,
 } from '@app/ingest/source/builder/RecipeForm/lookml';
@@ -190,14 +211,18 @@ import {
     MICROSTRATEGY_BASE_URL,
     MICROSTRATEGY_DASHBOARD_ALLOW,
     MICROSTRATEGY_DASHBOARD_DENY,
+    MICROSTRATEGY_DATASET_FIELD_ORDER,
     MICROSTRATEGY_EMIT_DASHBOARD_DATASET_EDGES,
+    MICROSTRATEGY_EMIT_DOCUMENT_DATASET_EDGES,
     MICROSTRATEGY_EXTRACT_CHARTS,
     MICROSTRATEGY_EXTRACT_CUBES,
     MICROSTRATEGY_EXTRACT_DASHBOARDS,
     MICROSTRATEGY_EXTRACT_DASHBOARD_DEPENDENCIES,
+    MICROSTRATEGY_EXTRACT_DERIVED_METRICS,
     MICROSTRATEGY_EXTRACT_INDEPENDENT_REPORTS,
     MICROSTRATEGY_EXTRACT_LINEAGE,
     MICROSTRATEGY_EXTRACT_METRIC_EXPRESSIONS,
+    MICROSTRATEGY_EXTRACT_METRIC_FORMULA_LINEAGE,
     MICROSTRATEGY_EXTRACT_MODEL_LINEAGE,
     MICROSTRATEGY_EXTRACT_REPORTS,
     MICROSTRATEGY_EXTRACT_REPORT_SQL_LINEAGE,
@@ -207,7 +232,10 @@ import {
     MICROSTRATEGY_EXTRACT_WAREHOUSE_LINEAGE,
     MICROSTRATEGY_FOLDER_ALLOW,
     MICROSTRATEGY_FOLDER_DENY,
+    MICROSTRATEGY_FOLDER_PATH_ALLOW,
+    MICROSTRATEGY_FOLDER_PATH_DENY,
     MICROSTRATEGY_INCLUDE_HIDDEN,
+    MICROSTRATEGY_INCLUDE_PERSONAL_FOLDERS,
     MICROSTRATEGY_INGEST_OWNER,
     MICROSTRATEGY_PASSWORD,
     MICROSTRATEGY_PLATFORM_INSTANCE,
@@ -217,6 +245,7 @@ import {
     MICROSTRATEGY_REPORT_DENY,
     MICROSTRATEGY_TAG_MEASURES_AND_DIMENSIONS,
     MICROSTRATEGY_USERNAME,
+    MICROSTRATEGY_USE_PREDEFINED_FOLDER_NAMES,
     MICROSTRATEGY_VERIFY_SSL,
 } from '@app/ingest/source/builder/RecipeForm/microstrategy';
 import {
@@ -300,6 +329,23 @@ import {
     SNOWFLAKE_WAREHOUSE,
 } from '@app/ingest/source/builder/RecipeForm/snowflake';
 import {
+    SQLMESH_AUDIT_RESULTS_PATH,
+    SQLMESH_DEFAULT_CATALOG,
+    SQLMESH_ENV,
+    SQLMESH_ENVIRONMENT,
+    SQLMESH_GATEWAY,
+    SQLMESH_INCLUDE_COLUMN_LINEAGE,
+    SQLMESH_INCLUDE_LINEAGE,
+    SQLMESH_INCLUDE_SCHEMA,
+    SQLMESH_MODEL_ALLOW,
+    SQLMESH_MODEL_DENY,
+    SQLMESH_PROJECT_PATH,
+    SQLMESH_REMOVE_STALE_METADATA,
+    SQLMESH_TARGET_PLATFORM,
+    SQLMESH_TARGET_PLATFORM_INSTANCE,
+    SQLMESH_TOBIKO_CLOUD_TOKEN,
+} from '@app/ingest/source/builder/RecipeForm/sqlmesh';
+import {
     TABLEAU_CONNECTION_URI,
     TABLEAU_PASSWORD,
     TABLEAU_PROJECT,
@@ -323,6 +369,12 @@ import {
     TRINO_USERNAME,
 } from '@app/ingest/source/builder/RecipeForm/trino';
 import {
+    AUTHENTICATION_TYPE,
+    CLIENT_ID,
+    CLIENT_SECRET,
+    AZURE_CLIENT_ID as DATABRICKS_AZURE_CLIENT_ID,
+    AZURE_CLIENT_SECRET as DATABRICKS_AZURE_CLIENT_SECRET,
+    AZURE_TENANT_ID as DATABRICKS_AZURE_TENANT_ID,
     INCLUDE_COLUMN_LINEAGE,
     TOKEN,
     UNITY_CATALOG_ALLOW,
@@ -331,6 +383,7 @@ import {
     UNITY_METASTORE_ID_DENY,
     UNITY_TABLE_ALLOW,
     UNITY_TABLE_DENY,
+    WAREHOUSE_ID,
     WORKSPACE_URL,
 } from '@app/ingest/source/builder/RecipeForm/unity_catalog';
 import {
@@ -352,6 +405,7 @@ import {
     CUBE,
     DATABRICKS,
     DBT_CLOUD,
+    INFORMIX,
     MATILLION_DPC,
     MICROSTRATEGY,
     MYSQL,
@@ -359,16 +413,18 @@ import {
     OKTA,
     POWER_BI,
     SAC,
+    SQLMESH,
     VERTICA,
 } from '@app/ingest/source/builder/constants';
-import { BIGQUERY } from '@app/ingest/source/conf/bigquery/bigquery';
-import { HIVE } from '@app/ingest/source/conf/hive/hive';
-import { KAFKA } from '@app/ingest/source/conf/kafka/kafka';
-import { LOOKER } from '@app/ingest/source/conf/looker/looker';
-import { POSTGRES } from '@app/ingest/source/conf/postgres/postgres';
-import { REDSHIFT } from '@app/ingest/source/conf/redshift/redshift';
-import { SNOWFLAKE } from '@app/ingest/source/conf/snowflake/snowflake';
-import { TABLEAU } from '@app/ingest/source/conf/tableau/tableau';
+import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
+import { HIGHTOUCH } from '@app/ingestV2/source/conf/hightouch/hightouch';
+import { HIVE } from '@app/ingestV2/source/conf/hive/hive';
+import { KAFKA } from '@app/ingestV2/source/conf/kafka/kafka';
+import { LOOKER } from '@app/ingestV2/source/conf/looker/looker';
+import { POSTGRES } from '@app/ingestV2/source/conf/postgres/postgres';
+import { REDSHIFT } from '@app/ingestV2/source/conf/redshift/redshift';
+import { SNOWFLAKE } from '@app/ingestV2/source/conf/snowflake/snowflake';
+import { TABLEAU } from '@app/ingestV2/source/conf/tableau/tableau';
 
 export enum RecipeSections {
     Connection = 0,
@@ -512,8 +568,8 @@ export const RECIPE_FIELDS: RecipeFields = {
     },
     [LOOKML]: {
         fields: [
-            LOOKML_GITHUB_INFO_REPO,
-            DEPLOY_KEY,
+            LOOKML_GIT_INFO_REPO,
+            LOOKML_GIT_INFO_DEPLOY_KEY,
             PROJECT_NAME,
             LOOKML_BASE_URL,
             LOOKML_CLIENT_ID,
@@ -572,6 +628,19 @@ export const RECIPE_FIELDS: RecipeFields = {
             STATEFUL_INGESTION_ENABLED,
         ],
         filterSectionTooltip: 'Include or exclude specific Databases, Schemas, Tables and Views from ingestion.',
+    },
+    [INFORMIX]: {
+        fields: [
+            INFORMIX_HOST_PORT,
+            INFORMIX_SERVER,
+            INFORMIX_DATABASE,
+            INFORMIX_USERNAME,
+            INFORMIX_PASSWORD,
+            INFORMIX_ACCEPT_IBM_JDBC_LICENSE,
+        ],
+        filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [INCLUDE_TABLES, INCLUDE_VIEWS, INFORMIX_INCLUDE_VIEW_LINEAGE, STATEFUL_INGESTION_ENABLED],
+        filterSectionTooltip: 'Include or exclude specific Schemas (owners), Tables and Views from ingestion.',
     },
     [HIVE]: {
         fields: [HIVE_HOST_PORT, HIVE_USERNAME, HIVE_PASSWORD, HIVE_DATABASE],
@@ -689,7 +758,17 @@ export const RECIPE_FIELDS: RecipeFields = {
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
     [DATABRICKS]: {
-        fields: [WORKSPACE_URL, TOKEN],
+        fields: [
+            AUTHENTICATION_TYPE,
+            WORKSPACE_URL,
+            WAREHOUSE_ID,
+            TOKEN,
+            CLIENT_ID,
+            CLIENT_SECRET,
+            DATABRICKS_AZURE_TENANT_ID,
+            DATABRICKS_AZURE_CLIENT_ID,
+            DATABRICKS_AZURE_CLIENT_SECRET,
+        ],
         filterFields: [
             UNITY_METASTORE_ID_ALLOW,
             UNITY_METASTORE_ID_DENY,
@@ -751,6 +830,8 @@ export const RECIPE_FIELDS: RecipeFields = {
             MICROSTRATEGY_PROJECT_DENY,
             MICROSTRATEGY_FOLDER_ALLOW,
             MICROSTRATEGY_FOLDER_DENY,
+            MICROSTRATEGY_FOLDER_PATH_ALLOW,
+            MICROSTRATEGY_FOLDER_PATH_DENY,
             MICROSTRATEGY_DASHBOARD_ALLOW,
             MICROSTRATEGY_DASHBOARD_DENY,
             MICROSTRATEGY_REPORT_ALLOW,
@@ -764,16 +845,22 @@ export const RECIPE_FIELDS: RecipeFields = {
             MICROSTRATEGY_EXTRACT_INDEPENDENT_REPORTS,
             MICROSTRATEGY_EXTRACT_LINEAGE,
             MICROSTRATEGY_EXTRACT_VISUALIZATION_DETAILS,
+            MICROSTRATEGY_EXTRACT_DERIVED_METRICS,
             MICROSTRATEGY_EXTRACT_SOURCE_WAREHOUSES,
             MICROSTRATEGY_EXTRACT_DASHBOARD_DEPENDENCIES,
             MICROSTRATEGY_EXTRACT_METRIC_EXPRESSIONS,
+            MICROSTRATEGY_EXTRACT_METRIC_FORMULA_LINEAGE,
             MICROSTRATEGY_EXTRACT_MODEL_LINEAGE,
             MICROSTRATEGY_EXTRACT_WAREHOUSE_LINEAGE,
             MICROSTRATEGY_EXTRACT_REPORT_SQL_LINEAGE,
             MICROSTRATEGY_EXTRACT_USAGE_STATISTICS,
             MICROSTRATEGY_EMIT_DASHBOARD_DATASET_EDGES,
+            MICROSTRATEGY_EMIT_DOCUMENT_DATASET_EDGES,
             MICROSTRATEGY_TAG_MEASURES_AND_DIMENSIONS,
             MICROSTRATEGY_INGEST_OWNER,
+            MICROSTRATEGY_USE_PREDEFINED_FOLDER_NAMES,
+            MICROSTRATEGY_INCLUDE_PERSONAL_FOLDERS,
+            MICROSTRATEGY_DATASET_FIELD_ORDER,
             MICROSTRATEGY_INCLUDE_HIDDEN,
             MICROSTRATEGY_VERIFY_SSL,
             STATEFUL_INGESTION_ENABLED,
@@ -794,6 +881,27 @@ export const RECIPE_FIELDS: RecipeFields = {
             TABLE_PROFILING_ENABLED,
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables, Views and Projections from ingestion.',
+    },
+    [SQLMESH]: {
+        fields: [
+            SQLMESH_PROJECT_PATH,
+            SQLMESH_ENVIRONMENT,
+            SQLMESH_GATEWAY,
+            SQLMESH_TARGET_PLATFORM,
+            SQLMESH_TARGET_PLATFORM_INSTANCE,
+            SQLMESH_DEFAULT_CATALOG,
+            SQLMESH_TOBIKO_CLOUD_TOKEN,
+        ],
+        filterFields: [SQLMESH_MODEL_ALLOW, SQLMESH_MODEL_DENY],
+        advancedFields: [
+            SQLMESH_ENV,
+            SQLMESH_INCLUDE_SCHEMA,
+            SQLMESH_INCLUDE_LINEAGE,
+            SQLMESH_INCLUDE_COLUMN_LINEAGE,
+            SQLMESH_AUDIT_RESULTS_PATH,
+            SQLMESH_REMOVE_STALE_METADATA,
+        ],
+        filterSectionTooltip: 'Include or exclude specific SQLMesh models from ingestion by name pattern.',
     },
     [CSV]: {
         fields: [CSV_FILE_URL],
@@ -828,7 +936,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             AZURE_GRAPH_URL,
         ],
         filterFields: [GROUP_ALLOW, GROUP_DENY, USER_ALLOW, USER_DENY],
-        advancedFields: [AZURE_INGEST_USERS, AZURE_INGEST_GROUPS, STATEFUL_INGESTION_ENABLED, SKIP_USERS_WITHOUT_GROUP],
+        advancedFields: [AZURE_INGEST_USERS, AZURE_INGEST_GROUPS, STATEFUL_INGESTION_ENABLED],
     },
     [SAC]: {
         fields: [SAC_TENANT_URL, SAC_TOKEN_URL, SAC_CLIENT_ID, SAC_CLIENT_SECRET],
@@ -843,6 +951,19 @@ export const RECIPE_FIELDS: RecipeFields = {
             FOLDER_DENY,
         ],
         advancedFields: [STATEFUL_INGESTION_ENABLED],
+    },
+    [HIGHTOUCH]: {
+        fields: [HIGHTOUCH_API_KEY],
+        filterFields: [HIGHTOUCH_SYNC_ALLOW, HIGHTOUCH_SYNC_DENY, HIGHTOUCH_MODEL_ALLOW, HIGHTOUCH_MODEL_DENY],
+        advancedFields: [
+            HIGHTOUCH_EMIT_MODELS,
+            HIGHTOUCH_INCLUDE_SYNC_RUNS,
+            HIGHTOUCH_MAX_SYNC_RUNS,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        get filterSectionTooltip() {
+            return i18next.t('ingestion.sourceBuilder:hightouch.filterSection.tooltip');
+        },
     },
     [NOTION]: {
         fields: [NOTION_API_KEY, NOTION_PAGE_IDS],

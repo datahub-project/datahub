@@ -6,21 +6,24 @@ import json
 import logging
 import pathlib
 import tempfile
+import time
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.configuration.env_vars import (
     get_report_info_sample_size,
+    get_sql_agg_max_queries_per_downstream,
     get_sql_agg_query_log,
     get_sql_agg_skip_joins,
 )
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.transform_operation import cap_transform_operation
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -75,10 +78,21 @@ from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.ordered_set import OrderedSet
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.stats_collections import TopKDict
 
 logger = logging.getLogger(__name__)
 QueryId = str
 UrnStr = str
+
+
+def strip_platform_instance(name: str, platform_instance: Optional[str]) -> str:
+    """Return a dataset URN name without its platform_instance prefix.
+
+    This is the name form is_allowed_table and is_temp_table receive.
+    """
+    if platform_instance and name.startswith(platform_instance):
+        return name[len(platform_instance) + 1 :]
+    return name
 
 
 class QueryLogSetting(enum.Enum):
@@ -94,6 +108,20 @@ _DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
 ]
 MAX_UPSTREAM_TABLES_COUNT = 300
 MAX_FINEGRAINEDLINEAGE_COUNT = 2000
+# Opt-in cap on the queries considered per downstream (0 = unlimited); see
+# _select_lineage_query_ids. Memory for hot downstreams is bounded by the lazy walk
+# in _gen_lineage_for_downstream, not by this cap.
+MAX_QUERIES_PER_DOWNSTREAM = get_sql_agg_max_queries_per_downstream()
+_SLOW_DOWNSTREAM_WARNING_SECONDS = 60
+_SLOWEST_DOWNSTREAMS_TRACKED = 10
+
+
+@dataclasses.dataclass
+class _ColumnLineageMergeResult:
+    """What merging one query's column lineage into a downstream's lineage added."""
+
+    entries_added: int = 0
+    columns_with_new_edges: Set[str] = dataclasses.field(default_factory=set)
 
 
 @dataclasses.dataclass
@@ -120,6 +148,8 @@ class ObservedQuery:
 
     # Use this to store additional key-value information about the query for debugging.
     extra_info: Optional[dict] = None
+    # Emitted as queryProperties.customProperties on the Query entity.
+    custom_properties: Optional[Dict[str, str]] = None
 
 
 @dataclasses.dataclass
@@ -128,6 +158,8 @@ class ViewDefinition:
     default_db: Optional[str] = None
     default_schema: Optional[str] = None
     override_dialect: Optional[DialectOrStr] = None
+    # Table-level fallback for an unparseable definition; see add_view_definition.
+    table_level_fallback_upstreams: Optional[List[UrnStr]] = None
 
 
 @dataclasses.dataclass
@@ -174,6 +206,16 @@ class QueryMetadata:
 
     extra_info: Optional[dict] = None
     origin: Optional[Urn] = None
+    custom_properties: Optional[Dict[str, str]] = None
+
+    # When true, this query's lineage/operations are still recorded (so downstream
+    # tables get UpstreamLineage aspects and Operation aspects), but the Query
+    # entity itself is not emitted and per-Query URN references (in
+    # UpstreamClass.query and OperationClass.queries) are suppressed. Used for
+    # queries whose SQL text isn't meaningful (e.g. Databricks masks it to
+    # "<REDACTED>" for non-account-admins) to avoid polluting the catalog with
+    # placeholder Query entities while preserving lineage and operation signals.
+    redacted_query_text: bool = False
 
     @property
     def usage_query_id(self) -> QueryId:
@@ -244,6 +286,7 @@ class QueryMetadata:
             created=self.make_created_audit_stamp(),
             lastModified=self.make_last_modified_audit_stamp(),
             origin=self.origin.urn() if self.origin else None,
+            customProperties=self.custom_properties,
         )
 
 
@@ -322,6 +365,15 @@ class PreparsedQuery:
     # Use this to store additional key-value information about the query for debugging.
     extra_info: Optional[dict] = None
     origin: Optional[Urn] = None
+    custom_properties: Optional[Dict[str, str]] = None
+
+    # When true, feed the usage aggregator so table-level stats (totalSqlQueries,
+    # userCounts, etc.) still land, but skip emitting a Query entity and any
+    # per-Query URN usage counters. Use for sources that know lineage/timestamps
+    # but can't provide meaningful SQL text (e.g. Databricks masks query text to
+    # "<REDACTED>" for non-account-admins outside databricks_pii_access), to
+    # avoid polluting the catalog with placeholder Query entities.
+    redacted_query_text: bool = False
 
 
 @dataclasses.dataclass
@@ -341,6 +393,8 @@ class SqlAggregatorReport(Report):
     # Views.
     num_view_definitions: int = 0
     num_views_failed: int = 0
+    num_views_table_level_fallback: int = 0
+    num_views_self_reference_dropped: int = 0
     num_views_column_timeout: int = 0
     num_views_column_failed: int = 0
     views_parse_failures: LossyDict[UrnStr, str] = dataclasses.field(
@@ -355,6 +409,8 @@ class SqlAggregatorReport(Report):
 
     # SQL parsing (over all invocations).
     num_sql_parsed: int = 0
+    # Parses whose column lineage needed the vendored sqlglot 30.20 projection pushdown.
+    num_sql_parsed_legacy_pushdown_projections: int = 0
     sql_parsing_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_fingerprinting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_formatting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
@@ -380,14 +436,38 @@ class SqlAggregatorReport(Report):
         default_factory=LossyList
     )
     make_schema_resolver_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    # Seconds spent resolving each downstream's queries through temp tables,
+    # for the slowest downstreams only, slowest first.
+    slowest_downstreams_lineage_seconds: TopKDict[UrnStr, float] = dataclasses.field(
+        default_factory=lambda: TopKDict(top_k=_SLOWEST_DOWNSTREAMS_TRACKED)
+    )
+    slowest_downstreams_operations_seconds: TopKDict[UrnStr, float] = dataclasses.field(
+        default_factory=lambda: TopKDict(top_k=_SLOWEST_DOWNSTREAMS_TRACKED)
+    )
+    # Downstreams whose resolution took over 60 s, counted once per pass.
+    num_slow_downstreams: int = 0
 
     # Lineage-related.
     schema_resolver_count: Optional[int] = None
+    # Set only on a degraded run: as_obj() drops None, so a healthy run stays
+    # silent while a degraded one flags that the schema count went unread.
+    schema_resolver_unavailable: Optional[bool] = None
     num_unique_query_fingerprints: Optional[int] = None
     num_urns_with_lineage: Optional[int] = None
     num_lineage_skipped_due_to_filters: int = 0
     num_table_lineage_trimmed_due_to_large_size: int = 0
     num_column_lineage_trimmed_due_to_large_size: int = 0
+    # Downstreams whose lineage walk stopped once both output caps were full, and
+    # downstreams whose query set exceeded the opt-in MAX_QUERIES_PER_DOWNSTREAM,
+    # each with the number of queries that write to them.
+    num_downstreams_with_lineage_walk_stopped_early: int = 0
+    lineage_walk_stopped_early_downstreams: LossyDict[str, int] = dataclasses.field(
+        default_factory=LossyDict
+    )
+    num_downstreams_with_capped_lineage_queries: int = 0
+    capped_lineage_downstreams: LossyDict[str, int] = dataclasses.field(
+        default_factory=LossyDict
+    )
 
     # Lineage consistency tracking
     num_tables_added_from_column_lineage: int = 0
@@ -413,7 +493,16 @@ class SqlAggregatorReport(Report):
     def compute_stats(self) -> None:
         if self._aggregator._closed:
             return
-        self.schema_resolver_count = self._aggregator._schema_resolver.schema_count()
+        # The resolver can be borrowed (see the schema_resolver argument), so its
+        # owner may close it while this aggregator is still open, which _closed
+        # does not describe. Clear the count rather than early-return: compute_stats
+        # runs on every render, so a skip would leave a mid-run value in the report.
+        resolver = self._aggregator._schema_resolver
+        if resolver.closed:
+            self.schema_resolver_unavailable = True
+            self.schema_resolver_count = None
+        else:
+            self.schema_resolver_count = resolver.schema_count()
         self.num_unique_query_fingerprints = len(self._aggregator._query_map)
 
         self.num_urns_with_lineage = len(self._aggregator._lineage_map)
@@ -573,6 +662,15 @@ class SqlParsingAggregator(Closeable):
         )
         self._exit_stack.push(self._lineage_map)
 
+        # Ids of queries added through add_known_query_lineage. They keep their own or
+        # fingerprinted ids, so the opt-in per-downstream cap can't recognise them by
+        # prefix the way it recognises known_ and view_ lineage.
+        self._known_query_lineage_ids = FileBackedDict[bool](
+            shared_connection=self._shared_connection,
+            tablename="known_query_lineage_ids",
+        )
+        self._exit_stack.push(self._known_query_lineage_ids)
+
         # Map of view urn -> view definition
         self._view_definitions = FileBackedDict[ViewDefinition](
             shared_connection=self._shared_connection, tablename="view_definitions"
@@ -681,13 +779,9 @@ class SqlParsingAggregator(Closeable):
             # If this is external (e.g. s3), we don't know the name.
             return None
 
-        name = urn_obj.name
-        if (
-            platform_instance := self._schema_resolver.platform_instance
-        ) and name.startswith(platform_instance):
-            # Remove the platform instance from the name.
-            name = name[len(platform_instance) + 1 :]
-        return name
+        return strip_platform_instance(
+            urn_obj.name, self._schema_resolver.platform_instance
+        )
 
     def is_temp_table(self, urn: UrnStr) -> bool:
         if self._is_temp_table is None:
@@ -787,6 +881,7 @@ class SqlParsingAggregator(Closeable):
         )
 
         # Register the lineage.
+        self._known_query_lineage_ids[query_fingerprint] = True
         self._lineage_map.for_mutation(
             known_query_lineage.downstream, OrderedSet()
         ).add(query_fingerprint)
@@ -874,6 +969,7 @@ class SqlParsingAggregator(Closeable):
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
         override_dialect: Optional[DialectOrStr] = None,
+        table_level_fallback_upstreams: Optional[List[UrnStr]] = None,
     ) -> None:
         """Add a view definition to the aggregator.
 
@@ -887,6 +983,14 @@ class SqlParsingAggregator(Closeable):
         of the aggregator's platform default — useful for catalogs whose views span
         multiple dialects (e.g. Glue/Hive catalogs holding both Presto/Trino and
         Hive views).
+
+        ``table_level_fallback_upstreams`` is emitted as table-level upstreams (no
+        column-level detail) when the definition is present but yields no usable
+        lineage: either it does not parse (``table_error``), or it parses but resolves
+        to nothing (e.g. a partial MERGE-INTO-SELF parse referencing only the view). It
+        is ignored when the definition yields real upstreams. Snowflake CUSTOM_INCREMENTAL
+        dynamic tables are the motivating case: their MERGE-INTO-SELF DDL does not parse,
+        but the base tables are known from the catalog.
         """
 
         self.report.num_view_definitions += 1
@@ -896,6 +1000,7 @@ class SqlParsingAggregator(Closeable):
             default_db=default_db,
             default_schema=default_schema,
             override_dialect=override_dialect,
+            table_level_fallback_upstreams=table_level_fallback_upstreams,
         )
 
     def add_observed_query(
@@ -968,10 +1073,11 @@ class SqlParsingAggregator(Closeable):
                 downstream=downstream_urn,
                 column_lineage=parsed.column_lineage,
                 # TODO: We need a full list of columns referenced, not just the out tables.
-                column_usage=self._compute_upstream_fields(parsed),
+                column_usage=self._compute_upstream_fields(parsed.column_lineage),
                 inferred_schema=infer_output_schema(parsed),
                 confidence_score=parsed.debug_info.confidence,
                 extra_info=observed.extra_info,
+                custom_properties=observed.custom_properties,
             ),
             is_known_temp_table=is_known_temp_table,
             require_out_table_schema=require_out_table_schema,
@@ -1034,7 +1140,17 @@ class SqlParsingAggregator(Closeable):
                     count=parsed.query_count,
                 )
 
-        if self._query_usage_counts is not None and parsed.timestamp is not None:
+        # For redacted_query_text entries, skip per-Query URN usage counters (those
+        # would reference a Query entity we won't emit) but still register the
+        # query in _query_map and _lineage_map below so lineage aspects and
+        # operation MCPs can be generated for the downstream table. Query-entity
+        # emission and dangling Query URN references are suppressed downstream
+        # via QueryMetadata.redacted_query_text.
+        if (
+            not parsed.redacted_query_text
+            and self._query_usage_counts is not None
+            and parsed.timestamp is not None
+        ):
             assert self.usage_config is not None
             bucket = get_time_bucket(
                 parsed.timestamp, self.usage_config.bucket_duration
@@ -1059,7 +1175,10 @@ class SqlParsingAggregator(Closeable):
                 used_temp_tables=session_has_temp_tables,
                 extra_info=parsed.extra_info,
                 origin=parsed.origin,
-            )
+                custom_properties=parsed.custom_properties,
+                redacted_query_text=parsed.redacted_query_text,
+            ),
+            replace_custom_properties=True,
         )
 
         if not parsed.downstream:
@@ -1217,6 +1336,27 @@ class SqlParsingAggregator(Closeable):
 
         return schema_resolver
 
+    @staticmethod
+    def _exclude_self_upstreams(
+        view_urn: UrnStr, upstreams: List[UrnStr]
+    ) -> List[UrnStr]:
+        return [u for u in upstreams if u != view_urn]
+
+    @staticmethod
+    def _exclude_self_column_lineage(
+        view_urn: UrnStr, column_lineage: Optional[List[ColumnLineageInfo]]
+    ) -> List[ColumnLineageInfo]:
+        # Valid only for SQL-parsed views. Unity metric views self-reference and are
+        # excluded from this path (unity/source.py), so don't widen this guard.
+        result: List[ColumnLineageInfo] = []
+        for cl in column_lineage or []:
+            kept = [uc for uc in cl.upstreams if uc.table != view_urn]
+            if len(kept) == len(cl.upstreams):
+                result.append(cl)
+            elif kept:
+                result.append(cl.model_copy(update={"upstreams": kept}))
+        return result
+
     def _process_view_definition(
         self, view_urn: UrnStr, view_definition: ViewDefinition
     ) -> None:
@@ -1238,7 +1378,11 @@ class SqlParsingAggregator(Closeable):
             )
         if parsed.debug_info.table_error:
             self.report.num_views_failed += 1
-            return  # we can't do anything with this query
+            if view_definition.table_level_fallback_upstreams:
+                self._add_table_level_fallback_lineage(
+                    view_urn, view_definition.table_level_fallback_upstreams
+                )
+            return  # table_error: only the table-level fallback (if any) is emitted
         elif isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
             self.report.num_views_column_timeout += 1
         elif parsed.debug_info.column_error:
@@ -1248,6 +1392,33 @@ class SqlParsingAggregator(Closeable):
         formatted_view_definition = self._maybe_format_query(
             view_definition.view_definition
         )
+
+        # Exact-URN match, so a schema-resolver casing mismatch fails open (a self-loop
+        # slips through) to the pre-guard behavior.
+        upstreams = self._exclude_self_upstreams(view_urn, parsed.in_tables)
+        column_lineage = self._exclude_self_column_lineage(
+            view_urn, parsed.column_lineage
+        )
+        self_ref_in_parse = view_urn in parsed.in_tables or any(
+            uc.table == view_urn
+            for cl in (parsed.column_lineage or [])
+            for uc in cl.upstreams
+        )
+        if self_ref_in_parse:
+            self.report.num_views_self_reference_dropped += 1
+
+        # Fall back only when nothing usable was derived (no upstreams, no real column
+        # edge), so a real column edge is not discarded.
+        derived_nothing = not upstreams and not any(
+            cl.upstreams for cl in column_lineage
+        )
+        if derived_nothing and view_definition.table_level_fallback_upstreams:
+            self._add_table_level_fallback_lineage(
+                view_urn,
+                view_definition.table_level_fallback_upstreams,
+                count_self_drop=not self_ref_in_parse,
+            )
+            return
 
         # Register the query.
         self._add_to_query_map(
@@ -1259,14 +1430,41 @@ class SqlParsingAggregator(Closeable):
                 lineage_type=models.DatasetLineageTypeClass.VIEW,
                 latest_timestamp=None,
                 actor=None,
-                upstreams=parsed.in_tables,
-                column_lineage=parsed.column_lineage or [],
-                column_usage=self._compute_upstream_fields(parsed),
+                upstreams=upstreams,
+                column_lineage=column_lineage,
+                column_usage=self._compute_upstream_fields(column_lineage),
                 confidence_score=parsed.debug_info.confidence,
             )
         )
 
         # Register the query's lineage.
+        self._lineage_map.for_mutation(view_urn, OrderedSet()).add(query_fingerprint)
+
+    def _add_table_level_fallback_lineage(
+        self, view_urn: UrnStr, upstreams: List[UrnStr], count_self_drop: bool = True
+    ) -> None:
+        self.report.num_views_table_level_fallback += 1
+        # Skip when the parse path already counted this view's self-loop.
+        if count_self_drop and view_urn in upstreams:
+            self.report.num_views_self_reference_dropped += 1
+        upstreams = self._exclude_self_upstreams(view_urn, upstreams)
+        query_fingerprint = self._view_fallback_query_id(view_urn)
+        self._add_to_query_map(
+            QueryMetadata(
+                query_id=query_fingerprint,
+                formatted_query_string="-skip-",
+                session_id=_MISSING_SESSION_ID,
+                query_type=QueryType.CREATE_VIEW,
+                lineage_type=models.DatasetLineageTypeClass.VIEW,
+                latest_timestamp=None,
+                actor=None,
+                upstreams=upstreams,
+                # Table-level only: identity CLL from INPUTS would be wrong for aliased/aggregated columns.
+                column_lineage=[],
+                column_usage={},
+                confidence_score=1.0,
+            )
+        )
         self._lineage_map.for_mutation(view_urn, OrderedSet()).add(query_fingerprint)
 
     def _run_sql_parser(
@@ -1289,6 +1487,8 @@ class SqlParsingAggregator(Closeable):
                 override_dialect=override_dialect,
             )
         self.report.num_sql_parsed += 1
+        if parsed.debug_info.used_legacy_pushdown_projections:
+            self.report.num_sql_parsed_legacy_pushdown_projections += 1
 
         # Conditionally log the query.
         if self.query_log == QueryLogSetting.STORE_ALL or (
@@ -1315,7 +1515,10 @@ class SqlParsingAggregator(Closeable):
         return parsed
 
     def _add_to_query_map(
-        self, new: QueryMetadata, merge_lineage: bool = False
+        self,
+        new: QueryMetadata,
+        merge_lineage: bool = False,
+        replace_custom_properties: bool = False,
     ) -> None:
         query_fingerprint = new.query_id
 
@@ -1327,6 +1530,12 @@ class SqlParsingAggregator(Closeable):
             current.formatted_query_string = new.formatted_query_string
             current.latest_timestamp = new.latest_timestamp or current.latest_timestamp
             current.actor = new.actor or current.actor
+            # Unlike actor, the latest observation wins even when empty, so the result
+            # doesn't depend on whether earlier runs fell in the same ingestion window.
+            # Only callers that carry custom properties opt in; known lineage and view
+            # definitions never set them and must not wipe an observed query's.
+            if replace_custom_properties:
+                current.custom_properties = new.custom_properties
 
             if current.used_temp_tables and not new.used_temp_tables:
                 # If we see the same query again, but in a different session,
@@ -1408,7 +1617,7 @@ class SqlParsingAggregator(Closeable):
         upstreams: Dict[UrnStr, QueryId],
         cll: Dict[str, Dict[SchemaFieldUrn, QueryId]],
         queries_with_inconsistencies: Set[QueryId],
-    ) -> None:
+    ) -> _ColumnLineageMergeResult:
         """Process column lineage for a query and apply consistency fixes.
 
         This method:
@@ -1416,12 +1625,17 @@ class SqlParsingAggregator(Closeable):
         2. Adds missing tables from column lineage to table lineage (consistency fix)
         3. Updates the column lineage mapping (cll)
 
+        Returns how many entries it added to `upstreams` and `cll`, so the caller can
+        tell whether the query contributed anything, and the downstream columns it
+        added an edge to, so the caller can count column-lineage groups incrementally.
+
         Args:
             query: The query metadata containing column lineage
             upstreams: Mapping of upstream URN to query ID (modified in-place)
             cll: Column lineage mapping (modified in-place)
             queries_with_inconsistencies: Set tracking queries that needed fixes (modified in-place)
         """
+        result = _ColumnLineageMergeResult()
         for lineage_info in query.column_lineage:
             # Validate downstream column
             if (
@@ -1462,12 +1676,16 @@ class SqlParsingAggregator(Closeable):
                     upstreams[table_urn] = query.query_id
                     queries_with_inconsistencies.add(query.query_id)
                     self.report.num_tables_added_from_column_lineage += 1
+                    result.entries_added += 1
 
                 # Add to column lineage mapping
-                cll[lineage_info.downstream.column].setdefault(
-                    SchemaFieldUrn(table_urn, upstream_ref.column),
-                    query.query_id,
-                )
+                column_upstreams = cll[lineage_info.downstream.column]
+                upstream_field = SchemaFieldUrn(table_urn, upstream_ref.column)
+                if upstream_field not in column_upstreams:
+                    column_upstreams[upstream_field] = query.query_id
+                    result.entries_added += 1
+                    result.columns_with_new_edges.add(lineage_info.downstream.column)
+        return result
 
     def _gen_lineage_for_downstream(
         self, downstream_urn: str, queries_generated: Set[QueryId]
@@ -1480,48 +1698,88 @@ class SqlParsingAggregator(Closeable):
             self.report.num_lineage_skipped_due_to_filters += 1
             return
 
-        queries: List[QueryMetadata] = [
-            self._resolve_query_with_temp_tables(self._query_map[query_id])
-            for query_id in query_ids
-        ]
-
-        # Sort the queries by highest precedence first, then by latest timestamp.
-        # In case of ties, prefer queries with a known query type.
-        # Tricky: by converting the timestamp to a number, we also can ignore the
-        # differences between naive and aware datetimes.
-        queries = sorted(
-            # Sorted is a stable sort, so in the case of total ties, we want
-            # to prefer the most recently added query.
-            reversed(queries),
-            key=lambda query: (
-                self._query_type_precedence(query.lineage_type),
-                -(make_ts_millis(query.latest_timestamp) or 0),
-                query.query_type == QueryType.UNKNOWN,
-            ),
-        )
-
-        queries_map: Dict[QueryId, QueryMetadata] = {
-            query.query_id: query for query in queries
-        }
+        selected_query_ids = self._select_lineage_query_ids(downstream_urn, query_ids)
+        ordered_query_ids = self._order_lineage_query_ids(selected_query_ids)
 
         # mapping of upstream urn -> query id that produced it
         upstreams: Dict[UrnStr, QueryId] = {}
         # mapping of downstream column -> { upstream column -> query id that produced it }
         cll: Dict[str, Dict[SchemaFieldUrn, QueryId]] = defaultdict(dict)
-
-        # FIX: Track queries with lineage inconsistencies for metrics
+        # Track queries with lineage inconsistencies for metrics
         queries_with_inconsistencies: Set[QueryId] = set()
 
-        for query in queries:
-            # Using setdefault to respect the precedence of queries.
+        # Queries are resolved one at a time, highest precedence first, and merged with
+        # setdefault so an earlier query always wins. Only queries that contributed an
+        # upstream or a column edge are kept; the rest are dropped as soon as they have
+        # been merged. That bounds memory by the size of the emitted aspect rather than
+        # by the number of queries that ever wrote the table, which is what made a
+        # single hot downstream take hours and tens of GB before.
+        queries_map: Dict[QueryId, QueryMetadata] = {}
+        last_query: Optional[QueryMetadata] = None
+        # One fineGrainedLineages entry is emitted per (downstream column, query id),
+        # so this set tracks the entry count without rescanning cll after each query.
+        cll_groups: Set[Tuple[str, QueryId]] = set()
+        resolution_seconds = 0.0
+        num_resolved = 0
+        for query_id in ordered_query_ids:
+            if (
+                len(upstreams) >= MAX_UPSTREAM_TABLES_COUNT
+                and len(cll_groups) >= MAX_FINEGRAINEDLINEAGE_COUNT
+            ):
+                # Both output caps are full, so stop resolving the rest of this
+                # table's queries. Upstream tables come out the same as with a full
+                # walk: later queries could only append tables past the cap. Column
+                # lineage can differ. A full walk also merges lower-precedence queries
+                # that add a second upstream to an already-seen column; those edges
+                # sit next to that column's other edges, inside the cap, and push
+                # later columns out when the list is truncated below. Stopping keeps
+                # the edges of the highest-precedence queries instead. Only tables
+                # over both caps are affected, and everything kept is real lineage.
+                self.report.num_downstreams_with_lineage_walk_stopped_early += 1
+                self.report.lineage_walk_stopped_early_downstreams[downstream_urn] = (
+                    len(ordered_query_ids)
+                )
+                logger.warning(
+                    f"Both lineage caps are full for {downstream_urn}; stopped "
+                    f"resolving its {len(ordered_query_ids)} queries early."
+                )
+                break
 
+            start = time.perf_counter()
+            query = self._resolve_query_with_temp_tables(self._query_map[query_id])
+            resolution_seconds += time.perf_counter() - start
+            num_resolved += 1
+            last_query = query
+
+            added = 0
             for upstream in query.upstreams:
-                upstreams.setdefault(upstream, query.query_id)
-
-            # Process column lineage with validation and consistency fixes
-            self._process_column_lineage_for_query(
+                if upstream not in upstreams:
+                    upstreams[upstream] = query.query_id
+                    added += 1
+            merge = self._process_column_lineage_for_query(
                 query, upstreams, cll, queries_with_inconsistencies
             )
+            added += merge.entries_added
+            cll_groups.update(
+                (column, query.query_id) for column in merge.columns_with_new_edges
+            )
+            if added:
+                queries_map[query.query_id] = query
+
+        self._track_downstream_resolution_time(
+            downstream_urn,
+            num_resolved,
+            # Only the kept queries' components: collecting them for every walked
+            # query would grow with the number of queries again on hot downstreams.
+            {
+                component_id
+                for kept_query in queries_map.values()
+                if kept_query.composed_of
+                for component_id in kept_query.composed_of.all_queries
+            },
+            resolution_seconds,
+            self.report.slowest_downstreams_lineage_seconds,
+        )
 
         # Log and update metrics if we applied the consistency fix
         if queries_with_inconsistencies:
@@ -1539,12 +1797,14 @@ class SqlParsingAggregator(Closeable):
                 models.UpstreamClass(
                     dataset=upstream_urn,
                     type=queries_map[query_id].lineage_type,
-                    query=(
-                        self._query_urn(query_id)
-                        if self.can_generate_query(query_id)
-                        else None
-                    ),
-                    created=query.make_created_audit_stamp(),
+                    query=self._query_urn_if_emitted(queries_map[query_id]),
+                    # Long-standing behaviour: `created` comes from the last query
+                    # walked, not from the query that produced this upstream. When the
+                    # walk stops early because both caps are full, that is the last
+                    # query before the stop, not the lowest-precedence query overall.
+                    created=(
+                        last_query or queries_map[query_id]
+                    ).make_created_audit_stamp(),
                     auditStamp=models.AuditStampClass(
                         time=get_sys_time(),
                         actor=_DEFAULT_USER_URN.urn(),
@@ -1579,13 +1839,10 @@ class SqlParsingAggregator(Closeable):
                         downstreams=[
                             SchemaFieldUrn(downstream_urn, downstream_column).urn()
                         ],
-                        query=(
-                            self._query_urn(query_id)
-                            if self.can_generate_query(query_id)
-                            else None
-                        ),
+                        query=self._query_urn_if_emitted(query),
                         confidenceScore=query.confidence_score,
-                        transformOperation=(
+                        # Cut before EnsureAspectSizeProcessor measures it; make_mcp() cuts only later.
+                        transformOperation=cap_transform_operation(
                             (
                                 f"COPY: {column_logic.column_logic}"
                                 if column_logic.is_direct_copy
@@ -1642,6 +1899,71 @@ class SqlParsingAggregator(Closeable):
                 queries_generated.update(query.composed_of.all_queries)
             yield from self._gen_query(query, downstream_urn)
 
+    def _order_lineage_query_ids(self, query_ids: List[QueryId]) -> List[QueryId]:
+        """Order query ids highest precedence first, then latest timestamp, preferring
+        queries with a known query type and, on total ties, the most recently added
+        query. Only the sort key is kept per query, so this is cheap even for a
+        downstream written by millions of queries.
+
+        Tricky: by converting the timestamp to a number, we also can ignore the
+        differences between naive and aware datetimes.
+        """
+        keyed: List[Tuple[Tuple[int, int, bool], QueryId]] = []
+        for query_id in query_ids:
+            query = self._query_map[query_id]
+            keyed.append(
+                (
+                    (
+                        self._query_type_precedence(query.lineage_type),
+                        -(make_ts_millis(query.latest_timestamp) or 0),
+                        query.query_type == QueryType.UNKNOWN,
+                    ),
+                    query_id,
+                )
+            )
+        # Reverse before the stable sort so that total ties prefer the most recently
+        # added query.
+        keyed.reverse()
+        keyed.sort(key=lambda item: item[0])
+        return [query_id for _, query_id in keyed]
+
+    def _select_lineage_query_ids(
+        self, downstream_urn: UrnStr, query_ids: OrderedSet[QueryId]
+    ) -> List[QueryId]:
+        """Apply the opt-in MAX_QUERIES_PER_DOWNSTREAM cap, if set.
+
+        Query ids are registered in the order the query log was read, which is time
+        order, so the tail of the set is the most recent queries. Known lineage (from
+        add_known_lineage_mapping or add_known_query_lineage) and view query ids
+        outrank every parsed query, so they are always kept. This can
+        drop an upstream that only an older query references, which is why it is off
+        by default.
+        """
+        if (
+            MAX_QUERIES_PER_DOWNSTREAM <= 0
+            or len(query_ids) <= MAX_QUERIES_PER_DOWNSTREAM
+        ):
+            return list(query_ids)
+
+        all_ids = list(query_ids)
+        selected = OrderedSet[QueryId](
+            query_id
+            for query_id in all_ids
+            if self._is_known_lineage_query_id(query_id)
+            or query_id.startswith("view_")
+            or query_id in self._known_query_lineage_ids
+        )
+        selected.update(all_ids[-MAX_QUERIES_PER_DOWNSTREAM:])
+
+        self.report.num_downstreams_with_capped_lineage_queries += 1
+        self.report.capped_lineage_downstreams[downstream_urn] = len(all_ids)
+        logger.warning(
+            f"{len(all_ids)} queries write to {downstream_urn}; resolving lineage "
+            f"from the {len(selected)} most recent plus known/view lineage. "
+            "Set DATAHUB_SQL_AGG_MAX_QUERIES_PER_DOWNSTREAM to change the limit."
+        )
+        return list(selected)
+
     @classmethod
     def _query_urn(cls, query_id: QueryId) -> str:
         return QueryUrn(query_id).urn()
@@ -1658,6 +1980,12 @@ class SqlParsingAggregator(Closeable):
     @classmethod
     def _known_lineage_query_id(cls) -> str:
         return f"known_{uuid.uuid4()}"
+
+    @classmethod
+    def _view_fallback_query_id(cls, view_urn: UrnStr) -> str:
+        # "known_" prefix: can_generate_query() skips it, so no placeholder Query entity
+        # is emitted (as add_known_lineage_mapping); hashed on the URN for determinism.
+        return f"known_{generate_hash(view_urn)}"
 
     @classmethod
     def _is_known_lineage_query_id(cls, query_id: QueryId) -> bool:
@@ -1682,11 +2010,55 @@ class SqlParsingAggregator(Closeable):
     def can_generate_query(self, query_id: QueryId) -> bool:
         return self.generate_queries and not self._is_known_lineage_query_id(query_id)
 
+    def _query_urn_if_emitted(self, query: QueryMetadata) -> Optional[str]:
+        """Return the Query URN when a Query entity will be emitted for this
+        query, or ``None`` otherwise.
+
+        This is the single point of truth for the invariant "if we won't
+        emit a Query entity for X, we must not reference X's Query URN
+        anywhere else". A Query entity is suppressed when either:
+
+        - :meth:`can_generate_query` is false — the aggregator has
+          Query-entity generation disabled, or ``query.query_id`` is a
+          known-lineage sentinel; or
+        - ``query.redacted_query_text`` is true — the query is tracked purely for
+          table-level lineage/usage but its SQL text isn't meaningful
+          (e.g. Databricks masks it to ``"<REDACTED>"`` for
+          non-account-admins outside ``databricks_pii_access``), so
+          emitting the entity would only pollute the catalog with a
+          placeholder.
+
+        Every emission path that populates a per-Query URN on another
+        aspect (:attr:`UpstreamClass.query`,
+        :attr:`FineGrainedLineageClass.query`,
+        :attr:`OperationClass.queries`) MUST go through this helper
+        rather than calling :meth:`_query_urn` directly, so a new
+        emission path can't create a dangling URN by remembering only
+        one of the two checks.
+
+        Note: we take a ``QueryMetadata`` (not just a ``QueryId``) because
+        composite queries synthesised in
+        :meth:`_resolve_query_with_temp_tables` don't live in
+        ``self._query_map`` — they exist only in the per-downstream
+        ``queries_map`` local. Passing the metadata explicitly keeps
+        those paths working while still centralising the policy.
+        """
+        if not self.can_generate_query(query.query_id):
+            return None
+        if query.redacted_query_text:
+            return None
+        return self._query_urn(query.query_id)
+
     def _gen_query(
         self, query: QueryMetadata, downstream_urn: Optional[str] = None
     ) -> Iterable[MetadataChangeProposalWrapper]:
         query_id = query.query_id
-        if not self.can_generate_query(query_id):
+        # Single source of truth for "is this query emittable?" — the same
+        # helper that gates per-Query URN references on other aspects. A
+        # count-only query (e.g. Databricks "<REDACTED>") is tracked purely
+        # to bump table-level lineage/usage; no Query entity or per-Query
+        # usage counter is emitted because the SQL text isn't meaningful.
+        if self._query_urn_if_emitted(query) is None:
             return
 
         # If a query doesn't involve any allowed tables, skip it.
@@ -1768,6 +2140,7 @@ class SqlParsingAggregator(Closeable):
         # of the thing being copied in order to generate CLL.
 
         session_id = base_query.session_id
+        session_temp_lineage = self._temp_lineage_map.get(session_id, {})
 
         composed_of_queries = OrderedSet[QueryId]()
 
@@ -1806,9 +2179,7 @@ class SqlParsingAggregator(Closeable):
             # Find all the temp tables that this query depends on.
             temp_upstream_queries: Dict[UrnStr, QueryLineageInfo] = {}
             for upstream in query.upstreams:
-                upstream_query_ids = self._temp_lineage_map.get(session_id, {}).get(
-                    upstream
-                )
+                upstream_query_ids = session_temp_lineage.get(upstream)
                 if upstream_query_ids:
                     for upstream_query_id in upstream_query_ids:
                         upstream_query = self._query_map.get(upstream_query_id)
@@ -1837,31 +2208,13 @@ class SqlParsingAggregator(Closeable):
                     new_upstreams.add(upstream)
 
             # Compute merged column lineage.
-            new_cll = []
-            for lineage_info in query.column_lineage:
-                new_column_upstreams: List[ColumnRef] = []
-                for existing_col_upstream in lineage_info.upstreams:
-                    if existing_col_upstream.table in temp_upstream_queries:
-                        new_column_upstreams.extend(
-                            [
-                                temp_col_upstream
-                                for temp_lineage_info in temp_upstream_queries[
-                                    existing_col_upstream.table
-                                ].column_lineage
-                                for temp_col_upstream in temp_lineage_info.upstreams
-                                if temp_lineage_info.downstream.column
-                                == existing_col_upstream.column
-                            ]
-                        )
-                    else:
-                        new_column_upstreams.append(existing_col_upstream)
-
-                new_cll.append(
-                    ColumnLineageInfo(
-                        downstream=lineage_info.downstream,
-                        upstreams=new_column_upstreams,
-                    )
-                )
+            new_cll = self._resolve_temp_column_lineage(
+                query.column_lineage,
+                {
+                    temp_table: temp_lineage.column_lineage
+                    for temp_table, temp_lineage in temp_upstream_queries.items()
+                },
+            )
 
             # Compute merged confidence score.
             new_confidence_score = min(
@@ -1929,7 +2282,7 @@ class SqlParsingAggregator(Closeable):
             ],
         )
 
-        resolved_query = dataclasses.replace(
+        return dataclasses.replace(
             base_query,
             query_id=composite_query_id,
             formatted_query_string=merged_query_text,
@@ -1939,14 +2292,76 @@ class SqlParsingAggregator(Closeable):
             composed_of=composed_of,
         )
 
-        return resolved_query
+    @staticmethod
+    def _resolve_temp_column_lineage(
+        column_lineage: List[ColumnLineageInfo],
+        temp_column_lineage: Dict[UrnStr, Iterable[ColumnLineageInfo]],
+    ) -> List[ColumnLineageInfo]:
+        """Replaces each upstream column of a temp table with that temp column's
+        upstreams. Each column's upstreams keep first-occurrence order, without
+        duplicates."""
+        temp_column_upstreams: Dict[UrnStr, Dict[str, OrderedSet[ColumnRef]]] = {}
+        for temp_table, temp_lineage in temp_column_lineage.items():
+            by_column: Dict[str, OrderedSet[ColumnRef]] = defaultdict(OrderedSet)
+            for temp_lineage_info in temp_lineage:
+                by_column[temp_lineage_info.downstream.column].update(
+                    temp_lineage_info.upstreams
+                )
+            temp_column_upstreams[temp_table] = by_column
+
+        new_cll = []
+        for lineage_info in column_lineage:
+            new_column_upstreams = OrderedSet[ColumnRef]()
+            for existing_col_upstream in lineage_info.upstreams:
+                temp_columns = temp_column_upstreams.get(existing_col_upstream.table)
+                if temp_columns is not None:
+                    new_column_upstreams.update(
+                        temp_columns.get(existing_col_upstream.column, ())
+                    )
+                else:
+                    new_column_upstreams.add(existing_col_upstream)
+
+            new_cll.append(
+                ColumnLineageInfo(
+                    downstream=lineage_info.downstream,
+                    upstreams=list(new_column_upstreams),
+                )
+            )
+        return new_cll
+
+    def _track_downstream_resolution_time(
+        self,
+        downstream_urn: UrnStr,
+        num_queries: int,
+        composed_queries: Set[QueryId],
+        seconds: float,
+        slowest: TopKDict[UrnStr, float],
+    ) -> None:
+        if seconds > _SLOW_DOWNSTREAM_WARNING_SECONDS:
+            self.report.num_slow_downstreams += 1
+            logger.warning(
+                f"Resolving temp tables for {downstream_urn} took {seconds:.1f}s: "
+                f"{num_queries} queries, composed of {len(composed_queries)} queries"
+            )
+
+        if downstream_urn in slowest:
+            seconds = max(seconds, slowest[downstream_urn])
+        elif len(slowest) >= _SLOWEST_DOWNSTREAMS_TRACKED:
+            fastest = min(slowest, key=slowest.__getitem__)
+            if slowest[fastest] >= seconds:
+                return
+            del slowest[fastest]
+        slowest[downstream_urn] = seconds
+        ranked = sorted(slowest.items(), key=lambda item: item[1], reverse=True)
+        slowest.clear()
+        slowest.update(ranked)
 
     @staticmethod
     def _compute_upstream_fields(
-        result: SqlParsingResult,
+        column_lineage: Optional[List[ColumnLineageInfo]],
     ) -> Dict[UrnStr, Set[UrnStr]]:
         upstream_fields: Dict[UrnStr, Set[UrnStr]] = defaultdict(set)
-        for cl in result.column_lineage or []:
+        for cl in column_lineage or []:
             for upstream in cl.upstreams:
                 upstream_fields[upstream.table].add(upstream.column)
         return upstream_fields
@@ -1969,12 +2384,19 @@ class SqlParsingAggregator(Closeable):
             return
 
         for downstream_urn, query_ids in self._lineage_map.items():
+            # Sums resolution time only; queries are resolved and emitted one at a time.
+            resolution_seconds = 0.0
+            composed_queries: Set[QueryId] = set()
             for query_id in query_ids:
                 # Resolve temp tables so operations reference the same (possibly
                 # composite) Query entity that lineage does - otherwise the raw
                 # component id is referenced but never emitted (it's subsumed by
                 # the composite), leaving a dangling query reference.
+                start = time.perf_counter()
                 query = self._resolve_query_with_temp_tables(self._query_map[query_id])
+                resolution_seconds += time.perf_counter() - start
+                if query.composed_of:
+                    composed_queries.update(query.composed_of.all_queries)
                 yield from self._gen_operation_for_downstream(downstream_urn, query)
 
                 # Avoid generating the same query twice. A composite subsumes its
@@ -1986,6 +2408,14 @@ class SqlParsingAggregator(Closeable):
                 if query.composed_of:
                     queries_generated.update(query.composed_of.all_queries)
                 yield from self._gen_query(query, downstream_urn)
+
+            self._track_downstream_resolution_time(
+                downstream_urn,
+                len(query_ids),
+                composed_queries,
+                resolution_seconds,
+                self.report.slowest_downstreams_operations_seconds,
+            )
 
     def _gen_operation_for_downstream(
         self, downstream_urn: UrnStr, query: QueryMetadata
@@ -2003,16 +2433,13 @@ class SqlParsingAggregator(Closeable):
             return
 
         self.report.num_operations_generated += 1
+        query_urn = self._query_urn_if_emitted(query)
         aspect = models.OperationClass(
             timestampMillis=make_ts_millis(datetime.now(tz=timezone.utc)),
             operationType=operation_type,
             lastUpdatedTimestamp=make_ts_millis(query.latest_timestamp),
             actor=query.actor.urn() if query.actor else None,
             sourceType=models.OperationSourceTypeClass.DATA_PLATFORM,
-            queries=(
-                [self._query_urn(query.query_id)]
-                if self.can_generate_query(query.query_id)
-                else None
-            ),
+            queries=[query_urn] if query_urn else None,
         )
         yield MetadataChangeProposalWrapper(entityUrn=downstream_urn, aspect=aspect)
