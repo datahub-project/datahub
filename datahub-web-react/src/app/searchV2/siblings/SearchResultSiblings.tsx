@@ -5,7 +5,12 @@ import styled from 'styled-components';
 import { v4 as uuidv4 } from 'uuid';
 
 import { IconStyleType } from '@app/entityV2/Entity';
-import { SIBLINGS_SHOWN_INLINE, SiblingGroupData, SiblingMemberData } from '@app/searchV2/siblings/useSiblingGroups';
+import {
+    SIBLINGS_SHOWN_INLINE,
+    SiblingGroupData,
+    SiblingMemberData,
+    withLoadedMembers,
+} from '@app/searchV2/siblings/useSiblingGroups';
 import { getPlatformLogoUrl } from '@app/sharedV2/icons/PlatformIcon';
 import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -186,11 +191,13 @@ type Props = {
 
 type ExpandedState = {
     members: SiblingMemberData[];
+    /** Server offset of the next page; ahead of members.length when members failed to load. */
+    next: number;
     done: boolean;
     error: boolean;
 };
 
-const INITIAL_EXPANDED: ExpandedState = { members: [], done: false, error: false };
+const INITIAL_EXPANDED: ExpandedState = { members: [], next: 0, done: false, error: false };
 
 /**
  * The siblings of one search result, listed under it while "Show siblings" is on: the first few as
@@ -238,18 +245,22 @@ export default function SearchResultSiblings({ urn, resultName, group, onSibling
                 if (seq !== requestSeq.current) {
                     return; // superseded by a newer request or a reset
                 }
-                const page = result.data?.siblingGroups?.[0];
-                if (result.error || !page) {
+                const rawPage = result.data?.siblingGroups?.[0];
+                if (result.error || !rawPage) {
                     setState((current) => ({ ...current, error: true }));
                     return;
                 }
+                // A short page means the end of the group; judge that before skipping unloaded members.
+                const shortPage = rawPage.members.length < EXPANDED_PAGE_SIZE;
+                const page = withLoadedMembers(rawPage);
                 setState((current) => {
                     const seen = new Set(current.members.map((member) => member.entity.urn));
                     const added = page.members.filter((member) => !seen.has(member.entity.urn));
                     const members = start === 0 ? page.members : [...current.members, ...added];
                     return {
                         members,
-                        done: page.members.length < EXPANDED_PAGE_SIZE || members.length >= page.total,
+                        next: start + rawPage.members.length,
+                        done: shortPage || start + rawPage.members.length >= page.total,
                         error: false,
                     };
                 });
@@ -267,7 +278,7 @@ export default function SearchResultSiblings({ urn, resultName, group, onSibling
     );
 
     useEffect(() => {
-        if (expanded && state.members.length === 0 && !state.done && !state.error && !loading) {
+        if (expanded && state.next === 0 && !state.done && !state.error && !loading) {
             loadPage(0);
         }
     }, [expanded, state, loading, loadPage]);
@@ -284,7 +295,7 @@ export default function SearchResultSiblings({ urn, resultName, group, onSibling
         const list = event.currentTarget;
         const nearBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 40;
         if (nearBottom && !loading && !state.done && !state.error) {
-            loadPage(state.members.length);
+            loadPage(state.next);
         }
     };
 
@@ -350,7 +361,7 @@ export default function SearchResultSiblings({ urn, resultName, group, onSibling
                         {!loading && state.error && (
                             <>
                                 <ErrorText>{t('siblings.loadError')}</ErrorText>{' '}
-                                {retryButton(() => loadPage(state.members.length))}
+                                {retryButton(() => loadPage(state.next))}
                             </>
                         )}
                         {!loading && !state.error && group.truncated && t('siblings.truncated', { count: group.total })}

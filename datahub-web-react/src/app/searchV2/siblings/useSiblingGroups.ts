@@ -8,8 +8,17 @@ export const SIBLINGS_SHOWN_INLINE = 5;
 /** The siblingGroups query accepts at most this many urns per call. */
 export const MAX_URNS_PER_REQUEST = 50;
 
-export type SiblingGroupData = GetSiblingGroupsQuery['siblingGroups'][number];
-export type SiblingMemberData = SiblingGroupData['members'][number];
+type RawSiblingGroup = GetSiblingGroupsQuery['siblingGroups'][number];
+type RawSiblingMember = RawSiblingGroup['members'][number];
+
+/** A group member whose entity loaded. */
+export type SiblingMemberData = RawSiblingMember & { entity: NonNullable<RawSiblingMember['entity']> };
+export type SiblingGroupData = Omit<RawSiblingGroup, 'members'> & { members: SiblingMemberData[] };
+
+/** A member's entity is null when it couldn't be loaded; those members are skipped. */
+export function withLoadedMembers(group: RawSiblingGroup): SiblingGroupData {
+    return { ...group, members: group.members.filter((member): member is SiblingMemberData => !!member.entity) };
+}
 
 /**
  * The sibling groups of the given datasets (the dataset results on the current search page), with
@@ -28,7 +37,7 @@ export function useSiblingGroups(datasetUrns: string[], enabled: boolean) {
     const shown = data ?? (enabled ? previousData : undefined);
     const groups = useMemo(() => {
         const byUrn = new Map<string, SiblingGroupData>();
-        (shown?.siblingGroups || []).forEach((group) => byUrn.set(group.urn, group));
+        (shown?.siblingGroups || []).forEach((group) => byUrn.set(group.urn, withLoadedMembers(group)));
         return byUrn;
     }, [shown]);
     const retry = useCallback(() => {
