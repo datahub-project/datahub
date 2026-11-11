@@ -219,6 +219,19 @@ class TestPulsarSource(unittest.TestCase):
                 "browsePathsV2",
             }
 
+    def test_pulsar_source_denies_individual_partitions_once(self) -> None:
+        source = PulsarSource.create(
+            {
+                "web_service_url": "http://localhost:8080",
+                "topic_patterns": {"allow": ["persistent://t/ns/.*"]},
+            },
+            PipelineContext(run_id="test"),
+        )
+        patterns = source.config.topic_patterns
+        assert patterns.deny.count(r".*-partition-[0-9]+") == 1
+        assert not patterns.allowed("persistent://t/ns/topic-partition-0")
+        assert patterns.allowed("persistent://t/ns/topic")
+
     @patch("datahub.ingestion.source.pulsar.requests.Session.get", autospec=True)
     def test_pulsar_source_get_workunits_patterns(self, mock_session):
         ctx = PipelineContext(run_id="test")

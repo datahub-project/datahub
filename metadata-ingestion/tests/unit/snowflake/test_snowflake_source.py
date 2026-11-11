@@ -1681,3 +1681,36 @@ def test_get_procedures_for_database_maps_rows_to_base_procedure():
     assert proc.last_altered == altered
     assert proc.get_procedure_identifier() != "load_facts"
     assert proc.get_procedure_identifier().startswith("load_facts_")
+
+
+def _info_schema_config(**extra: Any) -> SnowflakeV2Config:
+    return SnowflakeV2Config.model_validate(
+        {"account_id": "ab12345", "username": "u", "password": "p", **extra}
+    )
+
+
+def test_snowflake_information_schema_deny_survives_round_trip() -> None:
+    cfg = _info_schema_config(schema_pattern={"allow": ["DB\\..*"]})
+    round_tripped = SnowflakeV2Config.model_validate(cfg.model_dump())
+    assert round_tripped.schema_pattern.deny.count(r".*INFORMATION_SCHEMA$") == 1
+    assert not round_tripped.schema_pattern.allowed("DB.INFORMATION_SCHEMA")
+
+
+def test_snowflake_schema_pattern_instance_is_not_mutated() -> None:
+    pattern = AllowDenyPattern(allow=["DB\\..*"], deny=["DB\\.SECRET"])
+    cfg = _info_schema_config(schema_pattern=pattern)
+    assert pattern.deny == ["DB\\.SECRET"]
+    assert cfg.schema_pattern is not pattern
+    assert not cfg.schema_pattern.allowed("DB.INFORMATION_SCHEMA")
+    assert cfg.schema_pattern.allowed("DB.PUBLIC")
+
+
+def test_snowflake_information_schema_deny_not_duplicated_on_revalidation() -> None:
+    from datahub.ingestion.agent.pattern_path import validate_pattern_at
+
+    cfg = _info_schema_config()
+    new_pattern = AllowDenyPattern(allow=["DB\\..*"])
+    validate_pattern_at(cfg, "schema_pattern", new_pattern)
+    validate_pattern_at(cfg, "schema_pattern", cfg.schema_pattern)
+    assert cfg.schema_pattern.deny.count(r".*INFORMATION_SCHEMA$") == 1
+    assert new_pattern.deny == []

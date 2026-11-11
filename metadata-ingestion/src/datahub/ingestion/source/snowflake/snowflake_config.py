@@ -304,7 +304,7 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         if schema_pattern:
             logger.debug("Adding deny for INFORMATION_SCHEMA to schema_pattern.")
             assert isinstance(schema_pattern, AllowDenyPattern)
-            schema_pattern.deny.append(r".*INFORMATION_SCHEMA$")
+            self.schema_pattern = schema_pattern.with_deny(r".*INFORMATION_SCHEMA$")
 
         return self
 

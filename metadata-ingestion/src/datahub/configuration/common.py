@@ -512,6 +512,13 @@ class AllowDenyPattern(ConfigModel):
         """
         return not self.deny and ".*" in self.allow
 
+    def with_deny(self, *rules: str) -> Self:
+        """A new pattern with `rules` added to the deny list, skipping ones
+        already present. Rebuilt rather than mutated or model_copy'd: the copy
+        would carry this instance's compiled-regex caches."""
+        deny = list(dict.fromkeys([*self.deny, *rules]))
+        return type(self).model_validate({**self.model_dump(), "deny": deny})
+
     def allowed(self, string: str) -> bool:
         if self.denied(string):
             return False

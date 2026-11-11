@@ -69,3 +69,44 @@ def test_is_allow_all_survives_the_regex_cache() -> None:
 
 def test_is_allow_all_ignores_ignore_case() -> None:
     assert AllowDenyPattern(allow=[".*"], ignoreCase=False).is_allow_all()
+
+
+def test_with_deny_returns_new_instance_and_leaves_original_alone() -> None:
+    p = AllowDenyPattern(deny=["a"])
+    p2 = p.with_deny("b")
+    assert p2 is not p
+    assert p.deny == ["a"]
+    assert p2.deny == ["a", "b"]
+
+
+def test_with_deny_is_not_fooled_by_warm_cache() -> None:
+    p = AllowDenyPattern()
+    assert p.allowed("foo_bar")  # warms _compiled_deny
+    p2 = p.with_deny("foo.*")
+    assert not p2.allowed("foo_bar")
+    assert p.allowed("foo_bar")
+
+
+def test_with_deny_is_idempotent_and_dedupes_in_order() -> None:
+    assert AllowDenyPattern().with_deny("a").with_deny("a").deny == ["a"]
+    assert AllowDenyPattern().with_deny("a", "b", "a").deny == ["a", "b"]
+    assert AllowDenyPattern(deny=["x", "a"]).with_deny("a", "y", "x").deny == [
+        "x",
+        "a",
+        "y",
+    ]
+
+
+def test_with_deny_preserves_ignore_case_and_allow() -> None:
+    p = AllowDenyPattern(allow=["foo.*"], ignoreCase=False).with_deny("FOO_BAD")
+    assert p.ignoreCase is False
+    assert p.allow == ["foo.*"]
+    assert p.allowed("foo_bad")
+    assert not p.allowed("FOO_BAD")
+
+
+def test_with_deny_preserves_subclass() -> None:
+    class Sub(AllowDenyPattern):
+        pass
+
+    assert type(Sub().with_deny("x")) is Sub

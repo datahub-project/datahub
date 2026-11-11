@@ -241,7 +241,9 @@ class PulsarSource(StatefulIngestionSourceBase):
 
         # Do not include each individual partition for partitioned topics,
         if config.exclude_individual_partitions:
-            config.topic_patterns.deny.append(r".*-partition-[0-9]+")
+            config.topic_patterns = config.topic_patterns.with_deny(
+                r".*-partition-[0-9]+"
+            )
 
         return cls(config, ctx)
 
