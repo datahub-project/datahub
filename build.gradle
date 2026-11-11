@@ -104,6 +104,7 @@ buildscript {
   // CVE-2026-100660..100665 (netty-codec-http3 / QUIC): 4.2.18+
   ext.nettyVersion = '4.2.19.Final' // align all io.netty modules (excl. netty-tcnative line)
   ext.nettyTcnativeVersion = '2.0.84.Final' // CVE-2026-116541; matches tcnative.version in netty-parent 4.2.19.Final; bump together with nettyVersion
+  ext.jsonSmartVersion = '2.6.1' // CVE-2026-113602 (strict-mode 0x1A bypass, through 2.6.0); also covers CVE-2021-31684 / CVE-2023-1370 on older lines
   // CVE-2026-45799: wire-runtime skipGroup() negative-length crash (fixed in 6.3.0+);
   // transitive via schema-registry-serde → wire-compiler → wire-runtime-jvm
   ext.wireVersion = '6.3.0'
@@ -270,7 +271,7 @@ project.ext.externalDependency = [
     'jsonPatch': 'jakarta.json:jakarta.json-api:2.1.3',
     'jsonPathImpl': 'org.eclipse.parsson:parsson:1.1.6',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
-    'jsonSmart': 'net.minidev:json-smart:2.5.2',
+    'jsonSmart': "net.minidev:json-smart:$jsonSmartVersion",
     'json': 'org.json:json:20260814',
     'jsonSchemaValidator': 'com.github.java-json-tools:json-schema-validator:2.2.14',
     'jjwtApi': "io.jsonwebtoken:jjwt-api:$jjwtVersion",
@@ -618,6 +619,12 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
       if (details.requested.group == 'io.netty' && details.requested.name.startsWith('netty-tcnative')) {
         details.useVersion(rootProject.ext.nettyTcnativeVersion)
         details.because("netty-tcnative aligned to ${rootProject.ext.nettyTcnativeVersion} for CVE-2026-116541")
+      }
+      // json-smart and its accessors-smart companion share a version line; transitive
+      // requests (nimbus-jose-jwt via pac4j, hadoop/kafka clients) otherwise resolve 2.4.x-2.6.0.
+      if (details.requested.group == 'net.minidev' && (details.requested.name == 'json-smart' || details.requested.name == 'accessors-smart')) {
+        details.useVersion(rootProject.ext.jsonSmartVersion)
+        details.because("CVE-2026-113602; json-smart aligned to ${rootProject.ext.jsonSmartVersion}")
       }
       if (details.requested.group == 'com.squareup.wire') {
         details.useVersion(rootProject.ext.wireVersion)
