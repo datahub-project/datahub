@@ -49,9 +49,11 @@ table schemas (e.g., Snowflake lowercasing). For best results:
 
 #### Sibling Relationships
 
-For table and dbt models, which expose a warehouse table as is, you can establish sibling
-relationships between the Hightouch model and that table. Raw SQL models get lineage to the tables
-they read but no sibling, because a query over a table is a different asset from the table:
+For table models, which expose a warehouse table as is, you can establish sibling relationships
+between the Hightouch model and that table. Raw SQL models get lineage to the tables they read but
+no sibling, because a query over a table is a different asset from the table. dbt models also get
+lineage but no sibling, because the dbt connector already makes its dbt node the table's primary
+sibling:
 
 ```yaml
 include_sibling_relationships: true # default: true
@@ -203,7 +205,12 @@ If lineage is not appearing correctly:
 A sync or model that fails to process, Event Contracts that cannot be read (other than an API
 key without access to them), an entity the API returns in an unexpected shape, or a list cut off
 at the pagination limit fails the run. That keeps stale-metadata removal from soft-deleting
-entities that still exist in Hightouch but were missing from the run.
+entities that still exist in Hightouch but were missing from the run. A single bad entity
+therefore marks the whole run as failed on purpose, even though everything else was ingested;
+the report names the entity.
+
+A sync whose model could not be emitted reads directly from the model's warehouse tables instead,
+so its lineage never points at a model that does not exist.
 
 #### Rate Limiting
 

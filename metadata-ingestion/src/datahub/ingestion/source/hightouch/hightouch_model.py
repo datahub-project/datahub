@@ -112,7 +112,13 @@ class HightouchModelEmitter:
         )
         self.report.models_emitted += 1
 
-        if source_table_urn and self.config.include_sibling_relationships:
+        # A dbt model's table already has the dbt node as its primary sibling, so
+        # only table models get one; dbt models keep their upstream lineage.
+        if (
+            source_table_urn
+            and model.table
+            and self.config.include_sibling_relationships
+        ):
             yield from self._siblings(model_urn, source_table_urn)
 
     def _custom_properties(

@@ -69,12 +69,6 @@ class HightouchSyncEmitter:
         self.resolver = resolver
         self.api_client = api_client
 
-    def emits_model(self, model: HightouchModel) -> bool:
-        return (
-            self.config.emit_models_as_datasets
-            and self.config.model_patterns.allowed(model.name)
-        )
-
     def emit(
         self, sync: HightouchSync, flow: DataFlow
     ) -> Iterable[Union[Entity, MetadataWorkUnit]]:
@@ -142,7 +136,7 @@ class HightouchSyncEmitter:
             yield from self._runs(sync, datajob)
 
     def _upstreams(self, sync: HightouchSync, model: HightouchModel) -> SyncUpstreams:
-        if self.emits_model(model):
+        if model.id in self.resolver.emitted_models:
             fields = self.resolver.model_fields.get(model.id) or []
             return SyncUpstreams(
                 inlets=[self.resolver.model_urn(model)],

@@ -174,6 +174,7 @@ class HightouchSource(StatefulIngestionSourceBase, TestableSource):
                     columns_by_model.get(model.id, []),
                     self._workspaces[model.workspace_id],
                 )
+                self.resolver.emitted_models.add(model.id)
             except Exception as e:
                 # A failure for the same reason as a failed sync.
                 self.report.failure(

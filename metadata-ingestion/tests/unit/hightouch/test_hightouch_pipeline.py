@@ -13,6 +13,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.hightouch.config import HightouchSourceConfig
 from datahub.ingestion.source.hightouch.hightouch import HightouchSource
+from datahub.ingestion.source.hightouch.hightouch_model import HightouchModelEmitter
 from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass,
     OtherSchemaClass,
@@ -486,3 +487,41 @@ def test_test_connection_reports_rejected_key(requests_mock):
     assert report.basic_connectivity is not None
     assert not report.basic_connectivity.capable
     assert "rejected the API key" in (report.basic_connectivity.failure_reason or "")
+
+
+def test_dbt_model_gets_lineage_but_no_sibling(requests_mock):
+    responses = load_responses()
+    model = responses["models"][0]
+    model.pop("table")
+    model.update(
+        queryType="dbt",
+        dbt={"database": "ANALYTICS", "schema": "PUBLIC", "name": "PRODUCT_EVENTS"},
+    )
+    register_hightouch_api(requests_mock, responses)
+
+    _, mcps = _run_source(
+        {"include_sync_runs": False}, _graph_with_product_events_table()
+    )
+
+    [lineage] = _aspects(mcps, PRODUCT_EVENTS_MODEL, "upstreamLineage")
+    assert [u.dataset for u in lineage.upstreams] == [PRODUCT_EVENTS_TABLE]
+    # The dbt connector already makes its dbt node the table's primary sibling.
+    assert not [m for m in mcps if m.aspectName == "siblings"]
+
+
+def test_sync_reads_warehouse_tables_when_its_model_fails(requests_mock):
+    register_hightouch_api(requests_mock)
+    real_emit = HightouchModelEmitter.emit
+
+    def emit(self, model, *args, **kwargs):
+        if model.id == "201":
+            raise ValueError("model emission failed")
+        yield from real_emit(self, model, *args, **kwargs)
+
+    with patch.object(HightouchModelEmitter, "emit", emit):
+        source, mcps = _run_source({"include_sync_runs": False})
+
+    assert [f.title for f in source.report.failures] == ["Failed to process model"]
+    job = "urn:li:dataJob:(urn:li:dataFlow:(hightouch,1,PROD),401)"
+    [io] = _aspects(mcps, job, "dataJobInputOutput")
+    assert io.inputDatasets == [PRODUCT_EVENTS_TABLE]

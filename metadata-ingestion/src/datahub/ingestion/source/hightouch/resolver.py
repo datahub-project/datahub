@@ -1,5 +1,5 @@
 import dataclasses
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Set
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.source import StructuredLogCategory
@@ -76,6 +76,9 @@ class HightouchResolver:
         self.destinations: Dict[str, HightouchDestination] = {}
         # The schema each emitted model was given, for syncs' column lineage.
         self.model_fields: Dict[str, List[SchemaFieldClass]] = {}
+        # Models emitted as datasets this run; a sync reads from any other model's
+        # warehouse tables instead, so it never points at a model that isn't there.
+        self.emitted_models: Set[str] = set()
         self._source_platforms: Dict[str, PlatformDetail] = {}
         self._destination_platforms: Dict[str, PlatformDetail] = {}
         self._schemas: Dict[str, Optional[List[SchemaFieldClass]]] = {}
