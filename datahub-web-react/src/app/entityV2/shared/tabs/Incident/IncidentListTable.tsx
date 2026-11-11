@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 
@@ -13,11 +13,11 @@ import {
     IncidentTable,
     IncidentTableRow,
 } from '@app/entityV2/shared/tabs/Incident/types';
-import { Table } from '@src/alchemy-components';
 import { IncidentPriorityIcon } from '@app/sharedV2/incidentPriorityLabel';
 import { IncidentStageIcon } from '@app/sharedV2/incidentStagePill';
 import { getIncidentStageLabel } from '@app/sharedV2/incidentStagePill/constant';
 import { getCapitalizeWord } from '@app/sharedV2/textUtil';
+import { Table } from '@src/alchemy-components';
 import { TableGroupByProps } from '@src/alchemy-components/components/Table/types';
 import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
 import { EntityPrivileges } from '@src/types.generated';
@@ -46,18 +46,23 @@ export const IncidentListTable = ({ incidentData, filter, refetch, privileges }:
     const [collapsedByGrouping, setCollapsedByGrouping] = useState<Record<string, string[]>>({});
     const collapsedKeys = (groupBy && collapsedByGrouping[groupBy]) || EMPTY_KEYS;
 
-    // A link to one incident opens only that incident's group, once per grouping.
+    // A link to one incident opens only that incident's group. It applies once per link and grouping,
+    // so a later `incident_urn` (or a new grouping) opens its group even after the user has toggled groups.
+    const appliedLinksRef = useRef<Set<string>>(new Set());
     useEffect(() => {
-        if (!groupBy || !linkedIncidentUrn || !groups.length || collapsedByGrouping[groupBy]) return;
+        if (!groupBy || !linkedIncidentUrn || !groups.length) return;
+        const linkKey = `${groupBy}:${linkedIncidentUrn}`;
+        if (appliedLinksRef.current.has(linkKey)) return;
         const linkedGroup = groups.find((group) =>
             group.incidents.some((incident) => incident.urn === linkedIncidentUrn),
         );
         if (!linkedGroup) return;
+        appliedLinksRef.current.add(linkKey);
         setCollapsedByGrouping((previous) => ({
             ...previous,
             [groupBy]: groups.map((group) => group.name).filter((name) => name !== linkedGroup.name),
         }));
-    }, [groupBy, linkedIncidentUrn, groups, collapsedByGrouping]);
+    }, [groupBy, linkedIncidentUrn, groups]);
 
     // get columns data from the custom hooks
     const incidentsTableCols = useIncidentsTableColumns(refetch, privileges);

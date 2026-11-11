@@ -102,6 +102,14 @@ const getFixedOffsets = <T,>(columns: Column<T>[], measuredWidths: number[]): (n
     });
 };
 
+type CellContentProps = { column: Column<unknown>; row: unknown; index: number };
+
+// A virtualized table re-renders each time its window moves while scrolling. Memoizing cell content
+// keeps those re-renders from re-running every visible cell's render; a cell still updates when its
+// row or its column (and so its render function) changes.
+const MemoizedCellContent = React.memo(({ column, row, index }: CellContentProps) => {
+    return <>{renderCell(column, row, index)}</>;
+});
 export const Table = <T,>({
     columns = tableDefaults.columns,
     data = tableDefaults.data,
@@ -368,7 +376,11 @@ export const Table = <T,>({
                     {/* Render each cell in the row */}
 
                     {finalColumns.map((column, i) => {
-                        let content = renderCell(column, row, index);
+                        let content = virtualization ? (
+                            <MemoizedCellContent column={column as Column<unknown>} row={row} index={index} />
+                        ) : (
+                            renderCell(column, row, index)
+                        );
                         if (hasExpandableRows && i === primaryColumnIndex) content = renderTreeCell(item, content);
                         const cellContent = column.cellWrapper ? column.cellWrapper(content, row) : content;
                         const clickable = column.isCellClickable ? column.isCellClickable(row) : !!column.onCellClick;

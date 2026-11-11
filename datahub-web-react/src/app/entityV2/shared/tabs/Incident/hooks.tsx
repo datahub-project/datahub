@@ -13,6 +13,7 @@ import {
     getAssigneeNamesWithAvatarUrl,
     getLinkedAssetsCount,
 } from '@app/entityV2/shared/tabs/Incident/utils';
+import { IncidentPriorityLabel } from '@app/sharedV2/incidentPriorityLabel';
 import { IncidentStagePill } from '@app/sharedV2/incidentStagePill';
 import { getCapitalizeWord } from '@app/sharedV2/textUtil';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
@@ -29,8 +30,12 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
                 title: tl('name'),
                 dataIndex: 'name',
                 key: 'name',
-                // Plain text so the name takes the table's row-title styling.
-                render: (record) => <span data-testid={record?.title}>{record?.title}</span>,
+                // The priority icon stays on every row; grouping by stage, category or state would hide it otherwise.
+                render: (record) => (
+                    <span data-testid={record?.title}>
+                        <IncidentPriorityLabel priority={record?.priority} title={record?.title} />
+                    </span>
+                ),
                 width: '25%',
                 sorter: (a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }),
             },

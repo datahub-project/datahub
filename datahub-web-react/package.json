@@ -121,7 +121,6 @@
         "turndown-plugin-gfm": "^1.0.2",
         "typescript": "^4.8.4",
         "uuid": "^8.3.2",
-        "virtualizedtableforantd4": "^1.2.1",
         "web-vitals": "^0.2.4",
         "yamljs": "^0.3.0"
     },

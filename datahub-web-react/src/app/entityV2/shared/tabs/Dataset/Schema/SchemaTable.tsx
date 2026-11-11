@@ -87,7 +87,8 @@ const toTableColumn = (column: SchemaTableColumn): Column<ExtendedSchemaFields> 
         key: column.key,
         title: column.title,
         width,
-        minWidth: width,
+        // Only the pinned Name column keeps a floor; the rest shrink so the last columns stay in view.
+        minWidth: column.fixed ? width : undefined,
         fixed: column.fixed,
         sorter: column.sorter,
         render: render
@@ -102,8 +103,9 @@ const UNSORTED: TableSortState = { sortColumn: null, sortOrder: SortingState.ORI
 const KEYBOARD_CONTROL_DEBOUNCE_MS = 50;
 // Virtualized rows are exactly this tall, matching the previous antd schema table.
 const SCHEMA_ROW_HEIGHT = 45;
-// A constant so the table's virtualized window keeps one scroll listener across renders.
-const VIRTUALIZATION = { rowHeight: SCHEMA_ROW_HEIGHT };
+// A constant so the table's virtualized window keeps one scroll listener across renders. Schema cells
+// are heavy (descriptions, tags, properties), so only a few rows render beyond the viewport.
+const VIRTUALIZATION = { rowHeight: SCHEMA_ROW_HEIGHT, overscan: 5 };
 // Depth 0 and 1 are obvious from the indent; deeper rows (and every row while search flattens
 // the tree's context) get the depth badge.
 const MIN_DEPTH_FOR_BADGE = 2;
