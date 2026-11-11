@@ -26,6 +26,7 @@ type Props = {
     rows: Array<ExtendedSchemaFields>;
     schemaMetadata: SchemaMetadata | undefined | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
+    editedPrimaryKeys?: string[] | null;
     usageStats?: UsageQueryResult | null;
     fullHeight?: boolean;
     expandedRowsFromFilter?: Set<string>;
@@ -82,6 +83,7 @@ export default function CompactSchemaTable({
     rows,
     schemaMetadata,
     editableSchemaMetadata,
+    editedPrimaryKeys,
     usageStats,
     fullHeight,
     inputFields,
@@ -103,7 +105,7 @@ export default function CompactSchemaTable({
     const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, true, fieldInfoMaps);
     const usageStatsRenderer = useUsageStatsRenderer(usageStats);
 
-    const schemaTitleRenderer = useSchemaTitleRenderer(urn, schemaMetadata, '', true);
+    const schemaTitleRenderer = useSchemaTitleRenderer(urn, schemaMetadata, editedPrimaryKeys, '', true);
 
     const shortenedRows = useMemo(() => rows.slice(0, numberOfRowsToShow), [rows, numberOfRowsToShow]);
     const hasSeeMore = rows.length > numberOfRowsToShow;
@@ -229,6 +231,8 @@ export default function CompactSchemaTable({
             {!!schemaFields && (
                 <SchemaFieldDrawer
                     schemaFields={schemaFields}
+                    schemaPrimaryKeys={schemaMetadata?.primaryKeys}
+                    editedPrimaryKeys={editedPrimaryKeys}
                     expandedDrawerFieldPath={schemaFieldDrawerFieldPath}
                     editableSchemaMetadata={editableSchemaMetadata}
                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}

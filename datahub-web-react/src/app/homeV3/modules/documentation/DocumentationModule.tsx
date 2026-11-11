@@ -3,7 +3,7 @@ import styled from 'styled-components';
 
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
-import { Editor } from '@src/alchemy-components/components/Editor/Editor';
+import { Editor } from '@app/sharedV2/editor/Editor';
 
 const StyledEditor = styled(Editor)`
     border: none;

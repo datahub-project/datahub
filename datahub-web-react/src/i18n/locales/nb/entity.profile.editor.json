@@ -11,7 +11,7 @@
     "link.linkUrl": "Lenke-URL",
     "link.text": "Tekst",
     "link.title": "Legg til lenke",
-    "mentions.failedToFindEntity": "Fant ikke entiteten",
+    "mentions.notFound": "Fant ikke entiteten",
     "table.deleteColumn": "Slett kolonne",
     "table.deleteRow": "Slett rad",
     "table.deleteTable": "Slett tabell",

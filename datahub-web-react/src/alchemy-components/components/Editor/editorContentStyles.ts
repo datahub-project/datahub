@@ -54,6 +54,20 @@ export const editorContentCss = css<ContentStyleProps>`
         }
     }
 
+    /* Mention chips own their icon layout — don't add ProseMirror img margins. */
+    span.mentions img,
+    .mentions img {
+        margin: 0;
+    }
+
+    /* Keep @-mention atom nodes on one vertical rhythm with surrounding text. */
+    span.mentions {
+        display: inline-flex;
+        align-items: center;
+        vertical-align: middle;
+        line-height: 24px;
+    }
+
     hr {
         margin: 2rem 0;
         border-color: ${(props) => props.theme.colors.overlayLight};

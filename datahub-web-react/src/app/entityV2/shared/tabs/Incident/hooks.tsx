@@ -13,9 +13,9 @@ import {
     getAssigneeNamesWithAvatarUrl,
     getLinkedAssetsCount,
 } from '@app/entityV2/shared/tabs/Incident/utils';
-import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel/IncidentPriorityLabel';
-import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
-import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
+import { IncidentPriorityLabel } from '@app/sharedV2/incidentPriorityLabel/IncidentPriorityLabel';
+import { IncidentStagePill } from '@app/sharedV2/incidentStagePill';
+import { getCapitalizeWord } from '@app/sharedV2/textUtil';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { getTimeFromNow } from '@src/app/sharedV2/time/timeUtils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';

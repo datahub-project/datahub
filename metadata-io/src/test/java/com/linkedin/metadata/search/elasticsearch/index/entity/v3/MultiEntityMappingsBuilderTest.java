@@ -918,7 +918,8 @@ public class MultiEntityMappingsBuilderTest {
     for (IndexMapping v2Mapping :
         new V2MappingsBuilder(
                 TEST_ES_SEARCH_CONFIG.getEntityIndex(),
-                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG)
+                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+                ESUtils.KEYWORD_MAXLENGTH)
             .getIndexMappings(registryContext)) {
       String v3Index = v2Mapping.getIndexName().replace("index_v2", "index_v3");
       Map<String, Object> v3Properties = v3PropertiesByIndex.get(v3Index);

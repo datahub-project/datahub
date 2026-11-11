@@ -42,6 +42,11 @@ const cases = [
         '[@SampleHiveDataset](urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD))',
     ],
     [
+        'should take the datahub mention name from its name attribute over the rendered text',
+        '<span class="mentions" data-datahub-mention-urn="urn:li:corpuser:alice" data-datahub-mention-name="Alice">AAlice</span>',
+        '[@Alice](urn:li:corpuser:alice)',
+    ],
+    [
         'should preserve details block as raw HTML',
         '<details><summary>Title</summary><p>Content</p></details>',
         '<details><summary>Title</summary><p>Content</p></details>',
