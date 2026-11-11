@@ -226,6 +226,8 @@ export const ENTITY_TYPES_WITH_MANUAL_LINEAGE = new Set([
     EntityType.Dataset,
     EntityType.DataJob,
     EntityType.Metric,
+    EntityType.Mlmodel,
+    EntityType.MlmodelGroup,
 ]);
 
 export const GLOSSARY_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode];

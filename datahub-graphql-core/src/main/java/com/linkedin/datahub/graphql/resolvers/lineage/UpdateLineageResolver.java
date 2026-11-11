@@ -35,6 +35,16 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
+  private static final Set<String> ML_MODEL_ENTITY_TYPES =
+      Set.of(Constants.ML_MODEL_ENTITY_NAME, Constants.ML_MODEL_GROUP_ENTITY_NAME);
+  private static final Set<String> ML_MODEL_JOB_ENTITY_TYPES =
+      Set.of(Constants.DATA_JOB_ENTITY_NAME, Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME);
+  private static final Set<String> DATA_JOB_AND_ML_MODEL_ENTITY_TYPES =
+      Set.of(
+          Constants.DATA_JOB_ENTITY_NAME,
+          Constants.ML_MODEL_ENTITY_NAME,
+          Constants.ML_MODEL_GROUP_ENTITY_NAME);
+
   private final EntityService<?> _entityService;
   private final LineageService _lineageService;
 
@@ -50,6 +60,8 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
     // loop over edgesToAdd and edgesToRemove and ensure the actor has privileges to edit lineage
     // for each entity
     checkPrivileges(context, edgesToAdd, edgesToRemove);
+    validateMlModelEdges(edgesToAdd);
+    validateMlModelEdges(edgesToRemove);
 
     // organize data to make updating lineage cleaner
     Map<Urn, List<Urn>> downstreamToUpstreamsToAdd = getDownstreamToUpstreamsMap(edgesToAdd);
@@ -62,15 +74,34 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
         () -> {
           final Set<Urn> existingDownstreamUrns =
               _entityService.exists(context.getOperationContext(), downstreamUrns, true);
-
-          // build MCP for every downstreamUrn
           for (Urn downstreamUrn : downstreamUrns) {
             if (!existingDownstreamUrns.contains(downstreamUrn)) {
               throw new IllegalArgumentException(
                   String.format(
                       "Cannot upsert lineage as downstream urn %s doesn't exist", downstreamUrn));
             }
+          }
 
+          Map<Urn, List<Urn>> upstreamToDownstreamsToAdd = getUpstreamToDownstreamMap(edgesToAdd);
+          Map<Urn, List<Urn>> upstreamToDownstreamsToRemove =
+              getUpstreamToDownstreamMap(edgesToRemove);
+          Set<Urn> upstreamUrns = new HashSet<>();
+          upstreamUrns.addAll(upstreamToDownstreamsToAdd.keySet());
+          upstreamUrns.addAll(upstreamToDownstreamsToRemove.keySet());
+
+          final Set<Urn> existingUpstreamUrns =
+              _entityService.exists(context.getOperationContext(), upstreamUrns, true);
+          // Only an upstream being added must exist. One that appears only in removals may have
+          // been hard-deleted; its edge is still removed from the downstream below.
+          for (Urn upstreamUrn : upstreamToDownstreamsToAdd.keySet()) {
+            if (!existingUpstreamUrns.contains(upstreamUrn)) {
+              throw new IllegalArgumentException(
+                  String.format(
+                      "Cannot upsert lineage as upstream urn %s doesn't exist", upstreamUrn));
+            }
+          }
+
+          for (Urn downstreamUrn : downstreamUrns) {
             final List<Urn> upstreamUrnsToAdd =
                 downstreamToUpstreamsToAdd.getOrDefault(downstreamUrn, new ArrayList<>());
             final List<Urn> upstreamUrnsToRemove =
@@ -81,9 +112,11 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                   // need to filter out dataJobs since this is a valid lineage edge, but will be
                   // handled in the downstream direction for DataJobInputOutputs
                   final List<Urn> filteredUpstreamUrnsToAdd =
-                      filterOutDataJobUrns(upstreamUrnsToAdd);
+                      filterOutEntityTypes(
+                          upstreamUrnsToAdd, Set.of(Constants.DATA_JOB_ENTITY_NAME));
                   final List<Urn> filteredUpstreamUrnsToRemove =
-                      filterOutDataJobUrns(upstreamUrnsToRemove);
+                      filterOutEntityTypes(
+                          upstreamUrnsToRemove, Set.of(Constants.DATA_JOB_ENTITY_NAME));
 
                   if (!filteredUpstreamUrnsToAdd.isEmpty()
                       || !filteredUpstreamUrnsToRemove.isEmpty()) {
@@ -112,12 +145,19 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                       actor);
                   break;
                 case Constants.DATA_JOB_ENTITY_NAME:
-                  _lineageService.updateDataJobUpstreamLineage(
-                      context.getOperationContext(),
-                      downstreamUrn,
-                      upstreamUrnsToAdd,
-                      upstreamUrnsToRemove,
-                      actor);
+                  // ML model upstreams are written on the model, as its downstreamJobEdges, below
+                  final List<Urn> jobUpstreamUrnsToAdd =
+                      filterOutEntityTypes(upstreamUrnsToAdd, ML_MODEL_ENTITY_TYPES);
+                  final List<Urn> jobUpstreamUrnsToRemove =
+                      filterOutEntityTypes(upstreamUrnsToRemove, ML_MODEL_ENTITY_TYPES);
+                  if (!jobUpstreamUrnsToAdd.isEmpty() || !jobUpstreamUrnsToRemove.isEmpty()) {
+                    _lineageService.updateDataJobUpstreamLineage(
+                        context.getOperationContext(),
+                        downstreamUrn,
+                        jobUpstreamUrnsToAdd,
+                        jobUpstreamUrnsToRemove,
+                        actor);
+                  }
                   break;
                 case Constants.DATA_FLOW_ENTITY_NAME:
                   // dataFlow has no dataset/dataJob-shaped input/output aspect -- its only
@@ -130,7 +170,6 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                       actor);
                   break;
                 case Constants.ML_MODEL_ENTITY_NAME:
-                  // For ML Models as downstream: upstream URNs are training jobs
                   _lineageService.updateMlModelLineage(
                       context.getOperationContext(),
                       downstreamUrn,
@@ -141,7 +180,6 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                       actor);
                   break;
                 case Constants.ML_MODEL_GROUP_ENTITY_NAME:
-                  // For ML Model Groups as downstream: upstream URNs are training jobs
                   _lineageService.updateMlModelGroupLineage(
                       context.getOperationContext(),
                       downstreamUrn,
@@ -150,6 +188,10 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                       new ArrayList<>(),
                       new ArrayList<>(),
                       actor);
+                  break;
+                case Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME:
+                  // Only ML model upstreams pass validateMlModelEdges; they are written on the
+                  // model, as its downstreamJobEdges, below.
                   break;
                 default:
                   throw new IllegalArgumentException(
@@ -163,28 +205,9 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
             }
           }
 
-          Map<Urn, List<Urn>> upstreamToDownstreamsToAdd = getUpstreamToDownstreamMap(edgesToAdd);
-          Map<Urn, List<Urn>> upstreamToDownstreamsToRemove =
-              getUpstreamToDownstreamMap(edgesToRemove);
-          Set<Urn> upstreamUrns = new HashSet<>();
-          upstreamUrns.addAll(upstreamToDownstreamsToAdd.keySet());
-          upstreamUrns.addAll(upstreamToDownstreamsToRemove.keySet());
-
-          final Set<Urn> existingUpstreamUrns =
-              _entityService.exists(context.getOperationContext(), upstreamUrns, true);
-
-          // build MCP for upstreamUrn if necessary
           for (Urn upstreamUrn : upstreamUrns) {
             if (!existingUpstreamUrns.contains(upstreamUrn)) {
-              // Only an upstream being added must exist. One that appears only in removals may
-              // have been hard-deleted; its edge was already removed from the downstream above, and
-              // there is nothing left on it to update, so failing here would report an error for a
-              // committed write and make retries fail forever.
-              if (upstreamToDownstreamsToAdd.containsKey(upstreamUrn)) {
-                throw new IllegalArgumentException(
-                    String.format(
-                        "Cannot upsert lineage as downstream urn %s doesn't exist", upstreamUrn));
-              }
+              // A hard-deleted upstream that is only being removed has nothing left to update.
               continue;
             }
 
@@ -194,21 +217,23 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                 upstreamToDownstreamsToRemove.getOrDefault(upstreamUrn, new ArrayList<>());
             try {
               if (upstreamUrn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)) {
-                // need to filter out dataJobs since this is a valid lineage edge, but is handled in
-                // the upstream direction for DataJobs
+                // dataJob and ML model downstreams are written on the downstream, above
                 final List<Urn> filteredDownstreamUrnsToAdd =
-                    filterOutDataJobUrns(downstreamUrnsToAdd);
+                    filterOutEntityTypes(downstreamUrnsToAdd, DATA_JOB_AND_ML_MODEL_ENTITY_TYPES);
                 final List<Urn> filteredDownstreamUrnsToRemove =
-                    filterOutDataJobUrns(downstreamUrnsToRemove);
+                    filterOutEntityTypes(
+                        downstreamUrnsToRemove, DATA_JOB_AND_ML_MODEL_ENTITY_TYPES);
 
-                _lineageService.updateDataJobDownstreamLineage(
-                    context.getOperationContext(),
-                    upstreamUrn,
-                    filteredDownstreamUrnsToAdd,
-                    filteredDownstreamUrnsToRemove,
-                    actor);
+                if (!filteredDownstreamUrnsToAdd.isEmpty()
+                    || !filteredDownstreamUrnsToRemove.isEmpty()) {
+                  _lineageService.updateDataJobDownstreamLineage(
+                      context.getOperationContext(),
+                      upstreamUrn,
+                      filteredDownstreamUrnsToAdd,
+                      filteredDownstreamUrnsToRemove,
+                      actor);
+                }
               } else if (upstreamUrn.getEntityType().equals(Constants.ML_MODEL_ENTITY_NAME)) {
-                // For ML Models as upstream: downstream URNs are consuming jobs
                 _lineageService.updateMlModelLineage(
                     context.getOperationContext(),
                     upstreamUrn,
@@ -218,7 +243,6 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                     downstreamUrnsToRemove,
                     actor);
               } else if (upstreamUrn.getEntityType().equals(Constants.ML_MODEL_GROUP_ENTITY_NAME)) {
-                // For ML Model Groups as upstream: downstream URNs are consuming jobs
                 _lineageService.updateMlModelGroupLineage(
                     context.getOperationContext(),
                     upstreamUrn,
@@ -240,10 +264,35 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
         "get");
   }
 
-  private List<Urn> filterOutDataJobUrns(@Nonnull final List<Urn> urns) {
+  private static List<Urn> filterOutEntityTypes(
+      @Nonnull final List<Urn> urns, @Nonnull final Set<String> entityTypes) {
     return urns.stream()
-        .filter(upstreamUrn -> !upstreamUrn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME))
+        .filter(urn -> !entityTypes.contains(urn.getEntityType()))
         .collect(Collectors.toList());
+  }
+
+  /**
+   * The resolver writes one aspect per entity with no rollback, so unsupported ML model edges are
+   * rejected before any write. The other end of an ML model edge must be a dataJob or
+   * dataProcessInstance, and a dataProcessInstance downstream is only editable from an ML model.
+   */
+  private static void validateMlModelEdges(@Nonnull final List<LineageEdge> edges) {
+    for (LineageEdge edge : edges) {
+      final String upstreamType = UrnUtils.getUrn(edge.getUpstreamUrn()).getEntityType();
+      final String downstreamType = UrnUtils.getUrn(edge.getDownstreamUrn()).getEntityType();
+      final boolean upstreamIsModel = ML_MODEL_ENTITY_TYPES.contains(upstreamType);
+      final boolean downstreamIsModel = ML_MODEL_ENTITY_TYPES.contains(downstreamType);
+      final boolean valid =
+          upstreamIsModel || downstreamIsModel
+              ? ML_MODEL_JOB_ENTITY_TYPES.contains(upstreamIsModel ? downstreamType : upstreamType)
+              : !Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME.equals(downstreamType);
+      if (!valid) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Unsupported lineage edge from %s to %s",
+                edge.getUpstreamUrn(), edge.getDownstreamUrn()));
+      }
+    }
   }
 
   private Map<Urn, List<Urn>> getDownstreamToUpstreamsMap(@Nonnull final List<LineageEdge> edges) {

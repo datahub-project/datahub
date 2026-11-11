@@ -24,15 +24,13 @@ describe('getValidEntityTypes', () => {
             expect(result).toStrictEqual(['DATA_JOB', 'DATASET', 'MLMODEL', 'MLMODEL_GROUP']);
         });
 
-        it('should return DATA_JOB if Mlmodel Entity type is passed', () => {
-            const result = getValidEntityTypes(LineageDirection.Downstream, EntityType.Mlmodel);
-            expect(result).toStrictEqual(['DATA_JOB']);
-        });
-
-        it('should return DATA_JOB if MlmodelGroup Entity type is passed', () => {
-            const result = getValidEntityTypes(LineageDirection.Downstream, EntityType.MlmodelGroup);
-            expect(result).toStrictEqual(['DATA_JOB']);
-        });
+        it.each([EntityType.Mlmodel, EntityType.MlmodelGroup])(
+            'should return DATA_JOB, DATA_PROCESS_INSTANCE if %s Entity type is passed',
+            (entityType) => {
+                const result = getValidEntityTypes(LineageDirection.Downstream, entityType);
+                expect(result).toStrictEqual(['DATA_JOB', 'DATA_PROCESS_INSTANCE']);
+            },
+        );
 
         it('should return empty Array if Dashboard Entity type is passed', () => {
             const result = getValidEntityTypes(LineageDirection.Downstream, EntityType.Dashboard);
@@ -66,15 +64,13 @@ describe('getValidEntityTypes', () => {
             expect(result).toStrictEqual(['DATA_JOB', 'DATASET', 'MLMODEL', 'MLMODEL_GROUP']);
         });
 
-        it('should return DATA_JOB, DATA_PROCESS_INSTANCE if Mlmodel Entity type is passed', () => {
-            const result = getValidEntityTypes(LineageDirection.Upstream, EntityType.Mlmodel);
-            expect(result).toStrictEqual(['DATA_JOB', 'DATA_PROCESS_INSTANCE']);
-        });
-
-        it('should return DATA_JOB if MlmodelGroup Entity type is passed', () => {
-            const result = getValidEntityTypes(LineageDirection.Upstream, EntityType.MlmodelGroup);
-            expect(result).toStrictEqual(['DATA_JOB']);
-        });
+        it.each([EntityType.Mlmodel, EntityType.MlmodelGroup])(
+            'should return DATA_JOB, DATA_PROCESS_INSTANCE if %s Entity type is passed',
+            (entityType) => {
+                const result = getValidEntityTypes(LineageDirection.Upstream, entityType);
+                expect(result).toStrictEqual(['DATA_JOB', 'DATA_PROCESS_INSTANCE']);
+            },
+        );
 
         it('should return CHART, DATASET and METRIC if Dashboard Entity type is passed', () => {
             const result = getValidEntityTypes(LineageDirection.Upstream, EntityType.Dashboard);

@@ -25,6 +25,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.ml.metadata.MLModelGroupProperties;
+import com.linkedin.ml.metadata.MLModelLineageInfo;
 import com.linkedin.ml.metadata.MLModelProperties;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.repository.RepositoryLineage;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -284,8 +286,7 @@ public class LineageService {
             opContext,
             Constants.DATASET_ENTITY_NAME,
             downstreamUrn,
-            ImmutableSet.of(Constants.UPSTREAM_LINEAGE_ASPECT_NAME),
-            false);
+            ImmutableSet.of(Constants.UPSTREAM_LINEAGE_ASPECT_NAME));
 
     UpstreamLineage upstreamLineage = new UpstreamLineage();
     if (entityResponse != null
@@ -377,8 +378,7 @@ public class LineageService {
             opContext,
             Constants.CHART_ENTITY_NAME,
             downstreamUrn,
-            ImmutableSet.of(Constants.CHART_INFO_ASPECT_NAME),
-            false);
+            ImmutableSet.of(Constants.CHART_INFO_ASPECT_NAME));
 
     if (entityResponse == null
         || !entityResponse.getAspects().containsKey(Constants.CHART_INFO_ASPECT_NAME)) {
@@ -402,7 +402,6 @@ public class LineageService {
           .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))) {
         continue;
       }
-      // Check deprecated inputs field to avoid duplicates with ingestion data
       if (chartInfo.hasInputs()
           && chartInfo.getInputs().stream()
               .anyMatch(
@@ -478,8 +477,7 @@ public class LineageService {
             opContext,
             Constants.DASHBOARD_ENTITY_NAME,
             downstreamUrn,
-            ImmutableSet.of(Constants.DASHBOARD_INFO_ASPECT_NAME),
-            false);
+            ImmutableSet.of(Constants.DASHBOARD_INFO_ASPECT_NAME));
 
     if (entityResponse == null
         || !entityResponse.getAspects().containsKey(Constants.DASHBOARD_INFO_ASPECT_NAME)) {
@@ -560,7 +558,6 @@ public class LineageService {
           .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))) {
         continue;
       }
-      // Check deprecated charts field to avoid duplicates with ingestion data
       if (dashboardInfo.hasCharts()
           && dashboardInfo.getCharts().stream().anyMatch(chart -> chart.equals(upstreamUrn))) {
         continue;
@@ -625,7 +622,6 @@ public class LineageService {
           .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))) {
         continue;
       }
-      // Check deprecated datasets field to avoid duplicates with ingestion data
       if (dashboardInfo.hasDatasets()
           && dashboardInfo.getDatasets().stream()
               .anyMatch(dataset -> dataset.equals(upstreamUrn))) {
@@ -903,8 +899,7 @@ public class LineageService {
             opContext,
             Constants.DATA_JOB_ENTITY_NAME,
             downstreamUrn,
-            ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME),
-            false);
+            ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME));
 
     DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
     if (entityResponse != null
@@ -973,6 +968,10 @@ public class LineageService {
     if (!dataJobInputOutput.hasInputDatasetEdges()) {
       dataJobInputOutput.setInputDatasetEdges(new EdgeArray());
     }
+    // inputDatasets is required, so a new aspect needs it even though only the edges are written
+    if (!dataJobInputOutput.hasInputDatasets()) {
+      dataJobInputOutput.setInputDatasets(new DatasetUrnArray());
+    }
   }
 
   private List<Urn> getInputOutputDatasetsToAdd(
@@ -985,7 +984,6 @@ public class LineageService {
           .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))) {
         continue;
       }
-      // Check deprecated datasets field to avoid duplicates with ingestion data
       if (deprecatedDatasets != null
           && deprecatedDatasets.stream().anyMatch(dataset -> dataset.equals(upstreamUrn))) {
         continue;
@@ -1043,6 +1041,9 @@ public class LineageService {
     if (!dataJobInputOutput.hasInputDatajobEdges()) {
       dataJobInputOutput.setInputDatajobEdges(new EdgeArray());
     }
+    if (!dataJobInputOutput.hasInputDatajobs()) {
+      dataJobInputOutput.setInputDatajobs(new DataJobUrnArray());
+    }
   }
 
   private List<Urn> getInputDatajobsToAdd(
@@ -1055,7 +1056,6 @@ public class LineageService {
           .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))) {
         continue;
       }
-      // Check deprecated datajobs field to avoid duplicates with ingestion data
       if (deprecatedDatajobs != null
           && deprecatedDatajobs.stream().anyMatch(datajob -> datajob.equals(upstreamUrn))) {
         continue;
@@ -1118,8 +1118,7 @@ public class LineageService {
             opContext,
             Constants.DATA_JOB_ENTITY_NAME,
             dataJobUrn,
-            ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME),
-            false);
+            ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME));
 
     DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
     if (entityResponse != null
@@ -1172,6 +1171,10 @@ public class LineageService {
     }
   }
 
+  /**
+   * Updates the training jobs (upstream) and downstream jobs of an ML Model, written as edges in
+   * trainingJobEdges and downstreamJobEdges.
+   */
   public void updateMlModelLineage(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn mlModelUrn,
@@ -1181,23 +1184,52 @@ public class LineageService {
       @Nonnull final List<Urn> downstreamUrnsToRemove,
       @Nonnull final Urn actor)
       throws Exception {
-    validateMlModelLineageUrns(opContext, upstreamUrnsToAdd);
-    validateMlModelLineageUrns(opContext, downstreamUrnsToAdd);
+    updateMlLineage(
+        opContext,
+        Constants.ML_MODEL_ENTITY_NAME,
+        mlModelUrn,
+        new MlLineageChanges(
+            upstreamUrnsToAdd, upstreamUrnsToRemove, downstreamUrnsToAdd, downstreamUrnsToRemove),
+        actor);
+  }
+
+  /** Same as {@link #updateMlModelLineage} for an ML Model Group. */
+  public void updateMlModelGroupLineage(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn mlModelGroupUrn,
+      @Nonnull final List<Urn> upstreamUrnsToAdd,
+      @Nonnull final List<Urn> upstreamUrnsToRemove,
+      @Nonnull final List<Urn> downstreamUrnsToAdd,
+      @Nonnull final List<Urn> downstreamUrnsToRemove,
+      @Nonnull final Urn actor)
+      throws Exception {
+    updateMlLineage(
+        opContext,
+        Constants.ML_MODEL_GROUP_ENTITY_NAME,
+        mlModelGroupUrn,
+        new MlLineageChanges(
+            upstreamUrnsToAdd, upstreamUrnsToRemove, downstreamUrnsToAdd, downstreamUrnsToRemove),
+        actor);
+  }
+
+  private void updateMlLineage(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String entityType,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final MlLineageChanges changes,
+      @Nonnull final Urn actor)
+      throws Exception {
+    validateMlModelLineageUrns(opContext, changes.upstreamUrnsToAdd());
+    validateMlModelLineageUrns(opContext, changes.downstreamUrnsToAdd());
 
     try {
-      MetadataChangeProposal changeProposal =
-          buildMlModelLineageProposal(
-              opContext,
-              mlModelUrn,
-              upstreamUrnsToAdd,
-              upstreamUrnsToRemove,
-              downstreamUrnsToAdd,
-              downstreamUrnsToRemove,
-              actor);
-      _entityClient.ingestProposal(opContext, changeProposal, false);
+      _entityClient.ingestProposal(
+          opContext,
+          buildMlLineageProposal(opContext, entityType, entityUrn, changes, actor),
+          false);
     } catch (Exception e) {
       throw new RuntimeException(
-          String.format("Failed to update ML Model lineage for urn %s", mlModelUrn), e);
+          String.format("Failed to update %s lineage for urn %s", entityType, entityUrn), e);
     }
   }
 
@@ -1211,85 +1243,13 @@ public class LineageService {
       @Nonnull final List<Urn> downstreamUrnsToRemove,
       @Nonnull final Urn actor)
       throws Exception {
-    EntityResponse entityResponse =
-        _entityClient.getV2(
-            opContext,
-            Constants.ML_MODEL_ENTITY_NAME,
-            mlModelUrn,
-            ImmutableSet.of(Constants.ML_MODEL_PROPERTIES_ASPECT_NAME),
-            false);
-
-    MLModelProperties mlModelProperties = new MLModelProperties();
-    if (entityResponse != null
-        && entityResponse.getAspects().containsKey(Constants.ML_MODEL_PROPERTIES_ASPECT_NAME)) {
-      DataMap dataMap =
-          entityResponse
-              .getAspects()
-              .get(Constants.ML_MODEL_PROPERTIES_ASPECT_NAME)
-              .getValue()
-              .data();
-      mlModelProperties = new MLModelProperties(dataMap);
-    }
-
-    if (!mlModelProperties.hasTrainingJobs()) {
-      mlModelProperties.setTrainingJobs(new UrnArray());
-    }
-    if (!mlModelProperties.hasDownstreamJobs()) {
-      mlModelProperties.setDownstreamJobs(new UrnArray());
-    }
-
-    final UrnArray trainingJobs = mlModelProperties.getTrainingJobs();
-    final UrnArray downstreamJobs = mlModelProperties.getDownstreamJobs();
-
-    for (Urn upstreamUrn : upstreamUrnsToAdd) {
-      if (!trainingJobs.contains(upstreamUrn)) {
-        trainingJobs.add(upstreamUrn);
-      }
-    }
-
-    for (Urn downstreamUrn : downstreamUrnsToAdd) {
-      if (!downstreamJobs.contains(downstreamUrn)) {
-        downstreamJobs.add(downstreamUrn);
-      }
-    }
-
-    trainingJobs.removeIf(upstreamUrnsToRemove::contains);
-    downstreamJobs.removeIf(downstreamUrnsToRemove::contains);
-
-    mlModelProperties.setTrainingJobs(trainingJobs);
-    mlModelProperties.setDownstreamJobs(downstreamJobs);
-
-    return buildMetadataChangeProposal(
-        mlModelUrn, Constants.ML_MODEL_PROPERTIES_ASPECT_NAME, mlModelProperties);
-  }
-
-  public void updateMlModelGroupLineage(
-      @Nonnull OperationContext opContext,
-      @Nonnull final Urn mlModelGroupUrn,
-      @Nonnull final List<Urn> upstreamUrnsToAdd,
-      @Nonnull final List<Urn> upstreamUrnsToRemove,
-      @Nonnull final List<Urn> downstreamUrnsToAdd,
-      @Nonnull final List<Urn> downstreamUrnsToRemove,
-      @Nonnull final Urn actor)
-      throws Exception {
-    validateMlModelLineageUrns(opContext, upstreamUrnsToAdd);
-    validateMlModelLineageUrns(opContext, downstreamUrnsToAdd);
-
-    try {
-      MetadataChangeProposal changeProposal =
-          buildMlModelGroupLineageProposal(
-              opContext,
-              mlModelGroupUrn,
-              upstreamUrnsToAdd,
-              upstreamUrnsToRemove,
-              downstreamUrnsToAdd,
-              downstreamUrnsToRemove,
-              actor);
-      _entityClient.ingestProposal(opContext, changeProposal, false);
-    } catch (Exception e) {
-      throw new RuntimeException(
-          String.format("Failed to update ML Model Group lineage for urn %s", mlModelGroupUrn), e);
-    }
+    return buildMlLineageProposal(
+        opContext,
+        Constants.ML_MODEL_ENTITY_NAME,
+        mlModelUrn,
+        new MlLineageChanges(
+            upstreamUrnsToAdd, upstreamUrnsToRemove, downstreamUrnsToAdd, downstreamUrnsToRemove),
+        actor);
   }
 
   @Nonnull
@@ -1302,59 +1262,99 @@ public class LineageService {
       @Nonnull final List<Urn> downstreamUrnsToRemove,
       @Nonnull final Urn actor)
       throws Exception {
-    EntityResponse entityResponse =
-        _entityClient.getV2(
-            opContext,
-            Constants.ML_MODEL_GROUP_ENTITY_NAME,
-            mlModelGroupUrn,
-            ImmutableSet.of(Constants.ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME),
-            false);
+    return buildMlLineageProposal(
+        opContext,
+        Constants.ML_MODEL_GROUP_ENTITY_NAME,
+        mlModelGroupUrn,
+        new MlLineageChanges(
+            upstreamUrnsToAdd, upstreamUrnsToRemove, downstreamUrnsToAdd, downstreamUrnsToRemove),
+        actor);
+  }
 
-    MLModelGroupProperties mlModelGroupProperties = new MLModelGroupProperties();
-    if (entityResponse != null
-        && entityResponse
-            .getAspects()
-            .containsKey(Constants.ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME)) {
-      DataMap dataMap =
-          entityResponse
-              .getAspects()
-              .get(Constants.ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME)
-              .getValue()
-              .data();
-      mlModelGroupProperties = new MLModelGroupProperties(dataMap);
+  /**
+   * MLModelProperties and MLModelGroupProperties both include MLModelLineageInfo, so the lineage
+   * fields are edited through an MLModelLineageInfo view over the aspect's DataMap.
+   */
+  @Nonnull
+  @SuppressWarnings("deprecation")
+  private MetadataChangeProposal buildMlLineageProposal(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String entityType,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final MlLineageChanges changes,
+      @Nonnull final Urn actor)
+      throws Exception {
+    final boolean isModel = Constants.ML_MODEL_ENTITY_NAME.equals(entityType);
+    final String aspectName =
+        isModel
+            ? Constants.ML_MODEL_PROPERTIES_ASPECT_NAME
+            : Constants.ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME;
+    final EntityResponse entityResponse =
+        _entityClient.getV2(opContext, entityType, entityUrn, ImmutableSet.of(aspectName));
+
+    final DataMap dataMap =
+        entityResponse != null && entityResponse.getAspects().containsKey(aspectName)
+            ? entityResponse.getAspects().get(aspectName).getValue().data()
+            : new DataMap();
+    final MLModelLineageInfo lineageInfo = new MLModelLineageInfo(dataMap);
+
+    if (!lineageInfo.hasTrainingJobEdges()) {
+      lineageInfo.setTrainingJobEdges(new EdgeArray());
     }
-
-    if (!mlModelGroupProperties.hasTrainingJobs()) {
-      mlModelGroupProperties.setTrainingJobs(new UrnArray());
+    if (!lineageInfo.hasDownstreamJobEdges()) {
+      lineageInfo.setDownstreamJobEdges(new EdgeArray());
     }
-    if (!mlModelGroupProperties.hasDownstreamJobs()) {
-      mlModelGroupProperties.setDownstreamJobs(new UrnArray());
-    }
-
-    final UrnArray trainingJobs = mlModelGroupProperties.getTrainingJobs();
-    final UrnArray downstreamJobs = mlModelGroupProperties.getDownstreamJobs();
-
-    for (Urn upstreamUrn : upstreamUrnsToAdd) {
-      if (!trainingJobs.contains(upstreamUrn)) {
-        trainingJobs.add(upstreamUrn);
-      }
-    }
-
-    for (Urn downstreamUrn : downstreamUrnsToAdd) {
-      if (!downstreamJobs.contains(downstreamUrn)) {
-        downstreamJobs.add(downstreamUrn);
-      }
-    }
-
-    trainingJobs.removeIf(upstreamUrnsToRemove::contains);
-    downstreamJobs.removeIf(downstreamUrnsToRemove::contains);
-
-    mlModelGroupProperties.setTrainingJobs(trainingJobs);
-    mlModelGroupProperties.setDownstreamJobs(downstreamJobs);
+    updateJobEdges(
+        lineageInfo.getTrainingJobEdges(),
+        lineageInfo.hasTrainingJobs() ? lineageInfo.getTrainingJobs() : null,
+        changes.upstreamUrnsToAdd(),
+        changes.upstreamUrnsToRemove(),
+        entityUrn,
+        actor);
+    updateJobEdges(
+        lineageInfo.getDownstreamJobEdges(),
+        lineageInfo.hasDownstreamJobs() ? lineageInfo.getDownstreamJobs() : null,
+        changes.downstreamUrnsToAdd(),
+        changes.downstreamUrnsToRemove(),
+        entityUrn,
+        actor);
 
     return buildMetadataChangeProposal(
-        mlModelGroupUrn, Constants.ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME, mlModelGroupProperties);
+        entityUrn,
+        aspectName,
+        isModel ? new MLModelProperties(dataMap) : new MLModelGroupProperties(dataMap));
   }
+
+  /**
+   * Adds edges for jobs not already linked by either field, and removes jobs from both, so edges
+   * written by ingestion into the deprecated URN array can still be removed from the UI.
+   */
+  private void updateJobEdges(
+      @Nonnull final EdgeArray jobEdges,
+      @Nullable final UrnArray deprecatedJobs,
+      @Nonnull final List<Urn> jobUrnsToAdd,
+      @Nonnull final List<Urn> jobUrnsToRemove,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn actor) {
+    for (final Urn jobUrn : jobUrnsToAdd) {
+      final boolean linked =
+          jobEdges.stream().anyMatch(edge -> edge.getDestinationUrn().equals(jobUrn))
+              || (deprecatedJobs != null && deprecatedJobs.contains(jobUrn));
+      if (!linked) {
+        addNewEdge(jobUrn, entityUrn, actor, jobEdges);
+      }
+    }
+    jobEdges.removeIf(edge -> jobUrnsToRemove.contains(edge.getDestinationUrn()));
+    if (deprecatedJobs != null) {
+      deprecatedJobs.removeIf(jobUrnsToRemove::contains);
+    }
+  }
+
+  private record MlLineageChanges(
+      @Nonnull List<Urn> upstreamUrnsToAdd,
+      @Nonnull List<Urn> upstreamUrnsToRemove,
+      @Nonnull List<Urn> downstreamUrnsToAdd,
+      @Nonnull List<Urn> downstreamUrnsToRemove) {}
 
   private void addNewEdge(
       @Nonnull final Urn upstreamUrn,

@@ -14,9 +14,8 @@ export function getValidEntityTypes(lineageDirection: LineageDirection, entityTy
             case EntityType.DataJob:
                 return [EntityType.DataJob, EntityType.Dataset, EntityType.Mlmodel, EntityType.MlmodelGroup];
             case EntityType.Mlmodel:
-                return [EntityType.DataJob, EntityType.DataProcessInstance];
             case EntityType.MlmodelGroup:
-                return [EntityType.DataJob];
+                return [EntityType.DataJob, EntityType.DataProcessInstance];
             case EntityType.Metric:
                 // updateLineage does not write metricUpstreams; do not offer a no-op picker
                 return [];
@@ -36,9 +35,8 @@ export function getValidEntityTypes(lineageDirection: LineageDirection, entityTy
             case EntityType.DataJob:
                 return [EntityType.DataJob, EntityType.Dataset, EntityType.Mlmodel, EntityType.MlmodelGroup];
             case EntityType.Mlmodel:
-                return [EntityType.DataJob];
             case EntityType.MlmodelGroup:
-                return [EntityType.DataJob];
+                return [EntityType.DataJob, EntityType.DataProcessInstance];
             case EntityType.Metric:
                 return [EntityType.Dataset, EntityType.Chart, EntityType.Dashboard];
             default:

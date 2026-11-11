@@ -1,5 +1,6 @@
 namespace com.linkedin.ml.metadata
 import com.linkedin.common.Urn
+import com.linkedin.common.Edge
 
 
 /**
@@ -9,6 +10,7 @@ record MLModelLineageInfo {
 
     /**
     * List of jobs or process instances (if any) used to train the model or group. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.
+    * Deprecated! Use trainingJobEdges instead.
     */
     @Relationship = {
         "/*": {
@@ -17,10 +19,29 @@ record MLModelLineageInfo {
         "isLineage": true
         }
     }
+    @deprecated
     trainingJobs: optional array[Urn]
 
     /**
+    * Jobs or process instances (if any) used to train the model or group.
+    */
+    @Relationship = {
+        "/*/destinationUrn": {
+        "name": "TrainedBy",
+        "entityTypes": [ "dataJob", "dataProcessInstance" ],
+        "isLineage": true,
+        "createdOn": "trainingJobEdges/*/created/time"
+        "createdActor": "trainingJobEdges/*/created/actor"
+        "updatedOn": "trainingJobEdges/*/lastModified/time"
+        "updatedActor": "trainingJobEdges/*/lastModified/actor"
+        "properties": "trainingJobEdges/*/properties"
+        }
+    }
+    trainingJobEdges: optional array[Edge]
+
+    /**
     * List of jobs or process instances (if any) that use the model or group.
+    * Deprecated! Use downstreamJobEdges instead.
     */
     @Relationship = {
         "/*": {
@@ -30,6 +51,25 @@ record MLModelLineageInfo {
         "isUpstream": false
         }
     }
+    @deprecated
     downstreamJobs: optional array[Urn]
+
+    /**
+    * Jobs or process instances (if any) that use the model or group.
+    */
+    @Relationship = {
+        "/*/destinationUrn": {
+        "name": "UsedBy",
+        "entityTypes": [ "dataJob", "dataProcessInstance" ],
+        "isLineage": true,
+        "isUpstream": false,
+        "createdOn": "downstreamJobEdges/*/created/time"
+        "createdActor": "downstreamJobEdges/*/created/actor"
+        "updatedOn": "downstreamJobEdges/*/lastModified/time"
+        "updatedActor": "downstreamJobEdges/*/lastModified/actor"
+        "properties": "downstreamJobEdges/*/properties"
+        }
+    }
+    downstreamJobEdges: optional array[Edge]
 
 }
