@@ -17,6 +17,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     LineageTable,
     ListedDataset,
     QlikDataset,
+    SchemaField,
     UnchangedApp,
     UnreadItem,
 )
@@ -571,7 +572,9 @@ def test_graph_tables_take_their_schema_from_the_data_model(
 
 
 def test_unnamed_script_table_takes_its_data_model_name() -> None:
-    app = _app("etl-app", [])
+    # The lineage graph also traces Orders; the unnamed load must take its name
+    # so both are ingested as one table.
+    app = _app("etl-app", [LineageTable(qri=f"{ETL_APP}#Orders", label="Orders")])
     app.data_model_tables = [
         DataModelTable.from_engine(
             {"qName": name, "qFields": [{"qName": f} for f in fields]}
@@ -606,3 +609,32 @@ def test_unnamed_script_table_takes_its_data_model_name() -> None:
         "table_2",
         "etl-app.table_2",
     )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_column_lineage_uses_the_data_model_spelling(mock_api_cls: MagicMock) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    source._data_model_fields = {
+        "etl-app.orders": [
+            SchemaField(name="OrderId"),
+            SchemaField(name="Code"),
+            SchemaField(name="CODE"),
+        ]
+    }
+    table = ScriptTableLineage(
+        label="Orders",
+        identifier="etl-app.orders",
+        column_upstreams={"orderid": ["u1"], "code": ["u2"], "other": ["u3"]},
+    )
+
+    source._use_data_model_field_names([table])
+
+    # "code" matches two fields that differ only by case, so it is left as is.
+    assert table.column_upstreams == {
+        "OrderId": ["u1"],
+        "code": ["u2"],
+        "other": ["u3"],
+    }
