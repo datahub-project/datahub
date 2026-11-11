@@ -1709,7 +1709,9 @@ def test_snowflake_schema_pattern_instance_is_not_mutated() -> None:
 def test_snowflake_information_schema_deny_not_duplicated_on_revalidation() -> None:
     cfg = _info_schema_config()
     new_pattern = AllowDenyPattern(allow=["DB\\..*"])
+    assert new_pattern.allowed("DB.INFORMATION_SCHEMA")  # warms _compiled_deny
     validate_pattern_at(cfg, "schema_pattern", new_pattern)
     validate_pattern_at(cfg, "schema_pattern", cfg.schema_pattern)
     assert cfg.schema_pattern.deny.count(r".*INFORMATION_SCHEMA$") == 1
+    assert not cfg.schema_pattern.allowed("DB.INFORMATION_SCHEMA")
     assert new_pattern.deny == []

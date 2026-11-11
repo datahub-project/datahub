@@ -95,6 +95,9 @@ def test_with_deny_is_idempotent_and_dedupes_in_order() -> None:
         "a",
         "y",
     ]
+    # Duplicates already in the deny list (e.g. a recipe saved after the old
+    # in-place append ran twice) collapse too.
+    assert AllowDenyPattern(deny=["a", "a"]).with_deny("b").deny == ["a", "b"]
 
 
 def test_with_deny_preserves_ignore_case_and_allow() -> None:
