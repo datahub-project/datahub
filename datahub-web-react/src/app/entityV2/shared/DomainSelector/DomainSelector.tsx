@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 
 import DomainOptionLabel from '@app/entityV2/shared/DomainSelector/DomainOptionLabel';
+import { withoutCoveredSubdomains } from '@app/entityV2/shared/DomainSelector/DomainSelector.utils';
 import { InfiniteScrollNestedSelect } from '@app/entityV2/shared/DomainSelector/InfiniteScrollNestedSelect';
 import useInfiniteScrollDomains, {
     getDomainSelectorScrollInput,
@@ -44,10 +45,10 @@ type DomainSelectorProps = {
     label?: string;
     isMultiSelect?: boolean;
     selectChildrenWithParent?: boolean;
-    // Show every subdomain of a selected domain as selected (checked and disabled).
+    // Show every subdomain of a selected domain as selected (checked and disabled), and drop
+    // subdomains from the selection once one of their ancestors is selected.
     includeSubdomains?: boolean;
     dropdownHeader?: React.ReactNode;
-    normalizeSelection?: (options: EntityNestedSelectOption[]) => EntityNestedSelectOption[];
     renderCustomOptionText?: CustomOptionRenderer<EntityNestedSelectOption>;
     renderCustomSelectedValue?: (option: EntityNestedSelectOption) => React.ReactNode;
     isRequired?: boolean;
@@ -74,7 +75,6 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     selectChildrenWithParent = true,
     includeSubdomains = false,
     dropdownHeader,
-    normalizeSelection,
     renderCustomOptionText = (option) => <DomainOptionLabel option={option} />,
     renderCustomSelectedValue,
     isRequired = false,
@@ -258,6 +258,36 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
         a.label.localeCompare(b.label),
     );
     const searchOptions = withDomainIcons(autoCompleteOptions).sort((a, b) => a.label.localeCompare(b.label));
+
+    const ancestorsByUrn = useRef<Record<string, string[]>>({});
+    const recordAncestors = (options: EntityNestedSelectOption[]) =>
+        options.forEach((option) => {
+            const ancestors = (option.entity as Domain | undefined)?.parentDomains?.domains?.map((d) => d.urn);
+            if (ancestors) ancestorsByUrn.current[option.value] = ancestors;
+        });
+
+    const normalizeSelection = (options: EntityNestedSelectOption[]) => {
+        recordAncestors(options);
+        if (!includeSubdomains) return options;
+        const kept = new Set(
+            withoutCoveredSubdomains(
+                options.map((option) => option.value),
+                ancestorsByUrn.current,
+            ),
+        );
+        return options.filter((option) => kept.has(option.value));
+    };
+
+    const wasIncludingSubdomains = useRef(includeSubdomains);
+    useEffect(() => {
+        const turnedOn = includeSubdomains && !wasIncludingSubdomains.current;
+        wasIncludingSubdomains.current = includeSubdomains;
+        if (!turnedOn) return;
+        recordAncestors(initialOptions);
+        const pruned = withoutCoveredSubdomains(selectedDomains, ancestorsByUrn.current);
+        if (pruned.length !== selectedDomains.length) onDomainsChange(pruned);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [includeSubdomains]);
 
     const defaultOptions = mergeSelectedNestedOptions(baseOptions, initialOptions);
     const searchOptionsWithSelected = mergeSelectedNestedOptions(searchOptions, initialOptions);
