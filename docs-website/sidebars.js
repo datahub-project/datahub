@@ -32,6 +32,11 @@ module.exports = {
         },
         {
           type: "link",
+          label: "Product Tours",
+          href: "https://tours.datahub.com/?utm_source=oss-docs&utm_medium=oss-referral&utm_campaign=oss-product-tours&utm_content=docs-sidebar",
+        },
+        {
+          type: "link",
           label: "Customer Stories",
           href: "https://datahub.com/resources/?2004611554=dh-stories",
         },
