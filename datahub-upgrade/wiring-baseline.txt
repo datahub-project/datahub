@@ -1,0 +1,6 @@
+# Spring configuration classes in this module that no real-context test loads yet.
+# This list may only shrink. See gradle/wiring/README.md.
+com.linkedin.datahub.upgrade.UpgradeConfigurationSelector$SqlSetupConfiguration
+com.linkedin.datahub.upgrade.config.IncrementalReindexConfig
+com.linkedin.datahub.upgrade.sqlsetup.SqlSetupUpgradeConfig
+com.linkedin.datahub.upgrade.sqlsetup.config.SqlSetupEbeanFactory

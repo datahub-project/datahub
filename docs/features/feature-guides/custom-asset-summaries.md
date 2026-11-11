@@ -100,17 +100,17 @@ Asset Summaries are controlled by feature flags that need to be set on the GMS (
 - **`ASSET_SUMMARY_PAGE_V1`**: Controls Asset Summaries for Domains, Data Products, Glossary Terms, and Glossary Term Groups
 - **`DATASET_SUMMARY_PAGE_V1`**: Controls Asset Summaries specifically for Datasets
 
-To enable Asset Summaries in your DataHub instance, set the appropriate environment variable(s) to `true` on the GMS container:
+Both flags are enabled by default, so Asset Summaries are available out of the box. To turn them off, set the corresponding environment variable to `false` on the GMS container:
 
 ```bash
 # For logical assets (Domains, Data Products, Glossary Terms, Glossary Term Groups)
-ASSET_SUMMARY_PAGE_V1=true
+ASSET_SUMMARY_PAGE_V1=false
 
 # For physical assets (Datasets)
-DATASET_SUMMARY_PAGE_V1=true
+DATASET_SUMMARY_PAGE_V1=false
 ```
 
-You can enable one or both feature flags depending on which asset types you want to provide summary pages for.
+You can disable one or both feature flags depending on which asset types you want to keep the classic entity pages for. With `DATASET_SUMMARY_PAGE_V1` on, the dataset Summary tab replaces the standalone Documentation tab; documentation and links are edited from the Summary tab's About section instead.
 
 ## Customizing Asset Summaries
 
@@ -199,7 +199,7 @@ When customizing your Asset Summaries:
 
 Now that you understand Asset Summaries:
 
-1. **Enable the feature**: Set the appropriate feature flags (`ASSET_SUMMARY_PAGE_V1` and/or `DATASET_SUMMARY_PAGE_V1`) on your GMS container
+1. **Check the feature is on**: Asset Summaries are enabled by default; `ASSET_SUMMARY_PAGE_V1` and `DATASET_SUMMARY_PAGE_V1` on the GMS container turn them off if needed
 2. **Start with high-traffic assets**: Begin by customizing the Summary pages for your most frequently accessed domains, data products, and datasets
 3. **Leverage dataset-specific modules**: For datasets, take advantage of the Lineage and Columns modules to provide users with immediate visibility into data dependencies and schema
 4. **Gather feedback**: Ask users what information would be most helpful to see on Summary pages
