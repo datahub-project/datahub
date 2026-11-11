@@ -12,6 +12,8 @@ export const PaginationContainer = styled.div`
 
     .ant-pagination {
         display: flex;
+        /* antd 5 lets pagination wrap; a second row is clipped in narrow containers like lineage nodes */
+        flex-wrap: nowrap;
         align-items: center;
         justify-content: center;
         gap: 4px;
@@ -24,7 +26,9 @@ export const PaginationContainer = styled.div`
     /* The page-number pill is drawn on the inner anchor, so the list item itself stays
        transparent — otherwise antd's square item background shows behind the circle. */
     .ant-pagination-item,
-    .ant-pagination-item-active {
+    .ant-pagination-item-active,
+    /* antd 5 adds a hover background to inactive items with a more specific selector */
+    .ant-pagination .ant-pagination-item:not(.ant-pagination-item-active):hover {
         border: none;
         background: transparent;
         box-shadow: none;
@@ -78,7 +82,7 @@ export const PaginationContainer = styled.div`
     .ant-pagination-jump-prev {
         /* Matches the page numbers either side of it rather than the icon tokens, which are a step
            darker and lose legibility against the dark-mode surface. */
-        .ant-pagination-item-ellipsis {
+        .ant-pagination-item-container .ant-pagination-item-ellipsis {
             color: ${(props) => props.theme.colors.textTertiary};
         }
 

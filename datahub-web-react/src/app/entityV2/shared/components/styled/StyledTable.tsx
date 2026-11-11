@@ -27,7 +27,8 @@ export const StyledTable = styled(Table)`
         border: 1px solid ${(props) => props.theme.colors.border};
     }
 
-    &&& tr {
+    /* antd 5 keeps a zero-height measure row in the body; a fixed height would make it visible */
+    &&& tr:not(.ant-table-measure-row) {
         height: 32px;
     }
 

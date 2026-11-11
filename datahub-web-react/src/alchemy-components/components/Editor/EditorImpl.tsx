@@ -44,11 +44,9 @@ import { FloatingToolbar } from '@components/components/Editor/toolbar/FloatingT
 import { TableCellMenu } from '@components/components/Editor/toolbar/TableCellMenu';
 import { Toolbar } from '@components/components/Editor/toolbar/Toolbar';
 import { EditorProps } from '@components/components/Editor/types';
+import useEditorTypographyClassNames from '@components/components/Editor/useEditorTypographyClassNames';
 
 import { notEmpty } from '@app/entityV2/shared/utils';
-
-// CSS class applied to the editor surface for antd typography styling.
-const EDITOR_CLASS_NAMES = ['ant-typography'];
 
 // Register the full grammar catalog on the shared refractor instance before
 // the editor or a file preview asks it to highlight.
@@ -86,6 +84,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     } = props;
     const styledTheme = useTheme();
     const editorTheme = useMemo(() => getEditorTheme(styledTheme), [styledTheme]);
+    const editorClassNames = useEditorTypographyClassNames();
     const syntaxTheme = getSyntaxTheme(styledTheme.id);
 
     const { manager, state, getContext } = useRemirror({
@@ -159,7 +158,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             <ThemeProvider theme={editorTheme}>
                 <RemirrorLocaleProvider>
                     <Remirror
-                        classNames={EDITOR_CLASS_NAMES}
+                        classNames={editorClassNames}
                         editable={!readOnly && !editingDisabled}
                         manager={manager}
                         initialContent={state}

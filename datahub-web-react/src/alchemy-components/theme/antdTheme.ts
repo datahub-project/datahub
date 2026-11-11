@@ -1,21 +1,5 @@
 import type { ThemeConfig } from 'antd';
 
-const FONT_FAMILY = [
-    'Manrope',
-    '-apple-system',
-    'BlinkMacSystemFont',
-    "'Segoe UI'",
-    'Roboto',
-    "'Helvetica Neue'",
-    'Arial',
-    "'Noto Sans'",
-    'sans-serif',
-    "'Apple Color Emoji'",
-    "'Segoe UI Emoji'",
-    "'Segoe UI Symbol'",
-    "'Noto Color Emoji'",
-].join(', ');
-
 const INPUT_BORDER_COLOR = '#d9d9d9';
 
 /**
@@ -37,7 +21,9 @@ export const antdTheme: ThemeConfig = {
         colorBgLayout: '#ffffff',
         colorHighlight: '#ece9f8',
 
-        fontFamily: FONT_FAMILY,
+        // antd 4 left font-family to inheritance; antd 5 sets it on every component root, which would
+        // override the V2 layout's Mulish. The body font stack is set in global-overrides.less.
+        fontFamily: 'inherit',
         fontFamilyCode: "'Roboto Mono', Consolas, 'Liberation Mono', Menlo, Courier, monospace",
         fontSize: 12,
         fontSizeSM: 10,
@@ -62,6 +48,11 @@ export const antdTheme: ThemeConfig = {
         InputNumber: { colorBorder: INPUT_BORDER_COLOR },
         Select: { colorBorder: INPUT_BORDER_COLOR },
         DatePicker: { colorBorder: INPUT_BORDER_COLOR },
+        // Modal padding isn't tokenized until antd 6; see global-overrides.less
+        Modal: {
+            titleFontSize: 14,
+            titleLineHeight: 22 / 14,
+        },
         Layout: {
             headerBg: '#ffffff',
             headerColor: '#434343',

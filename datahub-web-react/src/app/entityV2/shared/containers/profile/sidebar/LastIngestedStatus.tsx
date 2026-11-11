@@ -78,11 +78,14 @@ const TooltipSection = styled.div`
 `;
 
 const PreviewImage = styled(Image)`
-    max-height: 9px;
-    width: auto;
-    object-fit: contain;
-    background-color: transparent;
-    padding-left: 1px;
+    /* antd 5 sizes .ant-image .ant-image-img with two classes; && keeps these sizes winning */
+    && {
+        max-height: 9px;
+        width: auto;
+        object-fit: contain;
+        background-color: transparent;
+        padding-left: 1px;
+    }
 `;
 
 function TooltipContent() {

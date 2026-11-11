@@ -29,8 +29,13 @@ const SchemaBlameSelector = styled(Select)`
         line-height: 24px;
         color: ${(props) => props.theme.colors.textSecondary};
         min-width: 30px;
-        margin-right: 10px;
         border-radius: 20px;
+    }
+
+    /* antd 4 counted a 10px selector margin in the select's width and stretched the pill over it;
+       antd 5's flex layout doesn't, so the extra width lives in the item's end padding instead */
+    &&& .ant-select-selection-item {
+        padding-inline-end: 25px;
     }
 `;
 

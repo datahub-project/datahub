@@ -113,26 +113,25 @@ export function Modal({
     ...props
 }: ModalProps & AntModalProps) {
     const hasFooter = footer !== undefined ? footer !== null && footer !== false : Boolean(buttons?.length);
-    const resolvedFooter =
-        footer !== undefined
-            ? footer
-            : !!buttons?.length && (
-                  <ButtonsContainer>
-                      {buttons.map(({ text, variant, onClick, key, buttonDataTestId, ...buttonProps }, index) => (
-                          <Button
-                              key={key || text}
-                              data-testid={buttonDataTestId ?? (dataTestId && `${dataTestId}-${variant}-${index}`)}
-                              variant={variant}
-                              onClick={onClick}
-                              {...buttonProps}
-                          >
-                              <Text type="span" weight="bold" lineHeight="none">
-                                  {text}
-                              </Text>
-                          </Button>
-                      ))}
-                  </ButtonsContainer>
-              );
+    const buttonsFooter = buttons?.length ? (
+        <ButtonsContainer>
+            {buttons.map(({ text, variant, onClick, key, buttonDataTestId, ...buttonProps }, index) => (
+                <Button
+                    key={key || text}
+                    data-testid={buttonDataTestId ?? (dataTestId && `${dataTestId}-${variant}-${index}`)}
+                    variant={variant}
+                    onClick={onClick}
+                    {...buttonProps}
+                >
+                    <Text type="span" weight="bold" lineHeight="none">
+                        {text}
+                    </Text>
+                </Button>
+            ))}
+        </ButtonsContainer>
+    ) : null;
+    // antd 5 only hides the footer for null; false would render an empty footer bar
+    const resolvedFooter = hasFooter ? (footer ?? buttonsFooter) : null;
 
     return (
         <StyledModal

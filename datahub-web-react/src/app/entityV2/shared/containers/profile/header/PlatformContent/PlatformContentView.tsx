@@ -21,10 +21,13 @@ const LogoIcon = styled.span`
 `;
 
 const PreviewImage = styled(Image)`
-    max-height: 17px;
-    width: auto;
-    object-fit: contain;
-    background-color: transparent;
+    /* antd 5 sizes .ant-image .ant-image-img with two classes; && keeps these sizes winning */
+    && {
+        max-height: 17px;
+        width: auto;
+        object-fit: contain;
+        background-color: transparent;
+    }
 `;
 
 const PlatformContentWrapper = styled.div`

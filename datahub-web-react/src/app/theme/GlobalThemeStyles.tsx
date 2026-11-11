@@ -53,19 +53,19 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-modal {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-modal-content {
+    .ant-modal .ant-modal-content {
         background-color: ${(props) => props.theme.colors.bg} !important;
         color: ${(props) => props.theme.colors.text} !important;
         box-shadow: ${(props) => props.theme.colors.shadowLg};
     }
-    .ant-modal-header {
+    .ant-modal .ant-modal-header {
         background-color: ${(props) => props.theme.colors.bg} !important;
         border-bottom-color: ${(props) => props.theme.colors.border};
     }
     .ant-modal-header .ant-modal-title {
         color: ${(props) => props.theme.colors.text} !important;
     }
-    .ant-modal-footer {
+    .ant-modal .ant-modal-footer {
         border-top-color: ${(props) => props.theme.colors.border};
     }
     .ant-modal-body {
@@ -74,11 +74,11 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-modal-close-x {
         color: ${(props) => props.theme.colors.icon} !important;
     }
-    .ant-modal-close:hover,
+    .ant-modal .ant-modal-close:hover,
     .ant-modal-close:focus {
         color: ${(props) => props.theme.colors.iconHover};
     }
-    .ant-modal-mask {
+    .ant-modal-root .ant-modal-mask {
         background-color: ${(props) => props.theme.colors.overlayHeavy};
     }
     .ant-modal-confirm-title {
@@ -133,12 +133,12 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         background-color: ${(props) => props.theme.colors.bgOverlay};
         box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
-    .ant-dropdown-menu .ant-dropdown-menu-item,
+    .ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item,
     .ant-dropdown-menu .ant-dropdown-menu-submenu-title {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-dropdown-menu .ant-dropdown-menu-item:hover,
-    .ant-dropdown-menu .ant-dropdown-menu-submenu-title:hover {
+    .ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item:hover,
+    .ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-submenu-title:hover {
         background-color: ${(props) => props.theme.colors.bgHover};
     }
     .ant-dropdown-menu .ant-dropdown-menu-item-danger,
@@ -148,11 +148,11 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-dropdown-menu .ant-dropdown-menu-item-danger:hover {
         background-color: ${(props) => props.theme.colors.bgSurfaceError} !important;
     }
-    .ant-dropdown-menu .ant-dropdown-menu-item-disabled,
+    .ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item-disabled,
     .ant-dropdown-menu .ant-dropdown-menu-submenu-disabled {
         color: ${(props) => props.theme.colors.textDisabled};
     }
-    .ant-dropdown-menu-item-divider {
+    .ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item-divider {
         background-color: ${(props) => props.theme.colors.border};
     }
     .ant-dropdown-arrow {
@@ -179,13 +179,13 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         color: ${(props) => props.theme.colors.text};
         box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
-    .ant-select-item {
+    .ant-select-dropdown .ant-select-item {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
+    .ant-select-dropdown .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
         background-color: ${(props) => props.theme.colors.bgHover};
     }
-    .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+    .ant-select-dropdown .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
         background-color: ${(props) => props.theme.colors.bgSelected};
         color: ${(props) => props.theme.colors.textSelected};
     }
@@ -203,8 +203,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-input:hover {
         border-color: ${(props) => props.theme.colors.borderHover};
     }
-    .ant-input:focus,
-    .ant-input-focused {
+    .ant-input:focus {
         border-color: ${(props) => props.theme.colors.borderInputFocus};
         box-shadow: ${(props) => props.theme.colors.shadowFocusBrand};
     }
@@ -225,17 +224,17 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-select-selection-item {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-select-selection-placeholder {
+    .ant-select .ant-select-selection-placeholder {
         color: ${(props) => props.theme.colors.textPlaceholder};
     }
-    .ant-select-arrow,
-    .ant-select-clear {
+    .ant-select .ant-select-arrow,
+    .ant-select .ant-select-clear {
         color: ${(props) => props.theme.colors.icon};
     }
-    .ant-select-clear {
+    .ant-select .ant-select-clear {
         background-color: ${(props) => props.theme.colors.bgInput};
     }
-    .ant-select-clear:hover {
+    .ant-select .ant-select-clear:hover {
         color: ${(props) => props.theme.colors.iconHover};
     }
     .ant-select-disabled.ant-select:not(.ant-select-customize-input) .ant-select-selector {
@@ -250,15 +249,15 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-select-single.ant-select-open .ant-select-selection-item {
         color: ${(props) => props.theme.colors.textPlaceholder};
     }
-    .ant-select-multiple .ant-select-selection-item {
+    .ant-select.ant-select-multiple .ant-select-selection-item {
         background-color: ${(props) => props.theme.colors.bgSelectedSubtle};
         border-color: ${(props) => props.theme.colors.border};
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-select-multiple .ant-select-selection-item-remove {
+    .ant-select-multiple .ant-select-selection-overflow .ant-select-selection-item-remove {
         color: ${(props) => props.theme.colors.icon};
     }
-    .ant-select-multiple .ant-select-selection-item-remove:hover {
+    .ant-select-multiple .ant-select-selection-overflow .ant-select-selection-item-remove:hover {
         color: ${(props) => props.theme.colors.iconHover};
     }
     .ant-select:not(.ant-select-disabled):hover .ant-select-selector,
@@ -294,26 +293,24 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-input-affix-wrapper .ant-input {
         background-color: transparent;
     }
-    .ant-input-prefix,
-    .ant-input-suffix,
-    .ant-input-clear-icon {
+    .ant-input-affix-wrapper .ant-input-prefix,
+    .ant-input-affix-wrapper .ant-input-suffix,
+    .ant-input-affix-wrapper .ant-input-clear-icon {
         color: ${(props) => props.theme.colors.icon};
     }
     .ant-input-clear-icon:hover {
         color: ${(props) => props.theme.colors.iconHover};
     }
-    .ant-input-status-error:not(.ant-input-disabled),
-    .ant-input-affix-wrapper-status-error:not(.ant-input-affix-wrapper-disabled) {
+    .ant-input-status-error:not(.ant-input-disabled) {
         border-color: ${(props) => props.theme.colors.borderError};
     }
-    .ant-input-status-warning:not(.ant-input-disabled),
-    .ant-input-affix-wrapper-status-warning:not(.ant-input-affix-wrapper-disabled) {
+    .ant-input-status-warning:not(.ant-input-disabled) {
         border-color: ${(props) => props.theme.colors.borderWarning};
     }
     .ant-input-status-error:not(.ant-input-disabled):focus,
-    .ant-input-affix-wrapper-status-error.ant-input-affix-wrapper-focused,
+    .ant-input-status-error.ant-input-affix-wrapper-focused,
     .ant-input-status-warning:not(.ant-input-disabled):focus,
-    .ant-input-affix-wrapper-status-warning.ant-input-affix-wrapper-focused {
+    .ant-input-status-warning.ant-input-affix-wrapper-focused {
         box-shadow: ${(props) => props.theme.colors.shadowFocus};
     }
 
@@ -346,27 +343,27 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-table-tbody > tr.ant-table-row-selected:hover > td {
         background-color: ${(props) => props.theme.colors.bgSelected} !important;
     }
-    .ant-table-footer,
-    .ant-table-summary {
+    .ant-table-wrapper .ant-table-footer,
+    .ant-table-wrapper .ant-table-summary {
         background-color: ${(props) => props.theme.colors.bgSurface};
         color: ${(props) => props.theme.colors.text};
     }
     .ant-table-filter-trigger,
-    .ant-table-column-sorter {
+    .ant-table-wrapper .ant-table-column-sorter {
         color: ${(props) => props.theme.colors.icon};
     }
-    .ant-table-filter-trigger:hover,
-    .ant-table-filter-trigger.active,
-    .ant-table-column-sorter-up.active,
-    .ant-table-column-sorter-down.active {
+    .ant-table-wrapper .ant-table-filter-trigger:hover,
+    .ant-table-wrapper .ant-table-filter-trigger.active,
+    .ant-table-wrapper .ant-table-column-sorter-up.active,
+    .ant-table-wrapper .ant-table-column-sorter-down.active {
         color: ${(props) => props.theme.colors.iconHover};
     }
-    .ant-table-filter-dropdown {
+    .ant-dropdown .ant-table-filter-dropdown {
         background-color: ${(props) => props.theme.colors.bg};
         color: ${(props) => props.theme.colors.text};
         box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
-    .ant-table-row-expand-icon {
+    .ant-table-wrapper .ant-table-row-expand-icon {
         background-color: ${(props) => props.theme.colors.bg};
         border-color: ${(props) => props.theme.colors.border};
         color: ${(props) => props.theme.colors.textBrand};
@@ -375,8 +372,8 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-table-expanded-row:hover > td {
         background-color: ${(props) => props.theme.colors.bgSurface} !important;
     }
-    .ant-table-sticky-holder,
-    .ant-table-sticky-scroll {
+    .ant-table-wrapper .ant-table-sticky-holder,
+    .ant-table-wrapper .ant-table-sticky-scroll {
         background-color: ${(props) => props.theme.colors.bg};
     }
 
@@ -393,11 +390,11 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-card-grid:hover {
         box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
-    .ant-card-head {
+    .ant-card .ant-card-head {
         color: ${(props) => props.theme.colors.text};
         border-bottom-color: ${(props) => props.theme.colors.border};
     }
-    .ant-card-actions {
+    .ant-card .ant-card-actions {
         background-color: ${(props) => props.theme.colors.bgSurface};
         border-top-color: ${(props) => props.theme.colors.border};
     }
@@ -407,13 +404,13 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-card-actions > li:not(:last-child) {
         border-right-color: ${(props) => props.theme.colors.border};
     }
-    .ant-card-meta-title {
+    .ant-card .ant-card-meta-title {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-card-meta-description {
+    .ant-card .ant-card-meta-description {
         color: ${(props) => props.theme.colors.textSecondary};
     }
-    .ant-card-extra {
+    .ant-card .ant-card-extra {
         color: ${(props) => props.theme.colors.text};
     }
     .ant-card-type-inner .ant-card-head {
@@ -424,25 +421,27 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-popover {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-popover-inner {
+    .ant-popover .ant-popover-inner {
         background-color: ${(props) => props.theme.colors.bgOverlay};
         box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
-    .ant-popover-inner-content {
+    .ant-popover .ant-popover-inner-content {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-popover-title {
+    .ant-popover .ant-popover-title {
         color: ${(props) => props.theme.colors.text};
         border-bottom-color: ${(props) => props.theme.colors.border};
     }
-    .ant-popover-arrow-content {
-        background-color: ${(props) => props.theme.colors.bgOverlay};
-        box-shadow: ${(props) => props.theme.colors.shadowSm};
+    /* antd 5 draws popover and tooltip arrows from this variable instead of an arrow-content element */
+    .ant-popover,
+    .ant-tooltip {
+        --antd-arrow-background-color: ${(props) => props.theme.colors.bgOverlay};
     }
-    .ant-popover-message {
+    .ant-popconfirm .ant-popconfirm-message .ant-popconfirm-title,
+    .ant-popconfirm .ant-popconfirm-message .ant-popconfirm-description {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-popover-message > .anticon {
+    .ant-popconfirm .ant-popconfirm-message > .ant-popconfirm-message-icon .anticon {
         color: ${(props) => props.theme.colors.iconWarning};
     }
 
@@ -453,27 +452,27 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-tabs-tab {
         color: ${(props) => props.theme.colors.textSecondary};
     }
-    .ant-tabs-tab:hover {
+    .ant-tabs .ant-tabs-tab:hover {
         color: ${(props) => props.theme.colors.textHover};
     }
-    .ant-tabs-tab-active .ant-tabs-tab-btn {
+    .ant-tabs .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
         color: ${(props) => props.theme.colors.textBrand};
     }
-    .ant-tabs-tab.ant-tabs-tab-disabled,
+    .ant-tabs .ant-tabs-tab.ant-tabs-tab-disabled,
     .ant-tabs-tab.ant-tabs-tab-disabled .ant-tabs-tab-btn {
         color: ${(props) => props.theme.colors.textDisabled};
     }
     .ant-tabs-nav::before {
         border-bottom-color: ${(props) => props.theme.colors.border} !important;
     }
-    .ant-tabs-ink-bar {
+    .ant-tabs .ant-tabs-ink-bar {
         background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
-    .ant-tabs-dropdown-menu {
+    .ant-tabs-dropdown .ant-tabs-dropdown-menu {
         background-color: ${(props) => props.theme.colors.bg};
         box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
-    .ant-tabs-dropdown-menu-item:hover {
+    .ant-tabs-dropdown .ant-tabs-dropdown-menu-item:hover {
         background-color: ${(props) => props.theme.colors.bgHover};
     }
     .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab,
@@ -497,13 +496,13 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-list-item-meta-title > a {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-list-item-meta-description {
+    .ant-list .ant-list-item .ant-list-item-meta .ant-list-item-meta-description {
         color: ${(props) => props.theme.colors.textSecondary};
     }
     .ant-list-bordered {
         border-color: ${(props) => props.theme.colors.border};
     }
-    .ant-list-item-action-split {
+    .ant-list .ant-list-item .ant-list-item-action .ant-list-item-action-split {
         background-color: ${(props) => props.theme.colors.border};
     }
 
@@ -529,7 +528,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-menu-item-disabled a {
         color: ${(props) => props.theme.colors.textDisabled} !important;
     }
-    .ant-menu-item-divider {
+    .ant-menu .ant-menu-item-divider {
         border-color: ${(props) => props.theme.colors.border};
     }
     .ant-menu-item-group-title {
@@ -638,30 +637,30 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     body .ant-typography a.ant-typography-disabled {
         color: ${(props) => props.theme.colors.textDisabled};
     }
-    body .ant-typography-expand,
-    body .ant-typography-edit,
-    body .ant-typography-copy {
+    .ant-typography .ant-typography-expand,
+    .ant-typography .ant-typography-edit,
+    .ant-typography .ant-typography-copy {
         color: ${(props) => props.theme.colors.icon};
     }
-    body .ant-typography-expand:hover,
+    .ant-typography .ant-typography-expand:hover,
     body .ant-typography-expand:focus-visible,
-    body .ant-typography-edit:hover,
+    .ant-typography .ant-typography-edit:hover,
     body .ant-typography-edit:focus-visible,
-    body .ant-typography-copy:hover,
+    .ant-typography .ant-typography-copy:hover,
     body .ant-typography-copy:focus-visible {
         color: ${(props) => props.theme.colors.iconHover};
     }
-    body .ant-typography-expand:active,
-    body .ant-typography-edit:active,
-    body .ant-typography-copy:active {
+    .ant-typography .ant-typography-expand:active,
+    .ant-typography .ant-typography-edit:active,
+    .ant-typography .ant-typography-copy:active {
         color: ${(props) => props.theme.colors.textActive};
     }
-    body .ant-typography-copy-success,
-    body .ant-typography-copy-success:hover,
-    body .ant-typography-copy-success:focus {
+    .ant-typography .ant-typography-copy-success,
+    .ant-typography .ant-typography-copy-success:hover,
+    .ant-typography .ant-typography-copy-success:focus {
         color: ${(props) => props.theme.colors.textSuccess};
     }
-    body .ant-typography-edit-content-confirm {
+    .ant-typography-edit-content .ant-typography-edit-content-confirm {
         color: ${(props) => props.theme.colors.textTertiary};
     }
     body .ant-typography code,
@@ -775,31 +774,31 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         color: ${(props) => props.theme.colors.text};
     }
     .ant-form-item-label > label.ant-form-item-required:not(.ant-form-item-required-mark-optional)::before,
-    .ant-form-item-explain-error {
+    .ant-form-item .ant-form-item-explain-error {
         color: ${(props) => props.theme.colors.textError};
     }
-    .ant-form-item-extra,
-    .ant-form-item-explain,
+    .ant-form-item .ant-form-item-extra,
+    .ant-form-item .ant-form-item-explain,
     .ant-form-text {
         color: ${(props) => props.theme.colors.textSecondary};
     }
-    .ant-form-item-explain-warning,
+    .ant-form-item .ant-form-item-explain-warning,
     .ant-form-item-has-warning .ant-form-item-split {
         color: ${(props) => props.theme.colors.textWarning};
     }
     .ant-form-item-has-error .ant-form-item-split {
         color: ${(props) => props.theme.colors.textError};
     }
-    .ant-form-item-feedback-icon-success {
+    .ant-form-item .ant-form-item-feedback-icon-success {
         color: ${(props) => props.theme.colors.iconSuccess};
     }
-    .ant-form-item-feedback-icon-error {
+    .ant-form-item .ant-form-item-feedback-icon-error {
         color: ${(props) => props.theme.colors.iconError};
     }
-    .ant-form-item-feedback-icon-warning {
+    .ant-form-item .ant-form-item-feedback-icon-warning {
         color: ${(props) => props.theme.colors.iconWarning};
     }
-    .ant-form-item-feedback-icon-validating {
+    .ant-form-item .ant-form-item-feedback-icon-validating {
         color: ${(props) => props.theme.colors.iconBrand};
     }
 
@@ -848,7 +847,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     }
 
     /* ── Radio ────────────────────────────────────────────── */
-    .ant-radio,
+    .ant-radio-wrapper .ant-radio,
     .ant-radio-wrapper,
     .ant-radio-group {
         color: ${(props) => props.theme.colors.text};
@@ -868,7 +867,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-radio-inner::after {
         background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
-    .ant-radio-checked::after {
+    .ant-radio-wrapper .ant-radio-checked::after {
         border-color: ${(props) => props.theme.colors.borderBrand};
     }
     .ant-radio-disabled .ant-radio-inner {
@@ -945,26 +944,26 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     }
 
     /* ── Drawer ───────────────────────────────────────────── */
-    .ant-drawer-mask {
+    .ant-drawer .ant-drawer-mask {
         background-color: ${(props) => props.theme.colors.overlayHeavy};
     }
-    .ant-drawer-content {
+    .ant-drawer .ant-drawer-content {
         background-color: ${(props) => props.theme.colors.bg};
     }
-    .ant-drawer-header {
+    .ant-drawer .ant-drawer-header {
         background-color: ${(props) => props.theme.colors.bg};
         border-bottom-color: ${(props) => props.theme.colors.border};
     }
     .ant-drawer-title {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-drawer-close {
+    .ant-drawer .ant-drawer-close {
         color: ${(props) => props.theme.colors.icon};
     }
-    .ant-drawer-close:hover {
+    .ant-drawer .ant-drawer-close:hover {
         color: ${(props) => props.theme.colors.iconHover};
     }
-    .ant-drawer-footer {
+    .ant-drawer .ant-drawer-footer {
         border-top-color: ${(props) => props.theme.colors.border};
     }
     .ant-drawer-content-wrapper {
@@ -1124,7 +1123,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-pagination-item a {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-pagination-item-active {
+    .ant-pagination .ant-pagination-item-active {
         background-color: ${(props) => props.theme.colors.bgSelectedSubtle};
         border-color: ${(props) => props.theme.colors.borderBrand};
     }
@@ -1138,7 +1137,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         border-color: ${(props) => props.theme.colors.border};
     }
     .ant-pagination-disabled .ant-pagination-item-link,
-    .ant-pagination-disabled:hover .ant-pagination-item-link {
+    .ant-pagination .ant-pagination-disabled:hover .ant-pagination-item-link {
         background-color: ${(props) => props.theme.colors.bgSurfaceDisabled};
         border-color: ${(props) => props.theme.colors.borderDisabled};
         color: ${(props) => props.theme.colors.textDisabled};
@@ -1150,14 +1149,14 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     /* antd paints the jump-page ellipsis with a translucent black that disappears on the dark-mode
        surface. Match the page numbers beside it instead. The full descendant chain is needed to
        reach antd's own specificity. */
-    .ant-pagination-jump-prev .ant-pagination-item-container .ant-pagination-item-ellipsis,
-    .ant-pagination-jump-next .ant-pagination-item-container .ant-pagination-item-ellipsis {
+    .ant-pagination .ant-pagination-jump-prev .ant-pagination-item-container .ant-pagination-item-ellipsis,
+    .ant-pagination .ant-pagination-jump-next .ant-pagination-item-container .ant-pagination-item-ellipsis {
         color: ${(props) => props.theme.colors.text};
     }
     /* The double-arrow swapped in on hover has the same problem: antd hardcodes it to the compiled
        primary, which is too dark to read against the dark-mode surface. */
-    .ant-pagination-jump-prev .ant-pagination-item-container .ant-pagination-item-link-icon,
-    .ant-pagination-jump-next .ant-pagination-item-container .ant-pagination-item-link-icon {
+    .ant-pagination .ant-pagination-jump-prev .ant-pagination-item-container .ant-pagination-item-link-icon,
+    .ant-pagination .ant-pagination-jump-next .ant-pagination-item-container .ant-pagination-item-link-icon {
         color: ${(props) => props.theme.colors.textBrand};
     }
     .ant-pagination-options-quick-jumper input {
@@ -1178,12 +1177,12 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-breadcrumb a {
         color: ${(props) => props.theme.colors.textSecondary};
     }
-    .ant-breadcrumb-separator {
+    .ant-breadcrumb .ant-breadcrumb-separator {
         color: ${(props) => props.theme.colors.textTertiary};
     }
 
     /* ── Badge ────────────────────────────────────────────── */
-    .ant-badge-count {
+    .ant-badge .ant-badge-count {
         background-color: ${(props) => props.theme.colors.buttonFillBrand};
         color: ${(props) => props.theme.colors.textOnFillBrand};
         box-shadow: 0 0 0 1px ${(props) => props.theme.colors.bg};
@@ -1192,29 +1191,29 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-badge-count a {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-badge-dot {
+    .ant-badge .ant-badge-dot {
         background-color: ${(props) => props.theme.colors.iconError};
         box-shadow: 0 0 0 1px ${(props) => props.theme.colors.bg};
     }
-    .ant-badge-status-text {
+    .ant-badge.ant-badge-status .ant-badge-status-text {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-badge-status-default {
+    .ant-badge.ant-badge-status .ant-badge-status-default {
         background-color: ${(props) => props.theme.colors.icon};
     }
-    .ant-badge-status-processing {
+    .ant-badge.ant-badge-status .ant-badge-status-processing {
         background-color: ${(props) => props.theme.colors.iconInformation};
     }
-    .ant-badge-status-processing::after {
+    .ant-badge.ant-badge-status .ant-badge-status-processing::after {
         border-color: ${(props) => props.theme.colors.borderInformation};
     }
-    .ant-badge-status-success {
+    .ant-badge.ant-badge-status .ant-badge-status-success {
         background-color: ${(props) => props.theme.colors.iconSuccess};
     }
-    .ant-badge-status-error {
+    .ant-badge.ant-badge-status .ant-badge-status-error {
         background-color: ${(props) => props.theme.colors.iconError};
     }
-    .ant-badge-status-warning {
+    .ant-badge.ant-badge-status .ant-badge-status-warning {
         background-color: ${(props) => props.theme.colors.iconWarning};
     }
 
@@ -1233,7 +1232,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-collapse > .ant-collapse-item > .ant-collapse-header {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-collapse-content {
+    .ant-collapse .ant-collapse-content {
         background-color: ${(props) => props.theme.colors.bg};
         border-top-color: ${(props) => props.theme.colors.border};
         color: ${(props) => props.theme.colors.text};
@@ -1252,7 +1251,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-steps {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-steps-item-subtitle {
+    .ant-steps .ant-steps-item-subtitle {
         color: ${(props) => props.theme.colors.textSecondary};
     }
     .ant-steps-item-description {
@@ -1286,7 +1285,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-steps-item-tail::after {
         background-color: ${(props) => props.theme.colors.border};
     }
-    .ant-steps-item-finish > .ant-steps-item-container > .ant-steps-item-tail::after {
+    .ant-steps .ant-steps-item-finish > .ant-steps-item-container > .ant-steps-item-tail::after {
         background-color: ${(props) => props.theme.colors.borderBrand};
     }
     .ant-steps-item-wait .ant-steps-item-title,
@@ -1296,39 +1295,27 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-steps-item-title::after {
         background-color: ${(props) => props.theme.colors.border};
     }
-    .ant-steps-navigation .ant-steps-item::before {
+    .ant-steps.ant-steps-navigation .ant-steps-item::before {
         background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
 
     /* ── Empty ────────────────────────────────────────────── */
-    .ant-empty-description {
+    .ant-empty .ant-empty-description {
         color: ${(props) => props.theme.colors.textSecondary};
     }
     .ant-empty-normal,
     .ant-empty-small {
         color: ${(props) => props.theme.colors.textDisabled};
     }
-    .ant-empty-img-default-ellipse,
-    .ant-empty-img-simple-ellipse {
+    /* antd 5's Empty illustrations carry no classes; their fills are inline light-theme colors */
+    .ant-empty .ant-empty-image svg ellipse {
         fill: ${(props) => props.theme.colors.bgSurfaceDisabled};
     }
-    .ant-empty-img-default-path-1 {
-        fill: ${(props) => props.theme.colors.iconDisabled};
-    }
-    .ant-empty-img-default-path-2 {
-        fill: ${(props) => props.theme.colors.bgSkeleton};
-    }
-    .ant-empty-img-default-path-3,
-    .ant-empty-img-default-path-4,
-    .ant-empty-img-default-path-5,
-    .ant-empty-img-simple-path {
-        fill: ${(props) => props.theme.colors.bgSurface};
-    }
-    .ant-empty-img-default-g {
-        fill: ${(props) => props.theme.colors.bg};
-    }
-    .ant-empty-img-simple-g {
+    .ant-empty .ant-empty-image svg g[fill-rule='nonzero'] {
         stroke: ${(props) => props.theme.colors.border};
+    }
+    .ant-empty .ant-empty-image svg g[fill-rule='nonzero'] path:last-child {
+        fill: ${(props) => props.theme.colors.bgSurface};
     }
 
     /* ── Skeleton ─────────────────────────────────────────── */
@@ -1346,10 +1333,11 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         );
         background-size: 400% 100%;
     }
-    .ant-skeleton-avatar,
-    .ant-skeleton-button,
-    .ant-skeleton-input,
-    .ant-skeleton-image {
+    .ant-skeleton .ant-skeleton-header .ant-skeleton-avatar,
+    .ant-skeleton.ant-skeleton-element .ant-skeleton-avatar,
+    .ant-skeleton.ant-skeleton-element .ant-skeleton-button,
+    .ant-skeleton.ant-skeleton-element .ant-skeleton-input,
+    .ant-skeleton.ant-skeleton-element .ant-skeleton-image {
         background-color: ${(props) => props.theme.colors.bgSkeleton};
     }
     .ant-skeleton-image-svg,
@@ -1357,16 +1345,18 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         color: ${(props) => props.theme.colors.iconDisabled};
         fill: ${(props) => props.theme.colors.iconDisabled};
     }
-    .ant-skeleton-active .ant-skeleton-avatar::after,
-    .ant-skeleton-active .ant-skeleton-button::after,
-    .ant-skeleton-active .ant-skeleton-input::after,
-    .ant-skeleton-active .ant-skeleton-image::after {
+    /* antd 5 animates the shimmer on the element itself rather than an ::after overlay */
+    .ant-skeleton.ant-skeleton-active .ant-skeleton-avatar,
+    .ant-skeleton.ant-skeleton-active .ant-skeleton-button,
+    .ant-skeleton.ant-skeleton-active .ant-skeleton-input,
+    .ant-skeleton.ant-skeleton-active .ant-skeleton-image {
         background: linear-gradient(
             90deg,
             ${(props) => props.theme.colors.bgSkeleton} 25%,
             ${(props) => props.theme.colors.bgSkeletonShimmer} 37%,
             ${(props) => props.theme.colors.bgSkeleton} 63%
         );
+        background-size: 400% 100%;
     }
 
     /* ── Notification ─────────────────────────────────────── */
@@ -1449,10 +1439,10 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-spin {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-spin-dot-item {
+    .ant-spin .ant-spin-dot-item {
         background-color: ${(props) => props.theme.colors.iconBrand};
     }
-    .ant-spin-container::after {
+    .ant-spin-nested-loading .ant-spin-container::after {
         background-color: ${(props) => props.theme.colors.overlayLight};
     }
 
@@ -1463,7 +1453,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-switch.ant-switch-checked {
         background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     }
-    .ant-switch-handle::before {
+    .ant-switch .ant-switch-handle::before {
         background-color: ${(props) => props.theme.colors.bg};
         box-shadow: ${(props) => props.theme.colors.shadowSm};
     }
@@ -1487,14 +1477,10 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     }
 
     /* ── Tooltip ──────────────────────────────────────────── */
-    .ant-tooltip-inner {
+    .ant-tooltip .ant-tooltip-inner {
         background-color: ${(props) => props.theme.colors.bgOverlay};
         color: ${(props) => props.theme.colors.text};
         box-shadow: ${(props) => props.theme.colors.shadowMd};
-    }
-    .ant-tooltip-arrow-content {
-        background-color: ${(props) => props.theme.colors.bgOverlay};
-        box-shadow: ${(props) => props.theme.colors.shadowSm};
     }
 
     /* ── Segmented ────────────────────────────────────────── */
@@ -1502,7 +1488,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         background-color: ${(props) => props.theme.colors.bgSurface};
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-segmented-item-selected {
+    .ant-segmented .ant-segmented-item-selected {
         background-color: ${(props) => props.theme.colors.bg};
         color: ${(props) => props.theme.colors.text};
     }
@@ -1560,16 +1546,16 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-picker-input-placeholder > input {
         color: ${(props) => props.theme.colors.textPlaceholder};
     }
-    .ant-picker-suffix,
-    .ant-picker-separator,
-    .ant-picker-clear,
+    .ant-picker .ant-picker-suffix,
+    .ant-picker .ant-picker-separator,
+    .ant-picker .ant-picker-clear,
     .ant-picker.ant-picker-disabled .ant-picker-suffix {
         color: ${(props) => props.theme.colors.icon};
     }
-    .ant-picker-clear {
+    .ant-picker .ant-picker-clear {
         background-color: ${(props) => props.theme.colors.bgInput};
     }
-    .ant-picker-clear:hover,
+    .ant-picker .ant-picker-clear:hover,
     .ant-picker-focused .ant-picker-separator {
         color: ${(props) => props.theme.colors.iconHover};
     }
@@ -1577,30 +1563,30 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
     .ant-picker-dropdown,
-    .ant-picker-header,
+    .ant-picker-calendar .ant-picker-header,
     .ant-picker-content th,
     .ant-picker-time-panel-cell-inner {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-picker-panel-container,
+    .ant-picker-dropdown .ant-picker-panel-container,
     .ant-picker-panel {
         background-color: ${(props) => props.theme.colors.bg};
         border-color: ${(props) => props.theme.colors.border};
     }
-    .ant-picker-panel-container {
+    .ant-picker-dropdown .ant-picker-panel-container {
         box-shadow: ${(props) => props.theme.colors.shadowLg};
     }
     .ant-picker-range-arrow {
         box-shadow: ${(props) => props.theme.colors.shadowSm};
     }
-    .ant-picker-range-arrow::before {
+    .ant-picker-dropdown .ant-picker-range-arrow::before {
         background-color: ${(props) => props.theme.colors.bg};
     }
-    .ant-picker-header,
+    .ant-picker-calendar .ant-picker-header,
     .ant-picker-panel .ant-picker-footer,
-    .ant-picker-footer-extra:not(:last-child),
-    .ant-picker-datetime-panel .ant-picker-time-panel,
-    .ant-picker-time-panel-column:not(:first-child) {
+    .ant-picker-dropdown .ant-picker-footer-extra:not(:last-child),
+    .ant-picker-calendar .ant-picker-datetime-panel .ant-picker-time-panel,
+    .ant-picker-calendar .ant-picker-time-panel-column:not(:first-child) {
         border-color: ${(props) => props.theme.colors.border};
     }
     .ant-picker-header button {
@@ -1610,10 +1596,10 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-picker-header-view button:hover {
         color: ${(props) => props.theme.colors.iconHover};
     }
-    .ant-picker-cell {
+    .ant-picker-calendar .ant-picker-cell {
         color: ${(props) => props.theme.colors.textDisabled};
     }
-    .ant-picker-cell-in-view {
+    .ant-picker-calendar .ant-picker-cell-in-view {
         color: ${(props) => props.theme.colors.text};
     }
     body
@@ -1631,7 +1617,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-picker-cell-in-view.ant-picker-cell-in-range::before,
     .ant-picker-cell-in-view.ant-picker-cell-range-start:not(.ant-picker-cell-range-start-single)::before,
     .ant-picker-cell-in-view.ant-picker-cell-range-end:not(.ant-picker-cell-range-end-single)::before,
-    .ant-picker-time-panel-column-active,
+    .ant-picker-calendar .ant-picker-time-panel-column-active,
     .ant-picker-time-panel-cell-selected .ant-picker-time-panel-cell-inner {
         background-color: ${(props) => props.theme.colors.bgSelectedSubtle};
     }
@@ -1661,40 +1647,40 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         .ant-picker-cell-inner::after {
         background-color: ${(props) => props.theme.colors.bgSelected};
     }
-    .ant-picker-cell-disabled,
+    .ant-picker-calendar .ant-picker-cell-disabled,
     .ant-picker-time-panel-cell-disabled .ant-picker-time-panel-cell-inner,
-    .ant-picker-today-btn.ant-picker-today-btn-disabled {
+    .ant-picker-dropdown .ant-picker-ranges .ant-picker-now-btn-disabled {
         color: ${(props) => props.theme.colors.textDisabled};
     }
-    .ant-picker-cell-disabled::before {
+    .ant-picker-calendar .ant-picker-cell-disabled::before {
         background-color: ${(props) => props.theme.colors.bgDisabled};
     }
     .ant-picker-cell-disabled.ant-picker-cell-today .ant-picker-cell-inner::before {
         border-color: ${(props) => props.theme.colors.borderDisabled};
     }
-    .ant-picker-today-btn {
+    .ant-picker-dropdown .ant-picker-ranges .ant-picker-now-btn {
         color: ${(props) => props.theme.colors.textBrand};
     }
-    .ant-picker-today-btn:hover {
+    .ant-picker-dropdown .ant-picker-ranges .ant-picker-now-btn:hover {
         color: ${(props) => props.theme.colors.textHover};
     }
-    .ant-picker-today-btn:active {
+    .ant-picker-dropdown .ant-picker-ranges .ant-picker-now-btn:active {
         color: ${(props) => props.theme.colors.textActive};
     }
-    .ant-picker-ranges .ant-picker-preset > .ant-tag-blue {
+    .ant-picker-dropdown .ant-picker-ranges .ant-picker-preset > .ant-tag-blue {
         background-color: ${(props) => props.theme.colors.tagsTrueBlueBg};
         border-color: ${(props) => props.theme.colors.tagsTrueBlueBorder};
         color: ${(props) => props.theme.colors.tagsTrueBlueText};
     }
 
     /* ── Result ───────────────────────────────────────────── */
-    .ant-result-title {
+    .ant-result .ant-result-title {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-result-subtitle {
+    .ant-result .ant-result-subtitle {
         color: ${(props) => props.theme.colors.textSecondary};
     }
-    .ant-result-content {
+    .ant-result .ant-result-content {
         background-color: ${(props) => props.theme.colors.bgSurface};
     }
     .ant-result-success .ant-result-icon > .anticon {
@@ -1720,19 +1706,19 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-timeline-item-head {
         background-color: ${(props) => props.theme.colors.bg};
     }
-    .ant-timeline-item-head-blue {
+    .ant-timeline .ant-timeline-item-head-blue {
         border-color: ${(props) => props.theme.colors.borderInformation};
         color: ${(props) => props.theme.colors.iconInformation};
     }
-    .ant-timeline-item-head-red {
+    .ant-timeline .ant-timeline-item-head-red {
         border-color: ${(props) => props.theme.colors.borderError};
         color: ${(props) => props.theme.colors.iconError};
     }
-    .ant-timeline-item-head-green {
+    .ant-timeline .ant-timeline-item-head-green {
         border-color: ${(props) => props.theme.colors.borderSuccess};
         color: ${(props) => props.theme.colors.iconSuccess};
     }
-    .ant-timeline-item-head-gray {
+    .ant-timeline .ant-timeline-item-head-gray {
         border-color: ${(props) => props.theme.colors.borderDisabled};
         color: ${(props) => props.theme.colors.iconDisabled};
     }
@@ -1743,22 +1729,22 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-progress-circle .ant-progress-text {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-progress-steps-item,
+    .ant-progress .ant-progress-steps-item,
     .ant-progress-inner {
         background-color: ${(props) => props.theme.colors.bgSurfaceDisabled};
     }
-    .ant-progress-circle-trail {
+    .ant-progress .ant-progress-circle-trail {
         stroke: ${(props) => props.theme.colors.bgSurfaceDisabled};
     }
-    .ant-progress-steps-item-active,
-    .ant-progress-success-bg,
+    .ant-progress .ant-progress-steps-item-active,
+    .ant-progress .ant-progress-success-bg,
     .ant-progress-bg {
         background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
     .ant-progress-inner:not(.ant-progress-circle-gradient) .ant-progress-circle-path {
         stroke: ${(props) => props.theme.colors.buttonFillBrand};
     }
-    .ant-progress-status-active .ant-progress-bg::before {
+    .ant-progress.ant-progress-status-active .ant-progress-bg::before {
         background-color: ${(props) => props.theme.colors.overlayOnBrand};
     }
     .ant-progress-status-exception .ant-progress-bg {
@@ -1767,7 +1753,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-progress-status-exception .ant-progress-text {
         color: ${(props) => props.theme.colors.textError};
     }
-    .ant-progress-status-exception .ant-progress-inner:not(.ant-progress-circle-gradient) .ant-progress-circle-path {
+    .ant-progress.ant-progress-status-exception .ant-progress-inner:not(.ant-progress-circle-gradient) .ant-progress-circle-path {
         stroke: ${(props) => props.theme.colors.iconError};
     }
     .ant-progress-status-success .ant-progress-bg {
@@ -1776,7 +1762,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-progress-status-success .ant-progress-text {
         color: ${(props) => props.theme.colors.textSuccess};
     }
-    .ant-progress-status-success .ant-progress-inner:not(.ant-progress-circle-gradient) .ant-progress-circle-path {
+    .ant-progress.ant-progress-status-success .ant-progress-inner:not(.ant-progress-circle-gradient) .ant-progress-circle-path {
         stroke: ${(props) => props.theme.colors.iconSuccess};
     }
 
@@ -1790,15 +1776,15 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     }
 
     /* ── Image preview ────────────────────────────────────── */
-    .ant-image-img-placeholder {
+    .ant-image .ant-image-img-placeholder {
         background-color: ${(props) => props.theme.colors.bgSkeleton};
         background-image: none;
     }
-    .ant-image-mask {
+    .ant-image .ant-image-mask {
         background-color: ${(props) => props.theme.colors.overlayMedium};
         color: ${(props) => props.theme.colors.textOnFillDefault};
     }
-    .ant-image-preview-mask {
+    .ant-image-preview-root .ant-image-preview-mask {
         background-color: ${(props) => props.theme.colors.overlayHeavy};
     }
     .ant-image-preview-operations,

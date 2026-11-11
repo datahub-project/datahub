@@ -1,14 +1,15 @@
 import { BADGE, defaultBadgesConfig } from '@geometricpanda/storybook-addon-badges';
 import { DocsContainer } from '@storybook/blocks';
 import { ConfigProvider } from 'antd';
-// FYI: import of antd styles required to show components based on it correctly
-import 'antd/dist/antd.css';
+// antd 5 styles itself at runtime; reset.css supplies the base element styles it expects
+import 'antd/dist/reset.css';
 import React, { useEffect } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { ThemeProvider, createGlobalStyle } from 'styled-components';
 
 import { LOCALE_MAP } from '../src/app/i18n/constants';
 import { isSupportedLanguage } from '../src/app/i18n/utils';
+import { antdTheme } from '../src/alchemy-components/theme/antdTheme';
 import GlobalThemeStyles from '../src/app/theme/GlobalThemeStyles';
 import themes from '../src/conf/theme/themes';
 import dayjs from '../src/utils/dayjs';
@@ -29,7 +30,11 @@ const LocaleProvider = ({ locale, children }: { locale: string; children: React.
         }
         dayjs.locale(localeConfig.dayjs);
     }, [localeConfig.lang, localeConfig.dayjs]);
-    return <ConfigProvider locale={localeConfig.antd}>{children}</ConfigProvider>;
+    return (
+        <ConfigProvider locale={localeConfig.antd} theme={antdTheme}>
+            {children}
+        </ConfigProvider>
+    );
 };
 
 // Storybook's canvas is always white, so a dark story would otherwise render its
