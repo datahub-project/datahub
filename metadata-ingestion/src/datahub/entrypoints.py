@@ -274,11 +274,6 @@ def _validate_init_inputs(
 
 
 @datahub.command(cls=_make_agent_aware_command("INIT_AGENT_CONTEXT.md"))
-@click.option(
-    "--profile",
-    type=str,
-    help="Profile to initialize. Never changes the active profile.",
-)
 @click.option("--description", type=str, help="Description shown in profile list.")
 @click.option(
     "--use-password",
@@ -386,12 +381,14 @@ def init(
     support: bool = False,
     ticket_id: Optional[str] = None,
     agent_context: bool = False,
-    profile: Optional[str] = None,
     description: Optional[str] = None,
 ) -> None:
     """Configure which DataHub instance to connect to.
 
     Supports both interactive and non-interactive modes for flexibility in different environments.
+
+    The global --profile <name> option selects the profile to create or update
+    (~/.datahub/profiles/<name>/.datahubenv). It never changes the active profile.
 
     \b
     Quickstart (local DataHub instance with default credentials):
@@ -480,7 +477,7 @@ def init(
         use_password, token, username, password, token_duration, sso=sso, oauth=oauth
     )
 
-    resolved = resolve_profile(profile, allow_create=True, for_init=True)
+    resolved = resolve_profile(allow_create=True, for_init=True)
     if resolved.path.is_file() and not force and sys.stdin.isatty():
         click.confirm(f"{resolved.path} already exists. Overwrite?", abort=True)
 

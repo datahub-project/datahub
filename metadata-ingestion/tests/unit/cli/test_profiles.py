@@ -22,7 +22,7 @@ from datahub.cli.config_utils import (
     write_oauth_config,
 )
 from datahub.cli.profile_cli import profile, with_profile_target
-from datahub.entrypoints import datahub, init, lift_profile_args
+from datahub.entrypoints import datahub, init, lift_profile_args, main
 
 
 @pytest.fixture(autouse=True)
@@ -509,3 +509,31 @@ def test_secret_refs_and_chunking_follow_selected_profile(
         token = _get_default_gms_token()
         assert token is not None and token.get_secret_value() == "acme-token"
     assert DatahubEnvResolver().resolve("DATAHUB_GMS_URL") == "http://localhost:8080"
+
+
+def test_init_profile_through_main_entrypoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # main() forces the "spawn" start method process-wide; keep that out of
+    # the rest of the test session.
+    monkeypatch.setattr("multiprocessing.set_start_method", Mock())
+    with pytest.raises(SystemExit) as exc:
+        main(
+            [
+                "init",
+                "--profile",
+                "acme",
+                "--host",
+                "https://acme.example.com/gms",
+                "--token",
+                "tok",
+            ]
+        )
+    assert exc.value.code in (0, None)
+    assert stored_server_of("acme") == "https://acme.example.com/gms"
+    assert not profile_path("default").exists()
+    assert not config_utils.current_profile_path().exists()
+
+
+def stored_server_of(name: str) -> str:
+    return yaml.safe_load(profile_path(name).read_text())["gms"]["server"]
