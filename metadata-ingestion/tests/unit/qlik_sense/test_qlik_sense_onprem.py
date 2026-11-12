@@ -29,7 +29,10 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     ScriptTableLineage,
     infer_data_connection,
 )
-from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
+from datahub.ingestion.source.qlik_sense.websocket_connection import (
+    EngineError,
+    WebsocketConnection,
+)
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ChartInfoClass,
@@ -2265,3 +2268,46 @@ def test_onprem_opens_app_with_data_to_read_its_data_model(
         for table in app.data_model_tables
     ] == [("Orders", [("order_id", "INTEGER"), ("amount", "DOUBLE")])]
     assert app.read_complete
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        EngineError({"code": 5, "message": "Access denied"}),
+        TimeoutError("Connection timed out"),
+    ],
+)
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_app_whose_data_cant_be_opened_is_read_without_it(
+    mock_session_cls: MagicMock, mock_engine: MagicMock, error: Exception
+) -> None:
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = fake_qrs_get
+    # Section access denies the data, or the data load times out.
+    with_data = MagicMock()
+    with_data.websocket_send_request.side_effect = error
+    without_data = MagicMock()
+    without_data.websocket_send_request.side_effect = fake_engine_calls()
+    without_data.get_script.return_value = LOAD_SCRIPT
+    without_data.get_variables.return_value = {}
+    mock_engine.side_effect = [with_data, without_data]
+    config = QlikSourceConfig.model_validate(
+        {"on_prem": {**ON_PREM, "read_data_model": True}}
+    )
+
+    api = QlikOnPremAPI(config)
+    api.get_spaces()
+    [app] = list(api.get_items(["stream-1"]))
+
+    open_doc = without_data.websocket_send_request.call_args_list[0].kwargs
+    assert open_doc["params"]["qNoData"] is True
+    assert isinstance(app, App)
+    assert app.read_complete
+    assert app.script == LOAD_SCRIPT
+    assert not app.data_model_tables
+    without_data.get_data_model_tables.assert_not_called()
+    assert len(api.opened_without_data) == 1
