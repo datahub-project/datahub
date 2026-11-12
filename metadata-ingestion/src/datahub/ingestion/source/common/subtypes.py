@@ -189,6 +189,8 @@ class BIAssetSubTypes(StrEnum):
     POWERBI_TILE = "PowerBI Tile"
     POWERBI_PAGE = "PowerBI Page"
     POWERBI_APP = "App"
+    # Qlik Sense: an app as a lineage node; its container is the "Qlik App".
+    QLIK_APP_DASHBOARD = "Qlik App Dashboard"
     POWERBI_PAGINATED_REPORT = "PaginatedReport"
 
     # Mode

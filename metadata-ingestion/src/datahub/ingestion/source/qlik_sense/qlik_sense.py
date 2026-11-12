@@ -49,6 +49,7 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.common.subtypes import (
+    BIAssetSubTypes,
     BIContainerSubTypes,
     DatasetSubTypes,
 )
@@ -1056,10 +1057,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 yield patch
         yield MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn,
-            aspect=SubTypes(typeNames=[BIContainerSubTypes.QLIK_APP]),
+            aspect=SubTypes(typeNames=[BIAssetSubTypes.QLIK_APP_DASHBOARD]),
         ).as_workunit()
+        # Inside the app's own container, with its sheets and tables, so the
+        # app is one node when browsing its space.
         yield from add_entity_to_container(
-            container_key=self._gen_space_key(app.spaceId),
+            container_key=self._gen_app_key(app.id),
             entity_type="dashboard",
             entity_urn=dashboard_urn,
         )
@@ -1420,7 +1423,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def _parsed_script(app: App) -> ParsedScript:
-        return parse_script(app.script) if app.script else ParsedScript()
+        return parse_script(app.script, app.variables) if app.script else ParsedScript()
 
     def _build_script_tables(
         self, app: App, parsed: Optional[ParsedScript] = None
@@ -2184,7 +2187,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 container_key=self._gen_app_key(app.id),
                 name=app.qTitle,
                 description=app.description,
-                sub_types=[BIContainerSubTypes.QLIK_APP],
+                # "Qlik App" first, as the UI labels a container by its first
+                # subtype; "Workbook" makes the UI treat the app as its charts'
+                # workbook, as it does for Tableau.
+                sub_types=[
+                    BIContainerSubTypes.QLIK_APP,
+                    BIContainerSubTypes.TABLEAU_WORKBOOK,
+                ],
                 parent_container_key=self._gen_space_key(app.spaceId),
                 extra_properties={
                     Constant.QRI: app.qri,
