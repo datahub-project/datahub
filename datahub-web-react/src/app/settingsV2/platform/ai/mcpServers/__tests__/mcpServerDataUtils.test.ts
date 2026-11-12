@@ -3,11 +3,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
     DEFAULT_SERVER_DISPLAY_LABEL,
     buildConnectionUrl,
+    resolveEnabledToolItems,
     transformServersToRows,
+    validateSlug,
 } from '@app/settingsV2/platform/ai/mcpServers/utils/mcpServerDataUtils';
 import { resetCachedBasePath } from '@utils/runtimeBasePath';
 
 import type { McpServerConfigFieldsFragment } from '@graphql/mcpServers.generated';
+import { ToolRefType } from '@types';
 
 const auditStamp = { __typename: 'AuditStamp' as const, time: 0 };
 
@@ -69,5 +72,31 @@ describe('transformServersToRows', () => {
         const rows = transformServersToRows([server({ viewUrn: 'urn:li:dataHubView:gone', view: null })], null);
 
         expect(rows[1].viewUnavailable).toBe(true);
+    });
+});
+
+describe('resolveEnabledToolItems', () => {
+    const catalog = [
+        { toolId: 'search', label: 'Search', description: '', groups: ['read_metadata'] },
+        { toolId: 'add_tags', label: 'Add Tags', description: '', groups: ['write_metadata'] },
+    ];
+    const readOnly = server({ tools: [{ refType: ToolRefType.Group, toolId: 'read_metadata', enabled: true }] });
+
+    it('expands groups against the catalog, and means all tools when nothing is selected', () => {
+        expect(resolveEnabledToolItems(readOnly, catalog)).toEqual([{ label: 'Search' }]);
+        expect(resolveEnabledToolItems(server({ tools: [] }), catalog)).toBeUndefined();
+    });
+
+    it('lists the selected refs by name when the catalog is unavailable', () => {
+        expect(resolveEnabledToolItems(readOnly, [])).toEqual([{ label: 'Read Metadata' }]);
+    });
+});
+
+describe('validateSlug', () => {
+    it('rejects malformed, reserved and taken slugs', () => {
+        expect(validateSlug('finance-2', new Set())).toEqual({ valid: true });
+        expect(validateSlug('Finance', new Set())).toEqual({ valid: false, reason: 'format' });
+        expect(validateSlug('datahub', new Set())).toEqual({ valid: false, reason: 'reserved' });
+        expect(validateSlug('finance', new Set(['finance']))).toEqual({ valid: false, reason: 'duplicate' });
     });
 });

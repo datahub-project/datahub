@@ -202,6 +202,70 @@ export function setAllToolsSelection(
     return preserved.length ? [...materialized, ...preserved] : [];
 }
 
+/**
+ * Normalize a selection for persistence: when every tool in a capability group
+ * resolves to the same enabled state, collapse the per-tool refs into a single
+ * GROUP ref, so the group (which auto-includes future members) is stored rather
+ * than a snapshot of today's tools.
+ *
+ * Tools in a mixed group, or in no group, keep an explicit per-tool ref. AGENT
+ * refs (and refs to tools/groups the catalog doesn't know) are preserved untouched.
+ * An empty selection means "all tools" and is returned as-is; a selection that
+ * enables every tool (with nothing to preserve) collapses back to empty.
+ */
+export function collapseSelectionToGroups(
+    value: ToolSelection[],
+    groups: ToolGroupOption[],
+    allTools: ToolDefinition[],
+): ToolSelection[] {
+    if (value.length === 0) return value;
+
+    // Opt-in groups and their tools sit outside "all tools" entirely: they are not
+    // collapsed, and they do not count toward whether everything is enabled.
+    const collapsible = allTools.filter((tool) => !isOptInTool(tool));
+    const toolsById = new Map(collapsible.map((tool) => [tool.toolId, tool]));
+    const desired = new Map(collapsible.map((tool) => [tool.toolId, isToolSelectionEnabled(value, tool)]));
+
+    const knownGroupIds = new Set(groups.filter((g) => !isOptInGroupId(g.id)).map((g) => g.id));
+    const preserved: ToolSelection[] = value.filter(
+        (v) =>
+            v.refType === ToolRefType.Agent ||
+            (v.refType === ToolRefType.Group && v.enabled && isOptInGroupId(v.toolId)) ||
+            (v.refType === ToolRefType.Tool && !toolsById.has(v.toolId)) ||
+            (v.refType === ToolRefType.Group && !knownGroupIds.has(v.toolId) && !isOptInGroupId(v.toolId)),
+    );
+
+    const allEnabled = collapsible.length > 0 && collapsible.every((tool) => !!desired.get(tool.toolId));
+    if (allEnabled && preserved.length === 0) return [];
+
+    const next: ToolSelection[] = [...preserved];
+
+    // One GROUP ref per group whose members all share the same enabled state.
+    groups.forEach((group) => {
+        if (isOptInGroupId(group.id)) return;
+        const members = group.toolIds.filter((id) => toolsById.has(id));
+        if (members.length === 0) return;
+        const first = !!desired.get(members[0]);
+        if (members.every((id) => !!desired.get(id) === first)) {
+            next.push({ refType: ToolRefType.Group, toolId: group.id, enabled: first });
+        }
+    });
+
+    // Per-tool override wherever the group refs don't already yield the desired state.
+    collapsible.forEach((tool) => {
+        const wantEnabled = !!desired.get(tool.toolId);
+        const impliedByGroup = next.some(
+            (v) => v.refType === ToolRefType.Group && v.enabled && tool.groups.includes(v.toolId),
+        );
+        if (impliedByGroup !== wantEnabled) {
+            next.push({ refType: ToolRefType.Tool, toolId: tool.toolId, enabled: wantEnabled });
+        }
+    });
+
+    // Never collapse to empty (which would mean "all tools") when the input wasn't.
+    return next.length > 0 ? next : value;
+}
+
 /** Fetch state for the catalog lists, so callers can render loading/failed indicators. */
 export interface LoadState<T> {
     items: T[];
@@ -227,6 +291,10 @@ export function useAvailableAgentToolsState(): LoadState<ToolDefinition> {
     return { items, loading, failed, retry };
 }
 
+export function useAvailableAgentTools(): ToolDefinition[] {
+    return useAvailableAgentToolsState().items;
+}
+
 /** Agents an MCP server can expose as tools, from the tool catalog. Empty when it lists none. */
 export function useAvailableAgentsState(): LoadState<AgentOption> {
     const { catalog, loading, failed, retry } = useMcpToolCatalog();
@@ -240,6 +308,10 @@ export function useAvailableAgentsState(): LoadState<AgentOption> {
         [catalog],
     );
     return { items, loading, failed, retry };
+}
+
+export function useAvailableAgents(): AgentOption[] {
+    return useAvailableAgentsState().items;
 }
 
 /**

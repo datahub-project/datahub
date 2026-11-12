@@ -13,6 +13,17 @@ vi.mock('@app/settingsV2/platform/ai/mcpServers/hooks/useCanManageMcpServers', (
     useCanManageMcpServers: () => mockCanManage(),
 }));
 
+// Lets each test turn scoped servers (createMcpServersEnabled) on or off.
+const mockFlags = { createMcpServersEnabled: false };
+vi.mock('@app/useAppConfig', async (importOriginal) => ({
+    ...(await importOriginal<object>()),
+    useAppConfig: () => ({ config: { featureFlags: mockFlags } }),
+}));
+
+vi.mock('@graphql/mcpServers.generated', () => ({
+    useGetMcpServersQuery: () => ({ data: { mcpSettings: { enabled: true } } }),
+}));
+
 vi.mock('@app/settingsV2/platform/ai/mcpServers/McpServersTab', () => ({
     McpServersTab: () => <div data-testid="mcp-servers-tab" />,
 }));
@@ -39,7 +50,10 @@ function renderAt(path: string) {
 }
 
 describe('PlatformAiSettings', () => {
-    beforeEach(() => mockCanManage.mockReturnValue(true));
+    beforeEach(() => {
+        mockCanManage.mockReturnValue(true);
+        mockFlags.createMcpServersEnabled = false;
+    });
 
     it('sends /settings/ai to the MCP Servers tab', () => {
         const currentPath = renderAt('/settings/ai');
@@ -47,6 +61,19 @@ describe('PlatformAiSettings', () => {
         expect(currentPath()).toBe('/settings/ai/mcp-servers');
         expect(screen.getByTestId('mcp-servers-tab')).toBeInTheDocument();
         expect(screen.getByText('Connect AI tools to DataHub through the Model Context Protocol.')).toBeInTheDocument();
+    });
+
+    it('names the page for the single MCP server when scoped servers are off', () => {
+        renderAt('/settings/ai/mcp-servers');
+        expect(screen.getAllByText('MCP Server').length).toBeGreaterThan(0);
+        expect(screen.queryByText('MCP Servers')).not.toBeInTheDocument();
+    });
+
+    it('names the page for many MCP servers when scoped servers are on', () => {
+        mockFlags.createMcpServersEnabled = true;
+        renderAt('/settings/ai/mcp-servers');
+        expect(screen.getAllByText('MCP Servers').length).toBeGreaterThan(0);
+        expect(screen.getByTestId('create-mcp-server-button')).toBeInTheDocument();
     });
 
     it('sends a user with no AI settings tab back to Settings', () => {

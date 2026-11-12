@@ -1,18 +1,26 @@
 import { useApolloClient } from '@apollo/client';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
-import React, { useState } from 'react';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Column } from '@components/components/Table/types';
 
+import { useAvailableAgentTools, useAvailableAgents } from '@app/context/agents/toolDefinitions';
+import { McpServerModal } from '@app/settingsV2/platform/ai/mcpServers/McpServerModal';
+import { McpServerScopePill } from '@app/settingsV2/platform/ai/mcpServers/McpServerScopePill';
+import { ToolItemPill } from '@app/settingsV2/platform/ai/mcpServers/ToolItemPill';
 import { useMcpServerActions } from '@app/settingsV2/platform/ai/mcpServers/hooks/useMcpServerActions';
 import {
+    type EnabledToolItem,
     type McpServerRow,
+    resolveEnabledToolItems,
     transformServersToRows,
 } from '@app/settingsV2/platform/ai/mcpServers/utils/mcpServerDataUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
-import { Alert, Button, Pill, Switch, Table, Text, toast } from '@src/alchemy-components';
+import { useAppConfig } from '@app/useAppConfig';
+import { Alert, Button, Pill, Switch, Table, Text, Tooltip, toast } from '@src/alchemy-components';
 
 import { GetMcpServersDocument, useGetMcpServersQuery } from '@graphql/mcpServers.generated';
 
@@ -57,10 +65,44 @@ const NameCell = styled.div`
     align-items: center;
     gap: 8px;
     min-width: 0;
+`;
+
+// Opens the server's edit form. Primary text color (not the brand link purple), underlined on hover.
+const NameButton = styled.button`
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
     font-size: 14px;
     font-weight: 600;
     color: ${(props) => props.theme.colors.text};
+    &:hover {
+        text-decoration: underline;
+    }
 `;
+
+const PillCell = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    max-width: 300px;
+`;
+
+// antd Tooltip binds hover to its child; an inline-block wrapper gives the +N pill a box to hover over.
+const TooltipWrapper = styled.span`
+    display: inline-flex;
+`;
+
+// How many tool pills to show before collapsing the rest into a "+N" pill.
+const MAX_TOOL_PILLS = 3;
+
+// Create-modal state is owned by the parent (PlatformAiSettings) so the Create button can
+// live in the page header.
+type McpServersTabProps = {
+    showCreateModal: boolean;
+    setShowCreateModal: (show: boolean) => void;
+};
 
 const UrlCell = styled.div`
     display: flex;
@@ -78,7 +120,7 @@ const UrlText = styled.span`
     white-space: nowrap;
 `;
 
-export const McpServersTab = () => {
+export const McpServersTab = ({ showCreateModal, setShowCreateModal }: McpServersTabProps) => {
     const { t } = useTranslation('settings.ai');
     const { t: tc } = useTranslation('common.actions');
     // One server's nested field (say, a View the viewer can't see) can fail; errorPolicy 'all'
@@ -86,6 +128,12 @@ export const McpServersTab = () => {
     const { data, loading, error, refetch } = useGetMcpServersQuery({ errorPolicy: 'all' });
     const client = useApolloClient();
     const { handleToggleEnabled, handleToggleGlobalEnabled } = useMcpServerActions({ onSuccess: refetch });
+    const catalog = useAvailableAgentTools();
+    const agents = useAvailableAgents();
+    // Scoped servers (create, slug, View scope) are a separate opt-in from customizing the
+    // default server; the mutation enforces it too.
+    const scopedServersEnabled = useAppConfig().config.featureFlags.createMcpServersEnabled;
+    const [editing, setEditing] = useState<McpServerRow | null>(null);
 
     // Turning the master switch OFF kills every MCP server, so it's gated behind a
     // confirmation. Turning it back on is not.
@@ -94,6 +142,42 @@ export const McpServersTab = () => {
     const mcpSettings = data?.mcpSettings;
     const globalEnabled = mcpSettings?.enabled ?? true;
     const rows = transformServersToRows(mcpSettings?.servers, mcpSettings?.defaultMcpServerOverrides);
+    const scopedSlugs = rows.flatMap((row) => (!row.isDefault && row.slug ? [row.slug] : []));
+    // Search skips a View it can't find, so a server whose View was deleted searches all data.
+    const serversWithoutView = scopedServersEnabled ? rows.filter((r) => r.viewUnavailable).map((r) => r.name) : [];
+
+    // Opening "Create" from the header clears any in-progress edit selection.
+    useEffect(() => {
+        if (showCreateModal) setEditing(null);
+    }, [showCreateModal]);
+
+    const handleCloseModal = () => {
+        setShowCreateModal(false);
+        setEditing(null);
+        refetch();
+    };
+
+    const renderToolPills = (record: McpServerRow) => {
+        // undefined => null/empty selection => the server exposes everything.
+        const items = resolveEnabledToolItems(record.config, catalog, agents);
+        if (items === undefined) {
+            return <Pill label={t('platform.ai.mcpServers.allTools')} color="gray" size="md" />;
+        }
+        const pill = (item: EnabledToolItem) => <ToolItemPill key={item.agentUrn ?? item.label} item={item} />;
+        const hidden = items.slice(MAX_TOOL_PILLS);
+        return (
+            <PillCell>
+                {items.slice(0, MAX_TOOL_PILLS).map(pill)}
+                {hidden.length > 0 && (
+                    <Tooltip title={<PillCell>{hidden.map(pill)}</PillCell>}>
+                        <TooltipWrapper>
+                            <Pill label={`+${hidden.length}`} color="gray" size="sm" clickable />
+                        </TooltipWrapper>
+                    </Tooltip>
+                )}
+            </PillCell>
+        );
+    };
 
     const handleCopyUrl = (url: string) => {
         navigator.clipboard?.writeText(url);
@@ -105,8 +189,14 @@ export const McpServersTab = () => {
             title: t('platform.ai.mcpServers.columnName'),
             key: 'name',
             render: (record) => (
-                <NameCell data-testid={`mcp-server-name-${record.id}`}>
-                    {record.name}
+                <NameCell>
+                    <NameButton
+                        type="button"
+                        onClick={() => setEditing(record)}
+                        data-testid={`mcp-server-name-${record.id}`}
+                    >
+                        {record.name}
+                    </NameButton>
                     {record.isDefault && <Pill label={t('platform.ai.mcpServers.defaultTag')} color="gray" size="sm" />}
                 </NameCell>
             ),
@@ -132,6 +222,20 @@ export const McpServersTab = () => {
             ),
         },
         {
+            title: t('platform.ai.mcpServers.columnTools'),
+            key: 'tools',
+            render: renderToolPills,
+        },
+        ...(scopedServersEnabled
+            ? [
+                  {
+                      title: t('platform.ai.mcpServers.columnView'),
+                      key: 'view',
+                      render: (record: McpServerRow) => <McpServerScopePill server={record} />,
+                  },
+              ]
+            : []),
+        {
             title: t('platform.ai.mcpServers.columnEnabled'),
             key: 'enabled',
             width: '88px',
@@ -142,6 +246,22 @@ export const McpServersTab = () => {
                     isChecked={record.enabled}
                     onChange={() => handleToggleEnabled(record)}
                     data-testid={`mcp-server-toggle-${record.id}`}
+                />
+            ),
+        },
+        {
+            title: '',
+            key: 'actions',
+            width: '60px',
+            alignment: 'right',
+            render: (record) => (
+                <Button
+                    variant="text"
+                    size="sm"
+                    icon={{ icon: PencilSimple }}
+                    onClick={() => setEditing(record)}
+                    aria-label={tc('edit')}
+                    data-testid={`mcp-server-edit-${record.id}`}
                 />
             ),
         },
@@ -169,6 +289,17 @@ export const McpServersTab = () => {
         <Container data-testid="mcp-servers-tab">
             {/* A failed field reads as empty (a View as "View unavailable"), so say that the data is partial. */}
             {error && <Alert variant="warning" title={t('platform.ai.mcpServers.partialLoadError')} />}
+            {serversWithoutView.length > 0 && (
+                <Alert
+                    variant="error"
+                    title={t('platform.ai.mcpServers.viewDeletedTitle', { count: serversWithoutView.length })}
+                    description={t('platform.ai.mcpServers.viewDeletedDescription', {
+                        count: serversWithoutView.length,
+                        servers: serversWithoutView.join(', '),
+                    })}
+                    data-testid="mcp-servers-view-deleted"
+                />
+            )}
             <MasterSwitchCard>
                 <MasterSwitchText>
                     <Text weight="bold" size="lg">
@@ -206,6 +337,15 @@ export const McpServersTab = () => {
                 confirmButtonText={t('platform.ai.mcpServers.masterSwitchDisableConfirm')}
                 isDeleteModal
             />
+
+            {(showCreateModal || editing) && (
+                <McpServerModal
+                    editing={editing}
+                    existingSlugs={scopedSlugs}
+                    scopedServersEnabled={scopedServersEnabled}
+                    onClose={handleCloseModal}
+                />
+            )}
         </Container>
     );
 };

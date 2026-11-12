@@ -1,4 +1,5 @@
-import React, { useCallback, useMemo } from 'react';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Redirect, useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
@@ -17,7 +18,10 @@ import { useAdditionalAiSettingsTabs } from '@app/settingsV2/platform/additional
 import { McpServersTab } from '@app/settingsV2/platform/ai/mcpServers/McpServersTab';
 import { useCanManageMcpServers } from '@app/settingsV2/platform/ai/mcpServers/hooks/useCanManageMcpServers';
 import { Tabs } from '@app/sharedV2/tabs/Tabs';
-import { PageTitle } from '@src/alchemy-components';
+import { useAppConfig } from '@app/useAppConfig';
+import { Button, PageTitle } from '@src/alchemy-components';
+
+import { useGetMcpServersQuery } from '@graphql/mcpServers.generated';
 
 // Where MCP Servers sits among the tabs; deployment tabs order themselves around it.
 const MCP_SERVERS_TAB_ORDER = 20;
@@ -86,14 +90,44 @@ export const PlatformAiSettings = () => {
     const { pathname } = useLocation();
     const canManageMcpServers = useCanManageMcpServers();
     const additionalTabs = useAdditionalAiSettingsTabs();
+    const { t: tc } = useTranslation('common.actions');
+    const { config } = useAppConfig();
+    const [showCreateMcpServerModal, setShowCreateMcpServerModal] = useState(false);
+
+    // Read the MCP master switch so Create hides while MCP is off. Apollo dedupes this with
+    // the tab's identical query.
+    const { data: mcpData, error: mcpError } = useGetMcpServersQuery({
+        skip: !canManageMcpServers,
+        errorPolicy: 'all',
+    });
+    const scopedServersEnabled = config.featureFlags.createMcpServersEnabled;
+    // The tab shows an error instead of the list, and a create can't check slugs it never loaded.
+    const canCreateMcpServers =
+        scopedServersEnabled && (mcpData?.mcpSettings?.enabled ?? true) && !(mcpError && !mcpData?.mcpSettings);
 
     const mcpServersTab: AiSettingsTab | null = canManageMcpServers
         ? {
               key: AiTabType.McpServers,
-              name: t('platform.ai.mcpServers.tabTitle'),
-              title: t('platform.ai.mcpServers.pageTitle'),
+              // Without scoped servers DataHub serves a single MCP server, so the tab is named for one.
+              name: t(scopedServersEnabled ? 'platform.ai.mcpServers.tabTitle' : 'platform.ai.mcpServer.tabTitle'),
+              title: t(scopedServersEnabled ? 'platform.ai.mcpServers.pageTitle' : 'platform.ai.mcpServer.pageTitle'),
               subtitle: t('platform.ai.mcpServers.pageSubtitle'),
-              component: <McpServersTab />,
+              component: (
+                  <McpServersTab
+                      showCreateModal={showCreateMcpServerModal}
+                      setShowCreateModal={setShowCreateMcpServerModal}
+                  />
+              ),
+              headerActions: canCreateMcpServers ? (
+                  <Button
+                      variant="filled"
+                      onClick={() => setShowCreateMcpServerModal(true)}
+                      data-testid="create-mcp-server-button"
+                      icon={{ icon: Plus }}
+                  >
+                      {tc('create')}
+                  </Button>
+              ) : undefined,
               order: MCP_SERVERS_TAB_ORDER,
           }
         : null;

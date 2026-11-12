@@ -1,7 +1,13 @@
+import {
+    type AgentOption,
+    type ToolDefinition,
+    isToolSelectionEnabled,
+    toolIdToLabel,
+} from '@app/context/agents/toolDefinitions';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import type { McpServerConfigFieldsFragment } from '@graphql/mcpServers.generated';
-import { DataHubViewType } from '@types';
+import { DataHubViewType, ToolRefType } from '@types';
 
 // User-facing label for the default server, shown as its name when no override name
 // is set. It matches the "Default" pill on the row (platform.ai.mcpServers.defaultTag).
@@ -83,4 +89,56 @@ export function transformServersToRows(
 ): McpServerRow[] {
     const scoped = (servers ?? []).map(buildScopedServerRow).sort((a, b) => a.name.localeCompare(b.name));
     return [buildDefaultServerRow(defaultOverrides ?? null), ...scoped];
+}
+
+/** One enabled item a server exposes: a tool, or an agent (carrying its URN). */
+export interface EnabledToolItem {
+    label: string;
+    /** Set when this item is an agent exposed as a tool. */
+    agentUrn?: string;
+    description?: string;
+}
+
+/**
+ * Resolve a server's tool selection to the items it actually exposes: tool/group refs
+ * expand against the catalog (a "Read metadata" group resolves to its member tools), and
+ * enabled AGENT refs resolve to the agent's name. Without a catalog, the enabled refs are
+ * listed by name. Returns undefined for the "all tools" case (null/empty selection).
+ */
+export function resolveEnabledToolItems(
+    config: McpServerConfigFieldsFragment | null,
+    catalog: ToolDefinition[],
+    agents: AgentOption[] = [],
+): EnabledToolItem[] | undefined {
+    const refs = config?.tools;
+    if (!refs || refs.length === 0) return undefined;
+    const toolItems: EnabledToolItem[] =
+        catalog.length > 0
+            ? catalog.filter((tool) => isToolSelectionEnabled(refs, tool)).map((tool) => ({ label: tool.label }))
+            : refs
+                  .filter((ref) => ref.enabled && ref.refType !== ToolRefType.Agent)
+                  .map((ref) => ({ label: toolIdToLabel(ref.toolId) }));
+    const agentByUrn = new Map(agents.map((a) => [a.urn, a]));
+    const agentItems: EnabledToolItem[] = refs
+        .filter((ref) => ref.refType === ToolRefType.Agent && ref.enabled)
+        .map((ref) => ({
+            label: agentByUrn.get(ref.toolId)?.name ?? ref.toolId,
+            agentUrn: ref.toolId,
+            description: agentByUrn.get(ref.toolId)?.description || undefined,
+        }));
+    return [...toolItems, ...agentItems];
+}
+
+// Mirrors the server-side validation in UpdateMcpSettingsResolver (RESERVED_MCP_SLUGS and
+// the slug pattern) so errors show before submitting; the backend is the source of truth.
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+const RESERVED_SLUGS = new Set(['default', 'datahub-default', 'datahub', 'mcp']);
+
+export type SlugValidation = { valid: true } | { valid: false; reason: 'format' | 'reserved' | 'duplicate' };
+
+export function validateSlug(slug: string, existingSlugs: Set<string>): SlugValidation {
+    if (!SLUG_PATTERN.test(slug)) return { valid: false, reason: 'format' };
+    if (RESERVED_SLUGS.has(slug)) return { valid: false, reason: 'reserved' };
+    if (existingSlugs.has(slug)) return { valid: false, reason: 'duplicate' };
+    return { valid: true };
 }
