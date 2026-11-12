@@ -2357,12 +2357,27 @@ class OdbcLineage(AbstractLineage):
             platform_detail = self._resolve_platform_detail(server_name, platform_pair)
 
         dsn_levels = self._resolve_dsn_database_schema(dsn)
+        database = dsn_levels.database
+        if platform_pair.datahub_data_platform_name == ORACLE_PLATFORM:
+            # Same rule as navigation: Oracle URNs carry a database only when
+            # default_database opts into database.schema.table, and then the
+            # per-DSN mapping wins over default_database.
+            oracle_default_database = (
+                platform_detail.default_database
+                if isinstance(platform_detail, OraclePlatformDetail)
+                else None
+            )
+            database = (
+                (database or oracle_default_database)
+                if oracle_default_database
+                else None
+            )
 
         logger.debug(f"ODBC query processing: dsn={dsn} mapped to {dsn_levels}")
         result = self.parse_custom_sql(
             query=query,
             server=server_name,
-            database=dsn_levels.database,
+            database=database,
             schema=dsn_levels.schema,
             platform_pair=platform_pair,
             platform_detail=platform_detail,

@@ -78,7 +78,7 @@ Requirements:
 
   - **BigQuery, Snowflake, Postgres, MSSQL, Redshift, Databricks, Db2, Informix:** a table whose navigation has no schema level, and no `dsn_to_database_schema` entry to supply one, is skipped with a warning instead of getting an incomplete name. Databricks navigation through the Simba Spark driver's constant `SPARK` catalog is skipped instead of emitting `spark.<schema>.<table>`.
   - **Athena:** `database.table` instead of `catalog.database.table`, and `athena_table_platform_override` now applies here too. With a `platform_instance` set for the Athena server, navigation and ODBC SQL queries now emit `<instance>.database.table` (previously navigation kept the catalog, and ODBC SQL queries dropped the instance and kept the catalog), so overrides match those tables as well.
-  - **Oracle:** `schema.table`, or `database.schema.table` when `default_database` is set for the server. Navigation with no schema level and no two-part `dsn_to_database_schema` entry is skipped with a warning instead of emitting `database.table`.
+  - **Oracle:** `schema.table`, or `database.schema.table` when `default_database` is set for the server, for both navigation and ODBC SQL queries. ODBC SQL queries no longer add the `dsn_to_database_schema` database unless `default_database` is set. Navigation with no schema level and no two-part `dsn_to_database_schema` entry is skipped with a warning instead of emitting `database.table`.
   - **MySQL, Teradata:** `database.table` instead of `database.schema.table` when the schema repeats the database; when they differ, the table is skipped with a warning. `Schema + Table` navigation, previously skipped, now emits `schema.table`.
   - **Other platforms:** URN shape unchanged.
 

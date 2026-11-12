@@ -132,6 +132,14 @@ _ODBC_ORACLE_NAV_SCHEMA_TABLE = (
     "in\n    ORDERS_Table"
 )
 
+# The same Oracle table reached through Odbc.Query. Its URN must follow the same
+# default_database rule as navigation, so both paths emit one URN per table.
+_ODBC_ORACLE_QUERY_SCHEMA_TABLE = (
+    'let\n    Source = Odbc.Query("driver={Oracle in OraClient19Home1};'
+    'dsn=oracle_prod", "select * from SALES.ORDERS")\n'
+    "in\n    Source"
+)
+
 # Oracle (two-tier) ODBC navigation that surfaces a Kind=Database pseudo-catalog
 # and the leaf table but omits Schema. With no dsn_to_database_schema mapping the
 # schema cannot be resolved, so lineage must warn and skip rather than emit a
@@ -338,6 +346,35 @@ _ODBC_NAV_SUCCESS_CASES = [
         {"server_to_platform_instance": {"oracle_prod": {"default_database": "MYDB"}}},
         "urn:li:dataset:(urn:li:dataPlatform:oracle,orclpdb.sales.orders,PROD)",
         id="oracle-nav-database-wins-over-default-database",
+    ),
+    pytest.param(
+        _ODBC_ORACLE_QUERY_SCHEMA_TABLE,
+        "ORDERS",
+        "SALES.ORDERS",
+        {"dsn_to_database_schema": {"oracle_prod": "ORCLPDB.SALES"}},
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,sales.orders,PROD)",
+        id="oracle-query-mapped-database-needs-default-database",
+    ),
+    pytest.param(
+        _ODBC_ORACLE_QUERY_SCHEMA_TABLE,
+        "ORDERS",
+        "SALES.ORDERS",
+        {"server_to_platform_instance": {"oracle_prod": {"default_database": "MYDB"}}},
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,mydb.sales.orders,PROD)",
+        id="oracle-query-default-database-opt-in",
+    ),
+    pytest.param(
+        _ODBC_ORACLE_QUERY_SCHEMA_TABLE,
+        "ORDERS",
+        "SALES.ORDERS",
+        {
+            "dsn_to_database_schema": {"oracle_prod": "ORCLPDB.SALES"},
+            "server_to_platform_instance": {
+                "oracle_prod": {"default_database": "MYDB"}
+            },
+        },
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,orclpdb.sales.orders,PROD)",
+        id="oracle-query-mapped-database-wins-over-default-database",
     ),
     pytest.param(
         _ODBC_MYSQL_NAV_DATABASE_TABLE,
