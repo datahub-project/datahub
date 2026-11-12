@@ -25,6 +25,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_lineage_helper import (
+    convert_dashboard_info_to_patch,
+)
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
@@ -57,6 +60,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     AppKey,
     BoxType,
     Chart,
+    ChartInputs,
     Item,
     LineageTable,
     QlikDataset,
@@ -152,7 +156,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from datahub.specific.chart import ChartPatchBuilder
-from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
@@ -715,17 +718,47 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dashboard_urn, aspect=dashboard_info_cls
         ).as_workunit()
 
+    def _chart_inputs(
+        self,
+        charts: Iterable[Chart],
+        variables: Dict[str, str],
+        app_fields: AppFieldIndex,
+        input_tables_urns: List[str],
+        has_unknown_schema: bool,
+    ) -> Dict[str, ChartInputs]:
+        inputs = {}
+        for chart in charts:
+            # Read with the app's variables expanded; the chart keeps its
+            # expressions as Qlik has them.
+            expanded = chart.model_copy(
+                update={
+                    "field_expressions": [
+                        expand_variables(expression, variables)
+                        for expression in chart.field_expressions
+                    ]
+                }
+            )
+            fields = self._get_chart_input_fields(expanded, app_fields)
+            inputs[chart.qId] = ChartInputs(
+                fields=fields,
+                tables=self._get_chart_inputs(
+                    expanded,
+                    fields,
+                    app_fields,
+                    input_tables_urns,
+                    has_unknown_schema,
+                ),
+            )
+        return inputs
+
     def _gen_charts_workunit(
         self,
         charts: List[Chart],
-        input_tables_urns: Optional[List[str]],
-        app_fields: AppFieldIndex,
-        has_unknown_schema: bool,
+        chart_inputs: Optional[Dict[str, ChartInputs]],
         app_id: str,
     ) -> Iterable[MetadataWorkUnit]:
-        """
-        Map Qlik Chart to Datahub Chart
-        """
+        """Map Qlik charts to DataHub charts. `chart_inputs` is None when the
+        app's tables are not all known."""
         for chart in charts:
             chart_urn = builder.make_chart_urn(
                 platform=self.platform,
@@ -739,9 +772,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "Dimension": str(chart.qDimension),
                 "Measure": str(chart.qMeasure),
             }
-            chart_fields = self._get_chart_input_fields(chart, app_fields)
+            inputs = chart_inputs.get(chart.qId) if chart_inputs is not None else None
 
-            if input_tables_urns is None:
+            if inputs is None:
                 # Unknown inputs would overwrite the ones the last full read
                 # emitted, so only the other chart fields are patched.
                 yield from self._gen_chart_info_patch(
@@ -755,19 +788,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                         description=chart.visualization,
                         lastModified=ChangeAuditStampsClass(),
                         customProperties=custom_properties,
-                        inputs=self._get_chart_inputs(
-                            chart,
-                            chart_fields,
-                            app_fields,
-                            input_tables_urns,
-                            has_unknown_schema,
-                        ),
+                        inputs=inputs.tables,
                     ),
                 ).as_workunit()
 
             # Emitted even when empty so fields a chart stopped using are cleared,
             # but not from a partial list of a chart whose measures were unread.
-            if input_tables_urns is not None and not chart.fields_unread:
+            if inputs is not None and not chart.fields_unread:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=chart_urn,
                     aspect=InputFieldsClass(
@@ -778,7 +805,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                                 ),
                                 schemaField=self._gen_schema_field(field.field),
                             )
-                            for field in chart_fields
+                            for field in inputs.fields
                         ]
                     ),
                 ).as_workunit()
@@ -903,40 +930,26 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             lastModified=self._get_audit_stamp(app.updatedAt, app.ownerId),
         )
         dashboard_url = f"https://{self.ui_host}/sense/app/{app.id}/overview"
+        info = DashboardInfoClass(
+            title=app.qTitle,
+            description=app.description or "",
+            dashboards=[EdgeClass(destinationUrn=urn) for urn in sheet_urns],
+            datasetEdges=[EdgeClass(destinationUrn=urn) for urn in table_urns or []],
+            lastModified=last_modified,
+            customProperties={Constant.QRI: app.qri},
+            dashboardUrl=dashboard_url,
+        )
         if app.sheets_complete and table_urns is not None:
             yield MetadataChangeProposalWrapper(
-                entityUrn=dashboard_urn,
-                aspect=DashboardInfoClass(
-                    title=app.qTitle,
-                    description=app.description or "",
-                    dashboards=[EdgeClass(destinationUrn=urn) for urn in sheet_urns],
-                    datasetEdges=[EdgeClass(destinationUrn=urn) for urn in table_urns],
-                    lastModified=last_modified,
-                    customProperties={Constant.QRI: app.qri},
-                    dashboardUrl=dashboard_url,
-                ),
+                entityUrn=dashboard_urn, aspect=info
             ).as_workunit()
         else:
             # Sheets or tables that could not be read this run may still exist,
             # so the edges read are added to the last full read's, while the
             # app's own fields are still set.
-            patch = (
-                DashboardPatchBuilder(dashboard_urn)
-                .set_title(app.qTitle)
-                .set_dashboard_url(dashboard_url)
-                .set_last_modified(last_modified)
-                .add_custom_property(Constant.QRI, app.qri)
-            )
-            if app.description:
-                patch.set_description(app.description)
-            for urn in sheet_urns:
-                patch.add_dashboard(urn)
-            for urn in table_urns or []:
-                patch.add_dataset_edge(urn)
-            for mcp in patch.build():
-                yield MetadataWorkUnit(
-                    id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
-                )
+            patch = convert_dashboard_info_to_patch(dashboard_urn, info, None)
+            if patch is not None:
+                yield patch
         yield MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn,
             aspect=SubTypes(typeNames=[BIContainerSubTypes.QLIK_APP]),
@@ -955,9 +968,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_sheets_workunit(
         self,
         app: App,
-        input_tables_urns: Optional[List[str]],
-        app_fields: AppFieldIndex,
-        has_unknown_schema: bool,
+        chart_inputs: Optional[Dict[str, ChartInputs]],
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Qlik Sheet to Datahub dashboard
@@ -986,13 +997,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if self.config.ingest_owner and owner_username:
                 yield self._gen_entity_owner_aspect(dashboard_urn, owner_username)
 
-            yield from self._gen_charts_workunit(
-                sheet.charts,
-                input_tables_urns,
-                app_fields,
-                has_unknown_schema,
-                app.id,
-            )
+            yield from self._gen_charts_workunit(sheet.charts, chart_inputs, app.id)
 
     def _gen_app_table_upstream_lineage(
         self, dataset_urn: str, table: QlikTable
@@ -1895,37 +1900,28 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         yield from container_workunits
         app_fields = self._index_app_fields(table_fields, script_table_urns)
         has_unknown_schema = any(not fields for fields in table_fields.values())
-        for sheet in app.sheets:
-            for chart in sheet.charts:
-                chart.field_expressions = [
-                    expand_variables(expression, app.variables)
-                    for expression in chart.field_expressions
-                ]
-        charted_tables = {
-            urn
-            for sheet in app.sheets
-            for chart in sheet.charts
-            for urn in self._get_chart_inputs(
-                chart,
-                self._get_chart_input_fields(chart, app_fields),
+        chart_inputs = (
+            None
+            if app.tables_read_failed
+            else self._chart_inputs(
+                (chart for sheet in app.sheets for chart in sheet.charts),
+                app.variables,
                 app_fields,
                 input_tables_urns,
                 has_unknown_schema,
             )
+        )
+        charted_tables = {
+            urn for inputs in (chart_inputs or {}).values() for urn in inputs.tables
         }
         yield from self._gen_app_dashboard_workunit(
             app,
             owner_username,
             None
-            if app.tables_read_failed
+            if chart_inputs is None
             else [urn for urn in input_tables_urns if urn not in charted_tables],
         )
-        yield from self._gen_sheets_workunit(
-            app,
-            None if app.tables_read_failed else input_tables_urns,
-            app_fields,
-            has_unknown_schema,
-        )
+        yield from self._gen_sheets_workunit(app, chart_inputs)
         yield from self._gen_app_tables_workunit(app.tables, app.id)
         yield from self._gen_lineage_tables_workunit(app, matched_script_tables)
         yield from self._gen_script_tables_workunit(
