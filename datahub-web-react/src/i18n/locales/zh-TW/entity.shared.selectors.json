@@ -10,5 +10,12 @@
     "customOwnershipType": "自訂擁有權類型",
     "ingestionSource": "資料擷取來源",
     "groupBy.displayValue": "依 {{label}} 分組",
-    "groupBy.group": "分組"
+    "groupBy.group": "分組",
+    "selectItems.addMoreSection": "新增更多",
+    "selectItems.entitiesLabel": "實體",
+    "selectItems.itemsLabel": "項目",
+    "selectItems.noEntityFound": "找不到 {{entityName}}",
+    "selectItems.removeAll": "全部移除",
+    "selectItems.searchForEntity": "搜尋 {{entityName}}...",
+    "selectItems.selectedSection": "已選取"
 }

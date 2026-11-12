@@ -10,5 +10,12 @@
     "groupBy.displayValue": "Группировать {{label}}",
     "groupBy.group": "Группировать",
     "domainSelector.singleLabel": "Домен",
-    "domainSelector.singlePlaceholder": "Выберите домен"
+    "domainSelector.singlePlaceholder": "Выберите домен",
+    "selectItems.addMoreSection": "Добавить ещё",
+    "selectItems.entitiesLabel": "объекты",
+    "selectItems.itemsLabel": "элементы",
+    "selectItems.noEntityFound": "{{entityName}} не найдены",
+    "selectItems.removeAll": "Удалить всё",
+    "selectItems.searchForEntity": "Поиск {{entityName}}...",
+    "selectItems.selectedSection": "Выбрано"
 }

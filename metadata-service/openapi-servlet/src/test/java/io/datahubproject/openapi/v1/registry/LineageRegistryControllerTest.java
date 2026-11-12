@@ -1,18 +1,27 @@
 package io.datahubproject.openapi.v1.registry;
 
+import static com.linkedin.metadata.Constants.ANONYMOUS_ACTOR_ID;
 import static io.datahubproject.test.metadata.context.TestOperationContexts.TEST_USER_AUTH;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.AuthorizationConfiguration;
 import com.datahub.authorization.AuthorizerChain;
+import com.datahub.authorization.RegistryApiConfiguration;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -21,10 +30,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class LineageRegistryControllerTest {
   private MockMvc mockMvc;
+  private RegistryApiConfiguration registryApiConfiguration;
   private LineageRegistryController controller;
   private AuthorizerChain mockAuthorizerChain;
   private OperationContext operationContext;
@@ -45,10 +56,20 @@ public class LineageRegistryControllerTest {
     authContextMock.when(AuthenticationContext::getAuthentication).thenReturn(TEST_USER_AUTH);
 
     // Create controller
-    controller = new LineageRegistryController(mockAuthorizerChain, operationContext);
+    ConfigurationProvider configurationProvider = new ConfigurationProvider();
+    configurationProvider.setAuthorization(new AuthorizationConfiguration());
+    registryApiConfiguration = configurationProvider.getAuthorization().getRegistryApi();
+    controller =
+        new LineageRegistryController(
+            new RegistryApiAuthorization(
+                mockAuthorizerChain, operationContext, configurationProvider),
+            operationContext);
 
     // Setup MockMvc
-    mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+    mockMvc =
+        MockMvcBuilders.standaloneSetup(controller)
+            .setControllerAdvice(new GlobalControllerExceptionHandler())
+            .build();
 
     // Mock AuthUtil static methods
     authUtilMock = Mockito.mockStatic(AuthUtil.class);
@@ -81,6 +102,7 @@ public class LineageRegistryControllerTest {
 
   @Test
   public void testGetLineageSpecsUnauthorized() throws Exception {
+    registryApiConfiguration.setAuthenticatedReadEnabled(false);
     // Setup authorization to return false
     authUtilMock
         .when(
@@ -116,6 +138,7 @@ public class LineageRegistryControllerTest {
 
   @Test
   public void testGetLineageSpecByEntityUnauthorized() throws Exception {
+    registryApiConfiguration.setAuthenticatedReadEnabled(false);
     // Setup authorization to return false
     authUtilMock
         .when(
@@ -174,6 +197,7 @@ public class LineageRegistryControllerTest {
 
   @Test
   public void testGetLineageEdgesUnauthorized() throws Exception {
+    registryApiConfiguration.setAuthenticatedReadEnabled(false);
     // Setup authorization to return false
     authUtilMock
         .when(
@@ -262,6 +286,7 @@ public class LineageRegistryControllerTest {
 
   @Test
   public void testGetLineageDirectedEdgesUnauthorized() throws Exception {
+    registryApiConfiguration.setAuthenticatedReadEnabled(false);
     // Setup authorization to return false
     authUtilMock
         .when(
@@ -279,5 +304,66 @@ public class LineageRegistryControllerTest {
                     "UPSTREAM")
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isForbidden());
+  }
+
+  @DataProvider(name = "registryRoutes")
+  public Object[][] registryRoutes() {
+    return new Object[][] {
+      {"/openapi/v1/registry/lineage/specifications"},
+      {"/openapi/v1/registry/lineage/specifications/dataset"},
+      {"/openapi/v1/registry/lineage/edges/dataset"},
+      {"/openapi/v1/registry/lineage/edges/dataset/UPSTREAM"},
+      {"/openapi/v1/registry/lineage/edges/dataset/DOWNSTREAM"}
+    };
+  }
+
+  @Test(dataProvider = "registryRoutes")
+  public void testNonAdminReadAccess(String route) throws Exception {
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIOperationsAuthorized(
+                    any(OperationContext.class),
+                    eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
+        .thenReturn(false);
+
+    mockMvc.perform(get(route).accept(MediaType.APPLICATION_JSON)).andExpect(status().isOk());
+
+    registryApiConfiguration.setAuthenticatedReadEnabled(false);
+    mockMvc
+        .perform(get(route).accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test(dataProvider = "registryRoutes")
+  public void testAdminReadAccess(String route) throws Exception {
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIOperationsAuthorized(
+                    any(OperationContext.class),
+                    eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
+        .thenReturn(true);
+
+    for (boolean enabled : new boolean[] {true, false}) {
+      registryApiConfiguration.setAuthenticatedReadEnabled(enabled);
+      mockMvc.perform(get(route).accept(MediaType.APPLICATION_JSON)).andExpect(status().isOk());
+    }
+  }
+
+  @Test(dataProvider = "registryRoutes")
+  public void testUnauthenticatedReadRejected(String route) throws Exception {
+    Authentication anonymous =
+        new Authentication(new Actor(ActorType.USER, ANONYMOUS_ACTOR_ID), "");
+    for (boolean enabled : new boolean[] {true, false}) {
+      registryApiConfiguration.setAuthenticatedReadEnabled(enabled);
+      for (Authentication authentication :
+          new Authentication[] {null, anonymous, mock(Authentication.class)}) {
+        authContextMock.when(AuthenticationContext::getAuthentication).thenReturn(authentication);
+        mockMvc
+            .perform(get(route).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isUnauthorized());
+      }
+    }
   }
 }

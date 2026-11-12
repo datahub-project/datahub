@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { vi } from 'vitest';
 
 import {
@@ -19,6 +19,7 @@ import {
     validatePosition,
     validateStructuredProperty,
 } from '@app/homeV3/context/hooks/utils/validationUtils';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { StructuredPropertyFieldsFragment } from '@graphql/fragments.generated';
 import { PageTemplateFragment } from '@graphql/template.generated';

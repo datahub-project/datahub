@@ -10,12 +10,13 @@ import time
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.configuration.env_vars import (
     get_report_info_sample_size,
+    get_sql_agg_max_queries_per_downstream,
     get_sql_agg_query_log,
     get_sql_agg_skip_joins,
 )
@@ -107,8 +108,20 @@ _DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
 ]
 MAX_UPSTREAM_TABLES_COUNT = 300
 MAX_FINEGRAINEDLINEAGE_COUNT = 2000
+# Opt-in cap on the queries considered per downstream (0 = unlimited); see
+# _select_lineage_query_ids. Memory for hot downstreams is bounded by the lazy walk
+# in _gen_lineage_for_downstream, not by this cap.
+MAX_QUERIES_PER_DOWNSTREAM = get_sql_agg_max_queries_per_downstream()
 _SLOW_DOWNSTREAM_WARNING_SECONDS = 60
 _SLOWEST_DOWNSTREAMS_TRACKED = 10
+
+
+@dataclasses.dataclass
+class _ColumnLineageMergeResult:
+    """What merging one query's column lineage into a downstream's lineage added."""
+
+    entries_added: int = 0
+    columns_with_new_edges: Set[str] = dataclasses.field(default_factory=set)
 
 
 @dataclasses.dataclass
@@ -444,6 +457,17 @@ class SqlAggregatorReport(Report):
     num_lineage_skipped_due_to_filters: int = 0
     num_table_lineage_trimmed_due_to_large_size: int = 0
     num_column_lineage_trimmed_due_to_large_size: int = 0
+    # Downstreams whose lineage walk stopped once both output caps were full, and
+    # downstreams whose query set exceeded the opt-in MAX_QUERIES_PER_DOWNSTREAM,
+    # each with the number of queries that write to them.
+    num_downstreams_with_lineage_walk_stopped_early: int = 0
+    lineage_walk_stopped_early_downstreams: LossyDict[str, int] = dataclasses.field(
+        default_factory=LossyDict
+    )
+    num_downstreams_with_capped_lineage_queries: int = 0
+    capped_lineage_downstreams: LossyDict[str, int] = dataclasses.field(
+        default_factory=LossyDict
+    )
 
     # Lineage consistency tracking
     num_tables_added_from_column_lineage: int = 0
@@ -637,6 +661,15 @@ class SqlParsingAggregator(Closeable):
             shared_connection=self._shared_connection, tablename="lineage_map"
         )
         self._exit_stack.push(self._lineage_map)
+
+        # Ids of queries added through add_known_query_lineage. They keep their own or
+        # fingerprinted ids, so the opt-in per-downstream cap can't recognise them by
+        # prefix the way it recognises known_ and view_ lineage.
+        self._known_query_lineage_ids = FileBackedDict[bool](
+            shared_connection=self._shared_connection,
+            tablename="known_query_lineage_ids",
+        )
+        self._exit_stack.push(self._known_query_lineage_ids)
 
         # Map of view urn -> view definition
         self._view_definitions = FileBackedDict[ViewDefinition](
@@ -848,6 +881,7 @@ class SqlParsingAggregator(Closeable):
         )
 
         # Register the lineage.
+        self._known_query_lineage_ids[query_fingerprint] = True
         self._lineage_map.for_mutation(
             known_query_lineage.downstream, OrderedSet()
         ).add(query_fingerprint)
@@ -1583,7 +1617,7 @@ class SqlParsingAggregator(Closeable):
         upstreams: Dict[UrnStr, QueryId],
         cll: Dict[str, Dict[SchemaFieldUrn, QueryId]],
         queries_with_inconsistencies: Set[QueryId],
-    ) -> None:
+    ) -> _ColumnLineageMergeResult:
         """Process column lineage for a query and apply consistency fixes.
 
         This method:
@@ -1591,12 +1625,17 @@ class SqlParsingAggregator(Closeable):
         2. Adds missing tables from column lineage to table lineage (consistency fix)
         3. Updates the column lineage mapping (cll)
 
+        Returns how many entries it added to `upstreams` and `cll`, so the caller can
+        tell whether the query contributed anything, and the downstream columns it
+        added an edge to, so the caller can count column-lineage groups incrementally.
+
         Args:
             query: The query metadata containing column lineage
             upstreams: Mapping of upstream URN to query ID (modified in-place)
             cll: Column lineage mapping (modified in-place)
             queries_with_inconsistencies: Set tracking queries that needed fixes (modified in-place)
         """
+        result = _ColumnLineageMergeResult()
         for lineage_info in query.column_lineage:
             # Validate downstream column
             if (
@@ -1637,12 +1676,16 @@ class SqlParsingAggregator(Closeable):
                     upstreams[table_urn] = query.query_id
                     queries_with_inconsistencies.add(query.query_id)
                     self.report.num_tables_added_from_column_lineage += 1
+                    result.entries_added += 1
 
                 # Add to column lineage mapping
-                cll[lineage_info.downstream.column].setdefault(
-                    SchemaFieldUrn(table_urn, upstream_ref.column),
-                    query.query_id,
-                )
+                column_upstreams = cll[lineage_info.downstream.column]
+                upstream_field = SchemaFieldUrn(table_urn, upstream_ref.column)
+                if upstream_field not in column_upstreams:
+                    column_upstreams[upstream_field] = query.query_id
+                    result.entries_added += 1
+                    result.columns_with_new_edges.add(lineage_info.downstream.column)
+        return result
 
     def _gen_lineage_for_downstream(
         self, downstream_urn: str, queries_generated: Set[QueryId]
@@ -1655,62 +1698,88 @@ class SqlParsingAggregator(Closeable):
             self.report.num_lineage_skipped_due_to_filters += 1
             return
 
-        start = time.perf_counter()
-        queries: List[QueryMetadata] = [
-            self._resolve_query_with_temp_tables(self._query_map[query_id])
-            for query_id in query_ids
-        ]
-        resolution_seconds = time.perf_counter() - start
-        self._track_downstream_resolution_time(
-            downstream_urn,
-            len(queries),
-            {
-                query_id
-                for query in queries
-                if query.composed_of
-                for query_id in query.composed_of.all_queries
-            },
-            resolution_seconds,
-            self.report.slowest_downstreams_lineage_seconds,
-        )
-
-        # Sort the queries by highest precedence first, then by latest timestamp.
-        # In case of ties, prefer queries with a known query type.
-        # Tricky: by converting the timestamp to a number, we also can ignore the
-        # differences between naive and aware datetimes.
-        queries = sorted(
-            # Sorted is a stable sort, so in the case of total ties, we want
-            # to prefer the most recently added query.
-            reversed(queries),
-            key=lambda query: (
-                self._query_type_precedence(query.lineage_type),
-                -(make_ts_millis(query.latest_timestamp) or 0),
-                query.query_type == QueryType.UNKNOWN,
-            ),
-        )
-
-        queries_map: Dict[QueryId, QueryMetadata] = {
-            query.query_id: query for query in queries
-        }
+        selected_query_ids = self._select_lineage_query_ids(downstream_urn, query_ids)
+        ordered_query_ids = self._order_lineage_query_ids(selected_query_ids)
 
         # mapping of upstream urn -> query id that produced it
         upstreams: Dict[UrnStr, QueryId] = {}
         # mapping of downstream column -> { upstream column -> query id that produced it }
         cll: Dict[str, Dict[SchemaFieldUrn, QueryId]] = defaultdict(dict)
-
-        # FIX: Track queries with lineage inconsistencies for metrics
+        # Track queries with lineage inconsistencies for metrics
         queries_with_inconsistencies: Set[QueryId] = set()
 
-        for query in queries:
-            # Using setdefault to respect the precedence of queries.
+        # Queries are resolved one at a time, highest precedence first, and merged with
+        # setdefault so an earlier query always wins. Only queries that contributed an
+        # upstream or a column edge are kept; the rest are dropped as soon as they have
+        # been merged. That bounds memory by the size of the emitted aspect rather than
+        # by the number of queries that ever wrote the table, which is what made a
+        # single hot downstream take hours and tens of GB before.
+        queries_map: Dict[QueryId, QueryMetadata] = {}
+        last_query: Optional[QueryMetadata] = None
+        # One fineGrainedLineages entry is emitted per (downstream column, query id),
+        # so this set tracks the entry count without rescanning cll after each query.
+        cll_groups: Set[Tuple[str, QueryId]] = set()
+        resolution_seconds = 0.0
+        num_resolved = 0
+        for query_id in ordered_query_ids:
+            if (
+                len(upstreams) >= MAX_UPSTREAM_TABLES_COUNT
+                and len(cll_groups) >= MAX_FINEGRAINEDLINEAGE_COUNT
+            ):
+                # Both output caps are full, so stop resolving the rest of this
+                # table's queries. Upstream tables come out the same as with a full
+                # walk: later queries could only append tables past the cap. Column
+                # lineage can differ. A full walk also merges lower-precedence queries
+                # that add a second upstream to an already-seen column; those edges
+                # sit next to that column's other edges, inside the cap, and push
+                # later columns out when the list is truncated below. Stopping keeps
+                # the edges of the highest-precedence queries instead. Only tables
+                # over both caps are affected, and everything kept is real lineage.
+                self.report.num_downstreams_with_lineage_walk_stopped_early += 1
+                self.report.lineage_walk_stopped_early_downstreams[downstream_urn] = (
+                    len(ordered_query_ids)
+                )
+                logger.warning(
+                    f"Both lineage caps are full for {downstream_urn}; stopped "
+                    f"resolving its {len(ordered_query_ids)} queries early."
+                )
+                break
 
+            start = time.perf_counter()
+            query = self._resolve_query_with_temp_tables(self._query_map[query_id])
+            resolution_seconds += time.perf_counter() - start
+            num_resolved += 1
+            last_query = query
+
+            added = 0
             for upstream in query.upstreams:
-                upstreams.setdefault(upstream, query.query_id)
-
-            # Process column lineage with validation and consistency fixes
-            self._process_column_lineage_for_query(
+                if upstream not in upstreams:
+                    upstreams[upstream] = query.query_id
+                    added += 1
+            merge = self._process_column_lineage_for_query(
                 query, upstreams, cll, queries_with_inconsistencies
             )
+            added += merge.entries_added
+            cll_groups.update(
+                (column, query.query_id) for column in merge.columns_with_new_edges
+            )
+            if added:
+                queries_map[query.query_id] = query
+
+        self._track_downstream_resolution_time(
+            downstream_urn,
+            num_resolved,
+            # Only the kept queries' components: collecting them for every walked
+            # query would grow with the number of queries again on hot downstreams.
+            {
+                component_id
+                for kept_query in queries_map.values()
+                if kept_query.composed_of
+                for component_id in kept_query.composed_of.all_queries
+            },
+            resolution_seconds,
+            self.report.slowest_downstreams_lineage_seconds,
+        )
 
         # Log and update metrics if we applied the consistency fix
         if queries_with_inconsistencies:
@@ -1729,7 +1798,13 @@ class SqlParsingAggregator(Closeable):
                     dataset=upstream_urn,
                     type=queries_map[query_id].lineage_type,
                     query=self._query_urn_if_emitted(queries_map[query_id]),
-                    created=query.make_created_audit_stamp(),
+                    # Long-standing behaviour: `created` comes from the last query
+                    # walked, not from the query that produced this upstream. When the
+                    # walk stops early because both caps are full, that is the last
+                    # query before the stop, not the lowest-precedence query overall.
+                    created=(
+                        last_query or queries_map[query_id]
+                    ).make_created_audit_stamp(),
                     auditStamp=models.AuditStampClass(
                         time=get_sys_time(),
                         actor=_DEFAULT_USER_URN.urn(),
@@ -1823,6 +1898,71 @@ class SqlParsingAggregator(Closeable):
             if query.composed_of:
                 queries_generated.update(query.composed_of.all_queries)
             yield from self._gen_query(query, downstream_urn)
+
+    def _order_lineage_query_ids(self, query_ids: List[QueryId]) -> List[QueryId]:
+        """Order query ids highest precedence first, then latest timestamp, preferring
+        queries with a known query type and, on total ties, the most recently added
+        query. Only the sort key is kept per query, so this is cheap even for a
+        downstream written by millions of queries.
+
+        Tricky: by converting the timestamp to a number, we also can ignore the
+        differences between naive and aware datetimes.
+        """
+        keyed: List[Tuple[Tuple[int, int, bool], QueryId]] = []
+        for query_id in query_ids:
+            query = self._query_map[query_id]
+            keyed.append(
+                (
+                    (
+                        self._query_type_precedence(query.lineage_type),
+                        -(make_ts_millis(query.latest_timestamp) or 0),
+                        query.query_type == QueryType.UNKNOWN,
+                    ),
+                    query_id,
+                )
+            )
+        # Reverse before the stable sort so that total ties prefer the most recently
+        # added query.
+        keyed.reverse()
+        keyed.sort(key=lambda item: item[0])
+        return [query_id for _, query_id in keyed]
+
+    def _select_lineage_query_ids(
+        self, downstream_urn: UrnStr, query_ids: OrderedSet[QueryId]
+    ) -> List[QueryId]:
+        """Apply the opt-in MAX_QUERIES_PER_DOWNSTREAM cap, if set.
+
+        Query ids are registered in the order the query log was read, which is time
+        order, so the tail of the set is the most recent queries. Known lineage (from
+        add_known_lineage_mapping or add_known_query_lineage) and view query ids
+        outrank every parsed query, so they are always kept. This can
+        drop an upstream that only an older query references, which is why it is off
+        by default.
+        """
+        if (
+            MAX_QUERIES_PER_DOWNSTREAM <= 0
+            or len(query_ids) <= MAX_QUERIES_PER_DOWNSTREAM
+        ):
+            return list(query_ids)
+
+        all_ids = list(query_ids)
+        selected = OrderedSet[QueryId](
+            query_id
+            for query_id in all_ids
+            if self._is_known_lineage_query_id(query_id)
+            or query_id.startswith("view_")
+            or query_id in self._known_query_lineage_ids
+        )
+        selected.update(all_ids[-MAX_QUERIES_PER_DOWNSTREAM:])
+
+        self.report.num_downstreams_with_capped_lineage_queries += 1
+        self.report.capped_lineage_downstreams[downstream_urn] = len(all_ids)
+        logger.warning(
+            f"{len(all_ids)} queries write to {downstream_urn}; resolving lineage "
+            f"from the {len(selected)} most recent plus known/view lineage. "
+            "Set DATAHUB_SQL_AGG_MAX_QUERIES_PER_DOWNSTREAM to change the limit."
+        )
+        return list(selected)
 
     @classmethod
     def _query_urn(cls, query_id: QueryId) -> str:

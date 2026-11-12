@@ -463,6 +463,37 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
             # Check report was updated
             self.assertEqual(self.report.num_soft_deleted_entity_processed, 1)
 
+    def test_process_futures_reports_failed_future_with_its_urn(self):
+        """A failed delete is reported against its own URN and does not abort processing."""
+        failed_urn = Urn.from_string(
+            "urn:li:dataset:(urn:li:dataPlatform:example,failed,PROD)"
+        )
+        pending_urn = Urn.from_string(
+            "urn:li:dataset:(urn:li:dataPlatform:example,pending,PROD)"
+        )
+
+        failed_future = MagicMock(spec=Future)
+        failed_future.exception.return_value = Exception("delete failed")
+        pending_future = MagicMock(spec=Future)
+        pending_future.exception.return_value = None
+
+        with patch(
+            "datahub.ingestion.source.gc.soft_deleted_entity_cleanup.wait",
+            return_value=({failed_future}, {pending_future}),
+        ):
+            futures = {failed_future: failed_urn, pending_future: pending_urn}
+
+            result = self.cleanup._process_futures(futures)  # type: ignore
+
+        self.assertEqual(result, {pending_future: pending_urn})
+        self.assertEqual(self.report.num_soft_deleted_entity_processed, 1)
+
+        failures = list(self.report.failures)
+        self.assertEqual(len(failures), 1)
+        self.assertEqual(len(failures[0].context), 1)
+        self.assertIn(failed_urn.urn(), failures[0].context[0])
+        self.assertIn("delete failed", failures[0].context[0])
+
     def test_cleanup_disabled(self):
         """Test that cleanup doesn't run when disabled."""
         # Disable cleanup

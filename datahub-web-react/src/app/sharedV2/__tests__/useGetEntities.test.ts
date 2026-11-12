@@ -1,7 +1,7 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useGetEntities } from '@app/sharedV2/useGetEntities';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useGetEntitiesQuery } from '@graphql/entity.generated';
 import { type Entity, EntityType } from '@types';

@@ -1,7 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -14,14 +14,15 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
-@ExtendWith(MockitoExtension.class)
 public class ConflictResolverTest {
+
+  private AutoCloseable mocks;
 
   @Mock private EntitySpec mockEntitySpec1;
 
@@ -43,8 +44,9 @@ public class ConflictResolverTest {
 
   @Mock private SearchableAnnotation mockAnnotation3;
 
-  @BeforeEach
+  @BeforeMethod
   public void setUp() {
+    mocks = MockitoAnnotations.openMocks(this);
     // Setup common mocks
     when(mockEntitySpec1.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec1));
     when(mockEntitySpec2.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec2));
@@ -62,6 +64,11 @@ public class ConflictResolverTest {
     when(mockAnnotation2.getFieldType()).thenReturn(FieldType.KEYWORD);
     when(mockAnnotation1.getFieldNameAliases()).thenReturn(Collections.emptyList());
     when(mockAnnotation2.getFieldNameAliases()).thenReturn(Collections.emptyList());
+  }
+
+  @AfterMethod
+  public void tearDown() throws Exception {
+    mocks.close();
   }
 
   @Test
@@ -93,7 +100,7 @@ public class ConflictResolverTest {
     assertTrue(result.getFieldNameAliasConflicts().isEmpty());
 
     Set<String> field1Paths = result.getFieldNameConflicts().get("field1");
-    assertEquals(2, field1Paths.size());
+    assertEquals(field1Paths.size(), 2);
     assertTrue(field1Paths.contains("_aspects.aspect1.field1"));
     assertTrue(field1Paths.contains("_aspects.aspect2.field1"));
   }
@@ -114,7 +121,7 @@ public class ConflictResolverTest {
     assertTrue(result.getFieldNameAliasConflicts().containsKey("alias1"));
 
     Set<String> alias1Paths = result.getFieldNameAliasConflicts().get("alias1");
-    assertEquals(2, alias1Paths.size());
+    assertEquals(alias1Paths.size(), 2);
     assertTrue(alias1Paths.contains("_aspects.aspect1.field1"));
     assertTrue(alias1Paths.contains("_aspects.aspect2.field2"));
   }
@@ -139,8 +146,8 @@ public class ConflictResolverTest {
     // Both should have the same paths
     Set<String> fieldNamePaths = result.getFieldNameConflicts().get("conflictingName");
     Set<String> aliasPaths = result.getFieldNameAliasConflicts().get("conflictingName");
-    assertEquals(fieldNamePaths, aliasPaths);
-    assertEquals(2, fieldNamePaths.size());
+    assertEquals(aliasPaths, fieldNamePaths);
+    assertEquals(fieldNamePaths.size(), 2);
     assertTrue(fieldNamePaths.contains("_aspects.aspect1.conflictingName"));
     assertTrue(fieldNamePaths.contains("_aspects.aspect2.otherField"));
   }
@@ -228,7 +235,7 @@ public class ConflictResolverTest {
     assertTrue(result.getFieldNameAliasConflicts().isEmpty()); // No alias conflicts
 
     Set<String> commonFieldPaths = result.getFieldNameConflicts().get("commonField");
-    assertEquals(2, commonFieldPaths.size());
+    assertEquals(commonFieldPaths.size(), 2);
     assertTrue(commonFieldPaths.contains("_aspects.aspect1.commonField"));
     assertTrue(commonFieldPaths.contains("_aspects.aspect2.commonField"));
   }
@@ -241,7 +248,7 @@ public class ConflictResolverTest {
     Map<String, Set<String>> result = ConflictResolver.collectFieldNameAliasPaths(mockEntitySpec1);
 
     assertNotNull(result);
-    assertEquals(2, result.size());
+    assertEquals(result.size(), 2);
     assertTrue(result.containsKey("alias1"));
     assertTrue(result.containsKey("alias2"));
     assertTrue(result.get("alias1").contains("_aspects.aspect1.field1"));
@@ -281,7 +288,7 @@ public class ConflictResolverTest {
     Map<String, Set<String>> result = ConflictResolver.collectFieldNameAliasPaths(mockEntitySpec1);
 
     assertNotNull(result);
-    assertEquals(2, result.size());
+    assertEquals(result.size(), 2);
     assertTrue(result.containsKey("alias1"));
     assertTrue(result.containsKey("alias2"));
     assertTrue(result.get("alias1").contains("_aspects.aspect1.field1"));
@@ -301,8 +308,8 @@ public class ConflictResolverTest {
             fieldNameConflicts, fieldNameAliasConflicts, new HashMap<>(), new HashMap<>());
 
     assertNotNull(result);
-    assertEquals(fieldNameConflicts, result.getFieldNameConflicts());
-    assertEquals(fieldNameAliasConflicts, result.getFieldNameAliasConflicts());
+    assertEquals(result.getFieldNameConflicts(), fieldNameConflicts);
+    assertEquals(result.getFieldNameAliasConflicts(), fieldNameAliasConflicts);
     assertTrue(result.hasConflicts());
   }
 
