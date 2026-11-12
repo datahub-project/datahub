@@ -348,6 +348,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._file_sources_by_app: Dict[str, FileSourceResolver] = {}
         self._app_space_ids: Dict[str, str] = {}
         self._apps_variables_unread: Set[str] = set()
+        # Apps that load files by a wildcard or a path the connector can't
+        # expand, so the files in their lineage graph can't all be named.
+        self._apps_file_paths_unknown: Set[str] = set()
         self._apps_with_includes: Set[str] = set()
         self._reported_include_apps: Set[str] = set()
         self._resolved_file_qris: Set[str] = set()
@@ -659,7 +662,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_recorded_app_workunit(self, app: App) -> Iterable[MetadataWorkUnit]:
         fingerprint = (
             self._salted_fingerprint(app.fingerprint)
-            if app.fingerprint and app.read_complete
+            if app.fingerprint and app.read_complete and not app.data_load_failed
             else None
         )
         urns: Dict[str, None] = {}
@@ -1712,8 +1715,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     context=app_id,
                 )
             return True
-        return app_id in self._apps_variables_unread or any(
-            item.name == UNREAD_DATA_CONNECTIONS for item in self.qlik_api.unread_items
+        return (
+            app_id in self._apps_variables_unread
+            or app_id in self._apps_file_paths_unknown
+            or any(
+                item.name == UNREAD_DATA_CONNECTIONS
+                for item in self.qlik_api.unread_items
+            )
         )
 
     def _app_variables(self, app: App) -> Dict[str, str]:
@@ -1724,19 +1732,34 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self, app: App, parsed: ParsedScript
     ) -> FileSourceResolver:
         references = []
+        unnamed = []
         for file_path in parsed.file_loads:
             # Paths are often built from variables the script sets with LET or
             # in an included script, which the app's variables hold.
-            lib_path = LIB_PATH_RE.match(
-                expand_variables(file_path, self._app_variables(app)).strip()
-            )
-            if lib_path and "$(" not in lib_path.group(0):
+            path = expand_variables(file_path, self._app_variables(app)).strip()
+            lib_path = LIB_PATH_RE.match(path)
+            if lib_path and not any(part in path for part in ("$(", "*", "?")):
                 references.append(
                     FileReference(
                         connection=lib_path.group("connection"),
                         path=lib_path.group("path"),
                     )
                 )
+            else:
+                # A wildcard reads files the graph names one by one, which
+                # this path can't be matched against.
+                unnamed.append(path)
+        if unnamed and self.config.on_prem is None:
+            # On-prem apps have no lineage graph files to match.
+            self._apps_file_paths_unknown.add(app.id)
+            self.reporter.warning(
+                title="Qlik app loads files the connector can't name",
+                message="Files loaded through a wildcard, an unexpanded variable "
+                "or a path outside a data connection can't be matched to the "
+                "files in the app's lineage graph, so lineage to them is only "
+                "added to.",
+                context=f"{app.id}: {', '.join(unnamed[:5])}",
+            )
         return FileSourceResolver(references)
 
     def _file_storage(
@@ -2158,8 +2181,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.warning(
                 title="Unable to read Qlik app variables",
                 message="Load script paths and chart expressions that use these "
-                "apps' variables are only expanded from `script_variables`, so "
-                "lineage from them is only added to this run.",
+                "apps' variables are only expanded from `script_variables`. "
+                "Lineage to the files they load is only added to this run, and "
+                "chart fields read through other variables are left out.",
                 context=app.id,
             )
         self._app_space_ids[app.id] = app.spaceId
@@ -2460,6 +2484,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if app.script is None or app.script_read_failed:
             # QVDs the script writes can't be known, so their lineage is kept.
             self._apps_qvds_unknown[app.id] = "its load script could not be read"
+        elif any(
+            item.name == UNREAD_DATA_CONNECTIONS for item in self.qlik_api.unread_items
+        ):
+            # Without the folder connections, the lib:// QVDs it writes are
+            # unknown.
+            self._apps_qvds_unknown[app.id] = "data connections could not be listed"
         else:
             self._app_qvds[app.id] = lineage.qvds
         return lineage
