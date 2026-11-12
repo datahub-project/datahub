@@ -1,9 +1,9 @@
-import { RefObject, useLayoutEffect, useState } from 'react';
+import { RefObject, useLayoutEffect, useRef, useState } from 'react';
 
 import { TableVirtualizationProps } from '@components/components/Table/types';
 
 const DEFAULT_OVERSCAN = 10;
-// Rows to render when the container has no measurable height (no layout in tests, a hidden container).
+// Rows to render when the container has never had a measurable height (no layout, as in tests).
 const UNMEASURED_ROW_COUNT = 30;
 
 export interface VirtualWindow {
@@ -34,11 +34,17 @@ export const useVirtualWindow = (
     // Rows mount only after the first measurement (a layout effect, so still before paint). Rendering
     // the unmeasured fallback first would mount far more rows than fit, just to unmount them again.
     const [isMeasured, setIsMeasured] = useState(false);
+    // Set once the container has had a real height. A later height of 0 then means it was hidden (an
+    // inactive tab stays mounted with display: none), not that there is no layout at all.
+    const hasLaidOutRef = useRef(false);
 
     useLayoutEffect(() => {
         const container = containerRef.current;
         if (!rowHeight || !container) return undefined;
         const measure = () => {
+            // Hidden: keep the current window rather than mounting the fallback rows in a pane nobody sees.
+            if (container.clientHeight === 0 && hasLaidOutRef.current) return;
+            if (container.clientHeight > 0) hasLaidOutRef.current = true;
             setFirstVisibleRow(Math.floor(Math.max(0, container.scrollTop - headerHeight) / rowHeight));
             setVisibleRowCount(Math.ceil(container.clientHeight / rowHeight));
             setIsMeasured(true);
@@ -61,7 +67,7 @@ export const useVirtualWindow = (
         return { start: 0, end: 0, paddingTop: 0, paddingBottom: itemCount * rowHeight };
     }
 
-    // A measured height of 0 means no layout (tests, a hidden container): fall back to a fixed count.
+    // A height of 0 before any layout means none at all (tests): fall back to a fixed count.
     const visibleCount = visibleRowCount > 0 ? visibleRowCount : UNMEASURED_ROW_COUNT;
     const start = Math.max(0, firstVisibleRow - overscan);
     const end = Math.min(itemCount, firstVisibleRow + visibleCount + overscan);

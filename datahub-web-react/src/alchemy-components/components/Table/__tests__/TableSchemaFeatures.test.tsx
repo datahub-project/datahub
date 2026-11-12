@@ -294,6 +294,35 @@ describe('Table virtualization', () => {
         expect(scroller.scrollTop).toBeLessThanOrEqual(700 * ROW_HEIGHT);
     });
 
+    it('keeps its rows when the container is hidden, e.g. in an inactive tab', () => {
+        let height = 400;
+        Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => height });
+        const observers: Array<() => void> = [];
+        vi.stubGlobal(
+            'ResizeObserver',
+            class {
+                constructor(callback: () => void) {
+                    observers.push(callback);
+                }
+
+                observe() {}
+
+                disconnect() {}
+            },
+        );
+        try {
+            renderVirtualTable();
+            const visibleRows = renderedRows().length;
+
+            height = 0;
+            act(() => observers.forEach((callback) => callback()));
+
+            expect(renderedRows()).toHaveLength(visibleRows);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('keeps rows at their fixed height and opts out of scroll anchoring', () => {
         const { container } = renderVirtualTable();
 
