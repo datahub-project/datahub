@@ -1,3 +1,4 @@
+import json
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
@@ -21,6 +22,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    MetadataChangeProposalClass,
     SchemaMetadataClass,
     SubTypesClass,
     UpstreamClass,
@@ -62,6 +64,46 @@ def test_qvd_loads_and_stores_are_parsed() -> None:
     stored_fields = parsed.qvd_stores[1].fields
     assert stored_fields is not None
     assert [f.name for f in stored_fields.fields] == ["id", "amount"]
+
+
+def test_concatenate_after_a_preceding_load_adds_to_its_table() -> None:
+    parsed = parse_script(
+        """
+        Orders:
+        LOAD id, amount AS total;
+        LOAD * FROM [lib://C/a.qvd] (qvd);
+        Concatenate LOAD * FROM [lib://C/b.qvd] (qvd);
+        """
+    )
+    assert [(load.label, load.file.path) for load in parsed.qvd_loads] == [
+        ("Orders", "a.qvd"),
+        ("Orders", "b.qvd"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "script, expected",
+    [
+        (
+            "T: LOAD x AS final; LOAD a AS x; LOAD * FROM [lib://C/a.qvd] (qvd);",
+            [("final", ["a"])],
+        ),
+        # The statement reading the file renames its columns as well.
+        (
+            "T: LOAD x AS final; LOAD a AS x FROM [lib://C/a.qvd] (qvd);",
+            [("final", ["a"])],
+        ),
+        (
+            "T: LOAD *, x AS y; LOAD a AS x, b FROM [lib://C/a.qvd] (qvd);",
+            [("x", ["a"]), ("b", ["b"]), ("y", ["a"])],
+        ),
+    ],
+)
+def test_qvd_columns_go_through_every_preceding_load(
+    script: str, expected: List[Any]
+) -> None:
+    [load] = parse_script(script.replace("; ", ";\n")).qvd_loads
+    assert [(f.name, f.sources) for f in load.fields.fields] == expected
 
 
 @pytest.mark.parametrize(
@@ -209,7 +251,44 @@ def _run(
                 aspect = wu.get_aspect_of_type(aspect_type)
                 if aspect:
                     aspects.setdefault(wu.get_urn(), {})[aspect_type.__name__] = aspect
+            if (
+                isinstance(wu.metadata, MetadataChangeProposalClass)
+                and wu.metadata.changeType == "PATCH"
+                and wu.metadata.aspect is not None
+            ):
+                aspects.setdefault(wu.get_urn(), {}).setdefault("patch", []).extend(
+                    op["path"] for op in json.loads(wu.metadata.aspect.value)
+                )
+                if wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME:
+                    aspects[wu.get_urn()].setdefault("lineage_ops", []).extend(
+                        (op["op"], _pointer_parts(op["path"]))
+                        for op in json.loads(wu.metadata.aspect.value)
+                    )
     return source, aspects
+
+
+def _pointer_parts(path: str) -> List[str]:
+    return [part.replace("~1", "/").replace("~0", "~") for part in path.split("/")[1:]]
+
+
+def _upstreams(aspects: Dict[str, Dict[str, Any]], urn: str, op: str) -> List[str]:
+    """The upstream datasets a QVD lineage patch adds or removes."""
+    return [
+        parts[1]
+        for kind, parts in aspects[urn].get("lineage_ops", [])
+        if kind == op and parts[0] == "upstreams"
+    ]
+
+
+def _added_columns(
+    aspects: Dict[str, Dict[str, Any]], urn: str
+) -> Dict[str, List[str]]:
+    columns: Dict[str, List[str]] = {}
+    for kind, parts in aspects[urn].get("lineage_ops", []):
+        if kind == "add" and parts[0] == "fineGrainedLineages":
+            # fineGrainedLineages / transform / downstream / query / upstream
+            columns.setdefault(parts[2], []).append(parts[4])
+    return columns
 
 
 def test_qvd_lineage_runs_from_etl_app_through_qvd_to_reporting_app() -> None:
@@ -226,9 +305,10 @@ def test_qvd_lineage_runs_from_etl_app_through_qvd_to_reporting_app() -> None:
         return {cll.downstreams[0]: cll.upstreams for cll in lineage}
 
     assert upstreams(orders) == [RAW]
-    assert upstreams(CLEAN) == [orders]
+    # A QVD is not built by one app, so its lineage is patched.
+    assert _upstreams(aspects, CLEAN, "add") == [orders]
     assert upstreams(sales) == [CLEAN]
-    assert column_lineage(CLEAN) == {
+    assert _added_columns(aspects, CLEAN) == {
         make_schema_field_urn(CLEAN, "id"): [make_schema_field_urn(orders, "id")],
         make_schema_field_urn(CLEAN, "amount"): [
             make_schema_field_urn(orders, "amount")
@@ -248,14 +328,53 @@ def test_qvd_lineage_runs_from_etl_app_through_qvd_to_reporting_app() -> None:
     assert not source.reporter.warnings
 
 
-def test_qvd_lineage_is_kept_when_an_app_script_could_not_be_read() -> None:
-    source, aspects = _run([_app("etl-app", ETL_SCRIPT), _app("unreadable-app", None)])
-    # The unreadable app may also write orders.qvd, so its lineage is kept.
-    assert "UpstreamLineageClass" not in aspects.get(CLEAN, {})
-    assert "SchemaMetadataClass" not in aspects.get(CLEAN, {})
-    assert "Lineage of Qlik QVDs not updated" in [
+def test_qvd_lineage_is_only_added_to_when_an_app_script_could_not_be_read() -> None:
+    source, aspects = _run(
+        [
+            _app("etl-app", ETL_SCRIPT),
+            _app("report-app", REPORT_SCRIPT),
+            _app("unreadable-app", None),
+        ]
+    )
+    # The unreadable app may also write orders.qvd, so edges are only added,
+    # which keeps whatever that app wrote.
+    assert "UpstreamLineageClass" not in aspects[CLEAN]
+    assert _upstreams(aspects, CLEAN, "add") == [_urn("etl-app.orders")]
+    assert not _upstreams(aspects, CLEAN, "remove")
+    # The QVD an app read this run writes still gets its schema, but one only
+    # read keeps its last one.
+    assert "SchemaMetadataClass" in aspects[CLEAN]
+    assert "SchemaMetadataClass" not in aspects[RAW]
+    assert "Lineage of Qlik QVDs only added to" in [
         w.title for w in source.reporter.warnings
     ]
+
+
+def test_qvd_no_app_writes_any_more_loses_its_old_writer() -> None:
+    # A table of an app read this run that no longer stores into the QVD.
+    old_writer = _urn("report-app.orders")
+    _, aspects = _run(
+        [_app("report-app", REPORT_SCRIPT)],
+        current=UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(dataset=old_writer, type=DatasetLineageTypeClass.COPY)
+            ]
+        ),
+    )
+    assert _upstreams(aspects, CLEAN, "remove") == [old_writer]
+
+
+def test_qvd_stored_without_its_extension_is_not_an_app_table() -> None:
+    other_qvd = _urn("//nas/qvd/staging/orders.dat")
+    _, aspects = _run(
+        [_app("etl-app", ETL_SCRIPT)],
+        current=UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(dataset=other_qvd, type=DatasetLineageTypeClass.COPY)
+            ]
+        ),
+    )
+    assert other_qvd not in _upstreams(aspects, CLEAN, "remove")
 
 
 def test_qvd_lineage_keeps_edges_not_from_app_tables() -> None:
@@ -265,15 +384,20 @@ def test_qvd_lineage_keeps_edges_not_from_app_tables() -> None:
         current=UpstreamLineageClass(
             upstreams=[
                 UpstreamClass(dataset=manual, type=DatasetLineageTypeClass.COPY),
-                # An app table that no longer stores into the QVD.
+                # A table of an app read this run that no longer stores here.
                 UpstreamClass(
-                    dataset=_urn("old-app.orders"), type=DatasetLineageTypeClass.COPY
+                    dataset=_urn("etl-app.old_orders"),
+                    type=DatasetLineageTypeClass.COPY,
+                ),
+                # A table of an app this run did not read, which may still.
+                UpstreamClass(
+                    dataset=_urn("other-app.orders"), type=DatasetLineageTypeClass.COPY
                 ),
             ]
         ),
     )
-    lineage = aspects[CLEAN]["UpstreamLineageClass"]
-    assert [u.dataset for u in lineage.upstreams] == [manual, _urn("etl-app.orders")]
+    assert _upstreams(aspects, CLEAN, "remove") == [_urn("etl-app.old_orders")]
+    assert _upstreams(aspects, CLEAN, "add") == [_urn("etl-app.orders")]
 
 
 def test_connection_names_match_without_case() -> None:

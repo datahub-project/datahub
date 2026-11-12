@@ -355,6 +355,8 @@ class ParsedScript(BaseModel):
     # QVD paths that name no single file the connector can resolve, such as a
     # wildcard, a variable it could not expand or a relative path.
     unresolved_qvd_paths: List[str] = []
+    # QVDs loaded without a label, which Qlik names itself.
+    unlabelled_qvd_loads: List[str] = []
 
 
 class ScriptTableLineage(BaseModel):
@@ -725,6 +727,7 @@ class _ScriptParser(BaseModel):
     qvd_loads: List[QvdLoad] = []
     qvd_stores: List[QvdStore] = []
     unresolved_qvd_paths: List[str] = []
+    unlabelled_qvd_loads: List[str] = []
     flow: _ControlFlowTracker = Field(default_factory=_ControlFlowTracker)
     pending_label: Optional[str] = None
     pending_loads: List[PrecedingLoad] = []
@@ -891,7 +894,9 @@ class _ScriptParser(BaseModel):
             if LOAD_RE.match(statement):
                 if not (skip or mapping or self.pending_skip or self.pending_mapping):
                     self._qvd_load(label or self.pending_label, statement)
-                self.last_label = label
+                # A preceding LOAD's label names the table a later Concatenate
+                # or Join without a target adds to.
+                self.last_label = label or self.pending_label
             self._clear_pending()
 
     def _qvd_file(
@@ -934,13 +939,18 @@ class _ScriptParser(BaseModel):
         file = self._qvd_file(source.group("path"), source.group("spec"), False)
         # Without a label the table is named by Qlik, which a STORE can't be
         # matched against reliably.
-        if file is None or not label:
+        if file is None:
             return
-        fields = (
-            self.pending_loads[0]
-            if self.pending_loads
-            else _parse_load_fields(statement[: source.start()])
-        )
+        if not label:
+            self.unlabelled_qvd_loads.append(
+                f"lib://{file.connection}/{file.path}" if file.connection else file.path
+            )
+            return
+        # The file's columns go through the statement's own field list and
+        # then every preceding load above it.
+        fields = _parse_load_fields(statement[: source.start()])
+        for load in reversed(self.pending_loads):
+            fields = _stack_load(load, fields)
         self.qvd_loads.append(QvdLoad(label=label, file=file, fields=fields))
 
     def _store(self, store: "re.Match[str]") -> None:
@@ -975,6 +985,7 @@ def parse_script(script: str) -> ParsedScript:
         qvd_loads=parser.qvd_loads,
         qvd_stores=parser.qvd_stores,
         unresolved_qvd_paths=parser.unresolved_qvd_paths,
+        unlabelled_qvd_loads=parser.unlabelled_qvd_loads,
     )
 
 
@@ -1012,6 +1023,37 @@ def strip_set_values(expression: str) -> str:
             match = SET_VALUES_NEXT_RE.match(expression, position)
     kept.append(expression[position:])
     return "".join(kept)
+
+
+def _stack_load(upper: PrecedingLoad, lower: PrecedingLoad) -> PrecedingLoad:
+    """One load equivalent to `upper` reading the fields `lower` produces, so
+    each field's sources are names the lower load reads."""
+    if upper.unreadable or lower.unreadable:
+        return PrecedingLoad(unreadable=True)
+    lower_sources = {field.name: field.sources for field in lower.fields}
+
+    def sources(name: str) -> List[str]:
+        if name in lower_sources:
+            return lower_sources[name]
+        # LOAD * passes the names below it through unchanged.
+        return [name] if lower.keeps_all else []
+
+    fields = [
+        LoadField(
+            name=field.name,
+            named=field.named,
+            sources=list(
+                dict.fromkeys(
+                    source for name in field.sources for source in sources(name)
+                )
+            ),
+        )
+        for field in upper.fields
+    ]
+    if upper.keeps_all:
+        own = {field.name for field in fields}
+        fields = [field for field in lower.fields if field.name not in own] + fields
+    return PrecedingLoad(keeps_all=upper.keeps_all and lower.keeps_all, fields=fields)
 
 
 def _parse_load_fields(statement: str) -> PrecedingLoad:
@@ -1342,6 +1384,12 @@ def has_qualified_name(
     if platform_instance and name.lower().startswith(f"{platform_instance.lower()}."):
         name = name[len(platform_instance) + 1 :]
     return len(name.split(".")) >= required
+
+
+def app_table_identifier(app_id: str, table_name: str) -> str:
+    """The dataset name of an app's table, however the table was found: its
+    URN must not change between a script, data model and lineage graph read."""
+    return f"{app_id}.{table_name}".lower()
 
 
 def connection_lookup_names(name: str) -> List[str]:
