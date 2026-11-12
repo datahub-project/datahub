@@ -1,19 +1,24 @@
 import json
 import logging
 import re
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Tuple, cast
 from unittest.mock import MagicMock, create_autospec, patch
 
 import boto3
 import pydantic
 import pytest
+import time_machine
 from botocore.credentials import Credentials, RefreshableCredentials
 from botocore.exceptions import ClientError
 from opensearchpy.client.indices import IndicesClient
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.aws.aws_common import (
+    AwsConnectionConfig,
+    AwsEnvironment,
+)
 from datahub.ingestion.source.elastic_search import (
     CollapseUrns,
     ElasticsearchSource,
@@ -2623,6 +2628,7 @@ _AWS_KEYS_CONFIG: Dict[str, Any] = {
     "aws_region": "us-east-1",
 }
 _ROLE = "arn:aws:iam::123456789012:role/Example"
+_TLS: Dict[str, Any] = {"use_ssl": True, "verify_certs": True}
 
 
 @pytest.mark.parametrize(
@@ -2636,7 +2642,7 @@ _ROLE = "arn:aws:iam::123456789012:role/Example"
 def test_aws_config_rejects_other_auth_methods(extra_auth: Dict[str, Any]) -> None:
     with pytest.raises(pydantic.ValidationError, match="aws_config"):
         ElasticsearchSourceConfig.model_validate(
-            {"aws_config": _AWS_KEYS_CONFIG, "use_ssl": True, **extra_auth}
+            {"aws_config": _AWS_KEYS_CONFIG, **_TLS, **extra_auth}
         )
 
 
@@ -2648,7 +2654,7 @@ def test_aws_config_rejects_other_auth_methods(extra_auth: Dict[str, Any]) -> No
                 "aws_config": {
                     k: v for k, v in _AWS_KEYS_CONFIG.items() if k != "aws_region"
                 },
-                "use_ssl": True,
+                **_TLS,
             },
             id="missing-region",
         ),
@@ -2659,20 +2665,38 @@ def test_aws_config_rejects_other_auth_methods(extra_auth: Dict[str, Any]) -> No
                     "aws_profile": "example",
                     "aws_role": _ROLE,
                 },
-                "use_ssl": True,
+                **_TLS,
             },
             id="role-with-profile",
         ),
         pytest.param(
-            {"aws_config": {**_AWS_KEYS_CONFIG, "aws_role": _ROLE}, "use_ssl": True},
+            {"aws_config": {**_AWS_KEYS_CONFIG, "aws_role": _ROLE}, **_TLS},
             id="role-with-explicit-keys",
         ),
         pytest.param({"aws_config": _AWS_KEYS_CONFIG}, id="plaintext"),
+        pytest.param(
+            {"aws_config": _AWS_KEYS_CONFIG, "use_ssl": True},
+            id="unverified-certificate",
+        ),
     ],
 )
 def test_aws_config_rejects_invalid_combinations(config: Dict[str, Any]) -> None:
     with pytest.raises(pydantic.ValidationError):
         ElasticsearchSourceConfig.model_validate(config)
+
+
+def test_aws_role_with_key_id_but_no_secret_is_accepted() -> None:
+    # get_session() only uses explicit keys when both are set, so the role is assumed.
+    ElasticsearchSourceConfig.model_validate(
+        {
+            "aws_config": {
+                "aws_region": "us-east-1",
+                "aws_role": _ROLE,
+                "aws_access_key_id": "AKIAEXAMPLE",
+            },
+            **_TLS,
+        }
+    )
 
 
 @patch("datahub.ingestion.source.elastic_search.OpenSearch")
@@ -2684,7 +2708,7 @@ def test_aws_config_signs_requests_with_sigv4(
     ElasticsearchSource.create(
         {
             "host": "search-domain.us-east-1.es.amazonaws.com:443",
-            "use_ssl": True,
+            **_TLS,
             "aws_config": _AWS_KEYS_CONFIG,
         },
         PipelineContext(run_id="test"),
@@ -2828,13 +2852,20 @@ def test_aws_credential_refresh_escalates_once_credentials_expire() -> None:
         side_effect=[_session_with_keys("FIRST")] + [_THROTTLED] * 50,
     ) as get_session:
         credentials.get_frozen_credentials()
+        first_failure_at = clock.now + 60
+        failure_reported_at = None
         # Twenty minutes of one request per second against a persistently failing STS.
         for _ in range(1200):
             clock.now += 1
             credentials.get_frozen_credentials()
+            if report.failures and failure_reported_at is None:
+                failure_reported_at = clock.now
     assert get_session.call_count <= 10
     assert len(report.failures) == 1
     assert report.warnings
+    # Reported as soon as the 5-minute pre-expiry buffer is exhausted, not at the
+    # next backoff retry.
+    assert failure_reported_at == first_failure_at + 300
 
 
 @patch("datahub.ingestion.source.elastic_search.OpenSearch")
@@ -2846,7 +2877,7 @@ def test_aws_config_without_credentials_fails_at_startup(mock_opensearch: Any) -
         pytest.raises(ConfigurationError),
     ):
         ElasticsearchSource.create(
-            {"use_ssl": True, "aws_config": {"aws_region": "us-east-1"}},
+            {**_TLS, "aws_config": {"aws_region": "us-east-1"}},
             PipelineContext(run_id="test"),
         )
     mock_opensearch.assert_not_called()
@@ -2857,7 +2888,7 @@ def test_aws_config_unknown_profile_fails_at_startup(mock_opensearch: Any) -> No
     with pytest.raises(ConfigurationError):
         ElasticsearchSource.create(
             {
-                "use_ssl": True,
+                **_TLS,
                 "aws_config": {
                     "aws_region": "us-east-1",
                     "aws_profile": "datahub-test-profile-that-does-not-exist",
@@ -2866,3 +2897,52 @@ def test_aws_config_unknown_profile_fails_at_startup(mock_opensearch: Any) -> No
             PipelineContext(run_id="test"),
         )
     mock_opensearch.assert_not_called()
+
+
+def test_aws_role_expiry_failure_tracks_aws_common_refresh_buffer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Drives the real AwsConnectionConfig assume-role path (only STS is stubbed) so the
+    # escalation is checked against aws_common's actual pre-expiry refresh buffer.
+    monkeypatch.delenv("AWS_PROFILE", raising=False)
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AKIABASE")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "base-secret")
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    expiry = start + timedelta(minutes=15)
+    assumed = {
+        "AccessKeyId": "ASSUMED",
+        "SecretAccessKey": "secret",
+        "SessionToken": "token",
+        "Expiration": expiry,
+    }
+    report = ElasticsearchSourceReport()
+    aws_common_module = "datahub.ingestion.source.aws.aws_common"
+    with (
+        time_machine.travel(start, tick=False) as traveller,
+        patch(f"{aws_common_module}.get_current_identity", return_value=(None, None)),
+        patch(
+            f"{aws_common_module}.detect_aws_environment",
+            return_value=AwsEnvironment.UNKNOWN,
+        ),
+        patch(
+            f"{aws_common_module}.assume_role",
+            side_effect=[assumed] + [_THROTTLED] * 50,
+        ) as assume_role,
+    ):
+        credentials = _AwsConfigCredentials(
+            AwsConnectionConfig(aws_region="us-east-1", aws_role=_ROLE),
+            report,
+            clock=lambda: datetime.now(timezone.utc).timestamp(),
+        )
+        assert credentials.get_frozen_credentials().access_key == "ASSUMED"
+        failure_reported_at = None
+        for _ in range(20 * 60):
+            traveller.shift(1)
+            credentials.get_frozen_credentials()
+            if report.failures and failure_reported_at is None:
+                failure_reported_at = datetime.now(timezone.utc)
+    assert failure_reported_at is not None
+    # STS is first retried once aws_common's refresh buffer is entered; the failure
+    # must land at expiry, delayed at most by one recheck interval.
+    assert expiry <= failure_reported_at <= expiry + timedelta(seconds=60)
+    assert assume_role.call_count <= 12

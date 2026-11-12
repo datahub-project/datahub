@@ -28,7 +28,7 @@ AWS IAM authentication cannot be combined with basic authentication or an API ke
 
 Assumed-role credentials are renewed automatically before they expire, so long-running ingestion does not need special handling.
 
-Amazon OpenSearch Service domains only accept HTTPS, and signed requests must not be sent in plaintext, so `aws_config` requires `use_ssl: True` (set `verify_certs: True` as well). Point `host` at the domain endpoint on port 443, for example `search-my-domain-abc123.us-east-1.es.amazonaws.com:443`.
+Amazon OpenSearch Service domains only accept HTTPS, and signed requests must only go to a verified domain certificate, so `aws_config` requires `use_ssl: True` and `verify_certs: True` (use `ca_certs` for a custom certificate authority). Point `host` at the domain endpoint on port 443, for example `search-my-domain-abc123.us-east-1.es.amazonaws.com:443`.
 
 The IAM principal needs `es:ESHttpGet` on the domain (for example `arn:aws:es:us-east-1:123456789012:domain/my-domain/*`); the connector only issues read requests. If the domain uses fine-grained access control, also map the principal (as a backend role) to an OpenSearch role with these permissions:
 

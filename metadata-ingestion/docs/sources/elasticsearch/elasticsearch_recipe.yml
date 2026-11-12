@@ -12,14 +12,14 @@ source:
     # AWS IAM (SigV4) auth for Amazon OpenSearch Service domains.
     # Replaces username/password and api_key. Credentials resolve from explicit keys,
     # aws_profile, aws_role, or the default AWS credential chain.
-    # Requires use_ssl: True (and verify_certs: True) below; use host '<domain-endpoint>:443'.
+    # Requires use_ssl: True and verify_certs: True below; use host '<domain-endpoint>:443'.
     # aws_role is assumed from the default credential chain and cannot be combined
     # with aws_profile or explicit keys.
     # aws_config:
     #   aws_region: us-east-1
     #   aws_role: "arn:aws:iam::123456789012:role/DataHubOpenSearchRead" # optional
 
-    # SSL support (use_ssl must be True when using aws_config)
+    # SSL support (use_ssl and verify_certs must be True when using aws_config)
     use_ssl: False
     verify_certs: False
     ca_certs: "./path/ca.cert"
