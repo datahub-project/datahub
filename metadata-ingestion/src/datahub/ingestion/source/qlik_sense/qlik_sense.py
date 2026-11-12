@@ -1700,6 +1700,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         for reference in candidates.references:
             storage, detail = self._file_storage(reference.connection, space_id)
             if storage is None:
+                info = self._find_data_connection(reference.connection, space_id)
+                if info is not None and info.file_platform != candidates.platform:
+                    # A visible connection of another kind, such as DataFiles,
+                    # can't hold a file on this storage.
+                    continue
                 unknown = True
                 if (
                     reference.connection

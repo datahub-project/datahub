@@ -232,6 +232,24 @@ describe('Qlik Sense recipe form', () => {
             },
         ]);
         expect(QLIK_FILE_CONNECTION_MAP.dynamicHidden?.({ deployment: 'on_prem' })).toBe(true);
+
+        // A setting the form has no field for survives a save.
+        const withFlag = {
+            source: {
+                type: 'qlik-sense',
+                config: {
+                    file_connection_to_storage: {
+                        'Sales Space:Lake': { storage_uri: 's3://old', convert_urns_to_lowercase: true },
+                    },
+                },
+            },
+        };
+        const saved = QLIK_FILE_CONNECTION_MAP.setValueOnRecipeOverride?.(withFlag, [
+            { data_connection_name: 'Sales Space:Lake', storage_uri: 's3://new' },
+        ]);
+        expect(saved.source.config.file_connection_to_storage).toEqual({
+            'Sales Space:Lake': { storage_uri: 's3://new', convert_urns_to_lowercase: true },
+        });
     });
 
     it('accepts a bare tenant hostname and rejects a scheme or path', () => {

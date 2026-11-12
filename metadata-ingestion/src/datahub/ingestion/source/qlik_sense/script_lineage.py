@@ -381,6 +381,8 @@ class DataConnectionInfo(BaseModel):
     folder_path: Optional[str] = None
     # The storage of a Qlik Cloud file data connection, such as Azure Storage.
     file_storage: Optional[FileStorage] = None
+    # The platform of its files, known even when its storage is not.
+    file_platform: Optional[str] = None
 
 
 class ResolvedConnection(BaseModel):
