@@ -62,7 +62,8 @@ export const MentionView = ({ urn, name }: EditorMentionViewProps) => {
 
     const registry = useEntityRegistry();
     const { data, loading } = useGetEntityMentionNodeQuery({
-        variables: { urn },
+        // A chip needs neither lineage nor siblings; the query fetches both unless skipped.
+        variables: { urn, skipLineage: true, skipSiblingsSearch: true },
         fetchPolicy: 'cache-first',
     });
 
