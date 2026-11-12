@@ -1464,11 +1464,9 @@ jobs:
   # Playwright P0 tier on PRs: works out which tests the PR needs (every @p0 test,
   # plus the tests Playwright's --only-changed says the change affects, plus the specs
   # seeding from changed fixture data) with plan_playwright_tier.py, and falls back
-  # to the full suite when a change can't be mapped. The tier is used when
-  # .github/ci-flags.json on the base branch sets playwright_p0_tier to true (every PR)
-  # or the PLAYWRIGHT_P0_SMOKE repo variable is "true" (PRs from branches in this repo),
-  # and the PR has neither run-all-tests nor run-all-tests:playwright; otherwise the full suite
-  # runs and the plan is only reported (shadow mode; the report job checks it for
+  # to the full suite when a change can't be mapped. The tier is used when the
+  # PLAYWRIGHT_P0_SMOKE repo variable is "true" and the PR has neither run-all-tests
+  # nor run-all-tests:playwright; otherwise the full suite runs and the plan is only reported (shadow mode; the report job checks it for
   # escapes). If this job fails, playwright_test runs the full suite.
   playwright_plan:
     name: Plan Playwright P0 tier
@@ -1513,13 +1511,13 @@ jobs:
         id: plan
         env:
           SUITE_MATRIX: ${{ needs.setup.outputs.playwright_matrix }}
-          # Repository variables don't reach PRs from forks, so this one turns the tier
-          # on only for PRs from branches in this repo; ci-flags.json covers every PR.
-          PLAYWRIGHT_P0_SMOKE: ${{ vars.PLAYWRIGHT_P0_SMOKE }}
-          RUN_ALL_LABEL: >-
+          # The tier is on via the PLAYWRIGHT_P0_SMOKE repo variable; run-all-tests (both
+          # suites) or run-all-tests:playwright turns it off for a single PR.
+          TIER_REQUESTED: >-
             ${{
-              contains(github.event.pull_request.labels.*.name, 'run-all-tests')
-              || contains(github.event.pull_request.labels.*.name, 'run-all-tests:playwright')
+              vars.PLAYWRIGHT_P0_SMOKE == 'true'
+              && !contains(github.event.pull_request.labels.*.name, 'run-all-tests')
+              && !contains(github.event.pull_request.labels.*.name, 'run-all-tests:playwright')
             }}
         run: |
           base=HEAD^1
@@ -1527,18 +1525,10 @@ jobs:
             # Not a merge commit (e.g. a custom checkout): compare with the merge base.
             base=$(git merge-base HEAD "origin/${GITHUB_BASE_REF}")
           fi
-          # The switch is read from the base branch, not a repository variable: variables
-          # don't reach PRs from forks, and a PR can't turn the tier on for itself.
-          flag=$(git show "$base:.github/ci-flags.json" 2>/dev/null | jq -r '.playwright_p0_tier // false' || echo false)
-          tier_requested=false
-          if [[ ("$flag" == "true" || "$PLAYWRIGHT_P0_SMOKE" == "true") && "$RUN_ALL_LABEL" != "true" ]]; then
-            tier_requested=true
-          fi
-          echo "playwright_p0_tier=$flag PLAYWRIGHT_P0_SMOKE=$PLAYWRIGHT_P0_SMOKE run-all-tests label=$RUN_ALL_LABEL -> tier requested: $tier_requested"
           python3 .github/scripts/plan_playwright_tier.py \
             --base "$base" \
             --suite-shards "$(jq '.include | length' <<< "$SUITE_MATRIX")" \
-            --tier-requested "$tier_requested" \
+            --tier-requested "$TIER_REQUESTED" \
             --plan-out "$RUNNER_TEMP/playwright-tier-plan.json"
       - name: Upload Playwright P0 tier plan
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
