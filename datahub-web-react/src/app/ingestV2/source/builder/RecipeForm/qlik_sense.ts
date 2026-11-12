@@ -354,11 +354,11 @@ export const QLIK_ON_PREM_READ_DATA_MODEL: RecipeField = {
     label: 'Read Data Model',
     helper: 'Open apps with their data to read table fields and types',
     tooltip:
-        'Open each app with its data to read its data model, which gives every table its fields and types, including tables loaded with LOAD * and from QVDs. The Engine keeps each app in memory until the app cache time set in the QMC has passed. Turn off to open apps without their data; table fields then come only from the load script. Qlik Sense Enterprise on Windows only.',
+        'Open each app with its data to read its data model, which gives every table its fields and types, including tables loaded with LOAD * and from QVDs. Off by default, as it is much slower: the Engine keeps each app in memory until the app cache time set in the QMC has passed, and apps whose section access denies the service user their data cannot be read. Without it, table fields come only from the load script. Qlik Sense Enterprise on Windows only.',
     type: FieldType.BOOLEAN,
     fieldPath: readDataModelFieldPath,
     rules: null,
-    getValueFromRecipeOverride: (recipe: any) => get(recipe, readDataModelFieldPath) !== false,
+    getValueFromRecipeOverride: (recipe: any) => get(recipe, readDataModelFieldPath) === true,
     dynamicHidden: isCloud,
 };
 
