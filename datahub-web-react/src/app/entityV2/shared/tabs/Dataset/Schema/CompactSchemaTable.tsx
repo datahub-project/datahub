@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import { useDebounce } from 'react-use';
@@ -102,42 +102,58 @@ export default function CompactSchemaTable({
     const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata, fieldInfoMaps);
 
     // Function to get the count of each usageStats fieldPath
-    function getCount(fieldPath: any) {
-        const data: any =
-            usageStats?.aggregations?.fields &&
-            usageStats?.aggregations?.fields?.find((field) => {
-                return field?.fieldName === fieldPath;
-            });
-        return (data && data.count) ?? 0;
-    }
+    const getCount = useCallback(
+        (fieldPath: any) => {
+            const data: any =
+                usageStats?.aggregations?.fields &&
+                usageStats?.aggregations?.fields?.find((field) => {
+                    return field?.fieldName === fieldPath;
+                });
+            return (data && data.count) ?? 0;
+        },
+        [usageStats],
+    );
 
-    const columns: Column<ExtendedSchemaFields>[] = [
-        {
-            title: tc('name'),
-            key: 'fieldPath',
-            width: '100px',
-            render: (record) => schemaTitleRenderer(record.fieldPath, record),
-            sorter: (sourceA, sourceB) =>
-                translateFieldPath(sourceA.fieldPath).localeCompare(translateFieldPath(sourceB.fieldPath)),
-        },
-        {
-            title: tc('description'),
-            key: 'description',
-            render: (record, index) => descriptionRender(record.description ?? undefined, record, index),
-            sorter: (sourceA, sourceB) =>
-                (extractFieldDescription(sourceA).sanitizedDescription ? 1 : 0) -
-                (extractFieldDescription(sourceB).sanitizedDescription ? 1 : 0),
-        },
-    ];
-    if (hasUsageStats) {
-        columns.push({
-            title: tc('usage'),
-            key: 'usage',
-            width: '100px',
-            render: (record) => usageStatsRenderer(record.fieldPath),
-            sorter: (sourceA, sourceB) => getCount(sourceA.fieldPath) - getCount(sourceB.fieldPath),
-        });
-    }
+    // Memoized so the table's memoized cells only re-render when a row or a renderer actually changes;
+    // this table sits in sidebars whose parents re-render often.
+    const columns = useMemo(() => {
+        const tableColumns: Column<ExtendedSchemaFields>[] = [
+            {
+                title: tc('name'),
+                key: 'fieldPath',
+                width: '100px',
+                render: (record) => schemaTitleRenderer(record.fieldPath, record),
+                sorter: (sourceA, sourceB) =>
+                    translateFieldPath(sourceA.fieldPath).localeCompare(translateFieldPath(sourceB.fieldPath)),
+            },
+            {
+                title: tc('description'),
+                key: 'description',
+                render: (record, index) => descriptionRender(record.description ?? undefined, record, index),
+                sorter: (sourceA, sourceB) =>
+                    (extractFieldDescription(sourceA).sanitizedDescription ? 1 : 0) -
+                    (extractFieldDescription(sourceB).sanitizedDescription ? 1 : 0),
+            },
+        ];
+        if (hasUsageStats) {
+            tableColumns.push({
+                title: tc('usage'),
+                key: 'usage',
+                width: '100px',
+                render: (record) => usageStatsRenderer(record.fieldPath),
+                sorter: (sourceA, sourceB) => getCount(sourceA.fieldPath) - getCount(sourceB.fieldPath),
+            });
+        }
+        return tableColumns;
+    }, [
+        tc,
+        schemaTitleRenderer,
+        descriptionRender,
+        extractFieldDescription,
+        hasUsageStats,
+        usageStatsRenderer,
+        getCount,
+    ]);
 
     return (
         <TableContainer fullHeight={fullHeight}>
@@ -148,6 +164,7 @@ export default function CompactSchemaTable({
                 rowKey="fieldPath"
                 size="sm"
                 isScrollable
+                memoizeCells
                 treeData={{
                     getChildren: (field) => field.children,
                     expandedRowKeys,

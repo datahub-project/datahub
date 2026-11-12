@@ -104,9 +104,9 @@ const getFixedOffsets = <T,>(columns: Column<T>[], measuredWidths: number[]): (n
 
 type CellContentProps = { column: Column<unknown>; row: unknown; index: number };
 
-// A virtualized table re-renders each time its window moves while scrolling. Memoizing cell content
-// keeps those re-renders from re-running every visible cell's render; a cell still updates when its
-// row or its column (and so its render function) changes.
+// A virtualized table re-renders each time its window moves while scrolling, and a small table can
+// re-render with its parent. Memoizing cell content keeps those re-renders from re-running every
+// visible cell's render; a cell still updates when its row or its column (and so its render function) changes.
 const MemoizedCellContent = React.memo(({ column, row, index }: CellContentProps) => {
     return <>{renderCell(column, row, index)}</>;
 });
@@ -134,6 +134,7 @@ export const Table = <T,>({
     sortState,
     onSortChange,
     virtualization,
+    memoizeCells,
     scrollToRowKey,
     rowDetail,
     size = 'md',
@@ -152,6 +153,7 @@ export const Table = <T,>({
     const [headerCellWidths, setHeaderCellWidths] = useState<number[]>([]);
 
     const isRowClickable = !!onRowClick;
+    const shouldMemoizeCells = !!virtualization || !!memoizeCells;
     const { keys: collapsedKeys, toggleKey: toggleGroup } = useToggledKeys(
         groupBy?.collapsedKeys,
         groupBy?.defaultCollapsedKeys,
@@ -376,7 +378,7 @@ export const Table = <T,>({
                     {/* Render each cell in the row */}
 
                     {finalColumns.map((column, i) => {
-                        let content = virtualization ? (
+                        let content = shouldMemoizeCells ? (
                             <MemoizedCellContent column={column as Column<unknown>} row={row} index={index} />
                         ) : (
                             renderCell(column, row, index)

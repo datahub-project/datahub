@@ -53,6 +53,11 @@ export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
     onSortChange?: (sortState: TableSortState) => void;
     /** Renders only the rows in view. Rows must have a fixed height. Needs `isScrollable` and a bounded height. */
     virtualization?: TableVirtualizationProps;
+    /**
+     * Re-renders a cell only when its row or column object changes, so pass memoized columns. Always on
+     * with `virtualization`; worth turning on for small tables whose parent re-renders often.
+     */
+    memoizeCells?: boolean;
     /** Scrolls this row into view whenever the key changes, including rows outside the virtualized window. */
     scrollToRowKey?: string | null;
     /** Cell density. `sm` uses 8px cell padding for narrow, dense lists (e.g. sidebars). Defaults to `md`. */
