@@ -206,9 +206,10 @@ public class BoundHierarchyAccessBatchTest {
   }
 
   @Test
-  public void nonVertexSeedsSkipTheCacheAndShareParentLookups() {
+  public void nonVertexSeedsNeverUseTheCacheAndShareParentLookups() {
     hierarchy();
-    // The cache serves the container chain above LEAF and MID.
+    // Even though the cache could serve the container chains above LEAF and MID, parents of seeds
+    // the cache cannot hold are read live, as a single-seed walk would after a miss.
     when(cache.walkOrderedForwardAncestors(
             eq("container"), eq(GraphSnapshotSource.GRAPH), eq(LEAF.toString()), anyInt(), any()))
         .thenReturn(AncestorWalkResult.fromAncestors(List.of(MID.toString(), ROOT.toString())));
@@ -230,24 +231,19 @@ public class BoundHierarchyAccessBatchTest {
         List.of(DATASET_A, DATASET_B, CHART, ORPHAN),
         "results keep input order");
 
-    // Datasets and charts are never cache seeds; each distinct parent container is looked up once.
-    for (Urn seed : List.of(DATASET_A, DATASET_B, CHART, ORPHAN)) {
-      verify(cache, never())
-          .walkOrderedForwardAncestors(anyString(), any(), eq(seed.toString()), anyInt(), any());
-    }
-    verify(cache, times(1))
-        .walkOrderedForwardAncestors(anyString(), any(), eq(LEAF.toString()), anyInt(), any());
-    verify(cache, times(1))
-        .walkOrderedForwardAncestors(anyString(), any(), eq(MID.toString()), anyInt(), any());
+    verify(cache, never())
+        .walkOrderedForwardAncestors(anyString(), any(), anyString(), anyInt(), any());
 
-    // One direct-parent read per entity type, nothing else: the cache served the rest.
-    List<Set<Urn>> reads = aspectReads(2);
+    // One direct-parent read per entity type, then one read per level for the distinct parents.
+    List<Set<Urn>> reads = aspectReads(4);
     assertEquals(
-        reads.stream()
+        reads.subList(0, 2).stream()
             .map(set -> set.stream().map(Urn::getEntityType).collect(Collectors.toSet()))
             .collect(Collectors.toSet()),
         Set.of(Set.of("dataset"), Set.of("chart")),
         "each read carries one entity type");
+    assertEquals(reads.get(2), Set.of(LEAF, MID));
+    assertEquals(reads.get(3), Set.of(ROOT));
   }
 
   @Test
@@ -387,7 +383,23 @@ public class BoundHierarchyAccessBatchTest {
         BoundHierarchyAccess.orderedParentsBatch(opContext, spec, List.of(LEAF), 50);
 
     assertEquals(batch.getParents().get(LEAF), List.of(MID, ROOT));
-    // The seed is tried in the cache (a miss), then its direct parent, each once.
+    // The seed is tried in the cache once (a miss); its ancestors are then read live.
+    verify(cache, times(1))
+        .walkOrderedForwardAncestors(anyString(), any(), eq(LEAF.toString()), anyInt(), any());
+    verify(cache, never())
+        .walkOrderedForwardAncestors(anyString(), any(), eq(MID.toString()), anyInt(), any());
+  }
+
+  @Test
+  public void absentMissKeepsTryingTheCacheForOtherSeeds() {
+    hierarchy();
+
+    BoundHierarchyAccess.BatchParents batch =
+        BoundHierarchyAccess.orderedParentsBatch(opContext, spec, List.of(LEAF, MID), 50);
+
+    assertEquals(batch.getParents().get(LEAF), List.of(MID, ROOT));
+    assertEquals(batch.getParents().get(MID), List.of(ROOT));
+    // ABSENT only means "not in the graph"; the next seed may still hit.
     verify(cache, times(1))
         .walkOrderedForwardAncestors(anyString(), any(), eq(LEAF.toString()), anyInt(), any());
     verify(cache, times(1))
@@ -395,20 +407,20 @@ public class BoundHierarchyAccessBatchTest {
   }
 
   @Test
-  public void parentCacheErrorFallsBackToTheDatabase() {
+  public void nonAbsentMissStopsUsingTheCacheForTheRestOfTheBatch() {
     hierarchy();
     when(cache.walkOrderedForwardAncestors(
             eq("container"), eq(GraphSnapshotSource.GRAPH), eq(LEAF.toString()), anyInt(), any()))
-        .thenThrow(new RuntimeException("hazelcast read failed"));
+        .thenReturn(AncestorWalkResult.miss(ReadMissReason.STALE_BLOCKED));
 
     BoundHierarchyAccess.BatchParents batch =
-        BoundHierarchyAccess.orderedParentsBatch(
-            opContext, spec, List.of(DATASET_A, DATASET_B), 50);
+        BoundHierarchyAccess.orderedParentsBatch(opContext, spec, List.of(LEAF, MID), 50);
 
-    assertTrue(
-        batch.getFailures().isEmpty(), "a shared parent's cache error must not fail its seeds");
-    assertEquals(batch.getParents().get(DATASET_A), List.of(LEAF, MID, ROOT));
-    assertEquals(batch.getParents().get(DATASET_B), List.of(LEAF, MID, ROOT));
+    assertTrue(batch.getFailures().isEmpty());
+    assertEquals(batch.getParents().get(LEAF), List.of(MID, ROOT));
+    assertEquals(batch.getParents().get(MID), List.of(ROOT));
+    verify(cache, never())
+        .walkOrderedForwardAncestors(anyString(), any(), eq(MID.toString()), anyInt(), any());
   }
 
   @Test
@@ -475,5 +487,63 @@ public class BoundHierarchyAccessBatchTest {
     assertTrue(lookup.getChains().isEmpty());
     // One read per group at the first level; MID's failed read is not repeated for DATASET_C.
     assertEquals(new java.util.HashSet<>(aspectReads(2)), Set.of(Set.of(MID), Set.of(DATASET_C)));
+  }
+
+  /**
+   * Randomized parity guard: on random parent forests (with cycles, self-loops, mixed entity types
+   * and every depth), the batch walk returns exactly what the single-seed {@code orderedParents}
+   * returns for each seed, with the cache both unbound and always missing.
+   */
+  @Test
+  public void batchMatchesSingleSeedWalkOnRandomForests() {
+    final java.util.Random random = new java.util.Random(20261112L);
+    final List<Urn> containers = new ArrayList<>();
+    for (int i = 0; i < 25; i++) {
+      containers.add(UrnUtils.getUrn("urn:li:container:c" + i));
+    }
+    final List<Urn> assets = new ArrayList<>();
+    for (int i = 0; i < 15; i++) {
+      assets.add(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,d" + i + ",PROD)"));
+      assets.add(UrnUtils.getUrn("urn:li:chart:(looker,ch" + i + ")"));
+    }
+    final List<Urn> all = new ArrayList<>(containers);
+    all.addAll(assets);
+
+    for (int iteration = 0; iteration < 300; iteration++) {
+      parentByUrn.clear();
+      for (Urn urn : all) {
+        // Parents are always containers; any container may point back up the chain or at itself.
+        if (random.nextInt(10) < 8) {
+          parentByUrn.put(urn, containers.get(random.nextInt(containers.size())));
+        }
+      }
+      final List<Urn> seeds = new ArrayList<>();
+      final int seedCount = 1 + random.nextInt(20);
+      for (int i = 0; i < seedCount; i++) {
+        seeds.add(all.get(random.nextInt(all.size())));
+      }
+      final int maxDepth = 1 + random.nextInt(12);
+      final boolean cacheBound = random.nextBoolean();
+      when(cache.bindingForKnownGraph(KnownEntityGraph.CONTAINER))
+          .thenReturn(
+              cacheBound
+                  ? Optional.of(
+                      EntityGraphBinding.builder()
+                          .graphId("container")
+                          .source(GraphSnapshotSource.GRAPH)
+                          .build())
+                  : Optional.empty());
+
+      final BoundHierarchyAccess.BatchParents batch =
+          BoundHierarchyAccess.orderedParentsBatch(opContext, spec, seeds, maxDepth);
+
+      assertTrue(batch.getFailures().isEmpty(), "iteration " + iteration);
+      for (Urn seed : seeds) {
+        assertEquals(
+            batch.getParents().get(seed),
+            AspectParentWalker.orderedParents(opContext, spec, seed, maxDepth),
+            "iteration " + iteration + " seed " + seed + " maxDepth " + maxDepth);
+      }
+    }
   }
 }

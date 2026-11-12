@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.cache.AncestorWalkResult;
 import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.graph.cache.GraphReadResult;
+import com.linkedin.metadata.graph.cache.ReadMissReason;
 import com.linkedin.metadata.graph.cache.TraversalDirection;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphEndpoints;
 import io.datahubproject.metadata.context.OperationContext;
@@ -16,7 +17,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -113,11 +113,13 @@ public final class BoundHierarchyAccess {
    * <ul>
    *   <li>Seeds whose entity type is a vertex in the bound graph (for example containers) are tried
    *       against the cache one by one, as {@link #orderedParents} does. A cache error fails only
-   *       that seed.
+   *       that seed. After the first miss for any reason other than {@link ReadMissReason#ABSENT}
+   *       (the cache cannot serve right now), the rest of the batch skips the cache.
    *   <li>Every other seed (for example a dataset, which the container graph never holds) skips the
-   *       cache: their direct parents come from one batched aspect read.
-   *   <li>Each distinct direct parent is then resolved once and shared by all seeds under it, from
-   *       the cache when it can serve it, otherwise from a level-by-level batched aspect walk.
+   *       cache entirely, as do seeds the cache missed. Like {@link #orderedParents} after a miss,
+   *       their chains come from live aspect reads: one batched read for their direct parents, then
+   *       a level-by-level batched walk from each distinct direct parent, shared by all seeds under
+   *       it.
    * </ul>
    *
    * <p>A failed DB read fails only the seeds whose chain needed it, rather than shortening their
@@ -146,12 +148,18 @@ public final class BoundHierarchyAccess {
         continue;
       }
       try {
-        Optional<List<Urn>> hit = cachedOrderedParents(opContext, spec, seed, maxDepth);
-        if (hit.isPresent()) {
-          parents.put(seed, hit.get());
-        } else {
-          uncached.add(seed);
+        AncestorWalkResult walkResult = cachedOrderedParents(opContext, spec, seed, maxDepth);
+        if (walkResult instanceof AncestorWalkResult.Hit hit) {
+          parents.put(seed, EntityGraphEndpoints.toUrnList(hit.ancestors()));
+          continue;
         }
+        if (walkResult instanceof AncestorWalkResult.Miss miss
+            && miss.reason() != ReadMissReason.ABSENT) {
+          // The cache cannot serve this graph right now; don't make every remaining seed wait on
+          // it in turn.
+          useCache = false;
+        }
+        uncached.add(seed);
       } catch (RuntimeException e) {
         failures.put(seed, e);
       }
@@ -167,34 +175,17 @@ public final class BoundHierarchyAccess {
     failures.putAll(direct.getFailures());
     Map<Urn, Urn> directParents = direct.getParents();
 
-    // 3. Ancestors above each distinct direct parent, resolved once.
+    // 3. Ancestors above each distinct direct parent, resolved once from live aspect reads (not the
+    //    cache, which these seeds missed or can never hit). Chains that finish are kept even if a
+    //    deeper read for another chain fails.
     Map<Urn, List<Urn>> above = new HashMap<>();
     Map<Urn, RuntimeException> aboveFailures = new HashMap<>();
-    if (maxDepth > 1) {
-      Set<Urn> walkFromAspects = new LinkedHashSet<>();
-      for (Urn parent : new LinkedHashSet<>(directParents.values())) {
-        Optional<List<Urn>> hit = Optional.empty();
-        if (useCache && isCacheVertex(spec, parent)) {
-          try {
-            hit = cachedOrderedParents(opContext, spec, parent, maxDepth - 1);
-          } catch (RuntimeException e) {
-            // A shared ancestor's cache error should not fail every seed under it; read the DB.
-            hit = Optional.empty();
-          }
-        }
-        if (hit.isPresent()) {
-          above.put(parent, hit.get());
-        } else {
-          walkFromAspects.add(parent);
-        }
-      }
-      if (!walkFromAspects.isEmpty()) {
-        // Chains that finish are kept even if a deeper read for another chain fails.
-        AspectParentWalker.ChainLookup walked =
-            AspectParentWalker.orderedParentsBatch(opContext, spec, walkFromAspects, maxDepth - 1);
-        above.putAll(walked.getChains());
-        aboveFailures.putAll(walked.getFailures());
-      }
+    if (maxDepth > 1 && !directParents.isEmpty()) {
+      AspectParentWalker.ChainLookup walked =
+          AspectParentWalker.orderedParentsBatch(
+              opContext, spec, new LinkedHashSet<>(directParents.values()), maxDepth - 1);
+      above.putAll(walked.getChains());
+      aboveFailures.putAll(walked.getFailures());
     }
 
     // 4. Stitch: seed -> direct parent -> ancestors, stopping at a cycle or maxDepth.
@@ -229,23 +220,19 @@ public final class BoundHierarchyAccess {
     return orderedAs(distinctSeeds, parents, failures);
   }
 
-  /** Cache-only ordered walk; empty on a cache miss or when the graph is not bound. */
+  /** Cache-only ordered walk for one seed. */
   @Nonnull
-  private static Optional<List<Urn>> cachedOrderedParents(
+  private static AncestorWalkResult cachedOrderedParents(
       @Nonnull OperationContext opContext,
       @Nonnull HierarchyReadSpec spec,
       @Nonnull Urn seedUrn,
       int maxDepth) {
-    AncestorWalkResult walkResult =
-        EntityGraphCacheClients.walkOrderedForwardAncestors(
-            opContext,
-            opContext.getEntityGraphCache(),
-            spec.getBinding(),
-            seedUrn.toString(),
-            maxDepth);
-    return walkResult.isHit()
-        ? Optional.of(EntityGraphEndpoints.toUrnList(walkResult.ancestorsOrEmpty()))
-        : Optional.empty();
+    return EntityGraphCacheClients.walkOrderedForwardAncestors(
+        opContext,
+        opContext.getEntityGraphCache(),
+        spec.getBinding(),
+        seedUrn.toString(),
+        maxDepth);
   }
 
   /**
