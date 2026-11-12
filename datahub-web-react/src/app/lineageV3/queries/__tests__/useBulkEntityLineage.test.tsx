@@ -1,11 +1,11 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { waitFor } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 import React, { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LineageEntity, LineageNodesContext, NodeContext } from '@app/lineageV3/common';
 import useBulkEntityLineage from '@app/lineageV3/queries/useBulkEntityLineage';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { GetBulkEntityLineageV2Document } from '@graphql/lineage.generated';
 import { EntityType, LineageDirection } from '@types';

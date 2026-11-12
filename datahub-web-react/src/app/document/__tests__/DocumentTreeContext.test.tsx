@@ -1,7 +1,8 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import React from 'react';
 
 import { DocumentTreeNode, DocumentTreeProvider, useDocumentTree } from '@app/document/DocumentTreeContext';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 function makeNode(urn: string, parentUrn: string | null = null): DocumentTreeNode {
     return {
