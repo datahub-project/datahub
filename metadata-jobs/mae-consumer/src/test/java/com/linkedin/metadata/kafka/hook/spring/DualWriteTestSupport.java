@@ -39,13 +39,10 @@ public final class DualWriteTestSupport {
   public static final String DATASET_INDEX = "datasetindex_v2";
 
   /**
-   * A second, MIXED-CASE entity. {@code dataset} alone cannot detect the key-skew this PR fixes,
-   * because it is already all-lowercase: the two sides of the lookup agree on it by accident.
-   *
-   * <p>The skew only appears when the registry name has capitals. The map is built from {@code
-   * IndexConvention.getEntityName()}, which derives the name from the LOWERCASED physical index
-   * ({@code aiagentindex_v2} -> {@code aiagent}), while writes look the target up by {@code
-   * EntitySpec.getName()}, which is the registry name ({@code aiAgent}).
+   * A second, MIXED-CASE entity. {@code dataset} alone cannot show that targets resolve through the
+   * convention-derived alias, because it is already all-lowercase. Phase 1 records the alias as the
+   * convention lowercases it ({@code aiagentindex_v2}); the write path must reach that key from the
+   * registry name ({@code aiAgent}).
    */
   public static final String AI_AGENT_INDEX = "aiagentindex_v2";
 
@@ -56,9 +53,6 @@ public final class DualWriteTestSupport {
    * returns.
    */
   public static final String AI_AGENT_REGISTRY_NAME = "aiAgent";
-
-  /** Lowercased form {@code IndexConvention} derives, i.e. how the target map is actually keyed. */
-  public static final String AI_AGENT_DERIVED_NAME = "aiagent";
 
   private DualWriteTestSupport() {}
 

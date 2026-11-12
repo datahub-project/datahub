@@ -1,18 +1,18 @@
-import { Checkbox } from '@components';
 import React from 'react';
 
+import { Checkbox } from '@components/components/Checkbox';
 import { CheckboxWrapper } from '@components/components/Table/components';
 import { Column, RowSelectionProps } from '@components/components/Table/types';
-import { useRowSelection } from '@components/components/Table/useRowSelection';
+import type { useRowSelection } from '@components/components/Table/useRowSelection';
 import { getRowKey } from '@components/components/Table/utils';
 
 export const useGetSelectionColumn = <T,>(
-    data: T[],
+    selection: ReturnType<typeof useRowSelection<T>>,
     rowKey?: string | ((record: T) => string),
     rowSelection?: RowSelectionProps<T>,
 ): Column<T>[] => {
     const { isSelectAll, isSelectAllDisabled, isIntermediate, handleSelectAll, handleRowSelect, selectedRowKeys } =
-        useRowSelection(data, rowKey, rowSelection);
+        selection;
 
     const selectionColumn = {
         title: (

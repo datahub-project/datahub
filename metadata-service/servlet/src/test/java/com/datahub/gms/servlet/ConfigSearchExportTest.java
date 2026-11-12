@@ -3,6 +3,7 @@ package com.datahub.gms.servlet;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
@@ -73,9 +74,18 @@ public class ConfigSearchExportTest extends AbstractTestNGSpringContextTests {
     new ConfigSearchExport().doGet(request, response);
 
     verify(response).setStatus(HttpServletResponse.SC_OK);
-    // V3 runs the V2 per-field query, so the export lists the V2 subfields and analyzers
-    assertTrue(body.toString().contains(".delimited"), body.toString());
-    assertTrue(body.toString().contains("query_word_delimited"), body.toString());
-    assertTrue(body.toString().contains("phrase_match"), body.toString());
+    String csv = body.toString();
+    // Deliberate V3 change: the Stage 1 query reads the shared root fields, so the export lists
+    // their subfields and no V2 per-field subfields, analyzers or word-gram phrases
+    assertTrue(csv.contains("name.text"), csv);
+    assertTrue(csv.contains("description.stemmed"), csv);
+    assertTrue(csv.contains("prefix_match"), csv);
+    // Stage 1 clauses under the dis_max root. V3 keyword reads exact-match the root, which has no
+    // .keyword subfield.
+    assertTrue(csv.contains("exact_match,ConstantScoreQueryBuilder,name,"), csv);
+    assertFalse(csv.contains("name.keyword"), csv);
+    assertFalse(csv.contains(".delimited"), csv);
+    assertFalse(csv.contains("query_word_delimited"), csv);
+    assertFalse(csv.contains("phrase_match"), csv);
   }
 }

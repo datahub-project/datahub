@@ -7,6 +7,8 @@
     "queriesTab.downstreamQueriesTooltip": "Queries som driver downstream-tillgångar",
     "queriesTab.highlightedQueriesTitle": "Markerade Queries",
     "queriesTab.highlightedQueriesTooltip": "Kuraterade Queries relevanta för det här Datasetet",
+    "queriesTab.noViewPermission": "Du har inte behörighet att visa queries för detta Dataset.",
+    "queriesTab.queriesTitle": "Queries",
     "queriesTab.recentQueriesTitle": "Senaste Queries",
     "queriesTab.recentQueriesTooltip": "Nyligen körda Queries mot det här Datasetet",
     "queryBuilderModal.createError": "Det gick inte att skapa Query! Ett oväntat fel uppstod",

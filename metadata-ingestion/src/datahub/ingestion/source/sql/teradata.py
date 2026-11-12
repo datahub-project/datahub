@@ -1595,6 +1595,10 @@ class LineageQuery:
     SourceCapability.OPERATION_CAPTURE,
     "Optionally enabled via `include_usage_statistics`; controlled by `usage.include_operational_stats`",
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class TeradataSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:
@@ -2005,15 +2009,12 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             if self.config.stateful_ingestion:
                 self.config.stateful_ingestion.remove_stale_metadata = False
 
-    def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
-        """Add Teradata-specific default options"""
-        super()._add_default_options(sql_config)
-        if sql_config.is_profiling_enabled():
-            # Sqlalchemy uses QueuePool by default however Teradata uses SingletonThreadPool.
-            # SingletonThreadPool does not support parellel connections. For using profiling, we need to use QueuePool.
-            # https://docs.sqlalchemy.org/en/20/core/pooling.html#connection-pool-configuration
-            # https://github.com/Teradata/sqlalchemy-teradata/issues/96
-            sql_config.options.setdefault("poolclass", QueuePool)
+    # Sqlalchemy uses QueuePool by default however Teradata uses SingletonThreadPool.
+    # SingletonThreadPool does not support parellel connections. For using profiling, we need to use QueuePool.
+    # https://docs.sqlalchemy.org/en/20/core/pooling.html#connection-pool-configuration
+    # https://github.com/Teradata/sqlalchemy-teradata/issues/96
+    # The base class applies this before deciding on max_overflow, so both are set.
+    _profiling_pool_class = QueuePool
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any

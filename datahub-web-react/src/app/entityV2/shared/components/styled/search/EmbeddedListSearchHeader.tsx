@@ -1,16 +1,17 @@
-import { ExclamationCircleFilled, FilterOutlined } from '@ant-design/icons';
+import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Button as AntButton, Typography } from 'antd';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
 
-import { EntityAndType } from '@app/entity/shared/types';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { SearchBar } from '@app/search/SearchBar';
-import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
 import SearchMenuItems from '@app/sharedV2/search/SearchMenuItems';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
@@ -101,7 +102,7 @@ export default function EmbeddedListSearchHeader({
             <TabToolbar>
                 <HeaderContainer>
                     <AntButton type="text" onClick={onToggleFilters} data-testid="toggle-filters-button">
-                        <FilterOutlined />
+                        <Funnel />
                         <Typography.Text>{t('embeddedSearch.filters')}</Typography.Text>
                     </AntButton>
                     <SearchAndDownloadContainer>
@@ -159,7 +160,7 @@ export default function EmbeddedListSearchHeader({
             )}
             {showLightningWarning && lineageSearchPath === LineageSearchPath.Lightning && (
                 <ImpactAnalysisWarning data-testid="lightning-cache-warning">
-                    <ExclamationCircleFilled style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
+                    <Warning weight="fill" style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
                     {t('embeddedSearch.impactWarning')}
                     <StyledButton
                         onClick={() => setShowLightningWarning(false)}

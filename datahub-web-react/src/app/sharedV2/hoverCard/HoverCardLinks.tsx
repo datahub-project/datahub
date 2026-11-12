@@ -3,10 +3,10 @@ import { ArrowUpRight } from '@phosphor-icons/react/dist/csr/ArrowUpRight';
 import React from 'react';
 import styled from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import useExternalLinks from '@app/entityV2/shared/externalUrl/useExternalLinks';
 import usePlatformLinks from '@app/entityV2/shared/externalUrl/usePlatformLinks';
-import { safeUrl } from '@app/shared/urlUtils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
+import { safeUrl } from '@utils/urlUtils';
 
 import { Entity } from '@types';
 

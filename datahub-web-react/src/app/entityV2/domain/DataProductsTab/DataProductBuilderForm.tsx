@@ -1,4 +1,4 @@
-import { Editor, Input } from '@components';
+import { Input } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -7,6 +7,7 @@ import { Label } from '@components/components/Input/components';
 
 import { DataProductBuilderState } from '@app/entityV2/domain/DataProductsTab/types';
 import DataProductParentSelect from '@app/entityV2/shared/EntityDropdown/DataProductParentSelect';
+import { Editor } from '@app/sharedV2/editor/Editor';
 
 const FieldGroup = styled.div`
     display: flex;

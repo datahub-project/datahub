@@ -28,6 +28,7 @@ const OptionRow = styled.div`
     gap: 12px;
     padding: 8px;
     min-width: 160px;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 /**
@@ -63,10 +64,8 @@ export default function SidebarSortSelect({
                     dataTestId: `${dataTestId}-option-${option.value}`,
                     render: () => (
                         <OptionRow data-testid={`${dataTestId}-option-${option.value}`}>
-                            <Text weight="semiBold" color="gray" colorLevel={600}>
-                                {option.label}
-                            </Text>
-                            {isSelected ? <Icon icon={Check} color="gray" colorLevel={1800} size="lg" /> : null}
+                            <Text weight="semiBold">{option.label}</Text>
+                            {isSelected ? <Icon icon={Check} size="lg" /> : null}
                         </OptionRow>
                     ),
                 };

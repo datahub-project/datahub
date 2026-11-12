@@ -4,13 +4,28 @@ namespace com.linkedin.chart
  * Information for chart query which is used for getting data of the chart
  */
 @Aspect = {
-  "name": "chartQuery"
+  "name": "chartQuery",
+  "schemaVersion": 2
 }
 record ChartQuery {
 
   /**
    * Raw query to build a chart from input datasets
    */
+  @Searchable = {
+    "fieldType": "RICH_TEXT",
+    "queryByDefault": false,
+    "v3": {
+      "queryByDefault": false,
+      "boostScore": 0.5,
+      "searchLabel": "queryText",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   rawQuery: string
 
   /**

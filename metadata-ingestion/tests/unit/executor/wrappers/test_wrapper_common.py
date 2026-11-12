@@ -160,7 +160,9 @@ class TestWrapperStdinContent:
 
     @staticmethod
     def _run_ingestion_wrapper(
-        tmp_path: Path, envelope_support: bool
+        tmp_path: Path,
+        envelope_support: bool,
+        run_options: dict[str, Any] | None = None,
     ) -> tuple[str, list[str]]:
         """Drive run_ingest.main() end-to-end.
 
@@ -173,6 +175,7 @@ class TestWrapperStdinContent:
                 "__secrets__": {"SECRET": "hidden"},
                 "__report_out_file__": str(tmp_path / "report.json"),
                 "__debug_mode__": "false",
+                **({"__run_options__": run_options} if run_options else {}),
             }
         )
 
@@ -236,3 +239,57 @@ class TestWrapperStdinContent:
         _written, cmd = self._run_ingestion_wrapper(tmp_path, envelope_support=True)
 
         assert cmd[0] == str(tmp_path / "venv" / "bin" / "datahub")
+
+    def test_run_options_reach_the_spawned_command(self, tmp_path: Path) -> None:
+        """A requested dry run must end up on the command line: dropped, the run
+        writes to DataHub."""
+        _written, cmd = self._run_ingestion_wrapper(
+            tmp_path,
+            envelope_support=True,
+            run_options={"dry_run": True, "preview": True, "preview_workunits": 3},
+        )
+
+        run_args = cmd[cmd.index("ingest") :]
+        assert run_args[:4] == ["ingest", "run", "-c", "-"]
+        assert "--dry-run" in run_args
+        assert run_args[run_args.index("--preview-workunits") + 1] == "3"
+        assert "--preview" in run_args
+
+
+class TestRunOptionFlags:
+    def test_no_options_add_no_flags(self, tmp_path: Path) -> None:
+        assert run_ingest.run_option_flags({}, tmp_path / "datahub") == []
+
+    def test_dry_run_and_preview_become_cli_flags(self, tmp_path: Path) -> None:
+        with patch.object(run_ingest, "check_cli_flag_support", return_value=True):
+            flags = run_ingest.run_option_flags(
+                {"dry_run": True, "preview": True, "preview_workunits": 5},
+                tmp_path / "datahub",
+            )
+        assert flags == ["--dry-run", "--preview", "--preview-workunits", "5"]
+
+    def test_every_requested_flag_is_checked(self, tmp_path: Path) -> None:
+        # A CLI that knows --preview-workunits but not --preview must still
+        # fail: each flag that would be passed is checked on its own.
+        with (
+            patch.object(
+                run_ingest,
+                "check_cli_flag_support",
+                side_effect=lambda _binary, flag: flag != "preview",
+            ) as check,
+            pytest.raises(SystemExit),
+        ):
+            run_ingest.run_option_flags(
+                {"preview": True, "preview_workunits": 5}, tmp_path / "datahub"
+            )
+        assert [c.args[1] for c in check.call_args_list] == ["preview"]
+
+    def test_a_cli_without_the_flag_fails_instead_of_running_for_real(
+        self, tmp_path: Path
+    ) -> None:
+        with (
+            patch.object(run_ingest, "check_cli_flag_support", return_value=False),
+            pytest.raises(SystemExit) as exit_info,
+        ):
+            run_ingest.run_option_flags({"dry_run": True}, tmp_path / "datahub")
+        assert exit_info.value.code == 1

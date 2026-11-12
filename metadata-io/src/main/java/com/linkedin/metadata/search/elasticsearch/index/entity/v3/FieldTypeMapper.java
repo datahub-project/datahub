@@ -3,33 +3,16 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.BROWSE_PATH_HIERARCHY_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.CUSTOM_QUOTE_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.FIELDDATA;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.FIELDS;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.KEYWORD;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.KEYWORD_NORMALIZER;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.NGRAM;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.NORMALIZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.PARTIAL_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.PARTIAL_URN_COMPONENT;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.SEARCH_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.SEARCH_QUOTE_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.SLASH_PATTERN_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.TEXT_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.TEXT_SEARCH_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.URN_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.URN_SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.WORD_GRAM_2_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.WORD_GRAM_3_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.WORD_GRAM_4_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.DELIMITED;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.LENGTH;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.WORD_GRAMS_LENGTH_2;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.WORD_GRAMS_LENGTH_3;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.WORD_GRAMS_LENGTH_4;
 import static com.linkedin.metadata.search.utils.ESUtils.BOOLEAN_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.DATE_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.DOUBLE_FIELD_TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.FIELDS;
 import static com.linkedin.metadata.search.utils.ESUtils.FLOAT_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.IGNORE_ABOVE;
 import static com.linkedin.metadata.search.utils.ESUtils.INTEGER_FIELD_TYPE;
@@ -37,22 +20,24 @@ import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_MAXLENGTH;
 import static com.linkedin.metadata.search.utils.ESUtils.LONG_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.OBJECT_FIELD_TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.RANK_FEATURES_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.keywordIgnoreAboveForMaxBytes;
 
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.PrimitiveDataSchema;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
+import com.linkedin.metadata.models.annotation.v3.FieldMapping;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.utils.ESUtils;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -61,11 +46,14 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class FieldTypeMapper {
+  /** V3 source mapping only. The standard tokenizer caps a token at 255 characters. */
+  public static final String RICH_TEXT_ANALYZER = "rich_text_delimited";
+
+  public static final String RICH_TEXT_SEARCH_ANALYZER = "query_rich_text_delimited";
+  static final String RICH_TEXT_DELIMITER = "rich_text_delimiter";
+
   static final Map<String, String> DEFAULT_PARTIAL_NGRAM_CONFIG =
       OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG;
-
-  private static final Set<FieldType> URN_FIELD_TYPES =
-      Set.of(FieldType.URN, FieldType.URN_PARTIAL);
 
   private FieldTypeMapper() {
     // Utility class - prevent instantiation
@@ -85,6 +73,8 @@ public class FieldTypeMapper {
       case TEXT:
       case TEXT_PARTIAL:
         return KEYWORD_FIELD_TYPE; // Treat text fields as keyword for simplicity
+      case RICH_TEXT:
+        return ESUtils.TEXT_FIELD_TYPE;
       case BOOLEAN:
         return BOOLEAN_FIELD_TYPE;
       case COUNT:
@@ -93,6 +83,8 @@ public class FieldTypeMapper {
         return DATE_FIELD_TYPE;
       case DOUBLE:
         return DOUBLE_FIELD_TYPE;
+      case RANK_FEATURES:
+        return RANK_FEATURES_FIELD_TYPE;
       case URN:
         return KEYWORD_FIELD_TYPE; // URN fields are treated as keyword
       case MAP_ARRAY:
@@ -170,25 +162,20 @@ public class FieldTypeMapper {
   }
 
   /**
-   * Creates a mapping configuration for a keyword field.
+   * Creates a mapping configuration for a keyword field: the stored value as one exact term, with
+   * no normalizer and no {@code .keyword} multi-field. Filters, facets, sorts and exact matches all
+   * read this field.
    *
    * @return mapping configuration for keyword field
    */
   @Nonnull
   public static Map<String, Object> getMappingsForKeyword() {
-    Map<String, Object> mapping = new HashMap<>();
-    mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put(NORMALIZER, KEYWORD_NORMALIZER);
-    mapping.put(FIELDS, Map.of(KEYWORD, Map.of("type", KEYWORD_FIELD_TYPE)));
-    return mapping;
+    return getMappingsForKeywordWithIgnoreAbove();
   }
 
   /**
    * Creates a keyword mapping guarded by a byte-safe {@code ignore_above} at the Lucene keyword
    * term limit. Delegates to {@link #getMappingsForKeywordWithIgnoreAbove(int)}.
-   *
-   * <p>Includes a {@code .keyword} multi-field so filters/facets that append {@code .keyword} (e.g.
-   * STRING/RICH_TEXT structured properties via {@code usesKeywordSubfield}) resolve.
    */
   @Nonnull
   public static Map<String, Object> getMappingsForKeywordWithIgnoreAbove() {
@@ -196,62 +183,30 @@ public class FieldTypeMapper {
   }
 
   /**
+   * A raw keyword: stored casing, no normalizer, no {@code .keyword} multi-field. A value over
+   * {@code ignore_above} stays in {@code _source} but is not indexed.
+   *
    * @param keywordMaxBytes Lucene keyword term limit in UTF-8 bytes (e.g. configured structured
    *     property max). Converted to a byte-safe character {@code ignore_above}.
    */
   @Nonnull
   public static Map<String, Object> getMappingsForKeywordWithIgnoreAbove(int keywordMaxBytes) {
-    int ignoreAbove = keywordIgnoreAboveForMaxBytes(keywordMaxBytes);
     Map<String, Object> mapping = new HashMap<>();
     mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put(NORMALIZER, KEYWORD_NORMALIZER);
-    mapping.put(IGNORE_ABOVE, ignoreAbove);
-    // Subfield mirrors parent ignore_above so exact-match / aggregation queries on .keyword
-    // are protected from Lucene term-length failures on oversized values.
-    mapping.put(
-        FIELDS, Map.of(KEYWORD, Map.of("type", KEYWORD_FIELD_TYPE, IGNORE_ABOVE, ignoreAbove)));
+    mapping.put(IGNORE_ABOVE, keywordIgnoreAboveForMaxBytes(keywordMaxBytes));
     return mapping;
   }
 
   /**
-   * Creates a mapping configuration for a structured-property URN field.
-   *
-   * <p>Parent keyword only (no {@code .keyword} / delimited / ngram subfields): query-time
-   * structured-property filters skip {@code .keyword} for URN value types via {@code
-   * StructuredPropertyUtils.usesKeywordSubfield}. Entity searchable URN fields use {@link
-   * #getMappingsForSearchableUrn} / the overload with partial ngram config instead.
-   *
-   * @return mapping configuration for URN structured property field
+   * Exact URN keyword with no {@code .keyword} subfield. Query-time structured-property filters
+   * skip {@code .keyword} for URN value types. The whole value is indexed, including dataset and
+   * schema-field paths longer than 255 bytes. The parsed name is the aspect keyword {@code
+   * <field>__urn_name}.
    */
   @Nonnull
   public static Map<String, Object> getMappingsForUrn() {
     Map<String, Object> mapping = new HashMap<>();
     mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put(IGNORE_ABOVE, 255);
-    return mapping;
-  }
-
-  @Nonnull
-  public static Map<String, Object> getMappingsForUrn(
-      @Nonnull Map<String, String> partialNgramConfig) {
-    Map<String, Object> mapping = new HashMap<>();
-    mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put(
-        FIELDS,
-        Map.of(
-            DELIMITED,
-            Map.of(
-                "type",
-                ESUtils.TEXT_FIELD_TYPE,
-                ANALYZER,
-                URN_ANALYZER,
-                SEARCH_ANALYZER,
-                URN_SEARCH_ANALYZER,
-                SEARCH_QUOTE_ANALYZER,
-                CUSTOM_QUOTE_ANALYZER),
-            NGRAM,
-            partialNgramConfigWithOverrides(
-                partialNgramConfig, Map.of(ANALYZER, PARTIAL_URN_COMPONENT))));
     return mapping;
   }
 
@@ -281,19 +236,24 @@ public class FieldTypeMapper {
    */
   @Nonnull
   public static Map<String, Object> getMappingsForFieldType(@Nonnull FieldType fieldType) {
-    return getMappingsForFieldType(fieldType, DEFAULT_PARTIAL_NGRAM_CONFIG);
-  }
-
-  @Nonnull
-  public static Map<String, Object> getMappingsForFieldType(
-      @Nonnull FieldType fieldType, @Nonnull Map<String, String> partialNgramConfig) {
     switch (fieldType) {
       case KEYWORD:
         return getMappingsForKeyword();
       case TEXT:
       case TEXT_PARTIAL:
       case WORD_GRAM:
-        return getMappingsForSearchText(fieldType, partialNgramConfig);
+      case URN:
+      case URN_PARTIAL:
+        return getMappingsForSearchText();
+      case RICH_TEXT:
+        // Analyzed text with no keyword parent, so a long body is not one Lucene term.
+        return Map.of(
+            "type",
+            ESUtils.TEXT_FIELD_TYPE,
+            ANALYZER,
+            RICH_TEXT_ANALYZER,
+            SEARCH_ANALYZER,
+            RICH_TEXT_SEARCH_ANALYZER);
       case BOOLEAN:
         return Map.of("type", BOOLEAN_FIELD_TYPE);
       case COUNT:
@@ -302,9 +262,8 @@ public class FieldTypeMapper {
         return Map.of("type", DATE_FIELD_TYPE);
       case DOUBLE:
         return Map.of("type", DOUBLE_FIELD_TYPE);
-      case URN:
-      case URN_PARTIAL:
-        return getMappingsForSearchableUrn(fieldType, partialNgramConfig);
+      case RANK_FEATURES:
+        return Map.of("type", RANK_FEATURES_FIELD_TYPE);
       case BROWSE_PATH:
         return getMappingsForBrowsePath();
       case BROWSE_PATH_V2:
@@ -329,14 +288,6 @@ public class FieldTypeMapper {
   @Nonnull
   public static Map<String, Object> getMappingsForFieldType(
       @Nonnull FieldType fieldType, @Nonnull SearchableFieldSpec searchableFieldSpec) {
-    return getMappingsForFieldType(fieldType, searchableFieldSpec, DEFAULT_PARTIAL_NGRAM_CONFIG);
-  }
-
-  @Nonnull
-  public static Map<String, Object> getMappingsForFieldType(
-      @Nonnull FieldType fieldType,
-      @Nonnull SearchableFieldSpec searchableFieldSpec,
-      @Nonnull Map<String, String> partialNgramConfig) {
 
     // For COUNT fields, try to determine the appropriate numeric type based on the underlying PDL
     // field type
@@ -346,13 +297,15 @@ public class FieldTypeMapper {
     }
 
     // For all other field types, use the standard mapping
-    return getMappingsForFieldType(fieldType, partialNgramConfig);
+    return getMappingsForFieldType(fieldType);
   }
 
   /**
-   * Creates the mapping for a field's copy under {@code _aspects.<aspect>}. Full-text search reads
-   * the root projection fields, so the aspect copy is never analyzed: string values map to keywords
-   * guarded by {@code ignore_above}, and other types keep their standard mapping.
+   * Creates the mapping for a field's copy under {@code _aspects.<aspect>}. This is the filter
+   * surface for every searchable aspect field, labeled or not. It does not read {@code
+   * v3.mappings}: a search-only label root and analyzer subfields stay on the shared label. String
+   * values map to keywords guarded by a byte-safe {@code ignore_above}, and dates, numbers and
+   * booleans keep their native type. Nothing here is analyzed text.
    *
    * @param fieldType the DataHub field type
    * @param searchableFieldSpec the searchable field spec containing the underlying PDL schema
@@ -366,6 +319,7 @@ public class FieldTypeMapper {
       case TEXT:
       case TEXT_PARTIAL:
       case WORD_GRAM:
+      case RICH_TEXT:
       case BROWSE_PATH:
       case BROWSE_PATH_V2:
         return getMappingsForKeywordWithIgnoreAbove();
@@ -377,10 +331,88 @@ public class FieldTypeMapper {
     }
   }
 
+  /**
+   * Maps the exact representation under {@code _aspects}. A field also projected to the document
+   * root leaves this copy unindexed unless {@code v3.source} turns index or doc values back on. A
+   * field that stays under {@code _aspects} follows the V3 root. Label analyzer subfields never
+   * appear under an aspect.
+   */
+  @Nonnull
+  public static Map<String, Object> mappingForAspectRoot(
+      @Nonnull FieldMapping root, @Nonnull SearchableFieldSpec searchableFieldSpec) {
+    if (!root.isRoot()) {
+      throw new IllegalArgumentException("mappingForAspectRoot requires the root entry");
+    }
+    SearchableAnnotation resolved = searchableFieldSpec.getSearchableAnnotation().resolvedForV3();
+    boolean index = resolved.aspectIndexed();
+    boolean docValues = resolved.aspectDocValues();
+    FieldType fieldType = resolved.getFieldType();
+    switch (root.getType()) {
+      case KEYWORD:
+        if (fieldType == FieldType.URN || fieldType == FieldType.URN_PARTIAL) {
+          return urnAspectMapping(index, docValues);
+        }
+        return keywordRoot(FieldMapping.root(FieldMapping.Type.KEYWORD, index, docValues));
+      case URN:
+        return urnAspectMapping(index, docValues);
+      case BOOLEAN:
+        return nativeAspectMapping(BOOLEAN_FIELD_TYPE, index, docValues);
+      case COUNT:
+        return nativeAspectMapping(
+            getElasticsearchTypeForCountField(searchableFieldSpec), index, docValues);
+      case DATETIME:
+        return nativeAspectMapping(DATE_FIELD_TYPE, index, docValues);
+      case DOUBLE:
+        return nativeAspectMapping(DOUBLE_FIELD_TYPE, index, docValues);
+      case BROWSE_PATH_V2:
+        if (!index) {
+          return unindexedKeyword(docValues);
+        }
+        Map<String, Object> browse = new HashMap<>(getMappingsForKeywordWithIgnoreAbove());
+        if (!docValues) {
+          browse.put("doc_values", false);
+        }
+        return browse;
+      default:
+        return mappingForRoot(
+            FieldMapping.root(root.getType(), index, docValues), searchableFieldSpec);
+    }
+  }
+
+  /** Exact URN keyword under {@code _aspects}. Unindexed copies keep {@code copy_to}. */
+  @Nonnull
+  private static Map<String, Object> urnAspectMapping(boolean index, boolean docValues) {
+    if (!index) {
+      return unindexedKeyword(docValues);
+    }
+    Map<String, Object> mapping = new HashMap<>(getMappingsForUrn());
+    if (!docValues) {
+      mapping.put("doc_values", false);
+    }
+    return mapping;
+  }
+
+  /**
+   * A native aspect value. Both flags true omit the keys so an unlabeled field matches the mapping
+   * it had before aspect-source defaults.
+   */
+  @Nonnull
+  private static Map<String, Object> nativeAspectMapping(
+      @Nonnull String type, boolean index, boolean docValues) {
+    Map<String, Object> mapping = new HashMap<>();
+    mapping.put("type", type);
+    if (!index) {
+      mapping.put(ESUtils.INDEX, false);
+    }
+    if (!docValues) {
+      mapping.put("doc_values", false);
+    }
+    return mapping;
+  }
+
   @Nonnull
   public static Map<String, Object> getRichestCompatibleMapping(
-      @Nonnull List<SearchableFieldSpec> sourceFieldSpecs,
-      @Nonnull Map<String, String> partialNgramConfig) {
+      @Nonnull List<SearchableFieldSpec> sourceFieldSpecs) {
     SearchableFieldSpec representative =
         sourceFieldSpecs.stream()
             .max(
@@ -391,22 +423,7 @@ public class FieldTypeMapper {
                     .thenComparing(spec -> String.valueOf(spec.getPath())))
             .orElseThrow(() -> new IllegalArgumentException("sourceFieldSpecs must not be empty"));
     FieldType representativeType = representative.getSearchableAnnotation().getFieldType();
-    Set<FieldType> fieldTypes =
-        sourceFieldSpecs.stream()
-            .map(spec -> spec.getSearchableAnnotation().getFieldType())
-            .collect(Collectors.toSet());
-    // A text field with partial or word-gram analysis is richer than a URN field, so it keeps its
-    // own mapping, which indexes the URN values analyzed too
-    if (URN_FIELD_TYPES.contains(representativeType) && !URN_FIELD_TYPES.containsAll(fieldTypes)) {
-      log.warn(
-          "Root field {} is {} across the entities of one index; it gets a keyword base with URN"
-              + " analysis on .delimited, so full-text search on it can miss values of any of"
-              + " these entities",
-          representative.getSearchableAnnotation().getFieldName(),
-          fieldTypes);
-      return getMappingsForUrnSharedWithKeyword(representativeType, partialNgramConfig);
-    }
-    return getMappingsForFieldType(representativeType, representative, partialNgramConfig);
+    return getMappingsForFieldType(representativeType, representative);
   }
 
   /**
@@ -491,8 +508,7 @@ public class FieldTypeMapper {
       case STRING:
       case RICH_TEXT:
         // ignore_above protects reindex from pre-existing values over the keyword limit;
-        // StructuredPropertiesValidator rejects new oversized writes. .keyword multi-field
-        // matches usesKeywordSubfield query/facet resolution.
+        // StructuredPropertiesValidator rejects new oversized writes.
         return getMappingsForKeywordWithIgnoreAbove(keywordMaxLength);
       case DATE:
         return Map.of("type", DATE_FIELD_TYPE);
@@ -548,114 +564,142 @@ public class FieldTypeMapper {
     return mapping;
   }
 
+  /**
+   * The root mapping of every text, word-gram and URN field: a raw keyword with the stored casing,
+   * read by filters, facets and sorts. Full-text search and autocomplete read the shared root
+   * fields (see {@link V3SearchFields}), whose analyzed subfields are merged onto this projection.
+   */
   @Nonnull
-  private static Map<String, Object> getMappingsForSearchText(
-      @Nonnull FieldType fieldType, @Nonnull Map<String, String> partialNgramConfig) {
+  private static Map<String, Object> getMappingsForSearchText() {
     Map<String, Object> mapping = new HashMap<>();
     mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put(NORMALIZER, KEYWORD_NORMALIZER);
     mapping.put(IGNORE_ABOVE, KEYWORD_MAXLENGTH);
-
-    Map<String, Object> fields = new HashMap<>();
-    if (fieldType == FieldType.TEXT_PARTIAL || fieldType == FieldType.WORD_GRAM) {
-      fields.put(
-          NGRAM,
-          partialNgramConfigWithOverrides(partialNgramConfig, Map.of(ANALYZER, PARTIAL_ANALYZER)));
-      if (fieldType == FieldType.WORD_GRAM) {
-        fields.put(
-            WORD_GRAMS_LENGTH_2,
-            Map.of("type", ESUtils.TEXT_FIELD_TYPE, ANALYZER, WORD_GRAM_2_ANALYZER));
-        fields.put(
-            WORD_GRAMS_LENGTH_3,
-            Map.of("type", ESUtils.TEXT_FIELD_TYPE, ANALYZER, WORD_GRAM_3_ANALYZER));
-        fields.put(
-            WORD_GRAMS_LENGTH_4,
-            Map.of("type", ESUtils.TEXT_FIELD_TYPE, ANALYZER, WORD_GRAM_4_ANALYZER));
-      }
-    }
-    fields.put(
-        DELIMITED,
-        Map.of(
-            "type",
-            ESUtils.TEXT_FIELD_TYPE,
-            ANALYZER,
-            TEXT_ANALYZER,
-            SEARCH_ANALYZER,
-            TEXT_SEARCH_ANALYZER,
-            SEARCH_QUOTE_ANALYZER,
-            CUSTOM_QUOTE_ANALYZER));
-    fields.put(KEYWORD, Map.of("type", KEYWORD_FIELD_TYPE, IGNORE_ABOVE, KEYWORD_MAXLENGTH));
-    mapping.put(FIELDS, fields);
-    return mapping;
-  }
-
-  @Nonnull
-  private static Map<String, Object> getMappingsForSearchableUrn(
-      @Nonnull FieldType fieldType, @Nonnull Map<String, String> partialNgramConfig) {
-    Map<String, Object> mapping = new HashMap<>();
-    // The V2 shape: V2 and V3 share one query builder, which runs analyzed URN search on the field
-    // itself. DataHub Cloud gives URN fields a keyword base with the analyzed text in a delimited
-    // subfield, because its consolidated indices can map one root field name as KEYWORD for one
-    // entity and URN for another; each OSS index holds a single entity, and a shared name falls
-    // back to that shape (getMappingsForUrnSharedWithKeyword).
-    mapping.put("type", ESUtils.TEXT_FIELD_TYPE);
-    mapping.put(ANALYZER, URN_ANALYZER);
-    mapping.put(SEARCH_ANALYZER, URN_SEARCH_ANALYZER);
-    mapping.put(SEARCH_QUOTE_ANALYZER, CUSTOM_QUOTE_ANALYZER);
-
-    Map<String, Object> fields = new HashMap<>();
-    if (fieldType == FieldType.URN_PARTIAL) {
-      fields.put(
-          NGRAM,
-          partialNgramConfigWithOverrides(
-              partialNgramConfig, Map.of(ANALYZER, PARTIAL_URN_COMPONENT)));
-    }
-    fields.put(KEYWORD, Map.of("type", KEYWORD_FIELD_TYPE));
-    mapping.put(FIELDS, fields);
     return mapping;
   }
 
   /**
-   * DataHub Cloud's URN mapping, for a root field name that is a keyword or plain text field for
-   * another entity of the index: a keyword base keeps exact match, sorting and aggregations working
-   * for that entity, and analyzed URN search moves to the delimited subfield.
+   * The document-root field: the annotation's exact root only. Analyzer subfields are not indexed
+   * here; {@code copy_to} feeds the shared label.
    */
   @Nonnull
-  private static Map<String, Object> getMappingsForUrnSharedWithKeyword(
-      @Nonnull FieldType fieldType, @Nonnull Map<String, String> partialNgramConfig) {
-    Map<String, Object> mapping = new HashMap<>();
-    mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put(IGNORE_ABOVE, KEYWORD_MAXLENGTH);
-
-    Map<String, Object> fields = new HashMap<>();
-    if (fieldType == FieldType.URN_PARTIAL) {
-      fields.put(
-          NGRAM,
-          partialNgramConfigWithOverrides(
-              partialNgramConfig, Map.of(ANALYZER, PARTIAL_URN_COMPONENT)));
+  public static Map<String, Object> mappingForRoot(
+      @Nonnull FieldMapping root, @Nullable SearchableFieldSpec searchableFieldSpec) {
+    if (!root.isRoot()) {
+      throw new IllegalArgumentException("mappingForRoot requires the root entry");
     }
-    fields.put(
-        DELIMITED,
-        Map.of(
+    switch (root.getType()) {
+      case KEYWORD:
+        return keywordRoot(root);
+      case URN:
+        return root.isIndex()
+            ? new HashMap<>(getMappingsForUrn())
+            : unindexedKeyword(root.isDocValues());
+      case BOOLEAN:
+        return Map.of("type", BOOLEAN_FIELD_TYPE);
+      case COUNT:
+        return Map.of(
             "type",
-            ESUtils.TEXT_FIELD_TYPE,
-            ANALYZER,
-            URN_ANALYZER,
-            SEARCH_ANALYZER,
-            URN_SEARCH_ANALYZER,
-            SEARCH_QUOTE_ANALYZER,
-            CUSTOM_QUOTE_ANALYZER));
-    fields.put(KEYWORD, Map.of("type", KEYWORD_FIELD_TYPE));
-    mapping.put(FIELDS, fields);
+            searchableFieldSpec == null
+                ? LONG_FIELD_TYPE
+                : getElasticsearchTypeForCountField(searchableFieldSpec));
+      case DATETIME:
+        return Map.of("type", DATE_FIELD_TYPE);
+      case DOUBLE:
+        return Map.of("type", DOUBLE_FIELD_TYPE);
+      case BROWSE_PATH_V2:
+        return getMappingsForBrowsePathV2();
+      case OBJECT:
+        return getDynamicObjectMappings();
+      case TEXT:
+      case STEMMED:
+      case TEXT_PARTIAL:
+      case WORD_GRAM_2:
+      default:
+        throw new IllegalArgumentException("Analyzer type " + root.getType() + " cannot be a root");
+    }
+  }
+
+  /**
+   * A shared label: one exact root plus the alternate representations its contributors declared.
+   * Analyzed subfields have no {@code doc_values}. A long value skipped by keyword {@code
+   * ignore_above} is still available to those subfields.
+   */
+  @Nonnull
+  public static Map<String, Object> composeLabelMapping(
+      @Nonnull FieldMapping.Resolved resolved,
+      @Nullable SearchableFieldSpec searchableFieldSpec,
+      @Nonnull Map<String, String> partialNgramConfig) {
+    Map<String, Object> mapping =
+        new HashMap<>(mappingForRoot(resolved.getRoot(), searchableFieldSpec));
+    if (resolved.getSubfields().isEmpty()) {
+      return mapping;
+    }
+    @SuppressWarnings("unchecked")
+    Map<String, Object> subfields =
+        mapping.get(FIELDS) instanceof Map
+            ? new HashMap<>((Map<String, Object>) mapping.get(FIELDS))
+            : new HashMap<>();
+    for (FieldMapping subfield : resolved.getSubfields()) {
+      subfields.put(subfield.getSubfield(), mappingForSubfield(subfield, partialNgramConfig));
+    }
+    mapping.put(FIELDS, subfields);
     return mapping;
   }
 
   @Nonnull
-  private static Map<String, Object> partialNgramConfigWithOverrides(
-      @Nonnull Map<String, String> partialNgramConfig, @Nonnull Map<String, String> overrides) {
-    Map<String, Object> merged = new HashMap<>(partialNgramConfig);
-    merged.putAll(overrides);
-    return merged;
+  public static Map<String, Object> mappingForSubfield(
+      @Nonnull FieldMapping subfield, @Nonnull Map<String, String> partialNgramConfig) {
+    switch (subfield.getType()) {
+      case TEXT:
+        return Map.of(
+            "type",
+            ESUtils.TEXT_FIELD_TYPE,
+            ANALYZER,
+            V3SearchFields.TEXT_ANALYZER,
+            SEARCH_ANALYZER,
+            V3SearchFields.TEXT_SEARCH_ANALYZER);
+      case STEMMED:
+        return Map.of(
+            "type",
+            ESUtils.TEXT_FIELD_TYPE,
+            ANALYZER,
+            V3SearchFields.STEMMED_ANALYZER,
+            SEARCH_ANALYZER,
+            V3SearchFields.STEMMED_SEARCH_ANALYZER);
+      case TEXT_PARTIAL:
+        Map<String, Object> partial = new HashMap<>(partialNgramConfig);
+        partial.put(ANALYZER, PARTIAL_ANALYZER);
+        return partial;
+      case WORD_GRAM_2:
+        return Map.of("type", ESUtils.TEXT_FIELD_TYPE, ANALYZER, WORD_GRAM_2_ANALYZER);
+      case KEYWORD:
+      case URN:
+        int ignoreAbove = keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH);
+        return Map.of("type", KEYWORD_FIELD_TYPE, IGNORE_ABOVE, ignoreAbove);
+      default:
+        throw new IllegalArgumentException(subfield.getType() + " is not a subfield type");
+    }
+  }
+
+  @Nonnull
+  private static Map<String, Object> keywordRoot(@Nonnull FieldMapping root) {
+    if (!root.isIndex()) {
+      return unindexedKeyword(root.isDocValues());
+    }
+    Map<String, Object> mapping = new HashMap<>(getMappingsForKeywordWithIgnoreAbove());
+    if (!root.isDocValues()) {
+      mapping.put("doc_values", false);
+    }
+    return mapping;
+  }
+
+  @Nonnull
+  private static Map<String, Object> unindexedKeyword(boolean docValues) {
+    Map<String, Object> mapping = new HashMap<>();
+    mapping.put("type", KEYWORD_FIELD_TYPE);
+    mapping.put(ESUtils.INDEX, false);
+    mapping.put("doc_values", docValues);
+    return mapping;
   }
 
   private static int mappingRichness(@Nonnull SearchableFieldSpec fieldSpec) {
@@ -667,6 +711,7 @@ public class FieldTypeMapper {
       case URN_PARTIAL:
         return 50;
       case TEXT:
+      case RICH_TEXT:
       case URN:
         return 40;
       case KEYWORD:

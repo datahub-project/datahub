@@ -24,6 +24,8 @@ import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingTaskType;
@@ -33,14 +35,14 @@ import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
-import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -124,6 +126,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   private static final double DEFAULT_OVERSAMPLE_FACTOR = 1.2d; // Lower for pre-filtering
   private static final int MAX_K = 500;
   private static final String DEFAULT_MODEL_EMBEDDING_KEY = "text_embedding_3_large";
+  private static final Set<String> WARNED_SHARED_INDEX_ENTITIES = ConcurrentHashMap.newKeySet();
 
   private final SearchClientShim<?> searchClient;
   private final EmbeddingProvider embeddingProvider;
@@ -134,7 +137,6 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   private final String vectorField;
   private final int expectedVectorDimension;
   @Nullable private final EntityIndexConfiguration entityIndexConfiguration;
-  private final Set<String> warnedSharedIndexEntities = ConcurrentHashMap.newKeySet();
 
   /**
    * Constructs a semantic entity search service with the default model embedding key.
@@ -286,7 +288,12 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
     final boolean readV3 = shouldReadSemanticV3(entityIndexConfiguration);
     List<String> indices =
         readV3
-            ? v3SemanticIndices(opContext, entityNames)
+            ? new ArrayList<>(
+                v3SemanticIndices(
+                        opContext,
+                        entityNames,
+                        Objects.requireNonNull(entityIndexConfiguration).getSemanticSearch())
+                    .values())
             : entityNames.stream()
                 .map(
                     entity -> {
@@ -365,7 +372,8 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
                 false, // not timeseries
                 searchableFieldTypes,
                 opContext,
-                queryFilterRewriteChain)
+                queryFilterRewriteChain,
+                readV3 && !entitySpecs.isEmpty() ? new SearchFieldResolver(entitySpecs) : null)
             : null;
 
     // Calculate k for oversampling
@@ -530,18 +538,18 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   }
 
   /**
-   * V3 entity indices that can serve kNN for {@code entityNames}: entity-named indices of
-   * semantic-enabled entity types, the only V3 indices that get the {@code embeddings} mapping.
-   * With the default {@code enabledEntities} that leaves {@code documentindex_v3}. Entity types in
-   * a shared search-group index are skipped.
+   * V3 entity indices that can serve kNN for {@code entityNames}, keyed by canonical entity name:
+   * entity-named indices of semantic-enabled entity types, the only V3 indices that get the {@code
+   * embeddings} mapping. With the default {@code enabledEntities} that leaves {@code
+   * documentindex_v3}. Entity types in a shared search-group index are skipped.
    */
   @Nonnull
-  private List<String> v3SemanticIndices(
-      @Nonnull OperationContext opContext, @Nonnull List<String> entityNames) {
-    SemanticSearchConfiguration semanticConfig =
-        Objects.requireNonNull(entityIndexConfiguration).getSemanticSearch();
+  public static Map<String, String> v3SemanticIndices(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<String> entityNames,
+      @Nullable SemanticSearchConfiguration semanticConfig) {
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-    Set<String> indices = new LinkedHashSet<>();
+    Map<String, String> indices = new LinkedHashMap<>();
     for (String entityName : entityNames) {
       EntitySpec entitySpec;
       try {
@@ -555,7 +563,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
       }
       String indexKey = V3IndexKeys.resolve(entitySpec);
       if (!indexKey.equals(entitySpec.getName())) {
-        if (warnedSharedIndexEntities.add(entitySpec.getName())) {
+        if (WARNED_SHARED_INDEX_ENTITIES.add(entitySpec.getName())) {
           log.warn(
               "Semantic search on Search V3 skips {}: it is stored in the shared {} index, which"
                   + " has no embeddings mapping",
@@ -564,17 +572,17 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
         }
         continue;
       }
-      indices.add(indexConvention.getEntityIndexNameV3(opContext, indexKey));
+      indices.put(entitySpec.getName(), indexConvention.getEntityIndexNameV3(opContext, indexKey));
     }
-    return new ArrayList<>(indices);
+    return indices;
   }
 
   /**
    * Adapts a filter to the V3 mapping. {@code _entityType} becomes an {@code _index} filter on the
    * V3 index names, resolved like the V2 rewrite (underscores dropped, case ignored), because
    * GraphQL sends {@code DOCUMENT} while V3 stores {@code document}. Only entity-named V3 indices
-   * are searched, so an index name identifies the entity type. Other fields keep their V2 names: V3
-   * root fields carry the same {@code .keyword} subfields.
+   * are searched, so an index name identifies the entity type. Other fields keep their V2 names:
+   * the V3 filter builder resolves a {@code .keyword} name to the root field.
    */
   @Nonnull
   private static Filter toV3Filter(@Nonnull OperationContext opContext, @Nonnull Filter filter) {

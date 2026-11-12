@@ -13,14 +13,14 @@ import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 import { useReloadableQuery } from '@app/sharedV2/reloadableContext/hooks/useReloadableQuery';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import EditStructuredPropertyModal from '@src/app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
+import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
+import EditStructuredPropertyModal from '@src/app/entityV2/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
 import {
     getDisplayName,
     getPropertyRowFromSearchResult,
     matchesAllowedPlatforms,
 } from '@src/app/govern/structuredProperties/utils';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import {
     DataPlatform,
@@ -46,7 +46,7 @@ const MAX_STRUCTURED_PROPERTIES_TO_FETCH = 100;
 
 const SidebarStructuredProperties = ({ properties }: Props) => {
     const { entityData, entityType } = useEntityData();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const canEditProps = entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
     const [isPropModalVisible, setIsPropModalVisible] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState<SearchResult | undefined>();

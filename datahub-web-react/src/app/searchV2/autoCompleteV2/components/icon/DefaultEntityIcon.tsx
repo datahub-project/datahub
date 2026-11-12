@@ -13,7 +13,7 @@ import { EntityIconProps } from '@app/searchV2/autoCompleteV2/components/icon/ty
 import useUniqueEntitiesByPlatformUrn from '@app/searchV2/autoCompleteV2/components/icon/useUniqueEntitiesByPlatformUrn';
 import ColoredEntityIcon from '@app/sharedV2/icons/ColoredEntityIcon';
 import { getTagColor } from '@app/tags/utils';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Domain, EntityType, GlossaryNode, GlossaryTerm } from '@types';
 
@@ -27,6 +27,7 @@ const Container = styled.div<{ $size: number }>`
     height: ${(props) => props.$size}px;
     width: ${(props) => props.$size}px;
     border-radius: ${radius.full};
+    overflow: hidden;
 `;
 
 // Entity types that bring their own color render an already-styled tile, so this wrapper only
@@ -39,7 +40,7 @@ const ColoredIconContainer = styled.div<{ $size: number }>`
     width: ${(props) => props.$size}px;
 `;
 
-const IconContainer = styled.div`
+const IconContainer = styled.div<{ $overlap: number }>`
     // The logo is an antd <Image>, whose inline-block wrapper carries a line box taller than the
     // image itself. That extra leading sits below the glyph, so centring the wrapper leaves the
     // glyph riding high in the circle. Zeroing the line height collapses the leading.
@@ -48,7 +49,7 @@ const IconContainer = styled.div`
     justify-content: center;
     line-height: 0;
 
-    margin-left: -4px;
+    margin-left: -${(props) => props.$overlap}px;
     &:first-child {
         margin-left: 0;
     }
@@ -59,31 +60,54 @@ const IconContainer = styled.div`
 const DEFAULT_CONTAINER_SIZE = 28;
 const DEFAULT_ICON_SIZE = 20;
 const DEFAULT_SIBLING_ICON_SIZE = 16;
-// Inset ratios for a platform logo inside its circular surface, matching the app's standard
-// platform treatment elsewhere (an 18px logo in a 32px circle). Siblings sit smaller still because
-// they overlap each other.
+// Inset ratio for a lone platform logo inside its circular surface, matching the app's standard
+// platform treatment elsewhere (an 18px logo in a 32px circle). Stacked logos are sized by
+// getStackedIconSize instead, so the overlapped group fills the circle.
 const PLATFORM_ICON_RATIO = 18 / 32;
-const PLATFORM_SIBLING_ICON_RATIO = 14 / 32;
 const DEFAULT_COLORED_ICON_SIZE = 24;
+const DEFAULT_SIBLING_OVERLAP = 4;
 const DEFAULT_DOMAIN_FONT_SIZE = 16;
 const DEFAULT_GLOSSARY_ICON_SIZE = 14;
+/** Fraction of each stacked logo that overlaps the previous one. */
+const STACK_OVERLAP_RATIO = 0.3;
 
-export default function DefaultEntityIcon({ entity, siblings, size }: EntityIconProps) {
-    const entityRegistry = useEntityRegistryV2();
+/**
+ * Size each logo in a stacked pair/group so the overlapped composite still fits `containerSize`.
+ * e.g. two logos in a 14px chip → ~8px each with ~2px overlap → 14px total.
+ *
+ * @param containerSize - Outer slot width/height in px.
+ * @param count - Number of logos in the stack.
+ * @returns Per-logo size in px.
+ */
+export function getStackedIconSize(containerSize: number, count: number): number {
+    if (count <= 1) return containerSize;
+    const factor = 1 + (count - 1) * (1 - STACK_OVERLAP_RATIO);
+    return Math.max(8, Math.round(containerSize / factor));
+}
+
+/**
+ * Overlap between stacked logos, scaled to the per-logo size.
+ *
+ * @param iconSize - Per-logo size from {@link getStackedIconSize}.
+ * @returns Negative margin magnitude in px.
+ */
+export function getStackedIconOverlap(iconSize: number): number {
+    return Math.max(2, Math.round(iconSize * STACK_OVERLAP_RATIO));
+}
+
+export default function DefaultEntityIcon({ entity, siblings, size, preferSingleIcon }: EntityIconProps) {
+    const entityRegistry = useEntityRegistry();
     const theme = useTheme();
-    const uniqueSiblingsByPlatform = useUniqueEntitiesByPlatformUrn(siblings);
-    const hasSiblings = useMemo(() => (uniqueSiblingsByPlatform?.length ?? 0) > 0, [uniqueSiblingsByPlatform?.length]);
+    const uniqueSiblingsByPlatform = useUniqueEntitiesByPlatformUrn(preferSingleIcon ? undefined : siblings);
+    const hasSiblings = useMemo(
+        () => !preferSingleIcon && (uniqueSiblingsByPlatform?.length ?? 0) > 0,
+        [preferSingleIcon, uniqueSiblingsByPlatform?.length],
+    );
     const entitiesToShowIcons = useMemo(
         () => (hasSiblings ? uniqueSiblingsByPlatform : [entity]),
         [hasSiblings, uniqueSiblingsByPlatform, entity],
     );
     const containerSize = size ?? DEFAULT_CONTAINER_SIZE;
-    // The logo is inset in its circular surface rather than filling it — without this, a caller
-    // `size` sizes the glyph to the whole container, hiding the background and reading as an
-    // oversized bare logo. Defaults are left as-is so autocomplete rows render unchanged.
-    const siblingIconSize = size ? Math.round(size * PLATFORM_SIBLING_ICON_RATIO) : DEFAULT_SIBLING_ICON_SIZE;
-    const soloIconSize = size ? Math.round(size * PLATFORM_ICON_RATIO) : DEFAULT_ICON_SIZE;
-    const iconSize = hasSiblings ? siblingIconSize : soloIconSize;
 
     const properties = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const { platforms } = getEntityPlatforms(entity.type, properties);
@@ -142,22 +166,38 @@ export default function DefaultEntityIcon({ entity, siblings, size }: EntityIcon
         );
     }
 
-    if (!hasSiblings && (platforms?.length ?? 0) > 1) {
+    if (!preferSingleIcon && !hasSiblings && (platforms?.length ?? 0) > 1) {
+        const platformCount = platforms?.length ?? 0;
+        const platformIconSize =
+            size !== undefined ? getStackedIconSize(size, platformCount) : DEFAULT_SIBLING_ICON_SIZE;
+        const overlap = size !== undefined ? getStackedIconOverlap(platformIconSize) : DEFAULT_SIBLING_OVERLAP;
         return (
             <Container $size={containerSize}>
                 {platforms?.map((platform) => (
-                    <IconContainer key={platform.urn}>
-                        <PlatformIcon platform={platform} size={siblingIconSize} />
+                    <IconContainer key={platform.urn} $overlap={overlap}>
+                        <PlatformIcon platform={platform} size={platformIconSize} />
                     </IconContainer>
                 ))}
             </Container>
         );
     }
 
+    const stackCount = entitiesToShowIcons?.length ?? 1;
+    let iconSize = DEFAULT_ICON_SIZE;
+    if (size !== undefined) {
+        // The lone logo is inset in its circular surface rather than filling it — without this, a
+        // caller `size` sizes the glyph to the whole container, hiding the background and reading
+        // as an oversized bare logo. Defaults are left as-is so autocomplete rows render unchanged.
+        iconSize = hasSiblings ? getStackedIconSize(size, stackCount) : Math.round(size * PLATFORM_ICON_RATIO);
+    } else if (hasSiblings) {
+        iconSize = DEFAULT_SIBLING_ICON_SIZE;
+    }
+    const overlap = size !== undefined && hasSiblings ? getStackedIconOverlap(iconSize) : DEFAULT_SIBLING_OVERLAP;
+
     return (
         <Container $size={containerSize}>
             {entitiesToShowIcons?.map((entityToShowIcon) => (
-                <IconContainer key={entityToShowIcon.urn}>
+                <IconContainer key={entityToShowIcon.urn} $overlap={overlap}>
                     <SingleEntityIcon entity={entityToShowIcon} size={iconSize} />
                 </IconContainer>
             ))}

@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASP
 import static com.linkedin.metadata.utils.SearchUtil.*;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -24,14 +25,17 @@ import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.FilterValue;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3AggregationQueryBuilder;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.time.OffsetDateTime;
@@ -45,7 +49,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.mockito.Mockito;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.search.aggregations.Aggregations;
+import org.opensearch.search.aggregations.bucket.filter.Filters;
+import org.opensearch.search.aggregations.bucket.filter.ParsedFilters;
 import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
@@ -196,7 +204,6 @@ public class AggregationQueryBuilderTest {
       boolean includeQueryEmptyAggregation,
       boolean includeSystemModifiedAt,
       Optional<String> systemModifiedAtFieldName,
-      Optional<Integer> searchTier,
       Optional<String> searchLabel,
       Optional<Boolean> searchIndexed,
       Optional<String> entityFieldName,
@@ -219,7 +226,6 @@ public class AggregationQueryBuilderTest {
         includeQueryEmptyAggregation,
         includeSystemModifiedAt,
         systemModifiedAtFieldName,
-        searchTier,
         searchLabel,
         searchIndexed,
         entityFieldName,
@@ -246,7 +252,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -292,7 +297,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             false);
 
     SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
@@ -331,7 +335,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -352,7 +355,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -596,7 +598,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -617,7 +618,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -684,7 +684,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             false);
     SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
@@ -692,8 +691,8 @@ public class AggregationQueryBuilderTest {
     EntitySpec entitySpec = mock(EntitySpec.class);
     when(entitySpec.getName()).thenReturn("dataset");
     AggregationQueryBuilder builder =
-        new AggregationQueryBuilder(
-            config, ImmutableMap.of(entitySpec, ImmutableList.of(annotation)), true);
+        new V3AggregationQueryBuilder(
+            config, ImmutableMap.of(entitySpec, ImmutableList.of(annotation)));
 
     List<TermsAggregationBuilder> aggs =
         builder
@@ -741,7 +740,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -762,7 +760,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -827,7 +824,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             true,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -1045,7 +1041,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -1066,7 +1061,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -1128,7 +1122,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -1153,7 +1146,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -1174,7 +1166,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -1235,7 +1226,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1260,7 +1250,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1316,7 +1305,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1341,7 +1329,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1397,7 +1384,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1422,7 +1408,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1479,7 +1464,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1504,7 +1488,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1580,7 +1563,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1605,7 +1587,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1630,7 +1611,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1672,6 +1652,27 @@ public class AggregationQueryBuilderTest {
     } catch (Exception e) {
       Assert.fail("Failed to test warning log: " + e.getMessage());
     }
+  }
+
+  @Test
+  public void testExtractAggregationsFromResponseReadsFilters() {
+    Filters.Bucket present = mock(Filters.Bucket.class);
+    doReturn("true").when(present).getKeyAsString();
+    doReturn(3L).when(present).getDocCount();
+    Filters.Bucket absent = mock(Filters.Bucket.class);
+    doReturn("false").when(absent).getKeyAsString();
+    doReturn(0L).when(absent).getDocCount();
+
+    ParsedFilters parsedFilters = mock(ParsedFilters.class);
+    doReturn(List.of(present, absent)).when(parsedFilters).getBuckets();
+    Aggregations aggregations = mock(Aggregations.class);
+    when(aggregations.get("hasActiveIncidents")).thenReturn(parsedFilters);
+    SearchResponse response = mock(SearchResponse.class);
+    when(response.getAggregations()).thenReturn(aggregations);
+
+    Assert.assertEquals(
+        AggregationQueryBuilder.extractAggregationsFromResponse(response, "hasActiveIncidents"),
+        Map.of("true", 3L));
   }
 
   private AspectRetriever getMockAspectRetriever(Urn propertyUrn) {
@@ -1783,5 +1784,63 @@ public class AggregationQueryBuilderTest {
         Optional.empty(),
         Optional.empty(),
         false);
+  }
+
+  private AggregationBuilder getEntityTypeAggregation(List<AggregationBuilder> aggs) {
+    return aggs.stream()
+        .filter(agg -> agg.getName().equals(INDEX_VIRTUAL_FIELD))
+        .findFirst()
+        .orElseThrow();
+  }
+
+  @Test
+  public void testMaxAggValuesCallerWins() {
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(60);
+    config.setDefaultMaxAggValues(20);
+
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, Collections.emptyMap());
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization()
+            .withSearchFlags(flags -> new SearchFlags().setMaxAggValues(5));
+
+    AggregationBuilder entityTypeAgg = getEntityTypeAggregation(builder.getAggregations(opContext));
+
+    Assert.assertTrue(entityTypeAgg instanceof TermsAggregationBuilder);
+    Assert.assertEquals(((TermsAggregationBuilder) entityTypeAgg).size(), 5);
+  }
+
+  @Test
+  public void testMaxAggValuesFallsBackToConfigDefaultWhenUnset() {
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(60);
+    config.setDefaultMaxAggValues(7);
+
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, Collections.emptyMap());
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization()
+            .withSearchFlags(flags -> new SearchFlags());
+
+    AggregationBuilder entityTypeAgg = getEntityTypeAggregation(builder.getAggregations(opContext));
+
+    // 7, not SearchFlags.pdl's schema default of 20 -- proves the value came from
+    // SearchConfiguration.defaultMaxAggValues, not from the caller or the PDL default.
+    Assert.assertEquals(((TermsAggregationBuilder) entityTypeAgg).size(), 7);
+  }
+
+  @Test
+  public void testMaxAggValuesAboveCeilingIsClamped() {
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(60);
+    config.setDefaultMaxAggValues(20);
+
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, Collections.emptyMap());
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization()
+            .withSearchFlags(flags -> new SearchFlags().setMaxAggValues(999));
+
+    AggregationBuilder entityTypeAgg = getEntityTypeAggregation(builder.getAggregations(opContext));
+
+    Assert.assertEquals(((TermsAggregationBuilder) entityTypeAgg).size(), 60);
   }
 }

@@ -1,11 +1,10 @@
 import React from 'react';
 
-import { Entity } from '@app/entity/Entity';
-import { VIEW_ENTITY_PAGE } from '@app/entity/shared/constants';
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { ViewBuilderState } from '@app/entity/view/types';
-import { EntityCapabilityType } from '@app/entityV2/Entity';
-import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
+import { Entity, EntityCapabilityType } from '@app/entityV2/Entity';
+import { VIEW_ENTITY_PAGE } from '@app/entityV2/shared/constants';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
+import { ViewBuilderState } from '@app/entityV2/view/types';
+import { AppConfigWithoutPolicyPrivileges, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 import { AppConfigDocument, GetEntityCountsDocument } from '@graphql/app.generated';
 import { GetBrowsePathsDocument, GetBrowseResultsDocument } from '@graphql/browse.generated';
@@ -35,7 +34,6 @@ import {
 import { GetTagDocument } from '@graphql/tag.generated';
 import { GetUserDocument } from '@graphql/user.generated';
 import {
-    AppConfig,
     Container,
     DataFlow,
     DataHubView,
@@ -133,7 +131,7 @@ export const user1 = {
     },
     settings: {
         __typename: 'CorpUserSettings',
-        appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false, showThemeV2: false },
+        appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false },
         views: { __typename: 'CorpUserViewSettings', defaultView: null },
         homePage: null,
     },
@@ -221,6 +219,7 @@ const user2 = {
         appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false },
         views: { __typename: 'CorpUserViewSettings', defaultView: null },
         homePage: null,
+        locale: null,
     },
     editableInfo: null,
 };
@@ -3509,6 +3508,8 @@ export const mocks = [
                         manageFeatures: true,
                         manageHomePageTemplates: true,
                         manageDocuments: true,
+                        createDocuments: true,
+                        manageServiceAccounts: true,
                     },
                 },
             },
@@ -3763,7 +3764,7 @@ export const mocksWithSearchFlagsOff = [
                         ...DEFAULT_APP_CONFIG.featureFlags,
                         showSearchFiltersV2: false,
                     },
-                } as AppConfig,
+                } as AppConfigWithoutPolicyPrivileges,
             },
         },
     },
@@ -3795,6 +3796,7 @@ export const platformPrivileges: PlatformPrivileges = {
     createBusinessAttributes: true,
     manageBusinessAttributes: true,
     manageDocuments: true,
+    createDocuments: true,
     manageStructuredProperties: true,
     viewStructuredPropertiesPage: true,
     manageApplications: true,

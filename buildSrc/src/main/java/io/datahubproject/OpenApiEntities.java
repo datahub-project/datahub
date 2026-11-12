@@ -226,6 +226,11 @@ public class OpenApiEntities {
                 .set("items", NODE_FACTORY.objectNode().put("$ref",
                         String.format("#/components/schemas/%s%s", toUpperFirst(entity.getName()), ENTITY_RESPONSE_SUFFIX))));
 
+        scrollResponsePropertiesNode.set("routeChain", NODE_FACTORY.objectNode()
+                .put("description", "Templates visited while choosing this result, when the caller asked for an explanation.")
+                .put("type", "array")
+                .set("items", NODE_FACTORY.objectNode().put("type", "string")));
+
         ObjectNode scrollResponseNode = NODE_FACTORY.objectNode()
                 .put("type", "object")
                 .put("description", "Scroll across " + toUpperFirst(entity.getName()) + " objects.")
@@ -374,6 +379,18 @@ public class OpenApiEntities {
                         .put("type", "string")
                         .put("default", "*")));
 
+        parametersNode.set("SearchTemplate" + MODEL_VERSION, NODE_FACTORY.objectNode()
+                .put("in", "query")
+                .put("name", "searchTemplate")
+                .put("description", "Caller-selected search template URN (urn:li:searchTemplate:<id>).")
+                .set("schema", NODE_FACTORY.objectNode().put("type", "string")));
+
+        parametersNode.set("IncludeExplain" + MODEL_VERSION, NODE_FACTORY.objectNode()
+                .put("in", "query")
+                .put("name", "includeExplain")
+                .put("description", "When true, the response includes the templates visited while choosing the result.")
+                .set("schema", NODE_FACTORY.objectNode().put("type", "boolean")));
+
         return parametersNode;
     }
 
@@ -450,6 +467,10 @@ public class OpenApiEntities {
                 .put("$ref", "#/components/parameters/SortOrder" + MODEL_VERSION));
         scrollPathParametersNode.add(NODE_FACTORY.objectNode()
                 .put("$ref", "#/components/parameters/ScrollQuery" + MODEL_VERSION));
+        scrollPathParametersNode.add(NODE_FACTORY.objectNode()
+                .put("$ref", "#/components/parameters/SearchTemplate" + MODEL_VERSION));
+        scrollPathParametersNode.add(NODE_FACTORY.objectNode()
+                .put("$ref", "#/components/parameters/IncludeExplain" + MODEL_VERSION));
         scrollMethod.set("parameters", scrollPathParametersNode);
         scrollMethod.set("responses", NODE_FACTORY.objectNode()
                 .set("200", NODE_FACTORY.objectNode().put("description", "Success")

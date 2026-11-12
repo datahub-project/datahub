@@ -1,5 +1,4 @@
-import { Modal } from '@components';
-import { message } from 'antd';
+import { Modal, toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -39,7 +38,7 @@ export default function EditDataProductModal({ dataProduct, onUpdateDataProduct,
         })
             .then(({ data, errors }) => {
                 if (!errors) {
-                    message.success(t('dataProduct.updateSuccess'));
+                    toast.success(t('dataProduct.updateSuccess'));
                     if (data?.updateDataProduct) {
                         onUpdateDataProduct(data.updateDataProduct as DataProduct);
                     }
@@ -48,8 +47,8 @@ export default function EditDataProductModal({ dataProduct, onUpdateDataProduct,
             })
             .catch(() => {
                 onClose();
-                message.destroy();
-                message.error({ content: t('dataProduct.updateError') });
+                toast.destroy();
+                toast.error(t('dataProduct.updateError'));
             });
     }
 

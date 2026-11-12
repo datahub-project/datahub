@@ -1,6 +1,7 @@
+import { notification } from '@components';
+import i18next from 'i18next';
 import { useEffect, useState } from 'react';
 
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import {
     FetchStatus,
     Filters,
@@ -16,12 +17,17 @@ import {
     setDefault,
 } from '@app/lineageV3/common';
 import pruneAllDuplicateEdges from '@app/lineageV3/queries/pruneAllDuplicateEdges';
+import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
 import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useSearchAcrossLineageStructureLazyQuery } from '@graphql/search.generated';
 import { Entity, EntityType, LineageDirection, Maybe, SearchAcrossLineageInput } from '@types';
 
 const PER_HOP_LIMIT = 2;
+
+// Shared key so the upstream and downstream instances of this hook show one toast, not two.
+export const LOAD_ERROR_NOTIFICATION_KEY = 'lineage-load-error';
 
 export const DEFAULT_SEARCH_FLAGS = {
     groupingSpec: { groupingCriteria: [] },
@@ -51,6 +57,7 @@ export default function useSearchAcrossLineage(
     processed: boolean;
 } {
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
+    const entityRegistry = useEntityRegistry();
     const { nodes, edges, adjacencyList, rootUrn, rootType, setNodeVersion, setDisplayVersion } = context;
 
     const input: SearchAcrossLineageInput = {
@@ -84,6 +91,18 @@ export default function useSearchAcrossLineage(
     };
 
     const [processed] = useState(new Set<string>());
+
+    const handleFetchFailure = () => {
+        // UNFETCHED, not COMPLETE, so a failed expand stays retryable.
+        const node = nodes.get(urn);
+        if (node) {
+            node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.UNFETCHED };
+        }
+        processed.add(urn);
+        setNodeVersion((version) => version + 1);
+        setDisplayVersion(([version]) => [version + 1, []]);
+        notification.error({ key: LOAD_ERROR_NOTIFICATION_KEY, message: i18next.t('lineage:loadError') });
+    };
 
     const [fetchLineage] = useSearchAcrossLineageStructureLazyQuery({
         variables: { input },
@@ -125,7 +144,7 @@ export default function useSearchAcrossLineage(
             }
 
             if (data) {
-                pruneAllDuplicateEdges(urn, direction, smallContext);
+                pruneAllDuplicateEdges(urn, direction, smallContext, entityRegistry);
                 processed.add(urn);
                 if (addedNode) setNodeVersion((version) => version + 1);
 
@@ -133,6 +152,7 @@ export default function useSearchAcrossLineage(
                 setDisplayVersion(([version]) => [version + 1, nodesToZoom]);
             }
         },
+        onError: handleFetchFailure,
     });
 
     useEffect(() => {

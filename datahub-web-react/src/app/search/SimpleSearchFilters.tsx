@@ -2,7 +2,6 @@ import * as React from 'react';
 import { useEffect, useState } from 'react';
 
 import { SimpleSearchFilter } from '@app/search/SimpleSearchFilter';
-import { FilterScenarioType } from '@app/search/filters/render/types';
 import { useFilterRendererRegistry } from '@app/search/filters/render/useFilterRenderer';
 import {
     DEGREE_FILTER_NAME,
@@ -13,6 +12,7 @@ import {
     LEGACY_ENTITY_FILTER_NAME,
     SCHEMA_FIELD_ALIASES_FILTER_NAME,
 } from '@app/search/utils/constants';
+import { FilterScenarioType } from '@app/searchV2/filters/render/types';
 import { mergeEnvIntoOriginFacets } from '@app/searchV2/utils/filterUtils';
 import { useAppConfig } from '@app/useAppConfig';
 

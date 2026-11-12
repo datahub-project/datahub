@@ -50,6 +50,12 @@ public class BuildIndicesConfiguration {
   // Parallel reindexing configuration
   @Builder.Default private boolean enableParallelReindex = false;
 
+  /**
+   * Concurrent non-reindex settings updates (including {@code refresh_interval}). No Java default:
+   * {@code application.yaml} sets this. A missing or non-positive value fails system-update.
+   */
+  private Integer maxConcurrentSettingsUpdates;
+
   @Builder.Default private int taskCheckIntervalSeconds = 15;
 
   @Builder.Default private int maxReindexHours = 12;
@@ -298,6 +304,16 @@ public class BuildIndicesConfiguration {
    * DUAL_WRITE_DISABLED to prevent a later enable from writing to stale or deleted old indices.
    */
   private boolean rollbackDualWriteEnabled;
+
+  /**
+   * Wall-clock budget for one run of the non-blocking fill that populates new or rebuilt entity
+   * indices from primary storage. When exceeded the run checkpoints its cursor and fails so the
+   * next run resumes. Zero or negative means no budget.
+   */
+  private int maxBackfillHours;
+
+  /** Aspect rows per SQL page and write batch during that fill; zero means the loader default. */
+  private int backfillBatchSize;
 
   /** Default max accumulated metadata-column chars between catch-up flushes (128 MiB). */
   public static final long DEFAULT_CATCH_UP_FLUSH_BYTES_THRESHOLD = 128L * 1024 * 1024;

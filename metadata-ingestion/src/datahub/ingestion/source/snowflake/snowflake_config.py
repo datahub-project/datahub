@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
-from typing import Dict, List, Optional, Set
+from typing import Callable, Dict, List, Optional, Set
 
 import pydantic
 from pydantic import Field, ValidationInfo, field_validator, model_validator
@@ -33,6 +33,9 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.data_lake_common.config import (
+    DataLakeLineageProviderConfigBase,
+)
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
@@ -282,14 +285,9 @@ class SnowflakeFilterConfig(SQLFilterConfig):
 
     @model_validator(mode="after")
     def validate_legacy_schema_pattern(self) -> "SnowflakeFilterConfig":
-        schema_pattern: Optional[AllowDenyPattern] = self.schema_pattern
-        match_fully_qualified_names = self.match_fully_qualified_names
-
         if (
-            schema_pattern is not None
-            and schema_pattern != AllowDenyPattern.allow_all()
-            and match_fully_qualified_names is not None
-            and not match_fully_qualified_names
+            self.schema_pattern != AllowDenyPattern.allow_all()
+            and not self.match_fully_qualified_names
         ):
             logger.warning(
                 "Please update `schema_pattern` to match against fully qualified schema name `<catalog_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
@@ -298,10 +296,7 @@ class SnowflakeFilterConfig(SQLFilterConfig):
             )
 
         # Always exclude reporting metadata for INFORMATION_SCHEMA schema
-        if schema_pattern:
-            logger.debug("Adding deny for INFORMATION_SCHEMA to schema_pattern.")
-            assert isinstance(schema_pattern, AllowDenyPattern)
-            schema_pattern.deny.append(r".*INFORMATION_SCHEMA$")
+        self.schema_pattern = self.schema_pattern.with_deny(r".*INFORMATION_SCHEMA$")
 
         return self
 
@@ -493,6 +488,7 @@ class SnowflakeV2Config(
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
     IncrementalPropertiesConfigMixin,
+    DataLakeLineageProviderConfigBase,
 ):
     include_usage_stats: bool = Field(
         default=True,
@@ -986,3 +982,25 @@ class SnowflakeV2Config(
                         f"Skipping Share {share_name}, as it does not include current platform instance {self.platform_instance}",
                     )
         return inbounds
+
+    def probe_filter_target(
+        self,
+        schema: str,
+        entity: str,
+        warn: Callable[[str], None],
+        database: Optional[str] = None,
+    ) -> Optional[str]:
+        # SnowflakeV2Source is not a SQLAlchemySource, so the probe has no
+        # get_identifier to ask; ingestion matches table_pattern and
+        # view_pattern against `database.schema.table`. The database is the
+        # caller's --parent: a recipe spans several, so no config field
+        # names one.
+        # lazy: keeps the probe framework out of ingestion's import
+        from datahub.ingestion.source.sql.sql_probe_verdicts import (
+            qualified_table_target,
+        )
+
+        # Returning None when there is no database is what opts this kind into
+        # the container rule: sql_probe applies it with the field it resolved,
+        # which this hook is not told.
+        return qualified_table_target(database, schema, entity, warn)

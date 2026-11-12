@@ -18,8 +18,8 @@ import {
 import { useGetStatsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsData';
 import { useGetStatsSections } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsSections';
 import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
-import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
-import { toLocalDateString } from '@src/app/shared/time/timeUtils';
+import { formatNumberWithoutAbbreviation } from '@src/app/sharedV2/formatNumber';
+import { toLocalDateString } from '@src/app/sharedV2/time/timeUtils';
 import { countFormatter } from '@src/utils/formatter';
 
 const ScopeCaption = styled.div`

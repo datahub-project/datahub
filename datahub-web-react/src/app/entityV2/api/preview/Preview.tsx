@@ -1,8 +1,8 @@
 import React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { getFirstSubType } from '@app/entityV2/shared/utils';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -57,7 +57,6 @@ export const Preview = ({
             tags={globalTags || undefined}
             owners={owners}
             domain={domain}
-            parentEntities={domain ? [domain] : []}
             glossaryTerms={glossaryTerms || undefined}
             externalUrl={externalUrl}
             degree={degree}

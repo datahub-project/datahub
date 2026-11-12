@@ -3,7 +3,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import YAML from 'yamljs';
 
-import { Tab, Tabs } from '@components/components/Tabs/Tabs';
+import { Tab } from '@components/components/Tabs/Tabs';
 
 import { CONNECTORS_WITH_FORM_INCLUDING_DYNAMIC_FIELDS } from '@app/ingestV2/source/builder/RecipeForm/constants';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
@@ -11,6 +11,7 @@ import { YamlEditor } from '@app/ingestV2/source/multiStepBuilder/steps/step2Con
 import RecipeForm from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/RecipeForm';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
+import { Tabs } from '@app/sharedV2/tabs/Tabs';
 
 interface Props {
     state: MultiStepSourceBuilderState;

@@ -7,21 +7,25 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ListSecretsInput;
 import com.linkedin.datahub.graphql.generated.ListSecretsResult;
 import com.linkedin.datahub.graphql.generated.Secret;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -33,6 +37,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /** Lists all secrets present within DataHub. Requires the MANAGE_SECRETS privilege. */
@@ -44,9 +50,17 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
   private static final String DEFAULT_QUERY = "";
 
   private final EntityClient _entityClient;
+  @Nullable private final EntityIndexConfiguration _entityIndexConfiguration;
 
   public ListSecretsResolver(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public ListSecretsResolver(
+      @Nonnull final EntityClient entityClient,
+      @Nullable final EntityIndexConfiguration entityIndexConfiguration) {
     _entityClient = entityClient;
+    _entityIndexConfiguration = entityIndexConfiguration;
   }
 
   @Override
@@ -55,7 +69,7 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
 
     final QueryContext context = environment.getContext();
 
-    if (IngestionAuthUtils.canManageSecrets(context)) {
+    if (AuthorizationUtils.canManageSecrets(context)) {
       final ListSecretsInput input =
           bindArgument(environment.getArgument("input"), ListSecretsInput.class);
       final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
@@ -76,7 +90,13 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
                       null,
                       Collections.singletonList(
                           new SortCriterion()
-                              .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
+                              .setField(
+                                  EntitySearchIndexResolver.indexedField(
+                                      _entityIndexConfiguration,
+                                      context.getOperationContext(),
+                                      DOMAIN_CREATED_TIME_INDEX_FIELD_NAME,
+                                      MappingConstants.SYSTEM_CREATED_TIME_FIELD,
+                                      Intent.SORT))
                               .setOrder(SortOrder.DESCENDING)),
                       start,
                       count);

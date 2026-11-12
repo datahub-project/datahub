@@ -48,13 +48,15 @@ SELECT create_hypertable(
     chunk_time_interval => INTERVAL '1 hour'
 );
 
+-- Cover whole days: near midnight a partial edge day holds only a few rows,
+-- which may not reach all 4 device_id partitions, so the golden num_chunks drifts.
 INSERT INTO sensor_data (time, device_id, temperature, humidity, pressure, location)
 SELECT
-    time_bucket('1 minute', generate_series(
-        NOW() - INTERVAL '7 days',
-        NOW(),
+    generate_series(
+        time_bucket('1 day', NOW() - INTERVAL '7 days'),
+        time_bucket('1 day', NOW()) + INTERVAL '1 day' - INTERVAL '1 minute',
         INTERVAL '1 minute'
-    )) AS time,
+    ) AS time,
     (random() * 10)::INT AS device_id,
     20 + (random() * 10) AS temperature,
     40 + (random() * 40) AS humidity,

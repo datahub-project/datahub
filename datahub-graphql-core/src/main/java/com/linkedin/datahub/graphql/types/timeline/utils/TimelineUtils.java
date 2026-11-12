@@ -47,7 +47,7 @@ public class TimelineUtils {
     schemaFieldChange.setChangeType(
         ChangeOperationType.valueOf(
             ChangeOperationType.class, changeEvent.getOperation().toString()));
-    schemaFieldChange.setVersionStamp(versionStamp);
+    schemaFieldChange.setVersionStamp(versionStamp == null ? "none" : versionStamp);
 
     String translatedChangeOperationType;
     switch (changeEvent.getOperation()) {

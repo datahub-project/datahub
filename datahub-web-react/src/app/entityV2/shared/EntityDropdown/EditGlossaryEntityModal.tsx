@@ -1,19 +1,20 @@
-import { ColorPicker, Editor, Input, Modal, toast } from '@components';
+import { ColorPicker, Input, Modal, toast } from '@components';
 import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components/macro';
 
-import { useRefetch } from '@app/entity/shared/EntityContext';
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { useRefetch } from '@app/entityV2/shared/EntityContext';
 import {
     EditorContainer,
     Field,
     useGlossaryNameValidation,
 } from '@app/entityV2/shared/EntityDropdown/glossaryEntityModal.shared';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossaryV2/utils';
+import { Editor } from '@app/sharedV2/editor/Editor';
 
 import {
     useUpdateDescriptionMutation,

@@ -742,6 +742,27 @@ sum(rate(primary_storage_target_used_total{forUpdate="false"}[5m]))
 rate(primary_storage_read_fallback_to_primary_total[5m])
 ```
 
+## Product telemetry (Mixpanel) delivery metrics
+
+GMS forwards product analytics events to Mixpanel on dedicated background worker threads, one per
+sender (UI event tracking and the daily report), so a slow or unreachable Mixpanel endpoint never
+holds a request thread or delays startup. Events are queued and dropped when the queue is full. One
+counter reports what happened to each message:
+
+| Metric                                | Tags                                       | Meaning                                                                   |
+| ------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------- |
+| `datahub.telemetry.mixpanel.messages` | `result` (`sent` \| `failed` \| `dropped`) | Messages delivered, refused or timed out, or shed when the queue was full |
+
+Example PromQL:
+
+```promql
+# Telemetry non-delivery rate. Split by the result tag to tell endpoint failures (failed)
+# from queue overflow (dropped); a sustained failed rate means the endpoint is unreachable
+sum(rate(datahub_telemetry_mixpanel_messages_total{result!="sent"}[5m]))
+  /
+sum(rate(datahub_telemetry_mixpanel_messages_total[5m]))
+```
+
 ## Cache Monitoring (Micrometer)
 
 ### Overview
@@ -1190,7 +1211,7 @@ dashboards: [JVM dashboard](https://grafana.com/grafana/dashboards/14845) and Da
 
 **Micrometer (Spring Actuator / Play):** Docker images for GMS, MAE consumer, MCE consumer, and the Play frontend set
 `MANAGEMENT_SERVER_PORT` to **4319** by default (see container `start.sh`). Micrometer Prometheus text is served at
-`http://<container>:4319/actuator/prometheus` on a separate HTTP listener (reachable on the Docker network; quickstart compose **`expose`s** this port rather than publishing it to the host). JVM/JMX metrics remain on **4318** when
+`http://<container>:4319/actuator/prometheus` on a separate HTTP listener. The quickstart compose profile runs only two of these containers — `datahub-gms` and `datahub-frontend-react`, since it sets `MAE_CONSUMER_ENABLED` and `MCE_CONSUMER_ENABLED` on GMS instead of starting standalone consumers — and it `expose`s 4319 on both while additionally **publishing** the `datahub-gms` one to the host, so `localhost:4319` must be free. JVM/JMX metrics remain on **4318** when
 `ENABLE_PROMETHEUS=true`. The example [prometheus.yaml](../../docker/monitoring/prometheus.yaml) includes a `micrometer`
 scrape job for port **4319**. Outside Docker, leave `MANAGEMENT_SERVER_PORT` unset so Actuator stays on the main
 application port; set it when you want a separate management listener (Spring maps the env var to

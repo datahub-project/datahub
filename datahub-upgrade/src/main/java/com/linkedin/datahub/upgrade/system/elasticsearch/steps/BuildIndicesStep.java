@@ -84,6 +84,9 @@ public class BuildIndicesStep implements UpgradeStep {
         if (config != null && config.isEnableParallelReindex()) {
           log.info("Parallel reindexing enabled");
           return executeParallelReindex(context, config);
+        } else if (config != null) {
+          log.info("Applying non-reindex settings in parallel, then reindexing sequentially");
+          return executeParallelSettingsThenSequentialReindex(context, config);
         } else {
           log.info("Using sequential reindexing");
           return executeSequentialReindex(context);
@@ -102,6 +105,34 @@ public class BuildIndicesStep implements UpgradeStep {
     return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
   }
 
+  private UpgradeStepResult executeParallelSettingsThenSequentialReindex(
+      UpgradeContext context, BuildIndicesConfiguration config) throws Exception {
+    List<ReindexConfig> allConfigs =
+        IndexUtils.getAllReindexConfigs(context.opContext(), services, structuredProperties);
+    if (allConfigs.isEmpty()) {
+      log.info("No services or configs to reindex");
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+    }
+    List<Pair<ESIndexBuilder, ReindexConfig>> nonReindex = new ArrayList<>();
+    List<Pair<ESIndexBuilder, ReindexConfig>> reindex = new ArrayList<>();
+    for (ReindexConfig indexConfig : allConfigs) {
+      ESIndexBuilder builder = IndexUtils.requireIndexBuilder(indexConfig.name());
+      if (indexConfig.requiresReindex()) {
+        reindex.add(Pair.of(builder, indexConfig));
+      } else {
+        nonReindex.add(Pair.of(builder, indexConfig));
+      }
+    }
+    Map<String, ReindexResult> results =
+        applyNonReindexParallel(context, nonReindex, requireSettingsPoolSize(config));
+    for (Pair<ESIndexBuilder, ReindexConfig> item : reindex) {
+      results.put(
+          item.getSecond().name(),
+          item.getFirst().buildIndex(context.opContext(), item.getSecond()));
+    }
+    return resultFrom(results);
+  }
+
   private UpgradeStepResult executeParallelReindex(
       UpgradeContext context, BuildIndicesConfiguration config) throws Exception {
     List<ReindexConfig> allConfigs =
@@ -116,8 +147,8 @@ public class BuildIndicesStep implements UpgradeStep {
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     }
 
-    // Outer: HTTP cluster identity. Inner: overlay-specific builder. Same client + two builders
-    // stays sequential on that cluster; distinct clients run together.
+    // Outer: HTTP cluster identity. Inner: overlay-specific builder. Non-reindex settings
+    // updates share one pool per client. Reindex stays on that client's orchestrator.
     IdentityHashMap<SearchClientShim<?>, IdentityHashMap<ESIndexBuilder, ClusterBatch>> byClient =
         new IdentityHashMap<>();
     for (ReindexConfig indexConfig : allConfigs) {
@@ -238,7 +269,24 @@ public class BuildIndicesStep implements UpgradeStep {
       }
 
       Map<String, ReindexResult> results = new HashMap<>();
+      List<Pair<ESIndexBuilder, ReindexConfig>> nonReindex = new ArrayList<>();
+      List<ClusterBatch> reindexBatches = new ArrayList<>();
       for (ClusterBatch batch : batches) {
+        ClusterBatch reindexBatch = null;
+        for (ReindexConfig indexConfig : batch.configs) {
+          if (indexConfig.requiresReindex()) {
+            if (reindexBatch == null) {
+              reindexBatch = new ClusterBatch(batch.builder);
+              reindexBatches.add(reindexBatch);
+            }
+            reindexBatch.configs.add(indexConfig);
+          } else {
+            nonReindex.add(Pair.of(batch.builder, indexConfig));
+          }
+        }
+      }
+      results.putAll(applyNonReindexParallel(context, nonReindex, requireSettingsPoolSize(config)));
+      for (ClusterBatch batch : reindexBatches) {
         results.putAll(reindexBuilderBatch(context, config, batch, circuitBreakerState));
       }
       return results;
@@ -265,11 +313,6 @@ public class BuildIndicesStep implements UpgradeStep {
         reindexConfigs.size());
 
     Map<String, ReindexResult> results = new HashMap<>();
-    for (ReindexConfig nonReindexConfig : nonReindexConfigs) {
-      results.put(
-          nonReindexConfig.name(), batch.builder.buildIndex(context.opContext(), nonReindexConfig));
-    }
-
     if (reindexConfigs.isEmpty()) {
       return results;
     }
@@ -286,6 +329,92 @@ public class BuildIndicesStep implements UpgradeStep {
         orchestrator.shutdown();
       }
     }
+  }
+
+  private Map<String, ReindexResult> applyNonReindexParallel(
+      UpgradeContext context, List<Pair<ESIndexBuilder, ReindexConfig>> work, int poolSize)
+      throws InterruptedException {
+    if (work.isEmpty()) {
+      return new HashMap<>();
+    }
+    log.info("Applying settings for {} indices with pool size {}", work.size(), poolSize);
+    int threads = Math.min(poolSize, work.size());
+    AtomicInteger thread = new AtomicInteger();
+    ExecutorService pool =
+        Executors.newFixedThreadPool(
+            threads,
+            runnable -> {
+              Thread settingsThread =
+                  new Thread(runnable, "BuildIndices-settings-" + thread.incrementAndGet());
+              settingsThread.setDaemon(true);
+              return settingsThread;
+            });
+    List<Future<Pair<String, ReindexResult>>> futures = new ArrayList<>();
+    try {
+      for (Pair<ESIndexBuilder, ReindexConfig> item : work) {
+        futures.add(pool.submit(() -> applyOneIndex(context, item.getFirst(), item.getSecond())));
+      }
+      Map<String, ReindexResult> results = new HashMap<>();
+      for (Future<Pair<String, ReindexResult>> future : futures) {
+        Pair<String, ReindexResult> result = future.get();
+        results.put(result.getKey(), result.getValue());
+      }
+      return results;
+    } catch (InterruptedException e) {
+      futures.forEach(future -> future.cancel(true));
+      pool.shutdownNow();
+      Thread.currentThread().interrupt();
+      throw e;
+    } catch (ExecutionException e) {
+      throw new IllegalStateException("Settings update failed", e.getCause());
+    } finally {
+      if (!pool.isShutdown()) {
+        pool.shutdown();
+      }
+      try {
+        if (!pool.awaitTermination(10, TimeUnit.SECONDS)) {
+          pool.shutdownNow();
+        }
+      } catch (InterruptedException e) {
+        pool.shutdownNow();
+        Thread.currentThread().interrupt();
+      }
+    }
+  }
+
+  private Pair<String, ReindexResult> applyOneIndex(
+      UpgradeContext context, ESIndexBuilder builder, ReindexConfig indexConfig) {
+    try {
+      return Pair.of(indexConfig.name(), builder.buildIndex(context.opContext(), indexConfig));
+    } catch (Exception e) {
+      log.error("Failed to apply index settings for {}", indexConfig.name(), e);
+      return Pair.of(indexConfig.name(), ReindexResult.FAILED_SUBMISSION);
+    }
+  }
+
+  private static int requireSettingsPoolSize(BuildIndicesConfiguration config) {
+    Integer poolSize = config.getMaxConcurrentSettingsUpdates();
+    if (poolSize == null || poolSize <= 0) {
+      throw new IllegalStateException(
+          "elasticsearch.buildIndices.maxConcurrentSettingsUpdates must be a positive integer");
+    }
+    return poolSize;
+  }
+
+  private UpgradeStepResult resultFrom(Map<String, ReindexResult> results) {
+    Map<String, ReindexResult> failures =
+        results.entrySet().stream()
+            .filter(entry -> entry.getValue().isFailure())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    if (!failures.isEmpty()) {
+      log.error(
+          "BuildIndices completed with {} failures out of {} indices",
+          failures.size(),
+          results.size());
+      failures.forEach((key, value) -> log.error("Failure index {} reason {}", key, value));
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+    }
+    return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
   }
 
   private static void shutdownHealthCheckExecutor(ScheduledExecutorService healthCheckExecutor) {

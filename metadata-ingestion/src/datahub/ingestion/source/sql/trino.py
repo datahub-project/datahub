@@ -11,7 +11,7 @@ from packaging import version
 from pydantic.fields import Field
 from sqlalchemy import exc, sql
 from sqlalchemy.engine import reflection
-from sqlalchemy.engine.base import Engine
+from sqlalchemy.engine.base import Connection, Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import TypeEngine
@@ -148,7 +148,9 @@ def get_catalog_connector_name(engine: Engine, catalog_name: str) -> Optional[st
 # Read only table names and skip view names, as view names will also be returned
 # from get_view_names
 @reflection.cache  # type: ignore
-def get_table_names(self, connection, schema: str = None, **kw):  # type: ignore
+def get_table_names(
+    self: Any, connection: Connection, schema: Optional[str] = None, **kw: Any
+) -> List[str]:
     schema = schema or self._get_default_schema_name(connection)
     if schema is None:
         raise exc.NoSuchTableError("schema is required")
@@ -165,7 +167,13 @@ def get_table_names(self, connection, schema: str = None, **kw):  # type: ignore
 
 # Include all table properties instead of only "comment" property
 @reflection.cache  # type: ignore
-def get_table_comment(self, connection, table_name: str, schema: str = None, **kw):  # type: ignore
+def get_table_comment(
+    self: Any,
+    connection: Connection,
+    table_name: str,
+    schema: Optional[str] = None,
+    **kw: Any,
+) -> Dict[str, Any]:
     try:
         catalog_name = self._get_default_catalog_name(connection)
         if catalog_name is None:
@@ -226,7 +234,13 @@ def get_table_comment(self, connection, table_name: str, schema: str = None, **k
 
 # Include column comment, original trino datatype as full_type
 @reflection.cache  # type: ignore
-def _get_columns(self, connection, table_name, schema: str = None, **kw):  # type: ignore
+def _get_columns(
+    self: Any,
+    connection: Connection,
+    table_name: str,
+    schema: Optional[str] = None,
+    **kw: Any,
+) -> List[Dict[str, Any]]:
     schema = schema or self._get_default_schema_name(connection)
     query = dedent(
         """
@@ -322,6 +336,10 @@ class TrinoConfig(BasicSQLAlchemyConfig):
         SourceCapabilityModifier.TABLE,
         SourceCapabilityModifier.VIEW,
     ],
+)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
 )
 class TrinoSource(SQLAlchemySource):
     """
