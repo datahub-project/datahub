@@ -791,8 +791,6 @@ def test_graph_field_level_gives_column_lineage_and_fields(
                     "Day": [_field_qri(qvd_table, "Day")],
                     # Renamed from a field name the run knows.
                     "Total": [_field_qri(qvd_table, "amount")],
-                    # Renamed from a field no one has named: left out.
-                    "Note": [_field_qri(qvd_table, "comment")],
                 },
             )
         ],
@@ -1117,12 +1115,20 @@ def test_failed_field_lineage_of_a_dataset_is_flagged(
 
 
 @pytest.mark.parametrize(
-    "field_lineage_failed, tables_read_failed",
-    [(True, False), (False, True)],
+    "field_lineage_failed, tables_read_failed, has_graph_tables",
+    [
+        (True, False, True),
+        (False, True, False),
+        # The graph was read, but the load script or data model then failed.
+        (False, True, True),
+    ],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_partly_known_lineage_is_only_added_to(
-    mock_api_cls: MagicMock, field_lineage_failed: bool, tables_read_failed: bool
+    mock_api_cls: MagicMock,
+    field_lineage_failed: bool,
+    tables_read_failed: bool,
+    has_graph_tables: bool,
 ) -> None:
     api = mock_api_cls.return_value
     api.unread_items = []
@@ -1136,7 +1142,7 @@ def test_partly_known_lineage_is_only_added_to(
     app = _app(
         "etl-app",
         []
-        if tables_read_failed
+        if not has_graph_tables
         else [
             LineageTable(
                 qri=f"{ETL_APP}#Curve",
@@ -1167,3 +1173,98 @@ def test_partly_known_lineage_is_only_added_to(
     curve = _urn("etl-app.curve")
     assert curve not in written
     assert curve in added
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unnamed_source_field_only_adds_to_column_lineage(
+    mock_api_cls: MagicMock,
+) -> None:
+    api = mock_api_cls.return_value
+    api.unread_items = []
+    api.list_datasets.return_value = DATASETS
+    api.get_user_name.return_value = None
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    source._allowed_space_ids = {"space-1"}
+    qvd_table = f"{SOURCE_QVD}#Curve"
+    # Renamed from a field whose name the run has not read yet, such as one of
+    # a QVD read later in the run.
+    app = _app(
+        "etl-app",
+        [
+            LineageTable(
+                qri=f"{ETL_APP}#Curve",
+                label="Curve",
+                source_qris=[qvd_table],
+                fields=["Day", "Note"],
+                field_source_qris={
+                    "Day": [_field_qri(qvd_table, "Day")],
+                    "Note": [_field_qri(qvd_table, "comment")],
+                },
+            )
+        ],
+    )
+
+    written, added = _lineage(source._gen_app_workunit(app))
+
+    curve = _urn("etl-app.curve")
+    assert curve not in written
+    assert added[curve] == [_urn("space-1.src.qvd")]
+
+
+@pytest.mark.parametrize(
+    "previous, checkpointing, tables_unknown",
+    [
+        # A last read whose tables were not all known can't tell either.
+        (AppCheckpoint(urns=["urn:li:container:x"]), True, True),
+        # Without stateful ingestion there is never a last read, so the app is
+        # taken as having no tables rather than patched on every run.
+        (None, False, False),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_missing_lineage_graph_with_unknown_last_tables(
+    mock_api_cls: MagicMock,
+    previous: Optional[AppCheckpoint],
+    checkpointing: bool,
+    tables_unknown: bool,
+) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    source.app_state = MagicMock()
+    source.app_state.previous.return_value = previous
+    source.app_state.is_checkpointing_enabled.return_value = checkpointing
+    app = _app("etl-app", [])
+    app.lineage_graph_missing = True
+
+    source._check_missing_lineage_graph(app)
+
+    assert app.read_complete
+    assert app.tables_read_failed is tables_unknown
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_app_with_unknown_tables_records_them_as_unknown(
+    mock_api_cls: MagicMock,
+) -> None:
+    api = mock_api_cls.return_value
+    api.unread_items = []
+    api.list_datasets.return_value = DATASETS
+    api.get_user_name.return_value = None
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    source.app_state = MagicMock()
+    app = _app("etl-app", [])
+    # Read in full, but whether it has tables could not be told this run.
+    app.tables_read_failed = True
+
+    list(source._gen_recorded_app_workunit(app))
+
+    # Recorded as unknown, so a later 404 isn't read as "the app has no tables".
+    assert source.app_state.record.call_args.args[1].table_urns_by_qri is None
