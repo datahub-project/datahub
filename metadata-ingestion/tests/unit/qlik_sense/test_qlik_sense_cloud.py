@@ -17,7 +17,6 @@ from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     QlikTable,
-    Sheet,
     UnreadItem,
 )
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
@@ -119,24 +118,29 @@ def test_partly_read_app_is_marked_incomplete(
     mock_app_cls: MagicMock,
 ) -> None:
     api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
-    app = MagicMock(tables=[])
+    app = _cloud_app()
     mock_app_cls.model_validate.return_value = app
 
-    def unreadable_sheets(
-        websocket: object, app_id: str, errors: ReadErrors
-    ) -> List[Sheet]:
-        errors.record("Unable to fetch sheets")
-        return []
+    def engine_reply(method: str, params: object = None) -> Dict:
+        if method == "GetObjects":
+            raise RuntimeError("Engine closed the session")
+        return {"qLayout": {}}
 
+    mock_websocket_cls.for_cloud.return_value.websocket_send_request.side_effect = (
+        engine_reply
+    )
     with (
-        patch.object(api, "_get_app_sheets", side_effect=unreadable_sheets),
         patch.object(api, "_get_app_used_tables", return_value=[]),
         patch.object(api, "get_table_lineage", return_value=[]),
-        patch.object(api, "_read_load_script", return_value=None),
+        patch.object(api, "_read_data_model", return_value=[]),
+        patch.object(api, "_read_variables", return_value={}),
     ):
         assert api._get_app("app-1") is app
 
-    assert app.read_errors == ["Unable to fetch sheets"]
+    assert len(app.read_errors) == 1
+    assert "Unable to fetch sheets" in app.read_errors[0]
+    # The app dashboard must not replace the sheet edges of the last full read.
+    assert not app.sheets_complete
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
