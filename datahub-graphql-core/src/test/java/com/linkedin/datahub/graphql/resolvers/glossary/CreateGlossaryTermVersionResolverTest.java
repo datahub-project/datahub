@@ -33,9 +33,11 @@ import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.lifecycle.LifecycleStageSettings;
 import com.linkedin.lifecycle.LifecycleStageTransitionPolicy;
 import com.linkedin.lifecycle.LifecycleStageTypeInfo;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.entity.versioning.VersionPropertiesInput;
 import com.linkedin.metadata.search.SearchEntity;
@@ -656,10 +658,22 @@ public class CreateGlossaryTermVersionResolverTest {
     Mockito.verifyNoInteractions(entityService);
   }
 
+  /** Asserts that the creator was added as the new term's Technical Owner. */
+  private static void assertCreatorIsOwner(EntityService<?> entityService) {
+    ArgumentCaptor<AspectsBatchImpl> batch = ArgumentCaptor.forClass(AspectsBatchImpl.class);
+    Mockito.verify(entityService).ingestProposal(any(), batch.capture(), eq(false));
+    MCPItem item = batch.getValue().getMCPItems().get(0);
+    assertEquals(item.getUrn().toString(), TEST_TERM_URN);
+    Owner owner = item.getAspect(Ownership.class).getOwners().get(0);
+    assertEquals(owner.getOwner().toString(), "urn:li:corpuser:test");
+    assertEquals(owner.getType(), OwnershipType.TECHNICAL_OWNER);
+  }
+
   @Test
   public void testCreatorIsOwnerWhenNothingIsCopied() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityService<?> entityService = getMockEntityService();
+    Mockito.when(entityService.exists(any(), any(Urn.class), eq(true))).thenReturn(true);
     CreateGlossaryTermVersionResolver resolver =
         resolverWithEntityService(
             mockClient, Mockito.mock(EntityVersioningService.class), entityService);
@@ -668,8 +682,30 @@ public class CreateGlossaryTermVersionResolverTest {
 
     resolver.get(envFor(input)).get();
 
-    Mockito.verify(entityService, Mockito.atLeastOnce())
-        .exists(any(), any(Urn.class), anyBoolean());
+    assertCreatorIsOwner(entityService);
+  }
+
+  @Test
+  public void testCreatorIsOwnerWhenPreviousVersionHasNoOwners() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityService<?> entityService = getMockEntityService();
+    Mockito.when(entityService.exists(any(), any(Urn.class), eq(true))).thenReturn(true);
+    CreateGlossaryTermVersionResolver resolver =
+        resolverWithEntityService(
+            mockClient, Mockito.mock(EntityVersioningService.class), entityService);
+    mockClient
+        .getV2(null, GLOSSARY_TERM_ENTITY_NAME, UrnUtils.getUrn(TEST_PREV_TERM_URN), null)
+        .getAspects()
+        .put(
+            OWNERSHIP_ASPECT_NAME,
+            new com.linkedin.entity.EnvelopedAspect()
+                .setValue(
+                    new com.linkedin.entity.Aspect(
+                        new Ownership().setOwners(new OwnerArray()).data())));
+
+    resolver.get(envFor(newVersionInput())).get();
+
+    assertCreatorIsOwner(entityService);
   }
 
   @Test
