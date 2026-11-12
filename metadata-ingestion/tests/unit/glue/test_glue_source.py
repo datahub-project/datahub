@@ -43,6 +43,7 @@ from datahub.ingestion.source.aws.glue import (
     TargetPlatformConfig,
     _redact_secret_fields_in_dataflow_script,
     _sanitize_jdbc_url,
+    simplify_glue_field_path,
 )
 from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -56,7 +57,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
 )
 from datahub.testing import mce_helpers
-from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
+from datahub.utilities.hive_schema_to_avro import (
+    get_avro_schema_for_hive_column,
+    get_schema_fields_for_hive_column,
+)
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
@@ -1899,6 +1903,54 @@ def test_database_resource_link_emits_column_lineage_to_owner(
     assert lineage[0].upstreams[0].type == models.DatasetLineageTypeClass.COPY
     expected = _same_name_column_edges(OWNER_TABLE_URN, DB_LINK_URN, ["id", "name"])
     assert _column_edges(lineage[0]) == (expected if include_column_lineage else set())
+
+
+def test_resource_link_column_lineage_keeps_brackets_and_dots_in_column_names() -> None:
+    # Bracketed column names used to simplify to "" (an invalid schemaField URN that
+    # GMS rejects with its whole batch) or to a truncated name, and dotted ones lost the dot.
+    columns = ["[col_a]", "col b (from [col_a] 3)", "col.c", "id"]
+    tables_response = copy.deepcopy(get_tables_response_for_target_database)
+    tables_response["TableList"][0]["StorageDescriptor"]["Columns"] = [
+        {"Name": name, "Type": "string"} for name in columns
+    ]
+
+    source, _, wus = _ingest_database_resource_link(
+        OWNER_CATALOG_MAPPING, tables_response=tables_response
+    )
+
+    lineage = _upstream_lineage(wus, DB_LINK_URN)
+    assert len(lineage) == 1
+    assert _column_edges(lineage[0]) == _same_name_column_edges(
+        OWNER_TABLE_URN, DB_LINK_URN, columns
+    )
+    assert source.report.num_column_lineage_empty_field_path == 0
+
+
+@pytest.mark.parametrize(
+    "column_name, column_type, expected_paths",
+    [
+        ("[col_a]", "string", ["[col_a]"]),
+        ("col b (from [col_a] 3)", "string", ["col b (from [col_a] 3)"]),
+        ("col.c", "string", ["col.c"]),
+        ("s", "struct<x:int>", ["s", "s.x"]),
+        # Array and map paths stay whole, as their simplified forms can collide.
+        (
+            "arr",
+            "array<string>",
+            ["[version=2.0].[type=struct].[type=array].[type=string].arr"],
+        ),
+        (
+            "m",
+            "map<string,int>",
+            ["[version=2.0].[type=struct].[type=map].[type=int].m"],
+        ),
+    ],
+)
+def test_simplify_glue_field_path(
+    column_name: str, column_type: str, expected_paths: List[str]
+) -> None:
+    fields = get_schema_fields_for_hive_column(column_name, column_type)
+    assert [simplify_glue_field_path(f.fieldPath) for f in fields] == expected_paths
 
 
 def test_schemaless_resource_link_gets_table_lineage_only() -> None:

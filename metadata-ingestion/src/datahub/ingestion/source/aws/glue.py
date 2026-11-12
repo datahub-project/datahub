@@ -27,7 +27,6 @@ import yaml
 from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
-from datahub.api.entities.dataset.dataset import Dataset
 from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
 )
@@ -196,6 +195,14 @@ LAKE_FORMATION_TAG_ORIGIN = "lake-formation"
 # partition/region agreement is validated separately (check_catalog_arn_keys) against botocore's
 # authoritative partition data, so the shape here only pins the segments and the 12-digit account.
 GLUE_CATALOG_ARN_PATTERN = re.compile(r"^arn:aws[a-z-]*:glue:([^:\s]+):\d{12}$")
+
+FIELD_PATH_V2_PREFIX = "[version=2.0]"
+# Only the annotations a v2 field path adds around column names. Glue column names
+# may themselves contain brackets and dots (e.g. "[col_a]", "col.b"),
+# so stripping every [...] and "." would mangle them.
+FIELD_PATH_V2_ANNOTATION_PATTERN = re.compile(r"\[(?:version|type|key)=[^\]]*\]\.?")
+# Field paths through these types are kept whole, as their simplified forms can collide.
+FIELD_PATH_V2_UNSIMPLIFIED_TYPES = ("[type=array]", "[type=map]", "[type=union]")
 
 
 @lru_cache(maxsize=None)
@@ -691,6 +698,14 @@ class GlueSourceConfig(
         return self
 
 
+def simplify_glue_field_path(field_path: str) -> str:
+    if not field_path.startswith(FIELD_PATH_V2_PREFIX) or any(
+        marker in field_path for marker in FIELD_PATH_V2_UNSIMPLIFIED_TYPES
+    ):
+        return field_path
+    return FIELD_PATH_V2_ANNOTATION_PATTERN.sub("", field_path)
+
+
 @dataclass
 class GlueSourceReport(StaleEntityRemovalSourceReport):
     catalog_id: Optional[str] = None
@@ -720,6 +735,7 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     num_view_schema_from_view_definition: int = 0
     num_view_placeholder_schema_unresolved: int = 0
     num_view_columns_type_unresolved: int = 0
+    num_column_lineage_empty_field_path: int = 0
 
     def report_table_scanned(self) -> None:
         self.tables_scanned += 1
@@ -2242,12 +2258,17 @@ class GlueSource(StatefulIngestionSourceBase):
         schema_metadata_for_upstream: SchemaMetadata,
     ) -> List[FineGrainedLineageClass]:
         upstream_paths = {
-            Dataset._simplify_field_path(f.fieldPath)
+            simplify_glue_field_path(f.fieldPath)
             for f in schema_metadata_for_upstream.fields
         }
         fine_grained_lineages: List[FineGrainedLineageClass] = []
         for field in schema_metadata.fields:
-            field_path_v1 = Dataset._simplify_field_path(field.fieldPath)
+            field_path_v1 = simplify_glue_field_path(field.fieldPath)
+            if not field_path_v1:
+                # An empty field path makes an invalid schemaField URN, which GMS rejects
+                # along with the rest of its write batch.
+                self.report.num_column_lineage_empty_field_path += 1
+                continue
             if field_path_v1 in upstream_paths:
                 fine_grained_lineages.append(
                     FineGrainedLineageClass(
