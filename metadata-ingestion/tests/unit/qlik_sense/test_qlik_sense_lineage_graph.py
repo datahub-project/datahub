@@ -394,6 +394,39 @@ def test_denied_load_script_only_adds_to_table_lineage(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_dataset_store_lineage_removes_edges_of_dropped_app_tables(
+    mock_api_cls: MagicMock,
+) -> None:
+    dropped = _urn("etl-app.old_curve")
+    graph = MagicMock()
+    graph.get_aspect.return_value = UpstreamLineageClass(
+        upstreams=[UpstreamClass(dataset=dropped, type="COPY")]
+    )
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph", graph=graph),
+    )
+    mock_api_cls.return_value.unread_items = []
+    mock_api_cls.return_value.list_datasets.return_value = DATASETS
+    # The last run recorded a table the app has since dropped or renamed.
+    with patch.object(
+        source,
+        "_usable_checkpoint",
+        return_value=AppCheckpoint(
+            urns=[dropped], table_urns_by_qri={f"{ETL_APP}#OldCurve": dropped}
+        ),
+    ):
+        source._register_app_tables(
+            _app("etl-app", [LineageTable(qri=f"{ETL_APP}#Curve", label="Curve")])
+        )
+    source._dataset_store_sources = {_urn("space-1.stored.qvd"): []}
+
+    ops = _patch_ops(source._gen_dataset_store_lineage())
+
+    assert _removed_upstreams(ops[_urn("space-1.stored.qvd")]) == [dropped]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_dataset_lineage_is_kept_when_a_storing_app_was_not_read(
     mock_api_cls: MagicMock,
 ) -> None:
