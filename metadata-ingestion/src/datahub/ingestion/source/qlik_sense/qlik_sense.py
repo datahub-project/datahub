@@ -10,7 +10,7 @@ from datetime import datetime
 from functools import partial
 from typing import Collection, Dict, Iterable, List, Optional, Set, Tuple, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 import datahub.emitter.mce_builder as builder
 from datahub._version import __version__
@@ -222,6 +222,22 @@ def _qlik_app_id(qri: str) -> Optional[str]:
     return match.group(1) if match else None
 
 
+class PendingTableLineage(BaseModel):
+    """What an app table's lineage is built from, kept until the end of the
+    run when a source field's name is only read later."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    app_id: str
+    table_label: str
+    dataset_urn: str
+    upstream_urns: List[str]
+    # Every table-level source and the app's script and tables were read.
+    complete: bool
+    script_fields: List[FineGrainedLineage]
+    field_source_qris: Dict[str, List[str]]
+
+
 def _schema_field_parent(urn: str) -> Optional[str]:
     # Lineage another tool wrote may hold any kind of URN.
     try:
@@ -299,6 +315,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._reported_no_graph = False
         # Datasets with a column edge whose source field could not be named.
         self._unnamed_field_lineage: Set[str] = set()
+        # App tables whose lineage waits for field names read later in the run.
+        self._pending_table_lineage: List[PendingTableLineage] = []
         # Table QRI -> dataset URN for the tables of apps read or kept this run.
         # Lineage only links to tables in here, as other URNs may never exist.
         self._app_table_urns_by_qri: Dict[str, str] = {}
@@ -1635,54 +1653,79 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     for urn in script_table.upstream_urns
                     if urn not in upstream_urns
                 )
-            fine_grained = self._column_lineage(
-                [
-                    *(
-                        self._script_column_lineage(dataset_urn, script_table) or []
-                        if script_table
-                        else []
-                    ),
-                    *self._graph_column_lineage(
-                        dataset_urn, table.field_source_qris, own_app_id=app.id
-                    ),
-                ]
-            )
-            if (
-                resolved.complete
+            pending = PendingTableLineage(
+                app_id=app.id,
+                table_label=table.label,
+                dataset_urn=dataset_urn,
+                upstream_urns=upstream_urns,
+                complete=resolved.complete
                 and not app.script_read_failed
                 and not app.tables_read_failed
-                and not table.field_lineage_failed
-                and dataset_urn not in self._unnamed_field_lineage
-            ):
-                # The app owns its tables, so the lineage is written whole, which
-                # also drops upstreams the app no longer reads.
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn,
-                    aspect=UpstreamLineage(
-                        upstreams=[
-                            Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
-                            for urn in upstream_urns
-                        ],
-                        fineGrainedLineages=fine_grained,
-                    ),
-                ).as_workunit()
+                and not table.field_lineage_failed,
+                script_fields=(
+                    self._script_column_lineage(dataset_urn, script_table) or []
+                    if script_table
+                    else []
+                ),
+                field_source_qris=table.field_source_qris,
+            )
+            graph_fields = self._graph_column_lineage(
+                dataset_urn, table.field_source_qris, own_app_id=app.id
+            )
+            if pending.complete and dataset_urn in self._unnamed_field_lineage:
+                # A source field is named by an item read later in the run, such
+                # as a renamed load from a QVD listed after the app, so the
+                # table's lineage is written once every name is known.
+                self._unnamed_field_lineage.discard(dataset_urn)
+                self._pending_table_lineage.append(pending)
                 continue
-            # A dataset, or the load script and the SQL lineage in it, could not
-            # be read this run: replacing the lineage would drop the edges an
-            # earlier run wrote, so what was read is added to them instead.
-            self.reporter.warning(
-                title="Lineage of Qlik app table only added to",
-                message="A source of the table could not be read this run, so the "
-                "lineage read this run is added to the table's existing lineage "
-                "instead of replacing it.",
-                context=f"app={app.id}, table={table.label}",
+            yield from self._gen_table_lineage(pending, graph_fields)
+
+    def _gen_pending_table_lineage(self) -> Iterable[MetadataWorkUnit]:
+        for pending in self._pending_table_lineage:
+            graph_fields = self._graph_column_lineage(
+                pending.dataset_urn,
+                pending.field_source_qris,
+                own_app_id=pending.app_id,
             )
-            yield from self._patch_upstreams(
-                dataset_urn,
-                upstream_urns,
-                DatasetLineageType.TRANSFORMED,
-                fine_grained,
-            )
+            yield from self._gen_table_lineage(pending, graph_fields)
+        self._pending_table_lineage = []
+
+    def _gen_table_lineage(
+        self, pending: "PendingTableLineage", graph_fields: List[FineGrainedLineage]
+    ) -> Iterable[MetadataWorkUnit]:
+        fine_grained = self._column_lineage([*pending.script_fields, *graph_fields])
+        if pending.complete and pending.dataset_urn not in self._unnamed_field_lineage:
+            # The app owns its tables, so the lineage is written whole, which
+            # also drops upstreams the app no longer reads.
+            yield MetadataChangeProposalWrapper(
+                entityUrn=pending.dataset_urn,
+                aspect=UpstreamLineage(
+                    upstreams=[
+                        Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
+                        for urn in pending.upstream_urns
+                    ],
+                    fineGrainedLineages=fine_grained,
+                ),
+            ).as_workunit()
+            return
+        # A dataset, the load script and the SQL lineage in it, or the name of
+        # a source field could not be read this run: replacing the lineage
+        # would drop the edges an earlier run wrote, so what was read is added
+        # to them instead.
+        self.reporter.warning(
+            title="Lineage of Qlik app table only added to",
+            message="A source of the table could not be read this run, so the "
+            "lineage read this run is added to the table's existing lineage "
+            "instead of replacing it.",
+            context=f"app={pending.app_id}, table={pending.table_label}",
+        )
+        yield from self._patch_upstreams(
+            pending.dataset_urn,
+            pending.upstream_urns,
+            DatasetLineageType.TRANSFORMED,
+            fine_grained,
+        )
 
     @staticmethod
     def _match_script_tables(
@@ -2668,6 +2711,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._gen_item_workunits(
                 item, space_names.get(space_id, space_id), record_state
             )
+        yield from self._gen_pending_table_lineage()
         yield from self._gen_dataset_store_lineage()
         yield from self._gen_stored_table_types()
         yield from self._gen_qvd_lineage()
