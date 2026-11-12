@@ -32,6 +32,9 @@ on:
       - ".github/scripts/resolve_image_builds.sh"
       - ".github/scripts/test_resolve_image_builds.sh"
       - ".github/workflows/resusable-playwright-tests.yml"
+      - ".github/workflows/reusable-playwright-report.yml"
+      - ".github/scripts/plan_playwright_tier.py"
+      - ".github/scripts/split_playwright_tests.py"
       - ".github/actions/ci-optimization"
       - ".github/actions/restore-dependency-caches"
       - ".github/actions/configure-fast-apt-mirror"
@@ -55,6 +58,9 @@ on:
       - ".github/scripts/resolve_image_builds.sh"
       - ".github/scripts/test_resolve_image_builds.sh"
       - ".github/workflows/resusable-playwright-tests.yml"
+      - ".github/workflows/reusable-playwright-report.yml"
+      - ".github/scripts/plan_playwright_tier.py"
+      - ".github/scripts/split_playwright_tests.py"
       - ".github/actions/ci-optimization"
       - ".github/actions/restore-dependency-caches"
       - ".github/actions/configure-fast-apt-mirror"
@@ -1455,13 +1461,119 @@ jobs:
           path: docker_logs/${{ github.job }}-${{ matrix.provider }}/
           retention-days: 5
 
+  # Playwright P0 tier on PRs: works out which tests the PR needs (every @p0 test,
+  # plus the tests Playwright's --only-changed says the change affects, plus the specs
+  # seeding from changed fixture data) with plan_playwright_tier.py, and falls back
+  # to the full suite when a change can't be mapped. The tier is used when
+  # .github/ci-flags.json on the base branch sets playwright_p0_tier to true and the
+  # PR has neither run-all-tests nor run-all-tests:playwright; otherwise the full suite
+  # runs and the plan is only reported (shadow mode; the report job checks it for
+  # escapes). If this job fails, playwright_test runs the full suite.
+  playwright_plan:
+    name: Plan Playwright P0 tier
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small || 'ubuntu-24.04' }}
+    needs: [setup]
+    # always(): setup's own needs are often skipped, and a bare condition implies
+    # success() over every ancestor.
+    if: ${{ always() && !failure() && !cancelled() && github.event_name == 'pull_request' && needs.setup.outputs.playwright_matrix != '' && needs.setup.outputs.playwright_matrix != '{"include":[]}' }}
+    timeout-minutes: 15
+    outputs:
+      run_mode: ${{ steps.plan.outputs.run_mode }}
+      matrix: ${{ steps.tier-matrix.outputs.matrix }}
+    steps:
+      # The default PR checkout is the merge commit, with full history: HEAD^1 is
+      # the base branch tip, so HEAD^1..HEAD is exactly what the shards will test.
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        name: Restore yarn cache
+        with:
+          path: ~/.cache/yarn
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-yarn-
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+        with:
+          java: false
+          python: false
+          gradle: false
+          node: true
+      # --list needs node_modules but no browsers or backend. A failed install isn't
+      # fatal: the planner then can't list tests, so it plans the full suite and
+      # emits a warning, rather than failing the job.
+      - name: Install Playwright dependencies
+        continue-on-error: true
+        working-directory: e2e-test/ui/playwright
+        run: yarn install --frozen-lockfile
+      # The planner turns its own failures into a full-suite plan and exits 0. If this
+      # job fails anyway, its outputs are empty and playwright_test runs the full suite.
+      - name: Plan Playwright P0 tier
+        id: plan
+        env:
+          SUITE_MATRIX: ${{ needs.setup.outputs.playwright_matrix }}
+          RUN_ALL_LABEL: >-
+            ${{
+              contains(github.event.pull_request.labels.*.name, 'run-all-tests')
+              || contains(github.event.pull_request.labels.*.name, 'run-all-tests:playwright')
+            }}
+        run: |
+          base=HEAD^1
+          if ! git rev-parse --verify --quiet HEAD^2 >/dev/null; then
+            # Not a merge commit (e.g. a custom checkout): compare with the merge base.
+            base=$(git merge-base HEAD "origin/${GITHUB_BASE_REF}")
+          fi
+          # The switch is read from the base branch, not a repository variable: variables
+          # don't reach PRs from forks, and a PR can't turn the tier on for itself.
+          flag=$(git show "$base:.github/ci-flags.json" 2>/dev/null | jq -r '.playwright_p0_tier // false' || echo false)
+          tier_requested=false
+          if [[ "$flag" == "true" && "$RUN_ALL_LABEL" != "true" ]]; then
+            tier_requested=true
+          fi
+          echo "playwright_p0_tier=$flag run-all-tests label=$RUN_ALL_LABEL -> tier requested: $tier_requested"
+          python3 .github/scripts/plan_playwright_tier.py \
+            --base "$base" \
+            --suite-shards "$(jq '.include | length' <<< "$SUITE_MATRIX")" \
+            --tier-requested "$tier_requested" \
+            --plan-out "$RUNNER_TEMP/playwright-tier-plan.json"
+      - name: Upload Playwright P0 tier plan
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: playwright-tier-plan
+          path: ${{ runner.temp }}/playwright-tier-plan.json
+          retention-days: 5
+      - name: Build P0 tier shard matrix
+        id: tier-matrix
+        if: ${{ steps.plan.outputs.run_mode == 'p0' }}
+        env:
+          SHARD_COUNT: ${{ steps.plan.outputs.total_shards }}
+        run: |
+          matrix=$(jq -cn --argjson n "$SHARD_COUNT" \
+            '{include: [range(1; $n + 1) | {shard: (. | tostring), shard_count: ($n | tostring)}]}')
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Playwright Test Matrix"
+            echo ""
+            echo "| Strategy | Total Shards |"
+            echo "|----------|--------------|"
+            echo "| playwright (P0 tier) | $SHARD_COUNT |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   playwright_test:
     name: Playwright E2E Tests
-    needs: [setup, base_build]
+    needs: [setup, base_build, playwright_plan]
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.setup.outputs.playwright_matrix || '{"include":[]}') }}
-    if: ${{ always() && !failure() && !cancelled() && needs.setup.outputs.playwright_matrix != '' && needs.setup.outputs.playwright_matrix != '{"include":[]}' }}
+      # The P0 tier's matrix when it applies, else the full-suite matrix from setup.
+      matrix: ${{ fromJson(needs.playwright_plan.outputs.matrix || needs.setup.outputs.playwright_matrix || '{"include":[]}') }}
+    # Gate on the jobs the tests need, not !failure(): a failed playwright_plan must
+    # fall back to setup's full-suite matrix, not skip Playwright.
+    if: >-
+      ${{ always() && !cancelled()
+          && needs.setup.result == 'success'
+          && (needs.base_build.result == 'success' || needs.base_build.result == 'skipped')
+          && (needs.playwright_plan.outputs.matrix || needs.setup.outputs.playwright_matrix) != ''
+          && (needs.playwright_plan.outputs.matrix || needs.setup.outputs.playwright_matrix) != '{"include":[]}' }}
     uses: ./.github/workflows/resusable-playwright-tests.yml
     with:
       shard: ${{ matrix.shard }}
@@ -1479,6 +1591,8 @@ jobs:
       send_posthog_metrics: true
       # Opt in to 2 workers on first attempt; fall back to 1 on re-runs for stability.
       workers_per_shard: ${{ github.run_attempt > 1 && '1' || '2' }}
+      # P0 tier: each shard packs the plan's tests into a --test-list; empty runs every spec.
+      tier_plan_artifact: ${{ needs.playwright_plan.outputs.run_mode == 'p0' && 'playwright-tier-plan' || '' }}
     secrets: inherit
 
   playwright_report:
