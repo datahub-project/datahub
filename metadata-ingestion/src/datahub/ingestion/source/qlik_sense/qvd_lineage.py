@@ -12,6 +12,9 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     ScriptTableLineage,
 )
 
+# A $(variable) reference, as left in a name when the app doesn't have it.
+VARIABLE_IN_NAME_RE = re.compile(r"\$\([^)]*\)")
+
 # QVDs the Engine writes for BUFFER loads, which no app stores or owns.
 _BUFFERS_FOLDER = "/engine/buffers/"
 
@@ -58,6 +61,13 @@ class QvdPathResolver:
             return None
         else:
             folder = self.folders.get(file.connection.lower())
+            if folder is None and "$(" in file.connection:
+                # A variable the app doesn't have expanded to nothing when it
+                # reloaded, such as an empty connection prefix. Taken only when
+                # what is left names a folder connection.
+                folder = self.folders.get(
+                    VARIABLE_IN_NAME_RE.sub("", file.connection).lower()
+                )
             if folder is None:
                 self.unresolved.append(f"lib://{file.connection}/{file.path}")
                 return None
