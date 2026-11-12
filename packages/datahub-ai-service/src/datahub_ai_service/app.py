@@ -20,6 +20,7 @@ from .config import AiServiceConfig
 from .mcp.auth import DataHubTokenVerifier, McpAuthMiddleware
 from .mcp.auth_mode import GmsAuth, GmsAuthDetector
 from .mcp.client_factory import CallerClientFactory
+from .mcp.host_guard import HostGuard
 from .mcp.server import build_mcp_server
 from .mcp.telemetry import ToolCallObserver
 
@@ -84,6 +85,9 @@ def create_app(
             transport="http",
             stateless_http=True,
             json_response=config.mcp_response_mode == "json",
+            # McpAuthMiddleware enforces its own Host/Origin allowlist, which knows
+            # GMS's auth mode and the trusted frontend proxy.
+            host_origin_protection=False,
         )
         routes.append(
             Mount(
@@ -92,6 +96,11 @@ def create_app(
                     mcp_app,
                     verifier,
                     detector,
+                    HostGuard(
+                        config.allowed_hosts,
+                        config.allowed_origins,
+                        config.trusted_proxies,
+                    ),
                     required=config.auth_mode == "required",
                 ),
             )
