@@ -299,6 +299,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # app has been read.
         self._dataset_store_sources: Dict[str, List[str]] = {}
         self._dataset_store_field_sources: Dict[str, Dict[str, List[str]]] = {}
+        self._dataset_store_fields_unknown: Set[str] = set()
         # Graph tables whose fields have no type, such as a table the script
         # drops after storing it, by URN.
         self._untyped_tables: Dict[str, Tuple[str, List[QlikDatasetSchemaField]]] = {}
@@ -1321,7 +1322,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def _gen_script_tables_workunit(
-        self, tables: List[ScriptTableLineage], app_id: str
+        self,
+        tables: List[ScriptTableLineage],
+        app_id: str,
+        replace_lineage: bool = True,
     ) -> Iterable[MetadataWorkUnit]:
         for table in tables:
             dataset_urn = self._gen_qlik_dataset_urn(table.identifier)
@@ -1341,6 +1345,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     },
                 ),
             ).as_workunit()
+            if not replace_lineage:
+                yield from self._patch_upstreams(
+                    dataset_urn,
+                    table.upstream_urns,
+                    DatasetLineageType.TRANSFORMED,
+                    self._script_column_lineage(dataset_urn, table),
+                )
+                continue
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=UpstreamLineage(
@@ -1575,7 +1587,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     dataset_urn, table.field_source_qris, own_app_id=app.id
                 ),
             ] or None
-            if resolved.complete and not app.script_read_failed:
+            if (
+                resolved.complete
+                and not app.script_read_failed
+                and not table.field_lineage_failed
+            ):
                 # The app owns its tables, so the lineage is written whole, which
                 # also drops upstreams the app no longer reads.
                 yield MetadataChangeProposalWrapper(
@@ -1820,7 +1836,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
         yield from self._gen_app_tables_workunit(app.tables, app.id)
         yield from self._gen_lineage_tables_workunit(app, matched_script_tables)
-        yield from self._gen_script_tables_workunit(script_tables, app.id)
+        yield from self._gen_script_tables_workunit(
+            script_tables,
+            app.id,
+            # A table the lineage graph could not be read for may be one an
+            # earlier run merged with a graph table, whose other edges stay.
+            replace_lineage=not app.tables_read_failed,
+        )
         if qvd_lineage is not None:
             yield from self._gen_qvd_entities(qvd_lineage)
         if fingerprint:
@@ -1953,6 +1975,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self._dataset_store_field_sources[dataset_urn] = (
                 dataset.stored_field_source_qris
             )
+            if dataset.stored_field_lineage_failed:
+                self._dataset_store_fields_unknown.add(dataset_urn)
         self._learn_field_names(field.name for field in dataset.datasetSchema)
         self._dataset_field_types[dataset_urn] = {
             field.name: field.dataType for field in dataset.datasetSchema
@@ -2184,8 +2208,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _check_missing_lineage_graph(self, app: App) -> None:
         # Qlik also answers 404 for lineage it has not computed yet, so a 404
         # only means the app has no tables when its last read had none.
-        previous = self._usable_checkpoint(app.id, [])
-        if previous is not None and previous.table_urns_by_qri:
+        failures: List[str] = []
+        previous = self._usable_checkpoint(app.id, failures)
+        if failures:
+            # Without the last read, the app's tables may still exist.
+            app.read_errors.append(
+                "Qlik Cloud has no lineage graph for the app, and its last read "
+                "could not be loaded"
+            )
+            app.tables_read_failed = True
+        elif previous is not None and previous.table_urns_by_qri:
             app.read_errors.append(
                 "Qlik Cloud has no lineage graph for the app, whose last read "
                 "had tables"
@@ -2400,6 +2432,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 *(
                     []
                     if resolved.complete
+                    and dataset_urn not in self._dataset_store_fields_unknown
                     else (
                         lineage
                         for lineage in current_fields
@@ -2460,6 +2493,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         yield from self._gen_dataset_store_lineage()
         yield from self._gen_stored_table_types()
         yield from self._gen_qvd_lineage()
+        if self.qlik_api.field_lineage_failures:
+            self.reporter.warning(
+                title="Unable to read Qlik column lineage",
+                message="Column lineage of these tables is only added to this run, "
+                "and their table lineage is still read.",
+                context=_bounded_list(self.qlik_api.field_lineage_failures),
+            )
         if self.qlik_api.lineage_read_failures:
             self.reporter.warning(
                 title="Unable to read Qlik dataset lineage",

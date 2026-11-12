@@ -183,6 +183,7 @@ def _run(
     api.failed_user_lookups = {}
     api.change_check_failures = []
     api.lineage_read_failures = []
+    api.field_lineage_failures = []
     api.get_user_name.return_value = None
     api.list_datasets.return_value = datasets
     api.get_items.return_value = [
@@ -429,10 +430,16 @@ def test_app_kept_from_older_state_leaves_dataset_lineage(
     assert not list(source._gen_dataset_store_lineage())
 
 
-@pytest.mark.parametrize("had_tables, read_complete", [(True, False), (False, True)])
+@pytest.mark.parametrize(
+    "had_tables, checkpoint_failed, read_complete",
+    [(True, False, False), (False, False, True), (False, True, False)],
+)
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_missing_lineage_graph(
-    mock_api_cls: MagicMock, had_tables: bool, read_complete: bool
+    mock_api_cls: MagicMock,
+    had_tables: bool,
+    checkpoint_failed: bool,
+    read_complete: bool,
 ) -> None:
     source = QlikSenseSource(
         QlikSourceConfig.model_validate(CLOUD_CONFIG),
@@ -445,6 +452,9 @@ def test_missing_lineage_graph(
         if had_tables
         else {},
     )
+    if checkpoint_failed:
+        # Without the last read, the app's tables may still exist.
+        source.app_state.previous.side_effect = RuntimeError("state unavailable")
     app = _app("etl-app", [])
     app.lineage_graph_missing = True
 
@@ -455,7 +465,7 @@ def test_missing_lineage_graph(
     assert app.read_complete is read_complete
     assert app.tables_read_failed is not read_complete
     assert list(source.reporter.apps_without_lineage_graph) == (
-        [] if had_tables else ["etl-app"]
+        ["etl-app"] if read_complete else []
     )
 
 
@@ -894,3 +904,85 @@ def test_untyped_graph_table_takes_types_from_the_dataset_it_stores(
         ("Year", ""),
         ("Id", ""),
     ]
+
+
+def test_failed_field_lineage_keeps_the_table_graph(
+    requests_mock: requests_mock_module.Mocker,
+) -> None:
+    requests_mock.get(f"{BASE_URL}/api-keys", json={})
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    requests_mock.get(
+        _expand_url(REPORT_APP),
+        json={
+            "graph": {
+                "nodes": {f"{REPORT_APP}#Tbl": {"label": "Prices"}},
+                "edges": [
+                    {"source": f"{STORED_QVD}#Curve", "target": f"{REPORT_APP}#Tbl"}
+                ],
+            }
+        },
+    )
+    requests_mock.get(
+        f"{BASE_URL}/lineage-graphs/nodes/{quote(REPORT_APP, safe='')}/actions/expand"
+        f"?node={quote(f'{REPORT_APP}#Tbl', safe='')}&level=FIELD",
+        status_code=500,
+    )
+
+    [table] = api.get_table_lineage(REPORT_APP) or []
+
+    assert table.source_qris == [f"{STORED_QVD}#Curve"]
+    assert table.field_lineage_failed
+    assert api.field_lineage_failures
+
+
+@pytest.mark.parametrize(
+    "field_lineage_failed, tables_read_failed",
+    [(True, False), (False, True)],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_partly_known_lineage_is_only_added_to(
+    mock_api_cls: MagicMock, field_lineage_failed: bool, tables_read_failed: bool
+) -> None:
+    api = mock_api_cls.return_value
+    api.unread_items = []
+    api.list_datasets.return_value = DATASETS
+    api.get_user_name.return_value = None
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    source._allowed_space_ids = {"space-1"}
+    app = _app(
+        "etl-app",
+        []
+        if tables_read_failed
+        else [
+            LineageTable(
+                qri=f"{ETL_APP}#Curve",
+                label="Curve",
+                source_qris=[f"{SOURCE_QVD}#Curve"],
+                field_lineage_failed=field_lineage_failed,
+            )
+        ],
+    )
+    # A graph that could not be read leaves the script's tables, which an
+    # earlier run may have merged with graph tables.
+    app.tables_read_failed = tables_read_failed
+    app.script = "LIB CONNECT TO 'db';\nCurve: SQL SELECT id FROM sales.curve;"
+
+    with patch.object(
+        QlikSenseSource,
+        "_build_script_tables",
+        lambda self, app, parsed=None: [
+            ScriptTableLineage(
+                label="Curve",
+                identifier="etl-app.curve",
+                upstream_urns=[make_dataset_urn("postgres", "db.sales.curve")],
+            )
+        ],
+    ):
+        written, added = _lineage(source._gen_app_workunit(app))
+
+    curve = _urn("etl-app.curve")
+    assert curve not in written
+    assert curve in added
