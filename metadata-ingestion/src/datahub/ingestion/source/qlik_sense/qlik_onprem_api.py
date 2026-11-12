@@ -9,6 +9,7 @@ from typing import Any, Dict, Iterable, List, Literal, Optional, Union
 
 import requests
 from requests.adapters import DEFAULT_POOLSIZE, HTTPAdapter
+from websocket import WebSocketTimeoutException
 
 from datahub.ingestion.source.qlik_sense.config import (
     QLIK_DATETIME_FORMAT,
@@ -29,9 +30,20 @@ from datahub.ingestion.source.qlik_sense.qlik_base_api import (
     log_read_error,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import DataConnectionInfo
-from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
+from datahub.ingestion.source.qlik_sense.websocket_connection import (
+    EngineError,
+    WebsocketConnection,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _data_load_failed(e: Exception) -> bool:
+    """Whether opening an app with its data failed on the data itself."""
+    return (isinstance(e, EngineError) and e.access_denied) or isinstance(
+        e, (TimeoutError, WebSocketTimeoutException)
+    )
+
 
 UNPUBLISHED_APPS_ID = "unpublished-apps"
 UNPUBLISHED_APPS_NAME = "Unpublished"
@@ -329,16 +341,21 @@ class QlikOnPremAPI(QlikBaseAPI):
             app.read_errors = errors.messages
             app.sheets_complete = False
             return app
+        with_data = self.on_prem.read_data_model
         try:
-            websocket_connection.websocket_send_request(
-                method="OpenDoc",
-                # Without its data the app has no data model to read, but it
-                # opens much faster on large sites.
-                params={
-                    "qDocName": app.id,
-                    "qNoData": not self.on_prem.read_data_model,
-                },
-            )
+            try:
+                self._open_doc(websocket_connection, app.id, with_data)
+            except Exception as e:
+                if not (with_data and _data_load_failed(e)):
+                    raise
+                # Section access can deny the data to the service user, and a
+                # large app can time out while its data loads, but the app's
+                # script, sheets and variables are still readable without it.
+                self._close_engine(websocket_connection, app.id)
+                websocket_connection = self._open_engine(app.id)
+                self._open_doc(websocket_connection, app.id, with_data=False)
+                with_data = False
+                self.opened_without_data.append(f"{app.id}: {e}")
             app.sheets = self._get_app_sheets(
                 websocket_connection,
                 app.id,
@@ -353,7 +370,7 @@ class QlikOnPremAPI(QlikBaseAPI):
                 websocket_connection, app.id, on_error=errors.record
             )
             app.tables_read_failed = app.script is None
-            if self.on_prem.read_data_model:
+            if with_data:
                 app.data_model_tables = self._read_data_model(
                     websocket_connection, app.id, errors
                 )
@@ -367,6 +384,17 @@ class QlikOnPremAPI(QlikBaseAPI):
         app.sheets_complete = not errors.sheets_unread
         app.read_fallbacks = errors.fallbacks
         return app
+
+    @staticmethod
+    def _open_doc(
+        websocket_connection: WebsocketConnection, app_id: str, with_data: bool
+    ) -> None:
+        websocket_connection.websocket_send_request(
+            method="OpenDoc",
+            # Without its data the app has no data model to read, but it opens
+            # much faster on large sites.
+            params={"qDocName": app_id, "qNoData": not with_data},
+        )
 
     def _read_or_skip_app(
         self,
