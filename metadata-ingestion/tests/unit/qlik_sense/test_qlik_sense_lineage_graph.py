@@ -825,3 +825,72 @@ def test_dataset_store_column_lineage_replaces_only_app_table_edges(
         manual.upstreams,
         [make_schema_field_urn(curve, "Price")],
     ]
+
+
+def test_dataset_schema_leaves_out_orphaned_fields() -> None:
+    dataset = QlikDataset.model_validate(
+        {
+            "id": "ds-1",
+            "name": "orders.qvd",
+            "itemId": "item-1",
+            "spaceId": "space-1",
+            "secureQri": SOURCE_QVD,
+            "type": "qvd",
+            "createdTime": "2024-01-09T18:05:36.000Z",
+            "lastModifiedTime": "2024-01-09T18:05:36.000Z",
+            "operational": {"size": 1, "rowCount": 1},
+            "schema": {
+                "dataFields": [
+                    {"name": "PROD", "dataType": {"type": "STRING"}, "orphan": False},
+                    # A field an earlier version of the file had.
+                    {"name": "OLD", "dataType": {"type": "STRING"}, "orphan": True},
+                ]
+            },
+        }
+    )
+    assert [field.name for field in dataset.datasetSchema] == ["PROD"]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_untyped_graph_table_takes_types_from_the_dataset_it_stores(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    curve, curve_table = _urn("etl-app.curve"), f"{ETL_APP}#Curve"
+    source._app_table_urns_by_qri = {curve_table: curve}
+    source._untyped_tables = {
+        curve: (
+            "etl-app.curve",
+            [SchemaField(name="Day"), SchemaField(name="Year"), SchemaField(name="Id")],
+        )
+    }
+    stored, other = _urn("space-1.stored.qvd"), _urn("space-1.other.qvd")
+    source._dataset_field_types = {
+        stored: {"Day": "TIMESTAMP", "Total": "DOUBLE", "Id": "INTEGER"},
+        other: {"Id": "STRING"},
+    }
+    source._dataset_store_field_sources = {
+        stored: {
+            "Day": [_field_qri(curve_table, "Day")],
+            # Stored under a new name, so the type may not be the field's.
+            "Total": [_field_qri(curve_table, "Year")],
+            "Id": [_field_qri(curve_table, "Id")],
+        },
+        # Another dataset disagrees on Id's type.
+        other: {"Id": [_field_qri(curve_table, "Id")]},
+    }
+
+    [schema] = [
+        aspect
+        for wu in source._gen_stored_table_types()
+        if (aspect := wu.get_aspect_of_type(SchemaMetadataClass))
+    ]
+
+    assert [(f.fieldPath, f.nativeDataType) for f in schema.fields] == [
+        ("Day", "TIMESTAMP"),
+        ("Year", ""),
+        ("Id", ""),
+    ]

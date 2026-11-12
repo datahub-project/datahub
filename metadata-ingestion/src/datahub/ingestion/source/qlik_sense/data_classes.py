@@ -228,7 +228,13 @@ class QlikDataset(Item):
         values[Constant.SIZE] = values[Constant.OPERATIONAL].get(Constant.SIZE, 0)
         values[Constant.ROWCOUNT] = values[Constant.OPERATIONAL][Constant.ROWCOUNT]
 
-        values[Constant.DATASETSCHEMA] = values[Constant.SCHEMA][Constant.DATAFIELDS]
+        # Qlik keeps fields the file no longer has in the schema, marked as
+        # orphans.
+        values[Constant.DATASETSCHEMA] = [
+            field
+            for field in values[Constant.SCHEMA][Constant.DATAFIELDS]
+            if not field.get("orphan")
+        ]
         return values
 
 
