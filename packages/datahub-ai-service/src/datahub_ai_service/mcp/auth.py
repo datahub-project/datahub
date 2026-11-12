@@ -24,6 +24,8 @@ from datahub.sdk.main_client import DataHubClient
 from loguru import logger
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from datahub_core_mcp_tools.graphql_helpers import http_status
+
 from .._version import __version__
 
 _ME_QUERY = "query getMe { me { corpUser { urn } } }"
@@ -66,23 +68,9 @@ class CallerClientFactory:
         )
 
 
-def _http_status(error: BaseException) -> Optional[int]:
-    """The HTTP status behind an SDK error, if any (the SDK chains requests' HTTPError)."""
-    seen: set[int] = set()
-    cause: Optional[BaseException] = error
-    while cause is not None and id(cause) not in seen:
-        seen.add(id(cause))
-        response = getattr(cause, "response", None)
-        status = getattr(response, "status_code", None)
-        if isinstance(status, int):
-            return status
-        cause = cause.__cause__ or cause.__context__
-    return None
-
-
 def classify_gms_error(error: Exception) -> Exception:
     """Map a failed ``me`` call to InvalidCredentialError or GmsUnavailableError."""
-    status = _http_status(error)
+    status = http_status(error)
     if status in (401, 403):
         return InvalidCredentialError(f"GMS rejected the token (HTTP {status})")
     if status is not None and (status >= 500 or status == 429):

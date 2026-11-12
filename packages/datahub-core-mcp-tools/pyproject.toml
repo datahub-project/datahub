@@ -17,6 +17,7 @@ dependencies = [
     "mcp>=2.0.0,<3",
     "anyio>=4.10.0,<5",
     "loguru>=0.7.0,<1",
+    "pydantic>=2.10.0,<3",
     "requests>=2.28.0,<3",
 ]
 
