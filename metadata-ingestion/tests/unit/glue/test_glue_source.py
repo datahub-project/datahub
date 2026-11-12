@@ -1909,7 +1909,9 @@ def test_resource_link_column_lineage_keeps_brackets_and_dots_in_column_names() 
     # Bracketed column names used to simplify to "" (an invalid schemaField URN that
     # GMS rejects with its whole batch) or to a truncated name, and dotted ones lost the dot.
     columns = ["[col_a]", "col b (from [col_a] 3)", "col.c", "id"]
-    tables_response = copy.deepcopy(get_tables_response_for_target_database)
+    tables_response: Dict[str, Any] = copy.deepcopy(
+        get_tables_response_for_target_database
+    )
     tables_response["TableList"][0]["StorageDescriptor"]["Columns"] = [
         {"Name": name, "Type": "string"} for name in columns
     ]
@@ -1926,12 +1928,46 @@ def test_resource_link_column_lineage_keeps_brackets_and_dots_in_column_names() 
     assert source.report.num_column_lineage_empty_field_path == 0
 
 
+def test_column_lineage_skips_and_warns_on_empty_field_path() -> None:
+    # Glue itself rejects empty column names, but a schema read from DataHub (e.g. a
+    # resource link's resolved owner schema) is not bound by that.
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(aws_region="us-east-1"),
+    )
+    schema = models.SchemaMetadataClass(
+        schemaName="t",
+        platform="urn:li:dataPlatform:glue",
+        version=0,
+        hash="",
+        platformSchema=models.OtherSchemaClass(rawSchema=""),
+        fields=[
+            field
+            for name in ["", "id"]
+            for field in get_schema_fields_for_hive_column(name, "string")
+        ],
+    )
+
+    lineages = source.get_fine_grained_lineages(
+        DB_LINK_URN, OWNER_TABLE_URN, schema, schema
+    )
+
+    assert {
+        (tuple(fgl.upstreams or []), tuple(fgl.downstreams or [])) for fgl in lineages
+    } == _same_name_column_edges(OWNER_TABLE_URN, DB_LINK_URN, ["id"])
+    assert source.report.num_column_lineage_empty_field_path == 1
+    assert len(source.report.warnings) == 1
+
+
 @pytest.mark.parametrize(
     "column_name, column_type, expected_paths",
     [
         ("[col_a]", "string", ["[col_a]"]),
         ("col b (from [col_a] 3)", "string", ["col b (from [col_a] 3)"]),
         ("col.c", "string", ["col.c"]),
+        # Annotation-like text is part of the name unless it is a whole path segment.
+        ("[type=foo]", "string", ["[type=foo]"]),
+        ("a[key=x]b", "string", ["a[key=x]b"]),
         ("s", "struct<x:int>", ["s", "s.x"]),
         # Array and map paths stay whole, as their simplified forms can collide.
         (

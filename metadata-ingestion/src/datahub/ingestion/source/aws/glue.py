@@ -197,10 +197,12 @@ LAKE_FORMATION_TAG_ORIGIN = "lake-formation"
 GLUE_CATALOG_ARN_PATTERN = re.compile(r"^arn:aws[a-z-]*:glue:([^:\s]+):\d{12}$")
 
 FIELD_PATH_V2_PREFIX = "[version=2.0]"
-# Only the annotations a v2 field path adds around column names. Glue column names
-# may themselves contain brackets and dots (e.g. "[col_a]", "col.b"),
-# so stripping every [...] and "." would mangle them.
-FIELD_PATH_V2_ANNOTATION_PATTERN = re.compile(r"\[(?:version|type|key)=[^\]]*\]\.?")
+# Only the annotations a v2 field path adds, each a whole "."-separated segment. Glue
+# column names may themselves contain brackets and dots (e.g. "[col_a]", "col.b",
+# "a[type=x]b"), so stripping every [...] and "." would mangle them.
+FIELD_PATH_V2_ANNOTATION_PATTERN = re.compile(
+    r"(?<![^.])\[(?:version|type|key)=[^\]]*\]\."
+)
 # Field paths through these types are kept whole, as their simplified forms can collide.
 FIELD_PATH_V2_UNSIMPLIFIED_TYPES = ("[type=array]", "[type=map]", "[type=union]")
 
@@ -2268,6 +2270,12 @@ class GlueSource(StatefulIngestionSourceBase):
                 # An empty field path makes an invalid schemaField URN, which GMS rejects
                 # along with the rest of its write batch.
                 self.report.num_column_lineage_empty_field_path += 1
+                self.report.warning(
+                    title="Column lineage skipped for column with empty field path",
+                    message="A column's field path is empty, so no valid column-level "
+                    "lineage could be built for it. The table's other lineage is unaffected.",
+                    context=f"{dataset_urn} field_path={field.fieldPath}",
+                )
                 continue
             if field_path_v1 in upstream_paths:
                 fine_grained_lineages.append(
