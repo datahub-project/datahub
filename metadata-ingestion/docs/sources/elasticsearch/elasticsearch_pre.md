@@ -19,9 +19,16 @@ The connector supports one of the following authentication methods per recipe:
 - **API key**: set `api_key` to an `[id, api_key]` pair or a base64-encoded `id:api_key` string.
 - **AWS IAM (SigV4)**: for [Amazon OpenSearch Service](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/what-is.html) domains, set `aws_config`. Every request is signed with AWS Signature Version 4.
 
-AWS IAM authentication cannot be combined with basic authentication or an API key. `aws_config.aws_region` is required and must match the domain's region. Credentials resolve from explicit `aws_access_key_id`/`aws_secret_access_key`, an `aws_profile`, an `aws_role` to assume, or the default AWS credential chain (environment variables, instance profile, ECS task role). Assumed-role credentials are renewed automatically before they expire, so long-running ingestion does not need special handling.
+AWS IAM authentication cannot be combined with basic authentication or an API key. `aws_config.aws_region` is required and must match the domain's region. Credentials resolve from one of:
 
-Amazon OpenSearch Service domains only accept HTTPS, so set `use_ssl: True` (and `verify_certs: True`) and point `host` at the domain endpoint on port 443, for example `search-my-domain-abc123.us-east-1.es.amazonaws.com:443`.
+- explicit `aws_access_key_id`/`aws_secret_access_key`,
+- an `aws_profile`,
+- an `aws_role` to assume, using base credentials from the default AWS credential chain (environment variables, `AWS_PROFILE`, instance profile, ECS task role). `aws_role` cannot be combined with `aws_profile` or explicit keys, because the role would not be assumed; to assume a role from a profile, set `AWS_PROFILE` in the environment and configure only `aws_role`,
+- or the default AWS credential chain when none of the above is set.
+
+Assumed-role credentials are renewed automatically before they expire, so long-running ingestion does not need special handling.
+
+Amazon OpenSearch Service domains only accept HTTPS, and signed requests must not be sent in plaintext, so `aws_config` requires `use_ssl: True` (set `verify_certs: True` as well). Point `host` at the domain endpoint on port 443, for example `search-my-domain-abc123.us-east-1.es.amazonaws.com:443`.
 
 The IAM principal needs `es:ESHttpGet` on the domain (for example `arn:aws:es:us-east-1:123456789012:domain/my-domain/*`); the connector only issues read requests. If the domain uses fine-grained access control, also map the principal (as a backend role) to an OpenSearch role with these permissions:
 

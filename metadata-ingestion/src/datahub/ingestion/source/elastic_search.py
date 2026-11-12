@@ -6,7 +6,18 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from hashlib import md5
-from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 
 from botocore.credentials import (
     Credentials,
@@ -44,6 +55,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -89,6 +101,9 @@ logger = logging.getLogger(__name__)
 # SigV4 service name for Amazon OpenSearch Service managed domains.
 _AWS_SIGV4_SERVICE = "es"
 _ASSUMED_ROLE_RECHECK_INTERVAL_SECONDS = 60.0
+_MAX_REFRESH_BACKOFF_SECONDS = 240.0
+# Matches AwsConnectionConfig's pre-expiry refresh buffer.
+_AWS_ROLE_REFRESH_WINDOW_SECONDS = 300.0
 
 
 class ElasticToSchemaFieldConverter:
@@ -341,7 +356,7 @@ class ElasticsearchSourceConfig(
     )
     aws_config: Optional[AwsConnectionConfig] = Field(
         default=None,
-        description="AWS connection settings for IAM authentication against an Amazon OpenSearch Service domain. When set, every request is signed with AWS Signature Version 4 using the resolved credentials (explicit keys, profile, role assumption, or the default credential chain). aws_region is required. Cannot be combined with username/password or api_key. OpenSearch Serverless collections are not supported.",
+        description="AWS connection settings for IAM authentication against an Amazon OpenSearch Service domain. When set, every request is signed with AWS Signature Version 4 using the resolved credentials (explicit keys, profile, role assumption, or the default credential chain). aws_region and use_ssl: True are required. Cannot be combined with username/password or api_key, and aws_role cannot be combined with aws_profile or explicit keys. OpenSearch Serverless collections are not supported.",
     )
 
     def is_profiling_enabled(self) -> bool:
@@ -377,6 +392,22 @@ class ElasticsearchSourceConfig(
             raise ValueError(
                 "aws_config.aws_region is required for AWS IAM (SigV4) authentication."
             )
+        if self.aws_config.aws_role and (
+            self.aws_config.aws_profile or self.aws_config.aws_access_key_id
+        ):
+            # AwsConnectionConfig.get_session() prefers explicit keys, then a profile,
+            # and only assumes aws_role when neither is set, so the role would be
+            # silently ignored.
+            raise ValueError(
+                "aws_config.aws_role cannot be combined with aws_profile or explicit "
+                "access keys; the role would not be assumed. To assume a role from a "
+                "profile, set AWS_PROFILE in the environment and configure only aws_role."
+            )
+        if not self.use_ssl:
+            raise ValueError(
+                "aws_config requires use_ssl: True. Amazon OpenSearch Service only "
+                "accepts HTTPS, and SigV4-signed requests must not be sent in plaintext."
+            )
         return self
 
     @property
@@ -405,18 +436,32 @@ class _AwsConfigCredentials:
     """Credentials source for opensearch-py's SigV4 signer, which calls
     get_frozen_credentials() on every request.
 
-    Credentials from an aws_role assumption are static: AwsConnectionConfig re-assumes
-    the role once they are within 5 minutes of expiry, so re-fetching the session
-    every minute picks that up without rebuilding a boto3 session on every request.
+    Workaround for an AwsConnectionConfig limitation: its manual aws_role branch in
+    get_session() returns a static Credentials snapshot and keeps the expiry private,
+    while every other credential source returns self-refreshing botocore credentials.
+    get_s3_client() and the SageMaker ClientFactory work around the same gap. The
+    proper fix is for that branch to return DeferredRefreshableCredentials, which
+    would make this class unnecessary; do not copy it into another connector.
+
+    AwsConnectionConfig re-assumes the role once credentials are within 5 minutes of
+    expiry, so re-fetching the session periodically picks that up without rebuilding
+    a boto3 session on every request.
     """
 
     def __init__(
-        self, aws_config: AwsConnectionConfig, report: "ElasticsearchSourceReport"
+        self,
+        aws_config: AwsConnectionConfig,
+        report: SourceReport,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._aws_config = aws_config
         self._report = report
+        self._clock = clock
         self._credentials: Optional[Credentials] = None
-        self._fetched_at = 0.0
+        self._next_check_at = 0.0
+        self._consecutive_failures = 0
+        self._first_failure_at: Optional[float] = None
+        self._expiry_failure_reported = False
 
     def _needs_recheck(self) -> bool:
         # RefreshableCredentials (profile, instance profile, IRSA, ...) renew
@@ -424,8 +469,50 @@ class _AwsConfigCredentials:
         return (
             self._aws_config.allowed_cred_refresh()
             and not isinstance(self._credentials, RefreshableCredentials)
-            and time.monotonic() - self._fetched_at
-            >= _ASSUMED_ROLE_RECHECK_INTERVAL_SECONDS
+            and self._clock() >= self._next_check_at
+        )
+
+    def _record_success(self, credentials: Credentials) -> None:
+        self._credentials = credentials
+        self._next_check_at = self._clock() + _ASSUMED_ROLE_RECHECK_INTERVAL_SECONDS
+        self._consecutive_failures = 0
+        self._first_failure_at = None
+        self._expiry_failure_reported = False
+
+    def _record_failure(self, e: Exception) -> None:
+        now = self._clock()
+        self._consecutive_failures += 1
+        if self._first_failure_at is None:
+            self._first_failure_at = now
+        backoff = min(
+            _ASSUMED_ROLE_RECHECK_INTERVAL_SECONDS
+            * 2 ** (self._consecutive_failures - 1),
+            _MAX_REFRESH_BACKOFF_SECONDS,
+        )
+        self._next_check_at = now + backoff
+        context = (
+            f"role={self._aws_config.aws_role} region={self._aws_config.aws_region} "
+            f"consecutive_failures={self._consecutive_failures} "
+            f"next_retry_in={backoff:.0f}s"
+        )
+        # The role is only re-assumed inside the 5-minute pre-expiry window, so once
+        # failures have lasted that long the signing credentials have expired and
+        # every request will be rejected.
+        if now - self._first_failure_at >= _AWS_ROLE_REFRESH_WINDOW_SECONDS:
+            if not self._expiry_failure_reported:
+                self._expiry_failure_reported = True
+                self._report.failure(
+                    title="AWS credentials expired",
+                    message="Assumed-role credentials could not be refreshed before they expired, so requests to the domain will be rejected. Check STS throttling, the role's trust policy, and that the base AWS credentials are still valid.",
+                    context=context,
+                    exc=e,
+                )
+            return
+        self._report.warning(
+            title="AWS credential refresh failed",
+            message="Could not re-assume aws_role; signing with the current credentials, which are usually still valid for a few minutes, and retrying with backoff. Check STS throttling, the role's trust policy, and that the base AWS credentials are still valid.",
+            context=context,
+            exc=e,
         )
 
     def _resolve(self) -> Credentials:
@@ -440,26 +527,18 @@ class _AwsConfigCredentials:
 
     def get_frozen_credentials(self) -> ReadOnlyCredentials:
         if self._credentials is None:
-            self._credentials = self._resolve()
-            self._fetched_at = time.monotonic()
+            self._record_success(self._resolve())
         elif self._needs_recheck():
             try:
-                self._credentials = self._resolve()
-                self._fetched_at = time.monotonic()
+                self._record_success(self._resolve())
             except (BotoCoreError, ClientError, ConfigurationError, ValueError) as e:
-                # Re-assumption starts 5 minutes before expiry, so the current
-                # credentials are usually still valid; keep signing with them and
-                # retry on the next request instead of failing the run on a blip.
-                self._report.warning(
-                    title="AWS credential refresh failed",
-                    message="Continuing with the current credentials and retrying on the next request.",
-                    exc=e,
-                )
+                self._record_failure(e)
+        assert self._credentials is not None
         return self._credentials.get_frozen_credentials()
 
 
 def _aws_sigv4_auth(
-    aws_config: AwsConnectionConfig, report: "ElasticsearchSourceReport"
+    aws_config: AwsConnectionConfig, report: SourceReport
 ) -> Urllib3AWSV4SignerAuth:
     region = aws_config.aws_region
     assert region, "aws_region is enforced by ElasticsearchSourceConfig validation"
