@@ -1,4 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FileUploadFailureType, FileUploadSource } from '@components/components/Editor/types';
@@ -6,6 +5,7 @@ import { FileUploadFailureType, FileUploadSource } from '@components/components/
 import analytics from '@app/analytics';
 import { EventType } from '@app/analytics/event';
 import useFileUploadAnalyticsCallbacks from '@app/sharedV2/hooks/useFileUploadAnalyticsCallbacks';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { UploadDownloadScenario } from '@types';
 

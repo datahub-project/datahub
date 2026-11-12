@@ -1,7 +1,8 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import usePersistedSidebarWidth from '@app/sharedV2/sidebar/usePersistedSidebarWidth';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const STORAGE_KEY = 'test.sidebarWidth';
 const OPTIONS = { storageKey: STORAGE_KEY, minWidth: 320, maxWidth: 800, defaultRatio: 0.3 };
