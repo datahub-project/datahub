@@ -155,6 +155,30 @@ public class EntityAspectAuthorizationUtilsTest {
   }
 
   @Test
+  public void testManageAllDataProductsPlatformPrivilegeGrantsWithoutDomainPrivilege() {
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    mockAuthSession, PoliciesConfig.MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE))
+        .thenReturn(true);
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isAuthorizedToManageDataProductsOnAnyDomain(
+            mockAuthSession, Set.of(DOMAIN_A)));
+    // Applies to products that have no domain as well.
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isAuthorizedToManageDataProductsOnAnyDomain(
+            mockAuthSession, Set.of()));
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isAuthorizedToRenameDataProduct(
+            mockAuthSession, DATA_PRODUCT_URN, Set.of()));
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isAuthorizedToChangeDataProductMembership(
+            mockAuthSession, Set.of(), Set.of(ASSET_URN)));
+  }
+
+  @Test
   public void testIsAuthorizedToChangeDataProductMembership_allowsProductSideCrossDomain() {
     authUtilMockedStatic
         .when(

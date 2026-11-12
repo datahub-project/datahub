@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.authorization.AuthorizationResult;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -15,6 +16,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.domain.Domains;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.service.DataProductService;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -30,19 +32,62 @@ public class DataProductAuthorizationUtilsTest {
   private static final Urn DOMAIN_URN = UrnUtils.getUrn("urn:li:domain:marketing");
 
   private QueryContext context;
+  private OperationContext operationContext;
   private AspectRetriever aspectRetriever;
 
   @BeforeMethod
   public void setUp() {
     context = mock(QueryContext.class);
-    OperationContext operationContext = mock(OperationContext.class);
+    operationContext = mock(OperationContext.class);
     aspectRetriever = mock(AspectRetriever.class);
     when(context.getOperationContext()).thenReturn(operationContext);
     when(operationContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    grantManageAllDataProducts(false);
+  }
+
+  private void grantManageAllDataProducts(boolean granted) {
+    when(operationContext.authorize(
+            eq(PoliciesConfig.MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE.getType()), any(), any()))
+        .thenReturn(
+            new AuthorizationResult(
+                null,
+                granted ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                ""));
   }
 
   private static Domains domainsWith(Urn domainUrn) {
     return new Domains().setDomains(new UrnArray(List.of(domainUrn)));
+  }
+
+  @Test
+  public void testManageAllDataProductsGrantsWithoutDomainPrivilege() {
+    grantManageAllDataProducts(true);
+
+    try (MockedStatic<AuthorizationUtils> auth = Mockito.mockStatic(AuthorizationUtils.class)) {
+      auth.when(() -> AuthorizationUtils.isAuthorized(any(), any(), any(), any()))
+          .thenReturn(false);
+      auth.when(() -> AuthorizationUtils.canManageDomains(any())).thenReturn(false);
+
+      assertTrue(
+          DataProductAuthorizationUtils.isAuthorizedToManageDataProducts(context, DOMAIN_URN));
+      assertTrue(
+          DataProductAuthorizationUtils.isAuthorizedToManageDataProduct(
+              context, PRODUCT_URN, domainsWith(DOMAIN_URN)));
+      assertTrue(
+          DataProductAuthorizationUtils.isAuthorizedToManageDataProductsOnAnyDomain(
+              context, new Domains()));
+    }
+  }
+
+  @Test
+  public void testDomainPrivilegeRequiredWithoutManageAllDataProducts() {
+    try (MockedStatic<AuthorizationUtils> auth = Mockito.mockStatic(AuthorizationUtils.class)) {
+      auth.when(() -> AuthorizationUtils.isAuthorized(any(), any(), any(), any()))
+          .thenReturn(false);
+
+      assertFalse(
+          DataProductAuthorizationUtils.isAuthorizedToManageDataProducts(context, DOMAIN_URN));
+    }
   }
 
   @Test
