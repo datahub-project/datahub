@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { vi } from 'vitest';
 
 import { useUserContext } from '@app/context/useUserContext';
 import useGlossaryCreatePrivileges from '@app/glossaryV2/useGlossaryCreatePrivileges';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 vi.mock('@app/context/useUserContext', () => ({
     useUserContext: vi.fn(),
