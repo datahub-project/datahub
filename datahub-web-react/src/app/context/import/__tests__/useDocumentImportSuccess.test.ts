@@ -1,8 +1,9 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import '@app/context/import/__tests__/testSetup';
 import { useDocumentImportSuccess } from '@app/context/import/hooks/useDocumentImportSuccess';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 describe('useDocumentImportSuccess', () => {
     it('reloads root children after import', () => {

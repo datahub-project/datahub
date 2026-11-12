@@ -1,8 +1,9 @@
 import { DragEndEvent } from '@dnd-kit/core';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { useVerticalDragAndDrop } from '@app/homeV3/modules/assetCollection/dragAndDrop/useVerticalDragAndDrop';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 describe('useVerticalDragAndDrop', () => {
     const initialItems = ['a', 'b', 'c', 'd'];

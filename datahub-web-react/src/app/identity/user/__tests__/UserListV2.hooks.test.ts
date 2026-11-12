@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -7,6 +7,7 @@ import {
     useUserListData,
     useUserListState,
 } from '@app/identity/user/UserListV2.hooks';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const { mockUseSearchUsersQuery, mockUseBatchAssignRoleMutation } = vi.hoisted(() => ({
     mockUseSearchUsersQuery: vi.fn(),

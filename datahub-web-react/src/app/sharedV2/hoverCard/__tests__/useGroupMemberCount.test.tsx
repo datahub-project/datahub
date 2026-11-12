@@ -1,9 +1,10 @@
 import { MockedProvider, MockedResponse } from '@apollo/client/testing';
-import { renderHook } from '@testing-library/react-hooks';
+import { waitFor } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import useGroupMemberCount from '@app/sharedV2/hoverCard/useGroupMemberCount';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { GetGroupMemberCountDocument, useGetGroupMemberCountQuery } from '@graphql/group.generated';
 import { CorpGroup, CorpUser, Entity, EntityType } from '@types';
@@ -54,10 +55,9 @@ function renderUseGroupMemberCount(entity: Entity, mocks: MockedResponse[]) {
 describe('useGroupMemberCount', () => {
     it('fetches the count when the group was loaded without one', async () => {
         const { mock } = memberCountMock(GROUP_URN, 7);
-        const { result, waitFor } = renderUseGroupMemberCount(
-            { urn: GROUP_URN, type: EntityType.CorpGroup } as CorpGroup,
-            [mock],
-        );
+        const { result } = renderUseGroupMemberCount({ urn: GROUP_URN, type: EntityType.CorpGroup } as CorpGroup, [
+            mock,
+        ]);
 
         expect(result.current).toBeUndefined();
         await waitFor(() => expect(result.current).toBe(7));
@@ -77,7 +77,7 @@ describe('useGroupMemberCount', () => {
 
     it('fetches the count rather than trust a plain relationships total, which may count one kind of membership', async () => {
         const { mock } = memberCountMock(GROUP_URN, 7);
-        const { result, waitFor } = renderUseGroupMemberCount(
+        const { result } = renderUseGroupMemberCount(
             { urn: GROUP_URN, type: EntityType.CorpGroup, relationships: { total: 3 } } as unknown as CorpGroup,
             [mock],
         );
@@ -97,7 +97,7 @@ describe('useGroupMemberCount', () => {
 
     it("drops a fetched count once the entity it was fetched for is replaced by one that doesn't need it", async () => {
         const { mock } = memberCountMock(GROUP_URN, 5);
-        const { result, waitFor, rerender } = renderUseGroupMemberCount(
+        const { result, rerender } = renderUseGroupMemberCount(
             { urn: GROUP_URN, type: EntityType.CorpGroup } as CorpGroup,
             [mock],
         );
@@ -111,7 +111,7 @@ describe('useGroupMemberCount', () => {
     it("never shows one group's count on another group while that group's count loads", async () => {
         const { mock: firstGroup } = memberCountMock(GROUP_URN, 5);
         const { mock: secondGroup } = memberCountMock(OTHER_GROUP_URN, 9, 20);
-        const { result, waitFor, rerender } = renderUseGroupMemberCount(
+        const { result, rerender } = renderUseGroupMemberCount(
             { urn: GROUP_URN, type: EntityType.CorpGroup } as CorpGroup,
             [firstGroup, secondGroup],
         );
