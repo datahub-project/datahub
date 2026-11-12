@@ -1,11 +1,11 @@
 import { render, screen } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { ThemeProvider } from 'styled-components';
 import { vi } from 'vitest';
 
 import { useGetStructuredPropColumns } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useGetStructuredPropColumns';
 import { SearchResult } from '@src/types.generated';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const testTheme = { colors: { bgSkeleton: '#f0f0f0', bgSkeletonShimmer: '#e0e0e0' } } as any;
 

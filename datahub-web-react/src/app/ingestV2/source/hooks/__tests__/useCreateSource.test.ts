@@ -1,8 +1,9 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useCreateSource } from '@app/ingestV2/source/hooks/useCreateSource';
 import { useAddOwners } from '@app/sharedV2/owners/useAddOwners';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useCreateIngestionSourceMutation } from '@graphql/ingestion.generated';
 import { Entity, EntityType, UpdateIngestionSourceInput } from '@types';

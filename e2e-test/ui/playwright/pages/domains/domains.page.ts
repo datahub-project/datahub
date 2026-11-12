@@ -7,6 +7,11 @@
 import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from '../base.page';
 import type { DataHubLogger } from '../../utils/logger';
+import { GraphQLHelper } from '../../helpers/graphql-helper';
+import { TIMEOUTS } from '../../utils/constants';
+
+// How long a deleted domain can stay on an entity while its references are removed in the background.
+const DOMAIN_REFERENCE_CLEANUP_TIMEOUT = 60000;
 
 export class DomainsPage extends BasePage {
   readonly newDomainButton: Locator;
@@ -27,6 +32,8 @@ export class DomainsPage extends BasePage {
   readonly entityMenuDeleteButton: Locator;
   readonly entityTitle: Locator;
 
+  private readonly graphql: GraphQLHelper;
+
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
     this.newDomainButton = page.getByTestId('domains-new-domain-button');
@@ -43,6 +50,7 @@ export class DomainsPage extends BasePage {
     this.modalConfirmButton = page.getByTestId('modal-confirm-button');
     this.entityMenuDeleteButton = page.getByTestId('entity-menu-delete-button');
     this.entityTitle = page.getByTestId('entity-title');
+    this.graphql = new GraphQLHelper(page);
   }
 
   async navigate(): Promise<void> {
@@ -58,11 +66,12 @@ export class DomainsPage extends BasePage {
     await this.domainNameInput.fill(name);
     await this.page.getByText('Advanced').click();
     await this.domainIdInput.fill(String(id));
+    // Later tests open the domain by URN, which reads the primary store, so the create only has
+    // to have succeeded; they do not depend on the domain being in the search index.
+    const created = this.graphql.waitForGraphQLResponse('createDomain');
     await this.createDomainConfirmButton.click();
+    expect((await created).errors).toBeUndefined();
     await expect(this.page.getByText(name).first()).toBeVisible({ timeout: 15000 });
-    // Allow ES to index the new domain before subsequent tests search for it
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(5000);
   }
 
   async navigateToDomain(urn: string): Promise<void> {
@@ -79,8 +88,6 @@ export class DomainsPage extends BasePage {
     // On the flat-list layout, search to ensure the domain is visible before clicking
     if (await this.domainSearchInput.isVisible({ timeout: 2000 }).catch(() => false)) {
       await this.domainSearchInput.fill(name);
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await this.page.waitForTimeout(500);
     }
     // Use link role to skip hidden aria-live spans that also match the text
     await this.page.getByRole('link', { name }).first().click();
@@ -103,9 +110,6 @@ export class DomainsPage extends BasePage {
     await expect(async () => {
       await this.modalSearchInput.click({ clickCount: 3 }); // select-all any existing text
       await this.modalSearchInput.pressSequentially(searchTerm);
-      // Wait for the debounce (300ms) + search result render before checking the checkbox
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await this.page.waitForTimeout(800);
       await expect(checkbox).toBeVisible({ timeout: 10000 });
     }).toPass({ timeout: 90000, intervals: [3000] });
     await checkbox.click({ force: true });
@@ -129,15 +133,27 @@ export class DomainsPage extends BasePage {
     // not behind a dropdown, so no dropdown trigger is needed.
     await this.navigateToDomain(domainUrn);
     await this.entityMenuDeleteButton.click();
+    const deleted = this.graphql.waitForGraphQLResponse('deleteDomain', (variables) => variables.urn === domainUrn);
     await this.page.getByRole('button', { name: 'Yes' }).click();
+    expect(await deleted).toMatchObject({ data: { deleteDomain: true } });
     await this.page.waitForLoadState('networkidle', { timeout: 15000 });
-    // Allow ES to de-index the deleted domain before asserting it's gone
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(5000);
   }
 
   async expectDomainVisible(name: string): Promise<void> {
     await expect(this.page.getByText(name).first()).toBeVisible({ timeout: 15000 });
+  }
+
+  /**
+   * Deleting a domain removes its references from entities asynchronously, after the delete
+   * mutation returns, so reload the entity page until the domain is gone. `loadedText` must be
+   * visible once the page has loaded, so the absence check cannot pass on an unrendered page.
+   */
+  async expectDomainRemovedFromEntity(domainName: string, loadedText: string): Promise<void> {
+    await expect(async () => {
+      await this.page.reload();
+      await expect(this.page.getByText(loadedText).first()).toBeVisible({ timeout: TIMEOUTS.LONG });
+      await expect(this.page.getByText(domainName)).toBeHidden();
+    }).toPass({ timeout: DOMAIN_REFERENCE_CLEANUP_TIMEOUT });
   }
 
   async expectDomainNotVisible(name: string): Promise<void> {
