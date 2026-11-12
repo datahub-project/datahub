@@ -927,6 +927,13 @@ class _ScriptParser(BaseModel):
         """The QVD file a LOAD or STORE names, or None when it names another
         format or no single resolvable file."""
         path = _unquote(path.strip()).strip()
+        if "$(" in path:
+            # Expanded first, as the variable may hold the `.qvd` name.
+            path = self._expand_app_variables(path)
+        if path[:1] in ("'", '"'):
+            # A variable set with SET keeps its quotes, so a path built from
+            # one, such as $(vFolder)orders.qvd, holds them.
+            path = path.replace(path[0], "")
         format_name = (spec or "").split(",")[0].strip().lower()
         if format_name:
             is_qvd = format_name == "qvd"
@@ -935,12 +942,6 @@ class _ScriptParser(BaseModel):
             is_qvd = default_qvd or path.lower().endswith(QVD_EXTENSION)
         if not is_qvd:
             return None
-        if "$(" in path:
-            path = self._expand_app_variables(path)
-        if path.startswith("'lib://"):
-            # A variable set with SET keeps its quotes, so a path built from
-            # one, such as $(vFolder)orders.qvd, holds them.
-            path = path.replace("'", "")
         lib_path = LIB_PATH_RE.match(path)
         if (
             lib_path

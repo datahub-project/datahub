@@ -23,6 +23,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     UnchangedApp,
 )
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
+    UNREAD_DATA_CONNECTIONS,
     IsUnchanged,
     QlikBaseAPI,
     ReadErrors,
@@ -353,6 +354,7 @@ class QlikOnPremAPI(QlikBaseAPI):
                 websocket_connection = self._open_engine(app.id)
                 self._open_doc(websocket_connection, app.id, with_data=False)
                 with_data = False
+                app.data_load_failed = True
                 self.opened_without_data.append(f"{app.id}: {e}")
             app.sheets = self._get_app_sheets(
                 websocket_connection,
@@ -464,7 +466,7 @@ class QlikOnPremAPI(QlikBaseAPI):
                 connections[name] = info
         except Exception as e:
             self._record_unread(
-                "data connections",
+                UNREAD_DATA_CONNECTIONS,
                 f"Unable to fetch data connections. Exception: {e}",
                 e,
             )

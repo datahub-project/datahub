@@ -2307,6 +2307,7 @@ def test_onprem_app_whose_data_cant_be_opened_is_read_without_it(
     assert open_doc["params"]["qNoData"] is True
     assert isinstance(app, App)
     assert app.read_complete
+    assert app.data_load_failed
     assert app.script == LOAD_SCRIPT
     assert not app.data_model_tables
     without_data.get_data_model_tables.assert_not_called()

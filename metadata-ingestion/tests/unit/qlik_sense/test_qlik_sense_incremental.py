@@ -14,6 +14,8 @@ from datahub.ingestion.source.qlik_sense.app_state import (
     QlikAppStateHandler,
 )
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
+from datahub.ingestion.source.qlik_sense.data_classes import App
+from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.metadata.schema_classes import (
@@ -247,6 +249,30 @@ def test_unchanged_app_is_skipped_and_kept(mock_datahub_graph: MagicMock) -> Non
         assert later.reporter.apps_skipped_unchanged == 1
         assert not [wu for wu in later_wus if wu.id.startswith("soft-delete-")]
         assert app_urns <= set(_stale_urns(later))
+
+
+def test_app_opened_without_its_data_is_read_again(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    datahub = _DataHub(mock_datahub_graph)
+    read_app = QlikOnPremAPI._read_app
+
+    def without_data(api: QlikOnPremAPI, *args: object, **kwargs: object) -> object:
+        app = read_app(api, *args, **kwargs)  # type: ignore[arg-type]
+        if isinstance(app, App):
+            app.data_load_failed = True
+        return app
+
+    with patch.object(QlikOnPremAPI, "_read_app", without_data):
+        first, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    second, _ = _run(mock_datahub_graph, qlik, "run-2")
+
+    # A timeout or section access may have kept the data model out, which a
+    # later run can read.
+    assert qlik.engine_opens == 2
+    assert second.reporter.apps_skipped_unchanged == 0
 
 
 def test_app_with_removed_child_is_still_skipped(
