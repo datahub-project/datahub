@@ -890,9 +890,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         owner_username: Optional[str],
         table_urns: Optional[List[str]],
     ) -> Iterable[MetadataWorkUnit]:
-        """The app as a dashboard of its sheets and its tables, as well as their
-        container, so lineage runs from the app's data sources to the app.
-        `table_urns` is None when the app's tables are not all known."""
+        """The app as a dashboard of its sheets, as well as their container.
+        `table_urns` are the app's tables no chart reads, such as those of an
+        app without sheets, so lineage still reaches the app from them; tables
+        a chart reads already do through the chart and its sheet. None when
+        the app's tables are not all known."""
         dashboard_urn = self._gen_dashboard_urn(app.id)
         yield self._gen_entity_status_aspect(dashboard_urn)
         sheet_urns = [self._gen_dashboard_urn(sheet.id) for sheet in app.sheets]
@@ -973,11 +975,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if self.config.ingest_owner and owner_username:
                 yield self._gen_entity_owner_aspect(dashboard_urn, owner_username)
 
-            for chart in sheet.charts:
-                chart.field_expressions = [
-                    expand_variables(expression, app.variables)
-                    for expression in chart.field_expressions
-                ]
             yield from self._gen_charts_workunit(
                 sheet.charts,
                 input_tables_urns,
@@ -1885,16 +1882,38 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
         )
         yield from container_workunits
+        app_fields = self._index_app_fields(table_fields, script_table_urns)
+        has_unknown_schema = any(not fields for fields in table_fields.values())
+        for sheet in app.sheets:
+            for chart in sheet.charts:
+                chart.field_expressions = [
+                    expand_variables(expression, app.variables)
+                    for expression in chart.field_expressions
+                ]
+        charted_tables = {
+            urn
+            for sheet in app.sheets
+            for chart in sheet.charts
+            for urn in self._get_chart_inputs(
+                chart,
+                self._get_chart_input_fields(chart, app_fields),
+                app_fields,
+                input_tables_urns,
+                has_unknown_schema,
+            )
+        }
         yield from self._gen_app_dashboard_workunit(
             app,
             owner_username,
-            None if app.tables_read_failed else input_tables_urns,
+            None
+            if app.tables_read_failed
+            else [urn for urn in input_tables_urns if urn not in charted_tables],
         )
         yield from self._gen_sheets_workunit(
             app,
             None if app.tables_read_failed else input_tables_urns,
-            self._index_app_fields(table_fields, script_table_urns),
-            any(not fields for fields in table_fields.values()),
+            app_fields,
+            has_unknown_schema,
         )
         yield from self._gen_app_tables_workunit(app.tables, app.id)
         yield from self._gen_lineage_tables_workunit(app, matched_script_tables)
