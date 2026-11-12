@@ -90,6 +90,7 @@ class SnowflakeTagResolver:
         # DataHub URNs that managed records link, and their entity types.
         self._managed_linked_urns: Set[str] = set()
         self._managed_linked_entity_types: Set[str] = set()
+        self._load_failed = False
 
     def resolve_tag_urn(self, tag: SnowflakeTag) -> Optional[TagUrn]:
         """The native tag URN for `tag`, or None if DataHub manages it."""
@@ -103,6 +104,9 @@ class SnowflakeTagResolver:
         return native
 
     def is_native(self, tag: SnowflakeTag) -> bool:
+        self._load()
+        if self._load_failed:
+            return False
         return (
             self._managed_urn(self._lookup(tag, with_value=True)) is None
             and self._managed_urn(self._lookup(tag, with_value=False)) is None
@@ -256,15 +260,19 @@ class SnowflakeTagResolver:
                     )
                 except Exception as e:
                     self.report.num_tag_platform_resource_lookup_failures += 1
-                    self.report.warning(
+                    # A failure, not a warning: it also keeps stale-entity removal
+                    # from soft-deleting the records this run could not see.
+                    self.report.failure(
                         title="Failed to load Snowflake tag platform resources",
-                        message="Snowflake tags are ingested as native tags for this "
-                        "run. Tags that DataHub sync-back created may show up as "
-                        "duplicates.",
+                        message="Snowflake tags are skipped for this run, so tags "
+                        "that DataHub sync-back created are neither duplicated nor "
+                        "removed.",
                         exc=e,
                     )
-                    # Writing records without knowing what exists could overwrite
-                    # sync-back's, so this run writes none.
+                    # Without the records any tag may be sync-back's: treating it
+                    # as native would duplicate it and, written whole, replace the
+                    # DataHub tag. Skip every tag and write no record this run.
+                    self._load_failed = True
                     self.repository = None
                     stored = []
                 for resource in stored:
