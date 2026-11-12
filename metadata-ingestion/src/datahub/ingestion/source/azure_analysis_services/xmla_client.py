@@ -46,6 +46,8 @@ from datahub.ingestion.source.azure_analysis_services.models import (
     AasTable,
     AasTableRow,
     AasTabularModel,
+    databricks_catalog_and_schema,
+    is_databricks_connection,
     tom_data_type_to_datahub,
 )
 from datahub.ingestion.source.azure_analysis_services.report import (
@@ -570,6 +572,51 @@ class XmlaClient:
             )
         return by_table
 
+    def _build_data_sources(self, rows: List[AasDataSourceRow]) -> List[AasDataSource]:
+        # Parse catalog and schema, then drop the connection string. It is not
+        # stored on the model and must not be logged: it can hold a secret.
+        sources: List[AasDataSource] = []
+        for row in rows:
+            catalog_name, schema_name = databricks_catalog_and_schema(
+                row.connection_string
+            )
+            if is_databricks_connection(row.connection_string) and (
+                not catalog_name or not schema_name
+            ):
+                self.report.warning(
+                    title="Databricks connection is missing catalog or schema",
+                    message=(
+                        "A Databricks data source connection string did not "
+                        "include both Catalog and Schema, so a bare table name "
+                        "cannot be fully qualified."
+                    ),
+                    context=f"data_source={row.name}",
+                )
+            sources.append(
+                AasDataSource(
+                    id=row.id,
+                    name=row.name,
+                    catalog=catalog_name,
+                    schema_name=schema_name,
+                )
+            )
+        return sources
+
+    @staticmethod
+    def _attach_databricks_identity(
+        tables: List[AasTable], data_sources: List[AasDataSource]
+    ) -> None:
+        by_id = {source.id: source for source in data_sources}
+        for table in tables:
+            for partition in table.partitions:
+                if partition.data_source_id is None:
+                    continue
+                source = by_id.get(partition.data_source_id)
+                if source is None or not source.catalog:
+                    continue
+                partition.databricks_catalog = source.catalog
+                partition.databricks_schema = source.schema_name
+
     @staticmethod
     def _build_tables(
         table_rows: List[AasTableRow],
@@ -721,12 +768,10 @@ class XmlaClient:
             if self.config.extract_roles
             else []
         )
-        data_sources = [
-            AasDataSource(name=d.name, connection_string=d.connection_string)
-            for d in self._fetch_rows(
-                constants.DMV_DATA_SOURCES, AasDataSourceRow, catalog
-            )
-        ]
+        data_sources = self._build_data_sources(
+            self._fetch_rows(constants.DMV_DATA_SOURCES, AasDataSourceRow, catalog)
+        )
+        self._attach_databricks_identity(tables, data_sources)
 
         return AasTabularModel(
             catalog=catalog,

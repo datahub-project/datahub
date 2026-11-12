@@ -443,3 +443,49 @@ def test_intra_model_edges_prefer_exact_field_name() -> None:
     )
     [edge] = extractor.extract_intra_model_lineage(model, {"sales": dataset_urn})
     assert edge.upstreams == [builder.make_schema_field_urn(dataset_urn, "Amount")]
+
+
+def test_sql_partition_uses_connection_catalog_and_schema() -> None:
+    extractor = _extractor()
+    table = AasTable(
+        name="FactOpex",
+        partitions=[
+            AasPartition(
+                name="p",
+                query_definition="SELECT Amount\nFROM FactOpex\nGROUP BY ALL",
+                databricks_catalog="prod",
+                databricks_schema="finance",
+            )
+        ],
+    )
+    dataset_urn = builder.make_dataset_urn(
+        "azure-analysis-services", "SalesModel.FactOpex"
+    )
+    with mock.patch(
+        "datahub.ingestion.source.azure_analysis_services.lineage.parser.get_upstream_tables"
+    ) as parse:
+        result = extractor.extract_upstream_for_table(table, dataset_urn)
+    parse.assert_not_called()
+    assert [u.dataset for u in result.upstreams] == [
+        builder.make_dataset_urn("databricks", "prod.finance.factopex")
+    ]
+
+
+def test_sql_partition_without_connection_catalog_stays_on_m_parser() -> None:
+    extractor = _extractor()
+    table = AasTable(
+        name="FactOpex",
+        partitions=[
+            AasPartition(name="p", query_definition="SELECT Amount FROM FactOpex")
+        ],
+    )
+    dataset_urn = builder.make_dataset_urn(
+        "azure-analysis-services", "SalesModel.FactOpex"
+    )
+    with mock.patch(
+        "datahub.ingestion.source.azure_analysis_services.lineage.parser.get_upstream_tables",
+        return_value=[],
+    ) as parse:
+        result = extractor.extract_upstream_for_table(table, dataset_urn)
+    parse.assert_called_once()
+    assert result.upstreams == []

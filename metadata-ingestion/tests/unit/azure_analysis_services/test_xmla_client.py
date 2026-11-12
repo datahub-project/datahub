@@ -208,6 +208,10 @@ def test_fetch_tabular_model_assembly(client: XmlaClient) -> None:
     assert (rel.from_table, rel.from_column) == ("Sales", "ProductKey")
     assert (rel.to_table, rel.to_column) == ("Product", "ProductKey")
     assert model.definition == "{}"
+    # The connection string is parsed for catalog/schema and then dropped.
+    assert model.data_sources[0].id == 600
+    assert model.data_sources[0].catalog is None
+    assert "connection_string" not in model.data_sources[0].model_dump()
 
 
 def test_fetch_rows_required_all_invalid_raises(client: XmlaClient) -> None:

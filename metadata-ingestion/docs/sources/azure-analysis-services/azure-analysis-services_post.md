@@ -7,6 +7,12 @@ expression (including `Value.NativeQuery` native SQL) to build upstream table li
 `server_to_platform_instance` to map the servers named in those expressions to the DataHub platform
 instance and environment of the native connector so the URNs line up and entities stitch together.
 
+Query partitions often store Spark SQL (`FROM table`) instead of M. For those, the connector reads
+`Catalog` and `Schema` (or `Database`) from the partition's Databricks connection string and
+qualifies the table as `catalog.schema.table`. The connection string itself is not kept, because it
+can contain a secret. A reference that is already `catalog.schema.table` is left unchanged. If the
+connection has no catalog, or a bare table has no schema, that upstream is not emitted.
+
 With `extract_column_level_lineage` enabled, the connector additionally emits intra-model
 column-level lineage for DAX measures and calculated columns, derived from
 `DISCOVER_CALC_DEPENDENCY`.

@@ -2,6 +2,10 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
+import sqlglot
+from sqlglot import exp
+from sqlglot.optimizer.scope import traverse_scope
+
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.azure_analysis_services import constants
@@ -10,6 +14,7 @@ from datahub.ingestion.source.azure_analysis_services.config import (
 )
 from datahub.ingestion.source.azure_analysis_services.models import (
     AasCalcDependency,
+    AasPartition,
     AasTable,
     AasTabularModel,
 )
@@ -31,6 +36,70 @@ from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 logger = logging.getLogger(__name__)
+
+_DATABRICKS_PLATFORM = "databricks"
+_DATABRICKS_QUALIFIED_PARTS = 3
+
+
+def _is_bare_sql(query: str) -> bool:
+    # Partition QueryDefinition is either an M expression (``let ...``) or the
+    # SQL text of a query partition.
+    head = query.lstrip().lower()
+    if head.startswith(("let ", "let\n", "let\r")):
+        return False
+    return head.startswith(("select", "with ", "with\n", "with\r"))
+
+
+def _sql_table_names(sql: str) -> List[str]:
+    # Physical tables only. A ``WITH src AS (...) SELECT * FROM src`` must not
+    # turn the CTE name into an upstream.
+    try:
+        statements = sqlglot.parse(sql, dialect="databricks")
+    except sqlglot.errors.SqlglotError:
+        return []
+    names: List[str] = []
+    seen: Set[str] = set()
+    for statement in statements:
+        if statement is None:
+            continue
+        try:
+            scopes = traverse_scope(statement)
+        except sqlglot.errors.SqlglotError:
+            continue
+        for scope in scopes:
+            for source in scope.sources.values():
+                if not isinstance(source, exp.Table):
+                    continue
+                parts = [
+                    part for part in (source.catalog, source.db, source.name) if part
+                ]
+                if not parts:
+                    continue
+                name = ".".join(parts)
+                if name in seen:
+                    continue
+                seen.add(name)
+                names.append(name)
+    return names
+
+
+def qualify_with_connection(
+    table_name: str, catalog: str, schema_name: Optional[str]
+) -> Optional[str]:
+    """Build catalog.schema.table from a connection's catalog and schema.
+
+    A name that is already three parts is left unchanged. A schema.table name
+    gets the catalog only. A bare table needs the connection schema as well.
+    """
+    parts = table_name.split(".")
+    if len(parts) >= _DATABRICKS_QUALIFIED_PARTS:
+        return table_name
+    if len(parts) == 2:
+        return f"{catalog}.{table_name}"
+    if schema_name:
+        return f"{catalog}.{schema_name}.{table_name}"
+    return None
+
 
 # DISCOVER_CALC_DEPENDENCY OBJECT_TYPE / REFERENCED_OBJECT_TYPE values that map
 # to a DataHub schema field (and therefore to an intra-model column edge).
@@ -122,6 +191,22 @@ class AasLineageExtractor:
             if partition.query_definition in seen_queries:
                 continue
             seen_queries.add(partition.query_definition)
+            # Query partitions store Spark SQL, not M. The Databricks catalog
+            # and schema come from that partition's data source connection.
+            if partition.databricks_catalog and _is_bare_sql(
+                partition.query_definition
+            ):
+                for urn in self._databricks_urns_from_sql(partition, table.full_name):
+                    urn = self._lineage_urn_to_lowercase(urn)
+                    if urn in seen_upstreams:
+                        continue
+                    seen_upstreams.add(urn)
+                    result.upstreams.append(
+                        UpstreamClass(
+                            dataset=urn, type=DatasetLineageTypeClass.TRANSFORMED
+                        )
+                    )
+                continue
             partition_table = table.model_copy(update={"partitions": [partition]})
             for lineage in self._parse_table(partition_table):
                 for upstream_table in lineage.upstreams:
@@ -158,6 +243,45 @@ class AasLineageExtractor:
             self.report.tables_without_upstream_lineage += 1
         self.report.column_lineage_edges += len(result.fine_grained)
         return result
+
+    def _databricks_urns_from_sql(
+        self, partition: AasPartition, table_name: str
+    ) -> List[str]:
+        catalog = partition.databricks_catalog or ""
+        names = _sql_table_names(partition.query_definition or "")
+        urns: List[str] = []
+        unqualified = False
+        for name in names:
+            qualified = qualify_with_connection(
+                name, catalog, partition.databricks_schema
+            )
+            if qualified is None:
+                unqualified = True
+                continue
+            urns.append(
+                builder.make_dataset_urn(
+                    _DATABRICKS_PLATFORM, qualified, env=self.config.env
+                )
+            )
+        if not urns:
+            self.report.warning(
+                title="Databricks table not found in partition SQL",
+                message=(
+                    "The partition query is SQL against a Databricks connection, "
+                    "but no fully qualified source table could be built from it."
+                ),
+                context=f"table={table_name}",
+            )
+        elif unqualified:
+            self.report.warning(
+                title="Databricks schema missing for a bare table",
+                message=(
+                    "A partition query names a table without a schema, and the "
+                    "Databricks connection string has no Schema."
+                ),
+                context=f"table={table_name}",
+            )
+        return urns
 
     def _parse_table(self, table: AasTable) -> List[parser.Lineage]:
         try:

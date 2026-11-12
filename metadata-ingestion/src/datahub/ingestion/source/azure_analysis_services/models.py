@@ -211,6 +211,10 @@ class AasPartition(BaseModel):
     query_definition: Optional[str] = None
     partition_type: Optional[int] = None
     data_source_id: Optional[int] = None
+    # Copied from the partition's data source, then the connection string is
+    # discarded. Absent unless that source is a Databricks connection.
+    databricks_catalog: Optional[str] = None
+    databricks_schema: Optional[str] = None
 
 
 class AasTable(BaseModel):
@@ -253,8 +257,94 @@ class AasRole(BaseModel):
 
 
 class AasDataSource(BaseModel):
+    id: int
     name: str
-    connection_string: Optional[str] = None
+    # Unity Catalog catalog and schema parsed from a Databricks connection
+    # string. The string itself is not retained; it can contain a secret.
+    catalog: Optional[str] = None
+    schema_name: Optional[str] = None
+
+
+def _connection_pairs(connection_string: str) -> Dict[str, str]:
+    # ODBC/OLE DB pairs split on ';', except inside braces or quotes, where a
+    # secret value may itself contain a semicolon.
+    pairs: Dict[str, str] = {}
+    current: List[str] = []
+    depth = 0
+    quote: Optional[str] = None
+    for char in connection_string:
+        if quote:
+            current.append(char)
+            if char == quote:
+                quote = None
+            continue
+        if char in ("'", '"'):
+            quote = char
+            current.append(char)
+            continue
+        if char == "{":
+            depth += 1
+            current.append(char)
+            continue
+        if char == "}" and depth:
+            depth -= 1
+            current.append(char)
+            continue
+        if char == ";" and depth == 0:
+            _store_connection_pair(pairs, "".join(current))
+            current = []
+            continue
+        current.append(char)
+    _store_connection_pair(pairs, "".join(current))
+    return pairs
+
+
+def _store_connection_pair(pairs: Dict[str, str], item: str) -> None:
+    item = item.strip()
+    if "=" not in item:
+        return
+    key, value = item.split("=", 1)
+    key = key.strip().lower()
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+        value = value[1:-1]
+    if value.startswith("{") and value.endswith("}"):
+        value = value[1:-1]
+    if key and value:
+        pairs[key] = value
+
+
+def _pairs_are_databricks(pairs: Dict[str, str]) -> bool:
+    host = pairs.get("host", "").lower()
+    provider = pairs.get("provider", "").lower()
+    driver = pairs.get("driver", "").lower()
+    return (
+        "databricks" in host
+        or "databricks" in provider
+        or "databricks" in driver
+        or "httppath" in pairs
+    )
+
+
+def is_databricks_connection(connection_string: Optional[str]) -> bool:
+    if not connection_string:
+        return False
+    return _pairs_are_databricks(_connection_pairs(connection_string))
+
+
+def databricks_catalog_and_schema(
+    connection_string: Optional[str],
+) -> tuple[Optional[str], Optional[str]]:
+    """Return (catalog, schema) for a Databricks ODBC/OLE DB connection string.
+
+    Other platforms, including SQL Server ``Initial Catalog``, return
+    ``(None, None)``. ``Database`` is accepted as the schema when ``Schema``
+    is absent, which is how some Databricks drivers spell it.
+    """
+    if not connection_string or not is_databricks_connection(connection_string):
+        return None, None
+    pairs = _connection_pairs(connection_string)
+    return pairs.get("catalog"), pairs.get("schema") or pairs.get("database")
 
 
 class AasCalcDependency(BaseModel):
