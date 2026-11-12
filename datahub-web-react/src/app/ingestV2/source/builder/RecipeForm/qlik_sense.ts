@@ -499,9 +499,7 @@ const connectionMappingOverrides = (fieldPath: string, keyField: RecipeField, de
         named.forEach((row) => {
             const name = row[keyField.name] as string;
             // Settings the form has no field for, set in the YAML, are kept.
-            const kept = Object.fromEntries(
-                Object.entries(current[name] ?? {}).filter(([key]) => !formKeys.has(key)),
-            );
+            const kept = Object.fromEntries(Object.entries(current[name] ?? {}).filter(([key]) => !formKeys.has(key)));
             // Empty inputs are left out so the connector infers or defaults them.
             mapping[name] = {
                 ...kept,
