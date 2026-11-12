@@ -1009,6 +1009,9 @@ gcs-slim = [
     { name = "ujson" },
     { name = "wcmatch" },
 ]
+gitlab-documents = [
+    { name = "tenacity" },
+]
 glue = [
     { name = "boto3" },
     { name = "botocore" },
@@ -2889,6 +2892,7 @@ requires-dist = [
     { name = "tenacity", marker = "extra == 'docs'", specifier = ">=8.0.1,!=8.4.0,<9.0.0" },
     { name = "tenacity", marker = "extra == 'fivetran'", specifier = ">=8.0.1,<9.0.0" },
     { name = "tenacity", marker = "extra == 'flink'", specifier = ">=8.0.1,<9.0.0" },
+    { name = "tenacity", marker = "extra == 'gitlab-documents'", specifier = ">=8.0.1,<9.0.0" },
     { name = "tenacity", marker = "extra == 'hive-metastore'", specifier = ">=8.0.1,<9.0.0" },
     { name = "tenacity", marker = "extra == 'integration-tests'", specifier = ">=8.0.1,!=8.4.0,<9.0.0" },
     { name = "tenacity", marker = "extra == 'mode'", specifier = ">=8.0.1,<9.0.0" },

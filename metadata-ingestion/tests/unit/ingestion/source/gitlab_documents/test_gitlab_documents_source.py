@@ -1,6 +1,6 @@
 import base64
 from typing import Dict, List
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests_mock
@@ -29,6 +29,19 @@ def test_config_resolves_base_url_from_repository_url() -> None:
         {
             "gitlab_token": "glpat-test",
             "repository": f"{BASE}/acme/data/docs/-/tree/main",
+        }
+    )
+    assert config.base_url == BASE
+    assert config.repository == "acme/data/docs"
+
+
+def test_config_project_url_overrides_default_base_url() -> None:
+    # Recipes from the UI always carry base_url: https://gitlab.com.
+    config = GitLabDocumentsSourceConfig.model_validate(
+        {
+            "gitlab_token": "glpat-test",
+            "base_url": "https://gitlab.com",
+            "repository": f"{BASE}/acme/data/docs",
         }
     )
     assert config.base_url == BASE
@@ -180,7 +193,8 @@ def test_failed_file_fetch_keeps_previous_import_and_warns() -> None:
             json=[{"id": "blob1", "type": "blob", "path": "a.md"}],
         )
         m.get(f"{API}/repository/files/a.md", status_code=500)
-        list(source.get_workunits())
+        with patch("time.sleep"):
+            list(source.get_workunits())
 
     # Registered as seen, so stale removal does not delete the earlier import.
     source.stale_entity_removal_handler.add_entity_to_state.assert_called_once()

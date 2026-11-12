@@ -556,7 +556,9 @@ gcs-slim = [
 
 github-documents = []
 
-gitlab-documents = []
+gitlab-documents = [
+    "tenacity>=8.0.1,<9.0.0",
+]
 
 glue = [
     "boto3>=1.35.0,<2.0.0",

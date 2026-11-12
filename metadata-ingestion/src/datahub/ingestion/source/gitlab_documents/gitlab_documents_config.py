@@ -51,9 +51,13 @@ class GitLabDocumentsSourceConfig(RepositoryDocumentsSourceConfigBase):
 
     @model_validator(mode="after")
     def resolve_repository(self) -> "GitLabDocumentsSourceConfig":
-        # A project URL sets base_url when it was left at the default.
+        # A project URL sets base_url unless a self-managed URL was configured.
+        # Recipes always carry the gitlab.com default, so that counts as unset.
         explicit_base_url = (
-            self.base_url if "base_url" in self.model_fields_set else None
+            self.base_url
+            if "base_url" in self.model_fields_set
+            and self.base_url != DEFAULT_GITLAB_URL
+            else None
         )
         base_url, project_path = parse_project_path(self.repository, explicit_base_url)
         self.repository = project_path

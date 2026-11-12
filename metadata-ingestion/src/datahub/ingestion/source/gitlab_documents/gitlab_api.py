@@ -3,11 +3,17 @@ from __future__ import annotations
 import base64
 import binascii
 import logging
-import time
 from typing import Dict, List, Optional, Set, Tuple, Union
 from urllib.parse import quote, urlparse
 
 import requests
+from tenacity import (
+    RetryCallState,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from datahub.ingestion.source.github_documents.github_api import (
     MAX_FILE_SIZE_BYTES,
@@ -20,6 +26,24 @@ logger = logging.getLogger(__name__)
 DEFAULT_GITLAB_URL = "https://gitlab.com"
 TREE_PAGE_SIZE = 100
 MAX_RETRY_AFTER_SECONDS = 60
+MAX_REQUEST_ATTEMPTS = 4
+RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
+
+
+class _RetryableResponse(Exception):
+    def __init__(self, response: requests.Response) -> None:
+        super().__init__(f"HTTP {response.status_code}")
+        self.response = response
+
+
+_exponential_wait = wait_exponential(multiplier=1, max=30)
+
+
+def _wait_before_retry(state: RetryCallState) -> float:
+    error = state.outcome.exception() if state.outcome else None
+    if isinstance(error, _RetryableResponse) and error.response.status_code == 429:
+        return _retry_after_seconds(error.response)
+    return _exponential_wait(state)
 
 
 def parse_project_path(raw: str, base_url: Optional[str]) -> Tuple[str, str]:
@@ -105,6 +129,9 @@ class GitLabApiClient:
             "ref": branch,
             "recursive": "true",
             "per_page": TREE_PAGE_SIZE,
+            # Offset pagination stops at a fixed number of entries on large
+            # trees; keyset pagination does not. Older instances ignore it.
+            "pagination": "keyset",
         }
         ext_set = {ext.lower() for ext in extensions}
         normalized_prefix = path_prefix.strip("/")
@@ -226,34 +253,41 @@ class GitLabApiClient:
         url: str,
         *,
         params: Optional[Dict[str, Union[str, int]]] = None,
-        allow_retry: bool = True,
     ) -> Optional[requests.Response]:
         try:
-            response = self._session.get(
-                url,
-                params=params,
-                headers={"PRIVATE-TOKEN": self._token},
-                timeout=self._timeout,
-            )
+            return self._get_with_retry(url, params)
+        except _RetryableResponse as exc:
+            self._last_api_error = _describe_http_error(exc.response)
         except requests.RequestException as exc:
             self._last_api_error = f"GitLab API request failed: {exc}"
-            logger.warning("%s for %s", self._last_api_error, url)
-            return None
+        logger.warning("%s for %s", self._last_api_error, url)
+        return None
 
+    @retry(
+        retry=retry_if_exception_type(
+            (_RetryableResponse, requests.ConnectionError, requests.Timeout)
+        ),
+        stop=stop_after_attempt(MAX_REQUEST_ATTEMPTS),
+        wait=_wait_before_retry,
+        reraise=True,
+    )
+    def _get_with_retry(
+        self, url: str, params: Optional[Dict[str, Union[str, int]]]
+    ) -> Optional[requests.Response]:
+        response = self._session.get(
+            url,
+            params=params,
+            headers={"PRIVATE-TOKEN": self._token},
+            timeout=self._timeout,
+        )
+        if response.status_code in RETRYABLE_STATUS_CODES:
+            logger.info(
+                "GitLab returned HTTP %s for %s; retrying", response.status_code, url
+            )
+            raise _RetryableResponse(response)
         if response.status_code == 200:
             self._last_api_error = None
             return response
-
-        if allow_retry and response.status_code == 429:
-            sleep_seconds = _retry_after_seconds(response)
-            logger.warning(
-                "GitLab rate limit exceeded for %s; retrying after %s seconds",
-                url,
-                sleep_seconds,
-            )
-            time.sleep(sleep_seconds)
-            return self._get(url, params=params, allow_retry=False)
-
         self._last_api_error = _describe_http_error(response)
         logger.warning("%s for %s", self._last_api_error, url)
         return None

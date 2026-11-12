@@ -922,7 +922,7 @@ plugins: Dict[str, Set[str]] = {
     "confluence": confluence_common,
     "google-drive": google_drive_common,
     "github-documents": set(),
-    "gitlab-documents": set(),
+    "gitlab-documents": {"tenacity>=8.0.1,<9.0.0"},
     "unstructured": unstructured_lib,
     "fivetran": snowflake_common
     | bigquery_common

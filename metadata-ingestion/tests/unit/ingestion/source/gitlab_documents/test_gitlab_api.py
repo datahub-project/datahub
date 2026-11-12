@@ -2,6 +2,7 @@ import base64
 from unittest.mock import patch
 
 import pytest
+import requests
 import requests_mock
 
 from datahub.ingestion.source.gitlab_documents.gitlab_api import (
@@ -139,8 +140,10 @@ def test_list_matching_files_fails_when_a_later_page_fails() -> None:
             headers={"Link": f'<{API}/repository/tree?page=2>; rel="next"'},
         )
         m.get(f"{API}/repository/tree?page=2", status_code=502)
-        with pytest.raises(RuntimeError, match="502"):
+        with patch("time.sleep"), pytest.raises(RuntimeError, match="502"):
             client.list_matching_files("acme/data/docs", "main", "", [".md"])
+        # The failing page is retried before the run gives up.
+        assert m.call_count == 1 + 4
 
 
 def test_list_matching_files_falls_back_to_next_page_header() -> None:
@@ -213,3 +216,24 @@ def test_undecodable_file_content_is_reported_not_raised() -> None:
         )
         assert client.fetch_file_content("acme/data/docs", "a.md", "main") is None
     assert client.last_api_error is not None
+
+
+def test_transient_timeout_is_retried() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m, patch("time.sleep"):
+        m.get(
+            f"{API}/repository/branches/main",
+            [
+                {"exc": requests.exceptions.ConnectTimeout},
+                {"json": {"commit": {"id": "abc123"}}},
+            ],
+        )
+        assert client.get_latest_commit_sha("acme/data/docs", "main") == "abc123"
+
+
+def test_tree_listing_requests_keyset_pagination() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.get(f"{API}/repository/tree", json=[])
+        client.list_matching_files("acme/data/docs", "main", "", [".md"])
+    assert m.request_history[0].qs["pagination"] == ["keyset"]
