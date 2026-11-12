@@ -2,8 +2,8 @@
 
 from typing import Dict, Optional
 
-from datahub.ingestion.source.github_documents.github_hierarchy import (
-    GitHubHierarchyExtractor,
+from datahub.ingestion.source.repository_documents.hierarchy import (
+    RepositoryHierarchyExtractor,
 )
 from datahub.metadata.schema_classes import BrowsePathEntryClass, BrowsePathsV2Class
 
@@ -29,28 +29,30 @@ URNS = {
 
 
 def test_build_ancestor_chain_multi_level() -> None:
-    chain = GitHubHierarchyExtractor.build_ancestor_chain("setup", PARENT_LINKS)
+    chain = RepositoryHierarchyExtractor.build_ancestor_chain("setup", PARENT_LINKS)
     # Root first, immediate parent last; the document itself is excluded.
     assert chain == ["repo", "docs", "guides"]
 
 
 def test_build_ancestor_chain_root_has_no_ancestors() -> None:
-    assert GitHubHierarchyExtractor.build_ancestor_chain("repo", PARENT_LINKS) == []
+    assert RepositoryHierarchyExtractor.build_ancestor_chain("repo", PARENT_LINKS) == []
 
 
 def test_build_ancestor_chain_stops_on_missing_parent() -> None:
     # "ghost" is referenced as a parent but absent from the link map.
     links: Dict[str, Optional[str]] = {"orphan": "ghost"}
-    assert GitHubHierarchyExtractor.build_ancestor_chain("orphan", links) == ["ghost"]
+    assert RepositoryHierarchyExtractor.build_ancestor_chain("orphan", links) == [
+        "ghost"
+    ]
 
 
 def test_build_ancestor_chain_is_cycle_safe() -> None:
     links: Dict[str, Optional[str]] = {"a": "b", "b": "a"}
-    assert GitHubHierarchyExtractor.build_ancestor_chain("a", links) == ["b"]
+    assert RepositoryHierarchyExtractor.build_ancestor_chain("a", links) == ["b"]
 
 
 def test_build_browse_path_v2_with_ancestors() -> None:
-    browse_path = GitHubHierarchyExtractor.build_browse_path_v2(
+    browse_path = RepositoryHierarchyExtractor.build_browse_path_v2(
         source_id="setup",
         parent_links=PARENT_LINKS,
         titles=TITLES,
@@ -68,7 +70,7 @@ def test_build_browse_path_v2_with_ancestors() -> None:
 
 
 def test_build_browse_path_v2_repo_root_returns_none() -> None:
-    browse_path = GitHubHierarchyExtractor.build_browse_path_v2(
+    browse_path = RepositoryHierarchyExtractor.build_browse_path_v2(
         source_id="repo",
         parent_links=PARENT_LINKS,
         titles=TITLES,
@@ -79,7 +81,7 @@ def test_build_browse_path_v2_repo_root_returns_none() -> None:
 
 def test_build_browse_path_v2_empty_source_id_returns_none() -> None:
     assert (
-        GitHubHierarchyExtractor.build_browse_path_v2(
+        RepositoryHierarchyExtractor.build_browse_path_v2(
             source_id="",
             parent_links=PARENT_LINKS,
             titles=TITLES,
@@ -102,7 +104,7 @@ def test_build_browse_path_v2_with_prefix_entries() -> None:
         BrowsePathEntryClass(id="acme"),
     ]
 
-    browse_path = GitHubHierarchyExtractor.build_browse_path_v2(
+    browse_path = RepositoryHierarchyExtractor.build_browse_path_v2(
         source_id="setup",
         parent_links=links,
         titles=titles,
@@ -128,7 +130,7 @@ def test_build_browse_path_v2_prefix_only_for_top_level() -> None:
     links: Dict[str, Optional[str]] = {"setup": None}
     prefix = [BrowsePathEntryClass(id="my-repo")]
 
-    browse_path = GitHubHierarchyExtractor.build_browse_path_v2(
+    browse_path = RepositoryHierarchyExtractor.build_browse_path_v2(
         source_id="setup",
         parent_links=links,
         titles={"setup": "setup.md"},

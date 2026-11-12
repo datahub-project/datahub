@@ -7,15 +7,15 @@ import pytest
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source.github_documents.github_documents_report import (
-    GitHubDocumentsSourceReport,
-)
-from datahub.ingestion.source.github_documents.okf_frontmatter import (
+from datahub.ingestion.source.repository_documents.okf_frontmatter import (
     parse_okf_frontmatter,
 )
-from datahub.ingestion.source.github_documents.okf_mapping import (
+from datahub.ingestion.source.repository_documents.okf_mapping import (
     MAPPING_VERSION,
     map_okf,
+)
+from datahub.ingestion.source.repository_documents.report import (
+    RepositoryDocumentsSourceReport,
 )
 from datahub.metadata.schema_classes import (
     DocumentStateClass,
@@ -56,7 +56,7 @@ def _frontmatter(owners: List[str], metrics_urn: str) -> str:
 
 def _import_okf(ctx: PipelineContext, document_urn: str, raw: str) -> None:
     assert ctx.graph is not None
-    report = GitHubDocumentsSourceReport()
+    report = RepositoryDocumentsSourceReport()
     parsed = parse_okf_frontmatter(
         raw + "# Monthly active users\n\nCount users with an event.\n",
         path="guides/mau.md",

@@ -4,13 +4,13 @@ from typing import Dict
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.github_documents.github_documents_report import (
-    GitHubDocumentsSourceReport,
-)
-from datahub.ingestion.source.github_documents.okf_frontmatter import (
+from datahub.ingestion.source.repository_documents.okf_frontmatter import (
     parse_okf_frontmatter,
 )
-from datahub.ingestion.source.github_documents.okf_mapping import map_okf
+from datahub.ingestion.source.repository_documents.okf_mapping import map_okf
+from datahub.ingestion.source.repository_documents.report import (
+    RepositoryDocumentsSourceReport,
+)
 from datahub.metadata.schema_classes import (
     OkfBundleClass,
     OkfPropertiesClass,
@@ -23,13 +23,15 @@ def _raw_frontmatter_values(properties: OkfPropertiesClass) -> Dict[str, object]
     parsed = parse_okf_frontmatter(
         properties.raw,
         path="context/guides/mau.md",
-        report=GitHubDocumentsSourceReport(),
+        report=RepositoryDocumentsSourceReport(),
     )
     assert parsed is not None
     return parsed.values
 
 
-def _properties(fields: str, report: GitHubDocumentsSourceReport) -> OkfPropertiesClass:
+def _properties(
+    fields: str, report: RepositoryDocumentsSourceReport
+) -> OkfPropertiesClass:
     content = f"---\ntype: Guide\n{fields}---\nBody"
     parsed = parse_okf_frontmatter(content, path="context/guides/mau.md", report=report)
     assert parsed is not None
@@ -54,7 +56,7 @@ def _properties(fields: str, report: GitHubDocumentsSourceReport) -> OkfProperti
 
 
 def test_lifecycle_trust_and_declared_id_are_typed_without_losing_frontmatter() -> None:
-    report = GitHubDocumentsSourceReport()
+    report = RepositoryDocumentsSourceReport()
     fields = (
         "id: producer:mau\n"
         'okfVersion: "99"\n'
@@ -97,7 +99,7 @@ def test_lifecycle_trust_and_declared_id_are_typed_without_losing_frontmatter() 
 
 
 def test_verified_list_and_stamps_without_times() -> None:
-    report = GitHubDocumentsSourceReport()
+    report = RepositoryDocumentsSourceReport()
     properties = _properties(
         "generated: {by: human:alice}\n"
         "verified:\n"
@@ -118,7 +120,7 @@ def test_verified_list_and_stamps_without_times() -> None:
 
 
 def test_verified_without_valid_entries_is_omitted() -> None:
-    report = GitHubDocumentsSourceReport()
+    report = RepositoryDocumentsSourceReport()
     properties = _properties("verified: [{at: 2026-06-25T09:00:00Z}]\n", report)
     assert properties.verified is None
     assert report.okf_invalid_values == 1
@@ -129,7 +131,7 @@ def test_verified_without_valid_entries_is_omitted() -> None:
 def test_invalid_or_offsetless_stale_after_warns_and_preserves_value(
     value: str,
 ) -> None:
-    report = GitHubDocumentsSourceReport()
+    report = RepositoryDocumentsSourceReport()
     properties = _properties(f"stale_after: {value}\n", report)
     assert properties.staleAfter is None
     assert _raw_frontmatter_values(properties)["stale_after"] == value
@@ -138,7 +140,7 @@ def test_invalid_or_offsetless_stale_after_warns_and_preserves_value(
 
 
 def test_invalid_stamp_fields_warn_without_discarding_the_concept() -> None:
-    report = GitHubDocumentsSourceReport()
+    report = RepositoryDocumentsSourceReport()
     properties = _properties(
         "generated: {by: human:alice, at: invalid}\n"
         "verified: [{at: 2026-06-25T09:00:00Z}, {by: process:nightly}]\n",
@@ -155,7 +157,7 @@ def test_invalid_stamp_fields_warn_without_discarding_the_concept() -> None:
 
 
 def test_optional_lifecycle_and_trust_fields_remain_unset() -> None:
-    properties = _properties("", GitHubDocumentsSourceReport())
+    properties = _properties("", RepositoryDocumentsSourceReport())
     assert properties.status is None
     assert properties.staleAfter is None
     assert properties.generated is None
@@ -164,7 +166,7 @@ def test_optional_lifecycle_and_trust_fields_remain_unset() -> None:
 
 
 def test_non_string_status_is_preserved_and_reported() -> None:
-    report = GitHubDocumentsSourceReport()
+    report = RepositoryDocumentsSourceReport()
     properties = _properties("status: 42\n", report)
     assert properties.status is None
     assert _raw_frontmatter_values(properties)["status"] == 42
