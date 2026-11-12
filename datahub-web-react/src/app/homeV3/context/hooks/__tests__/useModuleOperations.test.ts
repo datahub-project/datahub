@@ -1,10 +1,11 @@
 import { toast } from '@components';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { vi } from 'vitest';
 
 import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
 import { DEFAULT_MODULE_URNS } from '@app/homeV3/modules/constants';
 import { ModulePositionInput } from '@app/homeV3/template/types';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import {
     PageModuleFragment,

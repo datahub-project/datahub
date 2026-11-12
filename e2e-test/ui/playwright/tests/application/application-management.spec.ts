@@ -17,7 +17,7 @@
 
 import { test } from '../../fixtures/base-test';
 import { ApplicationsPage } from '../../pages/applications.page';
-import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
+import { LOAD_STATES } from '../../utils/constants';
 import { withRandomSuffix } from '../../utils/random';
 import { DomainTag, TestTag } from '../../utils/test-tags';
 
@@ -65,10 +65,6 @@ test.describe('Application Management Page', () => {
       await applicationsPage.enterApplicationDescription(NEW_APP_DESCRIPTION);
       await applicationsPage.clickCreateButton();
 
-      // Wait for async create operation to complete before checking table
-      logger?.info('Waiting for refetch after create');
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await page.waitForTimeout(TIMEOUTS.SHORT);
       await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
       await applicationsPage.verifyApplicationInTable(NEW_APP_NAME);
@@ -76,10 +72,6 @@ test.describe('Application Management Page', () => {
       logger?.info(`Deleting application: ${NEW_APP_NAME}`);
       await applicationsPage.deleteApplication(NEW_APP_NAME);
 
-      // Wait for async delete operation to complete before checking table
-      logger?.info('Waiting for refetch after delete');
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await page.waitForTimeout(TIMEOUTS.SHORT);
       await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
       await applicationsPage.verifyApplicationNotInTable(NEW_APP_NAME);

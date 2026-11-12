@@ -20,6 +20,7 @@ import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
 import { useIsSearchViewReady } from '@app/searchV2/useIsSearchViewReady';
 import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from '@app/searchV2/useSearchAndBrowseVersion';
 import { ENTITY_SUB_TYPE_FILTER_FIELDS, UnionType } from '@app/searchV2/utils/constants';
+import { mergeEnvIntoOriginFacets } from '@app/searchV2/utils/filterUtils';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { getSearchCount } from '@app/searchV2/utils/searchUtils';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
@@ -240,7 +241,7 @@ export const SearchPage = () => {
             )}
             <SearchFiltersSection
                 loading={loading}
-                availableFilters={data?.searchAcrossEntities?.facets || []}
+                availableFilters={mergeEnvIntoOriginFacets(data?.searchAcrossEntities?.facets || [])}
                 activeFilters={filters}
                 unionType={unionType}
                 onChangeFilters={onChangeFilters}

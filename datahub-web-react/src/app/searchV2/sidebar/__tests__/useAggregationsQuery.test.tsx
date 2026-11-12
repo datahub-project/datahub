@@ -1,9 +1,10 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import React, { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_STATE, UserContext, UserContextType } from '@app/context/userContext';
 import useAggregationsQuery from '@app/searchV2/sidebar/useAggregationsQuery';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const STORED_VIEW_URN = 'urn:li:dataHubView:default';
 
