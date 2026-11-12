@@ -223,10 +223,7 @@ Seed data is read from disk, so `--only-changed` can't see it. A spec's `feature
 
 The full suite runs instead when a change can't be mapped to tests: the Playwright config, package files, global seed data (`test-data/`), any other JSON under `tests/`, seed data no listed spec uses, or the tier's own CI wiring. It also runs when Playwright can't list the tests, for example because a spec imports a helper the PR deleted. Files no test loads, such as docs or types-only modules, select no extra tests.
 
-The tier is on when the PR has neither the `run-all-tests` nor the `run-all-tests:playwright` label and either switch is on:
-
-- `PLAYWRIGHT_P0_SMOKE` repository variable set to `true`: PRs from branches in this repository only, since variables don't reach PRs from forks;
-- `playwright_p0_tier` set to `true` in `.github/ci-flags.json` on the PR's base branch: every PR, including PRs from forks. It is read from the base branch so a PR can't change it for itself. Each shard then runs its share of the selection as a Playwright `--test-list`, on as many shards as the full suite uses (fewer only when the selection has fewer spec files), and the plan job's summary lists each selected spec and why. Otherwise the full suite runs (shadow mode) and the report job's summary lists any failing test the tier would have skipped. Pushes to `master` always run the full suite.
+The tier is on when the `PLAYWRIGHT_P0_SMOKE` repo variable is `true` and the PR has neither `run-all-tests` nor `run-all-tests:playwright`. Each shard then runs its share of the selection as a Playwright `--test-list`, on as many shards as the full suite uses (fewer only when the selection has fewer spec files), and the plan job's summary lists each selected spec and why. Otherwise the full suite runs (shadow mode) and the report job's summary lists any failing test the tier would have skipped. Pushes to `master` always run the full suite.
 
 ## Page Objects
 
