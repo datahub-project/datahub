@@ -8,6 +8,12 @@ selector reads it (smoke-test pytest: ``SMOKE_SMART_TAGS``). An empty value
 means "no trusted selection" (the smoke-test matrix runs its p0 fail-safe) and
 is the answer to every failure, so a broken classifier costs time, not coverage.
 
+The ``change-type`` dimension (CI, build, test infrastructure, docs, tooling) is
+also set from the changed paths: each file matching a tag's ``paths`` globs in
+``taxonomy.yaml`` adds that tag, and a PR made only of such files is classified
+without calling the model. ``pytest-plumbing`` (a change to the shared pytest
+harness) comes only from paths, so the request schema leaves it out.
+
 Alongside ``smart_tags`` it writes ``failsafe_reason`` (empty unless it fell
 back), ``confidence``, ``model``, ``classifier_duration_s`` and, when the
 model's answer parses as JSON, ``proposed_tags``: that answer before
@@ -34,6 +40,8 @@ Environment:
 """
 
 import argparse
+import fnmatch
+import functools
 import json
 import os
 import subprocess
@@ -41,13 +49,16 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 import anthropic
 import yaml
 from smart_testing_constants import (
+    CHANGE_TYPE,
     FEATURE_DIMENSIONS,
+    PYTEST_PLUMBING,
     RUN_ALL_TESTS_LABEL,
+    TEST_INFRA,
     FailSafeReason,
 )
 
@@ -67,12 +78,6 @@ CANARY_MAX_CHANGED_FILES = 15
 # are trimmed per file, then dropped once the total budget is spent.
 MAX_PATCH_BYTES_PER_FILE = 4_000
 MAX_PATCH_BYTES_TOTAL = 60_000
-
-# Paths that cannot change product behaviour. Everything else counts as
-# production (including docker/ and extension-less files such as Dockerfiles),
-# so an unknown kind of file errs toward running tests.
-NON_PRODUCTION_PREFIXES = ("docs/", ".github/", "README", "LICENSE", "CLAUDE", "AGENTS")
-NON_PRODUCTION_SUFFIXES = (".md", ".mdx", ".png", ".jpg", ".jpeg", ".gif", ".svg")
 
 SYSTEM_PROMPT = """\
 You classify code changes against a concept taxonomy for test selection.
@@ -94,7 +99,14 @@ WHICH specific entities and aspects changed — do not tag the whole registry.
 For application.yaml, Spring factory, or configuration file changes, identify
 which FEATURE the config controls — tag the feature, not just the infrastructure
 layer. A GraphQL concurrency config change affects search; an auth config change
-affects authentication."""
+affects authentication.
+
+Tag `change-type` for CI, build tooling, test infrastructure, docs or developer
+tooling. When the change touches no product code, `change-type` tags with no
+feature tags are a complete HIGH-confidence answer: do not borrow feature tags,
+and do not lower confidence because no feature tag fits. When it also changes
+product code, tag those features as usual; `change-type` adds to feature tags and
+never replaces them."""
 
 
 class FailSafe(Exception):
@@ -117,11 +129,47 @@ def write_output(key: str, value: str) -> None:
             f.write(f"{key}={value}\n")
 
 
-def is_production_file(path: str) -> bool:
-    return not (
-        path.startswith(NON_PRODUCTION_PREFIXES)
-        or path.lower().endswith(NON_PRODUCTION_SUFFIXES)
-    )
+def load_dimensions(path: Path = TAXONOMY_YAML) -> Dict[str, dict]:
+    return yaml.safe_load(path.read_text())["dimensions"]
+
+
+PathRules = Tuple[Tuple[str, str], ...]
+
+
+def load_path_rules() -> PathRules:
+    """(glob, change-type tag) pairs from the change-type tags' ``paths``.
+
+    The overlay adds globs for files only its repository has under
+    ``change-type-paths`` (tag → globs), so every base glob matches in both.
+    """
+    rules = [
+        (pattern, entry["tag"])
+        for entry in load_dimensions(TAXONOMY_YAML)[CHANGE_TYPE]["tags"]
+        for pattern in entry.get("paths") or []
+    ]
+    if TAXONOMY_OVERLAY_YAML.exists():
+        extra = yaml.safe_load(TAXONOMY_OVERLAY_YAML.read_text()).get(
+            "change-type-paths"
+        )
+        rules.extend((p, tag) for tag, patterns in (extra or {}).items() for p in patterns)
+    return tuple(rules)
+
+
+def change_types_for(path: str, rules: PathRules) -> Set[str]:
+    """change-type tags a file's path implies; empty for product files.
+
+    Matching ignores case, as the old docs suffix check did (``.PNG``).
+    Anything no glob matches counts as product code, including docker/ and
+    extension-less files such as Dockerfiles, so an unknown kind of file errs
+    toward running tests.
+    """
+    lowered = path.lower()
+    tags = {
+        tag for pattern, tag in rules if fnmatch.fnmatchcase(lowered, pattern.lower())
+    }
+    if PYTEST_PLUMBING in tags:
+        tags.add(TEST_INFRA)
+    return tags
 
 
 @dataclass
@@ -177,11 +225,17 @@ def taxonomy_files() -> List[Path]:
 
 
 def load_known_tags() -> Dict[str, Set[str]]:
-    """Dimension → known tags, from the taxonomy and its overlay."""
+    """Dimension → tags the model may answer with, from the taxonomy and its overlay.
+
+    Path-assigned tags (``path-assigned: true``) are left out: they come from
+    ``change_types_for`` alone, so the request schema never offers them.
+    """
     known: Dict[str, Set[str]] = {}
     for path in taxonomy_files():
-        for dim, body in yaml.safe_load(path.read_text())["dimensions"].items():
-            known.setdefault(dim, set()).update(entry["tag"] for entry in body["tags"])
+        for dim, body in load_dimensions(path).items():
+            known.setdefault(dim, set()).update(
+                entry["tag"] for entry in body["tags"] if not entry.get("path-assigned")
+            )
     return known
 
 
@@ -224,8 +278,18 @@ class PRTags:
         return json.dumps(payload, sort_keys=True)
 
 
+@functools.lru_cache(maxsize=None)
+def anthropic_client() -> anthropic.Anthropic:
+    """One client per process. With Workload Identity Federation the client
+    exchanges the GitHub identity token once and caches the access token. A
+    second client exchanges the same identity token again, and that exchange
+    fails with HTTP 401 (seen when replay_prs.py classified PRs back to back).
+    """
+    return anthropic.Anthropic()
+
+
 def call_llm(changed: List[ChangedFile], known: Dict[str, Set[str]]) -> str:
-    client = anthropic.Anthropic()
+    client = anthropic_client()
     response = client.messages.create(
         model=MODEL,
         # Haiku 5.5 thinks before answering, and the thinking counts against
@@ -329,8 +393,11 @@ def classify(dry_run: bool) -> PRTags:
     if RUN_ALL_TESTS_LABEL in labels:
         log("run-all-tests label — running full suite")
         raise FailSafe(FailSafeReason.RUN_ALL_TESTS_LABEL)
+    return classify_changes(get_pr_changes(), dry_run)
 
-    changed = get_pr_changes()
+
+def classify_changes(changed: List[ChangedFile], dry_run: bool) -> PRTags:
+    """Classify a PR from its changed files."""
     log(f"Changed files: {len(changed)}")
     write_output("changed_files", str(len(changed)))
     if not changed:
@@ -339,13 +406,18 @@ def classify(dry_run: bool) -> PRTags:
     if len(changed) >= COMPARE_FILE_LIMIT:
         log(f"{len(changed)} files hits the compare API cap — running full suite")
         raise FailSafe(FailSafeReason.COMPARE_FILE_CAP)
-    if not any(is_production_file(f.path) for f in changed):
-        log("Docs/CI-only change")
+    rules = load_path_rules()
+    per_file = [change_types_for(f.path, rules) for f in changed]
+    path_tags: Set[str] = set().union(*per_file)
+    if all(per_file):
+        log(f"Only non-product files changed: change-type {sorted(path_tags)}")
         write_output(
             "reasoning",
-            "Only docs, CI or other non-production files changed, so the classifier was not called.",
+            "Only CI, test-infrastructure, docs or tooling files changed, so the classifier was not called.",
         )
-        return canary_or_fail_safe(PRTags(tags={}, confidence="HIGH"), len(changed))
+        return canary_or_fail_safe(
+            PRTags(tags={CHANGE_TYPE: path_tags}, confidence="HIGH"), len(changed)
+        )
     if dry_run:
         log("Dry run — skipping LLM call; running full suite")
         raise FailSafe(FailSafeReason.DRY_RUN)
@@ -354,7 +426,12 @@ def classify(dry_run: bool) -> PRTags:
     known = load_known_tags()
     text = call_llm(changed, known)
     record_llm_output(text)
-    return canary_or_fail_safe(pr_tags_from_llm(text, known), len(changed))
+    pr = pr_tags_from_llm(text, known)
+    # Add the change types the paths imply to the model's answer. This is the
+    # only way pytest-plumbing gets in, since the schema does not offer it.
+    if path_tags:
+        pr.tags[CHANGE_TYPE] = pr.tags.get(CHANGE_TYPE, set()) | path_tags
+    return canary_or_fail_safe(pr, len(changed))
 
 
 def main() -> None:

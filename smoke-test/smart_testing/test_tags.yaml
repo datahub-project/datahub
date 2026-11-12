@@ -14,6 +14,23 @@ always_run:
   - tests/e2e/search/test_search_projection.py
   - tests/e2e/authorization/test_self_entity_auth.py
 
+# Also selected when the PR changes the shared pytest harness (change-type:
+# pytest-plumbing; see taxonomy.yaml for the paths). One short module per
+# common fixture and API surface, about 4 minutes of test time, so a harness
+# bug fails here instead of only after merge. change-type tags never go on
+# the entries under `tests:` below; they describe PRs, not tests.
+plumbing_sample:
+  - tests/e2e/restli/test_restli_batch_ingestion.py # ingest_cleanup_data, Rest.li
+  - tests/e2e/schema_fields/test_schemafields.py # ingest_cleanup_data
+  - tests/e2e/entity_versioning/test_versioning_ingest.py # ingest_cleanup_data
+  - tests/e2e/openapi/v3/test_scroll_entities.py # OpenAPI v3
+  - tests/e2e/patch/test_domain_patches.py # openapi_graph_client, patches
+  - tests/e2e/domains/domain_entities_batching_test.py # GraphQL
+  - tests/e2e/glossary/glossary_children_count_test.py # GraphQL
+  - tests/e2e/lineage/test_lineage_sdk.py # SDK, wait_for_writes_to_sync
+  - tests/e2e/delete/delete_test.py # soft and hard delete
+  - tests/e2e/cli/user_groups_cmd/test_user_cmd.py # datahub CLI
+
 tests:
 
   # ── actions/ ────────────────────────────────────────────────
@@ -42,12 +59,12 @@ tests:
 
   - path: "tests/e2e/analytics/test_analytics.py"
     tags:
-      feature-dev: [billing-metrics]
+      feature-user: [analytics]
       technical-layer: [graphql]
 
   - path: "tests/e2e/analytics/test_highlights.py"
     tags:
-      feature-dev: [billing-metrics]
+      feature-user: [analytics]
       technical-layer: [graphql]
 
   # ── aspect_generators/ ──────────────────────────────────────
@@ -305,6 +322,7 @@ tests:
 
   - path: "tests/e2e/entity_versioning/test_versioning_timeline.py"
     tags:
+      feature-user: [change-history]
       feature-dev: [entity-versioning]
       technical-layer: [graphql]
       entity-scope: [dataset]
@@ -542,7 +560,7 @@ tests:
 
   - path: "tests/e2e/read_only/test_analytics.py"
     tags:
-      feature-dev: [billing-metrics]
+      feature-user: [analytics]
       technical-layer: [graphql]
 
   - path: "tests/e2e/read_only/test_dataproduct.py"
@@ -724,14 +742,13 @@ tests:
 
   - path: "tests/e2e/timeline/*.py"
     tags:
-      feature-dev: [system-metadata]
+      feature-user: [change-history]
       technical-layer: [graphql]
       entity-scope: [dataset]
 
   - path: "tests/e2e/timeline/timeline_change_history_auth_test.py"
     tags:
-      feature-user: [authorization]
-      feature-dev: [system-metadata]
+      feature-user: [change-history, authorization]
       technical-layer: [graphql]
       entity-scope: [dataset]
 

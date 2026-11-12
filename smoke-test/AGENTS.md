@@ -110,7 +110,11 @@ Selection happens per module on feature tags (`feature_user`, `feature_dev`,
   the selection fills. Each batch job runs the scopes planned for it
   (`SMOKE_BATCH_PLAN`). If the PR has no tags, the p0 tier runs. A PR with
   no feature tags runs only the canary (always-run plus its changed tests)
-  when it changes fewer than 15 files, else the p0 tier. The
+  when it changes fewer than 15 files, else the p0 tier. A PR that changes
+  the shared pytest harness (`change-type: pytest-plumbing`, set from the
+  paths in `taxonomy.yaml`: root conftests, `tests/e2e/utils.py`,
+  `utilities/`, `smart_testing/`, batch planning, runner scripts, weights
+  and dependencies) also runs `plumbing_sample` from `test_tags.yaml`. The
   `run-all-tests` label runs the full suite with smart testing off.
 
 After adding, changing, or deleting tests, run `/datahub-test-taxonomy tag` to update

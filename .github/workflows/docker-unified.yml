@@ -726,14 +726,7 @@ jobs:
         id: claude-identity
         if: ${{ steps.resolve-mode.outputs.mode != 'off' }}
         continue-on-error: true
-        run: |
-          umask 077
-          token_file="${RUNNER_TEMP}/anthropic-oidc-token"
-          jwt=$(curl -sSf -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://api.anthropic.com" | jq -r '.value')
-          echo "::add-mask::${jwt}"
-          printf '%s' "${jwt}" > "${token_file}"
-          echo "token_file=${token_file}" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/claude-identity-token
 
       - name: Smart Testing Selection
         id: smart-testing

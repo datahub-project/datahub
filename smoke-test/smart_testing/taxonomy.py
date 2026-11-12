@@ -14,6 +14,10 @@ Tests carry tags as one pytest marker per dimension, e.g.
 
 or through ``test_tags.yaml`` (plus ``test_tags.overlay.yaml`` when present),
 which conftest applies as the same markers.
+
+``change-type`` is the exception: it describes PRs only (CI, build, test
+infrastructure, docs, tooling), so no test carries it and it never selects
+tests by feature. Its ``pytest-plumbing`` tag adds ``plumbing_sample``.
 """
 
 import fnmatch
@@ -47,6 +51,7 @@ class Dimension(str, Enum):
     COMPOUND = "compound"
     TECHNICAL_LAYER = "technical-layer"
     ENTITY_SCOPE = "entity-scope"
+    CHANGE_TYPE = "change-type"
 
     @property
     def marker(self) -> str:
@@ -83,6 +88,8 @@ class FeatureUser(str, Enum):
     BUSINESS_ATTRIBUTES = "business-attributes"
     SETTINGS = "settings"
     STATS = "stats"
+    CHANGE_HISTORY = "change-history"
+    ANALYTICS = "analytics"
 
 
 class FeatureDev(str, Enum):
@@ -159,6 +166,18 @@ class EntityScope(str, Enum):
     APPLICATION_SERVICE = "application-service"
 
 
+class ChangeType(str, Enum):
+    """PR-only: the kind of non-product change a PR makes (CI, build, test
+    infrastructure, docs, tooling). Tests never carry these tags."""
+
+    CI = "ci"
+    BUILD = "build"
+    TEST_INFRA = "test-infra"
+    DOCS = "docs"
+    TOOLING = "tooling"
+    PYTEST_PLUMBING = "pytest-plumbing"
+
+
 # END GENERATED ENUMS
 
 
@@ -168,6 +187,7 @@ TAG_ENUMS: Dict[Dimension, Type[Enum]] = {
     Dimension.COMPOUND: Compound,
     Dimension.TECHNICAL_LAYER: TechnicalLayer,
     Dimension.ENTITY_SCOPE: EntityScope,
+    Dimension.CHANGE_TYPE: ChangeType,
 }
 
 KNOWN_TAGS: Dict[Dimension, FrozenSet[str]] = {
@@ -223,6 +243,10 @@ def feature_tags(tags: TagSet) -> Set[str]:
     return set().union(*(tags.get(dim, set()) for dim in FEATURE_DIMENSIONS))
 
 
+def changes_pytest_plumbing(tags: TagSet) -> bool:
+    return ChangeType.PYTEST_PLUMBING.value in tags.get(Dimension.CHANGE_TYPE, set())
+
+
 @dataclass(frozen=True)
 class TagRule:
     pattern: str
@@ -234,6 +258,7 @@ class TagMap:
     """Module path (relative to smoke-test/) → tags, from test_tags.yaml."""
 
     always_run: FrozenSet[str]
+    plumbing_sample: FrozenSet[str]
     rules: Tuple[TagRule, ...]
 
     def tags_for(self, path: str) -> Optional[TagSet]:
@@ -254,6 +279,7 @@ def load_tag_map(
 ) -> TagMap:
     """The tag map, merged with the overlay when it exists (rules concatenate)."""
     always_run: Set[str] = set()
+    plumbing_sample: Set[str] = set()
     rules: List[TagRule] = []
     for source in (path, overlay):
         if source is None or (source is overlay and not source.exists()):
@@ -261,11 +287,16 @@ def load_tag_map(
         with open(source) as f:
             data = yaml.safe_load(f) or {}
         always_run.update(data.get("always_run") or [])
+        plumbing_sample.update(data.get("plumbing_sample") or [])
         rules.extend(
             TagRule(pattern=entry["path"], tags=parse_tags(entry.get("tags") or {}))
             for entry in data.get("tests") or []
         )
-    return TagMap(always_run=frozenset(always_run), rules=tuple(rules))
+    return TagMap(
+        always_run=frozenset(always_run),
+        plumbing_sample=frozenset(plumbing_sample),
+        rules=tuple(rules),
+    )
 
 
 @dataclass
@@ -295,13 +326,18 @@ def select_modules(
     module_tags: Mapping[str, Optional[TagSet]],
     pr: PRTags,
     always_run: Iterable[str],
+    *,
+    plumbing_sample: Iterable[str],
 ) -> Set[str]:
     """Modules to run for a PR.
 
     A module is selected when it shares any feature tag with the PR; untagged
     modules are always selected (fail safe). Very broad selections are then
     narrowed by technical layer and entity scope. With no PR feature tags only
-    ``always_run`` is selected.
+    ``always_run`` is selected. A PR that changes the shared pytest harness
+    (``change-type: pytest-plumbing``) also runs ``plumbing_sample``, with or
+    without feature tags: a harness bug can break any module, and the sample
+    spreads across the common fixtures and API surfaces.
     """
     wanted = feature_tags(pr.tags)
     selected: Set[str] = set()
@@ -326,4 +362,7 @@ def select_modules(
             if len(narrowed) >= SAFETY_FLOOR:
                 selected = narrowed
 
-    return selected | set(always_run)
+    selected |= set(always_run)
+    if changes_pytest_plumbing(pr.tags):
+        selected |= set(plumbing_sample)
+    return selected

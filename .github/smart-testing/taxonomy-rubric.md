@@ -7,15 +7,17 @@ which tests to run.
 
 ## Where things live
 
-| File                                               | Role                                                                                                                                         |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.github/smart-testing/taxonomy.yaml`              | The common vocabulary for every test framework, and the PR classifier's prompt. A framework need not use every tag.                          |
-| `.github/smart-testing/classify_pr.py`             | Framework-agnostic PR classifier (CI setup job). Validates the LLM answer against `taxonomy.yaml`. Deps in `requirements.txt`.               |
-| `smoke-test/smart_testing/taxonomy.py`             | Typed mirror of `taxonomy.yaml` (one enum per dimension); the runtime source of known tags for pytest.                                       |
-| `smoke-test/smart_testing/test_tags.yaml`          | Smoke-test pytest module → tags. Applied as markers during collection. The only framework wired up today.                                    |
-| `.github/smart-testing/<framework>/test_tags.yaml` | Playwright and metadata-ingestion tags. Not consumed yet.                                                                                    |
-| `*.overlay.yaml`, `taxonomy_overlay.py`            | Optional overlay next to each base file, for tags and tests only one repository has. Merged with the base by every consumer.                 |
-| `.claude/skills/datahub-test-taxonomy/`            | `/datahub-test-taxonomy` skill: tags new, changed or untagged tests, regenerates all tags, and regenerates this taxonomy (with its prompts). |
+| File                                               | Role                                                                                                                                          |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.github/smart-testing/taxonomy.yaml`              | The common vocabulary for every test framework, and the PR classifier's prompt. A framework need not use every tag.                           |
+| `.github/smart-testing/classify_pr.py`             | Framework-agnostic PR classifier (CI setup job). Validates the LLM answer against `taxonomy.yaml`. Deps in `requirements.txt`.                |
+| `smoke-test/smart_testing/taxonomy.py`             | Typed mirror of `taxonomy.yaml` (one enum per dimension); the runtime source of known tags for pytest.                                        |
+| `smoke-test/smart_testing/test_tags.yaml`          | Smoke-test pytest module → tags. Applied as markers during collection. The only framework wired up today.                                     |
+| `.github/smart-testing/<framework>/test_tags.yaml` | Playwright and metadata-ingestion tags. Not consumed yet.                                                                                     |
+| `*.overlay.yaml`, `taxonomy_overlay.py`            | Optional overlay next to each base file, for tags and tests only one repository has. Merged with the base by every consumer.                  |
+| `.github/smart-testing/selection.py`               | Names the pytest selection a classification plans (smart, plumbing, canary or p0). Run by `plan_pytest_batches.sh` in CI.                     |
+| `.github/smart-testing/replay_prs.py`              | Replays the PRs in `golden_prs.yaml` through the current classifier and reports what each would run. Use it before merging a taxonomy change. |
+| `.claude/skills/datahub-test-taxonomy/`            | `/datahub-test-taxonomy` skill: tags new, changed or untagged tests, regenerates all tags, and regenerates this taxonomy (with its prompts).  |
 
 When a tag is added, renamed, or removed in `taxonomy.yaml`, regenerate the enum block in
 `taxonomy.py` (`/datahub-test-taxonomy taxonomy` does this, via `tags.py enums --write`).
@@ -113,6 +115,24 @@ Chart rarely appear independently in tests — `dashboard-chart` is one tag, not
 data-products, assertions) live ONLY in feature-user, not duplicated here. Entity-scope
 should contain only entities that aren't also a feature.
 
+### Change type — PR-only
+
+What kind of non-product change a PR makes: `ci`, `build`, `test-infra`, `docs`, `tooling`,
+and `pytest-plumbing`. It exists so a PR that changes no product behavior has a tag that
+fits, instead of borrowing unrelated feature tags or falling back to p0 on LOW confidence.
+
+- **Tests never carry it.** It describes PRs, so it selects no tests by itself. A PR with
+  only change-type tags runs the canary, like any PR without feature tags.
+- **Paths assign it too.** A tag's `paths` globs in `taxonomy.yaml` tag every matching
+  file, and a PR whose files all match is classified without the model. Keep the globs to
+  locations that cannot change what the product or the smoke tests run.
+- **`pytest-plumbing` comes only from paths** (`path-assigned: true`, left out of the
+  classifier's schema). It marks a change to the shared pytest harness and adds
+  `plumbing_sample` from `smoke-test/smart_testing/test_tags.yaml` to the selection.
+- **It never replaces feature tags.** Product dependency bumps and product image
+  Dockerfiles are not `build` alone; the annotator guidance says to tag the features they
+  affect, or answer LOW confidence.
+
 ## Properties of a good taxonomy
 
 Use these criteria to evaluate a draft taxonomy. A taxonomy that fails multiple criteria
@@ -208,6 +228,15 @@ with the draft taxonomy. Check:
 
 Target: ≥95% of historical failures would be caught, ≤50% of the full suite selected
 per PR on average.
+
+`replay_prs.py` automates the selection half of this check: it replays the PRs in
+`golden_prs.yaml` through the current classifier and flags any whose selection got
+narrower than expected (`coverage-risk`) or broader (`costlier`). PRs that paths alone
+classify replay offline as unit tests. The rest need classifier calls: the Smart Testing
+Replay workflow (`.github/workflows/smart-testing-replay.yml`) replays them three times on
+every PR that changes `.github/smart-testing/`, with the same Workload Identity Federation
+credentials as the classifier, and fails on any `coverage-risk`. Add PRs with
+`replay_prs.py fetch <number>`.
 
 ### Step 5: Write tag definitions
 

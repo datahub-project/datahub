@@ -1,5 +1,6 @@
 """Tests for classify_pr.py (run by .github/workflows/test-github-scripts.yml)."""
 
+import fnmatch
 import json
 import subprocess
 from pathlib import Path
@@ -8,12 +9,16 @@ from typing import Dict, List
 import pytest
 
 import classify_pr
+import selection
 
 KNOWN = {
     "feature-user": {"lineage", "search"},
     "feature-dev": {"executor"},
     "technical-layer": {"graphql"},
 }
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_taxonomy_loads_every_dimension() -> None:
@@ -24,8 +29,69 @@ def test_taxonomy_loads_every_dimension() -> None:
         "compound",
         "technical-layer",
         "entity-scope",
+        "change-type",
     }
     assert "lineage" in known["feature-user"]
+    assert known["change-type"] == {"ci", "build", "test-infra", "docs", "tooling"}
+
+
+def test_schema_never_offers_path_assigned_tags() -> None:
+    schema = classify_pr.classification_schema(classify_pr.load_known_tags())
+    properties = schema["properties"]
+    assert isinstance(properties, dict)
+    assert "pytest-plumbing" not in properties["change-type"]["items"]["enum"]
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        (".github/workflows/docker-unified.yml", {"ci"}),
+        (".github/smart-testing/taxonomy-rubric.md", {"ci", "docs"}),
+        ("docs/how/updating-datahub.md", {"docs"}),
+        ("datahub-web-react/IMAGE.PNG", {"docs"}),
+        (".claude/skills/x/scripts/tags.py", {"tooling"}),
+        ("smoke-test/conftest.py", {"pytest-plumbing", "test-infra"}),
+        ("smoke-test/smart_testing/taxonomy.py", {"pytest-plumbing", "test-infra"}),
+        ("smoke-test/utilities/run_last_plugin.py", {"pytest-plumbing", "test-infra"}),
+        ("smoke-test/tests/zdu/test_x.py", {"test-infra"}),
+        ("smoke-test/tests/unit/test_shard_pack.py", {"test-infra"}),
+        ("smoke-test/tests/oauth/conftest.py", {"test-infra"}),
+        (".gitignore", {"tooling"}),
+        # A feature directory's conftest and the e2e tests themselves are left
+        # to the model, which tags the features they cover.
+        ("smoke-test/tests/e2e/ai_plugins/conftest.py", set()),
+        ("smoke-test/tests/e2e/lineage/test_lineage.py", set()),
+        ("docker/datahub-gms/Dockerfile", set()),
+        ("metadata-io/build.gradle", set()),
+    ],
+)
+def test_change_types_for_path(path: str, expected: set) -> None:
+    rules = classify_pr.load_path_rules()
+    assert classify_pr.change_types_for(path, rules) == expected
+
+
+def test_change_type_paths_match_tracked_files() -> None:
+    # A location glob that matches nothing has gone stale after a move or
+    # rename, and its files would quietly go back to costing a model call.
+    # Extension globs (*.gif) name a kind of file, not a location, so skip them.
+    tracked = (
+        subprocess.run(
+            ["git", "ls-files"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        .stdout.lower()
+        .splitlines()
+    )
+    stale = [
+        pattern
+        for pattern, _ in classify_pr.load_path_rules()
+        if not pattern.startswith("*.")
+        and not any(fnmatch.fnmatchcase(f, pattern.lower()) for f in tracked)
+    ]
+    assert stale == []
 
 
 def test_overlay_tags_merge_into_the_taxonomy(
@@ -47,6 +113,24 @@ def test_overlay_tags_merge_into_the_taxonomy(
 
     overlay.unlink()
     assert classify_pr.load_known_tags() == {"feature-user": {"lineage"}}
+
+
+def test_overlay_change_type_paths_extend_the_path_rules(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = tmp_path / "taxonomy.yaml"
+    base.write_text(
+        "dimensions:\n  change-type:\n    tags:\n"
+        '      - tag: ci\n        paths: [".github/*"]\n'
+    )
+    overlay = tmp_path / "taxonomy.overlay.yaml"
+    overlay.write_text('dimensions: {}\nchange-type-paths:\n  ci: ["tools/*"]\n')
+    monkeypatch.setattr(classify_pr, "TAXONOMY_YAML", base)
+    monkeypatch.setattr(classify_pr, "TAXONOMY_OVERLAY_YAML", overlay)
+    assert classify_pr.load_path_rules() == ((".github/*", "ci"), ("tools/*", "ci"))
+
+    overlay.unlink()
+    assert classify_pr.load_path_rules() == ((".github/*", "ci"),)
 
 
 def test_llm_answer_drops_unknown_tags_and_keys() -> None:
@@ -126,8 +210,25 @@ def _patch_llm(
     monkeypatch: pytest.MonkeyPatch, stop_reason: str, text: str
 ) -> _Messages:
     client = _Client(_Response(stop_reason, text))
-    monkeypatch.setattr(classify_pr.anthropic, "Anthropic", lambda: client)
+    monkeypatch.setattr(classify_pr, "anthropic_client", lambda: client)
     return client.messages
+
+
+def test_classifier_reuses_one_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A second client would exchange the CI identity token again (HTTP 401).
+    made: List[object] = []
+
+    def make_client() -> object:
+        made.append(object())
+        return made[-1]
+
+    monkeypatch.setattr(classify_pr.anthropic, "Anthropic", make_client)
+    classify_pr.anthropic_client.cache_clear()
+    try:
+        assert classify_pr.anthropic_client() is classify_pr.anthropic_client()
+        assert len(made) == 1
+    finally:
+        classify_pr.anthropic_client.cache_clear()
 
 
 def test_call_llm_sends_taxonomy_schema(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -220,11 +321,6 @@ def test_llm_output_is_logged_before_fail_safe(
     assert err.index("LLM output:") < err.index("LOW confidence")
 
 
-def test_docker_changes_count_as_production() -> None:
-    assert classify_pr.is_production_file("docker/datahub-gms/Dockerfile")
-    assert not classify_pr.is_production_file("docs/how/updating-datahub.md")
-
-
 def _changes(*paths: str) -> list:
     return [classify_pr.ChangedFile(path=p, status="modified", patch="") for p in paths]
 
@@ -237,7 +333,66 @@ def _run_main(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Dict[str, str]
     return dict(line.split("=", 1) for line in output.read_text().splitlines())
 
 
-def test_docs_only_change_emits_empty_tags(
+def _no_model(changed: object, known: object) -> str:
+    raise AssertionError("the model was called for a PR its paths classify")
+
+
+def test_harness_only_pr_is_tagged_from_paths_without_the_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(classify_pr, "call_llm", _no_model)
+    pr = classify_pr.classify_changes(
+        _changes(
+            ".github/workflows/docker-unified.yml",
+            ".github/scripts/escape_check.py",
+            "smoke-test/smart_testing/escape_report.py",
+            "smoke-test/tests/unit/test_smart_testing.py",
+        ),
+        dry_run=False,
+    )
+    assert json.loads(pr.to_json()) == {
+        "change-type": ["ci", "pytest-plumbing", "test-infra"],
+        "confidence": "HIGH",
+    }
+    assert selection.selection_for(pr.to_json()) == "plumbing"
+
+
+def test_model_answer_keeps_path_change_types(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        classify_pr,
+        "call_llm",
+        lambda changed, known: (
+            '{"feature-user": ["lineage"], "change-type": ["ci"], "confidence": "HIGH"}'
+        ),
+    )
+    pr = classify_pr.classify_changes(
+        _changes("metadata-io/src/main/java/Lineage.java", "smoke-test/conftest.py"),
+        dry_run=False,
+    )
+    assert json.loads(pr.to_json()) == {
+        "feature-user": ["lineage"],
+        "change-type": ["ci", "pytest-plumbing", "test-infra"],
+        "confidence": "HIGH",
+    }
+
+
+def test_model_change_type_only_answer_is_a_canary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        classify_pr,
+        "call_llm",
+        lambda changed, known: '{"change-type": ["build"], "confidence": "HIGH"}',
+    )
+    pr = classify_pr.classify_changes(_changes("buildSrc/x.gradle"), dry_run=False)
+    assert json.loads(pr.to_json()) == {
+        "change-type": ["build"],
+        "confidence": "HIGH",
+    }
+    assert selection.selection_for(pr.to_json()) == "canary"
+
+
+def test_docs_only_change_is_tagged_from_paths(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setattr(
@@ -246,7 +401,10 @@ def test_docs_only_change_emits_empty_tags(
         lambda: _changes("docs/a.md", ".github/workflows/x.yml"),
     )
     outputs = _run_main(monkeypatch, tmp_path)
-    assert outputs["smart_tags"] == '{"confidence": "HIGH"}'
+    assert json.loads(outputs["smart_tags"]) == {
+        "change-type": ["ci", "docs"],
+        "confidence": "HIGH",
+    }
     assert outputs["failsafe_reason"] == ""
     assert outputs["confidence"] == "HIGH"
     assert outputs["model"] == classify_pr.MODEL

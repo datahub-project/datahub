@@ -566,7 +566,7 @@ Examples:
     )
     parser.add_argument(
         '--smart-selection',
-        help='Smart selection the run planned: smart, canary or p0 (docker-unified pytest)'
+        help='Smart selection the run planned: smart, plumbing, canary or p0 (docker-unified pytest)'
     )
     parser.add_argument(
         '--smart-confidence',

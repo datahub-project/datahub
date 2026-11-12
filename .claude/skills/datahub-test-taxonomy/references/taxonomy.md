@@ -34,6 +34,12 @@ annotator-guidance: # ~5 disambiguation rules
 
 Total: 70-85 tags. Below 50 loses discrimination. Above 100 loses consistency.
 
+The current `taxonomy.yaml` also has a sixth, PR-only dimension, `change-type`
+(ci, build, test-infra, docs, tooling, pytest-plumbing, with their `paths` and
+the annotator-guidance rules that mention them). It describes PRs, not tests, so
+it is not derived from the codebase: copy it and those rules over unchanged, and
+leave it out of the tag counts above.
+
 ### Dimension 1: feature-user (~25 tags)
 
 Things a DataHub USER would recognize — product surfaces, UI pages, documented

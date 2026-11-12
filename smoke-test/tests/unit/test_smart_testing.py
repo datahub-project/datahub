@@ -40,6 +40,7 @@ TAGS_SCRIPT = SMOKE_ROOT.parent / ".claude/skills/datahub-test-taxonomy/scripts/
 
 F = Dimension.FEATURE_USER
 T = Dimension.TECHNICAL_LAYER
+C = Dimension.CHANGE_TYPE
 
 
 def test_taxonomy_py_matches_taxonomy_yaml() -> None:
@@ -122,11 +123,21 @@ def test_checked_in_tag_map_paths_exist() -> None:
     ]
     assert stale == []
     assert all((SMOKE_ROOT / path).is_file() for path in tag_map.always_run)
+    assert tag_map.plumbing_sample
+    assert all((SMOKE_ROOT / path).is_file() for path in tag_map.plumbing_sample)
+
+
+def test_checked_in_tag_map_never_tags_tests_with_change_type() -> None:
+    # change-type describes PRs. On a test it would select nothing and only
+    # mislead the next reader.
+    tag_map = load_tag_map()
+    assert [r.pattern for r in tag_map.rules if Dimension.CHANGE_TYPE in r.tags] == []
 
 
 def test_tags_for_exact_beats_glob_and_longest_glob_wins() -> None:
     tag_map = TagMap(
         always_run=frozenset(),
+        plumbing_sample=frozenset(),
         rules=(
             TagRule("tests/e2e/*.py", {F: {"search"}}),
             TagRule("tests/e2e/lineage/*.py", {F: {"lineage"}}),
@@ -146,7 +157,9 @@ def test_select_modules_on_feature_overlap() -> None:
         "layer_only.py": {T: {"graphql"}},
     }
     pr = PRTags(tags={F: {"lineage"}})
-    assert select_modules(modules, pr, ["canary.py"]) == {
+    assert select_modules(
+        modules, pr, ["canary.py"], plumbing_sample=["sample.py"]
+    ) == {
         "lineage.py",
         "untagged.py",
         "canary.py",
@@ -155,7 +168,32 @@ def test_select_modules_on_feature_overlap() -> None:
 
 def test_select_modules_without_feature_tags_runs_always_run_only() -> None:
     modules = {"lineage.py": {F: {"lineage"}}, "untagged.py": None}
-    assert select_modules(modules, PRTags(tags={}), ["canary.py"]) == {"canary.py"}
+    selected = select_modules(
+        modules, PRTags(tags={}), ["canary.py"], plumbing_sample=["sample.py"]
+    )
+    assert selected == {"canary.py"}
+
+
+def test_select_modules_change_type_alone_selects_no_tests() -> None:
+    modules = {"lineage.py": {F: {"lineage"}}, "untagged.py": None}
+    pr = PRTags(tags={C: {"ci", "test-infra"}})
+    assert select_modules(
+        modules, pr, ["canary.py"], plumbing_sample=["sample.py"]
+    ) == {"canary.py"}
+
+
+def test_select_modules_adds_plumbing_sample_for_harness_changes() -> None:
+    modules = {"lineage.py": {F: {"lineage"}}, "search.py": {F: {"search"}}}
+    harness_only = PRTags(tags={C: {"pytest-plumbing", "test-infra"}})
+    assert select_modules(
+        modules, harness_only, ["canary.py"], plumbing_sample=["sample.py"]
+    ) == {"canary.py", "sample.py"}
+
+    # Feature tags still select as before; the sample is added on top.
+    mixed = PRTags(tags={F: {"lineage"}, C: {"pytest-plumbing"}})
+    assert select_modules(
+        modules, mixed, ["canary.py"], plumbing_sample=["sample.py"]
+    ) == {"lineage.py", "canary.py", "sample.py"}
 
 
 def test_select_modules_narrows_broad_selection_above_floor() -> None:
@@ -164,11 +202,11 @@ def test_select_modules_narrows_broad_selection_above_floor() -> None:
     for i in range(SAFETY_FLOOR):
         modules[f"m{i}.py"][T] = {"graphql"}
     pr = PRTags(tags={F: {"search"}, T: {"graphql"}})
-    assert len(select_modules(modules, pr, [])) == SAFETY_FLOOR
+    assert len(select_modules(modules, pr, [], plumbing_sample=[])) == SAFETY_FLOOR
 
     # One module fewer than the floor: narrowing is abandoned.
     modules["m0.py"][T] = {"openapi"}
-    assert len(select_modules(modules, pr, [])) == count
+    assert len(select_modules(modules, pr, [], plumbing_sample=[])) == count
 
 
 def test_off_mode_never_reads_tag_map() -> None:

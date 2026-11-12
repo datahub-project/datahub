@@ -4,6 +4,11 @@
 # v3 (2026-10-01): added semantic-models, settings, stats (feature-user).
 # v4 (2026-10-22): added certification, ontology, agent-tasks (feature-user) and
 #   ingestion-agent, job-orchestration (feature-dev) for modules added since v3.
+# v5 (2026-11-11): added the PR-only change-type dimension (ci, build, test-infra,
+#   docs, tooling, pytest-plumbing), so CI, build and test-infra PRs have a tag
+#   that fits instead of borrowing unrelated feature tags or falling back to p0.
+# v6 (2026-11-12): added change-history, analytics (feature-user) for test areas
+#   that were falling back to system-metadata and billing-metrics.
 # See taxonomy-rubric.md for the methodology, criteria, and maintenance process.
 #
 # Common to all test frameworks. Each framework's test_tags.yaml uses a subset.
@@ -13,7 +18,8 @@
 # smoke-test/smart_testing/taxonomy.py (sync enforced by
 # smoke-test/tests/unit/test_smart_testing.py).
 #
-# Total tags: 74  (23 feature-user + 24 feature-dev + 10 technical-layer + 7 entity-scope + 10 compound)
+# Total tags: 82  (25 feature-user + 24 feature-dev + 10 technical-layer + 7 entity-scope + 10 compound
+#                  + 6 change-type, which is PR-only)
 #
 # Estimated test surface:
 #   Java unit/integration: ~2400 files
@@ -22,7 +28,7 @@
 #   Playwright E2E tests:  ~150 spec files
 #   Python ingestion:      ~500+ files (unit + integration)
 
-version: 4
+version: 6
 
 dimensions:
   # ─────────────────────────────────────────────────────────
@@ -201,6 +207,20 @@ dimensions:
           - "Stats tab rendering and highlights"
           - "Column and nested-column statistics"
           - "Usage and profile charts"
+
+      - tag: change-history
+        definition: "Entity change history — the timeline API, Change History tab, and schema blame."
+        covers:
+          - "Timeline API reads of aspect changes and their categories"
+          - "Change History tab rendering and permission checks"
+          - "Schema blame and version-to-version schema diffs"
+
+      - tag: analytics
+        definition: "Product analytics — the Analytics page, highlights, and the usage events that feed them."
+        covers:
+          - "Analytics charts and highlights queries"
+          - "Frontend and backend usage event tracking"
+          - "Analytics page rendering"
 
   # ─────────────────────────────────────────────────────────
   # Dimension 2: Feature area — developer-facing concepts
@@ -594,6 +614,95 @@ dimensions:
           - "Per-connector integration tests"
           - "Connector-specific config and report classes"
 
+  # ─────────────────────────────────────────────────────────
+  # Dimension 6: Change type — PR-only, non-product changes
+  # What kind of change a PR makes when it is not product code.
+  # Tests never carry these tags, so they select no tests on
+  # their own; feature tags still decide what runs. classify_pr.py
+  # assigns a tag from `paths` (fnmatch globs, repo-relative) to
+  # every changed file that matches, and skips the classifier
+  # call when every changed file matches one.
+  # ─────────────────────────────────────────────────────────
+  change-type:
+    description: "PR-only: the kind of non-product change a PR makes (CI, build, test infrastructure, docs, tooling). Tests never carry these tags."
+    tags:
+      - tag: ci
+        definition: "CI configuration: GitHub workflows, composite actions, and the scripts and smart-testing code under .github/."
+        covers:
+          - "Workflow jobs and steps, composite actions"
+          - "CI scripts, PR classification and test-selection tooling"
+        paths:
+          - ".github/*"
+
+      - tag: build
+        definition: "Build tooling: Gradle build logic and plugins, and image builds for CI or test-only images. Not version changes of product dependencies or lockfiles, and not product image Dockerfiles: those change what runs, so tag the features they affect."
+        covers:
+          - "Gradle build scripts, plugins and settings that change how code is built, not what it depends on"
+          - "Dockerfiles and build scripts for CI or test-only images"
+
+      - tag: test-infra
+        definition: "Test infrastructure: the smoke-test harness, shared fixtures and helpers, smart-testing code, test weights and batch planning, suites the PR smoke run does not collect (unit, perf, release, zdu, oauth), and the smoke-test image build. Not test modules under smoke-test/tests/e2e: tag the features those tests cover."
+        covers:
+          - "smoke-test conftest files, shared helpers, smart_testing/ and the batch planner"
+          - "smoke-test/tests/unit, perf, release_tests, zdu and oauth, and the smoke-test image under docker/smoke-test"
+        paths:
+          - "smoke-test/tests/unit/*"
+          - "smoke-test/tests/zdu/*"
+          - "smoke-test/tests/oauth/*"
+
+      - tag: docs
+        definition: "Documentation only: docs/, Markdown and images."
+        covers:
+          - "docs/, README, LICENSE, Markdown files"
+          - "Images and diagrams"
+        paths:
+          - "docs/*"
+          - "README*"
+          - "LICENSE*"
+          - "*.md"
+          - "*.mdx"
+          - "*.png"
+          - "*.jpg"
+          - "*.jpeg"
+          - "*.gif"
+          - "*.svg"
+
+      - tag: tooling
+        definition: "Developer tooling that never runs in the product or the smoke tests: agent instructions and skills, editor settings."
+        covers:
+          - "CLAUDE.md, AGENTS.md, .claude/ skills and commands"
+          - "Editor settings such as .cursor/, and .gitignore files"
+        paths:
+          - ".claude/*"
+          - ".cursor/*"
+          - "*/.cursor/*"
+          - "CLAUDE*"
+          - "AGENTS*"
+          - ".gitignore"
+          - "*/.gitignore"
+
+      - tag: pytest-plumbing
+        path-assigned: true
+        definition: "Set from the changed paths, never by the classifier: the PR changes the shared pytest smoke-test harness (root conftests, shared helpers, smart_testing/, batch planning, runner scripts and env, test weights, smoke-test dependencies). Implies test-infra. The pytest selection adds plumbing_sample from smoke-test/smart_testing/test_tags.yaml."
+        covers:
+          - "Root conftests, tests/e2e/utils.py, utilities/ and smart_testing/"
+          - "shard_pack.py, batch_plan_dump.py, smoke.sh, env files, pytest weights, pyproject.toml, requirements.txt"
+        paths:
+          - "smoke-test/conftest.py"
+          - "smoke-test/tests/e2e/conftest.py"
+          - "smoke-test/tests/e2e/utils.py"
+          - "smoke-test/utilities/*"
+          - "smoke-test/smart_testing/*"
+          - "smoke-test/shard_pack.py"
+          - "smoke-test/batch_plan_dump.py"
+          - "smoke-test/smoke.sh"
+          - "smoke-test/run-quickstart.sh"
+          - "smoke-test/set-test-env-vars.sh"
+          - "smoke-test/pytest_*.json"
+          - "smoke-test/pyproject.toml"
+          - "smoke-test/requirements.txt"
+          - "smoke-test/build.gradle"
+
 # ─────────────────────────────────────────────────────────
 # Annotator guidance
 # Disambiguation rules for tag pairs with overlapping boundaries.
@@ -648,3 +757,51 @@ annotator-guidance:
       (profiles, usage) underneath. A test that renders the Stats tab is
       `stats`; one that writes and reads back profile aspects via the API is
       `timeseries-aspects`. A UI test backed by seeded profile data carries both.
+
+  - pair: ["change-type", "feature-user"]
+    rule: >
+      A PR that changes only CI, build tooling, test infrastructure, docs or
+      developer tooling changes no product behavior. Answer with `change-type`
+      tags and no feature tags, at HIGH confidence: that is a complete answer,
+      not a gap in the taxonomy. Do not pick a feature tag because a file,
+      fixture or script name mentions a feature. A new CI job with its
+      `.github/scripts` helper and a change to `smoke-test/smart_testing/` is
+      `change-type: [ci, test-infra]` and nothing else.
+
+  - pair: ["change-type", "feature-dev"]
+    rule: >
+      When the PR also changes product code, tag that code's features as usual
+      and add `change-type` tags for the rest. `change-type` never replaces
+      feature tags. A lineage resolver fix that also edits a workflow is
+      `feature-user: [lineage]`, `technical-layer: [graphql]`,
+      `change-type: [ci]`.
+
+  - pair: ["build", "feature-dev"]
+    rule: >
+      Version bumps of product dependencies (Gradle, Python or npm), their
+      lockfiles, and Dockerfiles of product images change what runs, so they
+      are not `build` alone: tag the features they affect. If you cannot tell
+      which features, answer LOW confidence so the PR runs the p0 tier.
+
+  - pair: ["test-infra", "feature-user"]
+    rule: >
+      Test modules under `smoke-test/tests/e2e` are not `test-infra`: tag the
+      features the changed tests cover, as for any test. `test-infra` is the
+      harness around them (conftest files, shared helpers, smart-testing code,
+      batch planning, test weights) and suites the PR smoke run does not
+      collect.
+
+  - pair: ["change-history", "system-metadata"]
+    rule: >
+      `change-history` = reading what changed on an entity over time (timeline
+      API, Change History tab, schema blame). `system-metadata` = run IDs and
+      system metadata stored alongside aspects. A test that asserts timeline
+      change events is `change-history`; one that rolls back an ingestion run by
+      run ID is `system-metadata`.
+
+  - pair: ["analytics", "billing-metrics"]
+    rule: >
+      `analytics` = the user-facing Analytics page, highlights, and usage events
+      that feed it. `billing-metrics` = billing events and usage metering for
+      cost. A test that checks analytics charts or telemetry events is
+      `analytics`; one that checks billing event rollup is `billing-metrics`.

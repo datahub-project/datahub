@@ -29,6 +29,7 @@ missed failure. When in doubt between adding and leaving out a `feature-*` tag, 
 | `compound`        | Typed relationships. Use `propagation:<payload>` plus a `propagation:<path>` tag for propagation tests, and `ingestion:connector` for connector-specific tests. Prefer these over the flat pair they refine.                                  |
 | `technical-layer` | The API surface the test drives (`graphql`, `openapi`, `restli`, `cli`, `kafka-events`, …). This is how the test calls the system, not what the server uses internally.                                                                       |
 | `entity-scope`    | Only when the test is specific to an entity type. Skip it for entity-agnostic tests and for entities already covered by a `feature-user` tag.                                                                                                 |
+| `change-type`     | Never. It describes PRs (CI, build, test infrastructure, docs, tooling), not tests, and `test_smart_testing.py` fails if a test carries it.                                                                                                   |
 
 Rules:
 

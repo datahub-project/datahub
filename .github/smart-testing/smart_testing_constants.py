@@ -13,6 +13,10 @@ PLAYWRIGHT_OPT_OUT_LABEL = "run-all-tests:playwright"
 
 # Dimensions whose tags select tests. The others only describe or narrow.
 FEATURE_DIMENSIONS: Tuple[str, ...] = ("feature-user", "feature-dev", "compound")
+# PR-only dimension for non-product changes, and the tags with special handling.
+CHANGE_TYPE = "change-type"
+PYTEST_PLUMBING = "pytest-plumbing"
+TEST_INFRA = "test-infra"
 
 
 @unique
@@ -46,7 +50,8 @@ FAILSAFE_TEXT: Dict[FailSafeReason, str] = {
 # The selection names come from selection.py, which the "Plan pytest batches"
 # step in docker-unified.yml runs.
 SELECTION_TEXT: Dict[str, str] = {
-    "smart": "tests for the tagged features, plus always-run modules and this PR's changed tests",
+    "smart": "tests for the tagged features, plus always-run modules, this PR's changed tests, and the plumbing sample if the PR changes the pytest harness",
+    "plumbing": "always-run modules, this PR's changed tests and the plumbing sample (the PR changes the pytest harness; no product feature identified)",
     "canary": "always-run modules plus this PR's changed tests (no product feature identified)",
     "p0": "the p0 tier (fail-safe)",
     "full": "the full smoke suite",

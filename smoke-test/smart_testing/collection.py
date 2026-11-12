@@ -138,7 +138,9 @@ def _select(
         for module in module_tags
         if any(path.endswith(module) for path in changed_tests)
     }
-    return select_modules(module_tags, pr, always)
+    return select_modules(
+        module_tags, pr, always, plumbing_sample=tag_map.plumbing_sample
+    )
 
 
 def selected_items(

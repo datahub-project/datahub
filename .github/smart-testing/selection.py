@@ -6,6 +6,9 @@ prints one of:
     p0        no tags: the classifier failed, had LOW confidence, or the PR is
               large without feature tags. The p0 fail-safe.
     smart     feature tags: tag-matched modules from the full tier.
+    plumbing  no feature tags, but the PR changes the shared pytest harness
+              (change-type: pytest-plumbing): always-run modules, the PR's
+              changed tests and the plumbing sample.
     canary    no feature tags: always-run modules plus the PR's changed tests.
 
 ``plan_pytest_batches.sh`` runs it in CI. Standard library only.
@@ -14,7 +17,7 @@ prints one of:
 import json
 import os
 
-from smart_testing_constants import FEATURE_DIMENSIONS
+from smart_testing_constants import CHANGE_TYPE, FEATURE_DIMENSIONS, PYTEST_PLUMBING
 
 
 def selection_for(smart_tags: str) -> str:
@@ -25,6 +28,8 @@ def selection_for(smart_tags: str) -> str:
         raise ValueError(f"smart_tags must be a JSON object, got {smart_tags!r}")
     if any(tags.get(dim) for dim in FEATURE_DIMENSIONS):
         return "smart"
+    if PYTEST_PLUMBING in (tags.get(CHANGE_TYPE) or []):
+        return "plumbing"
     return "canary"
 
 

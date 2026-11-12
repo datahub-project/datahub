@@ -52,6 +52,7 @@ ENUM_CLASS_NAMES = {
     "compound": "Compound",
     "technical-layer": "TechnicalLayer",
     "entity-scope": "EntityScope",
+    "change-type": "ChangeType",
 }
 
 

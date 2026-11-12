@@ -14,6 +14,17 @@ import selection
         ("  ", "p0"),
         ('{"feature-user": ["lineage"], "confidence": "HIGH"}', "smart"),
         ('{"compound": ["propagation:docs"], "confidence": "MEDIUM"}', "smart"),
+        (
+            '{"feature-dev": ["executor"], "change-type": ["pytest-plumbing"],'
+            ' "confidence": "HIGH"}',
+            "smart",
+        ),
+        (
+            '{"change-type": ["ci", "pytest-plumbing", "test-infra"],'
+            ' "confidence": "HIGH"}',
+            "plumbing",
+        ),
+        ('{"change-type": ["ci", "docs"], "confidence": "HIGH"}', "canary"),
         ('{"technical-layer": ["graphql"], "confidence": "HIGH"}', "canary"),
         ('{"feature-user": [], "confidence": "HIGH"}', "canary"),
         ('{"confidence": "HIGH"}', "canary"),
@@ -35,7 +46,7 @@ def test_main_reads_smoke_smart_tags(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
 ) -> None:
     monkeypatch.setenv(
-        "SMOKE_SMART_TAGS", '{"feature-user": ["lineage"], "confidence": "HIGH"}'
+        "SMOKE_SMART_TAGS", '{"change-type": ["pytest-plumbing"], "confidence": "HIGH"}'
     )
     selection.main()
-    assert capsys.readouterr().out == "smart\n"
+    assert capsys.readouterr().out == "plumbing\n"
