@@ -26,35 +26,6 @@ def canonical_path(path: str) -> str:
     return posixpath.normpath(path.strip().replace("\\", "/")).lower()
 
 
-class QvdFolder(BaseModel):
-    path: str
-    name: str
-    parent: Optional[str] = None
-
-
-def qvd_folders(path: str) -> List[QvdFolder]:
-    """The folders a canonical QVD path is in, from its share or drive down.
-    The root is the UNC share (`//server/share`) or the drive (`c:`), as the
-    file server shows them, so a share's folders are browsed under it."""
-    folders = posixpath.dirname(path).split("/")
-    if path.startswith("//"):
-        # "", "", server, share, folders...
-        root_parts, rest = folders[:4], folders[4:]
-        name = "\\\\" + "\\".join(part for part in root_parts if part)
-    else:
-        root_parts, rest = folders[:1], folders[1:]
-        name = root_parts[0]
-    root = "/".join(root_parts)
-    if not root.strip("/"):
-        return []
-    result = [QvdFolder(path=root, name=name)]
-    for part in rest:
-        if part:
-            parent = result[-1].path
-            result.append(QvdFolder(path=f"{parent}/{part}", name=part, parent=parent))
-    return result
-
-
 class QvdPathResolver:
     """Turns a QVD a load script names into its canonical file path, or None
     when the connector can't tell which file it is or it is Qlik's own."""
