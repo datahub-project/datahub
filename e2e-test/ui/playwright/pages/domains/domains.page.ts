@@ -8,6 +8,10 @@ import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from '../base.page';
 import type { DataHubLogger } from '../../utils/logger';
 import { GraphQLHelper } from '../../helpers/graphql-helper';
+import { TIMEOUTS } from '../../utils/constants';
+
+// How long a deleted domain can stay on an entity while its references are removed in the background.
+const DOMAIN_REFERENCE_CLEANUP_TIMEOUT = 60000;
 
 export class DomainsPage extends BasePage {
   readonly newDomainButton: Locator;
@@ -147,9 +151,9 @@ export class DomainsPage extends BasePage {
   async expectDomainRemovedFromEntity(domainName: string, loadedText: string): Promise<void> {
     await expect(async () => {
       await this.page.reload();
-      await expect(this.page.getByText(loadedText).first()).toBeVisible({ timeout: 30000 });
+      await expect(this.page.getByText(loadedText).first()).toBeVisible({ timeout: TIMEOUTS.LONG });
       await expect(this.page.getByText(domainName)).toBeHidden();
-    }).toPass({ timeout: 60000 });
+    }).toPass({ timeout: DOMAIN_REFERENCE_CLEANUP_TIMEOUT });
   }
 
   async expectDomainNotVisible(name: string): Promise<void> {
