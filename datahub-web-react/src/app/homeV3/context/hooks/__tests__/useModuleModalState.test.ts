@@ -1,8 +1,9 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { useModuleModalState } from '@app/homeV3/context/hooks/useModuleModalState';
 import type { ModulePositionInput } from '@app/homeV3/template/types';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import type { PageModuleFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateSurfaceType } from '@types';

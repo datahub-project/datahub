@@ -8,8 +8,6 @@ config:
     # module evaluation (CAT-3693). Keeps source size of gql strings; avoids the
     # DocumentNode AST bloat of documentMode: documentNode.
     gqlImport: '@graphql/lazyGql#gql'
-documents:
-    - 'src/**/*.graphql'
 generates:
     src/types.generated.ts:
         plugins:
@@ -17,7 +15,11 @@ generates:
     src/possibleTypes.generated.ts:
         plugins:
             - 'fragment-matcher'
+    # Documents are scoped to this output: when the outputs share them, the `typescript` plugin crashes on queries
+    # that select a field through both an interface fragment and a per-type fragment.
     src/:
+        documents:
+            - 'src/**/*.graphql'
         preset: near-operation-file
         presetConfig:
             extension: '.generated.ts'

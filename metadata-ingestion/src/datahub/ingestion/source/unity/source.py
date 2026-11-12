@@ -1647,13 +1647,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         )
         return resolver, schema_info
 
-    def _external_schema_info(
-        self, catalog: Catalog, external_urn: str
-    ) -> Optional[SchemaInfo]:
-        """External dataset's {field path: native type}, or None if unresolvable.
-        Thin wrapper over _external_schema_lookup for the column-lineage path."""
-        return self._external_schema_lookup(catalog, external_urn)[1]
-
     def _external_schema_resolver(
         self, key: _ExternalSchemaKey
     ) -> Optional[SchemaResolver]:
@@ -1783,7 +1776,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             and schema_metadata.fields
         ):
             return None
-        schema_info = self._external_schema_info(catalog, external_urn)
+        resolver, schema_info = self._external_schema_lookup(catalog, external_urn)
         if not schema_info:
             # Unity Catalog gave us columns but the external source's schema isn't
             # resolvable (not ingested, or wrong platform_instance/env) — the COPY
@@ -1801,8 +1794,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             external_urn=external_urn,
             downstream_field_paths=[f.fieldPath for f in schema_metadata.fields],
             upstream_field_paths=list(schema_info.keys()),
+            upstream_original_field_paths=(
+                resolver.get_original_field_paths(external_urn) if resolver else None
+            ),
         )
-        return cll or None
+        self.report.num_federation_cll_edges_emitted += len(cll.lineages)
+        self.report.num_federation_cll_edges_original_path += cll.num_original_path
+        self.report.num_federation_cll_downstream_unmatched += len(
+            cll.unmatched_downstream_paths
+        )
+        for path in cll.unmatched_downstream_paths:
+            self.report.federation_cll_downstream_unmatched_sample.append(
+                make_schema_field_urn(dataset_urn, path)
+            )
+        return cll.lineages or None
 
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
         if (

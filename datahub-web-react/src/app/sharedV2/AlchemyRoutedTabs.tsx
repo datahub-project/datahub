@@ -4,7 +4,7 @@ import { Route, Switch, useLocation, useRouteMatch } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
-import { Tabs } from '@src/alchemy-components';
+import { Tabs } from '@app/sharedV2/tabs/Tabs';
 
 // Define types for TabTitleWithCount props
 interface TabTitleWithCountProps {

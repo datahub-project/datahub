@@ -472,6 +472,28 @@ public class SearchDocumentTransformerTest {
             any());
   }
 
+  @Test
+  public void testStructuredPropertiesDeleteWithNullAspectReturnsDocument() throws Exception {
+    String entityUrn = "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)";
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    Optional<ObjectNode> transformed =
+        transformer.transformAspect(
+            opContext,
+            UrnUtils.getUrn(entityUrn),
+            null,
+            ENTITY_REGISTRY
+                .getEntitySpec(DATASET_ENTITY_NAME)
+                .getAspectSpec(STRUCTURED_PROPERTIES_ASPECT_NAME),
+            true,
+            AuditStampUtils.createDefaultAuditStamp());
+
+    assertTrue(transformed.isPresent());
+    assertEquals(transformed.get().get("urn").asText(), entityUrn);
+  }
+
   private static SearchableRefFieldSpec businessAttributeRefSpec() {
     return ENTITY_REGISTRY
         .getEntitySpec("schemaField")

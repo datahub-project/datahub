@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useUserLanguage } from '@app/sharedV2/hooks/useUserLanguage';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const localStorageMock = (() => {
     let store: Record<string, string> = {};

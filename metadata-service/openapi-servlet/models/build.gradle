@@ -15,4 +15,6 @@ dependencies {
   compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok
+
+  testImplementation externalDependency.testng
 }

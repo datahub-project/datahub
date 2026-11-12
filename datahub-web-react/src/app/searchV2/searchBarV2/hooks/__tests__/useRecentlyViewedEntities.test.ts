@@ -1,9 +1,10 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { HOME_RECOMMENDATION_MODULE_LIMIT } from '@app/homeV2/homeRecommendationModules';
 import useRecentlyViewedEntities from '@app/searchV2/searchBarV2/hooks/useRecentlyViewedEntities';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
 import { EntityType, RecommendationModuleId, ScenarioType } from '@types';

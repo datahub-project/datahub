@@ -186,6 +186,33 @@ public class PgQueueThrottleSensorTest {
     assertFalse(sensor.isThrottled(ThrottleType.MCL_VERSIONED_LAG));
   }
 
+  @Test
+  public void testSchedulerKeepsRefreshingAfterARefreshFails() throws InterruptedException {
+    // The first refresh fails reading the store, later ones see a lag of 2 on each topic
+    MetadataQueueStore store = mockStoreWithLag(1, new long[] {4}, new long[] {1});
+    QueueTopicMetadata topicMeta = new QueueTopicMetadata(1L, 1, Optional.empty());
+    when(store.fetchTopic(VERSIONED_TOPIC))
+        .thenThrow(new IllegalStateException("database unavailable"))
+        .thenReturn(Optional.of(topicMeta));
+
+    MetadataChangeProposalConfig.ThrottlesConfig config = enabledConfig(1000);
+    config.setUpdateIntervalMs(10);
+    PgQueueThrottleSensor sensor = buildSensor(store, config);
+
+    Map<ThrottleType, Long> expected =
+        Map.of(ThrottleType.MCL_VERSIONED_LAG, 2L, ThrottleType.MCL_TIMESERIES_LAG, 2L);
+    try {
+      sensor.start();
+      long deadline = System.currentTimeMillis() + 5_000;
+      while (!expected.equals(sensor.getLag()) && System.currentTimeMillis() < deadline) {
+        Thread.sleep(10);
+      }
+      assertEquals(sensor.getLag(), expected, "Expected lag refreshed by a later run");
+    } finally {
+      sensor.stop();
+    }
+  }
+
   // ---- helpers ----
 
   private static PgQueueThrottleSensor buildSensor(
