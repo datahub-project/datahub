@@ -278,3 +278,44 @@ def test_file_mapping_without_env_uses_the_recipe_env(
         )
         == "urn:li:dataset:(urn:li:dataPlatform:gcs,sales/ref/regions.xlsx,DEV)"
     )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_mapped_storage_is_not_trusted_for_another_scheme_or_shared_path(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        {},
+    )
+    # An S3 file with the same path is not on the mapped Azure container.
+    assert (
+        source._resolve_file_source("app-1", _file_qri("s3", "eu/b", "ref/targets.csv"))
+        is None
+    )
+
+    script = (
+        SCRIPT + "Other:\nLOAD * FROM [lib://Other Lake/ref/regions.xlsx] (ooxml);\n"
+    )
+    app = App.model_validate(
+        {
+            "id": "app-2",
+            "qTitle": "Sales",
+            "description": "",
+            "createdDate": "2024-01-09T18:05:36.000Z",
+            "modifiedDate": "2024-01-09T18:05:36.000Z",
+            "spaceId": "space-1",
+        }
+    )
+    source._file_sources_by_app[app.id] = source._file_source_resolver(
+        app, parse_script(script)
+    )
+    source._app_space_ids[app.id] = app.spaceId
+    # Another connection the script reads the same path through, whose storage
+    # is not known, could hold the file as well.
+    assert (
+        source._resolve_file_source(
+            "app-2", _file_qri("adls", "unknown", "ref/regions.xlsx")
+        )
+        is None
+    )

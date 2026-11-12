@@ -1616,11 +1616,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         space_id = self._app_space_ids.get(app_id)
         if resolver is None or space_id is None:
             return None
-        references, connection_id = resolver.candidates(file_qri)
-        urns = set()
-        for reference in references:
+        candidates = resolver.candidates(file_qri)
+        # A connection whose properties match the QRI's names the file for
+        # certain; one whose storage is only mapped is trusted only when no
+        # other connection the script reads the same path through could hold it.
+        confirmed: Set[str] = set()
+        unconfirmed: Set[str] = set()
+        unknown = False
+        for reference in candidates.references:
             storage, detail = self._file_storage(reference.connection, space_id)
             if storage is None:
+                unknown = True
                 if (
                     reference.connection
                     not in self.reporter.unresolved_file_connections
@@ -1629,23 +1635,27 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                         reference.connection
                     )
                 continue
-            if (
+            if storage.platform != candidates.platform or (
                 storage.qri_connection_id is not None
-                and storage.qri_connection_id != connection_id
+                and storage.qri_connection_id != candidates.connection_id
             ):
                 continue
-            urns.add(
-                file_dataset_urn(
-                    storage,
-                    reference.path,
-                    platform_instance=detail.platform_instance if detail else None,
-                    # An env the mapping leaves unset is the recipe's.
-                    env=detail.env
-                    if detail and "env" in detail.model_fields_set
-                    else self.config.env,
-                )
+            urn = file_dataset_urn(
+                storage,
+                reference.path,
+                platform_instance=detail.platform_instance if detail else None,
+                # An env the mapping leaves unset is the recipe's.
+                env=detail.env
+                if detail and "env" in detail.model_fields_set
+                else self.config.env,
             )
-        # Two connections whose storage could hold the file leave it unknown.
+            (confirmed if storage.qri_connection_id else unconfirmed).add(urn)
+        if confirmed:
+            urns = confirmed
+        elif unknown:
+            return None
+        else:
+            urns = unconfirmed
         if len(urns) != 1:
             return None
         if file_qri not in self._resolved_file_qris:

@@ -1,7 +1,7 @@
 import base64
 import hashlib
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
 from pydantic import BaseModel
@@ -56,6 +56,26 @@ FILE_CONNECTORS: Dict[str, FileConnector] = {
         location_property="bucketName",
     ),
 }
+
+
+# The DataHub platform of the files each file QRI scheme names.
+PLATFORM_BY_QRI_SCHEME = {
+    connector.qri_scheme: connector.platform for connector in FILE_CONNECTORS.values()
+}
+
+
+class FileReference(BaseModel):
+    connection: str
+    path: str
+
+
+class FileCandidates(BaseModel):
+    """The script's references to the file a secure QRI names, with the
+    platform and the id of the connection part the QRI gives."""
+
+    references: List[FileReference] = []
+    platform: Optional[str] = None
+    connection_id: str = ""
 
 
 class FileStorage(BaseModel):
@@ -127,11 +147,6 @@ def normalized_file_path(path: str) -> str:
     return "/".join(part for part in path.replace("\\", "/").split("/") if part)
 
 
-class FileReference(BaseModel):
-    connection: str
-    path: str
-
-
 class FileSourceResolver:
     """Resolves the files in an app's lineage graph to datasets, from the
     `lib://` files its load script reads. A file is resolved only when the
@@ -148,16 +163,18 @@ class FileSourceResolver:
                     FileReference(connection=reference.connection, path=path)
                 )
 
-    def candidates(self, file_qri: str) -> Tuple[List[FileReference], str]:
-        """The script's references to the file a secure QRI names, and the id
-        of the QRI's connection part."""
+    def candidates(self, file_qri: str) -> FileCandidates:
         match = FILE_QRI_RE.match(file_qri)
         if not match:
-            return [], ""
+            return FileCandidates()
         references = self._by_path_id.get(match.group("path"), [])
         # Several reads of the same file are one reference.
         unique = {(ref.connection, ref.path): ref for ref in references}
-        return list(unique.values()), match.group("connection")
+        return FileCandidates(
+            references=list(unique.values()),
+            platform=PLATFORM_BY_QRI_SCHEME.get(match.group("scheme")),
+            connection_id=match.group("connection"),
+        )
 
 
 def file_dataset_urn(
