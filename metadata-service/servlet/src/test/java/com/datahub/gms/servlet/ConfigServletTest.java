@@ -15,6 +15,7 @@ import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
@@ -335,6 +336,17 @@ public class ConfigServletTest extends AbstractTestNGSpringContextTests {
     JsonNode datahubConfig = config.path("datahub");
     assertEquals(datahubConfig.path("serverType").asText(), "prod");
     assertNotNull(datahubConfig.path("serverEnv"));
+
+    // Authentication section: whether auth is on, and nothing else about it
+    assertTrue(config.has("authentication"));
+    JsonNode authenticationConfig = config.path("authentication");
+    boolean authEnabled =
+        webApplicationContext
+            .getBean("configurationProvider", ConfigurationProvider.class)
+            .getAuthentication()
+            .isEnabled();
+    assertEquals(authenticationConfig.path("enabled").asBoolean(!authEnabled), authEnabled);
+    assertEquals(authenticationConfig.size(), 1);
 
     // Telemetry section
     assertTrue(config.has("telemetry"));
