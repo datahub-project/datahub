@@ -151,11 +151,12 @@ plugins {
 apply from: "gradle/docker/docker-utils.gradle"
 
 // Jackson BOM patch version — bump here and in buildSrc/build.gradle (buildSrc classpath).
-ext.jacksonVersion = '2.22.3'
+// 2.22.4: CVE-2026-104895 (smile async parser), CVE-2026-106554 (cbor), CVE-2026-104016 / CVE-2026-110747 (protobuf)
+ext.jacksonVersion = '2.22.4'
 // Parquet stack: parquet-jackson shades Jackson under shaded/parquet/.
 // 1.18.1 bundles jackson-databind 2.22.2 (CVE-2026-54512/54513 and related jackson-databind CVEs
 // fixed in 2.21.4+; https://github.com/apache/parquet-java/pull/3594).
-// App-classpath jackson-databind remains ext.jacksonVersion (2.22.3); that pin does not replace the shade.
+// App-classpath jackson-databind remains ext.jacksonVersion (2.22.4); that pin does not replace the shade.
 ext.parquetVersion = '1.18.1'
 // Latest JJWT on the 0.13 line (Java 7 compatible; 0.14+ not released). Deprecated
 // SigningKeyResolver still exists, which we need for issuer-based JWKS lookup.
