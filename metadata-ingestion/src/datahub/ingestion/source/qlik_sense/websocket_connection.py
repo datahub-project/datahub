@@ -5,7 +5,12 @@ import time
 from contextlib import contextmanager
 from typing import Callable, Dict, Iterator, List, Literal, Optional, Set, Union
 
-from websocket import WebSocket, create_connection
+from websocket import (
+    WebSocket,
+    WebSocketConnectionClosedException,
+    WebSocketTimeoutException,
+    create_connection,
+)
 
 from datahub.ingestion.source.qlik_sense.config import Constant
 from datahub.ingestion.source.qlik_sense.data_classes import Chart, Sheet
@@ -14,6 +19,18 @@ logger = logging.getLogger(__name__)
 
 # Engine JSON-RPC error code LOCERR_GENERIC_ACCESS_DENIED.
 ENGINE_ACCESS_DENIED = 5
+
+# The Engine's connection can time out or drop while it is being opened, as
+# happens on busy tenants. Nothing has been sent yet, so it is safe to retry.
+# Authentication and certificate errors are not retried.
+CONNECT_ATTEMPTS = 3
+CONNECT_RETRY_SECONDS = 2.0
+_TRANSIENT_CONNECT_ERRORS = (
+    TimeoutError,
+    ConnectionError,
+    WebSocketTimeoutException,
+    WebSocketConnectionClosedException,
+)
 
 
 class EngineError(RuntimeError):
@@ -38,18 +55,42 @@ class WebsocketConnection:
         self._match_response_id = match_response_id
         # Applies to the handshake and to each receive.
         self._timeout = timeout
-        self.socket_connection: Optional[WebSocket] = create_connection(
-            url,
-            header=header,
-            sslopt=sslopt or {},
-            # The pure-Python frame check costs more CPU than the rest of an app
-            # read, and recv() already rejects invalid UTF-8 when it decodes.
-            skip_utf8_validation=True,
-            timeout=timeout,
+        self.socket_connection: Optional[WebSocket] = self._connect(
+            url, header, sslopt or {}, timeout
         )
         self.request_id = 0
         # Engine object handles, innermost last; -1 is the global handle.
         self._handles = [-1]
+
+    @staticmethod
+    def _connect(
+        url: str,
+        header: Dict[str, str],
+        sslopt: Dict[str, object],
+        timeout: Optional[float],
+    ) -> WebSocket:
+        def connect() -> WebSocket:
+            return create_connection(
+                url,
+                header=header,
+                sslopt=sslopt,
+                # The pure-Python frame check costs more CPU than the rest of
+                # an app read, and recv() already rejects invalid UTF-8 when it
+                # decodes.
+                skip_utf8_validation=True,
+                timeout=timeout,
+            )
+
+        for attempt in range(1, CONNECT_ATTEMPTS):
+            try:
+                return connect()
+            except _TRANSIENT_CONNECT_ERRORS as e:
+                logger.info(
+                    f"Retrying Engine connection to {url} after attempt "
+                    f"{attempt} failed: {e}"
+                )
+                time.sleep(CONNECT_RETRY_SECONDS * attempt)
+        return connect()
 
     @classmethod
     def for_cloud(
