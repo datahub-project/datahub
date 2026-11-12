@@ -361,6 +361,67 @@ def test_directlake_lineage_merges_onelake_and_model_internal_edges() -> None:
     assert mapper._Mapper__reporter.directlake_lineage_unresolved == 0  # type: ignore[attr-defined]
 
 
+def _fact_with_measure() -> List[Table]:
+    policies = Table(
+        name="Policies", full_name="Model.Policies", columns=[_column("Premium")]
+    )
+    orders = Table(
+        name="Orders",
+        full_name="Model.Orders",
+        expression="let Source = Snowflake.Databases(...) in Source",
+        measures=[
+            Measure(
+                name="Total Premium",
+                expression="SUM('Policies'[Premium])",
+                isHidden=False,
+                references=[MeasureReference("Policies", "Premium")],
+            )
+        ],
+    )
+    _dataset([policies, orders])
+    return [policies, orders]
+
+
+def test_model_internal_lineage_withheld_when_m_source_unresolved() -> None:
+    """An aspect with only same-model edges would replace the external
+    lineage stored by earlier runs when this run's M parse found nothing."""
+    mapper = _mapper()
+    _, orders = _fact_with_measure()
+    with patch(
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
+        return_value=[],
+    ):
+        mcps = mapper.extract_lineage(orders, _urn(mapper, orders), _workspace())
+
+    assert _lineage_aspect(mcps) is None
+    assert mapper._Mapper__reporter.model_internal_lineage_withheld == 1  # type: ignore[attr-defined]
+
+
+def test_model_internal_lineage_merged_with_resolved_m_source() -> None:
+    mapper = _mapper()
+    policies, orders = _fact_with_measure()
+    lineage = Lineage(
+        upstreams=[
+            DataPlatformTable(SupportedDataPlatform.SNOWFLAKE.value, SNOWFLAKE_A)
+        ],
+        column_lineage=[],
+    )
+    with patch(
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
+        return_value=[lineage],
+    ):
+        aspect = _lineage_aspect(
+            mapper.extract_lineage(orders, _urn(mapper, orders), _workspace())
+        )
+
+    assert aspect is not None
+    assert [u.dataset for u in aspect.upstreams] == [
+        SNOWFLAKE_A,
+        _urn(mapper, policies),
+    ]
+    assert mapper._Mapper__reporter.model_internal_lineage_withheld == 0  # type: ignore[attr-defined]
+
+
 def test_calculated_table_depends_on_referenced_model_tables() -> None:
     mapper = _mapper()
     policies = Table(name="Policies", full_name="Model.Policies")

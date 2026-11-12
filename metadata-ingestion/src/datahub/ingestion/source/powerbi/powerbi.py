@@ -537,6 +537,18 @@ class Mapper:
 
         self._add_model_internal_lineage(table, ds_urn, upstream, cll_lineage)
 
+        if (
+            upstream
+            and table.expression
+            and not any(lineage.upstreams for lineage in upstream_lineage)
+        ):
+            # The M source resolved to nothing this run (parse failure or an
+            # unsupported source). An aspect with only the model-internal edges
+            # would replace external lineage emitted by earlier runs, so keep
+            # the stored lineage.
+            self.__reporter.model_internal_lineage_withheld += 1
+            return mcps
+
         if len(upstream) > 0:
             upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(
                 upstreams=upstream,

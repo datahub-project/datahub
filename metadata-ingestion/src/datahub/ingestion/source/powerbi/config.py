@@ -341,6 +341,7 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     measure_references_unresolved: int = 0
     directlake_lineage_unresolved: int = 0
     directlake_lineage_withheld: int = 0
+    model_internal_lineage_withheld: int = 0
     semantic_models_not_processed: int = 0
     refresh_history_fetched: int = 0
     refresh_history_unparseable: int = 0
