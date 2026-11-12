@@ -13332,11 +13332,6 @@ value-or-promise@^1.0.11, value-or-promise@^1.0.12:
   resolved "https://registry.npmjs.org/value-or-promise/-/value-or-promise-1.0.12.tgz"
   integrity sha512-Z6Uz+TYwEqE7ZN50gwn+1LCVo9ZVrpxRPOhOLnncYkY1ZzOYtrX8Fwf/rFktZ8R5mJms6EZf5TqNOMeZmnPq9Q==
 
-virtualizedtableforantd4@^1.2.1:
-  version "1.2.1"
-  resolved "https://registry.npmjs.org/virtualizedtableforantd4/-/virtualizedtableforantd4-1.2.1.tgz"
-  integrity sha512-Hl21jF3WZESanz/iKIjvbjeZ5gGX2t85h2cWQFJAagOQnN7t/pvC4kXhfYNseJtaiU6QHOm5RgX3ud+oXeST1Q==
-
 vite-node@3.2.2:
   version "3.2.2"
   resolved "https://registry.yarnpkg.com/vite-node/-/vite-node-3.2.2.tgz#d8f7d34dfa88aab3438c68725328b131108fbe62"

@@ -1,0 +1,138 @@
+[
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,pw_matrix_dataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "pw_matrix_dataset",
+        "description": "Seeded documentation for the catalog matrix dataset",
+        "tags": []
+      }
+    }
+  },
+  {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,pw_matrix_chart)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "title": "PW Matrix Chart",
+        "description": "Seeded documentation for the catalog matrix chart",
+        "lastModified": {
+          "created": {
+            "time": 1700000000000,
+            "actor": "urn:li:corpuser:datahub"
+          },
+          "lastModified": {
+            "time": 1700000000000,
+            "actor": "urn:li:corpuser:datahub"
+          }
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,pw_matrix_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "title": "PW Matrix Dashboard",
+        "description": "Seeded documentation for the catalog matrix dashboard",
+        "charts": [],
+        "datasets": [],
+        "dashboards": [],
+        "lastModified": {
+          "created": {
+            "time": 1700000000000,
+            "actor": "urn:li:corpuser:datahub"
+          },
+          "lastModified": {
+            "time": 1700000000000,
+            "actor": "urn:li:corpuser:datahub"
+          }
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,pw_matrix_flow,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "PW Matrix Flow",
+        "description": "Seeded documentation for the catalog matrix pipeline"
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,pw_matrix_flow,PROD),pw_matrix_task)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "PW Matrix Task",
+        "description": "Seeded documentation for the catalog matrix task",
+        "type": {
+          "string": "SQL"
+        },
+        "flowUrn": "urn:li:dataFlow:(airflow,pw_matrix_flow,PROD)"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_matrix_container",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "PW Matrix Container",
+        "description": "Seeded documentation for the catalog matrix container",
+        "created": {
+          "time": 1700000000000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "lastModified": {
+          "time": 1700000000000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_matrix_container",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:bigquery"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_matrix_container",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": ["Database"]
+      }
+    }
+  }
+]
