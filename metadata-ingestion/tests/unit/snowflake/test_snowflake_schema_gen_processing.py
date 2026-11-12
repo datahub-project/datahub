@@ -29,7 +29,9 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     StructuredPropertiesClass,
     StructuredPropertyDefinitionClass,
+    StructuredPropertyValueAssignmentClass,
     SubTypesClass,
+    TagAssociationClass,
     TagPropertiesClass,
 )
 from datahub.metadata.urns import DatasetUrn
@@ -191,6 +193,10 @@ def test_dataset_properties_describe_table_kind() -> None:
 
 _PII = SnowflakeTag(database=DB, schema=SCHEMA, name="PII", value="HIGH")
 _PII_TAG_URN = "urn:li:tag:test_db.public.pii:high"
+_TIER = SnowflakeTag(database=DB, schema=SCHEMA, name="TIER", value="GOLD")
+_TIER_TAG_URN = "urn:li:tag:test_db.public.tier:gold"
+_GOLD = SnowflakeTag(database=DB, schema=SCHEMA, name="GOLD", value="Y")
+_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.t1,PROD)"
 
 
 def _tagged_table() -> SnowflakeTable:
@@ -222,9 +228,38 @@ def test_tags_are_emitted_once_as_tag_entities_or_as_structured_properties() -> 
     ]
 
 
-def test_managed_tag_maps_back_on_dataset_and_is_skipped_on_columns() -> None:
-    # Dataset GlobalTags is the UI's copy and is written whole, so the DataHub tag
-    # is written back; a column's schemaMetadata tags are ingestion's own copy.
+def test_managed_tags_on_a_dataset_come_from_datahub_not_snowflake() -> None:
+    # The user removed managed tag "pii" in DataHub, but Snowflake's lagging
+    # tag_references still lists it; DataHub holds managed tag "gold" that
+    # Snowflake does not list yet. The dataset keeps exactly DataHub's.
+    gen = make_gen(
+        tag_repository=fake_tag_repository(
+            [
+                tag_record(_PII, "urn:li:tag:pii"),
+                tag_record(_GOLD, "urn:li:tag:gold"),
+            ],
+            in_datahub={
+                _DATASET_URN: [
+                    GlobalTagsClass([TagAssociationClass("urn:li:tag:gold")])
+                ]
+            },
+        )
+    )
+    tagged = table(
+        "T1", tags=[_PII, _TIER], column_tags={"ID": [_PII]}, columns=[column("ID")]
+    )
+
+    workunits = list(gen.gen_dataset_workunits(tagged, SCHEMA, DB))
+
+    assert dataset_urn(gen, "T1") == _DATASET_URN
+    assert list(aspects(workunits, TagPropertiesClass)) == [_TIER_TAG_URN]
+    dataset_tags = aspects(workunits, GlobalTagsClass)[_DATASET_URN]
+    assert [t.tag for t in dataset_tags.tags] == [_TIER_TAG_URN, "urn:li:tag:gold"]
+    schema_metadata = aspects(workunits, SchemaMetadataClass)[_DATASET_URN]
+    assert schema_metadata.fields[0].globalTags is None
+
+
+def test_dataset_with_only_managed_tags_gets_no_global_tags() -> None:
     gen = make_gen(
         tag_repository=fake_tag_repository([tag_record(_PII, "urn:li:tag:pii")])
     )
@@ -232,10 +267,21 @@ def test_managed_tag_maps_back_on_dataset_and_is_skipped_on_columns() -> None:
     workunits = list(gen.gen_dataset_workunits(_tagged_table(), SCHEMA, DB))
 
     assert aspects(workunits, TagPropertiesClass) == {}
-    dataset_tags = aspects(workunits, GlobalTagsClass)[dataset_urn(gen, "T1")]
-    assert [t.tag for t in dataset_tags.tags] == ["urn:li:tag:pii"]
-    schema_metadata = aspects(workunits, SchemaMetadataClass)[dataset_urn(gen, "T1")]
-    assert schema_metadata.fields[0].globalTags is None
+    assert aspects(workunits, GlobalTagsClass) == {}
+
+
+def test_unreadable_datahub_tags_leave_dataset_tags_unwritten() -> None:
+    gen = make_gen(
+        tag_repository=fake_tag_repository(
+            [tag_record(_GOLD, "urn:li:tag:gold")],
+            read_error=RuntimeError("timed out"),
+        )
+    )
+
+    workunits = list(gen.gen_dataset_workunits(_tagged_table(), SCHEMA, DB))
+
+    assert aspects(workunits, GlobalTagsClass) == {}
+    assert gen.report.num_datahub_aspect_read_failures == 1
 
 
 def test_managed_term_is_left_out_of_dataset_and_column_tags() -> None:
@@ -253,23 +299,34 @@ def test_managed_term_is_left_out_of_dataset_and_column_tags() -> None:
     assert schema_metadata.fields[0].globalTags is None
 
 
-def test_managed_structured_property_maps_back_in_upsert_mode() -> None:
+def test_upsert_keeps_datahub_values_of_managed_structured_properties() -> None:
     gen = make_gen(
         tag_repository=fake_tag_repository(
             [tag_record(_PII, "urn:li:structuredProperty:pii_level", with_value=False)],
-            value_type="urn:li:dataType:datahub.string",
+            in_datahub={
+                _DATASET_URN: [
+                    StructuredPropertiesClass(
+                        [
+                            StructuredPropertyValueAssignmentClass(
+                                propertyUrn="urn:li:structuredProperty:pii_level",
+                                values=["LOW"],
+                            )
+                        ]
+                    )
+                ]
+            },
         ),
         extract_tags_as_structured_properties=True,
         structured_properties_write_mode=StructuredPropertyWriteMode.UPSERT,
     )
+    tagged = table("T1", tags=[_PII, _TIER], columns=[column("ID")])
 
-    workunits = list(gen.gen_dataset_workunits(_tagged_table(), SCHEMA, DB))
+    workunits = list(gen.gen_dataset_workunits(tagged, SCHEMA, DB))
 
-    dataset_props = aspects(workunits, StructuredPropertiesClass)[
-        dataset_urn(gen, "T1")
-    ]
+    dataset_props = aspects(workunits, StructuredPropertiesClass)[_DATASET_URN]
     assert [(p.propertyUrn, p.values) for p in dataset_props.properties] == [
-        ("urn:li:structuredProperty:pii_level", ["HIGH"])
+        ("urn:li:structuredProperty:snowflake.test_db.public.tier", ["GOLD"]),
+        ("urn:li:structuredProperty:pii_level", ["LOW"]),
     ]
 
 
@@ -301,21 +358,6 @@ def test_native_tags_unchanged_and_record_emitted() -> None:
     assert [r.secondaryKeys for r in records.values()] == [[_PII_TAG_URN]]
 
 
-def test_unresolvable_managed_property_leaves_upsert_aspect_unwritten() -> None:
-    gen = make_gen(
-        tag_repository=fake_tag_repository(
-            [tag_record(_PII, "urn:li:structuredProperty:retention", with_value=False)],
-            value_type="urn:li:dataType:datahub.number",
-        ),
-        extract_tags_as_structured_properties=True,
-        structured_properties_write_mode=StructuredPropertyWriteMode.UPSERT,
-    )
-
-    workunits = list(gen.gen_dataset_workunits(_tagged_table(), SCHEMA, DB))
-
-    assert dataset_urn(gen, "T1") not in aspects(workunits, StructuredPropertiesClass)
-
-
 def test_only_skipped_properties_emit_no_upsert_aspect() -> None:
     gen = make_gen(
         tag_repository=fake_tag_repository([tag_record(_PII, "urn:li:tag:pii")]),
@@ -327,18 +369,27 @@ def test_only_skipped_properties_emit_no_upsert_aspect() -> None:
     assert aspects(workunits, StructuredPropertiesClass) == {}
 
 
-def test_container_tags_use_mapped_names() -> None:
-    gen = make_gen(
-        tag_repository=fake_tag_repository([tag_record(_PII, "urn:li:tag:pii")])
-    )
+def test_container_tags_keep_the_managed_tags_datahub_holds() -> None:
     db = database()
-    db.tags = [_PII]
+    db.tags = [_PII, _TIER]
+    container_urn = make_gen().identifiers.gen_database_key(DB).as_urn()
+    gen = make_gen(
+        tag_repository=fake_tag_repository(
+            [tag_record(_PII, "urn:li:tag:pii")],
+            in_datahub={
+                container_urn: [
+                    GlobalTagsClass([TagAssociationClass("urn:li:tag:pii")])
+                ]
+            },
+        )
+    )
 
     workunits = list(gen.gen_database_containers(db))
 
-    container_tags = list(aspects(workunits, GlobalTagsClass).values())
-    assert [[t.tag for t in tags.tags] for tags in container_tags] == [
-        ["urn:li:tag:pii"]
+    container_tags = aspects(workunits, GlobalTagsClass)[container_urn]
+    assert sorted(t.tag for t in container_tags.tags) == [
+        "urn:li:tag:pii",
+        _TIER_TAG_URN,
     ]
 
 

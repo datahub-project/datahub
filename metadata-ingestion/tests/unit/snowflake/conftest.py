@@ -23,6 +23,7 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    Mapping,
     Optional,
     Sequence,
     Set,
@@ -97,7 +98,6 @@ from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.metadata.schema_classes import (
     PlatformResourceInfoClass,
     SerializedValueClass,
-    StructuredPropertyDefinitionClass,
     _Aspect,
 )
 from datahub.metadata.urns import PlatformResourceUrn
@@ -235,17 +235,19 @@ def tag_record(
 
 def fake_tag_repository(
     records: Sequence[SnowflakeTagPlatformResource],
-    value_type: Optional[str] = None,
+    in_datahub: Optional[Mapping[str, Sequence[_Aspect]]] = None,
     load_error: Optional[Exception] = None,
+    read_error: Optional[Exception] = None,
     written_meanwhile: Sequence[SnowflakeTagPlatformResource] = (),
     malformed: int = 0,
 ) -> SnowflakeTagPlatformResourceRepository:
     """A repository over a fake graph storing ``records``.
 
     The graph's scroll honours the platform-instance filter, as GMS does.
-    ``written_meanwhile`` exist only for direct reads, as records another writer
-    created after the run started. ``malformed`` adds records whose value is
-    not a valid record.
+    ``in_datahub`` are the aspects entities hold now, by URN; ``read_error``
+    makes reading them fail. ``written_meanwhile`` exist only for direct reads,
+    as records another writer created after the run started. ``malformed`` adds
+    records whose value is not a valid record.
     """
     stored: Dict[str, Tuple[PlatformResourceInfoClass, Optional[str]]] = {}
     for record in records:
@@ -320,13 +322,16 @@ def fake_tag_repository(
     graph = create_autospec(DataHubGraph, instance=True)
     graph.scroll_entities.side_effect = scroll_entities
     graph.get_entities.side_effect = get_entities
-    graph.get_aspect.return_value = (
-        StructuredPropertyDefinitionClass(
-            qualifiedName="q", valueType=value_type, entityTypes=[]
-        )
-        if value_type
-        else None
-    )
+
+    def get_aspect(entity_urn: str, aspect_type: Type[A]) -> Optional[A]:
+        if read_error is not None:
+            raise read_error
+        for aspect in (in_datahub or {}).get(entity_urn, []):
+            if isinstance(aspect, aspect_type):
+                return aspect
+        return None
+
+    graph.get_aspect.side_effect = get_aspect
     return SnowflakeTagPlatformResourceRepository(graph)
 
 

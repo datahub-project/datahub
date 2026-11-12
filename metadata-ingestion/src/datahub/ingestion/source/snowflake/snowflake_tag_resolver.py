@@ -1,12 +1,13 @@
-import math
 import threading
-from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Set, Union
+from typing import Dict, Iterable, List, Optional, Set, Type, TypeVar
 
 from datahub.api.entities.common.serialized_value import SerializedResourceValue
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import StructuredPropertyWriteMode
+from datahub.emitter.mcp_builder import (
+    StructuredPropertyValues,
+    StructuredPropertyWriteMode,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
@@ -24,44 +25,45 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
 from datahub.metadata.schema_classes import (
+    GlobalTagsClass,
     StatusClass,
-    StructuredPropertyDefinitionClass,
+    StructuredPropertiesClass,
+    TagAssociationClass,
+    _Aspect,
 )
-from datahub.metadata.urns import DataTypeUrn, StructuredPropertyUrn, TagUrn
+from datahub.metadata.urns import StructuredPropertyUrn, TagUrn
 from datahub.utilities.urns.urn import Urn
 
-_NUMBER_TYPE_URN = DataTypeUrn("datahub.number").urn()
+_A = TypeVar("_A", bound=_Aspect)
 
 
 def _lower(value: Optional[str]) -> Optional[str]:
     return value.lower() if value is not None else None
 
 
-@dataclass(frozen=True)
-class ResolvedStructuredProperty:
-    urn: StructuredPropertyUrn
-    value: Union[str, float]
-
-
-class _UnresolvedProperty(Exception):
-    """A DataHub-owned property whose value could not be written back."""
+class _AspectUnreadable(Exception):
+    """DataHub's current aspect of an entity could not be read."""
 
 
 class SnowflakeTagResolver:
-    """Decides which DataHub URN a Snowflake tag becomes, or whether it is skipped.
+    """Decides which Snowflake tags ingestion writes, and keeps DataHub's own.
 
     A Snowflake tag that DataHub sync-back created carries a PlatformResource
     record with `managed_by_datahub=True` that names the DataHub tag, glossary
-    term or structured property it stands for. Such a tag maps back to that URN
-    where the aspect being written replaces the user's copy whole (dataset and
-    container `GlobalTags`, `UPSERT` structured properties): leaving it out would
-    delete it. Everywhere else it is skipped, because DataHub already holds it.
-    Every other tag is native and resolves exactly as before; its record is
-    written with `managed_by_datahub=False`.
+    term or structured property it stands for. DataHub is the source of truth
+    for those: ingestion never takes them from Snowflake, whose
+    `tag_references` view lags by up to hours and would undo a recent change
+    in DataHub. Where ingestion writes an aspect whole (dataset and container
+    `GlobalTags`, `UPSERT` structured properties), it keeps the values DataHub
+    currently holds for URNs that managed records link. Every other tag is
+    native and resolves exactly as before; its record is written with
+    `managed_by_datahub=False`.
 
     All records of this platform instance are loaded with one paged scroll on
-    first use, so lookups cost nothing per tag. Without a repository (no DataHub
-    graph), or if loading fails, every tag is native.
+    first use, so lookups cost nothing per tag. DataHub's current aspect is
+    read only for entities about to get a whole aspect, and only when a managed
+    record links a URN of that kind. Without a repository (no DataHub graph),
+    or if loading fails, every tag is native.
     """
 
     def __init__(
@@ -83,31 +85,17 @@ class SnowflakeTagResolver:
         self._new_keys: Set[str] = set()
         self._queued: Dict[str, SnowflakeTagPlatformResource] = {}
         self._emitted: Set[str] = set()
-        self._value_types: Dict[str, str] = {}
-        self._unreadable_definitions: Set[str] = set()
         # Filled by the load and emptied once their Status is emitted.
         self._managed_record_urns: List[str] = []
+        # DataHub URNs that managed records link, and their entity types.
+        self._managed_linked_urns: Set[str] = set()
+        self._managed_linked_entity_types: Set[str] = set()
 
-    def resolve_tag_urn(
-        self, tag: SnowflakeTag, map_back: bool = True
-    ) -> Optional[TagUrn]:
-        """The tag URN to write, or None to leave the tag out.
-
-        `map_back=False` is for aspects that are ingestion's own copy (column
-        tags in schemaMetadata), where a DataHub-owned tag is simply skipped.
-        """
-        value_record = self._lookup(tag, with_value=True)
-        managed = self._managed_urn(value_record)
-        if managed is not None:
-            if map_back and managed.entity_type == TagUrn.ENTITY_TYPE:
-                self.report.num_tags_mapped_to_datahub_urn += 1
-                return TagUrn.from_string(managed.urn())
+    def resolve_tag_urn(self, tag: SnowflakeTag) -> Optional[TagUrn]:
+        """The native tag URN for `tag`, or None if DataHub manages it."""
+        if not self.is_native(tag):
             self.report.num_tags_skipped_datahub_managed += 1
             return None
-        if self._managed_urn(self._lookup(tag, with_value=False)) is not None:
-            self.report.num_tags_skipped_datahub_managed += 1
-            return None
-
         native = TagUrn.from_string(
             make_tag_urn(self.identifiers.snowflake_identifier(tag.tag_identifier()))
         )
@@ -120,24 +108,73 @@ class SnowflakeTagResolver:
             and self._managed_urn(self._lookup(tag, with_value=False)) is None
         )
 
-    def resolve_structured_properties(
-        self, tags: List[SnowflakeTag]
-    ) -> Optional[Dict[StructuredPropertyUrn, Union[str, float]]]:
-        """The properties to write for one entity, or None to write none at all.
+    def global_tags(
+        self, entity_urn: str, tags: List[SnowflakeTag]
+    ) -> Optional[GlobalTagsClass]:
+        """The whole `GlobalTags` aspect to write for an entity, or None for none.
 
-        In `UPSERT` mode the aspect is replaced whole, so a DataHub-owned
-        property that cannot be written back blocks the entity's aspect rather
-        than being dropped from it (which would delete the user's value).
+        Native tags from Snowflake, plus the managed tags DataHub holds now.
+        Nothing is written when there is no native tag (as before) or when
+        DataHub's tags could not be read, since the write would drop them.
         """
-        resolved: Dict[StructuredPropertyUrn, Union[str, float]] = {}
+        native = [
+            tag_urn.urn()
+            for tag_urn in (self.resolve_tag_urn(tag) for tag in tags)
+            if tag_urn is not None
+        ]
+        if not native:
+            return None
+        try:
+            current = self._current_aspect(
+                entity_urn, TagUrn.ENTITY_TYPE, GlobalTagsClass
+            )
+        except _AspectUnreadable:
+            return None
+        associations = [TagAssociationClass(tag=urn) for urn in dict.fromkeys(native)]
+        for association in current.tags if current else []:
+            if (
+                association.tag in self._managed_linked_urns
+                and association.tag not in native
+            ):
+                associations.append(association)
+                self.report.num_managed_tags_preserved_from_datahub += 1
+        return GlobalTagsClass(tags=associations)
+
+    def resolve_structured_properties(
+        self,
+        entity_urn: str,
+        tags: List[SnowflakeTag],
+        write_mode: StructuredPropertyWriteMode,
+    ) -> Optional[Dict[StructuredPropertyUrn, StructuredPropertyValues]]:
+        """The properties to write for an entity, or None to write none at all.
+
+        Native properties from Snowflake. `UPSERT` replaces the aspect whole, so
+        it also gets the values DataHub holds now for managed properties, and
+        nothing is written if those could not be read.
+        """
+        resolved: Dict[StructuredPropertyUrn, StructuredPropertyValues] = {}
         for tag in tags:
-            try:
-                prop = self._resolve_structured_property(tag)
-            except _UnresolvedProperty:
-                self.report.num_structured_properties_unresolved += 1
-                return None
+            prop = self._native_structured_property(tag)
             if prop is not None:
-                resolved[prop.urn] = prop.value
+                resolved[prop] = tag.value
+        if not resolved:
+            return None
+        if write_mode != StructuredPropertyWriteMode.UPSERT:
+            return resolved
+        try:
+            current = self._current_aspect(
+                entity_urn, StructuredPropertyUrn.ENTITY_TYPE, StructuredPropertiesClass
+            )
+        except _AspectUnreadable:
+            return None
+        for assignment in current.properties if current else []:
+            prop = StructuredPropertyUrn.from_string(assignment.propertyUrn)
+            if (
+                assignment.propertyUrn in self._managed_linked_urns
+                and prop not in resolved
+            ):
+                resolved[prop] = list(assignment.values)
+                self.report.num_managed_structured_properties_preserved_from_datahub += 1
         return resolved
 
     def platform_resource_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -171,33 +208,41 @@ class SnowflakeTagResolver:
             for mcp in record.as_platform_resource().to_mcps():
                 yield mcp.as_workunit()
 
-    def _resolve_structured_property(
+    def _native_structured_property(
         self, tag: SnowflakeTag
-    ) -> Optional[ResolvedStructuredProperty]:
-        if self._managed_urn(self._lookup(tag, with_value=True)) is not None:
+    ) -> Optional[StructuredPropertyUrn]:
+        if not self.is_native(tag):
             self.report.num_structured_properties_skipped_datahub_managed += 1
             return None
-
-        managed = self._managed_urn(self._lookup(tag, with_value=False))
-        if managed is not None:
-            if (
-                managed.entity_type != StructuredPropertyUrn.ENTITY_TYPE
-                or self.config.structured_properties_write_mode
-                == StructuredPropertyWriteMode.PATCH
-            ):
-                self.report.num_structured_properties_skipped_datahub_managed += 1
-                return None
-            self.report.num_structured_properties_mapped_to_datahub_urn += 1
-            return ResolvedStructuredProperty(
-                urn=StructuredPropertyUrn.from_string(managed.urn()),
-                value=self._cast(managed.urn(), tag),
-            )
-
         native = StructuredPropertyUrn(
             self.identifiers.snowflake_identifier(tag.structured_property_identifier())
         )
         self._use_native(tag, with_value=False, urn=native.urn())
-        return ResolvedStructuredProperty(urn=native, value=tag.value)
+        return native
+
+    def _current_aspect(
+        self, entity_urn: str, linked_entity_type: str, aspect_type: Type[_A]
+    ) -> Optional[_A]:
+        """DataHub's aspect of `entity_urn`, or None if no managed record links
+        a URN of `linked_entity_type` (so nothing would be kept from it anyway)."""
+        self._load()
+        if (
+            self.repository is None
+            or linked_entity_type not in self._managed_linked_entity_types
+        ):
+            return None
+        try:
+            return self.repository.graph.get_aspect(entity_urn, aspect_type)
+        except Exception as e:
+            self.report.num_datahub_aspect_read_failures += 1
+            self.report.warning(
+                title="Failed to read an asset's current metadata from DataHub",
+                message=f"Its {aspect_type.ASPECT_NAME} is left unchanged for this "
+                "run, so tags or properties that DataHub manages are not lost.",
+                context=entity_urn,
+                exc=e,
+            )
+            raise _AspectUnreadable() from e
 
     def _load(self) -> Dict[str, SnowflakeTagPlatformResource]:
         with self._lock:
@@ -229,6 +274,11 @@ class SnowflakeTagResolver:
                     records[record.id.to_platform_resource_key().id] = record
                     if record.is_managed_by_datahub():
                         self._managed_record_urns.append(resource.urn)
+                        for urn in record.datahub_linked_resources().urns:
+                            self._managed_linked_urns.add(urn)
+                            self._managed_linked_entity_types.add(
+                                Urn.from_string(urn).entity_type
+                            )
             self._records = records
             return records
 
@@ -316,56 +366,3 @@ class SnowflakeTagResolver:
         except Exception:
             # Unknown is treated as written: skipping a record only delays it.
             return set(new_keys)
-
-    def _cast(self, property_urn: str, tag: SnowflakeTag) -> Union[str, float]:
-        value_type = self._value_type(property_urn)
-        if value_type != _NUMBER_TYPE_URN:
-            return tag.value
-        try:
-            number = float(tag.value)
-        except ValueError:
-            number = math.nan
-        # float() also accepts "nan" and "inf", which DataHub cannot store.
-        if not math.isfinite(number):
-            self.report.warning(
-                title="Snowflake tag value does not match its structured property type",
-                message="Structured properties of this asset are left unchanged.",
-                context=f"{tag.tag_identifier()} -> {property_urn}",
-            )
-            raise _UnresolvedProperty()
-        return number
-
-    def _value_type(self, property_urn: str) -> str:
-        with self._lock:
-            if property_urn in self._unreadable_definitions:
-                raise _UnresolvedProperty()
-            if property_urn in self._value_types:
-                return self._value_types[property_urn]
-        assert self.repository is not None
-        try:
-            definition = self.repository.graph.get_aspect(
-                property_urn, StructuredPropertyDefinitionClass
-            )
-        except Exception as e:
-            with self._lock:
-                self._unreadable_definitions.add(property_urn)
-            self.report.warning(
-                title="Failed to read structured property definition",
-                message="Structured properties of assets using it are left unchanged.",
-                context=property_urn,
-                exc=e,
-            )
-            raise _UnresolvedProperty() from e
-        if definition is None:
-            # A value for a property that no longer exists would fail the write.
-            with self._lock:
-                self._unreadable_definitions.add(property_urn)
-            self.report.warning(
-                title="Structured property definition not found",
-                message="Structured properties of assets using it are left unchanged.",
-                context=property_urn,
-            )
-            raise _UnresolvedProperty()
-        with self._lock:
-            self._value_types[property_urn] = definition.valueType
-        return definition.valueType
