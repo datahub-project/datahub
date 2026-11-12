@@ -1975,6 +1975,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             app.tables_read_failed = True
         else:
             self.reporter.apps_without_lineage_graph.append(app.id)
+            if previous is None:
+                # With no last read to compare with, the graph may only be
+                # missing because Qlik has not computed it yet, such as right
+                # after a reload, so the app's lineage is only added to.
+                app.tables_read_failed = True
+                self.reporter.warning(
+                    title="Qlik Cloud has no lineage graph for app",
+                    message="Qlik may not have computed it yet, so the lineage "
+                    "of the app's tables is only added to this run.",
+                    context=app.id,
+                )
 
     def _gen_item_workunits(
         self,
