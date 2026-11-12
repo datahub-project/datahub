@@ -8,6 +8,7 @@ import styled from 'styled-components';
 import { Column } from '@components/components/Table/types';
 
 import { useAvailableAgentTools, useAvailableAgents } from '@app/context/agents/toolDefinitions';
+import { McpConnectCard } from '@app/settingsV2/platform/ai/mcpServers/McpConnectCard';
 import { McpServerModal } from '@app/settingsV2/platform/ai/mcpServers/McpServerModal';
 import { McpServerScopePill } from '@app/settingsV2/platform/ai/mcpServers/McpServerScopePill';
 import { ToolItemPill } from '@app/settingsV2/platform/ai/mcpServers/ToolItemPill';
@@ -324,6 +325,8 @@ export const McpServersTab = ({ showCreateModal, setShowCreateModal }: McpServer
                     <Table<McpServerRow> columns={columns} data={rows} isLoading={loading} showHeader rowKey="id" />
                 </TableSection>
             )}
+
+            {globalEnabled && <McpConnectCard />}
 
             <ConfirmationModal
                 isOpen={confirmingDisable}

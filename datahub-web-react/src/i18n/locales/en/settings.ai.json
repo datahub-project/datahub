@@ -67,5 +67,22 @@
     "platform.ai.mcpServers.updateSuccess": "MCP server updated.",
     "platform.ai.mcpServers.saveError": "Failed to save MCP server.",
     "platform.ai.viewSelector.placeholder": "All data (no View)",
-    "platform.ai.viewSelector.loading": "Loading Views…"
+    "platform.ai.viewSelector.loading": "Loading Views…",
+    "platform.ai.mcpConnect.title": "Connect a client",
+    "platform.ai.mcpConnect.subtitle": "Add DataHub's default MCP server to an AI tool.",
+    "platform.ai.mcpConnect.tokenAuthTitle": "Authentication: access token",
+    "platform.ai.mcpConnect.tokenAuthBody": "DataHub token authentication is on, so every request needs a DataHub access token. Each request runs as the token's user, with that user's permissions. Replace <your-access-token> below with your token.",
+    "platform.ai.mcpConnect.createToken": "Create access token",
+    "platform.ai.mcpConnect.noAuthTitle": "Authentication: none",
+    "platform.ai.mcpConnect.noAuthBody": "DataHub token authentication is off, so this URL accepts requests without a token. MCP calls run as DataHub's system user, with metadata writes on: to turn them off, edit the default server and switch off its Write Metadata tools. Keep this URL on a trusted network, and turn on token authentication before you share it.",
+    "platform.ai.mcpConnect.clientsLabel": "MCP client",
+    "platform.ai.mcpConnect.otherClient": "Other",
+    "platform.ai.mcpConnect.addToFile": "Add to {{file}}",
+    "platform.ai.mcpConnect.runInTerminal": "Run in your terminal",
+    "platform.ai.mcpConnect.otherHint": "Any client that supports Streamable HTTP",
+    "platform.ai.mcpConnect.copy": "Copy",
+    "platform.ai.mcpConnect.copied": "Setup copied.",
+    "platform.ai.mcpConnect.claudeDesktopNote": "Claude Desktop's custom connectors are called from Anthropic's cloud and can't reach a private URL, so this setup runs the mcp-remote bridge on your machine (it needs Node.js).",
+    "platform.ai.mcpConnect.docsPrompt": "Using another AI tool?",
+    "platform.ai.mcpConnect.docsLink": "Connect it with MCP"
 }
