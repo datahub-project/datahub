@@ -364,4 +364,116 @@ public class BoundHierarchyAccessBatchTest {
     assertTrue(batch.getFailures().isEmpty());
     aspectReads(0);
   }
+
+  @Test
+  public void unboundCacheIsNeverConsulted() {
+    hierarchy();
+    when(cache.bindingForKnownGraph(KnownEntityGraph.CONTAINER)).thenReturn(Optional.empty());
+
+    BoundHierarchyAccess.BatchParents batch =
+        BoundHierarchyAccess.orderedParentsBatch(opContext, spec, List.of(LEAF, DATASET_A), 50);
+
+    assertEquals(batch.getParents().get(LEAF), List.of(MID, ROOT));
+    assertEquals(batch.getParents().get(DATASET_A), List.of(LEAF, MID, ROOT));
+    verify(cache, never())
+        .walkOrderedForwardAncestors(anyString(), any(), anyString(), anyInt(), any());
+  }
+
+  @Test
+  public void vertexSeedCacheMissFallsBackToAspects() {
+    hierarchy();
+
+    BoundHierarchyAccess.BatchParents batch =
+        BoundHierarchyAccess.orderedParentsBatch(opContext, spec, List.of(LEAF), 50);
+
+    assertEquals(batch.getParents().get(LEAF), List.of(MID, ROOT));
+    // The seed is tried in the cache (a miss), then its direct parent, each once.
+    verify(cache, times(1))
+        .walkOrderedForwardAncestors(anyString(), any(), eq(LEAF.toString()), anyInt(), any());
+    verify(cache, times(1))
+        .walkOrderedForwardAncestors(anyString(), any(), eq(MID.toString()), anyInt(), any());
+  }
+
+  @Test
+  public void parentCacheErrorFallsBackToTheDatabase() {
+    hierarchy();
+    when(cache.walkOrderedForwardAncestors(
+            eq("container"), eq(GraphSnapshotSource.GRAPH), eq(LEAF.toString()), anyInt(), any()))
+        .thenThrow(new RuntimeException("hazelcast read failed"));
+
+    BoundHierarchyAccess.BatchParents batch =
+        BoundHierarchyAccess.orderedParentsBatch(
+            opContext, spec, List.of(DATASET_A, DATASET_B), 50);
+
+    assertTrue(
+        batch.getFailures().isEmpty(), "a shared parent's cache error must not fail its seeds");
+    assertEquals(batch.getParents().get(DATASET_A), List.of(LEAF, MID, ROOT));
+    assertEquals(batch.getParents().get(DATASET_B), List.of(LEAF, MID, ROOT));
+  }
+
+  @Test
+  public void maxDepthOneReturnsOnlyTheDirectParent() {
+    hierarchy();
+
+    BoundHierarchyAccess.BatchParents batch =
+        BoundHierarchyAccess.orderedParentsBatch(opContext, spec, List.of(DATASET_A), 1);
+
+    assertEquals(batch.getParents().get(DATASET_A), List.of(LEAF));
+    aspectReads(1);
+    verify(cache, never())
+        .walkOrderedForwardAncestors(anyString(), any(), anyString(), anyInt(), any());
+  }
+
+  @Test
+  public void chainStopsWhereItCyclesBackToTheSeed() {
+    parentByUrn.put(LEAF, MID);
+    parentByUrn.put(MID, LEAF);
+
+    BoundHierarchyAccess.BatchParents batch =
+        BoundHierarchyAccess.orderedParentsBatch(opContext, spec, List.of(LEAF), 50);
+
+    assertEquals(batch.getParents().get(LEAF), List.of(MID));
+  }
+
+  @Test
+  public void seedTypeWithoutAParentAspectHasNoParents() {
+    final Urn user = UrnUtils.getUrn("urn:li:corpuser:someone");
+
+    BoundHierarchyAccess.BatchParents batch =
+        BoundHierarchyAccess.orderedParentsBatch(opContext, spec, List.of(user), 50);
+
+    assertEquals(batch.getParents().get(user), List.of());
+    aspectReads(0);
+  }
+
+  @Test
+  public void aspectBatchDeduplicatesSeedsAndHandlesEmptyReads() {
+    hierarchy();
+
+    AspectParentWalker.ChainLookup lookup =
+        AspectParentWalker.orderedParentsBatch(opContext, spec, List.of(LEAF, LEAF), 10);
+    assertEquals(lookup.getChains().size(), 1);
+    assertEquals(lookup.getChains().get(LEAF), List.of(MID, ROOT));
+
+    AspectParentWalker.ParentLookup empty =
+        AspectParentWalker.batchParents(opContext, spec, Set.of());
+    assertTrue(empty.getParents().isEmpty());
+    assertTrue(empty.getFailures().isEmpty());
+  }
+
+  @Test
+  public void aspectBatchDoesNotRetryAReadThatAlreadyFailed() {
+    // MID is a seed whose read fails (container group); DATASET_C reaches MID one level later.
+    parentByUrn.put(DATASET_C, MID);
+    failOn.add(MID);
+
+    AspectParentWalker.ChainLookup lookup =
+        AspectParentWalker.orderedParentsBatch(opContext, spec, List.of(MID, DATASET_C), 10);
+
+    assertSame(lookup.getFailures().get(MID), BOOM);
+    assertSame(lookup.getFailures().get(DATASET_C), BOOM);
+    assertTrue(lookup.getChains().isEmpty());
+    // One read per group at the first level; MID's failed read is not repeated for DATASET_C.
+    assertEquals(new java.util.HashSet<>(aspectReads(2)), Set.of(Set.of(MID), Set.of(DATASET_C)));
+  }
 }

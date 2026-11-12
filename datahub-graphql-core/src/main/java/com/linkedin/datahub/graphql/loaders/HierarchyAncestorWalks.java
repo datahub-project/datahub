@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import javax.annotation.Nullable;
 import org.dataloader.Try;
 
 /** Shared ancestor-walk step for the hierarchy batch loaders. */
@@ -42,23 +43,31 @@ final class HierarchyAncestorWalks {
             () -> BoundHierarchyAccess.orderedParentsBatch(opContext, spec, urns, maxDepth),
             loaderName,
             "orderedParentsBatch")
-        .handle(
-            (batch, error) -> {
-              final Map<Urn, Try<List<Urn>>> ancestors = new LinkedHashMap<>(urns.size());
-              for (Urn urn : urns) {
-                if (error != null) {
-                  ancestors.put(urn, Try.failed(unwrap(error)));
-                } else if (batch.getFailures().containsKey(urn)) {
-                  ancestors.put(urn, Try.failed(batch.getFailures().get(urn)));
-                } else if (batch.getParents().containsKey(urn)) {
-                  ancestors.put(urn, Try.succeeded(batch.getParents().get(urn)));
-                } else {
-                  ancestors.put(
-                      urn, Try.failed(new IllegalStateException("no ancestor walk for " + urn)));
-                }
-              }
-              return ancestors;
-            });
+        .handle((batch, error) -> toTries(urns, batch, error));
+  }
+
+  /**
+   * One {@link Try} per key. A failure of the whole batch task fails every key; otherwise each key
+   * gets its own chain or failure. A key the batch did not report fails loudly rather than being
+   * returned as an empty chain.
+   */
+  static Map<Urn, Try<List<Urn>>> toTries(
+      final List<Urn> urns,
+      @Nullable final BoundHierarchyAccess.BatchParents batch,
+      @Nullable final Throwable error) {
+    final Map<Urn, Try<List<Urn>>> ancestors = new LinkedHashMap<>(urns.size());
+    for (Urn urn : urns) {
+      if (error != null) {
+        ancestors.put(urn, Try.failed(unwrap(error)));
+      } else if (batch.getFailures().containsKey(urn)) {
+        ancestors.put(urn, Try.failed(batch.getFailures().get(urn)));
+      } else if (batch.getParents().containsKey(urn)) {
+        ancestors.put(urn, Try.succeeded(batch.getParents().get(urn)));
+      } else {
+        ancestors.put(urn, Try.failed(new IllegalStateException("no ancestor walk for " + urn)));
+      }
+    }
+    return ancestors;
   }
 
   /** Unwrap the CompletionException so the caller sees the real cause. */
