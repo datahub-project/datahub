@@ -1,22 +1,32 @@
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
 
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
-from datahub.ingestion.source.qlik_sense.data_classes import App
+from datahub.ingestion.source.qlik_sense.data_classes import (
+    App,
+    LineageTable,
+    UnreadItem,
+)
 from datahub.ingestion.source.qlik_sense.file_lineage import (
     FileStorage,
     file_storage_of_connection,
     file_storage_of_uri,
     qri_part_id,
 )
+from datahub.ingestion.source.qlik_sense.qlik_base_api import UNREAD_DATA_CONNECTIONS
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     DataConnectionInfo,
     parse_script,
+)
+from datahub.metadata.schema_classes import (
+    MetadataChangeProposalClass,
+    UpstreamLineageClass,
 )
 
 CLOUD_CONFIG = {"tenant_hostname": "tenant.example.com", "api_key": "key"}
@@ -319,3 +329,131 @@ def test_mapped_storage_is_not_trusted_for_another_scheme_or_shared_path(
         )
         is None
     )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_prod_file_is_not_linked_when_dev_reads_the_same_path(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source({"Prod": {"storage_uri": "s3://prod-bucket"}}, {})
+    source._file_sources_by_app["app-1"] = source._file_source_resolver(
+        App.model_validate(
+            {
+                "id": "app-1",
+                "qTitle": "Sales",
+                "createdDate": "2024-01-09T18:05:36.000Z",
+                "modifiedDate": "2024-01-09T18:05:36.000Z",
+                "spaceId": "space-1",
+            }
+        ),
+        parse_script(
+            "A: LOAD * FROM [lib://Prod/x.csv] (txt);\n"
+            "B: LOAD * FROM [lib://Dev/x.csv] (txt);\n"
+        ),
+    )
+
+    assert (
+        source._resolve_file_source("app-1", _file_qri("s3", "eu/dev", "x.csv")) is None
+    )
+
+
+def _graph_app_run(
+    mock_api_cls: MagicMock,
+    file_connection_to_storage: Dict,
+    unread: List[UnreadItem],
+    variables_read_failed: bool = False,
+) -> Dict[str, str]:
+    """How each table's UpstreamLineage is written by a whole app run: "whole"
+    or "patch"."""
+    api = mock_api_cls.return_value
+    api.unread_items = unread
+    api.list_datasets.return_value = []
+    api.get_user_name.return_value = None
+    api.spaces = {"space-1": "Sales Space"}
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(
+            {**CLOUD_CONFIG, "file_connection_to_storage": file_connection_to_storage}
+        ),
+        PipelineContext(run_id="test-file-lineage"),
+    )
+    source._allowed_space_ids = {"space-1"}
+    source._data_connections = {}
+    app = App.model_validate(
+        {
+            "id": "app-1",
+            "qTitle": "Sales",
+            "createdDate": "2024-01-09T18:05:36.000Z",
+            "modifiedDate": "2024-01-09T18:05:36.000Z",
+            "spaceId": "space-1",
+            "script": SCRIPT,
+            "variables": {}
+            if variables_read_failed
+            else {"vLake": "lib://Sales Space:Lake/"},
+            "variables_read_failed": variables_read_failed,
+            "lineage_tables": [
+                LineageTable(
+                    qri="qri:app:sense://app-1#Orders",
+                    label="Orders",
+                    source_qris=[
+                        _file_qri("adls", "unknown", "landing/orders.csv"),
+                    ],
+                )
+            ],
+        }
+    )
+    writes: Dict[str, str] = {}
+    for wu in source._gen_app_workunit(app):
+        lineage = wu.get_aspect_of_type(UpstreamLineageClass)
+        if lineage:
+            writes[wu.get_urn()] = ",".join(u.dataset for u in lineage.upstreams)
+        elif (
+            isinstance(wu.metadata, MetadataChangeProposalClass)
+            and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+        ):
+            writes[wu.get_urn()] = "patch"
+    return writes
+
+
+ORDERS = make_dataset_urn("qlik-sense", "app-1.orders")
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_graph_table_links_to_the_file_its_script_loads(
+    mock_api_cls: MagicMock,
+) -> None:
+    writes = _graph_app_run(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        [],
+    )
+
+    assert writes[ORDERS] == (
+        "urn:li:dataset:(urn:li:dataPlatform:abs,lake/landing/orders.csv,PROD)"
+    )
+
+
+@pytest.mark.parametrize(
+    "listing_failed, variables_failed, written_whole",
+    [(True, False, False), (False, True, False), (False, False, True)],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unresolved_file_keeps_lineage_when_its_inputs_were_not_read(
+    mock_api_cls: MagicMock,
+    listing_failed: bool,
+    variables_failed: bool,
+    written_whole: bool,
+) -> None:
+    # Without the connections, or the variables its path is built from, the
+    # file may be one the last run linked, so the table's lineage is only
+    # added to; with both read, the unresolved file is known to be unlinked.
+    writes = _graph_app_run(
+        mock_api_cls,
+        {},
+        [UnreadItem(name=UNREAD_DATA_CONNECTIONS, cause="timeout")]
+        if listing_failed
+        else [],
+        variables_read_failed=variables_failed,
+    )
+
+    assert (writes.get(ORDERS) == "") is written_whole
+    assert writes.get(ORDERS) != "patch" or not written_whole

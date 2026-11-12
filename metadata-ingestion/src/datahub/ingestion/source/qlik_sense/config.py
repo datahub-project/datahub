@@ -188,6 +188,12 @@ class FileStorageDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
         "which needs the API key's user to see the connection.",
     )
 
+    convert_urns_to_lowercase: bool = Field(
+        default=False,
+        description="Lowercase the file dataset names, to match a storage source "
+        "run with `convert_urns_to_lowercase`.",
+    )
+
     @field_validator("storage_uri")
     @classmethod
     def storage_uri_is_supported(cls, value: Optional[str]) -> Optional[str]:

@@ -22,6 +22,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     UnchangedApp,
 )
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
+    UNREAD_DATA_CONNECTIONS,
     IsUnchanged,
     QlikBaseAPI,
     ReadErrors,
@@ -345,7 +346,9 @@ class QlikOnPremAPI(QlikBaseAPI):
                 # Every sheet of an unpublished app is still private.
                 keep_private=app.spaceId == UNPUBLISHED_APPS_ID,
             )
-            app.variables = self._read_variables(websocket_connection, app.id)
+            variables = self._read_variables(websocket_connection, app.id)
+            app.variables = variables or {}
+            app.variables_read_failed = variables is None
             app.script = self._read_load_script(
                 websocket_connection, app.id, on_error=errors.record
             )
@@ -440,7 +443,7 @@ class QlikOnPremAPI(QlikBaseAPI):
                 connections[name] = info
         except Exception as e:
             self._record_unread(
-                "data connections",
+                UNREAD_DATA_CONNECTIONS,
                 f"Unable to fetch data connections. Exception: {e}",
                 e,
             )

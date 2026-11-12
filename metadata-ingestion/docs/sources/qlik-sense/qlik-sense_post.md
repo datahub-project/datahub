@@ -50,7 +50,7 @@ file_connection_to_storage:
     platform_instance: sales_lake
 ```
 
-A file is named `<container or bucket>/<folder>/<path>`, as the `abs`, `s3` and `gcs` sources name a file when their `path_specs` ingest files individually. File connections whose files an app reads but whose storage is not known are listed under `unresolved_file_connections` in the report. This applies to apps whose tables come from the lineage graph, listed under `apps_without_load_model`.
+A file is named `<container or bucket>/<folder>/<path>`, as the `abs`, `s3` and `gcs` sources name a file when their `path_specs` ingest files individually. Names keep the case of the path the script reads; set `convert_urns_to_lowercase: true` on a mapping when the storage source is run with that option. A file is linked only when one connection could hold it: when the script reads the same path through another connection whose storage is not known, the file is left out. When the data connections or an app's variables could not be read, files that are not resolved keep their lineage from the last run. File connections whose files an app reads but whose storage is not known are listed under `unresolved_file_connections` in the report. This applies to apps whose tables come from the lineage graph, listed under `apps_without_load_model`.
 
 #### App data models (on-prem)
 

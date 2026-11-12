@@ -41,6 +41,10 @@ logger = logging.getLogger(__name__)
 IsUnchanged = Callable[[str, str], bool]
 
 
+# The unread item a failed data connection listing records.
+UNREAD_DATA_CONNECTIONS = "data connections"
+
+
 def log_read_error(message: str) -> None:
     logger.warning(message)
     _, e, _ = sys.exc_info()
@@ -226,14 +230,15 @@ class QlikBaseAPI(ABC):
     @staticmethod
     def _read_variables(
         websocket_connection: WebsocketConnection, app_id: str
-    ) -> Dict[str, str]:
+    ) -> Optional[Dict[str, str]]:
         # Without the variables, charts that expand one link to every table of
-        # the app, as before, so a failed read leaves the app complete.
+        # the app, as before, so a failed read leaves the app complete; None
+        # tells the source to keep lineage that depends on them.
         try:
             return websocket_connection.get_variables()
         except Exception as e:
             log_read_error(f"Unable to read the variables of app {app_id}: {e}")
-        return {}
+        return None
 
     def _get_sheet(
         self,

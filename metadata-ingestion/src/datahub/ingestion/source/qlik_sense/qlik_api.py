@@ -19,6 +19,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
 )
 from datahub.ingestion.source.qlik_sense.file_lineage import file_storage_of_connection
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
+    UNREAD_DATA_CONNECTIONS,
     IsUnchanged,
     QlikBaseAPI,
     ReadErrors,
@@ -359,7 +360,7 @@ class QlikAPI(QlikBaseAPI):
                 by_name.setdefault(name, []).append(info)
         except Exception as e:
             self._record_unread(
-                "data connections",
+                UNREAD_DATA_CONNECTIONS,
                 f"Unable to fetch data connections. Exception: {e}",
                 e,
             )
@@ -384,7 +385,9 @@ class QlikAPI(QlikBaseAPI):
             if script_app:
                 app.qri = f"qri:app:dataprep://{app_id}"
             app.sheets = self._get_app_sheets(websocket_connection, app_id, errors)
-            app.variables = self._read_variables(websocket_connection, app_id)
+            variables = self._read_variables(websocket_connection, app_id)
+            app.variables = variables or {}
+            app.variables_read_failed = variables is None
             read_errors = len(errors.messages)
             app.tables = self._get_app_used_tables(websocket_connection, app_id, errors)
             if not app.tables and len(errors.messages) == read_errors:
