@@ -3,7 +3,6 @@ from typing import Any, Dict, List
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
-import psycopg2
 import pytest
 from pydantic import ValidationError
 from sqlalchemy.dialects.postgresql import (
@@ -655,39 +654,48 @@ def test_get_inspectors_skips_databases_denied_by_pattern(
     assert create_engine_mock.call_args_list[1][0][0].endswith("keep_me")
 
 
+def _engines_with_one_unreachable_database(
+    engines: Dict[str, List[MagicMock]],
+    connection_db: Dict[FakeConnection, str],
+) -> Any:
+    """A create_engine stand-in for a server listing my_db_a, my_db_denied and
+    my_db_b, where connecting to my_db_denied fails."""
+
+    def make_engine(url: Any, **kwargs: Any) -> MagicMock:
+        db_name = str(url).rsplit("/", 1)[-1]
+        engine = MagicMock()
+        engines.setdefault(db_name, []).append(engine)
+        if db_name == "my_db_denied":
+            engine.connect.side_effect = OperationalError(
+                "connect", {}, Exception("permission denied")
+            )
+        else:
+            conn = FakeConnection(
+                {
+                    "pg_database": [
+                        {"datname": name}
+                        for name in ["my_db_a", "my_db_denied", "my_db_b"]
+                    ]
+                }
+            )
+            connection_db[conn] = db_name
+            engine.connect.return_value = conn
+        return engine
+
+    return make_engine
+
+
 @patch("datahub.ingestion.source.sql.postgres.source.inspect")
 @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
 def test_get_inspectors_skips_unreachable_database_and_reports_it(
     create_engine_mock: MagicMock, inspect_mock: MagicMock
 ) -> None:
-    databases = ["my_db_a", "my_db_denied", "my_db_b"]
-    denied_engines: List[MagicMock] = []
-
-    def make_engine(url: Any, **kwargs: Any) -> MagicMock:
-        db_name = str(url).rsplit("/", 1)[-1]
-        engine = MagicMock()
-        if db_name == "my_db_denied":
-            engine.connect.side_effect = OperationalError(
-                "connect",
-                {},
-                psycopg2.OperationalError(
-                    'FATAL:  permission denied for database "my_db_denied"\n'
-                    "DETAIL:  User does not have CONNECT privilege.\n"
-                ),
-            )
-            denied_engines.append(engine)
-        else:
-            # Initial connection lists the databases; per-database connections
-            # are tagged so the test can tell which database was inspected.
-            conn = engine.connect.return_value.__enter__.return_value
-            conn.execute.return_value.mappings.return_value = [
-                {"datname": name} for name in databases
-            ]
-            engine.connect.return_value.db_name = db_name
-        return engine
-
-    create_engine_mock.side_effect = make_engine
-    inspect_mock.side_effect = lambda conn: conn.db_name
+    engines: Dict[str, List[MagicMock]] = {}
+    connection_db: Dict[FakeConnection, str] = {}
+    create_engine_mock.side_effect = _engines_with_one_unreachable_database(
+        engines, connection_db
+    )
+    inspect_mock.side_effect = lambda conn: connection_db[conn]
     config = PostgresConfig.model_validate(
         {**_base_config(), "initial_database": "postgres"}
     )
@@ -699,15 +707,35 @@ def test_get_inspectors_skips_unreachable_database_and_reports_it(
     # The skipped database is reported as a failure, which also stops stateful
     # ingestion from soft-deleting its previously ingested entities.
     failures = list(source.get_report().failures)
-    assert len(failures) == 1
+    assert log_contexts(failures) == {"my_db_denied"}
     assert len(failures[0].context) == 1
-    assert "my_db_denied" in failures[0].context[0]
 
     # Later passes (profiling, lineage) neither retry nor re-report it.
     assert list(source.get_inspectors()) == ["my_db_a", "my_db_b"]
-    assert len(denied_engines) == 1
-    assert denied_engines[0].connect.call_count == 1
+    assert len(engines["my_db_denied"]) == 1
     assert len(list(source.get_report().failures)[0].context) == 1
+
+    # Each per-database engine is disposed once its inspector is consumed,
+    # rather than holding a pooled connection for the whole run.
+    for db_name in ["my_db_a", "my_db_denied", "my_db_b"]:
+        assert all(e.dispose.called for e in engines[db_name])
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.inspect")
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_test_connection_reports_unreachable_database(
+    create_engine_mock: MagicMock, inspect_mock: MagicMock
+) -> None:
+    create_engine_mock.side_effect = _engines_with_one_unreachable_database({}, {})
+
+    report = PostgresSource.test_connection(
+        {**_base_config(), "initial_database": "postgres"}
+    )
+
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason is not None
+    assert "my_db_denied" in report.basic_connectivity.failure_reason
 
 
 # --- view lineage fallback for views sqlglot could not parse ---

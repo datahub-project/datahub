@@ -578,9 +578,11 @@ class PostgresSource(SQLAlchemySource):
             config.rds_iam_token_manager()
         )
 
-        # Databases get_inspectors() could not connect to. It runs once per
-        # pass (workunits, profiling, lineage); later passes skip these
-        # rather than reconnecting and reporting them again.
+        # Databases get_inspectors() failed to connect to during this run. A
+        # database that fails once is skipped for the rest of the run,
+        # transient failures (e.g. "too many clients") included. That keeps
+        # the passes over get_inspectors() (workunits, profiling, lineage)
+        # consistent: none emits aspects for a database another skipped.
         self._unreachable_databases: Set[str] = set()
 
         self.sql_aggregator: Optional[SqlParsingAggregator] = None
@@ -683,10 +685,10 @@ class PostgresSource(SQLAlchemySource):
             else:
                 databases = self.config.list_databases(conn)
                 for db_name in databases:
-                    if (
-                        not self.config.database_pattern.allowed(db_name)
-                        or db_name in self._unreachable_databases
-                    ):
+                    if not self.config.database_pattern.allowed(db_name):
+                        continue
+                    if db_name in self._unreachable_databases:
+                        # Reported on an earlier pass; don't reconnect or re-report.
                         continue
 
                     url = self.config.get_sql_alchemy_url(database=db_name)
@@ -694,24 +696,33 @@ class PostgresSource(SQLAlchemySource):
                     self._setup_rds_iam_event_listener(db_engine)
 
                     try:
-                        db_conn = db_engine.connect()
-                    except OperationalError as e:
-                        # A failure (not a warning) on purpose: stateful ingestion
-                        # skips soft-deletion when the report has failures, so the
-                        # skipped database's entities are not marked as removed.
-                        self.report.failure(
-                            title="Failed to connect to database",
-                            message="Skipping this database; other databases are still ingested. "
-                            "Check that the ingestion user can connect to it (e.g. has the CONNECT privilege), "
-                            "or exclude it with database_pattern.deny.",
-                            context=db_name,
-                            exc=e,
-                        )
-                        self._unreachable_databases.add(db_name)
+                        try:
+                            db_conn = db_engine.connect()
+                        except OperationalError as e:
+                            # A failure (not a warning) on purpose: stateful
+                            # ingestion skips soft-deletion when the report has
+                            # failures, so the skipped database's entities are
+                            # not marked as removed.
+                            self.report.failure(
+                                title="Failed to connect to database",
+                                message="Skipping this database; other databases are still ingested. "
+                                "Check that the ingestion user can connect to it (e.g. has the CONNECT privilege), "
+                                "or exclude it with database_pattern.deny.",
+                                context=db_name,
+                                exc=e,
+                            )
+                            self._unreachable_databases.add(db_name)
+                            continue
+                        with db_conn:
+                            # Invariant: the caller must finish reflection and
+                            # profiling for this database before asking for the
+                            # next inspector -- the finally below disposes the
+                            # engine on resume.
+                            yield inspect(db_conn)
+                    finally:
+                        # Otherwise each engine's pool keeps a connection open
+                        # per database for the whole run.
                         db_engine.dispose()
-                        continue
-                    with db_conn:
-                        yield inspect(db_conn)
 
     def _get_view_names(self, inspector: Inspector, schema: str) -> List[str]:
         view_names = super()._get_view_names(inspector, schema)
