@@ -112,6 +112,12 @@ run_pytest_policy_phases() {
   # rc 5 from BOTH means the batch collected nothing at all, which _pytest_ok
   # would otherwise report as success: a green job that tested nothing.
   if [[ "$rc1" -eq 5 && "$rc2" -eq 5 ]]; then
+    # Active smart testing deselects modules the PR does not touch, so a batch
+    # can legitimately end up empty. Every other empty run still fails.
+    if [[ "${SMOKE_SMART_TESTING:-off}" == "active" ]]; then
+      echo "SMOKE_SMART_TESTING=active: smart selection left this batch empty"
+      return 0
+    fi
     echo "ERROR: both pytest phases collected 0 tests for this batch." \
          "Refusing to report an empty run as success." >&2
     return 1
@@ -121,6 +127,24 @@ run_pytest_policy_phases() {
   _pytest_ok "$rc2" || return "$rc2"
   return 0
 }
+
+if [[ "${TEST_STRATEGY:-}" == "plan" ]]; then
+  # CI's smoke_test_matrix job: smart-select and size the pytest batch matrix
+  # without running anything. Same -m as the batch jobs so the plan and the
+  # batch jobs collect the same set. Writes JSON to SMOKE_DUMP_BATCH_PLAN.
+  : "${PLAN_MAX_BATCHES:?PLAN_MAX_BATCHES must be set for TEST_STRATEGY=plan}"
+  : "${SMOKE_DUMP_BATCH_PLAN:?SMOKE_DUMP_BATCH_PLAN must be set for TEST_STRATEGY=plan}"
+  # PYTHONPATH=.: pytest loads -p plugins before rootdir is on sys.path.
+  # A collection error fails this (no plan), and CI falls back to the p0 matrix.
+  set +e
+  PYTHONPATH=. pytest -p batch_plan_dump --collect-only -q \
+    ${tier_args[@]+"${tier_args[@]}"} --size-batches "$PLAN_MAX_BATCHES"
+  rc=$?
+  set -e
+  # The plugin clears the collected items, so success is exit 5 (no tests).
+  _pytest_ok "$rc" || exit "$rc"
+  exit 0
+fi
 
 # When invoked via the github action, BATCH_COUNT and BATCH_NUMBER env vars are set to run a slice of those tests per
 # worker for parallelism. docker-unified.yml generates a test matrix of pytests in batches. As number of tests
