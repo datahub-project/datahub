@@ -2093,18 +2093,22 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             for name in field_types:
                 folded.setdefault(name.lower(), []).append(name)
             typed = []
-            for field in schema:
-                matches = folded.get(field.name.lower(), [])
-                name = (
-                    field.name
-                    if field.name in field_types
+            for schema_field in schema:
+                matches = folded.get(schema_field.name.lower(), [])
+                stored_name: Optional[str] = (
+                    schema_field.name
+                    if schema_field.name in field_types
                     else (matches[0] if len(matches) == 1 else None)
                 )
-                stored_types = field_types.get(name, set()) if name else set()
+                stored_types = (
+                    field_types.get(stored_name, set()) if stored_name else set()
+                )
                 typed.append(
-                    field.model_copy(update={"dataType": next(iter(stored_types))})
+                    schema_field.model_copy(
+                        update={"dataType": next(iter(stored_types))}
+                    )
                     if len(stored_types) == 1
-                    else field
+                    else schema_field
                 )
             yield self._gen_schema_metadata(identifier, typed)
 
