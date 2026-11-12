@@ -36,6 +36,7 @@
     "sources.glue.description": "Importer les Tables, Databases, Jobs, les statistiques et le lineage vers S3 depuis AWS Glue.",
     "sources.grafana.description": "Importer les Dashboards, Charts et sources de données depuis Grafana.",
     "sources.hex.description": "Importer les Projects, Components, le lineage, l'historique des runs et les documents de contexte IA depuis Hex.",
+    "sources.hightouch.description": "Importer depuis Hightouch les modèles, les synchronisations, l'historique des exécutions et le lignage entre les sources d'entrepôt et les destinations en aval.",
     "sources.hive.description": "Importer les Tables, Views, Databases, Schemas et les statistiques depuis Hive.",
     "sources.iceberg.description": "Ingérer les bases de données et les tables depuis n'importe quelle implémentation de catalogue Iceberg.",
     "sources.informatica.description": "Importer les Mappings, Taskflows, le lineage, la propriété et les tags depuis Informatica Intelligent Data Management Cloud (IDMC).",

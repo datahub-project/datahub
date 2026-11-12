@@ -1,5 +1,4 @@
-import { render, screen } from '@testing-library/react';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act, render, screen } from '@testing-library/react';
 import React from 'react';
 import { ThemeProvider } from 'styled-components';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,6 +7,7 @@ import { ToastRenderer, toast } from '@components/components/Toast';
 
 import useShowToast from '@app/homeV3/toast/useShowToast';
 import themeV2 from '@conf/theme/themeV2';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
     <ThemeProvider theme={themeV2}>{children}</ThemeProvider>

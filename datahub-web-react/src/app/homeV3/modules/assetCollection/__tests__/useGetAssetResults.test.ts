@@ -1,10 +1,10 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useGetAssetResults from '@app/homeV3/modules/assetCollection/useGetAssetResults';
 import { convertFiltersMapToFilters } from '@app/searchV2/filtersV2/utils';
 import { UnionType } from '@app/searchV2/utils/constants';
 import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 

@@ -159,6 +159,8 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
         skip: !urn || hideSemanticVersions,
     });
 
+    // The edited primary key is not versioned, so older schema versions show only their source key.
+    const editedPrimaryKeys = isLatestVersion ? entityWithSchema?.editablePrimaryKeys?.primaryKeys : undefined;
     let editMode = true;
     if (!isLatestVersion) {
         schemaMetadata = versionedSchema;
@@ -270,6 +272,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                     rows={rows}
                     schemaMetadata={schemaMetadata}
                     editableSchemaMetadata={editableSchemaMetadata}
+                    editedPrimaryKeys={editedPrimaryKeys}
                     expandedDrawerFieldPath={expandedDrawerFieldPath}
                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                     openTimelineDrawer={openTimelineDrawer}
@@ -353,6 +356,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                                     schemaMetadata={schemaMetadata}
                                     rows={rows}
                                     editableSchemaMetadata={editableSchemaMetadata}
+                                    editedPrimaryKeys={editedPrimaryKeys}
                                     usageStats={usageStats}
                                     expandedRowsFromFilter={expandedRowsFromFilter}
                                     filterText={filterText}

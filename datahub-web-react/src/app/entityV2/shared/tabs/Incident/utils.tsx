@@ -27,7 +27,7 @@ import {
 } from '@app/entityV2/shared/tabs/Incident/types';
 import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
-import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
+import { getCapitalizeWord } from '@app/sharedV2/textUtil';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
 import {
     EntityType,

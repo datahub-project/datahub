@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import React, { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,6 +8,7 @@ import {
     isSearchViewReady,
     useIsSearchViewReady,
 } from '@app/searchV2/useIsSearchViewReady';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const STORED_VIEW_URN = 'urn:li:dataHubView:default';
 
