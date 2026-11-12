@@ -15,11 +15,11 @@ export class SearchPage extends BasePage {
   readonly addFilterButton: Locator;
   readonly clearAllFiltersButton: Locator;
   readonly moreFiltersDropdown: Locator;
-  readonly updateFiltersButton: Locator;
   readonly searchBarInput: Locator;
   readonly clearButton: Locator;
   readonly autocompleteDropdown: Locator;
   readonly filterDropdownMenu: Locator;
+  readonly filterOptions: Locator;
   private readonly visibleMoreFilterOptions: Locator;
   private readonly graphql: GraphQLHelper;
 
@@ -34,11 +34,11 @@ export class SearchPage extends BasePage {
     this.addFilterButton = page.getByText('Add Filter');
     this.clearAllFiltersButton = page.getByTestId('clear-all-filters');
     this.moreFiltersDropdown = page.getByTestId('more-filters-dropdown');
-    this.updateFiltersButton = page.getByTestId('update-filters');
     this.searchBarInput = page.getByTestId('search-bar');
     this.clearButton = page.getByTestId('button-clear');
     this.autocompleteDropdown = page.getByTestId('search-bar-dropdown');
     this.filterDropdownMenu = page.getByTestId('filter-dropdown');
+    this.filterOptions = this.filterDropdownMenu.getByTestId(/^filter-option-/);
     this.visibleMoreFilterOptions = page.getByTestId(/^more-filter-/).filter({ visible: true });
     this.graphql = new GraphQLHelper(page);
   }
@@ -211,7 +211,7 @@ export class SearchPage extends BasePage {
           await this.waitForFilterOptions();
           // After clicking the more-filter option, select the option within
           // the sub-dropdown that appears. Fall through to the selection logic.
-          await this.selectFilterValue(optionLabel);
+          await this.selectFilterValue(optionLabel, this.moreFiltersDropdown);
           return;
         }
         // Close the More Filters dropdown before failing
@@ -224,7 +224,18 @@ export class SearchPage extends BasePage {
     await filterDropdown.click({ force: true });
     await this.waitForFilterOptions();
 
-    await this.selectFilterValue(optionLabel);
+    await this.selectFilterValue(optionLabel, filterDropdown);
+  }
+
+  /**
+   * Filter selections are staged while the dropdown is open and applied when it closes, so
+   * clicking the trigger again is what commits them.
+   */
+  async applyFilterSelection(trigger: Locator): Promise<void> {
+    await trigger.click({ force: true });
+    await this.filterDropdownMenu.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {
+      // Some menus unmount rather than hide; either way the selection has been applied.
+    });
   }
 
   /**
@@ -232,8 +243,7 @@ export class SearchPage extends BasePage {
    * few seconds on a loaded backend.
    */
   private async waitForFilterOptions(): Promise<void> {
-    await this.filterDropdownMenu
-      .getByRole('checkbox')
+    await this.filterOptions
       .or(this.filterDropdownMenu.getByTestId('search-input'))
       .first()
       .waitFor({ state: 'attached', timeout: 10_000 })
@@ -244,30 +254,29 @@ export class SearchPage extends BasePage {
 
   /**
    * Select a value within an already-open filter dropdown.
-   * Tries checkbox-based selection first, then falls back to text-based.
+   * Tries checkbox-based selection first, then falls back to text-based, and closes the dropdown via
+   * `trigger` to apply the selection.
    */
-  private async selectFilterValue(optionLabel: string): Promise<void> {
+  private async selectFilterValue(optionLabel: string, trigger: Locator): Promise<void> {
     // Wait for the filter dropdown container to appear.
     const dropdownMenu = this.filterDropdownMenu;
     await dropdownMenu.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {
       // Some filter types don't use the standard filter-dropdown container.
     });
 
-    const optionPattern = new RegExp(optionLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    // The option checkboxes carry no accessible name, so they are located by test id.
+    const checkboxOption = dropdownMenu.getByTestId(`filter-option-${optionLabel}`);
 
     // Helper: check if a checkbox matching optionLabel is visible and check it.
     const tryCheckbox = async (): Promise<boolean> => {
-      const checkboxOption = this.page.getByRole('checkbox', { name: optionPattern });
-      const count = await checkboxOption.count();
-      if (count === 0) return false;
-      const target = count > 1 ? checkboxOption.first() : checkboxOption;
-      await target.check({ force: true });
+      if ((await checkboxOption.count()) === 0) return false;
+      await checkboxOption.first().click({ force: true });
       return true;
     };
 
     // First pass: checkbox visible immediately (e.g. Type filter options).
     if (await tryCheckbox()) {
-      await this.page.getByRole('button', { name: 'Update' }).click();
+      await this.applyFilterSelection(trigger);
       return;
     }
 
@@ -279,8 +288,7 @@ export class SearchPage extends BasePage {
     if (await dropdownSearchInput.isVisible()) {
       await dropdownSearchInput.fill(optionLabel);
       // The narrowed list can arrive via a GraphQL call; give the option a chance to render.
-      await this.page
-        .getByRole('checkbox', { name: optionPattern })
+      await checkboxOption
         .first()
         .waitFor({ state: 'attached', timeout: 5000 })
         .catch(() => {
@@ -288,7 +296,7 @@ export class SearchPage extends BasePage {
         });
 
       if (await tryCheckbox()) {
-        await this.page.getByRole('button', { name: 'Update' }).click();
+        await this.applyFilterSelection(trigger);
         return;
       }
     }
@@ -298,7 +306,7 @@ export class SearchPage extends BasePage {
     const textCount = await textOption.count();
     if (textCount > 0) {
       await textOption.first().click();
-      await this.page.getByRole('button', { name: 'Update' }).click();
+      await this.applyFilterSelection(trigger);
       return;
     }
 
@@ -319,7 +327,7 @@ export class SearchPage extends BasePage {
       await option.click();
     }
 
-    await this.page.getByRole('button', { name: 'Update' }).click();
+    await this.applyFilterSelection(this.moreFiltersDropdown);
   }
 
   async selectAdvancedFilter(filterName: string): Promise<void> {

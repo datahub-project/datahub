@@ -64,39 +64,43 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
 
     const menuItems: ItemType[] = useMemo(
         () =>
-            filtersToRender.map((filter) => ({
-                key: filter.field,
-                title:
+            filtersToRender.map((filter) => {
+                const title =
                     (filterRendererRegistry.hasRenderer(filter.field) &&
                         filterRendererRegistry.getName(filter.field)) ||
-                    getFilterDisplayName(filter),
-                type: 'item',
-                children: [
-                    {
-                        key: `${filter.field}-children`,
-                        type: 'custom',
-                        render: () => {
-                            return filterRendererRegistry.hasRenderer(filter.field) ? (
-                                filterRendererRegistry.render(filter.field, {
-                                    scenario: FilterScenarioType.SEARCH_V2_DROPDOWN_ONLY,
-                                    filter,
-                                    activeFilters,
-                                    onChangeFilters: updateFiltersAndClose,
-                                    config,
-                                })
-                            ) : (
-                                <MoreFilterOption
-                                    key={filter.field}
-                                    filter={filter}
-                                    activeFilters={activeFilters}
-                                    filterPredicates={filterPredicates}
-                                    onChangeFilters={updateFiltersAndClose}
-                                />
-                            );
+                    getFilterDisplayName(filter);
+                return {
+                    key: filter.field,
+                    title,
+                    dataTestId: `more-filter-${title.replace(/\s/g, '-')}`,
+                    type: 'item',
+                    children: [
+                        {
+                            key: `${filter.field}-children`,
+                            type: 'custom',
+                            render: () => {
+                                return filterRendererRegistry.hasRenderer(filter.field) ? (
+                                    filterRendererRegistry.render(filter.field, {
+                                        scenario: FilterScenarioType.SEARCH_V2_DROPDOWN_ONLY,
+                                        filter,
+                                        activeFilters,
+                                        onChangeFilters: updateFiltersAndClose,
+                                        config,
+                                    })
+                                ) : (
+                                    <MoreFilterOption
+                                        key={filter.field}
+                                        filter={filter}
+                                        activeFilters={activeFilters}
+                                        filterPredicates={filterPredicates}
+                                        onChangeFilters={updateFiltersAndClose}
+                                    />
+                                );
+                            },
                         },
-                    },
-                ],
-            })),
+                    ],
+                };
+            }),
         [
             filtersToRender,
             filterRendererRegistry,
