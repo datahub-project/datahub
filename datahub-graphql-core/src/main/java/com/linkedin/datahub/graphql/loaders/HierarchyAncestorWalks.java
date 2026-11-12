@@ -18,43 +18,45 @@ final class HierarchyAncestorWalks {
   private HierarchyAncestorWalks() {}
 
   /**
-   * Walks every entity's ancestor chain concurrently, completing when all of them are done.
+   * Walks every entity's ancestor chain as one batch, in a single task.
    *
-   * <p>Returns a future instead of blocking. These walks run on the same executor the caller is
-   * already running on, so waiting for them here would hold a pool thread until tasks queued behind
-   * it finish.
+   * <p>One task per entity used to be submitted here, with no bound. A page of 100 entities then
+   * ran 100 walks at once, each borrowing a DB connection per ancestor level, which could exhaust
+   * the connection pool and grow the shared executor to its thread limit. The batch walk reads each
+   * level once for every entity (see {@link BoundHierarchyAccess#orderedParentsBatch}).
+   *
+   * <p>Returns a future instead of blocking, so the caller's pool thread is not held while the walk
+   * runs.
    *
    * <p>Every key is present in the result. A walk that failed is recorded as a failed {@link Try}
-   * against its own key, so one bad entity does not fail the batch.
+   * against the keys it affected, so one bad entity does not fail the batch.
    */
-  static CompletableFuture<Map<Urn, Try<List<Urn>>>> resolveConcurrently(
+  static CompletableFuture<Map<Urn, Try<List<Urn>>>> resolveBatch(
       final List<Urn> urns,
       final OperationContext opContext,
       final HierarchyReadSpec spec,
       final int maxDepth,
       final String loaderName) {
 
-    final Map<Urn, CompletableFuture<Try<List<Urn>>>> futures = new LinkedHashMap<>(urns.size());
-    for (Urn urn : urns) {
-      futures.put(
-          urn,
-          GraphQLConcurrencyUtils.supplyAsync(
-                  () -> BoundHierarchyAccess.orderedParents(opContext, spec, urn, maxDepth),
-                  loaderName,
-                  "orderedParents")
-              // Turn a failure into a successful future holding a failed Try, so the allOf below
-              // never short-circuits on the first one.
-              .handle(
-                  (parents, error) ->
-                      error == null ? Try.succeeded(parents) : Try.failed(unwrap(error))));
-    }
-
-    return CompletableFuture.allOf(futures.values().toArray(new CompletableFuture[0]))
-        .thenApply(
-            ignored -> {
-              final Map<Urn, Try<List<Urn>>> ancestors = new LinkedHashMap<>(futures.size());
-              // Every future is already complete here, so join returns without waiting.
-              futures.forEach((urn, future) -> ancestors.put(urn, future.join()));
+    return GraphQLConcurrencyUtils.supplyAsync(
+            () -> BoundHierarchyAccess.orderedParentsBatch(opContext, spec, urns, maxDepth),
+            loaderName,
+            "orderedParentsBatch")
+        .handle(
+            (batch, error) -> {
+              final Map<Urn, Try<List<Urn>>> ancestors = new LinkedHashMap<>(urns.size());
+              for (Urn urn : urns) {
+                if (error != null) {
+                  ancestors.put(urn, Try.failed(unwrap(error)));
+                } else if (batch.getFailures().containsKey(urn)) {
+                  ancestors.put(urn, Try.failed(batch.getFailures().get(urn)));
+                } else if (batch.getParents().containsKey(urn)) {
+                  ancestors.put(urn, Try.succeeded(batch.getParents().get(urn)));
+                } else {
+                  ancestors.put(
+                      urn, Try.failed(new IllegalStateException("no ancestor walk for " + urn)));
+                }
+              }
               return ancestors;
             });
   }
