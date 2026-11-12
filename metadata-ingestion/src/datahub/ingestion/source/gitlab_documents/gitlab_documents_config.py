@@ -1,5 +1,3 @@
-from typing import Dict
-
 from pydantic import Field, SecretStr, field_validator, model_validator
 
 from datahub.ingestion.source.github_documents.github_documents_config import (
@@ -51,19 +49,13 @@ class GitLabDocumentsSourceConfig(RepositoryDocumentsSourceConfigBase):
             raise ValueError("base_url must start with http:// or https://")
         return value
 
-    @model_validator(mode="before")
-    @classmethod
-    def resolve_repository(cls, values: object) -> object:
-        if not isinstance(values, dict):
-            return values
-        repository = values.get("repository")
-        base_url = values.get("base_url")
-        if not isinstance(repository, str):
-            return values
-        resolved: Dict[str, object] = dict(values)
-        base_url, project_path = parse_project_path(
-            repository, base_url if isinstance(base_url, str) else None
+    @model_validator(mode="after")
+    def resolve_repository(self) -> "GitLabDocumentsSourceConfig":
+        # A project URL sets base_url when it was left at the default.
+        explicit_base_url = (
+            self.base_url if "base_url" in self.model_fields_set else None
         )
-        resolved["repository"] = project_path
-        resolved["base_url"] = base_url
-        return resolved
+        base_url, project_path = parse_project_path(self.repository, explicit_base_url)
+        self.repository = project_path
+        self.base_url = base_url
+        return self

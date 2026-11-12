@@ -10,11 +10,11 @@ from datahub.ingestion.source.github_documents.github_api import (
     GitHubApiClient,
     GitHubFileInfo,
     StaticTokenProvider,
-    _matches_filters,
     collect_intermediate_directories,
     make_dir_source_id,
     make_file_source_id,
     make_repo_source_id,
+    matches_filters,
     normalize_document_id,
     parse_repo_identifier,
     resolve_parent_dir_source_id,
@@ -67,9 +67,9 @@ def test_resolve_parent_dir_source_id_uses_repo_root() -> None:
     assert parent == repo_root
 
 
-def test_matches_filters_respects_path_prefix_boundary() -> None:
-    assert _matches_filters("docs/readme.md", "docs", {".md"})
-    assert not _matches_filters("documentation/readme.md", "docs", {".md"})
+def testmatches_filters_respects_path_prefix_boundary() -> None:
+    assert matches_filters("docs/readme.md", "docs", {".md"})
+    assert not matches_filters("documentation/readme.md", "docs", {".md"})
 
 
 def test_normalize_document_id_includes_hash_suffix() -> None:

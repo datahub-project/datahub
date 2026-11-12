@@ -292,10 +292,14 @@ def test_get_workunits_truncates_files_at_max_files_limit() -> None:
 
 
 @patch(
+    "datahub.ingestion.source.github_documents.github_documents_source.GitHubApiClient.get_latest_commit_sha",
+    return_value="abc123",
+)
+@patch(
     "datahub.ingestion.source.github_documents.github_documents_source.GitHubApiClient.list_matching_files",
     side_effect=RuntimeError("branch missing"),
 )
-def test_test_connection_failure(_mock_list: MagicMock) -> None:
+def test_test_connection_failure(_mock_list: MagicMock, _mock_sha: MagicMock) -> None:
     report = GitHubDocumentsSource.test_connection(
         {
             "github_token": "ghp_test",
@@ -308,9 +312,15 @@ def test_test_connection_failure(_mock_list: MagicMock) -> None:
 
 
 def test_test_connection_success() -> None:
-    with patch(
-        "datahub.ingestion.source.github_documents.github_documents_source.GitHubApiClient.list_matching_files",
-        return_value=([], False),
+    with (
+        patch(
+            "datahub.ingestion.source.github_documents.github_documents_source.GitHubApiClient.get_latest_commit_sha",
+            return_value="abc123",
+        ),
+        patch(
+            "datahub.ingestion.source.github_documents.github_documents_source.GitHubApiClient.list_matching_files",
+            return_value=([], False),
+        ) as mock_list,
     ):
         report = GitHubDocumentsSource.test_connection(
             {
@@ -320,6 +330,8 @@ def test_test_connection_success() -> None:
         )
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable is True
+    # The tree is listed at the resolved commit, as ingestion does.
+    assert mock_list.call_args.args[1] == "abc123"
 
 
 def test_test_connection_config_parse_failure() -> None:

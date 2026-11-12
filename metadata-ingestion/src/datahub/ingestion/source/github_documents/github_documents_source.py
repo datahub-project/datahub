@@ -1,14 +1,13 @@
-"""Ingest documents from a git repository (GitHub, and the base for other hosts)."""
-
 from __future__ import annotations
 
 import hashlib
 import json
 import logging
 import os
+from abc import abstractmethod
 from functools import cached_property, partial
 from pathlib import PurePosixPath
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, ClassVar, Dict, Iterable, List, Optional, Set, Tuple
 
 from datahub.emitter.mce_builder import (
     datahub_guid,
@@ -101,8 +100,6 @@ logger = logging.getLogger(__name__)
 EXTRACTION_ALGO_VERSION = "2"
 LAST_EXPORTED_CONTENT_HASH_KEY = "last_exported_content_hash"
 PROP_IMPORT_SOURCE_ID = "import_source_id"
-PROP_GITHUB_FILE_PATH = "github_file_path"
-PROP_GITHUB_DIRECTORY_PATH = "github_directory_path"
 _DOCUMENT_URN_PREFIX = "urn:li:document:"
 
 
@@ -160,9 +157,9 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
     properties, so documents from different hosts never share an identity.
     """
 
-    platform: str
+    platform: ClassVar[str]
     # Human-readable host name used in report messages.
-    platform_display_name: str
+    platform_display_name: ClassVar[str]
 
     def __init__(
         self, config: RepositoryDocumentsSourceConfigBase, ctx: PipelineContext
@@ -206,10 +203,12 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         return cls(cls._parse_config(config_dict), ctx)
 
     @classmethod
+    @abstractmethod
     def _parse_config(cls, config_dict: dict) -> RepositoryDocumentsSourceConfigBase:
         raise NotImplementedError
 
     @classmethod
+    @abstractmethod
     def _make_client(
         cls, config: RepositoryDocumentsSourceConfigBase
     ) -> RepositoryDocumentsClient:
@@ -218,10 +217,12 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
     def _create_client(self) -> RepositoryDocumentsClient:
         return self._make_client(self.config)
 
+    @abstractmethod
     def _repository_url(self, owner_repo: str) -> str:
         """Canonical repository URL: no branch, no trailing slash."""
         raise NotImplementedError
 
+    @abstractmethod
     def _build_external_url(
         self, owner_repo: str, branch: str, path: str, *, is_directory: bool
     ) -> str:
@@ -248,9 +249,10 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
 
         commit_sha = self.client.get_latest_commit_sha(owner_repo, branch)
         if not commit_sha or commit_sha == "unknown":
+            detail = self.client.last_api_error or "branch not found"
             raise RuntimeError(
                 f"Could not resolve branch {branch!r} in {owner_repo} "
-                "to a commit snapshot"
+                f"to a commit snapshot: {detail}"
             )
         self._okf_lookup_cache = OkfLookupCache()
         files, tree_truncated = self.client.list_matching_files(
@@ -450,13 +452,31 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             if file_path in self._okf_index_contents
             else self.client.fetch_file_content(owner_repo, file_path, commit_sha)
         )
-        if content is None:
-            self.report.files_skipped += 1
-            return
-
         source_id = make_file_source_id(
             owner_repo, file_path, source_prefix=self.platform
         )
+        if content is None:
+            self.report.files_skipped += 1
+            api_error = self.client.last_api_error
+            if api_error:
+                # A failed request says nothing about the file, so keep the
+                # previous import rather than let stale removal delete it.
+                _, document_urn = self._resolve_document_identity(
+                    source_id, owner_repo, file_path
+                )
+                self._register_document_for_stale_removal(document_urn)
+            self.report.warning(
+                title=f"{self.platform}-file-not-read",
+                message=(
+                    "A file could not be read and was skipped. Files that failed "
+                    "to download keep their previous import; files that are too "
+                    "large or not text are not imported."
+                ),
+                context=f"repository={owner_repo}, path={file_path}, "
+                f"error={api_error or 'file too large or not readable as text'}",
+            )
+            return
+
         doc_id, document_urn = self._resolve_document_identity(
             source_id, owner_repo, file_path
         )
@@ -1057,9 +1077,17 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
 
         try:
             client = cls._make_client(config)
+            # Resolve the branch the same way ingestion does, so a tag or a
+            # missing branch fails here rather than on the first run.
+            commit_sha = client.get_latest_commit_sha(config.repository, config.branch)
+            if not commit_sha or commit_sha == "unknown":
+                detail = client.last_api_error or "branch not found"
+                raise RuntimeError(
+                    f"Could not resolve branch {config.branch!r}: {detail}"
+                )
             client.list_matching_files(
                 config.repository,
-                config.branch,
+                commit_sha,
                 config.path_prefix.strip("/"),
                 config.file_extensions[:1] or [".md"],
             )
@@ -1073,7 +1101,7 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
                 ),
                 internal_failure=True,
                 internal_failure_reason=(
-                    f"Failed to connect to {cls.platform} repository: "
+                    f"Failed to connect to {cls.platform_display_name} repository: "
                     f"{exc}. Verify repository, branch, token, and network access."
                 ),
             )

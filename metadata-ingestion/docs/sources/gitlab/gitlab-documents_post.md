@@ -49,7 +49,7 @@ The source resolves the branch head once and reads the tree and files at that co
 
 ### Limitations
 
-- Maximum file size is 1 MB per file (larger files are skipped).
+- Maximum file size is 1 MB per file. Larger files are skipped with a `gitlab-file-not-read` warning.
 - Requires network access from the ingestion executor to the GitLab instance.
 - Binary formats are not parsed; use text/markdown files.
 - Imports are capped by `max_files` (default 500) per run.
@@ -62,4 +62,6 @@ The source resolves the branch head once and reads the tree and files at that co
 - **401 / 403 from GitLab**: Verify the token has not expired and has the `read_api` scope. Project and group tokens need at least the Reporter role.
 - **Wrong instance**: When `repository` is a URL and `base_url` is also set, the URL must be on that instance.
 - **No files imported**: Check `path_prefix` and `file_extensions` filters.
+- **`gitlab-file-not-read` warnings**: The file could not be downloaded, was too large, or was not text. A file that failed to download keeps its previous import, so a temporary GitLab error does not remove the document.
+- **Non-JSON response errors**: A proxy or SSO login page answered instead of the GitLab API. Let the ingestion executor reach the API directly with the token.
 - **Documents not removed after a GitLab delete**: Ensure `stateful_ingestion.enabled: true` and the pipeline has a graph connection for checkpoint storage.

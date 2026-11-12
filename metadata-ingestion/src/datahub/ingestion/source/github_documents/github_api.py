@@ -193,7 +193,7 @@ class GitHubApiClient:
             path = item.get("path", "")
             if path == "index.md" or path.endswith("/index.md"):
                 self._index_file_paths.add(path)
-            if not _matches_filters(path, normalized_prefix, ext_set):
+            if not matches_filters(path, normalized_prefix, ext_set):
                 continue
             size = item.get("size")
             blob_sha = item.get("sha")
@@ -342,7 +342,7 @@ class GitHubApiClient:
             return None
 
 
-def _matches_filters(file_path: str, path_prefix: str, extensions: Set[str]) -> bool:
+def matches_filters(file_path: str, path_prefix: str, extensions: Set[str]) -> bool:
     normalized_prefix = path_prefix.strip("/")
     if normalized_prefix:
         if file_path != normalized_prefix and not file_path.startswith(

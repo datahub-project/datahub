@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import logging
 import time
 from typing import Dict, List, Optional, Set, Tuple, Union
@@ -11,7 +12,7 @@ import requests
 from datahub.ingestion.source.github_documents.github_api import (
     MAX_FILE_SIZE_BYTES,
     GitHubFileInfo,
-    _matches_filters,
+    matches_filters,
 )
 
 logger = logging.getLogger(__name__)
@@ -85,7 +86,7 @@ class GitLabApiClient:
             f"{quote(branch, safe='')}"
         )
         response = self._get(url)
-        node = _json_or_none(response)
+        node = self._json_or_none(response)
         if isinstance(node, dict) and isinstance(node.get("commit"), dict):
             return node["commit"].get("id") or "unknown"
         return "unknown"
@@ -110,10 +111,13 @@ class GitLabApiClient:
         matching: List[GitHubFileInfo] = []
         self._index_file_paths = set()
 
+        truncated = False
         while url:
             response = self._get(url, params=params)
-            items = _json_or_none(response)
-            if not isinstance(items, list):
+            items = self._json_or_none(response)
+            if response is None or not isinstance(items, list):
+                # A partial listing would let stale removal delete the files
+                # on the pages that were not read, so fail the run instead.
                 detail = self._last_api_error or "GitLab API request failed"
                 raise RuntimeError(
                     f"Could not list branch '{branch}' in project {owner_repo}: {detail}"
@@ -124,7 +128,7 @@ class GitLabApiClient:
                 path = item.get("path", "")
                 if path == "index.md" or path.endswith("/index.md"):
                     self._index_file_paths.add(path)
-                if not _matches_filters(path, normalized_prefix, ext_set):
+                if not matches_filters(path, normalized_prefix, ext_set):
                     continue
                 blob_id = item.get("id")
                 matching.append(
@@ -134,12 +138,34 @@ class GitLabApiClient:
                         sha=blob_id if isinstance(blob_id, str) else None,
                     )
                 )
-            assert response is not None
-            # The next link already carries the query string (offset or keyset).
-            url = response.links.get("next", {}).get("url")
-            params = None
-        # GitLab pages through the full tree, so it is never truncated.
-        return matching, False
+            url, params = self._next_tree_page(response, url, params)
+            if url is None and "X-Next-Page" not in response.headers:
+                # Neither pagination header came back (a proxy can strip them),
+                # so a full page may not be the last one.
+                truncated = len(items) >= TREE_PAGE_SIZE
+        return matching, truncated
+
+    def _next_tree_page(
+        self,
+        response: requests.Response,
+        url: str,
+        params: Optional[Dict[str, Union[str, int]]],
+    ) -> Tuple[Optional[str], Optional[Dict[str, Union[str, int]]]]:
+        next_url = response.links.get("next", {}).get("url")
+        if next_url:
+            # The token is sent with the request, so only follow links back to
+            # the configured instance.
+            if not next_url.startswith(f"{self._api_base}/"):
+                raise RuntimeError(
+                    f"GitLab returned a next-page link outside {self._api_base}: "
+                    f"{next_url}. Check the instance's external_url setting."
+                )
+            # The link already carries the query string (offset or keyset).
+            return next_url, None
+        next_page = response.headers.get("X-Next-Page", "")
+        if next_page.isdigit():
+            return url, {**(params or {}), "page": int(next_page)}
+        return None, None
 
     def fetch_file_content(
         self, owner_repo: str, file_path: str, branch: str
@@ -149,7 +175,7 @@ class GitLabApiClient:
             f"{quote(file_path, safe='')}"
         )
         response = self._get(url, params={"ref": branch})
-        node = _json_or_none(response)
+        node = self._json_or_none(response)
         if not isinstance(node, dict):
             detail = self._last_api_error or "GitLab API request failed"
             logger.warning("Failed to fetch file content for %s: %s", file_path, detail)
@@ -169,8 +195,31 @@ class GitLabApiClient:
         if not isinstance(content, str):
             return None
         if node.get("encoding") == "base64":
-            return base64.b64decode(content).decode("utf-8", errors="replace")
+            try:
+                return base64.b64decode(content).decode("utf-8", errors="replace")
+            except (binascii.Error, ValueError) as exc:
+                self._last_api_error = (
+                    f"GitLab returned undecodable content for {file_path}: {exc}"
+                )
+                logger.warning(self._last_api_error)
+                return None
         return content
+
+    def _json_or_none(self, response: Optional[requests.Response]) -> object:
+        if response is None:
+            return None
+        try:
+            return response.json()
+        except ValueError:
+            # A proxy or SSO login page can answer 200 with HTML. Record it as an
+            # API error so callers do not mistake it for a missing file.
+            content_type = response.headers.get("Content-Type") or "no content type"
+            self._last_api_error = (
+                f"GitLab returned a non-JSON response ({content_type}). A proxy or "
+                "SSO login page may be intercepting API requests."
+            )
+            logger.warning("%s for %s", self._last_api_error, response.url)
+            return None
 
     def _get(
         self,
@@ -207,16 +256,6 @@ class GitLabApiClient:
 
         self._last_api_error = _describe_http_error(response)
         logger.warning("%s for %s", self._last_api_error, url)
-        return None
-
-
-def _json_or_none(response: Optional[requests.Response]) -> object:
-    if response is None:
-        return None
-    try:
-        return response.json()
-    except ValueError:
-        # A proxy or SSO login page can answer 200 with HTML.
         return None
 
 
