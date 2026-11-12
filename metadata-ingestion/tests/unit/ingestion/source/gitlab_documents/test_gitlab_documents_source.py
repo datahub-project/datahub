@@ -265,3 +265,18 @@ def test_self_managed_instance_under_a_path_with_special_characters() -> None:
     assert infos[0].source.externalUrl == (
         f"{base}/acme/docs/-/blob/release/1.0/my%20notes.md"
     )
+
+
+def test_tree_without_pagination_headers_skips_stale_removal() -> None:
+    # A proxy that strips pagination headers leaves the listing possibly partial,
+    # so the run must not soft-delete documents it did not see.
+    source = _source(base_url=BASE, create_repo_root_document=False)
+    # Images are listed but not imported, so no file is fetched.
+    page = [{"id": f"b{i}", "type": "blob", "path": f"{i}.png"} for i in range(100)]
+    with requests_mock.Mocker() as m:
+        m.get(f"{API}/repository/branches/main", json={"commit": {"id": "abc123"}})
+        m.get(f"{API}/repository/tree", json=page)
+        list(source.get_workunits())
+
+    assert source.report.tree_truncated is True
+    assert "gitlab-tree-truncated" in {f.title for f in source.report.failures}

@@ -63,5 +63,6 @@ The source resolves the branch head once and reads the tree and files at that co
 - **Wrong instance**: When `repository` is a URL and `base_url` is also set, the URL must be on that instance.
 - **No files imported**: Check `path_prefix` and `file_extensions` filters.
 - **`gitlab-file-not-read` warnings**: The file could not be downloaded, was too large, or was not text. A file that failed to download keeps its previous import, so a temporary GitLab error does not remove the document.
+- **`gitlab-tree-truncated` failure**: GitLab returned a full page of the project tree without pagination headers, which usually means a proxy stripped them. The run imports what it listed and skips stale document removal, so nothing is deleted. Let the executor reach the GitLab API directly.
 - **Non-JSON response errors**: A proxy or SSO login page answered instead of the GitLab API. Let the ingestion executor reach the API directly with the token.
 - **Documents not removed after a GitLab delete**: Ensure `stateful_ingestion.enabled: true` and the pipeline has a graph connection for checkpoint storage.
