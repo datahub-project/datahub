@@ -115,6 +115,7 @@ class SnowflakeV2Report(
     # structured properties are left unchanged for the run.
     num_structured_properties_unresolved: int = 0
     num_tag_platform_resource_lookup_failures: int = 0
+    num_tag_platform_resources_unparseable: int = 0
     streams_scanned: int = 0
     procedures_scanned: int = 0
     streamlit_apps_scanned: int = 0

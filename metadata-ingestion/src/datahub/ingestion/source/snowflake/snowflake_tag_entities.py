@@ -1,4 +1,5 @@
-from typing import Optional
+from dataclasses import dataclass
+from typing import Iterable, List, Optional, Set
 
 from datahub.api.entities.external.external_entities import (
     ExternalEntity,
@@ -10,10 +11,18 @@ from datahub.api.entities.platformresource.platform_resource import (
     PlatformResource,
     PlatformResourceKey,
 )
+from datahub.emitter.mce_builder import make_dataplatform_instance_urn
+from datahub.ingestion.graph.filters import RawSearchFilterRule
 from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeTag
+from datahub.metadata.schema_classes import PlatformResourceInfoClass
+from datahub.metadata.urns import PlatformResourceUrn
 
 SNOWFLAKE_TAG_RESOURCE_TYPE = "SnowflakeTagPlatformResource"
 SNOWFLAKE_PLATFORM = "snowflake"
+
+_PLATFORM_RESOURCE_ENTITY = "platformResource"
+_SCROLL_PAGE_SIZE = 1000
+_BATCH_GET_SIZE = 100
 
 
 class SnowflakeTagPlatformResourceId(ExternalEntityId):
@@ -98,9 +107,75 @@ class SnowflakeTagPlatformResource(ExternalEntity):
         )
 
 
+@dataclass(frozen=True)
+class StoredResourceInfo:
+    urn: str
+    info: PlatformResourceInfoClass
+
+
 class SnowflakeTagPlatformResourceRepository(
     PlatformResourceRepository[
         SnowflakeTagPlatformResourceId, SnowflakeTagPlatformResource
     ]
 ):
-    pass
+    def scroll_resource_infos(
+        self, platform_instance: Optional[str]
+    ) -> Iterable[StoredResourceInfo]:
+        """Every Snowflake tag record of `platform_instance`, with its info aspect.
+
+        One paged scroll returns the aspect with each URN, instead of the generic
+        search's two reads per record. Without an instance, records of every
+        instance come back and the caller filters them.
+        """
+        criteria: List[RawSearchFilterRule] = [
+            {
+                "field": "resourceType",
+                "values": [SNOWFLAKE_TAG_RESOURCE_TYPE],
+                "condition": "EQUAL",
+            }
+        ]
+        if platform_instance is not None:
+            criteria.append(
+                {
+                    "field": "platformInstance",
+                    "values": [
+                        make_dataplatform_instance_urn(
+                            SNOWFLAKE_PLATFORM, platform_instance.lower()
+                        )
+                    ],
+                    "condition": "EQUAL",
+                }
+            )
+        scroll_id: Optional[str] = None
+        while True:
+            page = self.graph.scroll_entities(
+                entity_names=[_PLATFORM_RESOURCE_ENTITY],
+                aspects=[PlatformResourceInfoClass.ASPECT_NAME],
+                count=_SCROLL_PAGE_SIZE,
+                filter=[{"and": criteria}],
+                scroll_id=scroll_id,
+            )
+            for urn, entity_aspects in page.entities.items():
+                info = entity_aspects.get(PlatformResourceInfoClass.ASPECT_NAME)
+                if info is not None and isinstance(info[0], PlatformResourceInfoClass):
+                    yield StoredResourceInfo(urn=urn, info=info[0])
+            scroll_id = page.scroll_id
+            if not scroll_id:
+                return
+
+    def existing_key_ids(self, key_ids: Iterable[str]) -> Set[str]:
+        """The subset of `key_ids` stored now, read directly rather than searched."""
+        ids = list(key_ids)
+        existing: Set[str] = set()
+        for start in range(0, len(ids), _BATCH_GET_SIZE):
+            urns = [
+                str(PlatformResourceUrn(key_id))
+                for key_id in ids[start : start + _BATCH_GET_SIZE]
+            ]
+            found = self.graph.get_entities(
+                _PLATFORM_RESOURCE_ENTITY,
+                urns,
+                aspects=[PlatformResourceInfoClass.ASPECT_NAME],
+            )
+            existing.update(PlatformResourceUrn.from_string(urn).id for urn in found)
+        return existing

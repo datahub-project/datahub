@@ -179,16 +179,57 @@ def test_record_from_another_platform_instance_is_ignored() -> None:
     assert r.is_native(_TAG)
 
 
-def test_records_are_loaded_with_one_search() -> None:
-    repository = fake_tag_repository([tag_record(_TAG, "urn:li:tag:pii")])
-    r = resolver(repository=repository)
-    other = SnowflakeTag(database="TEST_DB", schema="PUBLIC", name="PII", value="LOW")
+def test_records_are_loaded_in_pages_filtered_by_platform_instance() -> None:
+    tags = [
+        SnowflakeTag(database="TEST_DB", schema="PUBLIC", name="PII", value=f"V{i}")
+        for i in range(5)
+    ]
+    repository = fake_tag_repository(
+        [tag_record(t, "urn:li:tag:pii", platform_instance="acct_a") for t in tags]
+        + [tag_record(_TAG, "urn:li:tag:pii", platform_instance="acct_b")]
+    )
+    r = resolver(repository=repository, platform_instance="acct_a")
 
-    for tag in [_TAG, other, _TAG, other]:
+    for tag in [*tags, _TAG, *tags]:
         r.resolve_tag_urn(tag)
-        r.is_native(tag)
 
-    assert repository.search_by_filter.call_count == 1  # type: ignore[attr-defined]
+    graph = repository.graph
+    assert graph.scroll_entities.call_count == 1  # type: ignore[attr-defined]
+    assert graph.exists.call_count == 0  # type: ignore[attr-defined]
+    assert graph.get_entity_semityped.call_count == 0  # type: ignore[attr-defined]
+    rules = graph.scroll_entities.call_args.kwargs["filter"][0]["and"]  # type: ignore[attr-defined]
+    assert {
+        "field": "platformInstance",
+        "values": [
+            "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,acct_a)"
+        ],
+        "condition": "EQUAL",
+    } in rules
+
+
+def test_new_records_are_checked_for_other_writers_in_one_batch() -> None:
+    repository = fake_tag_repository([])
+    r = resolver(repository=repository)
+
+    for i in range(5):
+        r.resolve_tag_urn(
+            SnowflakeTag(database="TEST_DB", schema="PUBLIC", name="PII", value=f"V{i}")
+        )
+
+    assert len(emitted_secondary_keys(r)) == 5
+    assert repository.graph.get_entities.call_count == 1  # type: ignore[attr-defined]
+
+
+def test_malformed_record_is_skipped_and_the_rest_are_used() -> None:
+    repository = fake_tag_repository(
+        [tag_record(_TAG, "urn:li:glossaryTerm:abc")], malformed=1
+    )
+    r = resolver(repository=repository)
+
+    assert not r.is_native(_TAG)
+    assert r.report.num_tag_platform_resources_unparseable == 1
+    assert r.report.num_tag_platform_resource_lookup_failures == 0
+    assert r.repository is not None
 
 
 def test_load_error_falls_back_to_native() -> None:

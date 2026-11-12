@@ -30,6 +30,7 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    cast,
 )
 from unittest.mock import MagicMock, NonCallableMock, create_autospec, patch
 
@@ -39,12 +40,12 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
-from datahub.api.entities.platformresource.platform_resource import (
-    PlatformResourceKey,
-)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import StructuredLogEntry
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.filters import RawSearchFilter
+from datahub.ingestion.graph.openapi import ScrollResult
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeConfig,
@@ -93,7 +94,13 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 )
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
-from datahub.metadata.schema_classes import StructuredPropertyDefinitionClass, _Aspect
+from datahub.metadata.schema_classes import (
+    PlatformResourceInfoClass,
+    SerializedValueClass,
+    StructuredPropertyDefinitionClass,
+    _Aspect,
+)
+from datahub.metadata.urns import PlatformResourceUrn
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 # --- preserve_column_case sweep -----------------------------------------------
@@ -231,32 +238,96 @@ def fake_tag_repository(
     value_type: Optional[str] = None,
     load_error: Optional[Exception] = None,
     written_meanwhile: Sequence[SnowflakeTagPlatformResource] = (),
+    malformed: int = 0,
 ) -> SnowflakeTagPlatformResourceRepository:
-    """A repository holding ``records``; ``written_meanwhile`` appear only to a
-    direct ``get``, as a record another writer created after the run started."""
-    late = {r.id.to_platform_resource_key().id: r for r in written_meanwhile}
+    """A repository over a fake graph storing ``records``.
 
-    def search_by_filter(query: object, add_to_cache: bool = True) -> List[object]:
+    The graph's scroll honours the platform-instance filter, as GMS does.
+    ``written_meanwhile`` exist only for direct reads, as records another writer
+    created after the run started. ``malformed`` adds records whose value is
+    not a valid record.
+    """
+    stored: Dict[str, Tuple[PlatformResourceInfoClass, Optional[str]]] = {}
+    for record in records:
+        resource = record.as_platform_resource()
+        assert resource.resource_info is not None
+        stored[str(PlatformResourceUrn(resource.id))] = (
+            resource.resource_info.to_resource_info(),
+            resource.data_platform_instance.platform_instance
+            if resource.data_platform_instance
+            else None,
+        )
+    for i in range(malformed):
+        stored[str(PlatformResourceUrn(f"malformed{i}"))] = (
+            PlatformResourceInfoClass(
+                resourceType="SnowflakeTagPlatformResource",
+                primaryKey=f"malformed{i}",
+                value=SerializedValueClass(
+                    blob=b"{not json", contentType="JSON", schemaType="JSON"
+                ),
+            ),
+            None,
+        )
+    readable = {urn: info for urn, (info, _instance) in stored.items()}
+    for record in written_meanwhile:
+        resource = record.as_platform_resource()
+        assert resource.resource_info is not None
+        readable[str(PlatformResourceUrn(resource.id))] = (
+            resource.resource_info.to_resource_info()
+        )
+
+    def scroll_entities(
+        *,
+        filter: RawSearchFilter,
+        scroll_id: Optional[str] = None,
+        count: int = 10,
+        **_: object,
+    ) -> ScrollResult:
         if load_error is not None:
             raise load_error
-        return [record.as_platform_resource() for record in records]
+        instances = [
+            str(value)
+            for clause in filter
+            for rule in clause["and"]
+            if rule["field"] == "platformInstance"
+            for value in cast(List[str], rule["values"])
+        ]
+        matching = [
+            urn
+            for urn, (_info, instance) in stored.items()
+            if not instances or instance in instances
+        ]
+        start = int(scroll_id or 0)
+        page = matching[start : start + count]
+        return ScrollResult(
+            scroll_id=str(start + count) if start + count < len(matching) else None,
+            entities={
+                urn: {PlatformResourceInfoClass.ASPECT_NAME: (stored[urn][0], None)}
+                for urn in page
+            },
+            total_count=len(matching),
+        )
 
-    def get(key: PlatformResourceKey) -> Optional[object]:
-        record = late.get(key.id)
-        return record.as_platform_resource() if record is not None else None
+    def get_entities(
+        entity_name: str, urns: List[str], aspects: Optional[List[str]] = None
+    ) -> Dict[str, Dict[str, Tuple[_Aspect, None]]]:
+        return {
+            urn: {PlatformResourceInfoClass.ASPECT_NAME: (readable[urn], None)}
+            for urn in urns
+            if urn in readable
+        }
 
-    repository = create_autospec(SnowflakeTagPlatformResourceRepository, instance=True)
-    repository.search_by_filter.side_effect = search_by_filter
-    repository.get.side_effect = get
-    repository.graph = MagicMock()
-    repository.graph.get_aspect.return_value = (
+    graph = create_autospec(DataHubGraph, instance=True)
+    graph.scroll_entities.side_effect = scroll_entities
+    graph.get_entities.side_effect = get_entities
+    graph.get_aspect.return_value = (
         StructuredPropertyDefinitionClass(
             qualifiedName="q", valueType=value_type, entityTypes=[]
         )
         if value_type
         else None
     )
-    return repository
+    return SnowflakeTagPlatformResourceRepository(graph)
 
 
 def make_v2_config(**overrides: object) -> SnowflakeV2Config:

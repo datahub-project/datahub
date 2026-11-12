@@ -3,9 +3,7 @@ import threading
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set, Union
 
-from datahub.api.entities.platformresource.platform_resource import (
-    PlatformResourceSearchFields,
-)
+from datahub.api.entities.common.serialized_value import SerializedResourceValue
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.emitter.mcp_builder import StructuredPropertyWriteMode
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -13,20 +11,23 @@ from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Confi
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeTag
 from datahub.ingestion.source.snowflake.snowflake_tag_entities import (
-    SNOWFLAKE_TAG_RESOURCE_TYPE,
     SnowflakeTagPlatformResource,
     SnowflakeTagPlatformResourceId,
     SnowflakeTagPlatformResourceRepository,
+    StoredResourceInfo,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
 from datahub.metadata.schema_classes import StructuredPropertyDefinitionClass
 from datahub.metadata.urns import DataTypeUrn, StructuredPropertyUrn, TagUrn
-from datahub.utilities.search_utils import ElasticDocumentQuery
 from datahub.utilities.urns.urn import Urn
 
 _NUMBER_TYPE_URN = DataTypeUrn("datahub.number").urn()
+
+
+def _lower(value: Optional[str]) -> Optional[str]:
+    return value.lower() if value is not None else None
 
 
 @dataclass(frozen=True)
@@ -51,8 +52,8 @@ class SnowflakeTagResolver:
     Every other tag is native and resolves exactly as before; its record is
     written with `managed_by_datahub=False`.
 
-    All records of this platform instance are loaded with one search on first
-    use, so lookups cost nothing per tag. Without a repository (no DataHub
+    All records of this platform instance are loaded with one paged scroll on
+    first use, so lookups cost nothing per tag. Without a repository (no DataHub
     graph), or if loading fails, every tag is native.
     """
 
@@ -141,8 +142,11 @@ class SnowflakeTagResolver:
             queued = list(self._queued.items())
             self._queued.clear()
             self._emitted.update(key for key, _ in queued)
+        written_meanwhile = self._written_meanwhile(
+            [key for key, _ in queued if key in self._new_keys]
+        )
         for key, record in queued:
-            if key in self._new_keys and self._written_meanwhile(record):
+            if key in written_meanwhile:
                 continue
             for mcp in record.as_platform_resource().to_mcps():
                 yield mcp.as_workunit()
@@ -182,25 +186,9 @@ class SnowflakeTagResolver:
             records: Dict[str, SnowflakeTagPlatformResource] = {}
             if self.repository is not None:
                 try:
-                    for resource in self.repository.search_by_filter(
-                        ElasticDocumentQuery.create_from(
-                            (
-                                PlatformResourceSearchFields.RESOURCE_TYPE,
-                                SNOWFLAKE_TAG_RESOURCE_TYPE,
-                            )
-                        )
-                    ):
-                        if (
-                            not resource.resource_info
-                            or not resource.resource_info.value
-                        ):
-                            continue
-                        record = resource.resource_info.value.as_pydantic_object(
-                            SnowflakeTagPlatformResource
-                        )
-                        # The key id covers the platform instance, so a record
-                        # of another Snowflake account never matches.
-                        records[record.id.to_platform_resource_key().id] = record
+                    stored = list(
+                        self.repository.scroll_resource_infos(self.platform_instance)
+                    )
                 except Exception as e:
                     self.report.num_tag_platform_resource_lookup_failures += 1
                     self.report.warning(
@@ -213,9 +201,37 @@ class SnowflakeTagResolver:
                     # Writing records without knowing what exists could overwrite
                     # sync-back's, so this run writes none.
                     self.repository = None
-                    records = {}
+                    stored = []
+                for resource in stored:
+                    record = self._parse(resource)
+                    if record is not None and self._is_this_instance(record):
+                        records[record.id.to_platform_resource_key().id] = record
             self._records = records
             return records
+
+    def _parse(
+        self, resource: StoredResourceInfo
+    ) -> Optional[SnowflakeTagPlatformResource]:
+        if resource.info.value is None:
+            return None
+        try:
+            return SerializedResourceValue.from_resource_value(
+                resource.info.value
+            ).as_pydantic_object(SnowflakeTagPlatformResource)
+        except Exception as e:
+            # One bad record must not turn the feature off for the whole run.
+            self.report.num_tag_platform_resources_unparseable += 1
+            self.report.warning(
+                title="Skipped unreadable Snowflake tag platform resource",
+                message="The Snowflake tag it stands for is treated as native.",
+                context=resource.urn,
+                exc=e,
+            )
+            return None
+
+    def _is_this_instance(self, record: SnowflakeTagPlatformResource) -> bool:
+        # The scroll only filters by instance when one is configured.
+        return _lower(record.id.platform_instance) == _lower(self.platform_instance)
 
     def _lookup(
         self, tag: SnowflakeTag, with_value: bool
@@ -268,13 +284,15 @@ class SnowflakeTagResolver:
                     return
             self._queued[key] = record
 
-    def _written_meanwhile(self, record: SnowflakeTagPlatformResource) -> bool:
+    def _written_meanwhile(self, new_keys: List[str]) -> Set[str]:
+        if not new_keys:
+            return set()
         assert self.repository is not None
         try:
-            return self.repository.get(record.id.to_platform_resource_key()) is not None
+            return self.repository.existing_key_ids(new_keys)
         except Exception:
             # Unknown is treated as written: skipping a record only delays it.
-            return True
+            return set(new_keys)
 
     def _cast(self, property_urn: str, tag: SnowflakeTag) -> Union[str, float]:
         value_type = self._value_type(property_urn)
