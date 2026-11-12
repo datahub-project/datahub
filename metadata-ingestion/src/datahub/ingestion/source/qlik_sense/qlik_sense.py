@@ -297,6 +297,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._data_connections: Optional[Dict[str, DataConnectionInfo]] = None
         self._allowed_space_ids: Set[str] = set()
         self._reported_no_graph = False
+        # Datasets with a column edge whose source field could not be named.
+        self._unnamed_field_lineage: Set[str] = set()
         # Table QRI -> dataset URN for the tables of apps read or kept this run.
         # Lineage only links to tables in here, as other URNs may never exist.
         self._app_table_urns_by_qri: Dict[str, str] = {}
@@ -621,7 +623,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             AppCheckpoint(
                 fingerprint=fingerprint,
                 urns=list(urns),
-                table_urns_by_qri=self._app_table_urns(app),
+                # Tables that could not all be read are recorded as unknown, so
+                # a later run can't take them for the app having no tables.
+                table_urns_by_qri=None
+                if app.tables_read_failed
+                else self._app_table_urns(app),
                 qvds=self._app_qvds.get(app.id),
             ),
         )
@@ -1543,6 +1549,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     if _qlik_field_id(field) == field_id
                     else self._field_names_by_id.get(field_id)
                 )
+                if urn and not name:
+                    # The source field is real but no field of that name has
+                    # been read yet, such as a renamed load from a QVD read
+                    # later in the run, so the table's column lineage is not
+                    # all known.
+                    self._unnamed_field_lineage.add(dataset_urn)
                 if urn and name:
                     upstream = builder.make_schema_field_urn(urn, name)
                     if upstream not in upstreams:
@@ -1638,7 +1650,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if (
                 resolved.complete
                 and not app.script_read_failed
+                and not app.tables_read_failed
                 and not table.field_lineage_failed
+                and dataset_urn not in self._unnamed_field_lineage
             ):
                 # The app owns its tables, so the lineage is written whole, which
                 # also drops upstreams the app no longer reads.
@@ -2323,10 +2337,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             app.tables_read_failed = True
         else:
             self.reporter.apps_without_lineage_graph.append(app.id)
-            if previous is None:
+            # A last read whose tables are unknown can't tell either.
+            unknown = previous is None or previous.table_urns_by_qri is None
+            if unknown and self.app_state.is_checkpointing_enabled():
                 # With no last read to compare with, the graph may only be
                 # missing because Qlik has not computed it yet, such as right
-                # after a reload, so the app's lineage is only added to.
+                # after a reload, so the app's lineage is only added to. Without
+                # stateful ingestion there is never a last read, so the app is
+                # taken as having no tables, as before.
                 app.tables_read_failed = True
                 self.reporter.warning(
                     title="Qlik Cloud has no lineage graph for app",
@@ -2516,6 +2534,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_dataset_store_lineage(self) -> Iterable[MetadataWorkUnit]:
         datasets = self._dataset_urns_by_secure_qri
         qlik_datasets = set(datasets.values()) if datasets is not None else None
+        owned = self._known_app_table_urns()
         for dataset_urn, source_qris in self._dataset_store_sources.items():
             resolved = self._resolve_lineage_sources(
                 source_qris, dataset_urn, own_app_id=None
@@ -2552,7 +2571,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 else None
             )
             if current is not None:
-                owned = self._known_app_table_urns()
                 for upstream in current.upstreams:
                     if upstream.dataset in owned and upstream.dataset not in (
                         resolved.urns
@@ -2561,6 +2579,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 if (
                     self.config.include_column_lineage
                     and dataset_urn not in self._dataset_store_fields_unknown
+                    and dataset_urn not in self._unnamed_field_lineage
                 ):
                     for lineage in self._stale_field_lineage(
                         current.fineGrainedLineages or [], stored_fields, owned
