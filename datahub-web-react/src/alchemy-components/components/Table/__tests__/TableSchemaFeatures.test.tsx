@@ -176,6 +176,31 @@ describe('Table pinned columns', () => {
     });
 });
 
+describe('Table memoized cells', () => {
+    it('does not re-render cells when the parent re-renders with the same columns and rows', () => {
+        const renderType = vi.fn((field: Field) => field.type);
+        const spiedColumns: Column<Field>[] = [columns[0], { ...columns[1], render: renderType }];
+        const table = (focusedRowKey: string | null) => (
+            <ThemeProvider theme={themeV2}>
+                <Table<Field>
+                    columns={spiedColumns}
+                    data={FIELDS}
+                    rowKey="path"
+                    memoizeCells
+                    focusedRowKey={focusedRowKey}
+                />
+            </ThemeProvider>
+        );
+        const { rerender } = render(table(null));
+        expect(renderType).toHaveBeenCalledTimes(FIELDS.length);
+        renderType.mockClear();
+
+        rerender(table('amount'));
+
+        expect(renderType).not.toHaveBeenCalled();
+    });
+});
+
 describe('Table virtualization', () => {
     const ROW_HEIGHT = 40;
     const manyFields: Field[] = Array.from({ length: 1000 }, (_, i) => ({
@@ -267,5 +292,63 @@ describe('Table virtualization', () => {
         const scroller = container.firstElementChild as HTMLElement;
         expect(scroller.scrollTop).toBeGreaterThan(690 * ROW_HEIGHT);
         expect(scroller.scrollTop).toBeLessThanOrEqual(700 * ROW_HEIGHT);
+    });
+
+    it('keeps its rows when the container is hidden, e.g. in an inactive tab', () => {
+        let height = 400;
+        Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => height });
+        const observers: Array<() => void> = [];
+        vi.stubGlobal(
+            'ResizeObserver',
+            class {
+                constructor(callback: () => void) {
+                    observers.push(callback);
+                }
+
+                observe() {}
+
+                disconnect() {}
+            },
+        );
+        try {
+            renderVirtualTable();
+            const visibleRows = renderedRows().length;
+
+            height = 0;
+            act(() => observers.forEach((callback) => callback()));
+
+            expect(renderedRows()).toHaveLength(visibleRows);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps rows at their fixed height and opts out of scroll anchoring', () => {
+        const { container } = renderVirtualTable();
+
+        // Rows taller than rowHeight, or anchoring adjusting scrollTop as spacers change, would move the
+        // window on every scroll and remount the rows at its edges.
+        expect(container.firstElementChild).toHaveStyle({ overflowAnchor: 'none' });
+        const cellContent = within(screen.getByTestId('row-field_0000')).getByText('string');
+        // The cell's 1px bottom border makes up the rest of the row.
+        expect(cellContent).toHaveStyle({ height: `${ROW_HEIGHT - 1}px`, overflow: 'hidden' });
+    });
+
+    it('does not re-render cells that stay in view while scrolling', () => {
+        const renderType = vi.fn((field: Field) => field.type);
+        const spiedColumns: Column<Field>[] = [columns[0], { ...columns[1], render: renderType }];
+        const { container } = renderVirtualTable({ columns: spiedColumns });
+        // 10 visible rows plus 2 overscan, each rendered once.
+        expect(renderType).toHaveBeenCalledTimes(12);
+        renderType.mockClear();
+
+        const scroller = container.firstElementChild as HTMLElement;
+        act(() => {
+            scroller.scrollTop = ROW_HEIGHT;
+            fireEvent.scroll(scroller);
+        });
+
+        // Only the row that scrolled into the window renders; rows already on screen are reused.
+        expect(renderType).toHaveBeenCalledTimes(1);
     });
 });
