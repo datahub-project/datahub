@@ -1,7 +1,7 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useRemoveRelationship } from '@app/previewV2/DefaultPreviewCard';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType } from '@types';
 
@@ -23,7 +23,7 @@ vi.mock('react-i18next', async (importOriginal) => ({
     useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityContext: () => ({ setShouldRefetchEmbeddedListSearch: vi.fn() }),
     useEntityData: () => ({ urn: 'urn:li:application:parent', entityType: mocks.pageEntityType }),
 }));

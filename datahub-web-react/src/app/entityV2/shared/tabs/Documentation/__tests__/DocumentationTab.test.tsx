@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import DOMPurify from 'dompurify';
 import React from 'react';
 
-import { EntityContext } from '@app/entity/shared/EntityContext';
+import { EntityContext } from '@app/entityV2/shared/EntityContext';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';

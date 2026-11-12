@@ -26,9 +26,6 @@ import org.testng.annotations.Test;
 @ActiveProfiles({"upgrade", "test"})
 @SpringBootTest(
     classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class},
-    properties = {
-      "METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=" + Topics.METADATA_CHANGE_LOG_VERSIONED,
-    },
     args = {"-u", "SystemUpdate"})
 public class DatahubUpgradeNoSchemaRegistryTest extends AbstractTestNGSpringContextTests {
 

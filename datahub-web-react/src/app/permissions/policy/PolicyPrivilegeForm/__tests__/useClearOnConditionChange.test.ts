@@ -1,7 +1,7 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { describe, expect, it, vi } from 'vitest';
 
 import { useClearOnConditionChange } from '@app/permissions/policy/PolicyPrivilegeForm/useClearOnConditionChange';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { PolicyMatchCondition, ResourceFilter } from '@types';
 

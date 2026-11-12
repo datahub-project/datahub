@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.telemetry;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
@@ -17,6 +18,11 @@ public final class TelemetryUtils {
   public static final String CLIENT_ID_URN = "urn:li:telemetry:clientId";
   public static final String CLIENT_ID_ASPECT = "telemetryClientId";
 
+  /** DataHub's own collector, which forwards to Mixpanel. */
+  public static final String DATAHUB_EVENTS_ENDPOINT = "https://track.datahubproject.io/mp/track";
+
+  public static final String DATAHUB_ENGAGE_ENDPOINT = "https://track.datahubproject.io/mp/engage";
+
   private static String _clientId;
 
   public static String getClientId(
@@ -30,6 +36,12 @@ public final class TelemetryUtils {
       _clientId = ((TelemetryClientId) clientIdTemplate).getClientId();
     }
     return _clientId;
+  }
+
+  /** The cache is process-wide, so a test that stubs the aspect must clear it for later tests. */
+  @VisibleForTesting
+  public static void resetClientIdCache() {
+    _clientId = null;
   }
 
   private static void createClientIdIfNotPresent(

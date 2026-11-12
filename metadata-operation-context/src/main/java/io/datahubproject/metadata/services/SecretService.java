@@ -53,7 +53,6 @@ public class SecretService {
   private final SecureRandom _secureRandom;
   private final Base64.Encoder _encoder;
   private final Base64.Decoder _decoder;
-  private final MessageDigest _messageDigest;
   private final SecretKeySpec _derivedKey;
   private final boolean v1AlgorithmEnabled;
   private final CallerGuardMode callerGuardMode;
@@ -78,12 +77,6 @@ public class SecretService {
     _decoder = Base64.getDecoder();
     this.v1AlgorithmEnabled = v1AlgorithmEnabled;
     this.callerGuardMode = callerGuardMode;
-
-    try {
-      _messageDigest = MessageDigest.getInstance(HASHING_ALGORITHM);
-    } catch (NoSuchAlgorithmException e) {
-      throw new RuntimeException("Unable to create MessageDigest", e);
-    }
 
     // Derive key using HMAC-based key derivation (deterministic, no salt needed)
     _derivedKey = deriveKey(_secret);
@@ -224,7 +217,7 @@ public class SecretService {
       Mac mac = Mac.getInstance(HMAC_ALGORITHM);
 
       // First, create an initial key from the secret
-      byte[] initialKey = _messageDigest.digest(secret.getBytes(StandardCharsets.UTF_8));
+      byte[] initialKey = sha256().digest(secret.getBytes(StandardCharsets.UTF_8));
       SecretKeySpec macKey = new SecretKeySpec(initialKey, HMAC_ALGORITHM);
       mac.init(macKey);
 
@@ -345,8 +338,18 @@ public class SecretService {
 
   /** Hashes a string using SHA-256. */
   public String hashString(@Nonnull final String str) {
-    byte[] hashedBytes = _messageDigest.digest(str.getBytes(StandardCharsets.UTF_8));
+    byte[] hashedBytes = sha256().digest(str.getBytes(StandardCharsets.UTF_8));
     return _encoder.encodeToString(hashedBytes);
+  }
+
+  // MessageDigest is stateful and not thread-safe; this service is a shared singleton, so each
+  // call gets its own instance to avoid concurrent requests interleaving their input.
+  private static MessageDigest sha256() {
+    try {
+      return MessageDigest.getInstance(HASHING_ALGORITHM);
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException("Unable to create MessageDigest", e);
+    }
   }
 
   /** Generates a cryptographically secure salt. */
@@ -363,7 +366,7 @@ public class SecretService {
   public String getHashedPassword(@Nonnull byte[] salt, @Nonnull String password)
       throws IOException {
     byte[] saltedPassword = saltPassword(salt, password);
-    byte[] hashedPassword = _messageDigest.digest(saltedPassword);
+    byte[] hashedPassword = sha256().digest(saltedPassword);
     return _encoder.encodeToString(hashedPassword);
   }
 

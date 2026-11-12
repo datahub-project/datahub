@@ -1,9 +1,11 @@
 import { toast } from '@components';
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { EntityAndType } from '@app/entityV2/shared/types';
+import { extractTypeFromUrn } from '@app/entityV2/shared/utils';
 import { useOnClickExpandLineage } from '@app/lineageV3/LineageEntityNode/useOnClickExpandLineage';
 import { FetchStatus, LineageEntity, LineageNodesContext } from '@app/lineageV3/common';
 import LineageEdges from '@app/lineageV3/manualLineage/LineageEdges';
@@ -14,8 +16,6 @@ import { filterManualLineageUrns, getValidEntityTypes } from '@app/lineageV3/man
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
-import { EntityAndType } from '@src/app/entity/shared/types';
-import { extractTypeFromUrn } from '@src/app/entity/shared/utils';
 import { SearchSelect } from '@src/app/entityV2/shared/components/styled/search/SearchSelect';
 import ClickOutside from '@src/app/sharedV2/ClickOutside';
 
@@ -95,8 +95,12 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
         Array.from(initialSetOfRelationshipsUrns).map((urn) => ({ urn, type: extractTypeFromUrn(urn) })) || [],
     );
 
+    // Auto-expand only once: a failed fetch resets the node to UNFETCHED, so re-running on every
+    // UNFETCHED would re-request a failing urn in a loop while the modal is open.
+    const autoExpandedRef = useRef(false);
     useEffect(() => {
-        if (fetchStatus === FetchStatus.UNFETCHED) {
+        if (fetchStatus === FetchStatus.UNFETCHED && !autoExpandedRef.current) {
+            autoExpandedRef.current = true;
             expandOneLevel();
         }
     }, [fetchStatus, expandOneLevel]);

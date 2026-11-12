@@ -106,5 +106,9 @@
     "searchActions.owners.addTitle": "Добавить владельцев",
     "searchActions.owners.removeTitle": "Удалить владельцев",
     "searchActions.tags.addTitle": "Добавить теги",
-    "searchActions.tags.removeTitle": "Удалить теги"
+    "searchActions.tags.removeTitle": "Удалить теги",
+    "structuredProperty.addMore": "+ Добавить ещё",
+    "structuredProperty.selectPlaceholder": "Выберите",
+    "viewAll.resultsIncomplete": "Результаты могут быть неполными.",
+    "viewAll.searchAllAssets": "Поиск по всем загруженным ассетам {{platform}}"
 }

@@ -1,8 +1,9 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import analytics, { EventType } from '@app/analytics';
 import useAppliedFilters from '@app/searchV2/filtersV2/context/useAppliedFilters';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 vi.mock('@app/analytics', () => ({
     __esModule: true,

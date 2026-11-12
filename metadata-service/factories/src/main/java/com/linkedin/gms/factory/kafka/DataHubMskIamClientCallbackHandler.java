@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.kafka;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -32,7 +33,9 @@ public final class DataHubMskIamClientCallbackHandler extends IAMClientCallbackH
     }
   }
 
-  static void reset() {
+  /** Lets tests outside this package start without shared credentials. */
+  @VisibleForTesting
+  public static void reset() {
     sharedCredentialsProvider = null;
   }
 

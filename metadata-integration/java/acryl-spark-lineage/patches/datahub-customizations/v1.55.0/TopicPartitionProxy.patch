@@ -27,4 +27,3 @@
 +      String.join(".", "org", "apache", "kafka", "common", "TopicPartition");
    private static final String SHADED_CLASS_NAME = "kafkashaded." + EXPECTED_CLASS_NAME;
    private final Object topicPartition;
-

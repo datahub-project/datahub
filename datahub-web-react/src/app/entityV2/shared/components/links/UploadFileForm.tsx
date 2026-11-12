@@ -8,7 +8,7 @@ import { getFileNameFromUrl } from '@components/components/Editor/extensions/fil
 import { FileNode } from '@components/components/FileNode/FileNode';
 import { FontSizeOptions } from '@components/theme/config';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { LinkFormData, LinkFormVariant } from '@app/entityV2/shared/components/links/types';
 import { useUploadFileHandler } from '@app/sharedV2/hooks/useUploadFileHandler';
 

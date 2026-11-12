@@ -1,4 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach } from 'vitest';
 
 import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
@@ -10,10 +9,11 @@ import {
     SchemaField,
     SchemaFieldDataType,
 } from '@src/types.generated';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const mockUseBaseEntity = vi.hoisted(() => vi.fn());
 
-vi.mock('@src/app/entity/shared/EntityContext', async (importOriginal) => {
+vi.mock('@src/app/entityV2/shared/EntityContext', async (importOriginal) => {
     const original = await importOriginal<object>();
     return {
         ...original,
@@ -400,5 +400,41 @@ describe('useExtractFieldTermsInfo', () => {
         expect(() => extractFieldTermsInfo(schemaField)).not.toThrow();
         const { numberOfTerms } = extractFieldTermsInfo(schemaField);
         expect(numberOfTerms).toBe(0);
+    });
+
+    it('should drop soft-deleted terms from every location and from the count', () => {
+        const removed = (term: GlossaryTerm): GlossaryTerm => ({ ...term, status: { removed: true } });
+        const extractFieldTermsInfo = renderHook(() =>
+            useExtractFieldGlossaryTermsInfo({
+                editableSchemaFieldInfo: [
+                    {
+                        fieldPath: 'testField',
+                        glossaryTerms: { terms: [{ associatedUrn: '', term: removed(testTerm2) }] },
+                    },
+                ],
+            }),
+        ).result.current;
+
+        const { directTerms, editableTerms, uneditableTerms, numberOfTerms } = extractFieldTermsInfo({
+            ...emptySchemaField,
+            glossaryTerms: {
+                terms: [
+                    { associatedUrn: '', term: testTerm },
+                    { associatedUrn: '', term: removed(testTerm3) },
+                ],
+            },
+            schemaFieldEntity: {
+                urn: '',
+                type: EntityType.SchemaField,
+                fieldPath: 'testField',
+                parent: { urn: '', type: EntityType.Dataset },
+                glossaryTerms: { terms: [{ associatedUrn: '', term: removed(extraTerm) }] },
+            },
+        });
+
+        expect(directTerms?.terms).toHaveLength(0);
+        expect(editableTerms?.terms).toHaveLength(0);
+        expect(uneditableTerms?.terms?.map((t) => t.term.urn)).toEqual([testTerm.urn]);
+        expect(numberOfTerms).toBe(1);
     });
 });

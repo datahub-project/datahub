@@ -1,3 +1,4 @@
+import { isRemovedAssociation } from '@app/sharedV2/tags/tags.utils';
 import { normalizeFieldPathKey } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import useEditableSchemaFieldInfoMaps, {
     EditableFieldInfoMaps,
@@ -21,7 +22,9 @@ export default function useExtractFieldGlossaryTermsInfo(
 
     return (record: SchemaField, defaultUneditableTerms: GlossaryTerms | null = null) => {
         // Three term locations: schema field entity, EditableSchemaMetadata, SchemaMetadata (uneditable)
-        const schemaFieldTerms = record?.schemaFieldEntity?.glossaryTerms?.terms || [];
+        const schemaFieldTerms = (record?.schemaFieldEntity?.glossaryTerms?.terms || []).filter(
+            (t) => !isRemovedAssociation(t),
+        );
         const schemaFieldTermUrns = new Set(schemaFieldTerms.map((t) => t.term.urn));
 
         // Extract business attribute glossary terms
@@ -32,7 +35,9 @@ export default function useExtractFieldGlossaryTermsInfo(
         // Editable terms: from EditableSchemaMetadata and not on schema field entity itself
         const editableFieldInfo = exactMap.get(record.fieldPath);
         const baseEditableTerms = editableFieldInfo?.glossaryTerms?.terms || [];
-        const editableTerms = baseEditableTerms.filter((t) => !schemaFieldTermUrns.has(t.term.urn));
+        const editableTerms = baseEditableTerms.filter(
+            (t) => !schemaFieldTermUrns.has(t.term.urn) && !isRemovedAssociation(t),
+        );
         const editableTermUrns = new Set(editableTerms.map((t) => t.term.urn));
 
         // Uneditable terms: from SchemaMetadata and not in EditableSchemaMetadata or on schema field entity
@@ -53,7 +58,8 @@ export default function useExtractFieldGlossaryTermsInfo(
 
         // Final deduped uneditable terms excluding any in editableTerms
         const uneditableTerms = allUneditableTerms.filter(
-            (t) => !schemaFieldTermUrns.has(t.term.urn) && !editableTermUrns.has(t.term.urn),
+            (t) =>
+                !schemaFieldTermUrns.has(t.term.urn) && !editableTermUrns.has(t.term.urn) && !isRemovedAssociation(t),
         );
 
         return {

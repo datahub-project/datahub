@@ -91,6 +91,7 @@ public class EntityLineageResultResolverTest {
             eq(DATASET_URN),
             eq(LineageDirection.UPSTREAM),
             anyInt(),
+            anyInt(),
             anyBoolean(),
             anyBoolean()))
         .thenReturn(counted);
@@ -132,6 +133,26 @@ public class EntityLineageResultResolverTest {
             any(Set.class));
   }
 
+  /** A totals-only result is an empty page at the requested start, not at 0. */
+  @Test
+  public void testCountPathPassesTheRequestedStart() throws Exception {
+    when(environment.getArgument(eq("input")))
+        .thenReturn(ImmutableMap.of("direction", "UPSTREAM", "start", 40, "count", 100));
+    selecting("{ lineage { start total } }");
+
+    resolver.get(environment).get();
+
+    verify(siblingGraphService)
+        .getLineageCount(
+            any(OperationContext.class),
+            eq(DATASET_URN),
+            eq(LineageDirection.UPSTREAM),
+            eq(40),
+            eq(100),
+            anyBoolean(),
+            anyBoolean());
+  }
+
   @Test
   public void testRelationshipsSelectionWalksTheGraph() throws Exception {
     selecting("{ lineage { total relationships { type } } }");
@@ -143,6 +164,7 @@ public class EntityLineageResultResolverTest {
             any(OperationContext.class),
             any(Urn.class),
             any(LineageDirection.class),
+            anyInt(),
             anyInt(),
             anyBoolean(),
             anyBoolean());
@@ -161,6 +183,7 @@ public class EntityLineageResultResolverTest {
             any(Urn.class),
             any(LineageDirection.class),
             anyInt(),
+            anyInt(),
             anyBoolean(),
             anyBoolean());
   }
@@ -177,6 +200,10 @@ public class EntityLineageResultResolverTest {
     assertTrue(EntityLineageResultResolver.selectsRelationships(environment));
 
     selecting("{ lineage { ...counts } }", "fragment counts on EntityLineageResult { total }");
+    assertFalse(EntityLineageResultResolver.selectsRelationships(environment));
+
+    // Paging fields alone are answered as an empty page at the requested start.
+    selecting("{ lineage { start count total } }");
     assertFalse(EntityLineageResultResolver.selectsRelationships(environment));
 
     // A fragment the request does not define cannot be inspected: take the full walk.

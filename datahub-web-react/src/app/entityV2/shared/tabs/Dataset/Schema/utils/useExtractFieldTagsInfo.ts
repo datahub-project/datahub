@@ -1,3 +1,4 @@
+import { isRemovedAssociation } from '@app/sharedV2/tags/tags.utils';
 import { normalizeFieldPathKey } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import useEditableSchemaFieldInfoMaps, {
     EditableFieldInfoMaps,
@@ -21,7 +22,9 @@ export default function useExtractFieldTagsInfo(
 
     return (record: SchemaField, defaultUneditableTags: GlobalTags | null = null) => {
         // Three tag locations: schema field entity, EditableSchemaMetadata, SchemaMetadata (uneditable)
-        const schemaFieldTags = record?.schemaFieldEntity?.tags?.tags || [];
+        const schemaFieldTags = (record?.schemaFieldEntity?.tags?.tags || []).filter(
+            (tag) => !isRemovedAssociation(tag),
+        );
         const schemaFieldTagUrns = new Set(schemaFieldTags.map((t) => t.tag.urn));
 
         // Extract business attribute tags
@@ -32,7 +35,9 @@ export default function useExtractFieldTagsInfo(
         // Editable tags: from EditableSchemaMetadata and not on schema field entity itself
         const editableFieldInfo = exactMap.get(record.fieldPath);
         const baseEditableTags = editableFieldInfo?.globalTags?.tags || [];
-        const editableTags = baseEditableTags.filter((tag) => !schemaFieldTagUrns.has(tag.tag.urn));
+        const editableTags = baseEditableTags.filter(
+            (tag) => !schemaFieldTagUrns.has(tag.tag.urn) && !isRemovedAssociation(tag),
+        );
         const editableTagUrns = new Set(editableTags.map((t) => t.tag.urn));
 
         // Uneditable tags: from SchemaMetadata and not in EditableSchemaMetadata or on schema field entity
@@ -53,7 +58,8 @@ export default function useExtractFieldTagsInfo(
 
         // Final deduped uneditable tags excluding any in editableTags
         const uneditableTags = allUneditableTags.filter(
-            (tag) => !schemaFieldTagUrns.has(tag.tag.urn) && !editableTagUrns.has(tag.tag.urn),
+            (tag) =>
+                !schemaFieldTagUrns.has(tag.tag.urn) && !editableTagUrns.has(tag.tag.urn) && !isRemovedAssociation(tag),
         );
 
         return {

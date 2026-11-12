@@ -668,7 +668,11 @@ public class CreateUsageEventIndicesStepTest {
         new CreateUsageEventIndicesStep(
             esComponents,
             configurationProvider,
-            new SearchClusterRegistry(routingConfig, connections));
+            new SearchClusterRegistry(
+                routingConfig,
+                connections,
+                IndexConventionImpl.noPrefix("MD5", new EntityIndexConfiguration()),
+                null));
 
     UpgradeStepResult result = usageStep.executable().apply(upgradeContext);
 

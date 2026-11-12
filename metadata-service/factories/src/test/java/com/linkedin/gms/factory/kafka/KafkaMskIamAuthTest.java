@@ -2,7 +2,8 @@ package com.linkedin.gms.factory.kafka;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -138,7 +139,11 @@ public class KafkaMskIamAuthTest {
         "sasl.client.callback.handler.class",
         "software.amazon.msk.auth.iam.IAMClientCallbackHandler");
 
-    assertThrows(IllegalStateException.class, () -> KafkaMskIamAuth.configure(props));
+    IllegalStateException e =
+        expectThrows(IllegalStateException.class, () -> KafkaMskIamAuth.configure(props));
+    // The message must name what to load, since CI never runs MSK IAM.
+    assertTrue(e.getMessage().contains("com.linkedin.gms.factory.aws.AwsClientFactory"));
+    assertTrue(e.getMessage().contains("defaultAwsCredentialsProvider"));
   }
 
   @Test

@@ -1,6 +1,5 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import useRootGlossaryNodes from '@app/homeV3/modules/hierarchyViewModule/components/glossary/hooks/useRootGlossaryNodes';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useGetRootGlossaryNodesQuery } from '@graphql/glossary.generated';
 
