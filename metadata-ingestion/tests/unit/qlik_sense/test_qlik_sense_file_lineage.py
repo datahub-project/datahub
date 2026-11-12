@@ -551,6 +551,36 @@ def test_unresolved_file_of_an_app_with_includes_only_adds(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_path_from_a_quoted_set_variable_resolves(mock_api_cls: MagicMock) -> None:
+    source = _source(
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        {},
+    )
+    app = App.model_validate(
+        {
+            "id": "app-5",
+            "qTitle": "Sales",
+            "description": "",
+            "createdDate": "2024-01-09T18:05:36.000Z",
+            "modifiedDate": "2024-01-09T18:05:36.000Z",
+            "spaceId": "space-1",
+            # SET keeps the quotes in the variable's value.
+            "variables": {"vDir": "'lib://Sales Space:Lake/old/'"},
+        }
+    )
+    source._file_sources_by_app[app.id] = source._file_source_resolver(
+        app, parse_script("X: LOAD * FROM [$(vDir)f.csv];\n")
+    )
+    source._app_space_ids[app.id] = app.spaceId
+
+    assert app.id not in source._apps_file_paths_unknown
+    assert (
+        source._resolve_file_source("app-5", _file_qri("adls", "unknown", "old/f.csv"))
+        == "urn:li:dataset:(urn:li:dataPlatform:abs,lake/old/f.csv,PROD)"
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_unresolved_file_of_an_app_loading_by_wildcard_only_adds(
     mock_api_cls: MagicMock,
 ) -> None:

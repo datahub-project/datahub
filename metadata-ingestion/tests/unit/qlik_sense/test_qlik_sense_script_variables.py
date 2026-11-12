@@ -80,6 +80,21 @@ def test_fallback_values_fill_sql_until_the_script_sets_the_variable() -> None:
             "END IF;\nT: SQL SELECT id FROM $(vTable);",
             id="branches that disagree",
         ),
+        pytest.param(
+            "FOR EACH vT IN 'a', 'b'\nLET vTable = Upper(vT);\n"
+            "T: SQL SELECT id FROM $(vTable);\nNEXT vT;",
+            id="LET in a loop",
+        ),
+        pytest.param(
+            "SUB LoadTable\nLET vTable = Upper(vSource);\n"
+            "T: SQL SELECT id FROM $(vTable);\nEND SUB;\nCALL LoadTable;",
+            id="LET in a sub",
+        ),
+        pytest.param(
+            "FOR EACH vTable IN 'a', 'b'\n$(Include=lib://Scripts/common.qvs);\n"
+            "T: SQL SELECT id FROM $(vTable);\nNEXT vTable;",
+            id="loop variable after an include",
+        ),
     ],
 )
 def test_fallback_values_never_fill_a_variable_the_script_made_unknown(
@@ -133,3 +148,12 @@ def test_changing_recipe_values_re_reads_unchanged_apps() -> None:
         source._init_fingerprint_salt()
         fingerprints.append(source._salted_fingerprint("app-fingerprint"))
     assert fingerprints[0] != fingerprints[1]
+
+
+def test_recipe_value_stands_in_for_an_expression_variable() -> None:
+    source = _source({"vSchema": "sales"})
+    app = _app(
+        "LIB CONNECT TO 'db';\nT: SQL SELECT id FROM $(vSchema).orders;",
+        {"vSchema": "=Lower(vSource)"},
+    )
+    assert source._app_variables(app) == {"vSchema": "sales"}

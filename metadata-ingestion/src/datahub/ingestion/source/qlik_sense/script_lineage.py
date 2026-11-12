@@ -25,7 +25,7 @@ CONTROL_RE = re.compile(
     r"|(?P<endswitch>END\s*SWITCH\b)|(?P<default>DEFAULT\b)"
     r"|(?P<switch>SWITCH\b[^\n]*)|(?P<case>CASE\b[^\n]*)"
     r"|(?P<endsub>END\s*SUB\b)|(?P<sub>SUB\b[^\n]*)|(?P<forloop>FOR\b[^\n]*)"
-    r"|(?:NEXT|DO|LOOP)\b[^\n]*)\s*",
+    r"|(?P<doloop>DO\b[^\n]*)|(?P<loopend>(?:NEXT|LOOP)\b[^\n]*))\s*",
     re.IGNORECASE,
 )
 SUB_NAME_RE = re.compile(
@@ -536,6 +536,8 @@ class _ControlFlowTracker(BaseModel):
 
     state: _BranchState = Field(default_factory=_BranchState)
     blocks: List[_Block] = []
+    # FOR or DO loops the current statement runs in.
+    loop_depth: int = 0
 
     def apply_control(self, control: "re.Match[str]") -> None:
         if control.group("if") or control.group("switch"):
@@ -558,13 +560,20 @@ class _ControlFlowTracker(BaseModel):
         elif self.blocks and (control.group("endif") or control.group("endswitch")):
             self._end_block(self.blocks.pop())
         elif control.group("forloop"):
+            self.loop_depth += 1
             # The loop variable takes values that are not known here.
             variable = FOR_VARIABLE_RE.match(control.group("forloop"))
             if variable:
                 self.state.forget_variable(variable.group("name"))
+        elif control.group("doloop"):
+            self.loop_depth += 1
+        elif control.group("loopend"):
+            self.loop_depth = max(self.loop_depth - 1, 0)
 
     def forget_state(self) -> None:
-        self.state = _BranchState()
+        # An included script can't make a loop variable or a disagreeing
+        # branch value known again.
+        self.state = _BranchState(unknown=self.state.unknown)
 
     def _next_branch(self, block: _Block, is_default: bool) -> None:
         if block.in_case:
@@ -593,7 +602,7 @@ class _ControlFlowTracker(BaseModel):
             | (set_anywhere - variables.keys()),
         )
 
-    def record_variable(self, statement: str) -> bool:
+    def record_variable(self, statement: str, in_sub: bool = False) -> bool:
         match = VARIABLE_RE.match(statement)
         if not match:
             return False
@@ -603,6 +612,10 @@ class _ControlFlowTracker(BaseModel):
             self.state.set_variable(match.group("name"), _first_group(literal))
         elif match.group("kind").upper() == "SET":
             self.state.set_variable(match.group("name"), value)
+        elif self.loop_depth or in_sub:
+            # Run more than once, so the value the app's last reload left is
+            # only the last of several.
+            self.state.forget_variable(match.group("name"))
         else:
             # LET evaluates an expression the parser can't, so the value the
             # app's last reload left, if any, stands in for it.
@@ -621,6 +634,12 @@ def _expand_variables(statement: str, variables: Dict[str, str]) -> str:
         ),
         statement,
     )
+
+
+def strip_set_quotes(path: str) -> str:
+    """A variable set with SET keeps its quotes, so a path built from one, such
+    as $(vFolder)orders.qvd, holds them."""
+    return path.replace(path[0], "") if path[:1] in ("'", '"') else path
 
 
 def _unquote(name: str) -> str:
@@ -860,7 +879,7 @@ class _ScriptParser(BaseModel):
         if EXIT_SCRIPT_RE.match(statement) and not self.flow.blocks:
             self.exited = True
             return
-        if self.flow.record_variable(statement):
+        if self.flow.record_variable(statement, in_sub=bool(self.calling)):
             self._clear_pending()
             return
         call = CALL_RE.match(statement)
@@ -987,10 +1006,7 @@ class _ScriptParser(BaseModel):
         if "$(" in path:
             # Expanded first, as the variable may hold the `.qvd` name.
             path = self._expand_app_variables(path)
-        if path[:1] in ("'", '"'):
-            # A variable set with SET keeps its quotes, so a path built from
-            # one, such as $(vFolder)orders.qvd, holds them.
-            path = path.replace(path[0], "")
+        path = strip_set_quotes(path)
         format_name = (spec or "").split(",")[0].strip().lower()
         if format_name:
             is_qvd = format_name == "qvd"

@@ -134,6 +134,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     reads_unknown_fields,
     redact_connection,
     select_list_size,
+    strip_set_quotes,
 )
 from datahub.ingestion.source.state.entity_removal_state import (
     STATEFUL_INGESTION_IGNORED_ENTITY_TYPES,
@@ -363,6 +364,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # Table QRI -> dataset URN for the tables of apps read or kept this run.
         # Lineage only links to tables in here, as other URNs may never exist.
         self._app_table_urns_by_qri: Dict[str, str] = {}
+        # Tables the last run recorded for apps whose tables are known this
+        # run, so edges from a table since renamed or dropped are still owned.
+        self._previous_app_table_urns: Set[str] = set()
         # Apps read or kept this run, by whether all their tables are known.
         self._apps_tables_known: Set[str] = set()
         self._apps_tables_unknown: Set[str] = set()
@@ -1635,8 +1639,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._app_table_urns_by_qri.update(self._app_table_urns(app))
         if app.tables_read_failed:
             self._apps_tables_unknown.add(app.id)
-        else:
-            self._apps_tables_known.add(app.id)
+            return
+        self._apps_tables_known.add(app.id)
+        previous = self._usable_checkpoint(app.id, [])
+        if previous is not None and previous.table_urns_by_qri:
+            self._previous_app_table_urns.update(previous.table_urns_by_qri.values())
 
     def _kept_table_urns(self, app_id: str) -> Optional[Dict[str, str]]:
         if app_id not in self._apps_tables_known:
@@ -1726,7 +1733,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _app_variables(self, app: App) -> Dict[str, str]:
         # The app's own values, as its last reload left them, beat the recipe's.
-        return {**self.config.script_variables, **app.variables}
+        # An expression definition (`=...`) the connector can't evaluate leaves
+        # the recipe's value in place.
+        return {
+            **self.config.script_variables,
+            **{
+                name: value
+                for name, value in app.variables.items()
+                if not value.lstrip().startswith("=")
+            },
+        }
 
     def _file_source_resolver(
         self, app: App, parsed: ParsedScript
@@ -1736,7 +1752,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         for file_path in parsed.file_loads:
             # Paths are often built from variables the script sets with LET or
             # in an included script, which the app's variables hold.
-            path = expand_variables(file_path, self._app_variables(app)).strip()
+            path = strip_set_quotes(
+                expand_variables(file_path, self._app_variables(app)).strip()
+            )
             lib_path = LIB_PATH_RE.match(path)
             if lib_path and not any(part in path for part in ("$(", "*", "?")):
                 references.append(
@@ -2982,7 +3000,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
     def _known_app_table_urns(self) -> Set[str]:
-        return {
+        return self._previous_app_table_urns | {
             urn
             for qri, urn in self._app_table_urns_by_qri.items()
             if _qlik_app_id(qri) in self._apps_tables_known
