@@ -2417,14 +2417,30 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                         )
         for table_urn, field_types in types.items():
             identifier, schema = self._untyped_tables[table_urn]
-            typed = [
-                field.model_copy(
-                    update={"dataType": next(iter(field_types[field.name]))}
+            # Columns traced from a load script may have their case changed by
+            # the SQL parser, so a field matches a stored one of another case
+            # when no other stored field folds to the same name.
+            folded: Dict[str, List[str]] = {}
+            for name in field_types:
+                folded.setdefault(name.lower(), []).append(name)
+            typed = []
+            for schema_field in schema:
+                matches = folded.get(schema_field.name.lower(), [])
+                stored_name: Optional[str] = (
+                    schema_field.name
+                    if schema_field.name in field_types
+                    else (matches[0] if len(matches) == 1 else None)
                 )
-                if len(field_types.get(field.name, ())) == 1
-                else field
-                for field in schema
-            ]
+                stored_types = (
+                    field_types.get(stored_name, set()) if stored_name else set()
+                )
+                typed.append(
+                    schema_field.model_copy(
+                        update={"dataType": next(iter(stored_types))}
+                    )
+                    if len(stored_types) == 1
+                    else schema_field
+                )
             yield self._gen_schema_metadata(identifier, typed)
 
     def _gen_dataset_store_lineage(self) -> Iterable[MetadataWorkUnit]:
