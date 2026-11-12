@@ -1,5 +1,5 @@
 import { MockedProvider, MockedResponse } from '@apollo/client/testing';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import { EntityContext } from '@app/entityV2/shared/EntityContext';
@@ -219,10 +219,11 @@ describe('SidebarSiblingsSection', () => {
             await waitFor(() => expect(container.firstChild).toBeNull());
         });
 
-        it("never shows another dataset's group", async () => {
-            // Moving between datasets, the previous dataset's data can be returned on the first render.
+        it("never shows another dataset's group, and waits instead of showing the fallback list", async () => {
+            // Moving between datasets, the previous dataset's data can be returned with loading
+            // already false. The section must neither show that group nor swap in the one-link list.
             const otherUrn = 'urn:li:dataset:(urn:li:dataPlatform:glue,db.other,PROD)';
-            renderSection(entityDataWithSiblings, [
+            const { container } = renderSection(entityDataWithSiblings, [
                 {
                     ...groupMock(fiveMembers, 120),
                     result: {
@@ -232,9 +233,23 @@ describe('SidebarSiblingsSection', () => {
                     },
                 },
             ]);
-            await waitFor(() => expect(screen.getByText('Composed of')).toBeInTheDocument());
-            expect(screen.queryByTestId('siblings-more')).toBeNull();
+            // Let the mocked response arrive.
+            await act(async () => {
+                await new Promise((resolve) => {
+                    setTimeout(resolve, 50);
+                });
+            });
+            expect(container.firstChild).toBeNull();
             expect(screen.queryByTestId(`compact-entity-link-${fiveMembers[0].entity.urn}`)).toBeNull();
+            expect(screen.queryByTestId(`compact-entity-link-${SIBLING_URN}`)).toBeNull();
+        });
+
+        it('falls back to the one-link list when the answer has no group at all', async () => {
+            renderSection(entityDataWithSiblings, [
+                { ...groupMock(fiveMembers, 120), result: { data: { siblingGroups: [] } } },
+            ]);
+            await waitFor(() => expect(screen.getByText('Composed of')).toBeInTheDocument());
+            expect(screen.getByTestId(`compact-entity-link-${SIBLING_URN}`)).toBeInTheDocument();
         });
 
         it('falls back to the one-link siblings list when the group request fails', async () => {
