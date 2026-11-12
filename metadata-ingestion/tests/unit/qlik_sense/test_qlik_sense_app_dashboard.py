@@ -1,6 +1,7 @@
 import json
+from types import SimpleNamespace
 from typing import List, Optional
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -12,6 +13,7 @@ from datahub.emitter.mce_builder import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import App, Sheet
+from datahub.ingestion.source.qlik_sense.qlik_base_api import QlikBaseAPI, ReadErrors
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -115,3 +117,23 @@ def test_app_is_a_dashboard_of_its_sheets_and_tables(
         c for wu in workunits if (c := wu.get_aspect_of_type(ContainerClass))
     ]
     assert container.container == make_container_urn(source._gen_space_key("space-1"))
+
+
+def test_sheets_are_not_read_when_turned_off() -> None:
+    config = QlikSourceConfig.model_validate(
+        {**CLOUD_CONFIG, "include_sheets_and_charts": False}
+    )
+    engine = MagicMock()
+    errors = ReadErrors()
+
+    sheets = QlikBaseAPI._get_app_sheets(
+        SimpleNamespace(config=config),  # type: ignore[arg-type]
+        engine,
+        "app-1",
+        errors,
+    )
+
+    # Nothing is asked of the Engine, and the app's sheets are known: none.
+    assert sheets == []
+    engine.websocket_send_request.assert_not_called()
+    assert not errors.sheets_unread

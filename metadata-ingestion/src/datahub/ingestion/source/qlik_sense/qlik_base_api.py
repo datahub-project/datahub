@@ -300,6 +300,8 @@ class QlikBaseAPI(ABC):
         keep_private: bool = True,
     ) -> List[Sheet]:
         sheets: List[Sheet] = []
+        if not self.config.include_sheets_and_charts:
+            return sheets
         try:
             response = websocket_connection.websocket_send_request(
                 method="GetObjects",

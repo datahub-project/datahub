@@ -57,6 +57,10 @@ A QVD's schema comes from the table stored into it, or, when no app stores it, f
 
 A path the connector can't resolve to one file, such as a wildcard, a variable it can't expand (one set with `LET` or in an included file), a path relative to the `Directory` statement, or a `lib://` path of a connection that isn't a folder connection, is listed under `unresolved_qvd_paths` in the report. An unlabelled `LOAD` from a QVD is skipped, as Qlik names its table. QVDs of the connections in `qvd_ignored_connections` (by default the monitoring apps' `ServerLogFolder` and `ArchivedLogsFolder`) and the Engine's `BUFFER` QVDs are not ingested. When an app's load script can't be read, the QVDs it writes are unknown, so QVD schemas and lineage are kept from the last run.
 
+#### Apps without sheets and charts
+
+Each app is ingested both as a container, which holds its tables, sheets and charts, and as a dashboard with the `Qlik App` subtype, which links to the app's sheets and tables so lineage runs from the app's data sources to the app. To keep only apps and their tables, set `include_sheets_and_charts: false`. Apps are then read without their sheets, which is faster, and each app dashboard links only to its tables. With stale metadata removal enabled, the sheets and charts an earlier run ingested are soft-deleted on the next run.
+
 #### Charts in containers
 
 Charts inside a container object's tabs are ingested as charts of the sheet. An untitled chart takes its tab label as its title. Objects with no data, such as buttons, filter panes and variable inputs, are skipped.
