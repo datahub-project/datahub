@@ -153,6 +153,7 @@ async def test_legacy_and_modern_clients(gms: FakeGms, protocol: str) -> None:
         "search",
         "get_entities",
         "list_schema_fields",
+        "search_documents",
     ]
     assert result.data["data"]["corpUser"]["urn"] == "urn:li:corpuser:bob"
 
