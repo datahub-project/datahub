@@ -301,12 +301,13 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Qlik App"
+                "Qlik App",
+                "Workbook"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1794413385917,
+        "lastObserved": 1794506387818,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -425,12 +426,12 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Qlik App"
+                "Qlik App Dashboard"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1794413385918,
+        "lastObserved": 1794506387819,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -442,11 +443,11 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704"
+            "container": "urn:li:container:43defedfcb41b246659c449a6f3ea8ac"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1794413385918,
+        "lastObserved": 1794506387820,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -488,12 +489,16 @@
                 {
                     "id": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704",
                     "urn": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704"
+                },
+                {
+                    "id": "urn:li:container:43defedfcb41b246659c449a6f3ea8ac",
+                    "urn": "urn:li:container:43defedfcb41b246659c449a6f3ea8ac"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1794413385918,
+        "lastObserved": 1794506387820,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
