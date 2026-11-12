@@ -19,6 +19,7 @@ from mcp.server.lowlevel.server import NotificationOptions
 from .background_execution import run_in_background
 from .graphql_helpers import get_mcp_context
 from .progress_heartbeat import with_progress_heartbeat
+from .result_policy import trust_label_tags
 from .tool_context import BackgroundExecution
 from .tools.get_me import get_me
 from .version_requirements import tool_annotations
@@ -115,7 +116,7 @@ def register_tool(
     mcp_instance.tool(
         name=name,
         description=description or fn.__doc__,
-        tags={tool_type.value},
+        tags={tool_type.value, *trust_label_tags(fn)},
         annotations=tool_annotations(fn),
     )(with_progress_heartbeat(fn) if slow else async_background(fn))
 
