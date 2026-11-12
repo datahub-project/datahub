@@ -14,7 +14,9 @@ name: PR Docs Impact Check
 #     community PRs: DevRel).
 #
 # Requires secrets:
-#   ANTHROPIC_KEY_FOR_ROUTING - Anthropic API key (shared with pr-to-linear.yml)
+#   ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID,
+#   ANTHROPIC_SERVICE_ACCOUNT_ID, ANTHROPIC_WORKSPACE_ID
+#                             - Claude Workload Identity Federation (no static API key)
 #   INGESTION_LINEAR_KEY      - Linear API key (shared with pr-to-linear.yml)
 
 on:
@@ -25,6 +27,7 @@ permissions:
   contents: read
   pull-requests: write
   issues: write
+  id-token: write # Claude Workload Identity Federation
 
 concurrency:
   group: docs-impact-check-${{ github.event.pull_request.number }}
@@ -59,15 +62,40 @@ jobs:
             docs
             metadata-ingestion/docs
 
+      # Claude Workload Identity Federation: the SDK exchanges this GitHub OIDC
+      # JWT for a short-lived token, so no static API key is stored. The JWT
+      # expires ~5 minutes after issuance, so fetch it right before the
+      # consumer runs.
+      - name: Fetch Claude identity token
+        id: claude-identity
+        if: >-
+          contains(fromJSON('["opened", "reopened", "ready_for_review"]'), github.event.action)
+          && github.event.pull_request.draft == false
+        continue-on-error: true
+        run: |
+          umask 077
+          token_file="${RUNNER_TEMP}/anthropic-oidc-token"
+          jwt=$(curl -sSf -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://api.anthropic.com" | jq -r '.value')
+          echo "::add-mask::${jwt}"
+          printf '%s' "${jwt}" > "${token_file}"
+          echo "token_file=${token_file}" >> "$GITHUB_OUTPUT"
+
       - name: Check docs impact
         if: >-
           contains(fromJSON('["opened", "reopened", "ready_for_review"]'), github.event.action)
           && github.event.pull_request.draft == false
         env:
           GH_TOKEN: ${{ github.token }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_KEY_FOR_ROUTING }}
+          # ANTHROPIC_API_KEY must stay unset: it outranks federation in the
+          # SDK's credential resolution and would silently shadow WIF.
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ secrets.ANTHROPIC_FEDERATION_RULE_ID }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ secrets.ANTHROPIC_ORGANIZATION_ID }}
+          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ secrets.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+          ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ steps.claude-identity.outputs.token_file }}
         run: |
-          python3 -m pip install --quiet anthropic==0.124.0
+          python3 -m pip install --quiet anthropic==1.9.0
           python3 .github/scripts/docs_impact_check.py check --pr "$PR_NUMBER"
 
       - name: Update after new commits
@@ -76,15 +104,38 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: python3 .github/scripts/docs_impact_check.py sync --pr "$PR_NUMBER"
 
+      # Claude Workload Identity Federation: the SDK exchanges this GitHub OIDC
+      # JWT for a short-lived token, so no static API key is stored. The JWT
+      # expires ~5 minutes after issuance, so fetch it right before the
+      # consumer runs.
+      - name: Fetch Claude identity token
+        id: claude-identity-2
+        if: github.event.action == 'closed' && github.event.pull_request.merged == true
+        continue-on-error: true
+        run: |
+          umask 077
+          token_file="${RUNNER_TEMP}/anthropic-oidc-token"
+          jwt=$(curl -sSf -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://api.anthropic.com" | jq -r '.value')
+          echo "::add-mask::${jwt}"
+          printf '%s' "${jwt}" > "${token_file}"
+          echo "token_file=${token_file}" >> "$GITHUB_OUTPUT"
+
       - name: Open docs follow-up on merge
         if: github.event.action == 'closed' && github.event.pull_request.merged == true
         env:
           GH_TOKEN: ${{ github.token }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_KEY_FOR_ROUTING }}
+          # ANTHROPIC_API_KEY must stay unset: it outranks federation in the
+          # SDK's credential resolution and would silently shadow WIF.
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ secrets.ANTHROPIC_FEDERATION_RULE_ID }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ secrets.ANTHROPIC_ORGANIZATION_ID }}
+          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ secrets.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+          ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ steps.claude-identity-2.outputs.token_file }}
           LINEAR_API_KEY: ${{ secrets.INGESTION_LINEAR_KEY }}
           # Same OSS team and DevRel assignee pr-to-linear.yml uses as its fallback.
           DOCS_LINEAR_TEAM_ID: ${{ vars.DOCS_LINEAR_TEAM_ID || '952ee4f2-e3eb-4580-98e3-67c2b73a5c51' }}
           DOCS_LINEAR_ASSIGNEE_ID: ${{ vars.DOCS_LINEAR_ASSIGNEE_ID || '48f94188-01fa-4ab6-bcbd-153bf769198f' }}
         run: |
-          python3 -m pip install --quiet anthropic==0.124.0
+          python3 -m pip install --quiet anthropic==1.9.0
           python3 .github/scripts/docs_impact_check.py merged --pr "$PR_NUMBER"
