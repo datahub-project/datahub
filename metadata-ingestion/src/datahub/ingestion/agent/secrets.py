@@ -58,14 +58,17 @@ _DATAHUB_ENV_ALIASES = {
 class DatahubEnvResolver:
     def resolve(self, ref: str) -> Optional[str]:
         # Lazy: the CLI config is read only when this resolver is used.
-        from datahub.cli.config_utils import DATAHUB_CONFIG_PATH
+        from datahub.cli.config_utils import resolve_profile
 
-        if not os.path.exists(DATAHUB_CONFIG_PATH):
+        # The selected profile (--profile, DATAHUB_PROFILE, current-profile),
+        # not always ~/.datahubenv, so refs match the instance being targeted.
+        config_path = resolve_profile().path
+        if not config_path.is_file():
             return None
         import yaml
 
         try:
-            with open(DATAHUB_CONFIG_PATH) as stream:
+            with config_path.open() as stream:
                 data = yaml.safe_load(stream) or {}
         except (OSError, yaml.YAMLError):
             # Declining, not failing: the next resolver tries, and an

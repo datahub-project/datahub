@@ -407,8 +407,11 @@ def _get_default_gms_server() -> str:
     Returns:
         GMS server URL
     """
-    # First try env var directly
-    url = env_vars.get_gms_url()
+    from datahub.cli.config_utils import explicit_profile_selected
+
+    # An explicit profile outranks raw env vars, and load_client_config applies
+    # that rule; reading env first would mix two instances' URL and token.
+    url = None if explicit_profile_selected() else env_vars.get_gms_url()
     if url:
         return url
 
@@ -442,8 +445,9 @@ def _get_default_gms_token() -> Optional[TransparentSecretStr]:
     Returns:
         GMS token or None
     """
-    # First try env var directly
-    token = env_vars.get_gms_token()
+    from datahub.cli.config_utils import explicit_profile_selected
+
+    token = None if explicit_profile_selected() else env_vars.get_gms_token()
     if token:
         return TransparentSecretStr(token)
 

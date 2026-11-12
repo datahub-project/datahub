@@ -13,7 +13,7 @@
 Selection order: `--profile`, `DATAHUB_PROFILE`, existing GMS connection environment variables,
 `~/.datahub/current-profile`, then `~/.datahubenv` (`default`). The global flag works before or after
 the subcommand. Unknown profiles stop the command. An explicit profile overrides a conflicting GMS
-URL with a warning, and cannot be combined with `DATAHUB_SKIP_CONFIG=true`.
+URL with a warning, and cannot be combined with `DATAHUB_SKIP_CONFIG=true` (`DATAHUB_PROFILE` is ignored under it).
 
 ```bash
 datahub profile list --format json
@@ -34,5 +34,5 @@ to rename a profile, and `profile doctor` to diagnose expired tokens, legacy key
 stray files. Doctor changes nothing without `--fix` and never deletes non-config files.
 
 `profile use` changes the machine default and requires `--yes` without a TTY. Agents must not use it.
-`profile remove` deletes a profile directory and requires `--yes` without a TTY. The reserved `default`
+`profile remove` deletes a profile directory (resetting to `default` if it was active) and requires `--yes` without a TTY. The reserved `default`
 profile cannot be removed or renamed.

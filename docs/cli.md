@@ -90,10 +90,11 @@ The first applicable source wins:
 
 An unknown profile is an error, including a stale active pointer. The CLI lists the profiles and
 servers available and never falls back to another instance. If an explicit profile conflicts with
-the environment's GMS URL, the profile wins and stderr identifies both servers. An explicit profile
-with `DATAHUB_SKIP_CONFIG=true` is an error. Without an explicit profile, the skip-config behavior
+the environment's GMS URL, the profile wins and stderr identifies both servers. `--profile` with
+`DATAHUB_SKIP_CONFIG=true` is an error; under `DATAHUB_SKIP_CONFIG=true` an inherited `DATAHUB_PROFILE` is ignored. Without an explicit profile, the skip-config behavior
 and connection environment precedence stay unchanged. Environment-configured OAuth
-(`DATAHUB_AUTH_TYPE`) keeps its precedence over static tokens.
+(`DATAHUB_AUTH_TYPE`) keeps its precedence over static tokens, but is not applied to an explicit
+profile while `DATAHUB_GMS_URL` names another server, because its tokens belong to that server.
 
 `datahub profile current --format json` reports `name`, `server`, `source`, and `token_expires`
 (JWT expiry in epoch seconds, or null). Check the server before a write. Write commands announce
@@ -102,16 +103,16 @@ including clients that load their default connection through `DataHubGraph`.
 
 ### Manage connections
 
-| Command                                              | Behavior                                                                                                                                          |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `datahub profile list [--format json]`               | Lists names, servers, token status, descriptions, and an active marker. Never displays tokens.                                                    |
-| `datahub profile current [--format json]`            | Reports the selected profile and why it was chosen.                                                                                               |
-| `datahub profile use acme`                           | Changes the machine default. Requires `--yes` without a terminal. `use default` removes the active pointer.                                       |
-| `datahub profile save acme [--from local] [--force]` | Copies a stored connection, defaulting to `~/.datahubenv`. Ignores environment credentials and refuses an existing destination without `--force`. |
-| `datahub profile show acme`                          | Displays server, expiry, auth mode, and path with the token redacted. `--show-token` reveals it explicitly.                                       |
-| `datahub profile remove acme`                        | Deletes the profile directory after confirmation. Requires `--yes` without a terminal and refuses `default`.                                      |
-| `datahub profile rename acme acme-staging`           | Moves the directory and updates the active pointer if needed.                                                                                     |
-| `datahub profile doctor [--fix]`                     | Reports expired tokens, legacy keys, loose permissions, and stray files. Only `--fix` applies repairs. Never deletes stray files.                 |
+| Command                                              | Behavior                                                                                                                                                 |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `datahub profile list [--format json]`               | Lists names, servers, token status, descriptions, and an active marker. Never displays tokens.                                                           |
+| `datahub profile current [--format json]`            | Reports the selected profile and why it was chosen.                                                                                                      |
+| `datahub profile use acme`                           | Changes the machine default. Requires `--yes` without a terminal. `use default` removes the active pointer.                                              |
+| `datahub profile save acme [--from local] [--force]` | Copies a stored connection, defaulting to `~/.datahubenv`. Ignores environment credentials and refuses an existing destination without `--force`.        |
+| `datahub profile show acme`                          | Displays server, expiry, auth mode, and path with the token redacted. `--show-token` reveals it explicitly.                                              |
+| `datahub profile remove acme`                        | Deletes the profile directory after confirmation; if it was active, `default` becomes active. Requires `--yes` without a terminal and refuses `default`. |
+| `datahub profile rename acme acme-staging`           | Moves the directory and updates the active pointer if needed.                                                                                            |
+| `datahub profile doctor [--fix]`                     | Reports expired tokens, legacy keys, loose permissions, and stray files. Only `--fix` applies repairs. Never deletes stray files.                        |
 
 Profiles store one credential each, in plaintext YAML with directory permissions `0700` and file
 permissions `0600`. OAuth refresh updates the profile it read from. New descriptions live under
@@ -750,7 +751,7 @@ Connection environment variables take precedence over the saved machine default.
 in [Selection order](#selection-order).
 
 - `DATAHUB_PROFILE` - Select a named connection for this shell or session.
-- `DATAHUB_SKIP_CONFIG` (default `false`) - Set to `true` to skip loading saved connection files. Cannot be combined with an explicit profile.
+- `DATAHUB_SKIP_CONFIG` (default `false`) - Set to `true` to skip loading saved connection files. Cannot be combined with `--profile`; `DATAHUB_PROFILE` is ignored when it is set.
 - `DATAHUB_GMS_URL` (default `http://localhost:8080`) - Set to a URL of GMS instance
 - `DATAHUB_GMS_HOST` (default `localhost`) - Set to a host of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.
 - `DATAHUB_GMS_PORT` (default `8080`) - Set to a port of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.

@@ -150,6 +150,13 @@ def available_profile_message() -> str:
     )
 
 
+def explicit_profile_selected() -> bool:
+    """True when --profile or DATAHUB_PROFILE picks a profile over raw GMS env vars."""
+    if _cli_profile.get() is not None:
+        return True
+    return os.environ.get("DATAHUB_PROFILE") is not None and not _should_skip_config()
+
+
 def reset_profile_cache() -> None:
     _resolve_profile.cache_clear()
 
@@ -173,12 +180,17 @@ def resolve_profile(
 ) -> ResolvedProfile:
     explicit = profile if profile is not None else _cli_profile.get()
     source = "--profile" if explicit is not None else "DATAHUB_PROFILE"
-    if explicit is None:
-        explicit = os.environ.get("DATAHUB_PROFILE")
     if explicit is not None and _should_skip_config():
         raise click.UsageError(
             "An explicit profile cannot be combined with DATAHUB_SKIP_CONFIG."
         )
+    if explicit is None:
+        explicit = os.environ.get("DATAHUB_PROFILE")
+        if explicit is not None and _should_skip_config():
+            # Executors set DATAHUB_SKIP_CONFIG for subprocesses that may inherit
+            # DATAHUB_PROFILE from a user shell; the env-only contract wins.
+            logger.debug("DATAHUB_SKIP_CONFIG is set; ignoring DATAHUB_PROFILE.")
+            explicit = None
     env_server, _ = _get_config_from_env(warn_deprecated=False)
     pointer = current_profile_path()
     active = None
@@ -232,8 +244,13 @@ def _resolve_profile(
         and not allow_create
         and (explicit is not None or name != "default")
     ):
+        hint = (
+            f" {current_profile_path()} names it; run `datahub profile use default` to reset."
+            if source == "current-profile"
+            else ""
+        )
         raise MissingConfigError(
-            f"Unknown profile {name!r}. {available_profile_message()}"
+            f"Unknown profile {name!r}.{hint} {available_profile_message()}"
         )
     server = None
     if path.is_file():
@@ -263,6 +280,9 @@ def persist_raw_datahub_config(
     config: Mapping[str, object], path: Optional[Path] = None
 ) -> None:
     target = path or resolve_profile(for_init=True, allow_create=True).path
+    # Users keep ~/.datahubenv or profile directories as symlinks (dotfiles repos,
+    # older HOME-override layouts); replacing the link would orphan its target.
+    target = Path(os.path.realpath(target))
     ensure_private_directory(target.parent)
     fd, temporary = tempfile.mkstemp(dir=target.parent, prefix=".datahubenv.")
     try:
@@ -361,13 +381,21 @@ def load_client_config(
     # authenticate with short-lived OAuth tokens.
     resolved = resolve_profile(profile)
     auth_env = build_auth_config_from_env()
+    gms_host_env, gms_token_env = _get_config_from_env()
+    if auth_env is not None and gms_host_env and resolved.source != "DATAHUB_GMS_URL":
+        # Env OAuth is minted for the env server; an explicit profile points
+        # elsewhere, so its tokens must not cross origins.
+        logger.warning(
+            f"{ENV_AUTH_TYPE} is configured for {ENV_METADATA_HOST_URL}; ignoring it "
+            f"because profile {resolved.name!r} was selected."
+        )
+        auth_env = None
     if auth_env is not None and get_system_client_id() is not None:
         logger.warning(
             f"Both {ENV_AUTH_TYPE} and {ENV_DATAHUB_SYSTEM_CLIENT_ID} are set; "
             f"using {ENV_AUTH_TYPE} and ignoring the system client credentials."
         )
 
-    gms_host_env, gms_token_env = _get_config_from_env()
     if gms_host_env and resolved.source == "DATAHUB_GMS_URL":
         if auth_env is not None:
             return DatahubClientConfig(server=gms_host_env, auth=auth_env)
@@ -438,6 +466,23 @@ def _ensure_datahub_config(path: Optional[Path] = None) -> None:
         )
 
 
+def _carry_profile_metadata(
+    config_dict: Dict[str, object], path: Optional[Path], description: Optional[str]
+) -> None:
+    if description is not None:
+        config_dict["profile"] = {"description": description}
+        return
+    target = path or resolve_profile(for_init=True, allow_create=True).path
+    if not target.is_file():
+        return
+    try:
+        previous = read_profile_config(target).get("profile")
+    except (OSError, ValueError, yaml.YAMLError):
+        return
+    if isinstance(previous, dict):
+        config_dict["profile"] = previous
+
+
 def write_gms_config(
     host: str,
     token: Optional[str],
@@ -458,8 +503,7 @@ def write_gms_config(
         config_dict = {**previous_config, **config.model_dump(exclude={"oauth"})}
     else:
         config_dict = config.model_dump(exclude={"oauth"})
-    if description is not None:
-        config_dict["profile"] = {"description": description}
+    _carry_profile_metadata(config_dict, path, description)
     persist_raw_datahub_config(config_dict, path)
 
 
@@ -482,8 +526,7 @@ def write_oauth_config(
     )
     config_dict = config.model_dump()
     config_dict["oauth"] = oauth.model_dump(exclude_none=True)
-    if description is not None:
-        config_dict["profile"] = {"description": description}
+    _carry_profile_metadata(config_dict, path, description)
     persist_raw_datahub_config(config_dict, path)
 
 

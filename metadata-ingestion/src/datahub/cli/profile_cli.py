@@ -15,6 +15,7 @@ import yaml
 from datahub.cli.agent_context import make_agent_aware_group
 from datahub.cli.config_utils import (
     MissingConfigError,
+    ResolvedProfile,
     available_profile_message,
     available_profiles,
     current_profile_path,
@@ -112,7 +113,17 @@ def profile(ctx: click.Context, agent_context: bool) -> None:
 )
 def list_profiles(output_format: str) -> None:
     """List profiles without revealing credentials."""
-    active = resolve_profile()
+    try:
+        resolved: Optional[ResolvedProfile] = resolve_profile()
+    except MissingConfigError:
+        # A stale current-profile pointer must not hide the list needed to fix it.
+        resolved = None
+    # With DATAHUB_GMS_URL in effect no stored profile is in use.
+    active_name = (
+        resolved.name
+        if resolved is not None and resolved.source != "DATAHUB_GMS_URL"
+        else None
+    )
     profiles: list[ProfileInfo] = []
     for item in available_profiles():
         try:
@@ -128,7 +139,7 @@ def list_profiles(output_format: str) -> None:
                     token_expires=profile_token_expiry(raw),
                     token_status=_token_status(raw),
                     description=description if isinstance(description, str) else None,
-                    active=item.name == active.name,
+                    active=item.name == active_name,
                 )
             )
         except click.ClickException:
@@ -139,7 +150,7 @@ def list_profiles(output_format: str) -> None:
                     token_expires=None,
                     token_status="invalid config",
                     description=None,
-                    active=item.name == active.name,
+                    active=item.name == active_name,
                 )
             )
     if output_format == "json":
@@ -151,6 +162,8 @@ def list_profiles(output_format: str) -> None:
             )
         if not profiles:
             click.echo(available_profile_message())
+        if resolved is not None and resolved.source == "DATAHUB_GMS_URL":
+            click.echo(f"Active: DATAHUB_GMS_URL ({resolved.server}), not a profile.")
 
 
 @profile.command("current")
@@ -248,6 +261,10 @@ def remove(name: str, yes: bool) -> None:
         directory.unlink()
     else:
         shutil.rmtree(directory)
+    pointer = current_profile_path()
+    if pointer.is_file() and pointer.read_text(encoding="utf-8").strip() == name:
+        pointer.unlink()
+        click.echo("It was the active profile; the default profile is active now.")
     reset_profile_cache()
     click.echo(f"Removed profile {name!r}.")
 

@@ -128,9 +128,9 @@ def test_skip_config_conflict_and_legacy_behavior(
     assert load_client_config().server == "http://localhost:8080"
     with pytest.raises(click.UsageError):
         load_client_config(profile="acme")
+    # An inherited DATAHUB_PROFILE must not break env-only subprocesses.
     monkeypatch.setenv("DATAHUB_PROFILE", "acme")
-    with pytest.raises(click.UsageError):
-        load_client_config()
+    assert load_client_config().server == "http://localhost:8080"
 
 
 def test_legacy_host_port_and_token_only(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -238,9 +238,6 @@ def test_use_rename_remove_and_noninteractive_confirmation() -> None:
     assert invoke("profile", "remove", "default", "--yes").exit_code != 0
     assert invoke("profile", "remove", "acme-staging", "--yes").exit_code == 0
     assert not profile_path("acme-staging").exists()
-    # A stale selection is reported until the user explicitly clears it.
-    assert invoke("profile", "current").exit_code != 0
-    assert invoke("profile", "use", "default", "--yes").exit_code == 0
     assert not config_utils.current_profile_path().exists()
 
 
@@ -429,3 +426,86 @@ def test_nested_write_announcements(
     assert result.exit_code == 0, result.output
     assert ("https://acme.example.com/gms" in result.stderr) == announces
     assert result.stdout.strip() == "done"
+
+
+def test_removing_active_profile_resets_pointer() -> None:
+    store("default", "http://localhost:8080")
+    store("staging")
+    assert invoke("profile", "use", "staging", "--yes").exit_code == 0
+    assert invoke("profile", "remove", "staging", "--yes").exit_code == 0
+    assert not config_utils.current_profile_path().exists()
+    assert load_client_config().server == "http://localhost:8080"
+
+
+def test_stale_pointer_still_lists_profiles() -> None:
+    store("default", "http://localhost:8080")
+    config_utils.current_profile_path().parent.mkdir(parents=True, exist_ok=True)
+    config_utils.current_profile_path().write_text("gone\n")
+    result = invoke("profile", "list")
+    assert result.exit_code == 0
+    assert "default" in result.output
+    assert invoke("profile", "use", "default", "--yes").exit_code == 0
+    assert load_client_config().server == "http://localhost:8080"
+
+
+def test_environment_oauth_not_sent_to_explicit_profile_server(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store("acme", token="acme-token")
+    monkeypatch.setenv("DATAHUB_GMS_URL", "https://other.example.com/gms")
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "k8s_oidc")
+    config = load_client_config(profile="acme")
+    assert config.server == "https://acme.example.com/gms"
+    assert config.auth is None
+    assert config.token == "acme-token"
+
+
+def test_list_marks_no_profile_active_under_env_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store("default", "http://localhost:8080")
+    store("staging")
+    invoke("profile", "use", "staging", "--yes")
+    monkeypatch.setenv("DATAHUB_GMS_URL", "https://other.example.com/gms")
+    result = invoke("profile", "list", "--format", "json")
+    assert result.exit_code == 0
+    assert not any(p["active"] for p in json.loads(result.output))
+
+
+def test_reinit_keeps_description() -> None:
+    args = ["init", "--profile", "acme", "--host", "https://acme.example.com/gms"]
+    assert invoke(*args, "--token", "a", "--description", "Prod").exit_code == 0
+    assert invoke(*args, "--token", "b", "--force").exit_code == 0
+    raw = yaml.safe_load(profile_path("acme").read_text())
+    assert raw["gms"]["token"] == "b"
+    assert raw["profile"]["description"] == "Prod"
+
+
+def test_writes_follow_symlinked_config(home: Path) -> None:
+    real = home / "dotfiles" / "datahubenv"
+    real.parent.mkdir()
+    real.write_text("gms:\n  server: http://old\n")
+    (home / ".datahubenv").symlink_to(real)
+    store("default", "http://localhost:8080")
+    assert (home / ".datahubenv").is_symlink()
+    assert "http://localhost:8080" in real.read_text()
+
+
+def test_secret_refs_and_chunking_follow_selected_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datahub.ingestion.agent.secrets import DatahubEnvResolver
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        _get_default_gms_server,
+        _get_default_gms_token,
+    )
+
+    store("default", "http://localhost:8080", "local-token")
+    store("acme", token="acme-token")
+    monkeypatch.setenv("DATAHUB_GMS_TOKEN", "env-token")
+    with select_cli_profile("acme"):
+        assert DatahubEnvResolver().resolve("DATAHUB_GMS_TOKEN") == "acme-token"
+        assert _get_default_gms_server() == "https://acme.example.com/gms"
+        token = _get_default_gms_token()
+        assert token is not None and token.get_secret_value() == "acme-token"
+    assert DatahubEnvResolver().resolve("DATAHUB_GMS_URL") == "http://localhost:8080"
