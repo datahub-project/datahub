@@ -7,7 +7,8 @@ import pytest
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
-from datahub.ingestion.source.qlik_sense.data_classes import App
+from datahub.ingestion.source.qlik_sense.data_classes import App, UnreadItem
+from datahub.ingestion.source.qlik_sense.qlik_base_api import UNREAD_DATA_CONNECTIONS
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.qvd_lineage import (
     QvdPathResolver,
@@ -216,7 +217,9 @@ def _app(app_id: str, script: Optional[str]) -> App:
 
 
 def _run(
-    apps: List[App], current: Optional[UpstreamLineageClass] = None
+    apps: List[App],
+    current: Optional[UpstreamLineageClass] = None,
+    connections_unread: bool = False,
 ) -> "tuple[QlikSenseSource, Dict[str, Dict[str, Any]]]":
     graph = MagicMock()
     # The QVDs' lineage as DataHub holds it before the run.
@@ -234,14 +237,20 @@ def _run(
         api = mock_api_cls.return_value
         api.get_spaces.return_value = [stream]
         api.spaces = {"stream-1": "Finance"}
-        api.unread_items = []
+        api.unread_items = (
+            [UnreadItem(name=UNREAD_DATA_CONNECTIONS, cause="503")]
+            if connections_unread
+            else []
+        )
         api.failed_user_lookups = {}
         api.change_check_failures = []
         api.lineage_read_failures = []
         api.field_lineage_failures = []
         api.opened_without_data = []
         api.get_user_name.return_value = None
-        api.get_data_connections.return_value = CONNECTIONS
+        api.get_data_connections.return_value = (
+            {} if connections_unread else CONNECTIONS
+        )
         api.get_items.return_value = apps
         source = QlikSenseSource(
             QlikSourceConfig.model_validate(ONPREM_CONFIG),
@@ -369,6 +378,24 @@ def test_qvd_no_app_writes_any_more_loses_its_old_writer() -> None:
         ),
     )
     assert _upstreams(aspects, CLEAN, "remove") == [old_writer]
+
+
+def test_qvd_writers_are_kept_when_data_connections_could_not_be_listed() -> None:
+    old_writer = _urn("report-app.orders")
+    source, aspects = _run(
+        [_app("report-app", REPORT_SCRIPT)],
+        current=UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(dataset=old_writer, type=DatasetLineageTypeClass.COPY)
+            ]
+        ),
+        connections_unread=True,
+    )
+    # Every lib:// path is unresolved, so the app's writes are unknown.
+    assert source._apps_qvds_unknown == {
+        "report-app": "data connections could not be listed"
+    }
+    assert not any(_upstreams(aspects, urn, "remove") for urn in aspects)
 
 
 def test_qvd_stored_without_its_extension_is_not_an_app_table() -> None:
@@ -552,11 +579,37 @@ def test_unset_variable_in_a_connection_name_expands_to_nothing() -> None:
     assert resolver.unresolved == ["lib://$(vPrefix)Unknown/raw/x.qvd"]
 
 
-def test_path_from_a_quoted_variable_drops_its_quotes() -> None:
+@pytest.mark.parametrize(
+    "folder, expected",
+    [
+        (
+            "'lib://QVD Data/raw/'",
+            QvdReference(connection="QVD Data", path="raw/orders.qvd"),
+        ),
+        (
+            '"lib://QVD Data/raw/"',
+            QvdReference(connection="QVD Data", path="raw/orders.qvd"),
+        ),
+        ("'//nas/qvd/raw/'", QvdReference(path="//nas/qvd/raw/orders.qvd")),
+    ],
+)
+def test_path_from_a_quoted_variable_drops_its_quotes(
+    folder: str, expected: QvdReference
+) -> None:
     # SET keeps the quotes in the variable's value.
     parsed = parse_script(
         "Orders: LOAD id FROM [$(vFolder)orders.qvd] (qvd);",
-        app_variables={"vFolder": "'lib://QVD Data/raw/'"},
+        app_variables={"vFolder": folder},
+    )
+
+    [load] = parsed.qvd_loads
+    assert load.file == expected
+
+
+def test_qvd_named_only_by_a_variable_is_a_qvd_load() -> None:
+    parsed = parse_script(
+        "Orders: LOAD id FROM [$(vFile)];",
+        app_variables={"vFile": "lib://QVD Data/raw/orders.qvd"},
     )
 
     [load] = parsed.qvd_loads

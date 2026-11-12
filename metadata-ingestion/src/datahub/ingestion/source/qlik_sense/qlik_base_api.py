@@ -41,6 +41,10 @@ logger = logging.getLogger(__name__)
 IsUnchanged = Callable[[str, str], bool]
 
 
+# The unread item a failed data connection listing records.
+UNREAD_DATA_CONNECTIONS = "data connections"
+
+
 def log_read_error(message: str) -> None:
     logger.warning(message)
     _, e, _ = sys.exc_info()
