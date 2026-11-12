@@ -8,18 +8,18 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import SourceCapability
-from datahub.ingestion.source.github_documents.github_api import (
-    RepositoryDocumentsClient,
-)
-from datahub.ingestion.source.github_documents.github_documents_config import (
-    RepositoryDocumentsSourceConfigBase,
-)
-from datahub.ingestion.source.github_documents.github_documents_source import (
-    RepositoryDocumentsSourceBase,
-)
 from datahub.ingestion.source.gitlab_documents.gitlab_api import GitLabApiClient
 from datahub.ingestion.source.gitlab_documents.gitlab_documents_config import (
     GitLabDocumentsSourceConfig,
+)
+from datahub.ingestion.source.repository_documents.client import (
+    RepositoryDocumentsClient,
+)
+from datahub.ingestion.source.repository_documents.config import (
+    RepositoryDocumentsSourceConfigBase,
+)
+from datahub.ingestion.source.repository_documents.source import (
+    RepositoryDocumentsSourceBase,
 )
 
 

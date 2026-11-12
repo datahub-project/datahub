@@ -2,12 +2,12 @@ from unittest.mock import patch
 
 import pytest
 
-from datahub.ingestion.source.github_documents.github_documents_report import (
-    GitHubDocumentsSourceReport,
-)
-from datahub.ingestion.source.github_documents.okf_frontmatter import (
+from datahub.ingestion.source.repository_documents.okf_frontmatter import (
     MAX_FRONTMATTER_BYTES,
     parse_okf_frontmatter,
+)
+from datahub.ingestion.source.repository_documents.report import (
+    RepositoryDocumentsSourceReport,
 )
 
 
@@ -27,9 +27,9 @@ from datahub.ingestion.source.github_documents.okf_frontmatter import (
     ids=["alias-bomb", "anchor", "alias", "oversize", "oversize-utf8"],
 )
 def test_unsafe_frontmatter_is_rejected_before_construction(yaml_text: str) -> None:
-    report = GitHubDocumentsSourceReport()
+    report = RepositoryDocumentsSourceReport()
     with patch(
-        "datahub.ingestion.source.github_documents.okf_frontmatter.yaml.load"
+        "datahub.ingestion.source.repository_documents.okf_frontmatter.yaml.load"
     ) as load:
         assert (
             parse_okf_frontmatter(
@@ -43,7 +43,7 @@ def test_unsafe_frontmatter_is_rejected_before_construction(yaml_text: str) -> N
 
 
 def test_limit_applies_to_frontmatter_not_body() -> None:
-    report = GitHubDocumentsSourceReport()
+    report = RepositoryDocumentsSourceReport()
     raw = "---\ntype: Guide\nvalue: "
     raw += "x" * (MAX_FRONTMATTER_BYTES - len(raw) - len("\n---\n")) + "\n---\n"
     parsed = parse_okf_frontmatter(

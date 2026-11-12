@@ -6,7 +6,6 @@ from pydantic import SecretStr
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.github_documents.github_api import (
     GitHubApiClient,
-    GitHubFileInfo,
 )
 from datahub.ingestion.source.github_documents.github_documents_config import (
     GitHubDocumentsSourceConfig,
@@ -15,6 +14,7 @@ from datahub.ingestion.source.github_documents.github_documents_source import (
     GitHubDocumentsSource,
     compute_source_hash,
 )
+from datahub.ingestion.source.repository_documents.client import RepositoryFileInfo
 from datahub.metadata.schema_classes import (
     DocumentInfoClass,
     OkfBundleClass,
@@ -47,7 +47,7 @@ def _source(
     client.index_file_paths = {path for path in files if path.endswith("index.md")}
     client.list_matching_files.return_value = (
         [
-            GitHubFileInfo(path=path, size=len(files[path]))
+            RepositoryFileInfo(path=path, size=len(files[path]))
             for path in (listed or list(files))
         ],
         False,

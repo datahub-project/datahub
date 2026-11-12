@@ -1,5 +1,3 @@
-"""GitHub REST API helpers for the github-documents ingestion source."""
-
 from __future__ import annotations
 
 import base64
@@ -12,10 +10,24 @@ from urllib.parse import quote
 
 import requests
 
+from datahub.ingestion.source.repository_documents.client import (
+    MAX_FILE_SIZE_BYTES,
+    RepositoryDocumentsClient as RepositoryDocumentsClient,
+    RepositoryFileInfo,
+)
+from datahub.ingestion.source.repository_documents.paths import (
+    collect_intermediate_directories as collect_intermediate_directories,
+    make_dir_source_id as _make_dir_source_id,
+    make_file_source_id as _make_file_source_id,
+    make_repo_source_id as _make_repo_source_id,
+    matches_filters,
+    normalize_document_id as normalize_document_id,
+    resolve_parent_dir_source_id as _resolve_parent_dir_source_id,
+)
+
 logger = logging.getLogger(__name__)
 
 GITHUB_API_BASE = "https://api.github.com"
-MAX_FILE_SIZE_BYTES = 1_000_000
 REPO_URL_PATTERN = re.compile(r"https?://github\.com/([^/]+/[^/]+?)(?:\.git)?$")
 
 
@@ -33,37 +45,6 @@ class StaticTokenProvider:
 
     def get_token(self) -> str:
         return self.token
-
-
-@dataclass(frozen=True)
-class GitHubFileInfo:
-    path: str
-    size: Optional[int]
-    sha: Optional[str] = None
-
-
-class RepositoryDocumentsClient(Protocol):
-    """Read access a repository documents source needs from a git host's API."""
-
-    @property
-    def index_file_paths(self) -> Set[str]: ...
-
-    @property
-    def last_api_error(self) -> Optional[str]: ...
-
-    def get_latest_commit_sha(self, owner_repo: str, branch: str) -> str: ...
-
-    def list_matching_files(
-        self,
-        owner_repo: str,
-        branch: str,
-        path_prefix: str,
-        extensions: List[str],
-    ) -> Tuple[List[GitHubFileInfo], bool]: ...
-
-    def fetch_file_content(
-        self, owner_repo: str, file_path: str, branch: str
-    ) -> Optional[str]: ...
 
 
 def parse_repo_identifier(raw: str) -> str:
@@ -86,47 +67,6 @@ def parse_repo_identifier(raw: str) -> str:
         f"Invalid repository identifier: {raw}. "
         "Use 'owner/repo' or 'https://github.com/owner/repo'."
     )
-
-
-def make_file_source_id(
-    owner_repo: str, file_path: str, *, source_prefix: str = "github"
-) -> str:
-    repo_part = owner_repo.replace("/", ".")
-    path_no_ext = file_path
-    dot = path_no_ext.rfind(".")
-    if dot > 0:
-        path_no_ext = path_no_ext[:dot]
-    path_part = path_no_ext.replace("/", ".")
-    return f"{source_prefix}.{repo_part}.{path_part}"
-
-
-def make_dir_source_id(
-    owner_repo: str, dir_path: str, *, source_prefix: str = "github"
-) -> str:
-    repo_part = owner_repo.replace("/", ".")
-    path_part = dir_path.replace("/", ".")
-    return f"{source_prefix}.{repo_part}.{path_part}._dir"
-
-
-def make_repo_source_id(owner_repo: str, *, source_prefix: str = "github") -> str:
-    repo_part = owner_repo.replace("/", ".")
-    return f"{source_prefix}.{repo_part}._repo"
-
-
-def normalize_document_id(source_id: str) -> str:
-    """Normalize a source id into a stable document entity id (matches GMS import service)."""
-    import hashlib
-
-    hash_suffix = hashlib.sha256(source_id.encode("utf-8")).hexdigest()[:16]
-    safe = re.sub(r"[^a-zA-Z0-9_.\-]", "-", source_id)
-    safe = re.sub(r"-{2,}", "-", safe)
-    safe = safe.strip("-").lower()
-    max_base_length = 200 - len(hash_suffix) - 1
-    if max_base_length < 1:
-        return hash_suffix
-    if len(safe) > max_base_length:
-        safe = safe[:max_base_length]
-    return f"{safe}-{hash_suffix}"
 
 
 class GitHubApiClient:
@@ -167,7 +107,7 @@ class GitHubApiClient:
         branch: str,
         path_prefix: str,
         extensions: List[str],
-    ) -> Tuple[List[GitHubFileInfo], bool]:
+    ) -> Tuple[List[RepositoryFileInfo], bool]:
         # The source passes a resolved commit SHA; branch names remain supported
         # for connection checks and direct client callers.
         tree_url = (
@@ -185,7 +125,7 @@ class GitHubApiClient:
         ext_set = {ext.lower() for ext in extensions}
         normalized_prefix = path_prefix.strip("/")
 
-        matching: List[GitHubFileInfo] = []
+        matching: List[RepositoryFileInfo] = []
         self._index_file_paths = set()
         for item in tree["tree"]:
             if item.get("type") != "blob":
@@ -198,7 +138,7 @@ class GitHubApiClient:
             size = item.get("size")
             blob_sha = item.get("sha")
             matching.append(
-                GitHubFileInfo(
+                RepositoryFileInfo(
                     path=path,
                     size=size,
                     sha=blob_sha if isinstance(blob_sha, str) else None,
@@ -342,35 +282,25 @@ class GitHubApiClient:
             return None
 
 
-def matches_filters(file_path: str, path_prefix: str, extensions: Set[str]) -> bool:
-    normalized_prefix = path_prefix.strip("/")
-    if normalized_prefix:
-        if file_path != normalized_prefix and not file_path.startswith(
-            f"{normalized_prefix}/"
-        ):
-            return False
-    dot = file_path.rfind(".")
-    if dot < 0:
-        return False
-    ext = file_path[dot:].lower()
-    return ext in extensions
+# Kept so code built on the github-documents modules keeps importing.
+GitHubFileInfo = RepositoryFileInfo
+_matches_filters = matches_filters
 
 
-def collect_intermediate_directories(
-    files: List[GitHubFileInfo], path_prefix: str
-) -> Set[str]:
-    dirs: Set[str] = set()
-    normalized_prefix = path_prefix.strip("/")
+def make_file_source_id(
+    owner_repo: str, file_path: str, *, source_prefix: str = "github"
+) -> str:
+    return _make_file_source_id(owner_repo, file_path, source_prefix=source_prefix)
 
-    for file in files:
-        relative_path = _relativize(file.path, normalized_prefix)
-        last_slash = relative_path.rfind("/")
-        while last_slash > 0:
-            relative_dir = relative_path[:last_slash]
-            full_dir = _resolve_path(normalized_prefix, relative_dir)
-            dirs.add(full_dir)
-            last_slash = relative_dir.rfind("/")
-    return dirs
+
+def make_dir_source_id(
+    owner_repo: str, dir_path: str, *, source_prefix: str = "github"
+) -> str:
+    return _make_dir_source_id(owner_repo, dir_path, source_prefix=source_prefix)
+
+
+def make_repo_source_id(owner_repo: str, *, source_prefix: str = "github") -> str:
+    return _make_repo_source_id(owner_repo, source_prefix=source_prefix)
 
 
 def resolve_parent_dir_source_id(
@@ -381,35 +311,10 @@ def resolve_parent_dir_source_id(
     repo_root_source_id: Optional[str] = None,
     source_prefix: str = "github",
 ) -> Optional[str]:
-    relative_path = _relativize(full_path, path_prefix.strip("/"))
-    parent_dir = _parent_directory(relative_path)
-    if parent_dir is None:
-        return repo_root_source_id
-    return make_dir_source_id(
+    return _resolve_parent_dir_source_id(
         owner_repo,
-        _resolve_path(path_prefix.strip("/"), parent_dir),
+        full_path,
+        path_prefix,
+        repo_root_source_id=repo_root_source_id,
         source_prefix=source_prefix,
     )
-
-
-def _relativize(full_path: str, prefix: str) -> str:
-    if not prefix:
-        return full_path
-    if full_path.startswith(prefix + "/"):
-        return full_path[len(prefix) + 1 :]
-    if full_path.startswith(prefix):
-        return full_path[len(prefix) :]
-    return full_path
-
-
-def _parent_directory(relative_path: str) -> Optional[str]:
-    last_slash = relative_path.rfind("/")
-    if last_slash <= 0:
-        return None
-    return relative_path[:last_slash]
-
-
-def _resolve_path(prefix: str, relative: str) -> str:
-    if not prefix:
-        return relative
-    return f"{prefix}/{relative}"

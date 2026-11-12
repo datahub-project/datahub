@@ -1,11 +1,11 @@
 from pydantic import Field, SecretStr, field_validator, model_validator
 
-from datahub.ingestion.source.github_documents.github_documents_config import (
-    RepositoryDocumentsSourceConfigBase,
-)
 from datahub.ingestion.source.gitlab_documents.gitlab_api import (
     DEFAULT_GITLAB_URL,
     parse_project_path,
+)
+from datahub.ingestion.source.repository_documents.config import (
+    RepositoryDocumentsSourceConfigBase,
 )
 
 

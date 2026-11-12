@@ -15,11 +15,11 @@ from tenacity import (
     wait_exponential,
 )
 
-from datahub.ingestion.source.github_documents.github_api import (
+from datahub.ingestion.source.repository_documents.client import (
     MAX_FILE_SIZE_BYTES,
-    GitHubFileInfo,
-    matches_filters,
+    RepositoryFileInfo,
 )
+from datahub.ingestion.source.repository_documents.paths import matches_filters
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +121,7 @@ class GitLabApiClient:
         branch: str,
         path_prefix: str,
         extensions: List[str],
-    ) -> Tuple[List[GitHubFileInfo], bool]:
+    ) -> Tuple[List[RepositoryFileInfo], bool]:
         # The whole tree is listed, not just path_prefix, because OKF bundle
         # discovery needs index.md files above the prefix.
         url: Optional[str] = f"{self._project_url(owner_repo)}/repository/tree"
@@ -135,7 +135,7 @@ class GitLabApiClient:
         }
         ext_set = {ext.lower() for ext in extensions}
         normalized_prefix = path_prefix.strip("/")
-        matching: List[GitHubFileInfo] = []
+        matching: List[RepositoryFileInfo] = []
         self._index_file_paths = set()
 
         truncated = False
@@ -159,7 +159,7 @@ class GitLabApiClient:
                     continue
                 blob_id = item.get("id")
                 matching.append(
-                    GitHubFileInfo(
+                    RepositoryFileInfo(
                         path=path,
                         size=None,
                         sha=blob_id if isinstance(blob_id, str) else None,

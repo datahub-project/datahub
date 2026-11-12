@@ -8,7 +8,6 @@ import pytest
 
 from datahub.ingestion.source.github_documents.github_api import (
     GitHubApiClient,
-    GitHubFileInfo,
     StaticTokenProvider,
     collect_intermediate_directories,
     make_dir_source_id,
@@ -22,6 +21,7 @@ from datahub.ingestion.source.github_documents.github_api import (
 from datahub.ingestion.source.github_documents.github_documents_source import (
     compute_file_content_hash,
 )
+from datahub.ingestion.source.repository_documents.client import RepositoryFileInfo
 
 
 def test_parse_repo_identifier_shorthand() -> None:
@@ -46,7 +46,7 @@ def test_make_file_and_dir_source_ids() -> None:
 
 
 def test_collect_intermediate_directories() -> None:
-    files = [GitHubFileInfo(path="docs/guides/setup.md", size=10)]
+    files = [RepositoryFileInfo(path="docs/guides/setup.md", size=10)]
     dirs = collect_intermediate_directories(files, "docs")
     assert dirs == {"docs/guides"}
 
@@ -299,7 +299,7 @@ def test_compute_file_content_hash_is_stable() -> None:
 
 
 def test_collect_intermediate_directories_without_prefix() -> None:
-    files = [GitHubFileInfo(path="guides/setup.md", size=10)]
+    files = [RepositoryFileInfo(path="guides/setup.md", size=10)]
     assert collect_intermediate_directories(files, "") == {"guides"}
 
 
