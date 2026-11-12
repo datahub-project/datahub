@@ -1,4 +1,5 @@
 import json
+import pathlib
 from typing import Dict, List, Optional, Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 
@@ -7,6 +8,7 @@ import pytest
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.qlik_sense.app_state import (
     AppCheckpoint,
     QlikAppStateHandler,
@@ -22,6 +24,7 @@ from datahub.metadata.schema_classes import (
     _Aspect,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import mock_datahub_graph  # noqa: F401
 from tests.unit.qlik_sense.qlik_fakes import (
     APP,
@@ -929,3 +932,23 @@ def test_partly_read_app_kept_from_its_checkpoint_only_adds_qvd_lineage(
     assert "Lineage of Qlik QVDs only added to" in [
         warning.title for warning in second.reporter.warnings
     ]
+
+
+def test_onprem_qvd_lineage_golden(
+    pytestconfig: pytest.Config,
+    tmp_path: pathlib.Path,
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    # One app loads a raw QVD and stores a clean one, which another app loads.
+    _DataHub(mock_datahub_graph)
+    _, workunits = _run(
+        mock_datahub_graph, _qvd_qlik(), "run-1", skip_unchanged_apps=False
+    )
+    output_path = tmp_path / "qlik_onprem_qvd_lineage.json"
+    write_metadata_file(output_path, [wu.metadata for wu in workunits])
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=pathlib.Path(__file__).parent / "golden_onprem_qvd_lineage.json",
+    )
