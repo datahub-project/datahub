@@ -28,8 +28,6 @@ export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
     isScrollable?: boolean;
     maxHeight?: string;
     isBorderless?: boolean;
-    isExpandedInnerTable?: boolean;
-    expandable?: ExpandableProps<T>;
     onRowClick?: (record: T) => void;
     /**
      * When set (including `null`), row highlight is controlled by this key
@@ -39,7 +37,6 @@ export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
     focusedRowKey?: string | null;
     rowClassName?: (record: T) => string;
     rowDataTestId?: (record: T) => string;
-    onExpand?: (record: T) => void;
     handleSortColumnChange?: ({ sortColumn, sortOrder }: { sortColumn: string; sortOrder: SortingState }) => void;
     rowKey?: string | ((record: T) => string);
     rowSelection?: RowSelectionProps<T>;
@@ -56,6 +53,11 @@ export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
     onSortChange?: (sortState: TableSortState) => void;
     /** Renders only the rows in view. Rows must have a fixed height. Needs `isScrollable` and a bounded height. */
     virtualization?: TableVirtualizationProps;
+    /**
+     * Re-renders a cell only when its row or column object changes, so pass memoized columns. Always on
+     * with `virtualization`; worth turning on for small tables whose parent re-renders often.
+     */
+    memoizeCells?: boolean;
     /** Scrolls this row into view whenever the key changes, including rows outside the virtualized window. */
     scrollToRowKey?: string | null;
     /** Cell density. `sm` uses 8px cell padding for narrow, dense lists (e.g. sidebars). Defaults to `md`. */
@@ -128,14 +130,6 @@ export interface RowSelectionProps<T> {
     getCheckboxProps?: (T) => {
         disabled: boolean;
     };
-}
-
-interface ExpandableProps<T> {
-    expandedRowRender?: (record: T, index: number) => React.ReactNode;
-    rowExpandable?: (record: T) => boolean;
-    defaultExpandedRowKeys?: string[];
-    expandIconPosition?: 'start' | 'end'; // Configurable position of the expand icon
-    expandedGroupIds?: string[];
 }
 
 export enum SortingState {

@@ -14,14 +14,14 @@ export interface MountedRows {
 
 /**
  * Schema tab of a dataset, as driven by the scale smoke test. Owns the handful of raw
- * locators the virtualised table needs (the antd scroll body and its row keys), so the
+ * locators the virtualised table needs (the scroll container and its row keys), so the
  * spec itself stays on data-testids.
  */
 export class SchemaScalePage extends BasePage {
   /** The Columns tab header; its pill shows the column count. */
   readonly tabHeader: Locator;
   readonly tableContainer: Locator;
-  /** The antd table body: the element that actually scrolls and that the virtualiser watches. */
+  /** The table's scroll container: the element that actually scrolls and that the virtualiser watches. */
   readonly scrollBody: Locator;
   /** antd pagination controls; the schema table is virtualised and must never show them. */
   readonly paginationControls: Locator;
@@ -32,8 +32,9 @@ export class SchemaScalePage extends BasePage {
     super(page, logger, logDir);
     this.tabHeader = page.getByTestId('Columns-entity-tab-header');
     this.tableContainer = page.getByTestId('schema-table-container');
-    // eslint-disable-next-line playwright/no-raw-locators -- antd renders the scrollable body without a testid
-    this.scrollBody = this.tableContainer.locator('.ant-table-body');
+    // The alchemy Table scrolls in the element that wraps its <table>, which has no testid of its own.
+    // eslint-disable-next-line playwright/no-raw-locators -- parent of the schema-table element
+    this.scrollBody = page.getByTestId('schema-table').locator('xpath=..');
     // eslint-disable-next-line playwright/no-raw-locators -- antd pagination has no testid
     this.paginationControls = this.tableContainer.locator('.ant-pagination');
     this.fieldDrawer = page.getByTestId('schema-field-drawer-content');
