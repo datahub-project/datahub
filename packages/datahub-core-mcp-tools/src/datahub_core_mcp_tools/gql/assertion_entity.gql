@@ -1,0 +1,333 @@
+# get_entities sends this for assertion URNs instead of GetEntity, so the assertion's
+# definition and run history are read only when an assertion is asked for.
+query GetAssertionEntity($urn: String!) {
+    entity(urn: $urn) {
+        urn
+        ...assertionDetails
+    }
+}
+
+fragment assertionDetails on Assertion {
+    urn
+    type
+    ownership {
+        owners {
+            owner {
+                ... on CorpUser {
+                    urn
+                    username
+                }
+                ... on CorpGroup {
+                    urn
+                    name
+                }
+            }
+            type
+            ownershipType {
+                urn
+                info {
+                    name
+                }
+            }
+        }
+    }
+    tags {
+        tags {
+            tag {
+                urn
+                properties {
+                    name
+                }
+            }
+        }
+    }
+    info {
+        type
+        description
+        lastUpdated {
+            time
+            actor
+        }
+        datasetAssertion {
+            datasetUrn
+            scope
+            aggregation
+            operator
+            parameters {
+                value {
+                    value
+                    type
+                }
+                minValue {
+                    value
+                    type
+                }
+                maxValue {
+                    value
+                    type
+                }
+            }
+            fields {
+                urn
+                path
+            }
+            nativeType
+            nativeParameters {
+                key
+                value
+            }
+            logic
+        }
+        fieldAssertion {
+            type
+            entityUrn
+            fieldValuesAssertion {
+                field {
+                    path
+                    type
+                    nativeType
+                }
+                operator
+                parameters {
+                    value {
+                        value
+                        type
+                    }
+                    minValue {
+                        value
+                        type
+                    }
+                    maxValue {
+                        value
+                        type
+                    }
+                }
+                failThreshold {
+                    type
+                    value
+                }
+                excludeNulls
+            }
+            fieldMetricAssertion {
+                field {
+                    path
+                    type
+                    nativeType
+                }
+                metric
+                operator
+                parameters {
+                    value {
+                        value
+                        type
+                    }
+                    minValue {
+                        value
+                        type
+                    }
+                    maxValue {
+                        value
+                        type
+                    }
+                }
+            }
+        }
+        volumeAssertion {
+            type
+            entityUrn
+            rowCountTotal {
+                operator
+                parameters {
+                    value {
+                        value
+                        type
+                    }
+                    minValue {
+                        value
+                        type
+                    }
+                    maxValue {
+                        value
+                        type
+                    }
+                }
+            }
+            rowCountChange {
+                type
+                operator
+                parameters {
+                    value {
+                        value
+                        type
+                    }
+                    minValue {
+                        value
+                        type
+                    }
+                    maxValue {
+                        value
+                        type
+                    }
+                }
+            }
+        }
+        sqlAssertion {
+            type
+            entityUrn
+            statement
+            operator
+            parameters {
+                value {
+                    value
+                    type
+                }
+                minValue {
+                    value
+                    type
+                }
+                maxValue {
+                    value
+                    type
+                }
+            }
+        }
+        freshnessAssertion {
+            entityUrn
+            type
+            schedule {
+                type
+                cron {
+                    cron
+                    timezone
+                }
+                fixedInterval {
+                    unit
+                    multiple
+                }
+            }
+            filter {
+                type
+                sql
+            }
+            failureSeverityConfig { #[since cloud=0.3.17.7]
+                defaultSeverity
+                rules {
+                    severity
+                    operator
+                    parameters {
+                        value {
+                            value
+                            type
+                        }
+                        minValue {
+                            value
+                            type
+                        }
+                        maxValue {
+                            value
+                            type
+                        }
+                    }
+                }
+            }
+        }
+        schemaAssertion {
+            entityUrn
+            compatibility
+            fields {
+                path
+                type
+                nativeType
+            }
+        }
+        customAssertion {
+            type
+            entityUrn
+            field {
+                urn
+                path
+            }
+            fields { #[since oss=1.8.0 cloud=0.3.16]
+                urn
+                path
+            }
+            scope #[since oss=1.8.0 cloud=0.3.16]
+            aggregation #[since oss=1.8.0 cloud=0.3.16]
+            operator #[since oss=1.8.0 cloud=0.3.16]
+            parameters { #[since oss=1.8.0 cloud=0.3.16]
+                value {
+                    value
+                    type
+                }
+                minValue {
+                    value
+                    type
+                }
+                maxValue {
+                    value
+                    type
+                }
+            }
+            nativeType #[since oss=1.8.0 cloud=0.3.16]
+            nativeParameters { #[since oss=1.8.0 cloud=0.3.16]
+                key
+                value
+            }
+            logic
+        }
+        customProperties { #[since oss=1.8.0 cloud=0.3.16]
+            key
+            value
+        }
+        source {
+            type
+            created {
+                time
+                actor
+            }
+        }
+    }
+    platform {
+        urn
+        name
+        properties {
+            displayName
+        }
+    }
+    runEvents(status: COMPLETE, limit: 10) {
+        total
+        failed
+        succeeded
+        errored
+        runEvents {
+            timestampMillis
+            status
+            result {
+                type
+                rowCount
+                missingCount
+                unexpectedCount
+                actualAggValue
+                externalUrl
+                nativeResults {
+                    key
+                    value
+                }
+                # OSS servers carry an errored run's message in properties;
+                # displayMessage is a Cloud field.
+                error {
+                    type
+                    properties {
+                        key
+                        value
+                    }
+                    displayMessage #[since cloud=0.3.17]
+                }
+                severity
+                metric { #[since cloud=0.3.16.3]
+                    value
+                }
+            }
+        }
+    }
+}

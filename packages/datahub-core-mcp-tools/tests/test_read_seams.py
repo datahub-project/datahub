@@ -157,6 +157,12 @@ def test_a_bound_backend_replaces_graphql_reads() -> None:
         def aspects(self, urn: str) -> dict | None:
             return None
 
+        def entity(self, urn: str, *, include_contract: bool = False) -> None:
+            return None
+
+        def related_documents(self, urn: str, start: int, count: int) -> dict:
+            return {}
+
         def search_entities(self, variables: dict) -> dict:
             return {"total": 0}
 

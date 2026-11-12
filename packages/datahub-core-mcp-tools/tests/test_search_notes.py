@@ -47,6 +47,12 @@ class CountingBackend:
     def aspects(self, urn: str) -> dict[str, JsonObject] | None:
         return None
 
+    def entity(self, urn: str, *, include_contract: bool = False) -> None:
+        return None
+
+    def related_documents(self, urn: str, start: int, count: int) -> dict:
+        return {}
+
     def search_entities(self, variables: JsonObject) -> JsonObject:
         if self.fail_after is not None and len(self.sent) >= self.fail_after:
             raise RuntimeError("Failed to execute search")

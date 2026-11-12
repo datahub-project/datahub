@@ -45,6 +45,12 @@ class FakeBackend:
     def aspects(self, urn: str) -> dict[str, JsonObject] | None:
         return None
 
+    def entity(self, urn: str, *, include_contract: bool = False) -> None:
+        return None
+
+    def related_documents(self, urn: str, start: int, count: int) -> dict:
+        return {}
+
     def search_entities(self, variables: JsonObject) -> JsonObject:
         self.sent.append(dict(variables))
         total = self.total_for(variables)
