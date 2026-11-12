@@ -1,4 +1,5 @@
 import io
+import ssl
 from functools import partial
 from typing import Dict, List
 from unittest.mock import MagicMock, patch
@@ -726,3 +727,31 @@ def test_connection_pool_fits_max_workers() -> None:
     adapter = api.session.get_adapter("https://tenant.example.com/api/v1")
     assert isinstance(adapter, HTTPAdapter)
     assert adapter.poolmanager.connection_pool_kw["maxsize"] == 20
+
+
+@pytest.mark.parametrize(
+    "first_error, retried",
+    [
+        (TimeoutError("[Errno 110] Connection timed out"), True),
+        (ConnectionResetError("reset by peer"), True),
+        # An authentication or certificate failure would fail again.
+        (ssl.SSLCertVerificationError("certificate verify failed"), False),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.time.sleep")
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_engine_connection_is_retried_only_on_transient_errors(
+    mock_connect: MagicMock,
+    mock_sleep: MagicMock,
+    first_error: Exception,
+    retried: bool,
+) -> None:
+    mock_connect.side_effect = [first_error, MagicMock()]
+
+    if retried:
+        WebsocketConnection.for_cloud("tenant.example.com", "key", "app-1")
+        assert mock_connect.call_count == 2
+    else:
+        with pytest.raises(ssl.SSLCertVerificationError):
+            WebsocketConnection.for_cloud("tenant.example.com", "key", "app-1")
+        assert mock_connect.call_count == 1
