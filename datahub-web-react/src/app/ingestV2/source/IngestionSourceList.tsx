@@ -101,6 +101,7 @@ interface Props {
     setHideSystemSources: (show: boolean) => void;
     selectedTab: TabType | undefined | null;
     setSelectedTab: (selectedTab: TabType | null | undefined) => void;
+    canManageIngestion: boolean;
     sourceFilter?: number;
     setSourceFilter: (sourceFilter: number | undefined) => void;
     searchQuery?: string;
@@ -115,6 +116,7 @@ export const IngestionSourceList = ({
     setHideSystemSources,
     selectedTab,
     setSelectedTab,
+    canManageIngestion,
     sourceFilter: sourceFilterFromUrl,
     setSourceFilter: setSourceFilterFromUrl,
     searchQuery: searchQueryFromUrl,
@@ -232,11 +234,13 @@ export const IngestionSourceList = ({
                 negated: sourceFilter !== IngestionSourceType.CLI,
             });
         }
-        if (sourceTypes.length) {
+        // Viewers get no type facets and no filter control, so a `sourceTypes` URL value
+        // would silently narrow their list with no way to clear it.
+        if (canManageIngestion && sourceTypes.length) {
             draftFilters.push({ field: 'type', values: sourceTypes });
         }
         return draftFilters;
-    }, [sourceFilter, hideSystemSources, sourceTypes]);
+    }, [sourceFilter, hideSystemSources, sourceTypes, canManageIngestion]);
 
     const queryInputs = useMemo(
         () => ({
@@ -477,11 +481,14 @@ export const IngestionSourceList = ({
                                 size="sm"
                                 data-testid="ingestions-type-filter"
                             />
-                            <SourceTypeFilter
-                                values={sourceTypes}
-                                onUpdate={setSourceTypesFromUrl}
-                                hideSystemSources={hideSystemSources}
-                            />
+                            {/* Type facets are only returned to users who can list every source. */}
+                            {canManageIngestion && (
+                                <SourceTypeFilter
+                                    values={sourceTypes}
+                                    onUpdate={setSourceTypesFromUrl}
+                                    hideSystemSources={hideSystemSources}
+                                />
+                            )}
                         </SearchContainer>
                         <FilterButtonsContainer>
                             <RefreshButton onClick={() => refetch()} id={INGESTION_REFRESH_SOURCES_ID} />
@@ -507,6 +514,7 @@ export const IngestionSourceList = ({
                                 }
                                 shouldPreserveParams={shouldPreserveParams}
                                 isLastPage={isLastPage}
+                                canManageIngestion={canManageIngestion}
                                 sourcesToRefetch={sourcesToRefetch}
                                 executedUrns={executedUrns}
                                 setSelectedTab={setSelectedTab}

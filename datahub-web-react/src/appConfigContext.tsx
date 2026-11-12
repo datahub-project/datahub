@@ -98,6 +98,7 @@ export const DEFAULT_APP_CONFIG = {
         showSearchBarAutocompleteRedesign: false,
         showManageTags: false,
         showIntroducePage: false,
+        viewIngestionSourcePrivilegesEnabled: false,
         showLineageExpandMore: false,
         showLineageFilterNodes: false,
         showDefaultExternalLinks: true,

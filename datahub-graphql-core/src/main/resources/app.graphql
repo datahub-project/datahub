@@ -823,6 +823,12 @@ type FeatureFlagsConfig {
     @deprecated(reason: "Always true. Will be removed in a future release.")
 
   """
+  If turned on, users without the Manage Metadata Ingestion privilege can open the Ingestion page and
+  list the ingestion sources they are authorized to view
+  """
+  viewIngestionSourcePrivilegesEnabled: Boolean!
+
+  """
   If enabled, show the expand more button (>>) in the lineage graph
   """
   showLineageExpandMore: Boolean!

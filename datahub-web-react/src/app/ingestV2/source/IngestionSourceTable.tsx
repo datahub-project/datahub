@@ -45,6 +45,7 @@ interface Props {
     sourcesToRefetch: Set<string>;
     executedUrns: Set<string>;
     setSelectedTab: (selectedTab: TabType | null | undefined) => void;
+    canManageIngestion: boolean;
 }
 
 function IngestionSourceTable({
@@ -62,6 +63,7 @@ function IngestionSourceTable({
     sourcesToRefetch,
     executedUrns,
     setSelectedTab,
+    canManageIngestion,
 }: Props) {
     const { t } = useTranslation('ingestion');
     const { t: tl } = useTranslation('common.labels');
@@ -131,7 +133,9 @@ function IngestionSourceTable({
             key: 'lastRun',
             render: (record) => <DateTimeColumn time={record.lastExecTime} showRelative />,
             width: '20%',
-            onCellClick: (record) => navigateToRunHistory(record),
+            // The Run History tab is only rendered for users who can manage ingestion.
+            onCellClick: canManageIngestion ? (record) => navigateToRunHistory(record) : undefined,
+            isCellClickable: () => canManageIngestion,
             cellWrapper: (content, record) => wrapDateTimeColumnWithHover(content, record.lastExecTime),
         },
         {
@@ -164,7 +168,7 @@ function IngestionSourceTable({
                     onDelete={onDelete}
                     onView={onView}
                     onEdit={onEdit}
-                    navigateToRunHistory={navigateToRunHistory}
+                    navigateToRunHistory={canManageIngestion ? navigateToRunHistory : undefined}
                 />
             ),
             width: '10%',
