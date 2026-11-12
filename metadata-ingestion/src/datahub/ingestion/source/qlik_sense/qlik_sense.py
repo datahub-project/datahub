@@ -937,6 +937,27 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     index.folded.setdefault(field.name.lower(), []).append(app_field)
         return index
 
+    @staticmethod
+    def _tables_without_chart_path(
+        app: App, chart_inputs: Dict[str, ChartInputs], table_urns: List[str]
+    ) -> List[str]:
+        """The app's tables no chart links to the app. A table reaches the app
+        through a chart only if the chart's sheet is written with its charts,
+        which needs all of them to have been read."""
+        charts_on_complete_sheets = {
+            chart.qId
+            for sheet in app.sheets
+            if sheet.charts_complete
+            for chart in sheet.charts
+        }
+        charted = {
+            urn
+            for chart_id, inputs in chart_inputs.items()
+            if chart_id in charts_on_complete_sheets
+            for urn in inputs.tables
+        }
+        return [urn for urn in table_urns if urn not in charted]
+
     def _gen_app_dashboard_workunit(
         self,
         app: App,
@@ -1957,15 +1978,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 has_unknown_schema,
             )
         )
-        charted_tables = {
-            urn for inputs in (chart_inputs or {}).values() for urn in inputs.tables
-        }
         yield from self._gen_app_dashboard_workunit(
             app,
             owner_username,
             None
             if chart_inputs is None
-            else [urn for urn in input_tables_urns if urn not in charted_tables],
+            else self._tables_without_chart_path(app, chart_inputs, input_tables_urns),
         )
         yield from self._gen_sheets_workunit(app, chart_inputs)
         yield from self._gen_app_tables_workunit(app.tables, app.id)

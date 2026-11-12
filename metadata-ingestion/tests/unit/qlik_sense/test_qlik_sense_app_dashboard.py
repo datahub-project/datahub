@@ -11,7 +11,12 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
-from datahub.ingestion.source.qlik_sense.data_classes import App, Sheet
+from datahub.ingestion.source.qlik_sense.data_classes import (
+    App,
+    Chart,
+    ChartInputs,
+    Sheet,
+)
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -123,3 +128,29 @@ def test_app_is_a_dashboard_of_its_sheets_and_tables(
         c for wu in workunits if (c := wu.get_aspect_of_type(ContainerClass))
     ]
     assert container.container == make_container_urn(source._gen_space_key("space-1"))
+
+
+def _chart(chart_id: str) -> Chart:
+    return Chart.model_validate(
+        {
+            "qInfo": {"qId": chart_id},
+            "visualization": "barchart",
+            "qHyperCube": {"qDimensionInfo": [], "qMeasureInfo": []},
+        }
+    )
+
+
+@pytest.mark.parametrize("charts_complete", [True, False])
+def test_app_links_tables_its_charts_cannot(charts_complete: bool) -> None:
+    sheet = _sheet("sheet-1")
+    sheet.charts = [_chart("chart-1")]
+    # Another chart of the sheet could not be read, so the sheet is not
+    # written with its charts and chart-1's table has no path to the app.
+    sheet.charts_complete = charts_complete
+    app = _app([])
+    app.sheets = [sheet]
+    inputs = {"chart-1": ChartInputs(fields=[], tables=[TABLES[0]])}
+
+    assert QlikSenseSource._tables_without_chart_path(app, inputs, TABLES) == (
+        TABLES[1:] if charts_complete else TABLES
+    )
