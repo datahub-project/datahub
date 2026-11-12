@@ -338,14 +338,17 @@ def test_malformed_record_is_skipped_and_the_rest_are_used() -> None:
     assert r.repository is not None
 
 
-def test_load_error_falls_back_to_native() -> None:
+def test_load_error_skips_tags_and_fails_the_run() -> None:
+    # Without the records a sync-back tag would come back as a native duplicate
+    # and replace DataHub's tag; a failed run also keeps stale-entity removal
+    # from soft-deleting the records.
     repository = fake_tag_repository([], load_error=RuntimeError("search timed out"))
     r = resolver(repository=repository)
 
-    assert r.resolve_tag_urn(_TAG) == _NATIVE_TAG_URN
-    assert r.resolve_tag_urn(_TAG) == _NATIVE_TAG_URN
+    assert r.resolve_tag_urn(_TAG) is None
+    assert r.global_tags(_DATASET, [_TAG]) is None
     assert r.report.num_tag_platform_resource_lookup_failures == 1
-    assert len(r.report.warnings) == 1
+    assert len(r.report.failures) == 1
     assert emitted_secondary_keys(r) == []
 
 
