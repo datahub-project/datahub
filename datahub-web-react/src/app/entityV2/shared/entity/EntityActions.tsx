@@ -6,8 +6,8 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
+import { useEntityContext, useEntityData } from '@app/entityV2/shared/EntityContext';
 import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
 import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search/SearchSelectModal';
 import { handleBatchError } from '@app/entityV2/shared/utils';

@@ -10,7 +10,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability saasOnly />
 
 :::info Context add-on
-This step uses features from the DataHub Cloud **Context** add-on, currently in Public Beta.
+This step uses features from the DataHub Cloud **Context** add-on.
 :::
 
 Before you add any context, decide what "good" looks like. Evals give you a fixed standard, so every change you make afterward can be measured against it.

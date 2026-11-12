@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 // eslint-disable-next-line no-restricted-imports -- (untranslated-text) ANTD_GRAY is deprecated; left as-is here, not part of this i18n string-extraction change
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { AdvancedFilterSelectValueModal } from '@app/search/AdvancedFilterSelectValueModal';
 import { AdvancedSearchFilterConditionSelect } from '@app/search/AdvancedSearchFilterConditionSelect';
 import { AdvancedSearchFilterValuesSection } from '@app/search/AdvancedSearchFilterValuesSection';

@@ -3,7 +3,7 @@ import React, { Dispatch, SetStateAction } from 'react';
 
 import { hashString } from '@components/components/Avatar/utils';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { getPlatformUrnFromEntityUrn } from '@app/entityV2/shared/utils';
 import { DBT_CLOUD_URN } from '@app/ingest/source/builder/constants';
 import { DBT_URN } from '@app/ingestV2/source/builder/constants';

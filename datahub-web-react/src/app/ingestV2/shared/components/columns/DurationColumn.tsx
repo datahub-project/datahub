@@ -2,7 +2,7 @@ import { Text } from '@components';
 import React, { useMemo } from 'react';
 
 import { formatDuration } from '@app/sharedV2/formatDuration';
-import isPresent from '@app/utils/isPresent';
+import isPresent from '@utils/isPresent';
 
 interface Props {
     durationMs?: number | null;

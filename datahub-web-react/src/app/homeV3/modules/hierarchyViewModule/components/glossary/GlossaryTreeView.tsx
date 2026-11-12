@@ -12,6 +12,7 @@ import useChildrenGlossaryLoader from '@app/homeV3/modules/hierarchyViewModule/c
 import useGlossaryRelatedEntitiesLoader from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useGlossaryRelatedEntitiesLoader';
 import useParentValuesToLoadChildren from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useParentValues';
 import { ChildrenLoaderMetadata } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/types';
+import { getTotalChildren } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/utils';
 import useGlossaryTree from '@app/homeV3/modules/hierarchyViewModule/components/glossary/hooks/useGlossaryTree';
 import { GlossaryTermType } from '@app/homeV3/modules/hierarchyViewModule/components/glossary/types';
 import TreeView from '@app/homeV3/modules/hierarchyViewModule/treeView/TreeView';
@@ -45,7 +46,7 @@ export default function GlossaryTreeView({ assetUrns, shouldShowRelatedEntities,
             tree.update(newNodes, parentDomainUrn);
             tree.updateNode(parentDomainUrn, {
                 isChildrenLoading: false,
-                totalChildren: (metadata.totalNumberOfChildren ?? 0) + (metadata.totalNumberOfRelatedEntities ?? 0),
+                totalChildren: getTotalChildren(metadata),
             });
         },
         [tree, removeParentValue],

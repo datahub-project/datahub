@@ -10,8 +10,6 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Mappi
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
-import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
-import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 import static org.opensearch.core.rest.RestStatus.TOO_MANY_REQUESTS;
 
 import com.datahub.context.OperationFingerprint;
@@ -21,7 +19,6 @@ import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
-import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.LogicalValueType;
@@ -127,35 +124,6 @@ public class ESUtils {
   public static final String HEADER_VALUE_DELIMITER = "|";
   public static final String REMOVED = "removed";
   public static final String LIFECYCLE_STAGE = "lifecycleStage";
-  public static final String SIBLINGS = "siblings";
-  public static final String HAS_SIBLINGS = "hasSiblings";
-  public static final String SIBLINGS_PRIMARY = "siblingsPrimary";
-  private static final String DATASET_URN_PREFIX = "urn:li:" + DATASET_ENTITY_NAME + ":";
-
-  /**
-   * Filter fields that every member of a sibling group matches alike, so non-primary siblings can
-   * still be hidden. Any other filter field turns hiding off.
-   *
-   * <p>{@code state}, {@code lifecycleStage} and {@code showInGlobalContext} are the document
-   * visibility defaults that GraphQL search adds to every request that includes documents (see
-   * DefaultEntityFiltersUtil in datahub-graphql-core). They are stripped from aggregations, so they
-   * never come from a user-selected facet, and datasets pass them alike.
-   */
-  private static final Set<String> SIBLING_HIDING_NEUTRAL_FIELDS =
-      Set.of(
-          INDEX_VIRTUAL_FIELD, "entity", REMOVED, "state", LIFECYCLE_STAGE, "showInGlobalContext");
-
-  /** A filter on any of these is a question about the sibling group itself; it is not narrowed. */
-  private static final Set<String> SIBLING_FIELDS =
-      Set.of(SIBLINGS, HAS_SIBLINGS, SIBLINGS_PRIMARY);
-
-  /** Presence checks select even when negated, so they never keep sibling hiding on. */
-  private static final Set<Condition> SIBLING_PRESENCE_CONDITIONS =
-      Set.of(Condition.IS_NULL, Condition.EXISTS);
-
-  private static final String ENTITY_SUB_TYPE_FILTER_FIELD =
-      INDEX_VIRTUAL_FIELD + AGGREGATION_SEPARATOR_CHAR + "typeNames";
-
   public static final String ALIAS_FIELD_TYPE = "alias";
   public static final String TYPE = "type";
   public static final String KEYWORD = "keyword";
@@ -178,6 +146,7 @@ public class ESUtils {
   public static final String OBJECT_FIELD_TYPE = "object";
   public static final String TEXT_FIELD_TYPE = "text";
   public static final String TOKEN_COUNT_FIELD_TYPE = "token_count";
+  public static final String RANK_FEATURES_FIELD_TYPE = "rank_features";
 
   // End of field types
 
@@ -1592,6 +1561,16 @@ public class ESUtils {
                     resolvedForV3,
                     v3Index))
             .queryName(queryName != null ? queryName : fieldName);
+      } else if (condition == Condition.IN) {
+        // A resolved V3 path is already the keyword field. The V2 helper appends .keyword, which
+        // turns platform_urn into platform_urn.keyword and matches nothing.
+        String field =
+            resolvedForV3
+                ? fieldName
+                : toKeywordField(
+                    opContext, criterion.getField(), isTimeseries, aspectRetriever, v3Index);
+        return QueryBuilders.termsQuery(field, criterion.getValues())
+            .queryName(queryName != null ? queryName : fieldName);
       }
     }
     throw new UnsupportedOperationException("Unsupported condition: " + condition);
@@ -1648,19 +1627,62 @@ public class ESUtils {
   /**
    * A contains filter on a text-only label matches each analyzed subfield. Every token must match,
    * and any subfield is enough. Multiple values stay in disjunction, as a keyword wildcard does.
+   *
+   * <p>The V3 search analyzer emits an identifier and its underscore parts at one position, and AND
+   * does not apply inside that synonym group, so {@code fct_users_deleted} would also match {@code
+   * fct_users_created}. The standard analyzer matches the preserved original token, which keeps
+   * that exclusion and still matches a short identifier such as {@code db_id} after {@code
+   * min_length} drops its parts. The parts are also required at separate positions, so {@code
+   * fct_users} matches {@code fct_users_deleted}.
    */
   @Nonnull
   private static QueryBuilder buildAnalyzedContainsQuery(
       @Nonnull String queryName, @Nonnull List<String> paths, @Nonnull Criterion criterion) {
     BoolQueryBuilder values = QueryBuilders.boolQuery().minimumShouldMatch(1);
     for (String value : criterion.getValues()) {
+      String trimmed = value.trim();
+      List<String> parts = analyzedContainParts(trimmed);
       BoolQueryBuilder fields = QueryBuilders.boolQuery().minimumShouldMatch(1);
       for (String path : paths) {
-        fields.should(QueryBuilders.matchQuery(path, value.trim()).operator(Operator.AND));
+        fields.should(analyzedContainOnPath(path, trimmed, parts));
       }
       values.should(fields);
     }
     return values.queryName(queryName);
+  }
+
+  /**
+   * The whole value, analyzed without splitting on {@code _}, or every part of it. One part is the
+   * whole value, so it does not need a second clause.
+   */
+  @Nonnull
+  private static QueryBuilder analyzedContainOnPath(
+      @Nonnull String path, @Nonnull String value, @Nonnull List<String> parts) {
+    QueryBuilder whole =
+        QueryBuilders.matchQuery(path, value).analyzer("standard").operator(Operator.AND);
+    if (parts.size() < 2) {
+      return whole;
+    }
+    BoolQueryBuilder either = QueryBuilders.boolQuery().minimumShouldMatch(1);
+    either.should(whole);
+    BoolQueryBuilder allParts = QueryBuilders.boolQuery();
+    for (String part : parts) {
+      allParts.must(QueryBuilders.matchQuery(path, part).operator(Operator.AND));
+    }
+    either.should(allParts);
+    return either;
+  }
+
+  /** Letters, digits, and combining marks. Underscores and whitespace separate parts. */
+  @Nonnull
+  private static List<String> analyzedContainParts(@Nonnull String value) {
+    List<String> parts = new ArrayList<>();
+    for (String part : value.split("[^\\p{L}\\p{N}\\p{M}]+")) {
+      if (!part.isEmpty()) {
+        parts.add(part);
+      }
+    }
+    return parts;
   }
 
   private static QueryBuilder buildContainsConditionFromCriterion(
@@ -1983,109 +2005,6 @@ public class ESUtils {
         entityIndexConfiguration);
     EntityFilter.applyEntityTypeFilter(filterQuery, entityNames, entityIndexConfiguration);
     return filterQuery;
-  }
-
-  /**
-   * Hides non-primary members of dataset sibling groups so a group surfaces as one result. A no-op
-   * unless {@link SearchConfiguration#isHideNonPrimarySiblings()} is on.
-   *
-   * <p>Hiding applies only when no filter criterion selects: every criterion is on entity type
-   * (without a sub-type), the soft-delete flag or the document visibility defaults that search adds
-   * to every request, or is negated. Any selecting criterion turns it off, because the sibling that
-   * matches it may be the hidden one. For example, {@code platform=snowflake} matches only the
-   * Snowflake table, while its dbt primary is a different platform, so hiding the table would
-   * return nothing. Sub-types differ between members too (dbt "Model" vs "Table"). A negated
-   * criterion ("tag is not deprecated") only removes documents, so it keeps hiding on. It can still
-   * drop a group: when it excludes the primary but not another member, that member is hidden too. A
-   * negated presence check counts as selecting: a negated IS_NULL means "has a value" and a negated
-   * EXISTS means "does not exist", and siblings often differ on which fields they have. Filters
-   * from a view are merged into the request filter and follow the same rule. A filter on a siblings
-   * field (the sibling list on an entity page, the "has siblings" facet) is a question about the
-   * group itself and is likewise left alone. Because the hiding clause also applies to
-   * aggregations, the "has siblings" facet counts only primary members, while selecting it lists
-   * every member.
-   *
-   * <p>Only documents that carry {@code siblingsPrimary=false} are hidden, so documents indexed
-   * before the field existed stay visible. Each document carries only its own flag, so two cases
-   * hide a whole group:
-   *
-   * <ul>
-   *   <li>No member of the group is marked primary.
-   *   <li>The primary member is soft-deleted or hard-deleted. Its siblings keep {@code
-   *       siblingsPrimary=false}, so they are hidden while the primary no longer appears either.
-   * </ul>
-   *
-   * Groups must have exactly one live primary member for this to be safe.
-   */
-  @Nonnull
-  public static BoolQueryBuilder filterNonPrimarySiblings(
-      @Nullable final Filter filter,
-      @Nonnull final BoolQueryBuilder filterQuery,
-      @Nullable final SearchConfiguration searchConfiguration) {
-    if (searchConfiguration == null || !searchConfiguration.isHideNonPrimarySiblings()) {
-      return filterQuery;
-    }
-    if (filter != null && !allCriteriaAreNeutral(filter)) {
-      return filterQuery;
-    }
-    filterQuery.mustNot(
-        QueryBuilders.boolQuery()
-            .filter(QueryBuilders.prefixQuery("urn", DATASET_URN_PREFIX))
-            .filter(QueryBuilders.termQuery(HAS_SIBLINGS, true))
-            .filter(QueryBuilders.termQuery(SIBLINGS_PRIMARY, false)));
-    return filterQuery;
-  }
-
-  private static boolean allCriteriaAreNeutral(@Nonnull final Filter filter) {
-    if (filter.getOr() != null) {
-      for (ConjunctiveCriterion or : filter.getOr()) {
-        for (Criterion criterion : or.getAnd()) {
-          if (!isNeutralForSiblingHiding(criterion)) {
-            return false;
-          }
-        }
-      }
-    }
-    if (filter.getCriteria() != null) {
-      for (Criterion criterion : filter.getCriteria()) {
-        if (!isNeutralForSiblingHiding(criterion)) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
-  /**
-   * True when hiding non-primary siblings cannot leave a hidden member as the group's only match: a
-   * criterion every member matches alike, or one that only excludes documents.
-   */
-  private static boolean isNeutralForSiblingHiding(@Nonnull final Criterion criterion) {
-    String field = criterion.getField();
-    if (field.endsWith(KEYWORD_SUFFIX)) {
-      field = field.substring(0, field.length() - KEYWORD_SUFFIX.length());
-    }
-    if (SIBLING_FIELDS.contains(field)) {
-      return false;
-    }
-    if (SIBLING_HIDING_NEUTRAL_FIELDS.contains(field)) {
-      return true;
-    }
-    // A negated criterion only removes documents, so it cannot make a hidden member the only
-    // match. Negated presence checks are the exception: a negated IS_NULL means "has a value"
-    // and a negated EXISTS means "does not exist". Both select, and siblings often differ on
-    // presence (a dbt model has a description, its warehouse table does not).
-    if (criterion.isNegated() && !SIBLING_PRESENCE_CONDITIONS.contains(criterion.getCondition())) {
-      return true;
-    }
-    if (ENTITY_SUB_TYPE_FILTER_FIELD.equals(field)) {
-      // The composite facet carries "dataset" or "dataset<sep>Table"; only the bare entity type is
-      // shared by all members.
-      return criterion.getValues() == null
-          || criterion.getValues().stream()
-              .noneMatch(value -> value.contains(AGGREGATION_SEPARATOR_CHAR));
-    }
-    return false;
   }
 
   /**

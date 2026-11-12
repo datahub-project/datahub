@@ -5,8 +5,10 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.authentication.invite.InviteTokenAuthorizationException;
 import com.datahub.authentication.invite.InviteTokenService;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.GetInviteTokenInput;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
@@ -54,5 +56,22 @@ public class GetInviteTokenResolverTest {
 
     assertEquals(
         _resolver.get(_dataFetchingEnvironment).join().getInviteToken(), INVITE_TOKEN_STRING);
+  }
+
+  @Test
+  public void testRoleDeniedMapsToAuthorizationException() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getAuthentication()).thenReturn(_authentication);
+    when(_inviteTokenService.getInviteToken(any(OperationContext.class), any(), eq(false)))
+        .thenThrow(new InviteTokenAuthorizationException("denied"));
+
+    GetInviteTokenInput input = new GetInviteTokenInput();
+    input.setRoleUrn(ROLE_URN_STRING);
+    when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
+
+    Exception exception =
+        expectThrows(Exception.class, () -> _resolver.get(_dataFetchingEnvironment).join());
+    assertTrue(exception.getCause() instanceof AuthorizationException);
   }
 }

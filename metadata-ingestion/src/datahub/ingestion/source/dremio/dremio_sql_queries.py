@@ -1,6 +1,6 @@
 import re
 from datetime import datetime, timedelta
-from typing import List, Optional, Union
+from typing import List, Optional
 
 
 class DremioSQLQueries:
@@ -27,7 +27,9 @@ class DremioSQLQueries:
         C.COLUMN_SIZE
     FROM
         INFORMATION_SCHEMA."TABLES" T
-        INNER JOIN (
+        -- LEFT JOIN: a dataset whose columns can't be read (e.g. its source
+        -- is offline) still comes back, as one row without COLUMN_NAME.
+        LEFT JOIN (
             SELECT
                 TABLE_CATALOG,
                 TABLE_SCHEMA,
@@ -286,6 +288,7 @@ class DremioSQLQueries:
         SELECT
             CONCAT(REPLACE(REPLACE(REPLACE(PATH, ', ', '.'), '[', ''), ']', '')) AS FULL_TABLE_PATH,
             PATH AS TABLE_SCHEMA,
+            VIEW_NAME AS TABLE_NAME,
             SQL_DEFINITION AS VIEW_DEFINITION
         FROM
             SYS.VIEWS
@@ -307,6 +310,7 @@ class DremioSQLQueries:
         SELECT
             CONCAT(REPLACE(REPLACE(REPLACE(PATH, ', ', '.'), '[', ''), ']', '')) AS FULL_TABLE_PATH,
             PATH AS TABLE_SCHEMA,
+            VIEW_NAME AS TABLE_NAME,
             SQL_DEFINITION AS VIEW_DEFINITION
         FROM
             SYS.PROJECT.VIEWS
@@ -321,30 +325,47 @@ class DremioSQLQueries:
         {limit_clause}
         """
 
-    # Normalized schema field: Dremio's "[a, b]" path format flattened to dotted,
-    # UPPER-cased text so the REGEXP_LIKE pattern filters can match it.
+    # Normalized schema field: Dremio's "[a, b]" path format flattened to dotted
+    # text. pattern_condition matches it case-insensitively.
     SCHEMA_FILTER_FIELD = "CONCAT(REPLACE(REPLACE(REPLACE(UPPER(TABLE_SCHEMA), ', ', '.'), '[', ''), ']', ''))"
 
+    # Enterprise/Cloud FULL_TABLE_PATH ends with the dataset name; cut it to the schema path.
+    SYS_SCHEMA_FILTER_FIELD = (
+        "UPPER(SUBSTR(FULL_TABLE_PATH, 1, "
+        "LENGTH(FULL_TABLE_PATH) - LENGTH(TABLE_NAME) - 1))"
+    )
+
     @staticmethod
-    def pattern_condition(
-        patterns: Union[str, List[str]], field: str, allow: bool = True
-    ) -> str:
+    def _upper_non_ascii(pattern: str) -> str:
+        # Java's `(?i)` without `u` folds ASCII letters only, and `u` is not used
+        # (see pattern_condition), so non-ASCII letters are upper-cased to match
+        # the field. The schema fields must therefore stay UPPER()-ed. Escapes
+        # and inline flags are ASCII and stay as written.
+        return "".join(c if c.isascii() else c.upper() for c in pattern)
+
+    @staticmethod
+    def pattern_condition(patterns: List[str], field: str, allow: bool = True) -> str:
         """Build an `AND [NOT] REGEXP_LIKE(field, '...')` schema-pattern predicate."""
         if not patterns:
             return ""
 
-        if isinstance(patterns, str):
-            patterns = [patterns.upper()]
-
+        # An allow of ".*" admits everything, so it needs no filter. A deny of
+        # ".*" is kept: it excludes everything, as in AllowDenyPattern.
         if ".*" in patterns and allow:
             return ""
 
-        patterns = [p.upper() for p in patterns if p != ".*"]
-        if not patterns:
-            return ""
-
         operator = "REGEXP_LIKE" if allow else "NOT REGEXP_LIKE"
-        pattern_str = "|".join(f"({p})" for p in patterns)
+        # Dremio's REGEXP_LIKE is Java's Matcher.find(); AllowDenyPattern uses
+        # re.match. Anchor at the start so a pattern matches from the start of
+        # the schema path, as it does there. Uppercasing the whole pattern
+        # would also uppercase escapes (\d -> \D) and inline flags. Only the
+        # `i` flag: RE2, which some Dremio execution paths use, rejects `u`.
+        # Non-capturing groups keep each pattern's own group numbers, so
+        # backreferences such as `(a)\1` still work.
+        alternatives = "|".join(
+            f"(?:{DremioSQLQueries._upper_non_ascii(p)})" for p in patterns
+        )
+        pattern_str = f"(?i)^(?:{alternatives})".replace("'", "''")
         return f"AND {operator}({field}, '{pattern_str}')"
 
     @staticmethod
@@ -352,9 +373,13 @@ class DremioSQLQueries:
         """Outer per-container `REGEXP_LIKE` bound (system-table side + final sort).
 
         Not pushable into the info-schema scan — `container_columns_filter` is the
-        pushable half. Matches the root and nested paths; name is regex-escaped.
+        pushable half. Matches the root and nested paths, not siblings that share the prefix;
+        name is regex-escaped.
         """
-        pattern = f"{re.escape(container_name)}(\\..*)?"
+        # `($|\..*)`, not `(\..*)?`: the pattern is anchored at the start only,
+        # so the optional form would also match sibling containers that share
+        # the prefix (`src_a` matching `src_ab`).
+        pattern = f"{re.escape(container_name)}($|\\..*)"
         return DremioSQLQueries.pattern_condition([pattern], field)
 
     @staticmethod

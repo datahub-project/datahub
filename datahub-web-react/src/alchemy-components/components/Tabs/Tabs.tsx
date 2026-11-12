@@ -1,14 +1,15 @@
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Tabs as AntTabs, TabsProps } from 'antd';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { ComponentType, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { Icon } from '@components/components/Icon';
+import { Menu } from '@components/components/Menu';
+import { ItemType } from '@components/components/Menu/types';
 import { OverflowText } from '@components/components/OverflowText';
 import { Pill } from '@components/components/Pills';
 import { Tooltip } from '@components/components/Tooltip';
 
-import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
 import { removeRuntimePath } from '@utils/runtimeBasePath';
 
 const ScrollableTabsContainer = styled.div<{ $maxHeight?: string }>`
@@ -258,6 +259,11 @@ const CloseButtonAbsoluteContainer = styled.div`
     }
 `;
 
+// display: contents keeps the tab label's layout identical to an unwrapped one.
+const ContextMenuWrapper = styled.div`
+    display: contents;
+`;
+
 const StyledOverflowText = styled(OverflowText)<{ $minWidth?: string }>`
     max-width: 100%;
     // 18px - icon size (14px) and gap (4px)
@@ -308,20 +314,50 @@ interface TabViewProps {
 }
 
 function TabView({ tab, width, maxWidth, minTabWidth, onClose }: TabViewProps) {
+    // Mounted only while open so that tabs nobody right-clicks never render a dropdown.
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const hasContextMenu = !!tab.contextMenuItems?.length;
+
+    const onContextMenu = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsMenuOpen(true);
+    }, []);
+
+    // The menu overlay is a React portal, so its clicks bubble up to the tab and would
+    // otherwise select it. Clicks on the tab itself land inside the wrapper and pass through.
+    const onMenuClick = useCallback((e: React.MouseEvent) => {
+        if (!e.currentTarget.contains(e.target as Node)) e.stopPropagation();
+    }, []);
+
+    const content = (
+        <TabViewWrapper
+            id={tab.id}
+            $disabled={tab.disabled}
+            $width={width}
+            $maxWidth={maxWidth}
+            $minWidth={minTabWidth}
+            data-testid={tab.dataTestId}
+            onContextMenu={hasContextMenu ? onContextMenu : undefined}
+        >
+            {tab.closable ? <StyledOverflowText text={tab.name} $minWidth={minTabWidth} /> : tab.name}
+            {!!tab.count && <Pill label={`${tab.count}`} size="xs" color="primary" />}
+            {!!tab.pillLabel && <Pill label={tab.pillLabel} size="xs" clickable={false} />}
+            {tab.closable && <CloseButton onClose={onClose} />}
+        </TabViewWrapper>
+    );
+
     return (
         <Tooltip title={tab.tooltip}>
-            <TabViewWrapper
-                id={tab.id}
-                $disabled={tab.disabled}
-                $width={width}
-                $maxWidth={maxWidth}
-                $minWidth={minTabWidth}
-                data-testid={tab.dataTestId}
-            >
-                {tab.closable ? <StyledOverflowText text={tab.name} $minWidth={minTabWidth} /> : tab.name}
-                {!!tab.count && <Pill label={`${tab.count}`} size="xs" color="primary" />}
-                {tab.closable && <CloseButton onClose={onClose} />}
-            </TabViewWrapper>
+            {/* Must nest inside the tooltip: a contextMenu dropdown wrapping it would swallow its hover handlers. */}
+            {isMenuOpen ? (
+                <ContextMenuWrapper onClick={onMenuClick}>
+                    <Menu items={tab.contextMenuItems} trigger={['contextMenu']} open onOpenChange={setIsMenuOpen}>
+                        {content}
+                    </Menu>
+                </ContextMenuWrapper>
+            ) : (
+                content
+            )}
         </Tooltip>
     );
 }
@@ -331,15 +367,23 @@ export interface Tab {
     key: string;
     component: JSX.Element;
     count?: number;
+    /** Short status label shown as a pill after the name, e.g. "BETA". */
+    pillLabel?: string;
     onSelectTab?: () => void;
     tooltip?: string;
     id?: string;
     dataTestId?: string;
     disabled?: boolean;
     closable?: boolean;
+    contextMenuItems?: ItemType[];
     /** Included in the tab error boundary reset keys so a new value clears a stuck fallback. */
     errorResetKey?: string;
 }
+
+export type TabErrorBoundaryProps = {
+    resetKeys: string[];
+    children: ReactNode;
+};
 
 export interface Props extends Pick<TabsProps, 'tabBarExtraContent'> {
     tabs: Tab[];
@@ -370,8 +414,14 @@ export interface Props extends Pick<TabsProps, 'tabBarExtraContent'> {
     destroyInactiveTabPane?: boolean;
     hideNavOperations?: boolean;
     onTabClose?: (tabKey: string) => void;
+    /** Wraps each tab's content, e.g. to contain a crashing tab. Without it the error propagates past Tabs. */
+    tabErrorBoundary?: ComponentType<TabErrorBoundaryProps>;
 }
 
+/**
+ * Outside alchemy-components, import Tabs from '@app/sharedV2/tabs/Tabs' instead: it passes the app
+ * error boundary, so a crashing tab shows an error state instead of taking the page down.
+ */
 export function Tabs({
     tabs,
     selectedTab,
@@ -392,6 +442,7 @@ export function Tabs({
     tabBarExtraContent,
     hideNavOperations,
     onTabClose,
+    tabErrorBoundary: TabErrorBoundary,
 }: Props) {
     const tabsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -441,10 +492,10 @@ export function Tabs({
             />
         ),
         disabled: tab.disabled,
-        children: (
-            <ErrorBoundary resetKeys={[tab.key, tab.errorResetKey ?? '']} variant="tab">
-                {tab.component}
-            </ErrorBoundary>
+        children: TabErrorBoundary ? (
+            <TabErrorBoundary resetKeys={[tab.key, tab.errorResetKey ?? '']}>{tab.component}</TabErrorBoundary>
+        ) : (
+            tab.component
         ),
     }));
     const tabsContent = (

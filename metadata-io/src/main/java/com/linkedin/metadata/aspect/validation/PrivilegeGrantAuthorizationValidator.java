@@ -1,12 +1,11 @@
 package com.linkedin.metadata.aspect.validation;
 
-import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.INVITE_TOKEN_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.ROLE_MEMBERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
-import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
@@ -22,6 +21,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.GroupMembership;
+import com.linkedin.identity.InviteToken;
 import com.linkedin.identity.NativeGroupMembership;
 import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -33,7 +33,6 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.authorization.PoliciesConfig.Privilege;
-import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.json.Json;
 import jakarta.json.JsonObject;
@@ -77,6 +76,12 @@ import lombok.extern.slf4j.Slf4j;
  * An actor holding Manage Policies can already grant Admin to any other account and act as it, so
  * blocking self-assignment would add friction without security.
  *
+ * <p>An invite token that names a role is the same grant, held until acceptance assigns {@code
+ * roleMembership} as the system actor. Adding or changing {@code inviteToken.role} requires Manage
+ * Policies. A role-less token, removing the role, and rewriting the same role are not grants. The
+ * redeemable link is still withheld without Manage Policies, because reading or rotating the secret
+ * does not change the role.
+ *
  * <p>The resource a privilege is checked against is not always the aspect's own entity. Group
  * membership lives on the member's corpuser entity, but {@code EDIT_GROUP_MEMBERS} is held on the
  * group - so it is authorized against each added group, matching {@code
@@ -94,6 +99,7 @@ import lombok.extern.slf4j.Slf4j;
 public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthorizationValidator {
 
   private static final String ROLES_LABEL = "roles";
+  private static final String INVITE_ROLE_LABEL = "role";
   private static final String GROUPS_LABEL = "groups";
   private static final String OWNERS_LABEL = "owners";
 
@@ -149,7 +155,16 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
               SELF_GRANT_FLOOR,
               Beneficiary.GRANTED_URNS,
               AuthResource.ENTITY,
-              OWNERS_LABEL));
+              OWNERS_LABEL),
+          INVITE_TOKEN_ASPECT_NAME,
+          new GrantRule<>(
+              InviteToken.class,
+              PrivilegeGrantAuthorizationValidator::inviteTokenRole,
+              List.of(PoliciesConfig.MANAGE_POLICIES_PRIVILEGE),
+              null,
+              Beneficiary.ENTITY,
+              AuthResource.ENTITY,
+              INVITE_ROLE_LABEL));
 
   @Nonnull private AspectPluginConfig config;
 
@@ -320,6 +335,14 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
   }
 
   @Nonnull
+  private static Collection<Urn> inviteTokenRole(@Nullable InviteToken inviteToken) {
+    if (inviteToken == null || !inviteToken.hasRole() || inviteToken.getRole() == null) {
+      return List.of();
+    }
+    return List.of(inviteToken.getRole());
+  }
+
+  @Nonnull
   private static Collection<Urn> ownerUrns(@Nullable Ownership ownership) {
     if (ownership == null || ownership.getOwners() == null) {
       return List.of();
@@ -398,14 +421,12 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
     }
   }
 
-  /** Bootstrap, upgrade steps, and other system-mediated writes are trusted. */
+  /**
+   * A write whose audit stamp is the system actor is trusted. Real system upgrades skip earlier via
+   * {@link #isInternalOperation}. Client-supplied {@code appSource=systemUpdate} is not trusted;
+   * {@code AspectsBatchImpl} strips that stamp for non-system writers.
+   */
   private static boolean isTrustedInternalWrite(@Nonnull BatchItem item) {
-    final SystemMetadata systemMetadata = item.getSystemMetadata();
-    if (systemMetadata != null
-        && systemMetadata.hasProperties()
-        && SYSTEM_UPDATE_SOURCE.equals(systemMetadata.getProperties().get(APP_SOURCE))) {
-      return true;
-    }
     final AuditStamp auditStamp = item.getAuditStamp();
     return auditStamp != null
         && auditStamp.hasActor()

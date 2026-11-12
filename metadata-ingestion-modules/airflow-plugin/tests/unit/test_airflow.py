@@ -12,6 +12,8 @@ from airflow.models import Connection, DagBag
 from airflow.sdk import Asset
 
 import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.errors import DataHubDeprecationWarning
 from datahub.ingestion.graph.config import ClientMode
 from datahub_airflow_plugin import get_provider_info
 from datahub_airflow_plugin.entities import Dataset, Urn
@@ -101,7 +103,7 @@ def test_datahub_rest_hook(mock_emitter):
             datahub_component="airflow-plugin",
         )
         instance = mock_emitter.return_value
-        instance.emit.assert_called_with(lineage_mce)
+        instance.emit.assert_called_once_with(next(iter(mcps_from_mce(lineage_mce))))
 
 
 @mock.patch("datahub.emitter.rest_emitter.DataHubRestEmitter", autospec=True)
@@ -121,7 +123,7 @@ def test_datahub_rest_hook_with_timeout(mock_emitter):
             datahub_component="airflow-plugin",
         )
         instance = mock_emitter.return_value
-        instance.emit.assert_called_with(lineage_mce)
+        instance.emit.assert_called_once_with(next(iter(mcps_from_mce(lineage_mce))))
 
 
 @mock.patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter", autospec=True)
@@ -157,6 +159,44 @@ def test_datahub_lineage_operator(mock_emit):
         task.execute({})
 
         mock_emit.assert_called()
+
+
+@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit")
+def test_datahub_emitter_operator_mces_is_deprecated_alias(mock_emit, caplog):
+    mcps = list(mcps_from_mce(lineage_mce))
+    with patch_airflow_connection(datahub_rest_connection_config) as config:
+        assert config.conn_id
+        with pytest.warns(DataHubDeprecationWarning, match="mces="):
+            old = DatahubEmitterOperator(
+                task_id="old", datahub_conn_id=config.conn_id, mces=mcps
+            )
+        # Logged per task run, not on every DAG parse.
+        assert "mces=" not in caplog.text
+        old.execute({})
+        assert "mces=" in caplog.text
+
+        new = DatahubEmitterOperator(
+            task_id="new", datahub_conn_id=config.conn_id, mcps=mcps
+        )
+        new.execute({})
+
+        assert [c.args[0] for c in mock_emit.call_args_list] == [mcps, mcps]
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {},
+        {
+            "mcps": list(mcps_from_mce(lineage_mce)),
+            "mces": [lineage_mce],
+        },
+    ],
+    ids=["neither", "both"],
+)
+def test_datahub_emitter_operator_needs_exactly_one_of_mcps_mces(kwargs):
+    with pytest.raises(ValueError):
+        DatahubEmitterOperator(task_id="t", datahub_conn_id="c", **kwargs)
 
 
 @pytest.mark.parametrize(
@@ -265,6 +305,15 @@ def test_get_base_url_prefers_api_over_webserver():
         ),
         # only webserver set -> webserver fallback
         ({("webserver", "base_url"): "http://web:8080"}, "http://web:8080"),
+        # trailing slashes are stripped so path-prefixed deployments get clean links
+        (
+            {("api", "base_url"): "https://airflow.example.com/airflow/"},
+            "https://airflow.example.com/airflow",
+        ),
+        (
+            {("webserver", "base_url"): "http://web:8080/"},
+            "http://web:8080",
+        ),
         # neither set -> localhost default
         ({}, "http://localhost:8080"),
     ]
@@ -274,6 +323,35 @@ def test_get_base_url_prefers_api_over_webserver():
             side_effect=conf_get(values),
         ):
             assert _get_base_url() == expected
+
+
+@pytest.mark.parametrize(
+    "base_url, expected_url",
+    [
+        ("http://localhost:8080", "http://localhost:8080/dags/example_dag"),
+        (
+            "https://airflow.example.com/airflow/",
+            "https://airflow.example.com/airflow/dags/example_dag",
+        ),
+    ],
+)
+def test_dataflow_url_uses_airflow_dag_route(base_url: str, expected_url: str) -> None:
+    from airflow.sdk import DAG
+
+    from datahub_airflow_plugin._config import get_lineage_config
+    from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
+
+    config = get_lineage_config()
+    dag = DAG(dag_id="example_dag")
+    with mock.patch(
+        "datahub_airflow_plugin.client.airflow_generator.conf.get",
+        side_effect=lambda section, key, fallback=None: (
+            base_url if (section, key) == ("api", "base_url") else fallback
+        ),
+    ):
+        dataflow = AirflowGenerator.generate_dataflow(config, dag)
+
+    assert dataflow.url == expected_url
 
 
 @pytest.mark.parametrize(

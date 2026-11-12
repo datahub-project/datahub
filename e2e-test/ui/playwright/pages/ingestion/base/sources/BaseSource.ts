@@ -2,7 +2,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import type { DataHubLogger } from '../../../../utils/logger';
 
 export class BaseSource {
-  readonly recipeBuilderYamlButton: Locator;
+  readonly yamlSwitcherButton: Locator;
   readonly toggleExpandButton: Locator;
   readonly yamlEditor: Locator;
   readonly secretDropdown: Locator;
@@ -12,7 +12,7 @@ export class BaseSource {
     protected readonly logger?: DataHubLogger,
     protected readonly logDir?: string,
   ) {
-    this.recipeBuilderYamlButton = page.getByTestId('recipe-builder-yaml-button');
+    this.yamlSwitcherButton = page.getByTestId('yaml-editor-tab');
     this.toggleExpandButton = page.getByTestId('toggle-expand-button');
     // eslint-disable-next-line playwright/no-raw-locators -- Monaco editor internal scroll container; no data-testid or ARIA role
     this.yamlEditor = page.locator('.monaco-scrollable-element').and(page.locator(':visible'));
@@ -49,13 +49,9 @@ export class BaseSource {
     await expect(this.secretDropdown).toBeHidden();
   }
 
-  getYamlSwitcherButton(): Locator {
-    return this.recipeBuilderYamlButton;
-  }
-
   async expectYamlRecipe(values: string[]): Promise<void> {
     this.logger?.step('verify yaml recipe');
-    const yamlSwitcherButton = this.getYamlSwitcherButton();
+    const { yamlSwitcherButton } = this;
     const hasYamlButton = await yamlSwitcherButton.isVisible();
     if (hasYamlButton) {
       await yamlSwitcherButton.scrollIntoViewIfNeeded();
