@@ -2632,6 +2632,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         }
         stale = []
         for lineage in current:
+            # A column edge can only be removed by patch through its single
+            # downstream field; one another tool wrote with none or several
+            # is not this connector's.
+            if len(lineage.downstreams or []) != 1:
+                continue
             upstreams = [
                 upstream
                 for upstream in lineage.upstreams or []
