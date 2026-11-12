@@ -32,8 +32,12 @@ claude mcp add --transport http datahub http://localhost:9005/mcp \
 | `DATAHUB_AI_MCP_RESPONSE_MODE`        | `sse`     | `sse` streams responses; `json` returns one body           |
 | `DATAHUB_MCP_TOKEN_CACHE_TTL_SECONDS` | `300`     | How long a verified token is trusted before checking again |
 | `DATAHUB_AI_GMS_TIMEOUT_SECONDS`      | `30`      | Connect and read timeout for each GMS request              |
+| `DATAHUB_AI_TOOL_TIME_LIMIT_SECONDS`  | `300`     | How long one tool call may keep sending requests to GMS    |
 
 `DATAHUB_GMS_TOKEN` is refused: each caller sends their own token.
+
+Requests to GMS are retried only when GMS never ran them (a refused connection or a 429), so
+a write is never applied twice.
 
 Use `json` only behind proxies that can't stream responses, and give them idle timeouts longer
 than the slowest tool call.

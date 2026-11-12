@@ -19,14 +19,12 @@ from typing import Callable, Optional
 
 import requests
 from datahub.configuration.common import GraphError
-from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
-from datahub.sdk.main_client import DataHubClient
 from loguru import logger
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from datahub_core_mcp_tools.graphql_helpers import http_status
 
-from .._version import __version__
+from .client_factory import CallerClientFactory
 
 _ME_QUERY = "query getMe { me { corpUser { urn } } }"
 _MAX_CACHED_TOKENS = 1024
@@ -47,25 +45,6 @@ class InvalidCredentialError(Exception):
 
 class GmsUnavailableError(Exception):
     """GMS couldn't say whether the caller's token is valid."""
-
-
-class CallerClientFactory:
-    """Builds a DataHub client for one caller's token. Construction makes no calls."""
-
-    def __init__(self, gms_url: str, *, timeout_seconds: float) -> None:
-        self._gms_url = gms_url
-        self._timeout_seconds = timeout_seconds
-
-    def build(self, token: str) -> DataHubClient:
-        return DataHubClient(
-            config=DatahubClientConfig(
-                server=self._gms_url,
-                token=token,
-                timeout_sec=self._timeout_seconds,
-                client_mode=ClientMode.SDK,
-                datahub_component=f"datahub-ai-service/{__version__}",
-            )
-        )
 
 
 def classify_gms_error(error: Exception) -> Exception:

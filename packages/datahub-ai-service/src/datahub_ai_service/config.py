@@ -33,6 +33,10 @@ class AiServiceConfig:
     gms_timeout_seconds: float = 30.0
     """Connect and read timeout for each request to GMS."""
 
+    tool_time_limit_seconds: float = 300.0
+    """How long one tool call may keep sending requests to GMS. Separate from
+    proxy timeouts, which bound how long a response may take or stay idle."""
+
     @classmethod
     def from_env(cls, environ: Mapping[str, str]) -> "AiServiceConfig":
         # Each HTTP caller sends their own token. A shared one would let every
@@ -64,6 +68,12 @@ class AiServiceConfig:
                 environ,
                 "DATAHUB_MCP_TOKEN_CACHE_TTL_SECONDS",
                 cls.token_cache_ttl_seconds,
+                float,
+            ),
+            tool_time_limit_seconds=_number(
+                environ,
+                "DATAHUB_AI_TOOL_TIME_LIMIT_SECONDS",
+                cls.tool_time_limit_seconds,
                 float,
             ),
             gms_timeout_seconds=_number(
