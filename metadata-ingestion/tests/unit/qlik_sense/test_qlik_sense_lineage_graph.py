@@ -1176,7 +1176,7 @@ def test_partly_known_lineage_is_only_added_to(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
-def test_unnamed_source_field_only_adds_to_column_lineage(
+def test_table_waits_for_source_field_names_read_later_in_the_run(
     mock_api_cls: MagicMock,
 ) -> None:
     api = mock_api_cls.return_value
@@ -1207,7 +1207,46 @@ def test_unnamed_source_field_only_adds_to_column_lineage(
         ],
     )
 
-    written, added = _lineage(source._gen_app_workunit(app))
+    curve = _urn("etl-app.curve")
+    # Nothing is written for the table until the end of the run.
+    during, _ = _lineage(source._gen_app_workunit(app))
+    assert curve not in during
+
+    # The QVD read later names the field, so the lineage is written whole.
+    source._learn_field_names(["comment"])
+    written, _ = _lineage(source._gen_pending_table_lineage())
+    assert written[curve] == [_urn("space-1.src.qvd")]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_source_field_never_named_only_adds_to_column_lineage(
+    mock_api_cls: MagicMock,
+) -> None:
+    api = mock_api_cls.return_value
+    api.unread_items = []
+    api.list_datasets.return_value = DATASETS
+    api.get_user_name.return_value = None
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    source._allowed_space_ids = {"space-1"}
+    qvd_table = f"{SOURCE_QVD}#Curve"
+    app = _app(
+        "etl-app",
+        [
+            LineageTable(
+                qri=f"{ETL_APP}#Curve",
+                label="Curve",
+                source_qris=[qvd_table],
+                fields=["Note"],
+                field_source_qris={"Note": [_field_qri(qvd_table, "comment")]},
+            )
+        ],
+    )
+
+    list(source._gen_app_workunit(app))
+    written, added = _lineage(source._gen_pending_table_lineage())
 
     curve = _urn("etl-app.curve")
     assert curve not in written
