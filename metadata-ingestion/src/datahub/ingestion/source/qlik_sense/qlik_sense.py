@@ -131,6 +131,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     reads_unknown_fields,
     redact_connection,
     select_list_size,
+    strip_set_quotes,
 )
 from datahub.ingestion.source.state.entity_removal_state import (
     STATEFUL_INGESTION_IGNORED_ENTITY_TYPES,
@@ -1732,7 +1733,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         for file_path in parsed.file_loads:
             # Paths are often built from variables the script sets with LET or
             # in an included script, which the app's variables hold.
-            path = expand_variables(file_path, app.variables).strip()
+            path = strip_set_quotes(expand_variables(file_path, app.variables).strip())
             lib_path = LIB_PATH_RE.match(path)
             if lib_path and not any(part in path for part in ("$(", "*", "?")):
                 references.append(
