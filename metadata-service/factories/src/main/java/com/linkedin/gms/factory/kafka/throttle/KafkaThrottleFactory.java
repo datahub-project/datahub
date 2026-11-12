@@ -12,6 +12,7 @@ import com.linkedin.metadata.dao.throttle.NoOpSensor;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.queue.MetadataQueueStore;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.Topics;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +44,8 @@ public class KafkaThrottleFactory {
       @Qualifier("configurationProvider") ConfigurationProvider provider,
       final KafkaProperties kafkaProperties,
       final EntityRegistry entityRegistry,
-      @Nullable MetadataQueueStore metadataQueueStore) {
+      @Nullable MetadataQueueStore metadataQueueStore,
+      @Nullable MetricUtils metricUtils) {
 
     MetadataChangeProposalConfig mcpConfig = provider.getMetadataChangeProposal();
     if (mcpConfig.getThrottle().getUpdateIntervalMs() <= 0) {
@@ -65,6 +67,7 @@ public class KafkaThrottleFactory {
           .mclConsumerGroupId(maeConsumerGroupId)
           .timeseriesTopicName(timeseriesTopicName)
           .versionedTopicName(versionedTopicName)
+          .metricUtils(metricUtils)
           .build()
           .start();
     }
@@ -91,6 +94,7 @@ public class KafkaThrottleFactory {
         .mclConsumerGroupId(maeConsumerGroupId)
         .timeseriesTopicName(timeseriesTopicName)
         .versionedTopicName(versionedTopicName)
+        .metricUtils(metricUtils)
         .build()
         .start();
   }

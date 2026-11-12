@@ -444,6 +444,10 @@ file_profiling = {
     "datasketches>=5.0.0,<6.0.0",
     # The profiler reads Avro files with fastavro.
     "fastavro>=1.2.0,<2.0.0",
+    # pyarrow resolves tz-aware timestamps (e.g. CSV values ending in "Z" infer as
+    # tz=UTC) through zoneinfo, which needs a tz database. Slim images have no system
+    # zoneinfo, so ship IANA data via tzdata. Same pin as databricks_common.
+    "tzdata>=2022.7,<2030",
     # cachetools is used by the profiling config
     *cachetools_lib,
 }
@@ -601,7 +605,8 @@ plugins: Dict[str, Set[str]] = {
     }
     | aws_common,
     "datahub-rest": rest_common,
-    # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility; Docker/constraints enforce >=3.20.3 where needed.
+    # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility (and filelock 4.2.1+ needs Python 3.11+);
+    # Docker/constraints enforce >=4.2.1 where needed.
     "sync-file-emitter": {"filelock>=3.13.1,<5.0.0"},
     # DataHub Lite defaults to the stdlib sqlite3 engine, so this extra only
     # pulls in the `datahub lite serve` stack. The optional duckdb engine lives
