@@ -81,7 +81,8 @@ tasks.register('productUpdateReleaseSyncCheck', Test) {
     }
 }
 
-// Usage registry CI gates skip when git detects no relevant changes. Force a full scan:
+// Usage registry CI gates skip locally when git detects no relevant changes; in CI (CI=true) they
+// diff against GITHUB_BASE_SHA when set and otherwise scan everything. Force a full scan:
 //   -PgraphqlUsageCheckForce=true -PopenApiUsageCheckForce=true -PrestliUsageCheckForce=true
 // Optional fork profile: -PusageRegistryCiGateProfile=com.example.CustomUsageRegistryCiGateProfile
 // The gates' scope comes from these env vars (GitChangeDetector), so a result recorded under one

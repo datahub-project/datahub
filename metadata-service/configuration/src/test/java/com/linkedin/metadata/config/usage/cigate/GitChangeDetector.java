@@ -37,6 +37,7 @@ public final class GitChangeDetector {
       // A CI checkout has no uncommitted changes, so a working-tree diff would always be empty and
       // the gate would only run when git happened to fail. Without a base to diff against, scan
       // everything so the result does not depend on git timing.
+      System.err.println("Usage registry gate: CI without " + BASE_SHA_ENV + ", scanning all");
       return true;
     } else {
       commands.add(List.of("git", "diff", "--name-only", "HEAD"));
@@ -53,6 +54,7 @@ public final class GitChangeDetector {
       } catch (IOException | InterruptedException e) {
         // Fail open: run the gate when git is unavailable (missing .git, bad base SHA, etc.)
         // so validation is never silently skipped. Use -P*UsageCheckForce=true to force locally.
+        System.err.println("Usage registry gate: " + e.getMessage() + ", scanning all");
         return true;
       }
     }
@@ -65,19 +67,24 @@ public final class GitChangeDetector {
     // Output goes to a file rather than a pipe: reading a pipe only after waitFor() blocks git
     // once its output fills the pipe buffer, which then surfaces as a timeout.
     File output = File.createTempFile("usage-gate-git", ".out");
+    File errors = File.createTempFile("usage-gate-git", ".err");
     try {
       Process process =
           new ProcessBuilder(command)
               .directory(repoRoot.toFile())
               .redirectOutput(output)
-              .redirectError(ProcessBuilder.Redirect.DISCARD)
+              .redirectError(errors)
               .start();
       if (!process.waitFor(GIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
         process.destroyForcibly();
         throw new IOException("git command timed out: " + String.join(" ", command));
       }
       if (process.exitValue() != 0) {
-        throw new IOException("git command failed: " + String.join(" ", command));
+        throw new IOException(
+            "git command failed: "
+                + String.join(" ", command)
+                + ": "
+                + Files.readString(errors.toPath(), StandardCharsets.UTF_8).trim());
       }
       List<String> lines = new ArrayList<>();
       for (String line : Files.readAllLines(output.toPath(), StandardCharsets.UTF_8)) {
@@ -88,6 +95,7 @@ public final class GitChangeDetector {
       return lines;
     } finally {
       Files.deleteIfExists(output.toPath());
+      Files.deleteIfExists(errors.toPath());
     }
   }
 }

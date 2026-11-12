@@ -1,8 +1,10 @@
 package io.datahubproject.openapi.v1.entities;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -274,6 +276,12 @@ public class EntityCountsControllerTest {
         .andExpect(
             jsonPath("$.computedAtMillis")
                 .value(Instant.parse("2026-07-07T15:00:00Z").toEpochMilli()));
+
+    verify(keyAspectEntityCountService)
+        .getCountForEntityType(
+            argThat(ctx -> "metadata_query".equals(ctx.getRequestContext().getUsageOperation())),
+            eq("chart"),
+            eq(true));
   }
 
   @Test

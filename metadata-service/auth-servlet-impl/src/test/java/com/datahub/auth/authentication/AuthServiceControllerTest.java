@@ -49,6 +49,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatcher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.ComponentScan;
@@ -608,7 +609,9 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
         .createNativeUser(
             argThat(
                 ctx ->
-                    ctx.getAuthentication() != null && ctx.getAuthentication().getActor() != null),
+                    ctx.getAuthentication() != null
+                        && ctx.getAuthentication().getActor() != null
+                        && "other_write".equals(ctx.getRequestContext().getUsageOperation())),
             eq(userUrn),
             eq(fullName),
             eq(email),
@@ -728,6 +731,8 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     JsonNode responseJson = objectMapper.readTree(response.getBody());
     assertTrue(responseJson.has("doesPasswordMatch"));
     assertTrue(responseJson.get("doesPasswordMatch").asBoolean());
+    verify(mockNativeUserService)
+        .doesPasswordMatch(argThat(usageOperation("other_read")), eq(userUrn), eq(password));
   }
 
   @Test
@@ -795,7 +800,11 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     // Verify native user service was called with correct parameters
     verify(mockNativeUserService)
         .resetCorpUserCredentials(
-            any(OperationContext.class), eq(userUrn), eq(password), eq(resetToken));
+            argThat(usageOperation("other_write")), eq(userUrn), eq(password), eq(resetToken));
+  }
+
+  private static ArgumentMatcher<OperationContext> usageOperation(String key) {
+    return ctx -> ctx != null && key.equals(ctx.getRequestContext().getUsageOperation());
   }
 
   @Test

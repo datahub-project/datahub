@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -39,7 +41,7 @@ public class GitChangeDetectorTest {
   @AfterMethod(alwaysRun = true)
   public void tearDown() throws IOException {
     try (var paths = Files.walk(repo)) {
-      paths.sorted(java.util.Comparator.reverseOrder()).forEach(p -> p.toFile().delete());
+      paths.sorted(Comparator.reverseOrder()).forEach(p -> p.toFile().delete());
     }
   }
 
@@ -74,6 +76,21 @@ public class GitChangeDetectorTest {
   }
 
   @Test
+  public void testGitFailureFailsOpen() throws Exception {
+    assertTrue(
+        GitChangeDetector.hasChanges(
+            repo,
+            MATCHER,
+            Map.of("CI", "true", "GITHUB_BASE_SHA", "0000000000000000000000000000000000000000")));
+    Path notARepo = Files.createTempDirectory("not-a-git-repo");
+    try {
+      assertTrue(GitChangeDetector.hasChanges(notARepo, MATCHER, Map.of()));
+    } finally {
+      Files.deleteIfExists(notARepo);
+    }
+  }
+
+  @Test
   public void testLargeDiffDoesNotStallOnOutput() throws Exception {
     // Enough changed paths to overflow a 64 KiB pipe buffer; none of them are watched.
     for (int i = 0; i < 1500; i++) {
@@ -90,7 +107,7 @@ public class GitChangeDetectorTest {
   }
 
   private String git(String... args) throws Exception {
-    List<String> command = new java.util.ArrayList<>();
+    List<String> command = new ArrayList<>();
     command.add("git");
     command.addAll(List.of(args));
     Path out = Files.createTempFile("git-test", ".out");
