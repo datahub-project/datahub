@@ -172,24 +172,15 @@ jobs:
         if: github.event.action != 'closed'
         with:
           persist-credentials: false
-          sparse-checkout: .github/scripts
+          sparse-checkout: |
+            .github/scripts
+            .github/actions/claude-identity-token
 
-      # Claude Workload Identity Federation: the SDK exchanges this GitHub OIDC
-      # JWT for a short-lived token, so no static API key is stored. The JWT
-      # expires ~5 minutes after issuance, so fetch it right before the
-      # consumer runs.
       - name: Fetch Claude identity token
         id: claude-identity
         if: github.repository == 'datahub-project/datahub' && github.event.action != 'closed' && steps.check-pr.outputs.should_skip == 'false'
         continue-on-error: true
-        run: |
-          umask 077
-          token_file="${RUNNER_TEMP}/anthropic-oidc-token"
-          jwt=$(curl -sSf -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://api.anthropic.com" | jq -r '.value')
-          echo "::add-mask::${jwt}"
-          printf '%s' "${jwt}" > "${token_file}"
-          echo "token_file=${token_file}" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/claude-identity-token
 
       - name: Route PR to team
         if: github.event.action != 'closed' && steps.check-pr.outputs.should_skip == 'false'
@@ -448,24 +439,15 @@ jobs:
         if: github.event.action != 'closed'
         with:
           persist-credentials: false
-          sparse-checkout: .github/scripts
+          sparse-checkout: |
+            .github/scripts
+            .github/actions/claude-identity-token
 
-      # Claude Workload Identity Federation: the SDK exchanges this GitHub OIDC
-      # JWT for a short-lived token, so no static API key is stored. The JWT
-      # expires ~5 minutes after issuance, so fetch it right before the
-      # consumer runs.
       - name: Fetch Claude identity token
         id: claude-identity
         if: github.repository == 'datahub-project/datahub' && github.event.action != 'closed'
         continue-on-error: true
-        run: |
-          umask 077
-          token_file="${RUNNER_TEMP}/anthropic-oidc-token"
-          jwt=$(curl -sSf -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://api.anthropic.com" | jq -r '.value')
-          echo "::add-mask::${jwt}"
-          printf '%s' "${jwt}" > "${token_file}"
-          echo "token_file=${token_file}" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/claude-identity-token
 
       - name: Route issue to team
         if: github.event.action != 'closed'
