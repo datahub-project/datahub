@@ -1379,7 +1379,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def _parsed_script(app: App) -> ParsedScript:
-        return parse_script(app.script) if app.script else ParsedScript()
+        return parse_script(app.script, app.variables) if app.script else ParsedScript()
 
     def _build_script_tables(
         self, app: App, parsed: Optional[ParsedScript] = None

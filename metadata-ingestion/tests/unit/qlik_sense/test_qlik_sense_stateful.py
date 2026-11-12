@@ -85,6 +85,7 @@ def _onprem_run(
         websocket = MagicMock()
         websocket.websocket_send_request.side_effect = fake_engine_calls()
         websocket.get_script.return_value = LOAD_SCRIPT
+        websocket.get_variables.return_value = {}
         return websocket
 
     with (

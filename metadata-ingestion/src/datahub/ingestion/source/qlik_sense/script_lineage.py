@@ -108,7 +108,10 @@ STORE_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 STORE_FROM_RE = re.compile(r"\bFROM\s+", re.IGNORECASE)
-LIB_PATH_RE = re.compile(r"^lib://(?P<connection>[^/]+)/(?P<path>.+)$", re.IGNORECASE)
+# Scripts separate the connection from the path with / or, on Windows, a backslash.
+LIB_PATH_RE = re.compile(
+    r"^lib://(?P<connection>[^/\\]+)[/\\](?P<path>.+)$", re.IGNORECASE
+)
 # A file system path, which only legacy mode allows: C:\..., \\server\... or //server/...
 ABSOLUTE_PATH_RE = re.compile(r"^(?:[A-Za-z]:[\\/]|\\\\|//)")
 QVD_EXTENSION = ".qvd"
@@ -577,6 +580,10 @@ class _ControlFlowTracker(BaseModel):
         return True
 
 
+# How many levels of variables inside variables a path is expanded through.
+_MAX_VARIABLE_DEPTH = 5
+
+
 def _expand_variables(statement: str, variables: Dict[str, str]) -> str:
     return VARIABLE_REFERENCE_RE.sub(
         lambda reference: variables.get(
@@ -723,6 +730,9 @@ def _script_pieces(script: str) -> _Script:
 
 class _ScriptParser(BaseModel):
     subs: Dict[str, _Sub]
+    # The app's variables from the Engine, for paths the script builds from
+    # variables it can't evaluate.
+    app_variables: Dict[str, str] = {}
     tables: List[ScriptTable] = []
     qvd_loads: List[QvdLoad] = []
     qvd_stores: List[QvdStore] = []
@@ -899,6 +909,18 @@ class _ScriptParser(BaseModel):
                 self.last_label = label or self.pending_label
             self._clear_pending()
 
+    def _expand_app_variables(self, path: str) -> str:
+        """A path with the app's variables as its last reload left them, which
+        include those set with LET or in an included script that the parser
+        can't evaluate. A variable can hold another, such as a folder built
+        from a connection prefix."""
+        for _ in range(_MAX_VARIABLE_DEPTH):
+            expanded = _expand_variables(path, self.app_variables)
+            if expanded == path:
+                break
+            path = expanded
+        return path
+
     def _qvd_file(
         self, path: str, spec: Optional[str], default_qvd: bool
     ) -> Optional[QvdReference]:
@@ -913,6 +935,8 @@ class _ScriptParser(BaseModel):
             is_qvd = default_qvd or path.lower().endswith(QVD_EXTENSION)
         if not is_qvd:
             return None
+        if "$(" in path:
+            path = self._expand_app_variables(path)
         if "$(" in path or "*" in path or "?" in path:
             self.unresolved_qvd_paths.append(path)
             return None
@@ -976,9 +1000,11 @@ class _ScriptParser(BaseModel):
         )
 
 
-def parse_script(script: str) -> ParsedScript:
+def parse_script(
+    script: str, app_variables: Optional[Dict[str, str]] = None
+) -> ParsedScript:
     parsed = _script_pieces(script)
-    parser = _ScriptParser(subs=parsed.subs)
+    parser = _ScriptParser(subs=parsed.subs, app_variables=app_variables or {})
     parser.run(parsed.pieces)
     return ParsedScript(
         tables=parser.tables,
