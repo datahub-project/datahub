@@ -1,5 +1,4 @@
 import json
-from types import SimpleNamespace
 from typing import List, Optional
 from unittest.mock import MagicMock, patch
 
@@ -13,7 +12,6 @@ from datahub.emitter.mce_builder import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import App, Sheet
-from datahub.ingestion.source.qlik_sense.qlik_base_api import QlikBaseAPI, ReadErrors
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -21,6 +19,7 @@ from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass,
     SubTypesClass,
 )
+from tests.unit.qlik_sense.qlik_fakes import LOAD_SCRIPT, ONPREM_CONFIG, fake_qrs_get
 
 CLOUD_CONFIG = {"tenant_hostname": "tenant.example.com", "api_key": "key"}
 
@@ -127,21 +126,47 @@ def test_app_is_a_dashboard_of_its_sheets_and_tables(
     assert container.container == make_container_urn(source._gen_space_key("space-1"))
 
 
-def test_sheets_are_not_read_when_turned_off() -> None:
-    config = QlikSourceConfig.model_validate(
-        {**CLOUD_CONFIG, "include_sheets_and_charts": False}
-    )
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_app_without_sheets_and_charts_links_to_all_its_tables(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = fake_qrs_get
     engine = MagicMock()
-    errors = ReadErrors()
-
-    sheets = QlikBaseAPI._get_app_sheets(
-        SimpleNamespace(config=config),  # type: ignore[arg-type]
-        engine,
-        "app-1",
-        errors,
+    engine.websocket_send_request.return_value = {"qReturn": {"qHandle": 1}}
+    engine.get_script.return_value = LOAD_SCRIPT
+    engine.get_variables.return_value = {}
+    mock_engine.return_value = engine
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(
+            {**ONPREM_CONFIG, "include_sheets_and_charts": False}
+        ),
+        PipelineContext(run_id="test-app-dashboard"),
     )
 
-    # Nothing is asked of the Engine, and the app's sheets are known: none.
-    assert sheets == []
-    engine.websocket_send_request.assert_not_called()
-    assert not errors.sheets_unread
+    workunits = list(source.get_workunits_internal())
+
+    # The app has a sheet, but the Engine is never asked for it.
+    methods = [
+        call.kwargs["method"] for call in engine.websocket_send_request.mock_calls
+    ]
+    assert "GetObjects" not in methods
+    dashboard_infos = [
+        (wu.get_urn(), info)
+        for wu in workunits
+        if (info := wu.get_aspect_of_type(DashboardInfoClass))
+    ]
+    # Written whole: the app's sheets are known, as there are none to read.
+    assert [urn for urn, _ in dashboard_infos] == [
+        make_dashboard_urn("qlik-sense", "app-1")
+    ]
+    (_, info) = dashboard_infos[0]
+    assert info.dashboards == []
+    assert [edge.destinationUrn for edge in info.datasetEdges or []] == [
+        make_dataset_urn("qlik-sense", "app-1.orders")
+    ]
+    assert not [wu for wu in workunits if wu.get_urn().startswith("urn:li:chart:")]

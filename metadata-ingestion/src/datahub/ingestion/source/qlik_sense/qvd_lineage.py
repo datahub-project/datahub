@@ -1,4 +1,5 @@
 import posixpath
+import re
 from typing import Callable, Dict, Iterable, List, Optional
 
 from pydantic import BaseModel
@@ -13,6 +14,10 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
 
 # QVDs the Engine writes for BUFFER loads, which no app stores or owns.
 _BUFFERS_FOLDER = "/engine/buffers/"
+
+
+# A canonical QVD path: a UNC share or a drive. App table names never match.
+CANONICAL_ABSOLUTE_PATH_RE = re.compile(r"^(?://|[a-z]:/)")
 
 
 def canonical_path(path: str) -> str:

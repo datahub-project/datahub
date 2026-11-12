@@ -320,6 +320,13 @@ class AppField(BaseModel):
     field: SchemaField
 
 
+class ChartInputs(BaseModel):
+    """The app fields a chart reads and the tables it takes them from."""
+
+    fields: List[AppField]
+    tables: List[str]
+
+
 class AppFieldIndex(BaseModel):
     """Chart field lookup. Qlik field names are case-sensitive, but the SQL
     parser may change the case of script table columns, so only those also
@@ -388,7 +395,8 @@ class App(Item):
     # Engine reads of this app that failed, so its metadata is only partly read.
     read_errors: List[str] = []
     # Every sheet of the app was read, even if other parts of the app were not.
-    sheets_complete: bool = True
+    # Off until a read says so, as it lets the app's sheet edges be replaced.
+    sheets_complete: bool = False
     # Batch Engine reads that fell back to slower per-object reads.
     read_fallbacks: List[str] = []
 

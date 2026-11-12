@@ -17,7 +17,6 @@ from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     QlikTable,
-    Sheet,
     UnreadItem,
 )
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
@@ -119,24 +118,29 @@ def test_partly_read_app_is_marked_incomplete(
     mock_app_cls: MagicMock,
 ) -> None:
     api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
-    app = MagicMock(tables=[])
+    app = _cloud_app()
     mock_app_cls.model_validate.return_value = app
 
-    def unreadable_sheets(
-        websocket: object, app_id: str, errors: ReadErrors
-    ) -> List[Sheet]:
-        errors.record("Unable to fetch sheets")
-        return []
+    def engine_reply(method: str, params: object = None) -> Dict:
+        if method == "GetObjects":
+            raise RuntimeError("Engine closed the session")
+        return {"qLayout": {}}
 
+    mock_websocket_cls.for_cloud.return_value.websocket_send_request.side_effect = (
+        engine_reply
+    )
     with (
-        patch.object(api, "_get_app_sheets", side_effect=unreadable_sheets),
         patch.object(api, "_get_app_used_tables", return_value=[]),
         patch.object(api, "get_table_lineage", return_value=[]),
-        patch.object(api, "_read_load_script", return_value=None),
+        patch.object(api, "_read_data_model", return_value=[]),
+        patch.object(api, "_read_variables", return_value={}),
     ):
         assert api._get_app("app-1") is app
 
-    assert app.read_errors == ["Unable to fetch sheets"]
+    assert len(app.read_errors) == 1
+    assert "Unable to fetch sheets" in app.read_errors[0]
+    # The app dashboard must not replace the sheet edges of the last full read.
+    assert not app.sheets_complete
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
@@ -247,6 +251,33 @@ def test_only_denied_load_script_keeps_app_complete(
     # the script tables unknown.
     assert app.tables_read_failed is not denied
     assert app.read_complete is denied
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
+def test_unread_data_model_leaves_tables_unknown(
+    mock_session_cls: MagicMock,
+    mock_websocket_cls: MagicMock,
+    mock_app_cls: MagicMock,
+) -> None:
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    app = _cloud_app()
+    mock_app_cls.model_validate.return_value = app
+    websocket = mock_websocket_cls.for_cloud.return_value
+    websocket.get_script.return_value = "Orders: SQL SELECT * FROM orders;"
+    websocket.get_data_model_tables.side_effect = TimeoutError("timed out")
+
+    with (
+        patch.object(api, "_get_app_sheets", return_value=[]),
+        patch.object(api, "_get_app_used_tables", return_value=[]),
+        patch.object(api, "get_table_lineage", return_value=[]),
+    ):
+        api._get_app("app-1")
+
+    # Unlabelled script tables are named from the data model.
+    assert app.tables_read_failed
+    assert not app.read_complete
 
 
 def _cloud_app(**extra: object) -> App:
@@ -554,6 +585,7 @@ def test_failed_owner_lookup_is_tried_once_and_reported_once(
     base_url = "https://tenant.example.com/api/v1"
     requests_mock.get(f"{base_url}/api-keys", json={})
     users = requests_mock.get(f"{base_url}/users/user-1", status_code=503)
+    requests_mock.get(f"{base_url}/items?resourceType=dataset", json={"data": []})
     with patch(
         "datahub.ingestion.source.qlik_sense.qlik_sense.QlikSenseSource._create_api",
         side_effect=QlikAPI,
