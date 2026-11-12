@@ -33,7 +33,7 @@ def build_mcp_server(
 
     # The first middleware added is the outermost: the caller's client must be in
     # place before anything else (including telemetry) runs.
-    mcp.add_middleware(CallerClientMiddleware(client_factory))
+    mcp.add_middleware(CallerClientMiddleware(client_factory, server_info))
     mcp.add_middleware(VersionFilterMiddleware(server_info))
     mcp.add_middleware(ToolCallTelemetryMiddleware(observers))
     return mcp
