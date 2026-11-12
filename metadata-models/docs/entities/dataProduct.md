@@ -78,9 +78,9 @@ Ownership helps establish accountability and makes it clear who is responsible f
 
 ### Domains
 
-Every Data Product must belong to exactly one Domain. This is a core organizational principle in DataHub's Data Product model - Data Products cannot exist independently but must be associated with a Domain that represents the business area or team responsible for the Data Product.
+A Data Product can optionally belong to one Domain that represents the business area or team responsible for the Data Product.
 
-The Domain association is captured in the `domains` aspect and is enforced by the UI and API when creating Data Products.
+The Domain association is captured in the `domains` aspect and can be set when creating a Data Product, but is not required.
 
 ### Documentation and Institutional Memory
 
@@ -125,7 +125,7 @@ Data Products integrate with several key areas of DataHub:
 
 ### Relationship to Domains
 
-Data Products must belong to a Domain, creating a hierarchical organization:
+A Data Product can optionally belong to a Domain, creating a hierarchical organization:
 
 ```
 Domain (e.g., "Marketing")
@@ -179,7 +179,7 @@ See [Data Products user guide](../../../dataproducts.md) and [Metadata Policies 
 
 The DataHub GraphQL API provides several mutations for working with Data Products:
 
-- `createDataProduct`: Create a new Data Product within a Domain
+- `createDataProduct`: Create a new Data Product, optionally within a Domain
 - `updateDataProduct`: Update Data Product properties
 - `deleteDataProduct`: Delete a Data Product
 - `batchSetDataProduct`: Add or remove multiple assets from a Data Product
@@ -199,9 +199,9 @@ This makes it easy for data consumers to discover relevant Data Products across 
 
 ## Notable Exceptions
 
-### Domain Requirement
+### Domain Association
 
-Unlike many other entities in DataHub, Data Products have a hard requirement to belong to a Domain. This is by design to support data mesh principles where every Data Product must have a clear organizational owner. You cannot create a Data Product without first having a Domain to associate it with.
+A Data Product can optionally belong to one Domain. Assigning a Domain supports data mesh principles by giving the Data Product a clear organizational owner, but a Data Product can also be created without one.
 
 ### Output Ports
 
