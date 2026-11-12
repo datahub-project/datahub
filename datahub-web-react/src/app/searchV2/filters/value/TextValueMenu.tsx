@@ -18,9 +18,7 @@ const Container = styled.div<{ $shouldAddWrapperStyles: boolean }>`
     `}
 `;
 
-const Title = styled(Text).attrs({ weight: 'semiBold' })`
-    color: ${({ theme }) => theme.colors.textSecondary};
-`;
+const Title = styled(Text).attrs({ weight: 'semiBold', color: 'text' })``;
 
 interface Props {
     field: FilterField;

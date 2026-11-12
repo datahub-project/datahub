@@ -7,6 +7,7 @@ import styled from 'styled-components';
 
 import { ItemType } from '@components/components/Menu/types';
 
+import { renderFilterMenuItem } from '@app/searchV2/filters/FilterMenuItem';
 import { DEFAULT_FILTER_FIELDS } from '@app/searchV2/filters/field/fields';
 import { FilterField, FilterPredicate } from '@app/searchV2/filters/types';
 import ValueMenu from '@app/searchV2/filters/value/ValueMenu';
@@ -50,6 +51,7 @@ export default function AddFilterDropdown({ fields = DEFAULT_FILTER_FIELDS, onAd
                     key: field.field,
                     title: field.displayName,
                     type: 'item',
+                    render: renderFilterMenuItem,
                     children: [
                         {
                             key: `${field.field}-children`,

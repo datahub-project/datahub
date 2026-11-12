@@ -18,27 +18,25 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
     showClear?: boolean;
 }
 
-export function SearchFilterBase({
-    children,
-    isOpen,
-    isActive,
-    onClear,
-    showClear,
-    ...props
-}: React.PropsWithChildren<Props>) {
-    const onClearHandler = useCallback(
-        (e: React.MouseEvent) => {
-            e.stopPropagation();
-            onClear?.();
-        },
-        [onClear],
-    );
+// Forwards its ref so overlays (e.g. the filter value Popover) anchor directly on the pill.
+export const SearchFilterBase = React.forwardRef<HTMLDivElement, React.PropsWithChildren<Props>>(
+    ({ children, isOpen, isActive, onClear, showClear, ...props }, ref) => {
+        const onClearHandler = useCallback(
+            (e: React.MouseEvent) => {
+                e.stopPropagation();
+                onClear?.();
+            },
+            [onClear],
+        );
 
-    return (
-        <SearchFilterLabel $isActive={!!isActive} $isOpen={!!isOpen} {...props}>
-            {children}
-            {showClear ? <ClearButton onClick={onClearHandler} /> : null}
-            <StyledIcon icon={CaretDown} size="md" rotate={isOpen ? '180' : '0'} />
-        </SearchFilterLabel>
-    );
-}
+        return (
+            <SearchFilterLabel ref={ref} $isActive={!!isActive} $isOpen={!!isOpen} {...props}>
+                {children}
+                {showClear ? <ClearButton onClick={onClearHandler} /> : null}
+                <StyledIcon icon={CaretDown} size="md" rotate={isOpen ? '180' : '0'} />
+            </SearchFilterLabel>
+        );
+    },
+);
+
+SearchFilterBase.displayName = 'SearchFilterBase';

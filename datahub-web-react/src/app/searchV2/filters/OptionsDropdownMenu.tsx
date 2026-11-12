@@ -15,6 +15,8 @@ const DropdownCard = styled.div<{ $shouldAddWrapperStyles: boolean }>`
     `}
     overflow: hidden;
     min-width: 200px;
+    /* Inside the More menu this renders in an antd submenu, whose default text colour differs. */
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const ScrollableContent = styled.div<{ $shouldAddWrapperStyles: boolean }>`

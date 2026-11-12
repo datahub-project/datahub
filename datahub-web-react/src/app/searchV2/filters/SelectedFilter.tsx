@@ -1,6 +1,6 @@
 /* eslint-disable import/no-cycle */
+import { Button, DatePicker } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -11,7 +11,6 @@ import { getIsDateRangeFilter, useFilterDisplayName } from '@app/searchV2/filter
 import ValueName from '@app/searchV2/filters/value/ValueName';
 import ValueSelector from '@app/searchV2/filters/value/ValueSelector';
 import { useLoadAggregationOptions } from '@app/searchV2/filters/value/utils';
-import DatePicker from '@utils/DayjsDatePicker';
 import dayjs from '@utils/dayjs';
 
 const DAYJS_DISPLAY_FORMAT = 'll';
@@ -60,9 +59,6 @@ const FilterName = styled.div`
 const RemoveButton = styled(Button)`
     padding: 0px;
     margin: 0px;
-    width: 20px;
-    height: 20px;
-    margin-left: 0px;
 `;
 
 interface SelectedFilterProps {
@@ -103,12 +99,16 @@ export default function SelectedFilter({
             <OperatorSelector predicate={predicate} onChangeOperator={onChangeOperator} />
             {showValueSelector && useDatePicker && (
                 <DatePicker
-                    defaultValue={dayjs(Number(values[0].value))}
-                    disabledDate={isDateRangeFilter ? undefined : (current) => current > dayjs().startOf('day')}
+                    value={dayjs(Number(values[0].value))}
+                    disabledDate={
+                        isDateRangeFilter ? undefined : (current) => !!current?.isAfter(dayjs().startOf('day'))
+                    }
                     format={DAYJS_DISPLAY_FORMAT}
-                    showToday={false}
-                    allowClear={false}
-                    onChange={(v) => onChangeValues(v ? [{ value: v.valueOf().toString(), entity: null }] : [])}
+                    onChange={(v) => {
+                        if (v && v.valueOf().toString() !== values[0].value) {
+                            onChangeValues([{ value: v.valueOf().toString(), entity: null }]);
+                        }
+                    }}
                 />
             )}
             {showValueSelector && !useDatePicker && (
@@ -129,8 +129,11 @@ export default function SelectedFilter({
                 </ValueSelector>
             )}
             <RemoveButton
-                type="text"
-                icon={<X size={12} />}
+                variant="text"
+                color="gray"
+                size="xs"
+                icon={{ icon: X, size: 'sm' }}
+                isCircle
                 onClick={onRemoveFilter}
                 data-testid={`remove-filter-${field.field}`}
             />

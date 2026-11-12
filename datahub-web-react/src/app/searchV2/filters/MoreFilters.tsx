@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { ItemType } from '@components/components/Menu/types';
 import useClickOutside from '@components/components/Utils/ClickOutside/useClickOutside';
 
+import { renderFilterMenuItem } from '@app/searchV2/filters/FilterMenuItem';
 import MoreFilterOption from '@app/searchV2/filters/MoreFilterOption';
 import { SearchFilterBase } from '@app/searchV2/filters/SearchFilterBase';
 import { FilterScenarioType } from '@app/searchV2/filters/render/types';
@@ -74,6 +75,7 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
                     title,
                     dataTestId: `more-filter-${title.replace(/\s/g, '-')}`,
                     type: 'item',
+                    render: renderFilterMenuItem,
                     children: [
                         {
                             key: `${filter.field}-children`,

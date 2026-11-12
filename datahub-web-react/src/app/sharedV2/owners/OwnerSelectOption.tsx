@@ -53,11 +53,11 @@ export function OwnerSelectOption({ entity }: { entity: Entity }) {
                     <EntityIcon entity={entity} />
                 </IconWrapper>
                 <TitleContainer>
-                    <Text type="div" color="gray">
+                    <Text type="div" color="text" weight="medium">
                         {displayName}
                     </Text>
                     {subtitle && (
-                        <Text type="div" size="sm" color="gray">
+                        <Text type="div" size="sm" color="textTertiary">
                             {subtitle}
                         </Text>
                     )}

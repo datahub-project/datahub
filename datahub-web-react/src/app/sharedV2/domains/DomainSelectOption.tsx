@@ -15,10 +15,6 @@ const Container = styled.div`
     align-items: center;
 `;
 
-const DisplayName = styled(Text)`
-    color: ${(props) => props.theme.colors.textSecondary};
-`;
-
 interface Props {
     entity: Entity;
 }
@@ -34,7 +30,9 @@ export function DomainSelectOption({ entity }: Props) {
     return (
         <Container>
             <DomainColoredIcon domain={domain} size={24} fontSize={16} />
-            <DisplayName>{displayName}</DisplayName>
+            <Text color="text" weight="medium">
+                {displayName}
+            </Text>
         </Container>
     );
 }

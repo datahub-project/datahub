@@ -30,21 +30,12 @@ const IconAndNameContainer = styled.div`
 const IconWrapper = styled.div`
     display: flex;
     align-items: center;
-
-    & .ant-image {
-        display: flex;
-        align-items: center;
-    }
 `;
 
 const Name = styled.div`
     max-width: 250px;
     text-overflow: ellipsis;
     overflow: hidden;
-`;
-
-const DisplayName = styled(Text)`
-    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 interface Props {
@@ -65,7 +56,9 @@ export function DefaultEntitySelectOption({ entity }: Props) {
                     <SingleEntityIcon entity={entity} size={16} />
                 </IconWrapper>
                 <Name>
-                    <DisplayName>{displayName}</DisplayName>
+                    <Text color="text" weight="medium">
+                        {displayName}
+                    </Text>
                 </Name>
             </IconAndNameContainer>
         </Container>

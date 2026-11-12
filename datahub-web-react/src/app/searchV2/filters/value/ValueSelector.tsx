@@ -1,18 +1,19 @@
 /* eslint-disable import/no-cycle */
-import { Dropdown } from '@components';
-import React, { CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
-import styled from 'styled-components';
+import { Popover } from '@components';
+import React, { CSSProperties, useCallback, useEffect, useState } from 'react';
 
 import { FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
 import ValueMenu from '@app/searchV2/filters/value/ValueMenu';
 import { EntityType, FacetFilterInput } from '@src/types.generated';
 
-const MenuContainer = styled.div`
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    z-index: 1050;
-`;
+// The value menus draw their own card, so the popover's default chrome is removed.
+const OVERLAY_INNER_STYLE: CSSProperties = {
+    padding: 0,
+    background: 'transparent',
+    boxShadow: 'none',
+    borderRadius: 0,
+    overflow: 'visible',
+};
 
 interface Props {
     isOpen?: boolean;
@@ -57,8 +58,6 @@ export default function ValueSelector({
         [setIsOpen],
     );
 
-    const wrapperRef = useRef<HTMLDivElement>(null);
-
     const onUpdateValues = (newValues: FilterValue[]) => {
         updateIsOpen(false);
         onChangeValues(newValues);
@@ -85,27 +84,29 @@ export default function ValueSelector({
     }
 
     return (
-        <Dropdown
+        <Popover
             open={isMenuOpen}
-            onOpenChange={(newOpen) => updateIsOpen(newOpen)}
-            dropdownRender={() => {
-                return (
-                    <MenuContainer style={menuStyle} ref={wrapperRef}>
-                        <ValueMenu
-                            field={field}
-                            values={values}
-                            defaultOptions={defaultOptions}
-                            onChangeValues={onUpdateValues}
-                            includeCount
-                            manuallyUpdateFilters={onManuallyUpdateFilters}
-                            aggregationsEntityTypes={aggregationsEntityTypes}
-                            showDefaultOptions={showDefaultOptions}
-                        />
-                    </MenuContainer>
-                );
-            }}
+            onOpenChange={updateIsOpen}
+            trigger="click"
+            placement="bottomLeft"
+            overlayStyle={menuStyle}
+            overlayInnerStyle={OVERLAY_INNER_STYLE}
+            // ValueMenu applies its staged selection when it becomes hidden, so it must stay mounted.
+            destroyTooltipOnHide={false}
+            content={
+                <ValueMenu
+                    field={field}
+                    values={values}
+                    defaultOptions={defaultOptions}
+                    onChangeValues={onUpdateValues}
+                    includeCount
+                    manuallyUpdateFilters={onManuallyUpdateFilters}
+                    aggregationsEntityTypes={aggregationsEntityTypes}
+                    showDefaultOptions={showDefaultOptions}
+                />
+            }
         >
             {children}
-        </Dropdown>
+        </Popover>
     );
 }

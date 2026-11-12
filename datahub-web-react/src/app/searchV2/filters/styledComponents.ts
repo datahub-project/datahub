@@ -1,3 +1,4 @@
+import { Text } from '@components';
 import styled from 'styled-components';
 
 export const SearchFilterLabel = styled.div<{ $isOpen?: boolean; $isActive: boolean }>`
@@ -77,11 +78,12 @@ export const TextButton = styled.button<{ marginTop?: number; height?: number }>
     }
 `;
 
-export const Label = styled.span`
+// Alchemy Text carries its own font, so the label looks the same inside antd submenus (More) as it
+// does in the filter popovers.
+export const Label = styled(Text).attrs({ type: 'span', size: 'md', weight: 'medium', color: 'text' })`
     max-width: 125px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     display: inline-block;
-    color: ${(props) => props.theme.colors.textSecondary};
 `;

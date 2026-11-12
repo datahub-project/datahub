@@ -1,3 +1,4 @@
+import { Text } from '@components';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -16,9 +17,7 @@ const TimeBucketOption = styled.div<{ $isSelected: boolean }>`
     align-items: center;
     padding: 8px 4px;
     border-radius: 8px;
-    font-size: 14px;
     cursor: pointer;
-    color: ${(props) => props.theme.colors.text};
     background-color: ${(props) => (props.$isSelected ? props.theme.colors.bgSelectedSubtle : 'transparent')};
 
     &:hover {
@@ -63,7 +62,9 @@ export default function TimeBucketMenu({ field, values, onChangeValues, classNam
                             $isSelected={option.key === selectedKey}
                             onClick={() => onChangeValues([{ value: option.timestamp, entity: null }])}
                         >
-                            {option.label}
+                            <Text size="md" weight="medium" color="text">
+                                {option.label}
+                            </Text>
                         </TimeBucketOption>
                     ))}
                 </div>
