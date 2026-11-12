@@ -11,16 +11,9 @@ interface Props {
 }
 
 export function CustomItemWrapper({ children }: Props) {
-    // Disable mouse events to prevent default menu behaviour
-    // as custom items could have their own behaviour
-    const disableMouseEvents = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-    };
+    // Custom items handle their own clicks; stop them reaching the menu item, which would close the
+    // menu. Only propagation is stopped, so links, labels and inputs inside keep their defaults.
+    const stopMenuClick = (e: React.MouseEvent) => e.stopPropagation();
 
-    return (
-        <Wrapper onMouseLeave={disableMouseEvents} onMouseEnter={disableMouseEvents} onClick={disableMouseEvents}>
-            {children}
-        </Wrapper>
-    );
+    return <Wrapper onClick={stopMenuClick}>{children}</Wrapper>;
 }

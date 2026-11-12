@@ -24,10 +24,11 @@ interface Props {
     field: FilterField;
     values: FilterValue[];
     onChangeValues: (newValues: FilterValue[]) => void;
+    onSubmit?: () => void;
     isRenderedInSubMenu?: boolean;
 }
 
-export default function TextValueMenu({ field, values, onChangeValues, isRenderedInSubMenu }: Props) {
+export default function TextValueMenu({ field, values, onChangeValues, onSubmit, isRenderedInSubMenu }: Props) {
     const { t } = useTranslation('search');
     // Resolve the human-readable label (e.g. "UUID Filter Test") rather than the raw field name
     // (structuredProperties.uuidFilterTest), consistent with the enum/entity menus.
@@ -41,6 +42,7 @@ export default function TextValueMenu({ field, values, onChangeValues, isRendere
                 name={displayName}
                 value={value}
                 onChangeValue={(v) => onChangeValues([{ value: v, entity: null }])}
+                onSubmit={onSubmit}
             />
         </Container>
     );

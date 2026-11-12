@@ -17,13 +17,12 @@ const ScrollableContent = styled.div`
 
 interface Props {
     filterOption: React.ReactNode;
-    onUpdate: () => void;
     style?: CSSProperties;
 }
 
-export default function BooleanMoreFilterMenu({ filterOption, onUpdate, style }: Props) {
+export default function BooleanMoreFilterMenu({ filterOption, style }: Props) {
     return (
-        <DropdownCard data-testid="filter-dropdown" style={style} onClick={onUpdate}>
+        <DropdownCard data-testid="filter-dropdown" style={style}>
             <ScrollableContent>{filterOption}</ScrollableContent>
         </DropdownCard>
     );

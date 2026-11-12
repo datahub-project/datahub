@@ -6,9 +6,10 @@ interface Props {
     name: string;
     value: string;
     onChangeValue: (newValue: string) => void;
+    onSubmit?: () => void;
 }
 
-export default function TextValueInput({ name, value, onChangeValue }: Props) {
+export default function TextValueInput({ name, value, onChangeValue, onSubmit }: Props) {
     const { t } = useTranslation('search');
     return (
         <Input
@@ -17,6 +18,12 @@ export default function TextValueInput({ name, value, onChangeValue }: Props) {
             inputTestId="edit-text-input"
             setValue={onChangeValue}
             value={value}
+            onKeyDown={(e) => {
+                if (e.key !== 'Enter' || !onSubmit) return;
+                // Keep the Enter away from an enclosing antd menu, which would treat it as an item click.
+                e.stopPropagation();
+                onSubmit();
+            }}
         />
     );
 }

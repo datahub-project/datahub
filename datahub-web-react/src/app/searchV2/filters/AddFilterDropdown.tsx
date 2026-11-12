@@ -1,7 +1,7 @@
 /* eslint-disable import/no-cycle */
 import { Button, Icon, Menu } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -30,6 +30,7 @@ interface Props {
 export default function AddFilterDropdown({ fields = DEFAULT_FILTER_FIELDS, onAddFilter, includeCount }: Props) {
     const { t } = useTranslation('search');
     const isContextDocumentsEnabled = useIsContextDocumentsEnabled();
+    const [isOpen, setIsOpen] = useState(false);
 
     const handleAddFilter = useCallback(
         (field: FilterField, values: any[]) => {
@@ -39,6 +40,7 @@ export default function AddFilterDropdown({ fields = DEFAULT_FILTER_FIELDS, onAd
                 values,
                 defaultValueOptions: [],
             });
+            setIsOpen(false);
         },
         [onAddFilter],
     );
@@ -73,7 +75,7 @@ export default function AddFilterDropdown({ fields = DEFAULT_FILTER_FIELDS, onAd
     }, [fields, includeCount, handleAddFilter, isContextDocumentsEnabled]);
 
     return (
-        <Menu items={items}>
+        <Menu items={items} open={isOpen} onOpenChange={setIsOpen}>
             <AddFilterButton variant="text">
                 <Icon icon={Plus} size="md" />
                 {t('filters.addFilter')}

@@ -1,9 +1,8 @@
 import { Menu } from '@components';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ItemType } from '@components/components/Menu/types';
-import useClickOutside from '@components/components/Utils/ClickOutside/useClickOutside';
 
 import { renderFilterMenuItem } from '@app/searchV2/filters/FilterMenuItem';
 import MoreFilterOption from '@app/searchV2/filters/MoreFilterOption';
@@ -31,7 +30,6 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
     const numActiveFilters = getNumActiveFiltersForGroupOfFilters(activeFilters, filters);
     const filterRendererRegistry = useFilterRendererRegistry();
     const { config } = useAppConfig();
-    const wrapperRef = useRef<HTMLDivElement>(null);
 
     const updateFiltersAndClose = useCallback(
         (newFilters: FacetFilterInput[]) => {
@@ -41,14 +39,12 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
         [onChangeFilters],
     );
 
-    function toggleMenu() {
-        if (!isMenuOpen) trackShowMoreEvent(activeFilters.length, filters.length);
-        setIsMenuOpen((prev) => !prev);
-    }
-
-    const handleClickOutside = useCallback(() => setIsMenuOpen(false), []);
-    const clickOutsideOptions = useMemo(() => ({ wrappers: [wrapperRef] }), []);
-    useClickOutside(handleClickOutside, clickOutsideOptions);
+    // The menu is controlled so that applying a filter can close it; antd handles outside clicks,
+    // including clicks inside the portaled submenus.
+    const onOpenChange = (open: boolean) => {
+        if (open && !isMenuOpen) trackShowMoreEvent(activeFilters.length, filters.length);
+        setIsMenuOpen(open);
+    };
 
     const getFilterDisplayName = useGetFilterDisplayName();
 
@@ -115,13 +111,8 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
     );
 
     return (
-        <Menu items={menuItems} onOpenChange={(isOpen) => setIsMenuOpen(isOpen)}>
-            <SearchFilterBase
-                data-testid="more-filters-dropdown"
-                isActive={!!numActiveFilters}
-                isOpen={isMenuOpen}
-                onClick={toggleMenu}
-            >
+        <Menu items={menuItems} open={isMenuOpen} onOpenChange={onOpenChange}>
+            <SearchFilterBase data-testid="more-filters-dropdown" isActive={!!numActiveFilters} isOpen={isMenuOpen}>
                 {t('filters.moreCount', { count: numActiveFilters })}
             </SearchFilterBase>
         </Menu>

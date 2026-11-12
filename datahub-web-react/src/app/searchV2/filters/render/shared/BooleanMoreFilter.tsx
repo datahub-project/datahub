@@ -28,8 +28,11 @@ export default function BooleanMoreFilter({ title, option, count, initialSelecte
     const labelRef = useRef<HTMLDivElement>(null);
     const { width, height, isElementOutsideWindow } = useElementDimensions(labelRef);
 
-    function updateSelected() {
-        onUpdate(isSelected);
+    // A single option, so a toggle applies straight away rather than waiting for the menu to close.
+    function toggleSelected() {
+        const newValue = !isSelected;
+        setIsSelected(newValue);
+        onUpdate(newValue);
         setIsMenuOpen(false);
     }
 
@@ -51,10 +54,9 @@ export default function BooleanMoreFilter({ title, option, count, initialSelecte
                         <FilterOption
                             filterOption={{ field: title, value: option, count }}
                             selectedFilterOptions={isSelected ? [{ field: title, value: option }] : []}
-                            setSelectedFilterOptions={() => setIsSelected(!isSelected)}
+                            setSelectedFilterOptions={toggleSelected}
                         />
                     }
-                    onUpdate={updateSelected}
                     style={{
                         position: 'absolute',
                         top: -height,

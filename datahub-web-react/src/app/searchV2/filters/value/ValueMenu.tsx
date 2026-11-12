@@ -2,8 +2,6 @@
 import isEqual from 'lodash/isEqual';
 import React, { useEffect, useRef, useState } from 'react';
 
-import { useIsVisible } from '@components/components/Select/private/hooks/useIsVisible';
-
 import { FieldType, FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
 import { getIsDateRangeFilter } from '@app/searchV2/filters/utils';
 import BooleanValueMenu from '@app/searchV2/filters/value/BooleanValueMenu';
@@ -13,6 +11,7 @@ import EntityValueMenu from '@app/searchV2/filters/value/EntityValueMenu';
 import EnumValueMenu from '@app/searchV2/filters/value/EnumValueMenu';
 import TextValueMenu from '@app/searchV2/filters/value/TextValueMenu';
 import TimeBucketMenu from '@app/searchV2/filters/value/TimeBucketMenu';
+import { useIsRendered } from '@app/searchV2/filters/value/useIsRendered';
 import usePrevious from '@app/sharedV2/usePrevious';
 import { EntityType, FacetFilterInput } from '@src/types.generated';
 
@@ -51,23 +50,29 @@ export default function ValueMenu({
         }
     }, [values, previousValues]);
 
+    // Commits the staged selection, then resets it to the current values. Menus that add a new
+    // filter (Add filter) always receive `values={[]}`, so without the reset the same selection
+    // would be committed again the next time the menu closes.
+    const applyStagedValues = () => {
+        if (isEqual(values, stagedSelectedValues)) return;
+        onChangeValues(stagedSelectedValues);
+        setStagedSelectedValues(values);
+    };
+
     const wrapperRef = useRef(null);
-    const isVisible = useIsVisible(wrapperRef);
-    const isVisibleRef = useRef<boolean>(isVisible);
+    const isRendered = useIsRendered(wrapperRef);
+    const wasRenderedRef = useRef<boolean>(isRendered);
 
+    // The menu is hidden, not unmounted, when its popover or submenu closes: apply on that transition.
     useEffect(() => {
-        const previouslyVisible = isVisibleRef.current;
-        isVisibleRef.current = isVisible;
+        const wasRendered = wasRenderedRef.current;
+        wasRenderedRef.current = isRendered;
 
-        if (
-            !isVisible &&
-            previouslyVisible !== isVisible &&
-            !isDateRangeFilter &&
-            !isEqual(values, stagedSelectedValues)
-        ) {
-            onChangeValues(stagedSelectedValues);
+        if (wasRendered && !isRendered && !isDateRangeFilter) {
+            applyStagedValues();
         }
-    }, [isVisible, stagedSelectedValues, onChangeValues, isDateRangeFilter, values]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- only the open-to-closed transition should apply
+    }, [isRendered]);
 
     if (isDateRangeFilter && manuallyUpdateFilters) {
         return <DateRangeMenu field={field} manuallyUpdateFilters={manuallyUpdateFilters} />;
@@ -81,6 +86,7 @@ export default function ValueMenu({
                         field={field}
                         values={stagedSelectedValues}
                         onChangeValues={setStagedSelectedValues}
+                        onSubmit={applyStagedValues}
                         isRenderedInSubMenu={isRenderedInSubMenu}
                     />
                 );
