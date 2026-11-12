@@ -1,6 +1,6 @@
 import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from '../base.page';
-import { WAIT_TIMEOUT, SHORT_TIMEOUT, ANIMATION_TIMEOUT } from '../../utils/constants';
+import { WAIT_TIMEOUT, SHORT_TIMEOUT } from '../../utils/constants';
 import type { DataHubLogger } from '../../utils/logger';
 import type { ScopedCleanup } from '../../utils/cleanup';
 
@@ -49,8 +49,7 @@ export class BaseSettingsPage extends BasePage {
   async logout(): Promise<void> {
     if ((await this.modalDialog.count()) > 0) {
       await this.page.keyboard.press('Escape');
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await this.page.waitForTimeout(ANIMATION_TIMEOUT);
+      await expect(this.modalDialog).toHaveCount(0);
     }
     await this.navSignOut.click();
     await this.page.waitForURL('**/login', { timeout: WAIT_TIMEOUT });

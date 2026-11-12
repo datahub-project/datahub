@@ -1,10 +1,11 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 
 import { useAddOwners } from '@app/sharedV2/owners/useAddOwners';
 import { useRemoveOwners } from '@app/sharedV2/owners/useRemoveOwners';
 import { useUpdateOwners } from '@app/sharedV2/owners/useUpdateOwners';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // Mock the dependent hooks
 vi.mock('@app/sharedV2/owners/useAddOwners', () => ({

@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
 import { DomainsContext, DomainsContextType, UpdatedDomain } from '@app/domainV2/DomainsContext';
 import useManageDomains from '@app/domainV2/useManageDomains';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { ListDomainFragment } from '@graphql/domain.generated';
 import { EntityType } from '@types';
