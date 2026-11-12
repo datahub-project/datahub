@@ -115,6 +115,11 @@ class QlikAPI(QlikBaseAPI):
                 dataset.stored_from_qris = [
                     qri for table in tables for qri in table.source_qris
                 ]
+                for table in tables:
+                    for name, sources in table.field_source_qris.items():
+                        dataset.stored_field_source_qris.setdefault(name, []).extend(
+                            sources
+                        )
         except Exception as e:
             log_read_error(
                 f"Unable to fetch table lineage of dataset {dataset_id}. Exception: {e}"
@@ -149,7 +154,34 @@ class QlikAPI(QlikBaseAPI):
             table = tables.get(edge.get(Constant.TARGET))
             if table and edge.get(Constant.SOURCE):
                 table.source_qris.append(edge[Constant.SOURCE])
+        if self.config.include_column_lineage:
+            for table in tables.values():
+                self._add_field_lineage(qri, table)
         return list(tables.values())
+
+    def _add_field_lineage(self, qri: str, table: LineageTable) -> None:
+        """Expanding a table node at field level gives its field nodes, named,
+        and the field nodes each is loaded or stored from."""
+        response = self.session.get(
+            f"{self.rest_api_url}/lineage-graphs/nodes/{quote(qri, safe='')}"
+            f"/actions/expand?node={quote(table.qri, safe='')}&level=FIELD"
+        )
+        response.raise_for_status()
+        graph = response.json().get(Constant.GRAPH)
+        if graph is None:
+            raise ValueError(f"Field lineage response for {table.qri} has no graph")
+        names = {
+            field_qri: node.get(Constant.LABEL)
+            for field_qri, node in (graph.get(Constant.NODES) or {}).items()
+            if field_qri.startswith(f"{table.qri}#") and node.get(Constant.LABEL)
+        }
+        table.fields = list(names.values())
+        for edge in graph.get(Constant.EDGES) or []:
+            name = names.get(edge.get(Constant.TARGET))
+            if name and edge.get(Constant.SOURCE):
+                table.field_source_qris.setdefault(name, []).append(
+                    edge[Constant.SOURCE]
+                )
 
     def list_datasets(self) -> Optional[List[ListedDataset]]:
         datasets: List[ListedDataset] = []
@@ -322,7 +354,7 @@ class QlikAPI(QlikBaseAPI):
         logger.debug(f"Qlik Cloud data connections: {connections}")
         return connections
 
-    def _get_app(self, app_id: str) -> App:
+    def _get_app(self, app_id: str, script_app: bool = False) -> App:
         errors = ReadErrors()
         websocket_connection = self._open_engine(app_id)
         try:
@@ -334,6 +366,8 @@ class QlikAPI(QlikBaseAPI):
                 method="GetAppLayout"
             )
             app = App.model_validate(response[Constant.QLAYOUT])
+            if script_app:
+                app.qri = f"qri:app:dataprep://{app_id}"
             app.sheets = self._get_app_sheets(websocket_connection, app_id, errors)
             app.variables = self._read_variables(websocket_connection, app_id)
             read_errors = len(errors.messages)
@@ -411,7 +445,12 @@ class QlikAPI(QlikBaseAPI):
         resource_id = item[Constant.RESOURCEID]
         try:
             if resource_type == Constant.APP:
-                return self._get_app(resource_id)
+                return self._get_app(
+                    resource_id,
+                    # A script app's node in the lineage graph is a dataprep
+                    # resource; an analytics app's is a sense resource.
+                    script_app=item.get("resourceSubType") == "script",
+                )
             if resource_type == Constant.DATASET:
                 return self._get_dataset(resource_id, item[Constant.ID])
         except Exception as e:
