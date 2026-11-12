@@ -9,6 +9,7 @@ import styled, { keyframes } from 'styled-components';
 
 import { IconStyleType } from '@app/entityV2/Entity';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
+import { ContractLineageControl } from '@app/lineageV3/LineageEntityNode/ContractLineageControl';
 import HomePill from '@app/lineageV3/LineageEntityNode/HomePill';
 import ManageLineageMenu from '@app/lineageV3/LineageEntityNode/ManageLineageMenu';
 import { LoadingWrapper, StyledVersioningBadge } from '@app/lineageV3/LineageEntityNode/NodeContents';
@@ -19,6 +20,7 @@ import {
     LineageDisplayContext,
     LineageEntity,
     LineageNodesContext,
+    createLineageFilterNodeId,
     isGhostEntity,
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
@@ -63,6 +65,14 @@ const TransformationalNodeWrapper = styled(NodeWrapper)<{
     width: ${TRANSFORMATION_NODE_SIZE}px;
 `;
 
+// Centered on the node, so side controls (which translate up by half their height) line up with it
+const SideControlsWrapper = styled.div`
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+`;
+
 const IconWrapper = styled.div`
     display: flex;
     font-size: 18px;
@@ -92,7 +102,7 @@ const PopoverWrapper = styled(NodeWrapper)`
 
 export default function LineageTransformationNode(props: NodeProps<LineageEntity>) {
     const { data, selected, dragging } = props;
-    const { urn, type, entity, fetchStatus } = data;
+    const { urn, type, entity, fetchStatus, isExpanded } = data;
 
     const history = useHistory();
     const location = useLocation();
@@ -105,7 +115,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
     const isQuery = type === EntityType.Query;
 
     const { rootUrn } = useContext(LineageNodesContext);
-    const { cllHighlightedNodes, setHoveredNode, displayedMenuNode, setDisplayedMenuNode } =
+    const { cllHighlightedNodes, setHoveredNode, displayedMenuNode, setDisplayedMenuNode, lineageFilters } =
         useContext(LineageDisplayContext);
     const { searchedEntity } = useContext(LineageVisualizationContext);
 
@@ -119,6 +129,15 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
 
     const { selectedColumn } = useContext(LineageDisplayContext);
     const opacity = selectedColumn && !cllHighlightedNodes.has(urn) ? 0.3 : 1;
+
+    // Children of transformational nodes are only paginated when the node is the root, e.g. a dbt
+    // model, which otherwise would have no way to show more than the first page of its children.
+    const paginatedDirections = [LineageDirection.Upstream, LineageDirection.Downstream].filter(
+        (direction) =>
+            fetchStatus[direction] === FetchStatus.COMPLETE &&
+            isExpanded[direction] &&
+            lineageFilters.has(createLineageFilterNodeId(urn, direction)),
+    );
 
     // TODO: Combine home node code with LineageEntityNode
     const contents = (
@@ -229,6 +248,13 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             >
                 {contents}
             </Popover>
+            {!!paginatedDirections.length && (
+                <SideControlsWrapper>
+                    {paginatedDirections.map((direction) => (
+                        <ContractLineageControl key={direction} urn={urn} direction={direction} />
+                    ))}
+                </SideControlsWrapper>
+            )}
             {manageLineageDirection && (
                 <ManageLineageModal
                     node={data}

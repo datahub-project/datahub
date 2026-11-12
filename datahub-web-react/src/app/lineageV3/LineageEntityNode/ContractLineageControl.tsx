@@ -7,6 +7,7 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { ContractLineageButton } from '@app/lineageV3/LineageEntityNode/ContractLineageButton';
+import { getFilterCounts } from '@app/lineageV3/LineageEntityNode/ContractLineageControl.utils';
 import { Button, CountText, SideControlWrapper } from '@app/lineageV3/LineageEntityNode/components';
 import LineageFilterSearch from '@app/lineageV3/LineageFilterNode/LineageFilterSearch';
 import LineageFilterSummary from '@app/lineageV3/LineageFilterNode/LineageFilterSummary';
@@ -106,8 +107,7 @@ function FilteredChildrenControl({ urn, direction, filter }: Props & { filter: L
     const [numMatches, setNumMatches] = useState(0);
 
     const { total, platforms, subtypes } = useFetchFilterNodeContents(urn, direction, !hasHovered);
-    const denominator = showGhostEntities ? filter.allChildren.size : (total ?? filter.allChildren.size);
-    const shown = Math.min(filter.shown.size, denominator);
+    const { shown, total: denominator } = getFilterCounts(filter, total, showGhostEntities);
 
     const contractLineage = (e: React.MouseEvent<HTMLSpanElement, MouseEvent>) => {
         e.stopPropagation();
