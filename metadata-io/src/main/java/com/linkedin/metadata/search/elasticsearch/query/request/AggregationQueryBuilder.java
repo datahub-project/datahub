@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.ESUtils.toParentField;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.SetMode;
@@ -113,8 +114,9 @@ public class AggregationQueryBuilder {
       facetsToAggregate.addAll(defaultFacetFields);
     }
     facets.stream().filter(this::isValidAggregate).forEach(facetsToAggregate::add);
-    if (facetsToAggregate.contains(ESUtils.ORIGIN_FIELD)
-        || facetsToAggregate.contains(ESUtils.ENV_FIELD)) {
+    if (mergesEnvironmentFacets()
+        && (facetsToAggregate.contains(ESUtils.ORIGIN_FIELD)
+            || facetsToAggregate.contains(ESUtils.ENV_FIELD))) {
       Stream.of(ESUtils.ORIGIN_FIELD, ESUtils.ENV_FIELD)
           .filter(allFacetFields::contains)
           .forEach(facetsToAggregate::add);
@@ -368,7 +370,9 @@ public class AggregationQueryBuilder {
         processMissingAggregations(entry, aggregationMetadataList);
       }
     }
-    mergeAliasedFacets(aggregationMetadataList);
+    if (mergesEnvironmentFacets()) {
+      mergeAliasedFacets(aggregationMetadataList);
+    }
     return addFiltersToAggregationMetadata(
         aggregationMetadataList, filter, opContext, aspectRetriever);
   }
@@ -790,6 +794,14 @@ public class AggregationQueryBuilder {
     }
 
     return filtersToDisplayName;
+  }
+
+  /**
+   * Search V3 does not expand "origin"/"env" filters to each other (see ESUtils), so merged counts
+   * would include entities that selecting the value cannot return. Keep the facets separate there.
+   */
+  private boolean mergesEnvironmentFacets() {
+    return v3FieldResolver == null;
   }
 
   /**

@@ -31,6 +31,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.FilterValue;
 import com.linkedin.metadata.search.FilterValueArray;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3AggregationQueryBuilder;
 import com.linkedin.r2.RemoteInvocationException;
@@ -1744,15 +1745,38 @@ public class AggregationQueryBuilderTest {
                 mock(EntitySpec.class),
                 ImmutableList.of(environmentAnnotation("origin"), environmentAnnotation("env"))));
 
-    List<AggregationBuilder> aggs =
-        builder.getAggregations(
+    for (String requested : ImmutableList.of("origin", "env")) {
+      Assert.assertEquals(
+          environmentAggregationNames(builder, requested),
+          ImmutableSet.of("origin", "env"),
+          requested);
+    }
+  }
+
+  @Test
+  public void testGetAggregationsKeepsEnvironmentAliasesSeparateOnV3() {
+    AggregationQueryBuilder builder =
+        new V3AggregationQueryBuilder(
+            TEST_OS_SEARCH_CONFIG.getSearch(),
+            ImmutableMap.of(
+                mock(EntitySpec.class),
+                ImmutableList.of(environmentAnnotation("origin"), environmentAnnotation("env"))),
+            mock(SearchFieldResolver.class));
+
+    Assert.assertEquals(environmentAggregationNames(builder, "origin"), ImmutableSet.of("origin"));
+  }
+
+  private static Set<String> environmentAggregationNames(
+      AggregationQueryBuilder builder, String requested) {
+    return builder
+        .getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization()
                 .withSearchFlags(flags -> flags.setIncludeDefaultFacets(false)),
-            ImmutableList.of("origin"));
-
-    Assert.assertEquals(
-        aggs.stream().map(AggregationBuilder::getName).collect(Collectors.toSet()),
-        ImmutableSet.of("origin", "env"));
+            ImmutableList.of(requested))
+        .stream()
+        .map(AggregationBuilder::getName)
+        .filter(name -> !name.equals(INDEX_VIRTUAL_FIELD))
+        .collect(Collectors.toSet());
   }
 
   private static Map<String, Long> filterValueCounts(AggregationMetadata facet) {
@@ -1777,7 +1801,6 @@ public class AggregationQueryBuilderTest {
         Collections.<String>emptyList(),
         false,
         false,
-        Optional.empty(),
         Optional.empty(),
         Optional.empty(),
         Optional.empty(),

@@ -1,6 +1,5 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import useFilters from '@app/searchV2/utils/useFilters';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 describe('useFilters', () => {
     it('should read a legacy env filter from the URL as origin', () => {
