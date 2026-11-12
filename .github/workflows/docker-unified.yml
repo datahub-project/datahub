@@ -735,14 +735,13 @@ jobs:
         # (active) or no shadow comparison (shadow).
         continue-on-error: true
         env:
+          # ANTHROPIC_API_KEY must stay unset: it outranks federation in the
+          # SDK's credential resolution and would silently shadow WIF.
           ANTHROPIC_FEDERATION_RULE_ID: ${{ secrets.ANTHROPIC_FEDERATION_RULE_ID }}
           ANTHROPIC_ORGANIZATION_ID: ${{ secrets.ANTHROPIC_ORGANIZATION_ID }}
           ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ secrets.ANTHROPIC_SERVICE_ACCOUNT_ID }}
           ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
           ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ steps.claude-identity.outputs.token_file }}
-          # Temporary, until this repository has the Workload Identity Federation
-          # secrets above: an API key outranks federation, so remove this line then.
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_KEY_FOR_ROUTING }}
           # The classifier reads the PR's own changes (merge-base diff) from
           # the compare API, not ci-optimize's changed-files-path: that is a
           # two-dot diff against the base tip and grows as the base moves on.
