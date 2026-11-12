@@ -211,6 +211,20 @@ npx playwright test --grep @p0               # all P0 tests
 npx playwright test --grep @domain:observe   # one domain
 ```
 
+### What runs on a PR (P0 tier)
+
+The `Plan Playwright P0 tier` job in `docker-unified.yml` works out which tests a PR needs (`.github/scripts/plan_playwright_tier.py`):
+
+- every `@p0` test;
+- every test Playwright's `--only-changed` says the PR affects: a spec it adds or edits, or one that loads anything it edits (page objects, helpers, utils, through imports, aliases or `require`);
+- every spec that seeds from a `tests/<feature>/fixtures/data.json` the PR edits: the specs in `tests/<feature>/`, plus any spec listed for that feature in `SEED_BORROWERS` in `.github/scripts/plan_playwright_tier.py`.
+
+Seed data is read from disk, so `--only-changed` can't see it. A spec's `featureName` must therefore be a literal naming its own directory, or the spec must be listed in `SEED_BORROWERS`; `check_playwright_p0.py` (pre-commit and lint CI) fails otherwise.
+
+The full suite runs instead when a change can't be mapped to tests: the Playwright config, package files, global seed data (`test-data/`), any other JSON under `tests/`, seed data no listed spec uses, or the tier's own CI wiring. It also runs when Playwright can't list the tests, for example because a spec imports a helper the PR deleted. Files no test loads, such as docs or types-only modules, select no extra tests.
+
+The tier is on when `playwright_p0_tier` is `true` in `.github/ci-flags.json` on the PR's base branch and the PR has neither the `run-all-tests` nor the `run-all-tests:playwright` label. The switch is a file rather than a repository variable because variables don't reach PRs from forks; it is read from the base branch so a PR can't change it for itself. Each shard then runs its share of the selection as a Playwright `--test-list`, on as many shards as the full suite uses (fewer only when the selection has fewer spec files), and the plan job's summary lists each selected spec and why. Otherwise the full suite runs (shadow mode) and the report job's summary lists any failing test the tier would have skipped. Pushes to `master` always run the full suite.
+
 ## Page Objects
 
 Page objects live in `pages/` and extend `BasePage`. All constructors accept
