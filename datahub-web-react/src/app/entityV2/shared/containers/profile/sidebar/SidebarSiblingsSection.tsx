@@ -68,7 +68,11 @@ export const SidebarSiblingsSection = () => {
     // primary first) with its size, and "+ N more" opens search with "Show siblings" on. Until the
     // group loads, or if it fails, the section falls back to the one-link siblings list below.
     const groupQueried = showSeparateSiblings && entityType === EntityType.Dataset && !!urn;
-    const { data: groupData, loading: groupLoading } = useGetSiblingGroupsQuery({
+    const {
+        data: groupData,
+        loading: groupLoading,
+        error: groupError,
+    } = useGetSiblingGroupsQuery({
         skip: !groupQueried,
         variables: { input: { urns: [urn], start: 0, count: SIBLINGS_SHOWN_INLINE } },
     });
@@ -81,9 +85,12 @@ export const SidebarSiblingsSection = () => {
         return <></>;
     }
 
-    // Render nothing until the group arrives, rather than the fallback list first and then a
-    // different list, count and link.
-    if (groupQueried && groupLoading && !group) {
+    // Render nothing until this dataset's group arrives, rather than the fallback list first and then
+    // a different list, count and link. Moving between datasets, Apollo can keep returning the
+    // previous dataset's group with loading already false, so that counts as still waiting too. Only
+    // a failed request, or an answer with no group at all, falls back to the one-link list.
+    const groupIsForAnotherDataset = !!groupData?.siblingGroups?.length && !rawGroup;
+    if (groupQueried && !group && !groupError && (groupLoading || !groupData || groupIsForAnotherDataset)) {
         return <></>;
     }
 
