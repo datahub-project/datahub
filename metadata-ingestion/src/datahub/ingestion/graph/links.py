@@ -10,6 +10,7 @@ _url_prefixes = {
     urns.DataFlowUrn.ENTITY_TYPE: "pipelines",
     urns.CorpUserUrn.ENTITY_TYPE: "user",
     urns.CorpGroupUrn.ENTITY_TYPE: "group",
+    urns.ApiUrn.ENTITY_TYPE: "apis",
     # Normal mappings - matches the entity type.
     urns.ChartUrn.ENTITY_TYPE: "chart",
     urns.ContainerUrn.ENTITY_TYPE: "container",
