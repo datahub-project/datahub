@@ -31,7 +31,7 @@ fi
 # set environment variables for the test
 source ./set-test-env-vars.sh
 
-echo "TEST_STRATEGY: $TEST_STRATEGY, BATCH_COUNT: $BATCH_COUNT, BATCH_NUMBER: $BATCH_NUMBER"
+echo "TEST_STRATEGY: $TEST_STRATEGY, BATCH_COUNT: ${BATCH_COUNT:-}, BATCH_NUMBER: ${BATCH_NUMBER:-}"
 
 # PYTEST_XDIST_WORKERS: optional pytest-xdist worker count (nightly sets this to 3).
 # Independent of BATCH_COUNT/BATCH_NUMBER — matrix batching and xdist are orthogonal knobs.

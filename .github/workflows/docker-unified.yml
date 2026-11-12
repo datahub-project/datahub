@@ -173,7 +173,8 @@ jobs:
       # variable unset -- always run the full suite. smoke.sh reads it as
       # SMOKE_TIER.
       #
-      # The `run-all-tests` label opts a single PR back into the whole suite, for
+      # The `run-all-tests` label (both suites) or `run-all-tests:pytest` (pytest
+      # only) opts a single PR back into the whole suite, for
       # changes whose blast radius is wider than their own touched modules
       # (shared fixtures, conftest, a broad refactor). Like every other label
       # this workflow honours (`depot`, `publish`, `build-images`, ...) it is
@@ -184,7 +185,14 @@ jobs:
       #
       # This is the default tier only: smoke_test_matrix owns the final tier
       # (its smoke_tier output) and replaces it under active smart testing.
-      smoke_tier: ${{ (github.event_name == 'pull_request' && vars.PYTEST_P0_SMOKE == 'true' && !contains(github.event.pull_request.labels.*.name, 'run-all-tests')) && 'p0' || 'full' }}
+      smoke_tier: >-
+        ${{
+          (github.event_name == 'pull_request'
+            && vars.PYTEST_P0_SMOKE == 'true'
+            && !contains(github.event.pull_request.labels.*.name, 'run-all-tests')
+            && !contains(github.event.pull_request.labels.*.name, 'run-all-tests:pytest'))
+          && 'p0' || 'full'
+        }}
       # Test modules this PR touches; conftest runs these alongside the p0
       # tier. Empty on a full run.
       smoke_changed_tests: ${{ steps.smoke-tier.outputs.changed_tests }}
@@ -332,7 +340,8 @@ jobs:
           # Which knobs decided this run's tier, so a surprising selection is
           # diagnosable from the log alone.
           echo "PYTEST_P0_SMOKE=${{ vars.PYTEST_P0_SMOKE }}" \
-               "run-all-tests label=${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-all-tests') }}"
+               "run-all-tests label=${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-all-tests') }}" \
+               "run-all-tests:pytest label=${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-all-tests:pytest') }}"
 
       - name: Determine runner type
         id: set-runner
@@ -663,13 +672,14 @@ jobs:
       - name: Resolve smart testing mode
         id: resolve-mode
         # mode: off | shadow | active (repo var SMART_TESTING_MODE, PRs only).
-        # Forks get no OIDC token or secrets for Claude auth, and the run-all-tests
-        # label opts the PR out of selection entirely, so both run with smart
-        # testing off.
+        # Forks get no OIDC token or secrets for Claude auth, and the run-all-tests or
+        # run-all-tests:pytest label opts the PR out of selection entirely, so all of
+        # these run with smart testing off.
         run: |
           mode=off
           if [[ "${{ github.event_name }}" == 'pull_request' && "${{ env.IS_FORK }}" != 'true' \
-                && "${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests') }}" != 'true' ]]; then
+                && "${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests') }}" != 'true' \
+                && "${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests:pytest') }}" != 'true' ]]; then
             mode="${{ vars.SMART_TESTING_MODE || 'shadow' }}"
           fi
 
@@ -695,7 +705,8 @@ jobs:
 
           echo "Smart testing mode=$mode run_pytest=$run_pytest" \
                "pytest_workflow_change=${{ needs.setup.outputs.pytest_workflow_change }}" \
-               "run-all-tests label=${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests') }}"
+               "run-all-tests label=${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests') }}" \
+               "run-all-tests:pytest label=${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests:pytest') }}"
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "run_pytest=$run_pytest" >> "$GITHUB_OUTPUT"
 
