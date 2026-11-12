@@ -144,15 +144,20 @@ class _DataHub:
     def get_entities(
         self, entity_name: str, urns: List[str], aspects: List[str]
     ) -> Dict[str, Dict[str, Tuple[_Aspect, None]]]:
-        assert aspects == [StatusClass.ASPECT_NAME]
         found: Dict[str, Dict[str, Tuple[_Aspect, None]]] = {}
         for urn in urns:
-            status = self.aspects.get((urn, StatusClass.ASPECT_NAME))
-            if isinstance(status, StatusClass):
-                removed = status.removed or urn in self.soft_deleted
-                found[urn] = {
-                    StatusClass.ASPECT_NAME: (StatusClass(removed=removed), None)
-                }
+            if aspects == [StatusClass.ASPECT_NAME]:
+                status = self.aspects.get((urn, StatusClass.ASPECT_NAME))
+                if isinstance(status, StatusClass):
+                    removed = status.removed or urn in self.soft_deleted
+                    found[urn] = {
+                        StatusClass.ASPECT_NAME: (StatusClass(removed=removed), None)
+                    }
+            else:
+                assert aspects == [UpstreamLineageClass.ASPECT_NAME]
+                lineage = self.aspects.get((urn, UpstreamLineageClass.ASPECT_NAME))
+                if lineage is not None:
+                    found[urn] = {UpstreamLineageClass.ASPECT_NAME: (lineage, None)}
         return found
 
     def write(self, workunits: List[MetadataWorkUnit]) -> None:
