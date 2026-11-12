@@ -969,10 +969,12 @@ class BigQuerySchemaApi:
         # table at a time and flush it, bounding peak memory to a single table.
         # cache_max_size=1 keeps at most one prior table in the in-memory LRU;
         # the default (900) would hold whole datasets resident and defeat the
-        # file-backed spill.
+        # file-backed spill. Pickled columns compress well, which keeps the temp
+        # file small on pods with little ephemeral storage.
         columns: FileBackedDict[List[BigqueryColumn]] = FileBackedDict(
             tablename="bigquery_columns",
             cache_max_size=1,
+            should_compress_value=True,
         )
         # Close the file-backed dict on any failure after allocation (streaming,
         # policy-tag resolution, etc). The caller only closes it on a successful
@@ -1033,6 +1035,10 @@ class BigQuerySchemaApi:
             # raw resource names on each column and collect the distinct set; a
             # second bounded pass rewrites them once the mapping is known.
             all_resource_names: Set[str] = set()
+            # Tables holding any raw policy tags; only these need the second pass.
+            tables_with_policy_tags: Set[str] = set()
+            policy_tags_failed = False
+            written_tables: Set[str] = set()
 
             current_table: Optional[str] = None
             current_columns: List[BigqueryColumn] = []
@@ -1043,8 +1049,20 @@ class BigQuerySchemaApi:
                 if table_name != current_table:
                     if current_table is not None:
                         columns[current_table] = current_columns
+                        written_tables.add(current_table)
                     current_table = table_name
                     current_columns = []
+                    if table_name in written_tables:
+                        # The query orders by table_name, so this only happens if
+                        # that ordering changes. Append rather than overwrite the
+                        # columns already stored for this table.
+                        report.warning(
+                            title="Column rows for a table were not contiguous",
+                            message="The columns query returned a table's rows out of order. "
+                            "Its columns were merged, but the query's ORDER BY should be checked.",
+                            context=f"{project_id}.{dataset_name}.{table_name}",
+                        )
+                        current_columns = columns[table_name]
 
                 if column_limit and len(current_columns) >= column_limit:
                     if truncated_table != table_name:
@@ -1055,12 +1073,13 @@ class BigQuerySchemaApi:
                     continue
 
                 policy_tags: List[str] = []
-                if extract_policy_tags_from_catalog:
+                if extract_policy_tags_from_catalog and not policy_tags_failed:
                     raw_tags = getattr(column, "policy_tags", None)
                     if raw_tags:
                         try:
                             policy_tags = list(raw_tags)
                             all_resource_names.update(policy_tags)
+                            tables_with_policy_tags.add(table_name)
                         except Exception as e:
                             report.warning(
                                 title="Policy tags column not available in INFORMATION_SCHEMA",
@@ -1068,7 +1087,7 @@ class BigQuerySchemaApi:
                                 context=f"{project_id}.{dataset_name}",
                                 exc=e,
                             )
-                            extract_policy_tags_from_catalog = False
+                            policy_tags_failed = True
                             policy_tags = []
 
                 current_columns.append(
@@ -1089,36 +1108,41 @@ class BigQuerySchemaApi:
                 columns[current_table] = current_columns
 
             # Resolve policy tag display names for the whole dataset at once, then
-            # rewrite the stored resource names in a single bounded pass (one
-            # table's columns resident at a time).
-            if extract_policy_tags_from_catalog and all_resource_names:
-                with PerfTimer() as policy_tag_timer:
-                    policy_tag_display_name_map = (
-                        self.build_policy_tag_display_name_mapping(
-                            all_resource_names,
-                            report,
-                            rate_limiter,
+            # rewrite only the tables that hold tags (one table resident at a time).
+            # If extraction failed part-way, clear the raw resource names already
+            # stored rather than emit them as tags, matching the all-or-nothing
+            # behaviour for the dataset.
+            if tables_with_policy_tags:
+                policy_tag_display_name_map: Dict[str, str] = {}
+                if not policy_tags_failed:
+                    with PerfTimer() as policy_tag_timer:
+                        policy_tag_display_name_map = (
+                            self.build_policy_tag_display_name_mapping(
+                                all_resource_names,
+                                report,
+                                rate_limiter,
+                            )
                         )
+                    elapsed = policy_tag_timer.elapsed_seconds()
+                    logger.info(
+                        f"Resolved policy tags for {project_id}.{dataset_name} "
+                        f"in {elapsed:.2f}s"
                     )
-                elapsed = policy_tag_timer.elapsed_seconds()
-                logger.info(
-                    f"Resolved policy tags for {project_id}.{dataset_name} "
-                    f"in {elapsed:.2f}s"
-                )
-                self.report.list_policy_tags_sec += elapsed
+                    self.report.list_policy_tags_sec += elapsed
 
-                for table_name in list(columns):
+                for table_name in tables_with_policy_tags:
                     table_columns = columns[table_name]
-                    rewritten = False
                     for col in table_columns:
                         if col.policy_tags:
-                            col.policy_tags = [
-                                policy_tag_display_name_map.get(name, name)
-                                for name in col.policy_tags
-                            ]
-                            rewritten = True
-                    if rewritten:
-                        columns[table_name] = table_columns
+                            col.policy_tags = (
+                                []
+                                if policy_tags_failed
+                                else [
+                                    policy_tag_display_name_map.get(name, name)
+                                    for name in col.policy_tags
+                                ]
+                            )
+                    columns[table_name] = table_columns
 
             self.report.num_get_columns_for_dataset_api_requests += 1
             self.report.get_columns_for_dataset_sec += timer.elapsed_seconds()
