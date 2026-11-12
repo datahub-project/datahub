@@ -1,6 +1,7 @@
 package com.linkedin.metadata.usage.flush;
 
 import com.linkedin.metadata.usage.store.InMemoryUsageAggregationStore;
+import io.datahubproject.metadata.context.OperationContext;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -18,6 +19,11 @@ public class AdaptiveFlushCoordinator implements AutoCloseable {
   private static final ZoneOffset ALIGNMENT_ZONE = ZoneOffset.UTC;
 
   private final InMemoryUsageAggregationStore store;
+  // Scheduled (cron) flushes have no ambient request context, so the coordinator carries the
+  // system context and supplies it to every store.flush(...). The coordinator is not on the
+  // systemOperationContext bean construction graph, so holding it here introduces no cycle
+  // (unlike injecting it into a flush sink, which is reachable from that graph via the store).
+  private final OperationContext systemOperationContext;
   private final long scheduledIntervalSeconds;
   private final Duration boundarySkew;
   private final Clock clock;
@@ -25,22 +31,27 @@ public class AdaptiveFlushCoordinator implements AutoCloseable {
   private volatile long lastScheduledFlushMillis;
 
   public AdaptiveFlushCoordinator(
-      @Nonnull InMemoryUsageAggregationStore store, long scheduledIntervalSeconds) {
-    this(store, scheduledIntervalSeconds, Clock.systemUTC());
+      @Nonnull OperationContext systemOperationContext,
+      @Nonnull InMemoryUsageAggregationStore store,
+      long scheduledIntervalSeconds) {
+    this(systemOperationContext, store, scheduledIntervalSeconds, Clock.systemUTC());
   }
 
   public AdaptiveFlushCoordinator(
+      @Nonnull OperationContext systemOperationContext,
       @Nonnull InMemoryUsageAggregationStore store,
       long scheduledIntervalSeconds,
       @Nonnull Clock clock) {
-    this(store, scheduledIntervalSeconds, clock, true);
+    this(systemOperationContext, store, scheduledIntervalSeconds, clock, true);
   }
 
   AdaptiveFlushCoordinator(
+      @Nonnull OperationContext systemOperationContext,
       @Nonnull InMemoryUsageAggregationStore store,
       long scheduledIntervalSeconds,
       @Nonnull Clock clock,
       boolean enableSchedulers) {
+    this.systemOperationContext = systemOperationContext;
     this.store = store;
     this.scheduledIntervalSeconds = scheduledIntervalSeconds;
     this.clock = clock;
@@ -66,22 +77,22 @@ public class AdaptiveFlushCoordinator implements AutoCloseable {
   void tick() {
     try {
       if (store.isAlignmentEnabled() && shouldFlushForAlignmentBoundary()) {
-        store.flush(FlushTrigger.SCHEDULED);
+        store.flush(systemOperationContext, FlushTrigger.SCHEDULED);
         lastScheduledFlushMillis = clock.millis();
         return;
       }
       if (store.isWindowExpired()) {
-        store.flush(FlushTrigger.MAX_WINDOW);
+        store.flush(systemOperationContext, FlushTrigger.MAX_WINDOW);
         lastScheduledFlushMillis = clock.millis();
         return;
       }
       if (!store.isAlignmentEnabled()) {
-        store.flush(FlushTrigger.SCHEDULED);
+        store.flush(systemOperationContext, FlushTrigger.SCHEDULED);
         lastScheduledFlushMillis = clock.millis();
         return;
       }
       if (scheduledIntervalElapsed()) {
-        store.flush(FlushTrigger.SCHEDULED);
+        store.flush(systemOperationContext, FlushTrigger.SCHEDULED);
         lastScheduledFlushMillis = clock.millis();
       }
     } catch (RuntimeException e) {
@@ -112,7 +123,7 @@ public class AdaptiveFlushCoordinator implements AutoCloseable {
 
   public void shutdown() {
     try {
-      store.flush(FlushTrigger.SHUTDOWN);
+      store.flush(systemOperationContext, FlushTrigger.SHUTDOWN);
     } catch (RuntimeException e) {
       log.warn("Shutdown usage aggregation flush failed", e);
     }

@@ -1,7 +1,7 @@
-import { Button, Editor, Text, Tooltip } from '@components';
+import { Button, Text, Tooltip } from '@components';
 import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
 import queryString from 'query-string';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
@@ -11,13 +11,16 @@ import EditDescriptionModal from '@app/entityV2/summary/documentation/EditDescri
 import { useDescriptionUtils } from '@app/entityV2/summary/documentation/useDescriptionUtils';
 import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
 import RelatedSection from '@app/entityV2/summary/links/RelatedSection';
+import { Editor } from '@app/sharedV2/editor/Editor';
 
 const StyledEditor = styled(Editor)<{ $isEditing?: boolean }>`
     border: none;
     margin-top: 4px;
     &&& {
-        .remirror-editor {
+        .remirror-editor.ProseMirror,
+        .datahub-editor-content {
             padding: 0;
+            color: ${(props) => props.theme.colors.text};
         }
         p:last-of-type {
             margin-bottom: 0;
@@ -41,17 +44,19 @@ const DescriptionContainer = styled.div`
 
 interface Props {
     hideLinksButton: boolean;
+    hideEditDescription?: boolean;
 }
 
-export default function AboutSection({ hideLinksButton }: Props) {
+export default function AboutSection({ hideLinksButton, hideEditDescription }: Props) {
     const { t } = useTranslation('entity.profile.summary');
     const history = useHistory();
     const { search, pathname } = useLocation();
-    const isEditingDescription = !!queryString.parse(search, { parseBooleans: true }).editingDescription;
+    const isEditingDescription =
+        !hideEditDescription && !!queryString.parse(search, { parseBooleans: true }).editingDescription;
 
     const [showAddDescriptionModal, setShowDescriptionModal] = useState(isEditingDescription);
 
-    const canEditDescription = useDocumentationPermission();
+    const canEditDescription = useDocumentationPermission() && !hideEditDescription;
     const {
         displayedDescription,
         updatedDescription,
@@ -63,6 +68,23 @@ export default function AboutSection({ hideLinksButton }: Props) {
     useEffect(() => {
         setShowDescriptionModal(isEditingDescription);
     }, [isEditingDescription]);
+
+    /**
+     * The editor only reads its `content` prop on mount. When the modal is opened straight from the URL
+     * (?editingDescription=true) it can mount before entityData resolves, leaving the editor stuck on the empty
+     * description it mounted with. Bump the key once the description first arrives to force a re-mount.
+     */
+    const [descriptionEditorKey, setDescriptionEditorKey] = useState(0);
+    const hasInitializedDescriptionRef = useRef(!!updatedDescription);
+    useEffect(() => {
+        if (hasInitializedDescriptionRef.current) return;
+        if (updatedDescription) {
+            hasInitializedDescriptionRef.current = true;
+        } else if (displayedDescription) {
+            setDescriptionEditorKey((prevKey) => prevKey + 1);
+            hasInitializedDescriptionRef.current = true;
+        }
+    }, [displayedDescription, updatedDescription]);
 
     const removeEditingParam = () => {
         const params = queryString.parse(search);
@@ -84,7 +106,7 @@ export default function AboutSection({ hideLinksButton }: Props) {
     return (
         <div data-testid="about-section">
             <SectionHeaderWrapper>
-                <Text weight="bold" color="gray" colorLevel={600} size="sm">
+                <Text weight="bold" color="text" size="sm">
                     {t('documentation.aboutTitle')}
                 </Text>
                 <ButtonsWrapper>
@@ -116,6 +138,7 @@ export default function AboutSection({ hideLinksButton }: Props) {
             {!hideLinksButton && <RelatedSection hideLinksButton={hideLinksButton} />}
             {showAddDescriptionModal && (
                 <EditDescriptionModal
+                    contentKey={descriptionEditorKey}
                     updatedDescription={updatedDescription}
                     setUpdatedDescription={setUpdatedDescription}
                     handleDescriptionUpdate={handleDescriptionUpdate}

@@ -84,13 +84,13 @@ const commonProps: Property[] = [
                 {
                     id: 'dataJob',
                     get displayName() {
-                        return i18next.t('shared.query-builder:entityType.dataJob');
+                        return i18next.t('entity.types:dataJob.alternativeName');
                     },
                 },
                 {
                     id: 'dataFlow',
                     get displayName() {
-                        return i18next.t('shared.query-builder:entityType.dataFlow');
+                        return i18next.t('entity.types:dataFlow.alternativeName');
                     },
                 },
                 {
@@ -433,34 +433,6 @@ const datasetProps: Property[] = [
                     return i18next.t('shared.query-builder:prop.sizeInBytesPercentileDesc');
                 },
                 valueType: ValueTypeId.NUMBER,
-            },
-        ],
-    },
-    {
-        id: 'assertions',
-        get displayName() {
-            return i18next.t('shared.query-builder:prop.assertions');
-        },
-        children: [
-            {
-                id: 'assertionsSummary.passingAssertionDetails',
-                get displayName() {
-                    return i18next.t('shared.query-builder:prop.passingAssertions');
-                },
-                get description() {
-                    return i18next.t('shared.query-builder:prop.passingAssertionsDesc');
-                },
-                valueType: ValueTypeId.EXISTS_LIST,
-            },
-            {
-                id: 'assertionsSummary.failingAssertionDetails',
-                get displayName() {
-                    return i18next.t('shared.query-builder:prop.failingAssertions');
-                },
-                get description() {
-                    return i18next.t('shared.query-builder:prop.failingAssertionsDesc');
-                },
-                valueType: ValueTypeId.EXISTS_LIST,
             },
         ],
     },

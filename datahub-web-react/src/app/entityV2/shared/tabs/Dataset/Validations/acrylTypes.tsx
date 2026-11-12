@@ -4,6 +4,8 @@ export type AssertionStatusSummary = {
     passing: number;
     failing: number;
     erroring: number;
+    initializing: number;
+    notRunning: number;
     total: number; // Total assertions with at least 1 run.
     totalAssertions: number;
 };

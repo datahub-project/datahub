@@ -12,11 +12,12 @@
                 "doc_md": "",
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "",
+                "schedule": "None",
                 "start_date": "2023-01-01T00:00:00+00:00",
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=athena_operator",
+            "externalUrl": "http://airflow.example.com/dags/athena_operator",
             "name": "athena_operator",
             "env": "DEV"
         }
@@ -118,11 +119,12 @@
                 "doc_md": "",
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "",
+                "schedule": "None",
                 "start_date": "2023-01-01T00:00:00+00:00",
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=athena_operator",
+            "externalUrl": "http://airflow.example.com/dags/athena_operator",
             "name": "athena_operator",
             "env": "DEV"
         }
@@ -395,7 +397,7 @@
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:athena,athena_db.processed_costs,DEV)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,/,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:s3,athena-results-bucket,DEV)"
             ],
             "inputDatajobs": [],
             "fineGrainedLineages": [
@@ -487,13 +489,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,/,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,athena-results-bucket,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "/",
+            "name": "athena-results-bucket",
             "origin": "DEV"
         }
     }
@@ -575,7 +577,7 @@
         "json": {
             "outputs": [
                 "urn:li:dataset:(urn:li:dataPlatform:athena,athena_db.processed_costs,DEV)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,/,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:s3,athena-results-bucket,DEV)"
             ]
         }
     }

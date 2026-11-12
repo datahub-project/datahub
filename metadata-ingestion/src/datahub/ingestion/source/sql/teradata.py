@@ -11,7 +11,7 @@ from concurrent.futures import (
     ThreadPoolExecutor,
     wait,
 )
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
@@ -48,15 +48,18 @@ from sqlalchemy.pool import QueuePool
 from sqlalchemy.sql.expression import text
 from teradatasqlalchemy.dialect import TeradataDialect
 from teradatasqlalchemy.options import configure
-from typing_extensions import ClassVar, LiteralString
+from typing_extensions import Annotated, ClassVar, LiteralString
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, Filters
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_user_urn,
 )
 from datahub.emitter.mcp_builder import ContainerKey, add_owner_to_entity_wu
+from datahub.ingestion.agent.sql_gate import (
+    CatalogScope,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -69,7 +72,10 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.common.data_reader import DataReader
-from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -880,8 +886,9 @@ def optimized_get_columns(
         _report_table_missing_from_cache(self, schema, table_name)
         return []
 
+    is_view = td_table.object_type == "View"
     res: List[Any] = []
-    if td_table.object_type == "View" and not use_qvci:
+    if is_view and not use_qvci:
         if use_dbc_columns_for_views:
             # Attempt bulk dbc.ColumnsV fetch first. dbc.ColumnsV has ColumnType for views,
             # but columns defined as derived expressions (e.g., col1 + col2) will have
@@ -906,7 +913,9 @@ def optimized_get_columns(
                 )
                 col_info_list = []
                 for r in res:
-                    updated_column_info_dict = self._update_column_help_info(r._mapping)
+                    updated_column_info_dict = self._update_column_help_info(
+                        r._mapping, connection
+                    )
                     col_info_list.append(dict(r._mapping, **(updated_column_info_dict)))
                 res = col_info_list
         else:
@@ -917,7 +926,9 @@ def optimized_get_columns(
             )
             col_info_list = []
             for r in res:
-                updated_column_info_dict = self._update_column_help_info(r._mapping)
+                updated_column_info_dict = self._update_column_help_info(
+                    r._mapping, connection
+                )
                 col_info_list.append(dict(r._mapping, **(updated_column_info_dict)))
             res = col_info_list
     else:
@@ -935,7 +946,16 @@ def optimized_get_columns(
     # Ignore the non-functional column in a PTI table
     for row in res:
         try:
-            col_info = self._get_column_info(row)
+            # Volatile tables are session-scoped and never appear in the dbc
+            # views this reads from, and ART tables are not supported, so both
+            # flags are always False here.
+            col_info = self._get_column_info(
+                row,
+                is_volatile=False,
+                is_view=is_view,
+                is_art_table=False,
+                connection=connection,
+            )
             _strip_padded_nullable(row, col_info)
             _strip_padded_autoincrement(row, col_info)
 
@@ -966,8 +986,8 @@ def optimized_get_columns(
                 self.report.increment_column_extraction_failures()
                 self.report.warning(
                     title="Column extraction failed",
-                    message=f"Failed to process column {column_name!r}. The column will be omitted from the schema.",
-                    context=str(e),
+                    message="Failed to process column. The column will be omitted from the schema.",
+                    context=column_name,
                     exc=e,
                 )
             else:
@@ -1197,6 +1217,25 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
 class BaseTeradataConfig(TwoTierSQLAlchemyConfig):
     scheme: str = Field(default="teradatasql", description="database scheme")
 
+    @classmethod
+    def probe_catalog_scope(cls) -> CatalogScope:
+        # Teradata has no information_schema; its catalog is DBC. Not allowed
+        # wholesale, because DBC.QryLogV is the query log -- our own usage
+        # extraction reads it -- and DBC.SessionInfoV carries session detail.
+        return CatalogScope(
+            schemas=frozenset(),
+            relations=frozenset(
+                {
+                    "dbc.tablesv",
+                    "dbc.columnsv",
+                    "dbc.indicesv",
+                    "dbc.databasesv",
+                    "dbc.all_ri_childrenv",
+                    "dbc.tablesizev",
+                }
+            ),
+        )
+
 
 class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
     databases: Optional[List[str]] = Field(
@@ -1207,7 +1246,14 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         ),
     )
 
-    database_pattern: AllowDenyPattern = Field(
+    # Annotated, not a bare redeclaration: pydantic v2 replaces the annotation
+    # wholesale, so restating the field silently drops the Filters metadata
+    # TwoTierSQLAlchemyConfig attached to it. Nothing failed when it did -- the
+    # name convention picked up the slack for `probe filter` while `describe`
+    # reported no filter at all, and the two commands contradicted each other.
+    database_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABASE)
+    ] = Field(
         default=AllowDenyPattern(deny=EXCLUDED_DATABASES),
         description="Regex patterns for databases to filter in ingestion.",
     )
@@ -1523,7 +1569,7 @@ class LineageQuery:
 
 @platform_name("Teradata")
 @config_class(TeradataConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(
     SourceCapability.CONTAINERS,
@@ -1548,6 +1594,10 @@ class LineageQuery:
 @capability(
     SourceCapability.OPERATION_CAPTURE,
     "Optionally enabled via `include_usage_statistics`; controlled by `usage.include_operational_stats`",
+)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
 )
 class TeradataSource(TwoTierSQLAlchemySource):
     """
@@ -1761,39 +1811,72 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         # record of user intent across sequential recipe runs.
         self._effective_max_workers: int = config.max_workers
 
-        # View SQL text is offloaded to a temporary SQLite-backed dict instead of
-        # being held in `_tables_cache`. On large installations the resident view
-        # text dominated memory (e.g. thousands of views at ~100KB each). Keyed by
-        # _view_definition_key(schema, view_name). FileBackedDict mutates its
-        # in-memory LRU on read, so reads (which happen on parallel view-processing
-        # worker threads) must be guarded by `_view_definitions_lock`.
-        self._view_definitions: FileBackedDict[str] = FileBackedDict()
-        self._view_definitions_lock = Lock()
+        # Register every teardown on a single ExitStack so both the normal close()
+        # path and the __init__ failure path release the same resources, in reverse
+        # order, without masking the original exception.
+        # This makes cleanup correct even when __init__ raises before the
+        # pipeline has registered this source for close().
+        self._exit_stack = ExitStack()
 
-        self.schema_resolver = self._init_schema_resolver()
+        # Guard construction too, not just discovery below: these resources are
+        # registered on the ExitStack one at a time, so if a later one raises (e.g.
+        # the aggregator fails after the SQLite-backed view store is created) the
+        # ones built so far would leak because close() never runs on a failed
+        # __init__. Unwind whatever was registered and re-raise the original error.
+        try:
+            # Register the non-Closeable teardown first so it runs on any failure,
+            # even one during resource construction below: the pooled engine (lazily
+            # created, class-level) and the caches that must not survive into the
+            # next recipe run in the same process. ExitStack unwinds LIFO, so these
+            # run after the Closeables are closed.
+            self._exit_stack.callback(self._dispose_pooled_engine)
+            self._exit_stack.callback(self._clear_table_caches)
+            self._exit_stack.callback(self._clear_schema_lru_caches)
 
-        # Initialize SqlParsingAggregator for modern lineage processing
-        logger.info("Initializing SqlParsingAggregator for enhanced lineage processing")
-        self.aggregator = SqlParsingAggregator(
-            platform="teradata",
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            schema_resolver=self.schema_resolver,
-            graph=self.ctx.graph,
-            generate_lineage=self.config.include_view_lineage
-            or self.config.include_table_lineage,
-            generate_queries=self.config.include_queries,
-            generate_usage_statistics=self.config.include_usage_statistics,
-            generate_query_usage_statistics=self.config.include_usage_statistics,
-            generate_operations=self.config.usage.include_operational_stats
-            if self.config.include_usage_statistics
-            else False,
-            usage_config=self.config.usage
-            if self.config.include_usage_statistics
-            else None,
-            eager_graph_load=False,
-        )
-        self.report.sql_aggregator = self.aggregator.report
+            # View SQL text is offloaded to a temporary SQLite-backed dict instead of
+            # being held in `_tables_cache`. On large installations the resident view
+            # text dominated memory (e.g. thousands of views at ~100KB each). Keyed by
+            # _view_definition_key(schema, view_name). FileBackedDict mutates its
+            # in-memory LRU on read, so reads (which happen on parallel view-processing
+            # worker threads) must be guarded by `_view_definitions_lock`.
+            self._view_definitions: FileBackedDict[str] = (
+                self._exit_stack.enter_context(FileBackedDict())
+            )
+            self._view_definitions_lock = Lock()
+
+            self.schema_resolver = self._exit_stack.enter_context(
+                self._init_schema_resolver()
+            )
+
+            # Initialize SqlParsingAggregator for modern lineage processing
+            logger.info(
+                "Initializing SqlParsingAggregator for enhanced lineage processing"
+            )
+            self.aggregator = self._exit_stack.enter_context(
+                SqlParsingAggregator(
+                    platform="teradata",
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                    schema_resolver=self.schema_resolver,
+                    graph=self.ctx.graph,
+                    generate_lineage=self.config.include_view_lineage
+                    or self.config.include_table_lineage,
+                    generate_queries=self.config.include_queries,
+                    generate_usage_statistics=self.config.include_usage_statistics,
+                    generate_query_usage_statistics=self.config.include_usage_statistics,
+                    generate_operations=self.config.usage.include_operational_stats
+                    if self.config.include_usage_statistics
+                    else False,
+                    usage_config=self.config.usage
+                    if self.config.include_usage_statistics
+                    else None,
+                    eager_graph_load=False,
+                )
+            )
+            self.report.sql_aggregator = self.aggregator.report
+        except Exception:
+            self._exit_stack.close()
+            raise
 
         # Surface the size-based profiling filter at startup. This default (5 GB)
         # was previously ignored for Teradata, so log it to avoid surprising users
@@ -1823,7 +1906,13 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
 
         if self.config.include_tables or self.config.include_views:
             with self.report.new_stage("Table and view discovery"):
-                self.cache_tables_and_views()
+                try:
+                    self.cache_tables_and_views()
+                except Exception:
+                    # Same failed-__init__ rationale as the construction guard
+                    # above: close() won't run, so unwind the ExitStack here.
+                    self._exit_stack.close()
+                    raise
                 logger.info(f"Found {len(self._tables_cache)} tables and views")
             setattr(self, "loop_tables", self.cached_loop_tables)  # noqa: B010
             setattr(self, "loop_views", self.cached_loop_views)  # noqa: B010
@@ -1920,15 +2009,12 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             if self.config.stateful_ingestion:
                 self.config.stateful_ingestion.remove_stale_metadata = False
 
-    def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
-        """Add Teradata-specific default options"""
-        super()._add_default_options(sql_config)
-        if sql_config.is_profiling_enabled():
-            # Sqlalchemy uses QueuePool by default however Teradata uses SingletonThreadPool.
-            # SingletonThreadPool does not support parellel connections. For using profiling, we need to use QueuePool.
-            # https://docs.sqlalchemy.org/en/20/core/pooling.html#connection-pool-configuration
-            # https://github.com/Teradata/sqlalchemy-teradata/issues/96
-            sql_config.options.setdefault("poolclass", QueuePool)
+    # Sqlalchemy uses QueuePool by default however Teradata uses SingletonThreadPool.
+    # SingletonThreadPool does not support parellel connections. For using profiling, we need to use QueuePool.
+    # https://docs.sqlalchemy.org/en/20/core/pooling.html#connection-pool-configuration
+    # https://github.com/Teradata/sqlalchemy-teradata/issues/96
+    # The base class applies this before deciding on max_overflow, so both are set.
+    _profiling_pool_class = QueuePool
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
@@ -2048,11 +2134,11 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                         env=self.config.env,
                     )
                 except Exception as e:
-                    self.report.report_warning(
+                    self.report.warning(
                         message="Failed to bulk-load schemas from DataHub for SQL lineage. "
                         "Lineage resolution will fall back to lazy on-demand schema fetching.",
-                        context=str(e),
                         exc=e,
+                        log=False,
                     )
             else:
                 logger.warning(
@@ -2118,12 +2204,13 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                     self.report.warning(
                         title="Configured database not found on source",
                         message=(
-                            f"Database {db!r} is listed in the connector config but no "
+                            "Database is listed in the connector config but no "
                             "tables or views were found for it in dbc.TablesV. Skipping "
                             "to avoid emitting a container URN for a database that does "
                             "not exist (or that exists but is empty). Check for typos or "
                             "remove the entry."
                         ),
+                        context=db,
                     )
                     continue
                 try:
@@ -2132,9 +2219,8 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                 except Exception as e:
                     self.report.warning(
                         title="Failed to inspect database",
-                        message=f"Could not acquire a connection to database {db!r} "
-                        f"after {self.config.retry_max_attempts} attempts. Skipping.",
-                        context=str(e),
+                        message="Could not acquire a connection to database. Skipping.",
+                        context=db,
                         exc=e,
                     )
                     continue  # do not fall through to yield with an invalid connection
@@ -2457,8 +2543,12 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                             self.report.report_entity_scanned(
                                 dataset_name, ent_type="view"
                             )
+                        logger.debug(f"Scanning view: {dataset_name}")
 
                         if not sql_config.view_pattern.allowed(dataset_name):
+                            logger.debug(
+                                f"Dropped view by view_pattern: {dataset_name}"
+                            )
                             with self.report.atomic():
                                 self.report.report_dropped(dataset_name)
                             return results
@@ -2707,8 +2797,12 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                         )
 
                         self.report.report_entity_scanned(dataset_name, ent_type="view")
+                        logger.debug(f"Scanning view: {dataset_name}")
 
                         if not sql_config.view_pattern.allowed(dataset_name):
+                            logger.debug(
+                                f"Dropped view by view_pattern: {dataset_name}"
+                            )
                             self.report.report_dropped(dataset_name)
                             continue
 
@@ -2778,7 +2872,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                     "pool_size": base_connections,
                     "max_overflow": max_overflow,
                     "pool_pre_ping": True,
-                    "pool_recycle": 1800,
+                    "pool_recycle": 900,
                     "pool_reset_on_return": "rollback",
                 }
                 # Use setdefault so that a user-supplied pool_timeout in
@@ -3240,7 +3334,12 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         finally:
             watchdog_stop.set()
             if watchdog_thread is not None:
-                watchdog_thread.join(timeout=5)
+                watchdog_thread.join(timeout=2)
+                if watchdog_thread.is_alive():
+                    logger.warning(
+                        "Teradata lineage watchdog did not stop within 2s; "
+                        "continuing shutdown anyway."
+                    )
             fetch_engine.dispose()
 
     def _check_historical_table_exists(self) -> bool:
@@ -3547,42 +3646,47 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
 
             logger.info("Completed lineage extraction from Teradata audit logs")
 
-    def close(self) -> None:
-        """Clean up resources when source is closed."""
-        logger.info("Closing SqlParsingAggregator")
-        self.aggregator.close()
-        self.schema_resolver.close()
-
-        # Clean up pooled engine
+    def _dispose_pooled_engine(self) -> None:
+        # _pooled_engine is class-level and lazily created, so it may not exist yet
+        # (e.g. when __init__ fails before the pool is first used). Null the handle
+        # so a subsequent run recreates it rather than reusing a disposed engine.
         with self._pooled_engine_lock:
             if self._pooled_engine is not None:
                 logger.info("Disposing pooled engine")
-                self._pooled_engine.dispose()
-                self._pooled_engine = None
+                try:
+                    self._pooled_engine.dispose()
+                finally:
+                    self._pooled_engine = None
 
+    def _clear_table_caches(self) -> None:
+        # Class-level caches must be cleared between recipe runs in the same process;
+        # otherwise sequential recipes accumulate all TeradataTable objects and creator
+        # metadata indefinitely.
+        with self._tables_cache_lock:
+            self._tables_cache.clear()
+            self._table_creator_cache.clear()
+
+    def _clear_schema_lru_caches(self) -> None:
+        # Module-level LRU caches hold per-connection schema column/PK/FK data, so they
+        # must not carry over to the next recipe run.
+        get_schema_columns.cache_clear()
+        get_schema_pk_constraints.cache_clear()
+        get_schema_foreign_keys.cache_clear()
+
+    def close(self) -> None:
+        """Clean up resources when source is closed."""
+        logger.info("Closing Teradata source resources")
+        # Emit the failed-views summary and commit stateful-ingestion checkpoints
+        # first (matching snowflake_v2.py), then unwind every resource registered in
+        # __init__ in reverse order. ExitStack runs each cleanup even if an earlier
+        # one raises, so we no longer hand-roll per-resource guards here. Running
+        # super().close() first guarantees the summary is emitted even if a teardown
+        # step raises; the summary reads from self.report and does not touch the
+        # resources being released.
         try:
-            # Clear class-level caches so memory is released between recipe runs in the
-            # same process. Without this, sequential recipes accumulate all TeradataTable
-            # objects and creator metadata indefinitely.
-            with self._tables_cache_lock:
-                self._tables_cache.clear()
-                self._table_creator_cache.clear()
-
-            # Close the disk-backed view-definition store so its temporary SQLite
-            # file is removed promptly rather than waiting for GC.
-            with self._view_definitions_lock:
-                self._view_definitions.close()
-
-            # Clear module-level LRU caches for the same reason — schema column/PK/FK
-            # data is per-connection and must not carry over to the next recipe run.
-            get_schema_columns.cache_clear()
-            get_schema_pk_constraints.cache_clear()
-            get_schema_foreign_keys.cache_clear()
-        except Exception as e:
-            logger.warning(f"Failed to clear caches during close: {e}")
-
-        # Report failed views summary
-        super().close()
+            super().close()
+        finally:
+            self._exit_stack.close()
 
     def generate_profile_candidates(
         self,

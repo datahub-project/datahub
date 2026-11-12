@@ -1,11 +1,11 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { waitFor } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_STATE, UserContext } from '@app/context/userContext';
 import { SearchDocumentsInput, useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { SearchDocumentsDocument } from '@graphql/document.generated';
 import { DocumentSourceType, DocumentState } from '@types';
@@ -330,6 +330,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             sourceType: 'NATIVE',
+                            states: [DocumentState.Published],
                             viewUrn: undefined,
                         },
                         includeParentDocuments: false,

@@ -2,8 +2,8 @@
 
 The fake client covers:
   - 2 connections (Snowflake prod + staging)
-  - 2 models (1 SHARED with topics, 1 WORKBOOK referencing the shared model)
-  - 2 topics from the shared model: orders (2 views) + customers (1 view)
+  - 2 models (1 SHARED, 1 WORKBOOK referencing the shared model)
+  - 2 topics from the shared model via get_topic API: orders (2 views) + customers (1 view)
   - 3 physical tables: ORDERS, ORDER_ITEMS, CUSTOMERS
   - 2 documents: 1 published dashboard with 2 tiles, 1 workbook-only
   - 1 folder: Finance
@@ -56,57 +56,6 @@ MODELS = [
         "deletedAt": None,
     },
 ]
-
-# ---- Model YAMLs ----------------------------------------------------------
-
-MODEL_YAML_SHARED = {
-    "files": {
-        "topics/orders.topic": """\
-type: topic
-name: orders
-base_view_name: orders
-""",
-        "topics/customers.topic": """\
-type: topic
-name: customers
-base_view_name: customers
-""",
-        "views/orders.view": """\
-type: view
-name: orders
-schema: PUBLIC
-table_name: ORDERS
-dimensions:
-  - name: order_id
-    sql_type: NUMBER
-  - name: customer_id
-    sql_type: NUMBER
-  - name: created_at
-    sql_type: TIMESTAMP
-measures:
-  total_revenue:
-    sql_type: NUMBER
-""",
-        "views/customers.view": """\
-type: view
-name: customers
-schema: PUBLIC
-table_name: CUSTOMERS
-dimensions:
-  - name: customer_id
-    sql_type: NUMBER
-  - name: name
-    sql_type: STRING
-  - name: email
-    sql_type: STRING
-measures:
-  lifetime_value:
-    sql_type: NUMBER
-""",
-    }
-}
-
-MODEL_YAML_WORKBOOK: Dict[str, Any] = {"files": {}}
 
 # ---- Topics ---------------------------------------------------------------
 
@@ -258,8 +207,8 @@ class FakeOmniClientFull:
 
     Provides full coverage of all code paths in OmniSource including:
       - Connection discovery
-      - Model + YAML parsing → topic names
-      - Topic API fetch → views + fields
+      - Model listing
+      - Topic API fetch → views + fields (via dashboard tile processing)
       - Folder ingestion
       - Document list + dashboard payload + queries
       - Fine-grained lineage fields
@@ -270,11 +219,6 @@ class FakeOmniClientFull:
 
     def list_models(self, page_size: int = 50) -> Iterator[Dict[str, Any]]:
         yield from MODELS
-
-    def get_model_yaml(self, model_id: str) -> Dict[str, Any]:
-        if model_id == "shared-model-1":
-            return MODEL_YAML_SHARED
-        return MODEL_YAML_WORKBOOK
 
     def get_topic(self, model_id: str, topic_name: str) -> Dict[str, Any]:
         if model_id != "shared-model-1":
@@ -305,12 +249,12 @@ class FakeOmniClientFull:
             return QUERIES_WORKBOOK_1
         return []
 
-    def test_connection(self) -> bool:
-        return True
+    def test_connection(self) -> None:
+        pass
 
 
 class FakeOmniClientConnectionFail:
     """Fake client that simulates a failed API authentication."""
 
-    def test_connection(self) -> bool:
+    def test_connection(self) -> None:
         raise RuntimeError("401 Unauthorized: Invalid API key")

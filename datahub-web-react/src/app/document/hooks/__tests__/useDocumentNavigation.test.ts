@@ -1,7 +1,7 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useDocumentNavigation } from '@app/document/hooks/useDocumentNavigation';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const mockPush = vi.fn();
 let mockPathname = '/';
@@ -48,8 +48,15 @@ describe('useDocumentNavigation', () => {
             const onSelectDocument = vi.fn();
             const { result } = renderHook(() => useDocumentNavigation(onSelectDocument));
             result.current.handleDocumentClick('urn:li:document:y');
-            expect(onSelectDocument).toHaveBeenCalledWith('urn:li:document:y');
+            expect(onSelectDocument).toHaveBeenCalledWith('urn:li:document:y', undefined);
             expect(mockPush).not.toHaveBeenCalled();
+        });
+
+        it('forwards the title to onSelectDocument when provided', () => {
+            const onSelectDocument = vi.fn();
+            const { result } = renderHook(() => useDocumentNavigation(onSelectDocument));
+            result.current.handleDocumentClick('urn:li:document:z', 'My Document');
+            expect(onSelectDocument).toHaveBeenCalledWith('urn:li:document:z', 'My Document');
         });
     });
 });

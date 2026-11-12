@@ -15,6 +15,7 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteDestinationPartial,
     AirbytePipelineInfo,
     AirbyteSourcePartial,
+    AirbyteStream,
     AirbyteStreamConfig,
     AirbyteStreamDetails,
     AirbyteStreamInfo,
@@ -287,6 +288,136 @@ def test_create_lineage_workunits_end_to_end(source, pipeline_info, stream):
     assert "UpstreamLineageClass" in aspect_types
 
 
+def test_create_lineage_skips_fallback_dataset_urns_when_streams_unavailable(
+    source, pipeline_info, stream
+):
+    # Transient /streams loss + no catalog namespace must not invent
+    # fallback-schema dataset URNs (stale-entity removal never cleans them).
+    pipeline_info.connection.streams_api_unavailable = True
+    stream_info = AirbyteStreamInfo(
+        config=AirbyteStreamConfig(
+            stream=AirbyteStream(name="customers", namespace=None)
+        ),
+        details=stream,
+    )
+
+    with (
+        patch.object(source, "_fetch_streams_for_source", return_value=[stream_info]),
+        patch.object(
+            source,
+            "_create_dataset_urns",
+            side_effect=AssertionError("must not build fallback dataset URNs"),
+        ) as mock_create_urns,
+        patch.object(
+            source,
+            "_emit_destination_upstream_lineage",
+            side_effect=AssertionError("must not emit destination lineage"),
+        ) as mock_emit,
+    ):
+        workunits = list(source._create_lineage_workunits(pipeline_info))
+
+    mock_create_urns.assert_not_called()
+    mock_emit.assert_not_called()
+    aspect_types = {type(wu.metadata.aspect).__name__ for wu in workunits}
+    assert "DataFlowInfoClass" in aspect_types
+    assert "DataJobInfoClass" in aspect_types
+    assert "UpstreamLineageClass" not in aspect_types
+    # Empty inlets/outlets: SDK may omit DataJobInputOutput entirely.
+    assert "DataJobInputOutputClass" not in aspect_types
+    assert not source.report.failures
+
+
+def test_create_lineage_keeps_datasets_when_catalog_namespace_present(
+    source, pipeline_info, stream
+):
+    pipeline_info.connection.streams_api_unavailable = True
+    stream_info = AirbyteStreamInfo(
+        config=AirbyteStreamConfig(
+            stream=AirbyteStream(name="customers", namespace="public")
+        ),
+        details=stream,
+    )
+    source_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db.public.customers,PROD)"
+    )
+    destination_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,dest_db.public.customers,PROD)"
+    )
+
+    with (
+        patch.object(source, "_fetch_streams_for_source", return_value=[stream_info]),
+        patch.object(
+            source,
+            "_create_dataset_urns",
+            return_value=AirbyteDatasetUrns(
+                source_urn=source_urn,
+                destination_urn=destination_urn,
+            ),
+        ) as mock_create_urns,
+    ):
+        workunits = list(source._create_lineage_workunits(pipeline_info))
+
+    mock_create_urns.assert_called_once()
+    assert any(isinstance(wu.metadata.aspect, UpstreamLineageClass) for wu in workunits)
+
+
+def test_create_lineage_keeps_datasets_when_default_schema_configured(
+    source, pipeline_info
+):
+    # Operator-set default_schema is stable through a /streams blip: the skip
+    # gate must keep lineage, and _resolve_source_schema must land on that
+    # schema so the emitted source URN matches a later successful run.
+    pipeline_info.connection.streams_api_unavailable = True
+    pipeline_info.connection.namespace_definition = "source"
+    source_details = PlatformDetail(
+        platform="postgres",
+        default_schema="dbo",
+        convert_urns_to_lowercase=True,
+    )
+    source.source_config.sources_to_platform_instance = {"source-1": source_details}
+    source.source_config.destinations_to_platform_instance = {
+        "destination-1": PlatformDetail(
+            platform="snowflake", convert_urns_to_lowercase=True
+        ),
+    }
+
+    resolved = source._resolve_source_schema(
+        stream_namespace=None,
+        source=pipeline_info.source,
+        source_details=source_details,
+        stream_name="customers",
+    )
+    assert resolved.name == "dbo"
+
+    stream_config = AirbyteStreamConfig(
+        stream=AirbyteStream(name="customers", namespace=None)
+    )
+    assert not source._should_skip_fallback_dataset_lineage(
+        pipeline_info.connection,
+        stream_config,
+        pipeline_info.source,
+        "customers",
+    )
+
+    stream_info = AirbyteStreamInfo(
+        config=stream_config,
+        details=AirbyteStreamDetails(
+            stream_name="customers",
+            namespace=resolved.name,
+            property_fields=[],
+        ),
+    )
+
+    with patch.object(source, "_fetch_streams_for_source", return_value=[stream_info]):
+        workunits = list(source._create_lineage_workunits(pipeline_info))
+
+    io_aspect = _aspect_of_type(workunits, DataJobInputOutputClass)
+    assert io_aspect is not None
+    assert any("source_db.dbo.customers" in urn for urn in io_aspect.inputDatasets)
+    assert any("dest_db.dbo.customers" in urn for urn in io_aspect.outputDatasets)
+    assert any(isinstance(wu.metadata.aspect, UpstreamLineageClass) for wu in workunits)
+
+
 def test_snowflake_destination_lowercases_columns(source, pipeline_info, stream):
     # Snowflake folds identifiers to lowercase when `convert_urns_to_lowercase`
     # is set; non-Snowflake platforms must preserve column case regardless.
@@ -530,6 +661,27 @@ def test_resolve_destination_schema_customformat_underscore_variant(source):
     )
 
     assert result == "namespace_public"
+
+
+def test_resolve_destination_schema_customformat_substitutes_literally(source):
+    # A schema name containing regex replacement syntax must be inserted
+    # verbatim, not interpreted as a backreference.
+    stream_config = _make_stream_config()
+    connection = _make_connection(
+        namespace_definition="customformat",
+        namespace_format="prefix_${SOURCE_NAMESPACE}",
+    )
+    destination = _make_destination()
+
+    result = source._resolve_destination_schema(
+        stream_config=stream_config,
+        connection=connection,
+        source_schema=r"my\schema",
+        destination=destination,
+        stream_name="customers",
+    )
+
+    assert result == r"prefix_my\schema"
 
 
 def test_resolve_destination_schema_falls_back_to_destination_default(source):

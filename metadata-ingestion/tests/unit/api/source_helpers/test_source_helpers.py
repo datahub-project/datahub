@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import List, Optional, Union
 from unittest import mock
 
@@ -16,6 +17,7 @@ from datahub.ingestion.api.source_helpers import (
     create_dataset_props_patch_builder,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
 from datahub.ingestion.workunit_processors.auto_lowercase_urns import (
     AutoLowercaseUrnsProcessor,
 )
@@ -330,6 +332,52 @@ def test_auto_lowercase_aspects():
     assert list(processor.process(mcws)) == expected
 
 
+def _lowercase_ctx(
+    recipe_config: object, parsed_default: bool
+) -> WorkunitProcessorContext:
+    """Build a context whose recipe dict is `recipe_config` and whose parsed
+    source config defaults convert_urns_to_lowercase to `parsed_default`."""
+    pipeline_config = SimpleNamespace(source=SimpleNamespace(config=recipe_config))
+    pipeline_context = SimpleNamespace(pipeline_config=pipeline_config)
+    return WorkunitProcessorContext(
+        source_report=mock.MagicMock(),
+        pipeline_context=pipeline_context,  # type: ignore[arg-type]
+        source_config=SimpleNamespace(convert_urns_to_lowercase=parsed_default),  # type: ignore[arg-type]
+        platform=None,
+    )
+
+
+def test_auto_lowercase_should_enable_ignores_connector_default():
+    # A recipe that never sets the flag must NOT lowercase, even when the
+    # connector default is True (e.g. Snowflake). Guards against the identity
+    # flip regression where the parsed default was honored.
+    assert (
+        AutoLowercaseUrnsProcessor.should_enable(
+            _lowercase_ctx(recipe_config={}, parsed_default=True)
+        )
+        is False
+    )
+
+
+def test_auto_lowercase_should_enable_honors_explicit_recipe_value():
+    assert (
+        AutoLowercaseUrnsProcessor.should_enable(
+            _lowercase_ctx(
+                recipe_config={"convert_urns_to_lowercase": True}, parsed_default=False
+            )
+        )
+        is True
+    )
+    assert (
+        AutoLowercaseUrnsProcessor.should_enable(
+            _lowercase_ctx(
+                recipe_config={"convert_urns_to_lowercase": False}, parsed_default=True
+            )
+        )
+        is False
+    )
+
+
 @time_machine.travel("2023-01-02 00:00:00+00:00", tick=False)
 def test_auto_empty_dataset_usage_statistics(caplog: pytest.LogCaptureFixture) -> None:
     has_urn = make_dataset_urn("my_platform", "has_aspect")
@@ -510,6 +558,21 @@ def test_auto_patch_last_modified_max_last_updated_timestamp():
     # i.e., 20
     processor = AutoPatchLastModifiedProcessor.create(mock.MagicMock())
     assert list(processor.process(auto_workunit(mcps))) == expected
+
+
+@pytest.mark.parametrize("primary_flags", [[False, False], [False, True]])
+def test_auto_patch_last_modified_is_primary_only_with_a_primary_workunit(
+    primary_flags: List[bool],
+) -> None:
+    work_units = list(auto_workunit(get_sample_mcps()))
+    for wu, is_primary_source in zip(work_units, primary_flags, strict=True):
+        wu.is_primary_source = is_primary_source
+
+    processor = AutoPatchLastModifiedProcessor.create(mock.MagicMock())
+    patches = list(processor.process(work_units))[len(work_units) :]
+
+    assert patches
+    assert all(wu.is_primary_source == any(primary_flags) for wu in patches)
 
 
 @time_machine.travel("2023-01-02 00:00:00+00:00", tick=False)

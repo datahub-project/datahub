@@ -1,0 +1,31 @@
+namespace com.linkedin.metadata.search
+
+/**
+ * How a search result field matched the query.
+ */
+record ExplainMatch {
+  /**
+   * The same name a matched field reports: a logical field, or a structured property URN.
+   */
+  field: string
+
+  /**
+   * Matched text.
+   */
+  value: string
+
+  /**
+   * Indexed path that matched, such as {@code name.keyword} or {@code name.stemmed}.
+   */
+  subfield: string
+
+  /**
+   * One of {@code exact}, {@code prefix}, {@code word}, {@code contains}, or {@code nameAndValue}.
+   */
+  mode: string
+
+  /**
+   * Query text that produced the hit.
+   */
+  query: string
+}

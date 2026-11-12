@@ -2,11 +2,6 @@ import { Button, Tooltip } from '@components';
 import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
-
-const StyledButton = styled(Button)`
-    border: 1px solid ${({ theme }) => theme.colors.border};
-`;
 
 type Props = {
     setShowDownloadAsCsvModal: (showDownloadAsCsvModal: boolean) => any;
@@ -18,7 +13,7 @@ export default function DownloadButton({ setShowDownloadAsCsvModal, isDownloadin
     const { t } = useTranslation('shared.search');
     return (
         <Tooltip title={t('downloadResults.tooltip')} showArrow={false} placement="top">
-            <StyledButton
+            <Button
                 onClick={() => setShowDownloadAsCsvModal(true)}
                 disabled={isDownloadingCsv || disabled}
                 isCircle
@@ -29,7 +24,7 @@ export default function DownloadButton({ setShowDownloadAsCsvModal, isDownloadin
                 data-testid="download-csv-button"
             >
                 {isDownloadingCsv ? t('downloading') : null}
-            </StyledButton>
+            </Button>
         </Tooltip>
     );
 }

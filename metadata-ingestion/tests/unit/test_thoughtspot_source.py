@@ -6459,6 +6459,334 @@ class TestResolveExternalUpstream:
             == "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.events,PROD)"
         )
 
+    def test_rdbms_prefixed_connection_type_resolves(self):
+        """Unlike the table-level type (covered by
+        ``test_rdbms_prefixed_table_type_resolves``), TS's
+        ``ConnectionResponse.data_source_type`` is documented as never
+        carrying the ``RDBMS_``/``NOSQL_``/``FILE_`` prefix. This asserts
+        that resolution still succeeds if it ever does — the same
+        ``normalize_ts_table_type`` call now guards the connection-side
+        lookup too, so a prefixed value there wouldn't silently break
+        resolution."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(
+                id="c1",
+                name="Prod SF",
+                data_source_type="RDBMS_SNOWFLAKE",
+                default_database="db",
+                default_schema="public",
+            )
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="events",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="SNOWFLAKE",
+        )
+        table.physical_database_name = "db"
+        table.physical_schema_name = "public"
+        table.physical_table_name = "events"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert ref.platform == "snowflake"
+
+    def test_snowflake_native_uppercase_case_is_lowercased(self):
+        """Snowflake stores unquoted identifiers natively in uppercase,
+        but the ``snowflake`` ingestion source lowercases every URN it
+        emits by default (``convert_urns_to_lowercase=True``). If
+        ThoughtSpot doesn't also lowercase, the two never string-match
+        and the lineage edge silently never resolves in the UI."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="Prod SF", data_source_type="SNOWFLAKE")
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="ORDERS",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="SNOWFLAKE",
+        )
+        table.physical_database_name = "MYDB"
+        table.physical_schema_name = "PUBLIC"
+        table.physical_table_name = "ORDERS"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert (
+            ref.urn
+            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.public.orders,PROD)"
+        )
+
+    def test_bigquery_native_case_is_preserved(self):
+        """BigQuery's own DataHub source does not lowercase by default
+        (``BigQueryIdentifierConfig`` inherits ``LowerCaseDatasetUrnConfigMixin``
+        with a ``False`` default), so ThoughtSpot must not either."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(
+                id="c1", name="Prod BQ", data_source_type="GOOGLE_BIGQUERY"
+            )
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="Orders",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="GCP_BIGQUERY",
+        )
+        table.physical_database_name = "My-Project"
+        table.physical_schema_name = "Raw"
+        table.physical_table_name = "Orders"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert (
+            ref.urn
+            == "urn:li:dataset:(urn:li:dataPlatform:bigquery,My-Project.Raw.Orders,PROD)"
+        )
+
+    def test_mssql_native_case_is_preserved(self):
+        """MSSQL's own DataHub source does not lowercase by default
+        (``convert_urns_to_lowercase`` defaults ``False``), and unlike
+        Oracle/HANA it isn't rescued by a normalizing SQLAlchemy dialect
+        either — so ThoughtSpot must preserve native case verbatim."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="Prod SQL", data_source_type="MSSQL")
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="Orders",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="MSSQL",
+        )
+        table.physical_database_name = "MyDB"
+        table.physical_schema_name = "dbo"
+        table.physical_table_name = "Orders"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert (
+            ref.urn == "urn:li:dataset:(urn:li:dataPlatform:mssql,MyDB.dbo.Orders,PROD)"
+        )
+
+    def test_oracle_uppercase_is_lowercased_with_two_part_shape(self):
+        """Oracle rides a SQLAlchemy dialect whose ``normalize_name``
+        lowercases all-uppercase identifiers, and its own
+        ``add_database_name_to_urn`` defaults False — schema.table, not
+        database.schema.table. Both must be mirrored here."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="Prod Oracle", data_source_type="ORACLE")
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="ORDERS",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="ORACLE",
+        )
+        table.physical_database_name = "MYDB"
+        table.physical_schema_name = "MYSCHEMA"
+        table.physical_table_name = "ORDERS"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert (
+            ref.urn
+            == "urn:li:dataset:(urn:li:dataPlatform:oracle,myschema.orders,PROD)"
+        )
+
+    def test_oracle_mixed_case_component_is_preserved(self):
+        """The Oracle/HANA rule is conditional per-component (lowercase
+        only if the value is entirely uppercase), not a blanket lower()
+        on the whole key — a mixed-case schema must pass through
+        untouched even when the table name is all-uppercase."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="Prod Oracle", data_source_type="ORACLE")
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="ORDERS",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="ORACLE",
+        )
+        table.physical_database_name = "MYDB"
+        table.physical_schema_name = "MySchema"
+        table.physical_table_name = "ORDERS"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert (
+            ref.urn
+            == "urn:li:dataset:(urn:li:dataPlatform:oracle,MySchema.orders,PROD)"
+        )
+
+    def test_hana_uppercase_is_lowercased_with_two_part_shape(self):
+        """HANA's SQLAlchemy dialect normalizes the same way as Oracle's,
+        and ``HanaSource`` has no ``get_identifier`` override — falls
+        back to the default schema.table shape, not database.schema.table."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="Prod HANA", data_source_type="SAPHANA")
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="ORDERS",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="SAPHANA",
+        )
+        table.physical_database_name = "MYDB"
+        table.physical_schema_name = "MYSCHEMA"
+        table.physical_table_name = "ORDERS"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert (
+            ref.urn == "urn:li:dataset:(urn:li:dataPlatform:hana,myschema.orders,PROD)"
+        )
+
+    def test_connection_override_forces_lowercase_for_preserve_platform(self):
+        """``convert_urns_to_lowercase: true`` on a specific connection
+        overrides MSSQL's normal preserve-case default — for an operator
+        whose MSSQL source was actually run with lowercasing enabled."""
+        source, mock_client = self._make_source(
+            {
+                "external_connections": {
+                    "c1": {"convert_urns_to_lowercase": True},
+                }
+            }
+        )
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="Prod SQL", data_source_type="MSSQL")
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="Orders",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="MSSQL",
+        )
+        table.physical_database_name = "MyDB"
+        table.physical_schema_name = "dbo"
+        table.physical_table_name = "Orders"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert (
+            ref.urn == "urn:li:dataset:(urn:li:dataPlatform:mssql,mydb.dbo.orders,PROD)"
+        )
+
+    def test_connection_override_forces_preserve_for_lowercase_platform(self):
+        """``convert_urns_to_lowercase: false`` on a specific connection
+        overrides Snowflake's normal lowercase default — for an operator
+        whose Snowflake source was run with lowercasing disabled."""
+        source, mock_client = self._make_source(
+            {
+                "external_connections": {
+                    "c1": {"convert_urns_to_lowercase": False},
+                }
+            }
+        )
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="Prod SF", data_source_type="SNOWFLAKE")
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="ORDERS",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="SNOWFLAKE",
+        )
+        table.physical_database_name = "MYDB"
+        table.physical_schema_name = "PUBLIC"
+        table.physical_table_name = "ORDERS"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert (
+            ref.urn
+            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,MYDB.PUBLIC.ORDERS,PROD)"
+        )
+
+    def test_missing_physical_database_returns_none(self):
+        """Table resolved to a known platform/connection, but neither the
+        table nor the connection carries enough information to build a
+        database component. This is the branch we suspect is the
+        production root cause: it was previously completely silent (no
+        log, no counter, no warning)."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="Prod SF", data_source_type="SNOWFLAKE")
+        ]
+        table = LogicalTableResponse(
+            id="t1",
+            name="orders",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="SNOWFLAKE",
+        )
+        assert table.physical_database_name is None
+        assert source._resolve_external_upstream(table) is None
+        assert source.report.num_external_lineage_skipped_missing_database == 1
+
+    def test_missing_schema_returns_none_for_schema_required_platform(self):
+        """Snowflake's key builder joins schema unconditionally
+        (``f"{db}.{sch}.{tbl}"``). Without this guard, a table with a
+        database and table name but no schema (and no connection-level
+        default) would silently emit a corrupt URN containing the literal
+        string "None" instead of failing loudly like the missing-database
+        case does."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="Prod SF", data_source_type="SNOWFLAKE")
+        ]
+        table = LogicalTableResponse(
+            id="t1",
+            name="orders",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="SNOWFLAKE",
+        )
+        table.physical_database_name = "mydb"
+        table.physical_table_name = "orders"
+        assert table.physical_schema_name is None
+
+        assert source._resolve_external_upstream(table) is None
+        assert source.report.num_external_lineage_skipped_missing_database == 1
+
+    def test_missing_schema_is_fine_for_schema_less_platform(self):
+        """MySQL's key builder never references schema
+        (``f"{db}.{tbl}"``), so a missing schema there is not an error —
+        confirms the schema-required guard is platform-aware, not a
+        blanket ``not schema`` check."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="Prod MySQL", data_source_type="MYSQL")
+        ]
+        table = LogicalTableResponse(
+            id="t1",
+            name="orders",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="MYSQL",
+        )
+        table.physical_database_name = "mydb"
+        table.physical_table_name = "orders"
+        assert table.physical_schema_name is None
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert ref.urn == "urn:li:dataset:(urn:li:dataPlatform:mysql,mydb.orders,PROD)"
+
     def test_in_memory_table_returns_none(self):
         source, mock_client = self._make_source()
         mock_client.get_connections.return_value = [
@@ -6474,6 +6802,11 @@ class TestResolveExternalUpstream:
         assert source._resolve_external_upstream(table) is None
 
     def test_unmapped_platform_returns_none(self):
+        """The table's own type is the unmapped one here, so this hits
+        the table-level filter (grouped with the "expected, internal"
+        counter, same as FALCON/DEFAULT) rather than the connection-level
+        one — see ``test_unmapped_connection_type_returns_none`` for that
+        branch specifically."""
         source, mock_client = self._make_source()
         mock_client.get_connections.return_value = [
             ConnectionResponse(id="c1", name="SAP HBM", data_source_type="SAP_HBM")
@@ -6486,6 +6819,26 @@ class TestResolveExternalUpstream:
             data_source_type="SAP_HBM",
         )
         assert source._resolve_external_upstream(table) is None
+        assert source.report.num_external_lineage_skipped_internal == 1
+
+    def test_unmapped_connection_type_returns_none(self):
+        """The table's own type IS a known warehouse type, but the
+        connection it points to has an unmapped type — e.g. TS returned
+        a stale/inconsistent pairing. This is the branch
+        ``num_external_lineage_skipped_unmapped_connection_type`` tracks."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="SAP HBM", data_source_type="SAP_HBM")
+        ]
+        table = LogicalTableResponse(
+            id="t1",
+            name="x",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="SNOWFLAKE",
+        )
+        assert source._resolve_external_upstream(table) is None
+        assert source.report.num_external_lineage_skipped_unmapped_connection_type == 1
 
     def test_missing_connection_returns_none(self):
         """When the table claims a known external platform but the
@@ -6502,15 +6855,18 @@ class TestResolveExternalUpstream:
             data_source_type="DATABRICKS",
         )
         assert source._resolve_external_upstream(table) is None
-        assert source._unresolvable_external_lineage_count == 1
+        assert source.report.num_external_lineage_unresolvable_connection == 1
 
     def test_falcon_table_with_missing_connection_does_not_warn(self):
         """When the table's data_source_type is TS-internal (FALCON /
         DEFAULT) the missing connection is expected — TS still puts a
         data_source_id on the table but the connection lookup never
         contains FALCON-shaped entries. Must skip silently without
-        bumping the counter, otherwise every TS-internal sample/system
-        table on a tenant produces a false-positive warning.
+        bumping the unresolvable-connection counter (which would
+        trigger the "connection couldn't be resolved" warning),
+        otherwise every TS-internal sample/system table on a tenant
+        produces a false-positive warning. It's still counted, just
+        under the separate "expected, internal" counter.
         """
         source, mock_client = self._make_source()
         mock_client.get_connections.return_value = []
@@ -6523,7 +6879,8 @@ class TestResolveExternalUpstream:
                 data_source_type=ts_type,
             )
             assert source._resolve_external_upstream(table) is None
-        assert source._unresolvable_external_lineage_count == 0
+        assert source.report.num_external_lineage_unresolvable_connection == 0
+        assert source.report.num_external_lineage_skipped_internal == 3
 
     def test_disabled_by_config_returns_none(self):
         source, mock_client = self._make_source({"include_external_lineage": False})

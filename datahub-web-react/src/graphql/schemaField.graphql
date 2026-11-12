@@ -25,6 +25,12 @@ fragment schemaFieldEntityFields on SchemaFieldEntity {
     documentation {
         ...documentationFields
     }
+    aiContext {
+        synonyms
+        instructions
+        examples
+        customInstructions
+    }
     tags {
         ...globalTagsFields
     }
@@ -35,33 +41,42 @@ fragment schemaFieldEntityFields on SchemaFieldEntity {
         urn
         type
         ...entityDisplayNameFields
-        ... on Dataset {
+        ... on HasPlatform {
             platform {
                 ...platformFields
             }
+        }
+        ... on HasSubTypes {
             subTypes {
                 typeNames
             }
+        }
+        ... on Dataset {
             privileges {
                 ...entityPrivileges
             }
         }
-        ... on Dashboard {
-            platform {
-                ...platformFields
-            }
-            subTypes {
-                typeNames
-            }
-        }
-        ... on Chart {
-            platform {
-                ...platformFields
-            }
-            subTypes {
-                typeNames
-            }
-        }
     }
     ...notes
+    logicalParent {
+        urn
+        type
+        ...logicalParentOrChildFields
+    }
+    physicalChildren: relationships(
+        input: { types: ["PhysicalInstanceOf"], direction: INCOMING, start: 0, count: 10 }
+    ) {
+        start
+        count
+        total
+        relationships {
+            entity {
+                urn
+                type
+                ...logicalParentOrChildFields
+            }
+            direction
+            type
+        }
+    }
 }

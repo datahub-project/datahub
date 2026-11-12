@@ -150,7 +150,7 @@ docker compose -f docker-compose.kerberos.yml down -v
 
 The `hive-metastore` extra includes all required dependencies for Kerberos/GSSAPI authentication:
 
-- `acryl-pyhive[hive-pure-sasl]` - Thrift transport with SASL support
+- `thrift-sasl` and `pure-sasl` - Thrift transport with SASL support
 - `pymetastore>=0.4.2` - HMS Thrift client
 - `kerberos>=1.3.0` - Python GSSAPI bindings (used by pure-sasl)
 - `tenacity>=8.0.1` - Retry logic

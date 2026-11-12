@@ -10,7 +10,10 @@ record FieldAssertionInfo {
     /**
      * The type of the field assertion being monitored.
      */
-    @Searchable = {}
+    @Searchable = {
+      "fieldName": "fieldAssertionType",
+      "fieldType": "KEYWORD"
+    }
     type: enum FieldAssertionType {
       /**
        * An assertion used to validate the values contained with a field / column given a set of rows.
@@ -26,9 +29,6 @@ record FieldAssertionInfo {
     /**
     * The entity targeted by this Field check.
     */
-    @Searchable = {
-      "fieldType": "URN"
-    }
     @Relationship = {
       "name": "Asserts",
       "entityTypes": [ "dataset" ]
@@ -39,6 +39,16 @@ record FieldAssertionInfo {
       "entityTypes": [ "dataset" ]
     }
     entity: Urn
+
+    /**
+    * The field path targeted by this assertion. Automatically populated from the nested field definition.
+    */
+    @Searchable = {
+      "fieldName": "fieldPath",
+      "fieldType": "KEYWORD",
+      "addToFilters": true
+    }
+    fieldPath: optional string
 
     /**
     * The definition of an assertion that validates individual values of a field / column for a set of rows.

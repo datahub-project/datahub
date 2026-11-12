@@ -1,8 +1,13 @@
 package com.linkedin.metadata.kafka.batch;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 import static com.linkedin.metadata.utils.metrics.MetricUtils.BATCH_SIZE_ATTR;
 import static com.linkedin.mxe.ConsumerGroups.MCP_CONSUMER_GROUP_ID_VALUE;
 
+import com.google.common.collect.Lists;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringMap;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
@@ -13,18 +18,23 @@ import com.linkedin.metadata.kafka.InboundRecordProperties;
 import com.linkedin.metadata.kafka.config.batch.BatchMetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.kafka.pause.ConsumerPauseSupport;
 import com.linkedin.metadata.kafka.util.KafkaListenerUtil;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.Topics;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +53,37 @@ import org.springframework.stereotype.Component;
 @Conditional(BatchMetadataChangeProposalProcessorCondition.class)
 @RequiredArgsConstructor
 public class BatchMetadataChangeProposalsProcessor {
+
+  /**
+   * MCPs whose urn can't be parsed, dropped one by one while entity and aspect tolerance is on
+   * (with it off, such an MCP fails the poll as before). The failure topic is keyed by the parsed
+   * urn, so they can't be sent there.
+   */
+  static final String MALFORMED_URN_METRIC = "mcp.batch.malformed_urn";
+
+  /**
+   * MCPs for an entity type or aspect this build doesn't know whose send to the failure topic
+   * failed, so they were dropped. The rest of the poll is still processed.
+   */
+  static final String UNKNOWN_DROPPED_METRIC = "mcp.batch.unknown_dropped";
+
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(
+          BatchMetadataChangeProposalsProcessor.class, "MCP (sent to the failure topic)");
+
+  private static final UnknownDataGuard MALFORMED =
+      UnknownDataGuard.forSite(BatchMetadataChangeProposalsProcessor.class, "MCP (dropped)");
+
+  private static final String AVRO_SYSTEM_METADATA_FIELD = "systemMetadata";
+  private static final String AVRO_PROPERTIES_FIELD = "properties";
+
+  private static final Set<String> TELEMETRY_PROPERTY_KEYS =
+      Set.of(
+          SystemTelemetryContext.TELEMETRY_TRACE_KEY,
+          SystemTelemetryContext.TELEMETRY_QUEUE_SPAN_KEY,
+          SystemTelemetryContext.TELEMETRY_LOG_KEY,
+          SystemTelemetryContext.TELEMETRY_ENQUEUED_AT);
+
   private final OperationContext systemOperationContext;
   private final SystemEntityClient entityClient;
   private final EventProducer kafkaProducer;
@@ -52,6 +93,8 @@ public class BatchMetadataChangeProposalsProcessor {
 
   private final ConfigurationProvider provider;
   private final ConsumerPauseSupport consumerPauseSupport;
+  // The entity client writes proposals in groups of its batchIngestSize.
+  private final EntityClientConfig entityClientConfig;
 
   @Value(
       "${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:"
@@ -118,8 +161,8 @@ public class BatchMetadataChangeProposalsProcessor {
       final List<ConsumerRecord<String, GenericRecord>> consumerRecords,
       @Nullable final List<InboundRecordProperties> inboundProperties) {
 
-    List<MetadataChangeProposal> allMCPs = new ArrayList<>(consumerRecords.size());
     String topicName = null;
+    List<SystemMetadata> tracingSystemMetadataList = new ArrayList<>();
 
     for (int i = 0; i < consumerRecords.size(); i++) {
       ConsumerRecord<String, GenericRecord> consumerRecord = consumerRecords.get(i);
@@ -145,7 +188,7 @@ public class BatchMetadataChangeProposalsProcessor {
         topicName = consumerRecord.topic();
       }
 
-      log.info(
+      log.debug(
           "Got MCP event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
           consumerRecord.key(),
           consumerRecord.topic(),
@@ -154,53 +197,106 @@ public class BatchMetadataChangeProposalsProcessor {
           consumerRecord.serializedValueSize(),
           consumerRecord.timestamp());
 
-      try {
-        MetadataChangeProposal mcp = EventUtils.avroToPegasusMCP(record);
-        allMCPs.add(mcp);
-      } catch (IOException e) {
-        log.error(
-            "Unrecoverable message deserialization error. Cannot forward to failure topic.", e);
+      SystemMetadata traceMetadata = getTelemetryTraceMetadata(record);
+      if (traceMetadata != null) {
+        tracingSystemMetadataList.add(traceMetadata);
       }
     }
 
-    // Create the span tracking for all records, even if allMCPs is empty
-    List<SystemMetadata> systemMetadataList =
-        allMCPs.stream().map(MetadataChangeProposal::getSystemMetadata).toList();
-
+    final String spanTopicName = topicName;
     sliceContext.withQueueSpan(
         "consume",
-        systemMetadataList,
-        topicName,
+        tracingSystemMetadataList,
+        spanTopicName,
         () -> {
-          if (!allMCPs.isEmpty()) {
-            // Now partition and process within the span
-            processInBatches(sliceContext, allMCPs);
-          } else {
-            log.info("No valid MCPs to process after deserialization");
+          if (consumerRecords.isEmpty()) {
+            log.info("No MCPs to process after deserialization");
+            return;
           }
+          processInBatches(sliceContext, consumerRecords);
         },
         BATCH_SIZE_ATTR,
-        String.valueOf(allMCPs.size()),
+        String.valueOf(consumerRecords.size()),
         MetricUtils.DROPWIZARD_NAME,
         MetricUtils.name(this.getClass(), "consume"));
   }
 
   /**
-   * Process MCPs in batches within the established span
+   * Stream-convert and sub-batch the poll's MCPs within the established span.
+   *
+   * <p>Each avro record is converted to a Pegasus MCP lazily and accumulated into a byte-budgeted
+   * sub-batch; when the budget is exceeded the sub-batch is ingested and released, so only one
+   * sub-batch of Pegasus MCPs is resident at a time (rather than the full poll).
    *
    * @param sliceContext slice-level OperationContext used for downstream ingest + FMCP emission
-   * @param allMCPs All MCPs to process
+   * @param consumerRecords the avro records for this consume call
    */
   private void processInBatches(
-      @Nonnull OperationContext sliceContext, List<MetadataChangeProposal> allMCPs) {
+      @Nonnull OperationContext sliceContext,
+      List<ConsumerRecord<String, GenericRecord>> consumerRecords) {
     List<MetadataChangeProposal> currentBatch = new ArrayList<>();
     long currentBatchSize = 0;
     int totalProcessed = 0;
 
-    for (MetadataChangeProposal mcp : allMCPs) {
+    for (ConsumerRecord<String, GenericRecord> consumerRecord : consumerRecords) {
+      final GenericRecord record = consumerRecord.value();
+      final MetadataChangeProposal mcp;
+      try {
+        mcp = EventUtils.avroToPegasusMCP(record);
+      } catch (IOException e) {
+        log.error(
+            "Unrecoverable message deserialization error. Cannot forward to failure topic.", e);
+        continue;
+      }
+      // Batch validation rejects the whole batch for one invalid MCP, which sends every valid MCP
+      // in it to the failure topic too. When tolerant, fail these individually instead:
+      // - after a rollback, MCPs a newer build wrote for entities or aspects this build does not
+      //   know;
+      // - an MCP whose urn can't be parsed. Reading it throws, and out of this loop that would
+      //   discard the whole poll without sending anything to the failure topic.
+      // Strict handling keeps the batch behavior from before tolerance.
+      if (handling().toleratesUnknownEntityAspect()) {
+        final Urn urn = UnknownDataGuard.urnOrNull(mcp::getEntityUrn);
+        if (urn == null && mcp.data().get("entityUrn") != null) {
+          // The failure topic is keyed by the parsed urn, so this MCP can't be sent there. A urn
+          // that can't be parsed is invalid in every version, so there is nothing to replay.
+          MALFORMED.skippedBecause(
+              Optional.empty(),
+              "malformed urn",
+              "its entity urn can't be parsed",
+              mcp.data().get("entityUrn"));
+          sliceContext
+              .getMetricUtils()
+              .ifPresent(m -> m.incrementMicrometer(MALFORMED_URN_METRIC, 1));
+          continue;
+        }
+        if (!handling()
+            .admitEvent(
+                UNKNOWN_DATA,
+                sliceContext.getEntityRegistry(),
+                sliceContext.getMetricUtils(),
+                urn,
+                mcp.hasEntityType() ? mcp.getEntityType() : null,
+                mcp.hasAspectName() ? mcp.getAspectName() : null)) {
+          if (!sendToFailureTopic(
+              sliceContext,
+              mcp,
+              new IllegalArgumentException(
+                  String.format(
+                      "Unknown entity type or aspect '%s/%s' — not in current registry.",
+                      mcp.getEntityType(), mcp.getAspectName())))) {
+            sliceContext
+                .getMetricUtils()
+                .ifPresent(m -> m.incrementMicrometer(UNKNOWN_DROPPED_METRIC, 1));
+          }
+          continue;
+        }
+      }
       long mcpSize = calculateMCPSize(mcp);
 
-      // If adding this MCP would exceed the batch size limit, process the current batch first
+      // If adding this MCP would exceed the batch size limit, process the current batch first.
+      // The limit is read only once currentBatch is non-empty, so a poll whose records all fail
+      // deserialization never touches the config provider (matching the pre-streaming behaviour).
       if (!currentBatch.isEmpty()
           && currentBatchSize + mcpSize
               > provider.getMetadataChangeProposal().getConsumer().getBatch().getSize()) {
@@ -210,7 +306,7 @@ public class BatchMetadataChangeProposalsProcessor {
             "Processed batch of {} MCPs, total processed so far: {}/{}",
             currentBatch.size(),
             totalProcessed,
-            allMCPs.size());
+            consumerRecords.size());
 
         // Reset for the next batch
         currentBatch = new ArrayList<>();
@@ -230,7 +326,27 @@ public class BatchMetadataChangeProposalsProcessor {
           "Processed final batch of {} MCPs, total processed: {}/{}",
           currentBatch.size(),
           totalProcessed,
-          allMCPs.size());
+          consumerRecords.size());
+    }
+  }
+
+  /**
+   * Sends one MCP this build can't apply to the failure topic, without failing the rest of the
+   * poll. Returns whether it was sent.
+   */
+  private boolean sendToFailureTopic(
+      @Nonnull final OperationContext sliceContext,
+      @Nonnull final MetadataChangeProposal mcp,
+      @Nonnull final Exception reason) {
+    try {
+      kafkaProducer.produceFailedMetadataChangeProposal(sliceContext, List.of(mcp), reason);
+      return true;
+    } catch (RuntimeException e) {
+      // The MCP can't be applied by this build either way; don't let the failure topic abandon
+      // the valid MCPs already collected in this poll. Propagating would make the Kafka error
+      // handler retry and then discard the whole poll.
+      log.error("Failed to send MCP to the failure topic: {}", reason.getMessage(), e);
+      return false;
     }
   }
 
@@ -251,22 +367,78 @@ public class BatchMetadataChangeProposalsProcessor {
         batch.size(),
         batchBytes);
 
-    try {
-      List<String> urns = entityClient.batchIngestProposals(sliceContext, batch, false);
-
-      log.debug(
-          "Successfully processed MCP event batch of size {} with urns: {}",
-          batch.size(),
-          urns.stream().filter(Objects::nonNull).toList());
-    } catch (Throwable throwable) {
-      log.error("MCP Processor Error", throwable);
-      Span currentSpan = Span.current();
-      currentSpan.recordException(throwable);
-      currentSpan.setStatus(StatusCode.ERROR, throwable.getMessage());
-      currentSpan.setAttribute(MetricUtils.ERROR_TYPE, throwable.getClass().getName());
-
-      kafkaProducer.produceFailedMetadataChangeProposal(sliceContext, batch, throwable);
+    // A batch holds unrelated queued proposals, so an invalid proposal must not fail the rest:
+    // the entity client returns the proposals it rejected, and those alone are dead-lettered.
+    // Each call carries one entity-client group, which the client writes in one go, so any
+    // other failure leaves nothing of that group written and dead-letters just that group.
+    for (List<MetadataChangeProposal> group :
+        Lists.partition(batch, Math.max(1, entityClientConfig.getBatchIngestSize()))) {
+      try {
+        for (Pair<MetadataChangeProposal, Exception> rejected :
+            entityClient.ingestValidProposals(sliceContext, group)) {
+          deadLetter(sliceContext, List.of(rejected.getFirst()), rejected.getSecond());
+        }
+      } catch (Throwable throwable) {
+        // Only a failed group write errors the consume span; a single rejected proposal does not,
+        // since the rest of its group was written.
+        Span.current().setStatus(StatusCode.ERROR, throwable.getMessage());
+        deadLetter(sliceContext, group, throwable);
+      }
     }
+  }
+
+  private void deadLetter(
+      @Nonnull OperationContext sliceContext,
+      List<MetadataChangeProposal> mcps,
+      Throwable throwable) {
+    log.error("MCP Processor Error", throwable);
+    Span currentSpan = Span.current();
+    currentSpan.recordException(throwable);
+    currentSpan.setAttribute(MetricUtils.ERROR_TYPE, throwable.getClass().getName());
+
+    kafkaProducer.produceFailedMetadataChangeProposal(sliceContext, mcps, throwable);
+  }
+
+  /**
+   * Read the telemetry trace properties off an avro MCP's {@code systemMetadata.properties} map
+   * into a lightweight, properties-only {@link SystemMetadata} — without converting the
+   * (potentially large) aspect via {@link EventUtils#avroToPegasusMCP}. Returns {@code null} unless
+   * the record carries both {@link SystemTelemetryContext#TELEMETRY_TRACE_KEY} and {@link
+   * SystemTelemetryContext#TELEMETRY_QUEUE_SPAN_KEY}, mirroring the filter {@link
+   * SystemTelemetryContext#withQueueSpan} applies.
+   *
+   * <p>{@code withQueueSpan}/{@code closeQueueSpan} only read {@code properties} (the trace id,
+   * queue span id, log-tracing flag, and enqueued-at timestamp) off each entry, so this trimmed
+   * SystemMetadata is all they need to link the consume span to the upstream trace and record queue
+   * latency on the receive span.
+   */
+  @Nullable
+  private SystemMetadata getTelemetryTraceMetadata(@Nullable GenericRecord record) {
+    if (record == null
+        || !(record.get(AVRO_SYSTEM_METADATA_FIELD) instanceof GenericRecord systemMetadataRecord)
+        || !(systemMetadataRecord.get(AVRO_PROPERTIES_FIELD) instanceof Map<?, ?> avroProperties)) {
+      return null;
+    }
+
+    // Avro deserializes map keys as Utf8, which never equals a String, so we can't look them up by
+    // key — iterate and stringify, copying only the telemetry entries into a Pegasus StringMap.
+    StringMap telemetryProps = new StringMap();
+    for (Map.Entry<?, ?> entry : avroProperties.entrySet()) {
+      String key = entry.getKey().toString();
+      if (entry.getValue() != null && TELEMETRY_PROPERTY_KEYS.contains(key)) {
+        telemetryProps.put(key, entry.getValue().toString());
+      }
+    }
+
+    // Both ids are required for withQueueSpan to link the consume span to the upstream trace.
+    if (!telemetryProps.containsKey(SystemTelemetryContext.TELEMETRY_TRACE_KEY)
+        || !telemetryProps.containsKey(SystemTelemetryContext.TELEMETRY_QUEUE_SPAN_KEY)) {
+      return null;
+    }
+
+    SystemMetadata systemMetadata = new SystemMetadata();
+    systemMetadata.setProperties(telemetryProps);
+    return systemMetadata;
   }
 
   /**

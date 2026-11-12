@@ -1,18 +1,35 @@
 package com.linkedin.datahub.upgrade.loadindices;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class LoadIndicesResultTest {
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
+  }
 
   @Test
   public void testDefaultValues() {
     LoadIndicesResult result = new LoadIndicesResult();
 
     assertEquals(0, result.rowsProcessed);
-    assertEquals(0, result.ignored);
+    assertEquals(0, result.urnsProcessed);
+    assertEquals(0, result.conversionErrorsSkipped);
     assertEquals(0, result.timeSqlQueryMs);
     assertEquals(0, result.timeElasticsearchWriteMs);
   }
@@ -22,12 +39,12 @@ public class LoadIndicesResultTest {
     LoadIndicesResult result = new LoadIndicesResult();
 
     result.rowsProcessed = 1000;
-    result.ignored = 5;
+    result.urnsProcessed = 5;
     result.timeSqlQueryMs = 1500L;
     result.timeElasticsearchWriteMs = 8000L;
 
     assertEquals(1000, result.rowsProcessed);
-    assertEquals(5, result.ignored);
+    assertEquals(5, result.urnsProcessed);
     assertEquals(1500L, result.timeSqlQueryMs);
     assertEquals(8000L, result.timeElasticsearchWriteMs);
   }
@@ -36,7 +53,7 @@ public class LoadIndicesResultTest {
   public void testToString() {
     LoadIndicesResult result = new LoadIndicesResult();
     result.rowsProcessed = 1000;
-    result.ignored = 5;
+    result.urnsProcessed = 5;
     result.timeSqlQueryMs = 1500L;
     result.timeElasticsearchWriteMs = 8000L;
 
@@ -44,7 +61,7 @@ public class LoadIndicesResultTest {
 
     assertTrue(resultString.contains("LoadIndicesResult"));
     assertTrue(resultString.contains("rowsProcessed=1000"));
-    assertTrue(resultString.contains("ignored=5"));
+    assertTrue(resultString.contains("urnsProcessed=5"));
     assertTrue(resultString.contains("timeSqlQueryMs=1500"));
     assertTrue(resultString.contains("timeElasticsearchWriteMs=8000"));
   }
@@ -57,8 +74,23 @@ public class LoadIndicesResultTest {
 
     assertTrue(resultString.contains("LoadIndicesResult"));
     assertTrue(resultString.contains("rowsProcessed=0"));
-    assertTrue(resultString.contains("ignored=0"));
+    assertTrue(resultString.contains("urnsProcessed=0"));
     assertTrue(resultString.contains("timeSqlQueryMs=0"));
     assertTrue(resultString.contains("timeElasticsearchWriteMs=0"));
+  }
+
+  @Test
+  public void testToStringReportsUnknownSkipsOnlyWhenTolerated() {
+    LoadIndicesResult result = new LoadIndicesResult();
+    result.unknownToRegistrySkipped = 3L;
+    assertTrue(result.toString().endsWith(", unknownToRegistrySkipped=3}"));
+
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    try {
+      assertFalse(result.toString().contains("unknownToRegistrySkipped"));
+      assertTrue(result.toString().endsWith("conversionErrorsSkipped=0}"));
+    } finally {
+      UnknownDataHandlingsForTests.reset();
+    }
   }
 }

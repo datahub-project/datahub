@@ -1,0 +1,403 @@
+# Writes the dependency cache entries that PR jobs restore from, on both cache
+# backends.
+#
+# Why this exists: Actions caches are ref-scoped — a PR run can read caches written
+# at refs/heads/master, but a cache saved from a PR ref is visible only to that PR.
+# lint-jobs.yml is `on: pull_request` only, so nothing in it can ever write a
+# master-scoped entry; when its jobs saved their own caches, every active PR minted
+# a private copy of the same key (several hundred MB each) against the repo's 10GB
+# Actions cache budget, and the shared master entries were evicted first.
+#
+# Why two runners per job: internal PRs run on Depot runners, which route
+# actions/cache to Depot Cache (no branch scoping, invisible to GitHub-hosted
+# jobs); fork PRs and the always-GitHub-hosted jobs read the GitHub Actions
+# cache. Neither backend can read the other, so every key family needs a writer
+# on each. A PR-side save on Depot would also claim a shared key first with an
+# unpruned prefix-hit union, so the consumers are restore-only and this workflow
+# is the single writer.
+#
+# This workflow runs on every push to the default branch and to release/hotfix
+# branches. When the exact key already exists the lookup-only restore hits and
+# the leg exits in seconds; on a miss (dependency manifests changed, or the entry
+# was evicted) it rebuilds the environments and saves one copy. Keys and cache
+# paths must stay byte-identical to the restore steps in the consuming workflows.
+name: CI Cache Warmup
+on:
+  push:
+    branches:
+      - master
+      - "releases/**"
+      - "hotfixes/**"
+  workflow_dispatch:
+
+# Keyed on the ref: this workflow only runs on pushes and manual dispatches, so
+# the previous group (PR number, else run id) was unique per run and never
+# cancelled a superseded warmup.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  warm-python-lint-cache:
+    name: Warm python-lint uv cache (${{ matrix.runner }})
+    # Gated so a workflow_dispatch from another ref no-ops instead of saving a
+    # ref-scoped copy nothing can read.
+    if: |
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
+      startsWith(github.ref, 'refs/heads/releases/') ||
+      startsWith(github.ref, 'refs/heads/hotfixes/')
+    # One leg per cache backend (see top).
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, depot-ubuntu-24.04]
+    runs-on: ${{ matrix.runner }}
+    env:
+      UV_CACHE_DIR: /tmp/.uv-cache/
+      DATAHUB_TELEMETRY_ENABLED: false
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      # Key must stay byte-identical with the restore key in lint-jobs.yml python-lint
+      # and the save key at the bottom of this job.
+      - name: Check for existing cache entry
+        id: uv-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/pyproject.toml', './metadata-ingestion/uv.lock', './metadata-ingestion/constraints.txt', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
+          lookup-only: true
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' && steps.uv-cache.outputs.cache-hit != 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
+      - name: Install system dependencies
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      # installDev is what the lint tasks in lint-jobs.yml python-lint depend on; running
+      # it for every module populates the same uv download/wheel cache the lint jobs need.
+      - name: Install Python module dev environments
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        run: |
+          ./gradlew :metadata-ingestion:installDev \
+            :datahub-actions:installDev \
+            :datahub-agent-context:installDev \
+            :metadata-ingestion-modules:airflow-plugin:installDev \
+            :metadata-ingestion-modules:gx-plugin:installDev \
+            :metadata-ingestion-modules:dagster-plugin:installDev \
+            :metadata-ingestion-modules:prefect-plugin:installDev
+      # No `always()`: a partial cache from a failed install would occupy the exact key
+      # until the manifests next change. On failure, the next master push retries.
+      - name: Save uv cache
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/pyproject.toml', './metadata-ingestion/uv.lock', './metadata-ingestion/constraints.txt', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
+
+  # Separate job (not extra steps above) so the saved entry contains only the
+  # smoke-test dependencies, not the union with the python-lint cache.
+  # smoke-test's requirements.txt installs '-e ../metadata-ingestion[...]', so
+  # metadata-ingestion's manifests are install inputs for this key too.
+  warm-smoke-test-lint-cache:
+    name: Warm smoke-test lint uv cache (${{ matrix.runner }})
+    if: |
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
+      startsWith(github.ref, 'refs/heads/releases/') ||
+      startsWith(github.ref, 'refs/heads/hotfixes/')
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, depot-ubuntu-24.04]
+    runs-on: ${{ matrix.runner }}
+    env:
+      UV_CACHE_DIR: /tmp/.uv-cache/
+      DATAHUB_TELEMETRY_ENABLED: false
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      # Key must stay byte-identical with the restore key in lint-jobs.yml
+      # smoke-test-lint and the save key at the bottom of this job.
+      - name: Check for existing cache entry
+        id: uv-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: "uv-smoke-test-lint-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml', './metadata-ingestion/setup.py', './metadata-ingestion/pyproject.toml') }}"
+          lookup-only: true
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+      - name: Install smoke-test dev environment
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        run: ./gradlew :smoke-test:installDev
+      - name: Save uv cache
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: "uv-smoke-test-lint-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml', './metadata-ingestion/setup.py', './metadata-ingestion/pyproject.toml') }}"
+
+  # Writer for the shared metadata-ingestion uv cache on both backends. Restored by
+  # metadata-ingestion.yml, documentation.yml, check-datahub-jars.yml,
+  # python-build-pages.yml, build-and-test.yml and the four ingestion plugin
+  # workflows. Those jobs used to save it themselves from master, but every one of
+  # them is path-filtered, so an evicted entry stayed missing until a push touched
+  # the same paths, and the only Depot-side writer was a success-only save at the
+  # end of the testQuick leg.
+  warm-metadata-ingestion-uv-cache:
+    name: Warm metadata-ingestion uv cache (${{ matrix.runner }})
+    if: |
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
+      startsWith(github.ref, 'refs/heads/releases/') ||
+      startsWith(github.ref, 'refs/heads/hotfixes/')
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, depot-ubuntu-24.04]
+    runs-on: ${{ matrix.runner }}
+    env:
+      DATAHUB_TELEMETRY_ENABLED: false
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      # Key and path must stay byte-identical with the restore steps in the consuming
+      # workflows: uv's default cache dir (no UV_CACHE_DIR override here) and the
+      # save key at the bottom of this job.
+      - name: Check for existing cache entry
+        id: uv-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt') }}
+          lookup-only: true
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' && steps.uv-cache.outputs.cache-hit != 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
+      - name: Install system dependencies
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      # installDevTest ([dev,integration-tests]) is the widest extras set among the
+      # consumers; the testQuick, lint and plugin installs pull subsets of it.
+      - name: Install metadata-ingestion dev environment
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        run: ./gradlew :metadata-ingestion:installDevTest
+      # Drops pre-built wheels and unpacked sdists, which re-download in seconds, and
+      # keeps the wheels uv built from source, the slow part. What uv recommends for
+      # CI caches. Prune with the venv's uv, the one environmentSetup installed and
+      # populated this cache with, not the uv setup-toolchain put on PATH.
+      - name: Prune uv cache
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        run: metadata-ingestion/venv/bin/uv cache prune --ci
+      # No `always()`: a partial cache from a failed install would occupy the exact key
+      # until the manifests next change. On failure, the next master push retries.
+      - name: Save uv cache
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt') }}
+
+  # Writer for the shared datahub-web-react yarn cache on both backends. Restored by
+  # lint-jobs.yml (datahub-web-react-lint, markdown-format, github-actions-format)
+  # and by build-and-test.yml's frontend jobs.
+  warm-web-yarn-cache:
+    name: Warm datahub-web-react yarn cache (${{ matrix.runner }})
+    if: |
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
+      startsWith(github.ref, 'refs/heads/releases/') ||
+      startsWith(github.ref, 'refs/heads/hotfixes/')
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, depot-ubuntu-24.04]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      # Key must stay byte-identical with the yarn restore keys in lint-jobs.yml and
+      # the yarn cache key in build-and-test.yml frontend-build.
+      - name: Check for existing cache entry
+        id: yarn-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
+          lookup-only: true
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        with:
+          python: false
+      - name: Populate yarn cache
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        run: ./gradlew :datahub-web-react:yarnInstall
+      - name: Save yarn cache
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
+
+  # Separate job so the playwright entry stays small instead of duplicating the
+  # ~1.2GB web-react cache under a second key. This is the only writer for the
+  # 'playwright-<os>-yarn-' key restored by resusable-playwright-tests.yml.
+  # The distinct prefix also keeps this small entry out of the '<os>-yarn-'
+  # family, so a web-cache prefix restore can never land on it.
+  warm-playwright-yarn-cache:
+    name: Warm playwright lint yarn cache (${{ matrix.runner }})
+    if: |
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
+      startsWith(github.ref, 'refs/heads/releases/') ||
+      startsWith(github.ref, 'refs/heads/hotfixes/')
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, depot-ubuntu-24.04]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      # Key must stay byte-identical with the yarn restore key in lint-jobs.yml
+      # playwright-e2e-lint and the cache keys in resusable-playwright-tests.yml.
+      - name: Check for existing cache entry
+        id: yarn-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/yarn
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}
+          lookup-only: true
+      - name: Set up Node.js
+        uses: ./.github/actions/setup-toolchain
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        with:
+          java: false
+          python: false
+          gradle: false
+          node: true
+      - name: Populate yarn cache
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        working-directory: e2e-test/ui/playwright
+        run: yarn install --frozen-lockfile
+      - name: Save yarn cache
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/yarn
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}
+
+  # Separate job so the docs-website entry stays small instead of duplicating the
+  # ~1.2GB web-react cache under a second key. Restored by documentation.yml before
+  # docs-website:build and by lint-jobs.yml docs-website-lint.
+  warm-docs-website-yarn-cache:
+    name: Warm docs-website yarn cache (${{ matrix.runner }})
+    if: |
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
+      startsWith(github.ref, 'refs/heads/releases/') ||
+      startsWith(github.ref, 'refs/heads/hotfixes/')
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, depot-ubuntu-24.04]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      # Key must stay byte-identical with the yarn restore keys in documentation.yml
+      # and lint-jobs.yml docs-website-lint, and the save key at the bottom of this job.
+      - name: Check for existing cache entry
+        id: yarn-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/yarn
+          key: docs-website-${{ runner.os }}-yarn-${{ hashFiles('docs-website/yarn.lock') }}
+          lookup-only: true
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        with:
+          python: false
+      - name: Populate yarn cache
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        run: ./gradlew :docs-website:yarnInstall
+      - name: Save yarn cache
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/yarn
+          key: docs-website-${{ runner.os }}-yarn-${{ hashFiles('docs-website/yarn.lock') }}
+
+  # GitHub-backend writer for the docker-unified uv and yarn keys. On Depot,
+  # docker-unified.yml Build all images writes them on every master push; on
+  # GitHub nothing did, so fork PRs (which build images in-job on GitHub-hosted
+  # runners) always restored cold. No Depot leg: Build all images already covers
+  # that backend.
+  warm-docker-unified-caches:
+    name: Warm docker-unified uv and yarn caches (ubuntu-24.04)
+    if: |
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
+      startsWith(github.ref, 'refs/heads/releases/') ||
+      startsWith(github.ref, 'refs/heads/hotfixes/')
+    runs-on: ubuntu-24.04
+    env:
+      DATAHUB_TELEMETRY_ENABLED: false
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      # Keys must stay byte-identical with "Compute UV Cache Key" and "Compute Yarn
+      # Cache Key" in docker-unified.yml setup (hashFiles cannot be shared across
+      # workflow files).
+      - name: Check for existing uv cache entry
+        id: uv-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/uv
+          key: docker-unified-${{ runner.os }}-uv-${{ hashFiles('./datahub-actions/pyproject.toml', './datahub-actions/setup.py', './smoke-test/requirements.txt', './smoke-test/pyproject.toml', './metadata-ingestion/pyproject.toml', './metadata-ingestion/setup.py') }}
+          lookup-only: true
+      - name: Check for existing yarn cache entry
+        id: yarn-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/yarn
+          key: docker-unified-${{ runner.os }}-yarn-${{ hashFiles('./datahub-web-react/yarn.lock') }}
+          lookup-only: true
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+        with:
+          java: ${{ steps.uv-cache.outputs.cache-hit != 'true' || steps.yarn-cache.outputs.cache-hit != 'true' }}
+          python: ${{ steps.uv-cache.outputs.cache-hit != 'true' }}
+          gradle: ${{ steps.uv-cache.outputs.cache-hit != 'true' || steps.yarn-cache.outputs.cache-hit != 'true' }}
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' && steps.uv-cache.outputs.cache-hit != 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
+      - name: Install system dependencies
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      # The environments the fork-path smoke jobs build in-job ahead of
+      # docker:buildImages*, so the saved entry matches what they restore.
+      - name: Install Python environments
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        run: |
+          ./gradlew :metadata-ingestion:installDev \
+            :datahub-actions:installDev \
+            :smoke-test:installDev
+      - name: Populate yarn cache
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        run: ./gradlew :datahub-web-react:yarnInstall
+      - name: Save uv cache
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/uv
+          key: docker-unified-${{ runner.os }}-uv-${{ hashFiles('./datahub-actions/pyproject.toml', './datahub-actions/setup.py', './smoke-test/requirements.txt', './smoke-test/pyproject.toml', './metadata-ingestion/pyproject.toml', './metadata-ingestion/setup.py') }}
+      - name: Save yarn cache
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/yarn
+          key: docker-unified-${{ runner.os }}-yarn-${{ hashFiles('./datahub-web-react/yarn.lock') }}

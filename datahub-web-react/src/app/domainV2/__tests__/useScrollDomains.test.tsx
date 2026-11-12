@@ -1,10 +1,10 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { waitFor } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
 import { DomainsContext } from '@app/domainV2/DomainsContext';
 import useScrollDomains, { DOMAIN_COUNT } from '@app/domainV2/useScrollDomains';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { ListDomainFragment } from '@graphql/domain.generated';
 import { EntityType } from '@types';

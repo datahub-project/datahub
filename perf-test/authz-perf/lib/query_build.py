@@ -18,8 +18,8 @@ from graphql import (
     InlineFragmentNode,
     IntValueNode,
     ListValueNode,
-    NameNode,
     NamedTypeNode,
+    NameNode,
     ObjectFieldNode,
     ObjectValueNode,
     OperationDefinitionNode,
@@ -32,7 +32,7 @@ from graphql import (
 )
 from graphql.language.ast import ValueNode
 
-from lib.query_spec import ExpandTypeSpec, FieldOverrideSpec, QuerySpec
+from lib.query_spec import ExpandTypeSpec, QuerySpec
 
 try:
     from datahub.utilities.graphql_query_adapter import (
@@ -105,7 +105,6 @@ def _resolve_field_type(
 
 def _is_scalar_or_enum(gql_type: GraphQLNamedType) -> bool:
     kind = gql_type.ast_node.kind if gql_type.ast_node else None
-    from graphql.language import ast as lang_ast
 
     if kind in ("ScalarTypeDefinition", "EnumTypeDefinition"):
         return True
@@ -127,8 +126,8 @@ def _expand_type_paths(
         return []
     prefix = expand.parent_path.rstrip(".")
     paths: List[str] = []
-    for field_name, field in gql_type.fields.items():
-        if _is_scalar_or_enum(_unwrap_type(field.type)):
+    for field_name, field_details in gql_type.fields.items():
+        if _is_scalar_or_enum(_unwrap_type(field_details.type)):
             paths.append(f"{prefix}.{field_name}")
     return paths
 

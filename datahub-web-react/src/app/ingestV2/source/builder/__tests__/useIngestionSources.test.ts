@@ -1,7 +1,7 @@
-import { renderHook } from '@testing-library/react-hooks';
 import i18n from 'i18next';
 
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 describe('useIngestionSources', () => {
     describe('displayName field', () => {
@@ -81,6 +81,18 @@ describe('useIngestionSources', () => {
             const { result: r2 } = renderHook(() => useIngestionSources());
             // Each call produces an independent copy
             expect(r1.current.ingestionSources).not.toBe(r2.current.ingestionSources);
+        });
+    });
+
+    describe('odcs source entry', () => {
+        it('exposes ODCS with a stable name, display name, and starter recipe', () => {
+            const { result } = renderHook(() => useIngestionSources());
+            const odcs = result.current.ingestionSources.find((s) => s.name === 'odcs');
+            expect(odcs).toBeDefined();
+            expect(odcs!.displayName).toBe('Open Data Contract Standard');
+            expect(odcs!.category).toBe('Data Catalog');
+            // The starter recipe must select the odcs source type so the YAML editor is valid out of the box.
+            expect(odcs!.recipe).toContain('type: odcs');
         });
     });
 

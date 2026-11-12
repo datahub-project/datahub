@@ -1,13 +1,14 @@
 package com.linkedin.metadata.entity.validation;
 
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import com.linkedin.metadata.aspect.plugins.validation.WriteRejectedException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
 
 /** Exception thrown when a metadata record cannot be validated against its schema. */
 @Getter
-public class ValidationException extends RuntimeException {
+public class ValidationException extends WriteRejectedException {
   @Nullable private ValidationExceptionCollection validationExceptionCollection;
 
   public ValidationException(final String message) {
@@ -15,7 +16,16 @@ public class ValidationException extends RuntimeException {
   }
 
   public ValidationException(@Nonnull ValidationExceptionCollection validationExceptionCollection) {
-    this(validationExceptionCollection.toString());
+    // Keep the collection attached so API layers can map subtypes (e.g. AUTHORIZATION → 403).
+    this(messageFor(validationExceptionCollection));
     this.validationExceptionCollection = validationExceptionCollection;
+  }
+
+  // Never blank: GlobalControllerExceptionHandler puts this straight into REST responses.
+  private static String messageFor(@Nonnull ValidationExceptionCollection collection) {
+    String collectiveMessage = collection.getCollectiveMessageIncludingFiltered();
+    return !collectiveMessage.isEmpty()
+        ? collectiveMessage
+        : "Failed to validate MCP due to: " + collection;
   }
 }

@@ -81,6 +81,64 @@ def test_azure_entra_secret_optional(monkeypatch):
     }
 
 
+def test_pat_token_file(monkeypatch, tmp_path):
+    token_file = tmp_path / "token"
+    token_file.write_text("pat-from-file")
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "pat")
+    monkeypatch.setenv("DATAHUB_AUTH_TOKEN_FILE", str(token_file))
+
+    auth = build_auth_config_from_env()
+    assert auth is not None and auth.type == "pat"
+    assert auth.config == {"token_file": str(token_file)}
+
+
+def test_pat_falls_back_to_gms_token_without_warning(monkeypatch, caplog):
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "pat")
+    monkeypatch.setenv("DATAHUB_GMS_TOKEN", "static-pat")
+
+    with caplog.at_level(logging.WARNING):
+        auth = build_auth_config_from_env()
+    assert auth is not None and auth.type == "pat"
+    config = auth.config
+    assert isinstance(config, dict)
+    assert config["token"].get_secret_value() == "static-pat"
+    assert "static-pat" not in repr(auth)
+    assert not any("ignoring the static token" in r.message for r in caplog.records)
+
+
+def test_pat_token_file_wins_over_gms_token_and_warns(monkeypatch, tmp_path, caplog):
+    token_file = tmp_path / "token"
+    token_file.write_text("pat-from-file")
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "pat")
+    monkeypatch.setenv("DATAHUB_AUTH_TOKEN_FILE", str(token_file))
+    monkeypatch.setenv("DATAHUB_GMS_TOKEN", "static-pat")
+
+    with caplog.at_level(logging.WARNING):
+        auth = build_auth_config_from_env()
+    assert auth is not None
+    assert auth.config == {"token_file": str(token_file)}
+    assert any("ignoring the static token" in r.message for r in caplog.records)
+
+
+def test_pat_without_any_source_names_both_vars(monkeypatch):
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "pat")
+
+    with pytest.raises(ConfigurationError) as exc:
+        build_auth_config_from_env()
+    assert "DATAHUB_AUTH_TOKEN_FILE" in str(exc.value)
+    assert "DATAHUB_GMS_TOKEN" in str(exc.value)
+
+
+def test_oauth_type_warns_when_static_token_ignored(monkeypatch, caplog):
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "k8s_oidc")
+    monkeypatch.setenv("DATAHUB_GMS_TOKEN", "static-pat")
+
+    with caplog.at_level(logging.WARNING):
+        auth = build_auth_config_from_env()
+    assert auth is not None
+    assert any("ignoring the static token" in r.message for r in caplog.records)
+
+
 def test_k8s_oidc_all_vars_optional(monkeypatch):
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "k8s_oidc")
 

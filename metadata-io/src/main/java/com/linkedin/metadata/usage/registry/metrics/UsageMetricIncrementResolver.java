@@ -19,8 +19,7 @@ public final class UsageMetricIncrementResolver {
 
   /**
    * Returns true when the metric's {@code (emit_when, value_unit)} pair is recognized. Distinct
-   * metrics and explicit no-op rules ({@link UsageMetricRegistry.EmitWhen#INTEGRATIONS_MCP_REPORT})
-   * are always supported.
+   * metrics and report-driven ({@link UsageMetricRegistry.EmitWhen#REPORTED}) rules are supported.
    */
   public static boolean isSupported(@Nonnull UsageMetricRegistry.MetricDefinition metric) {
     if (metric.mergeKind() == UsageMetricRegistry.MergeKind.DISTINCT) {
@@ -30,8 +29,14 @@ public final class UsageMetricIncrementResolver {
       };
     }
     return resolveRequestPhaseIncrement(metric, null, null) >= 0
-        || metric.emitWhen() == UsageMetricRegistry.EmitWhen.INTEGRATIONS_MCP_REPORT
+        || isReportDrivenMetric(metric)
         || isResponsePhaseMetric(metric);
+  }
+
+  /** Additive metrics incremented only via {@code recordReportedUsage}. */
+  public static boolean isReportDrivenMetric(@Nonnull UsageMetricRegistry.MetricDefinition metric) {
+    return metric.mergeKind() == UsageMetricRegistry.MergeKind.ADDITIVE
+        && metric.emitWhen().isReportDriven();
   }
 
   /** True for additive metrics incremented during {@code recordResponse}. */
@@ -61,15 +66,19 @@ public final class UsageMetricIncrementResolver {
       return isKnownRequestPhasePair(metric) ? 0 : -1;
     }
 
-    int usageQuantity = Math.max(1, requestContext.getUsageQuantity());
+    if (!metric.matchesRequestApi(requestContext.getRequestAPI())) {
+      return 0L;
+    }
+
+    long usageQuantity = Math.max(1L, requestContext.getUsageQuantity());
     return switch (metric.emitWhen()) {
-      case ALWAYS -> resolveAlwaysIncrement(
-          metric.valueUnit(), operationEntry, requestContext, usageQuantity);
-      case INGESTION_REQUEST -> resolveIngestionRequestIncrement(
-          metric.valueUnit(), operationEntry, requestContext);
-      case COST_PROFILE -> resolveCostProfileIncrement(
-          metric.valueUnit(), operationEntry, usageQuantity);
-      case INTEGRATIONS_MCP_REPORT -> 0L;
+      case ALWAYS ->
+          resolveAlwaysIncrement(metric.valueUnit(), operationEntry, requestContext, usageQuantity);
+      case INGESTION_REQUEST ->
+          resolveIngestionRequestIncrement(metric.valueUnit(), operationEntry, requestContext);
+      case COST_PROFILE ->
+          resolveCostProfileIncrement(metric.valueUnit(), operationEntry, usageQuantity);
+      case REPORTED -> 0L;
       default -> -1;
     };
   }
@@ -92,10 +101,15 @@ public final class UsageMetricIncrementResolver {
     if ("billed_bytes".equals(metric.metricName())) {
       return Optional.of(BILLED_BYTES_METRIC);
     }
-    if (metric.metronomeBatch()) {
+    if (isReportDrivenMetric(metric)) {
+      // Do not share DATAHUB_REQUEST_COUNT with request-path counters.
+      if (metric.valueUnit() == ValueUnit.COUNT) {
+        return Optional.of("datahub.usage." + metric.metricName());
+      }
       return Optional.empty();
     }
     return switch (metric.valueUnit()) {
+      // Combined request-path counter (api_calls).
       case COUNT -> Optional.of(MetricUtils.DATAHUB_REQUEST_COUNT);
       case INPUT_BYTES -> Optional.of(INPUT_BYTES_METRIC);
       case OUTPUT_BYTES -> Optional.of(OUTPUT_BYTES_METRIC);
@@ -110,8 +124,8 @@ public final class UsageMetricIncrementResolver {
     return switch (metric.emitWhen()) {
       case ACTIVITY_ALLOWLIST -> activity.activityAllowlist();
       case READER_ACTIVITY_ALLOWLIST -> activity.readerAllowlist();
-      case WRITER_ACTIVITY_ALLOWLIST -> activity.writerAllowlist()
-          && operationEntry.contributesToActiveWriters();
+      case WRITER_ACTIVITY_ALLOWLIST ->
+          activity.writerAllowlist() && operationEntry.contributesToActiveWriters();
       default -> false;
     };
   }
@@ -125,11 +139,11 @@ public final class UsageMetricIncrementResolver {
       return true;
     }
     return switch (metric.emitWhen()) {
-      case ALWAYS -> metric.valueUnit() == ValueUnit.COUNT
-          || metric.valueUnit() == ValueUnit.INPUT_BYTES;
+      case ALWAYS ->
+          metric.valueUnit() == ValueUnit.COUNT || metric.valueUnit() == ValueUnit.INPUT_BYTES;
       case INGESTION_REQUEST -> metric.valueUnit() == ValueUnit.INPUT_BYTES;
       case COST_PROFILE -> metric.valueUnit() == ValueUnit.COST_UNITS;
-      case INTEGRATIONS_MCP_REPORT -> true;
+      case REPORTED -> true;
       default -> false;
     };
   }
@@ -138,12 +152,11 @@ public final class UsageMetricIncrementResolver {
       @Nonnull ValueUnit valueUnit,
       @Nonnull UsageOperationsRegistry.UsageOperationEntry operationEntry,
       @Nonnull RequestContext requestContext,
-      int usageQuantity) {
+      long usageQuantity) {
     return switch (valueUnit) {
-      case COUNT -> operationEntry.ingestionEndpoint() ? (long) usageQuantity : 1L;
-      case INPUT_BYTES -> requestContext.getInputBytes() != null
-          ? requestContext.getInputBytes()
-          : 0L;
+      case COUNT -> operationEntry.ingestionEndpoint() ? usageQuantity : 1L;
+      case INPUT_BYTES ->
+          requestContext.getInputBytes() != null ? requestContext.getInputBytes() : 0L;
       case OUTPUT_BYTES -> 0L;
       case COST_UNITS -> -1L;
     };
@@ -162,7 +175,7 @@ public final class UsageMetricIncrementResolver {
   private static long resolveCostProfileIncrement(
       @Nonnull ValueUnit valueUnit,
       @Nonnull UsageOperationsRegistry.UsageOperationEntry operationEntry,
-      int usageQuantity) {
+      long usageQuantity) {
     if (valueUnit != ValueUnit.COST_UNITS) {
       return -1;
     }

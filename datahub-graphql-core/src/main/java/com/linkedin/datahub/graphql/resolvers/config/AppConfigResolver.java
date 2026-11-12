@@ -1,8 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.config;
 
+import com.datahub.authentication.AccessTokenConfiguration;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.generated.ApplicationConfig;
@@ -44,6 +46,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final SettingsService _settingsService;
   private final boolean _isS3Enabled;
   private final SemanticSearchConfiguration _semanticSearchConfiguration;
+  private final boolean _entityIndexV3Enabled;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
@@ -65,7 +68,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final ChromeExtensionConfiguration chromeExtensionConfiguration,
       final SettingsService settingsService,
       final boolean isS3Enabled,
-      final SemanticSearchConfiguration semanticSearchConfiguration) {
+      final SemanticSearchConfiguration semanticSearchConfiguration,
+      final boolean entityIndexV3Enabled) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
@@ -86,6 +90,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _settingsService = settingsService;
     _isS3Enabled = isS3Enabled;
     _semanticSearchConfiguration = semanticSearchConfiguration;
+    _entityIndexV3Enabled = entityIndexV3Enabled;
   }
 
   @Override
@@ -93,272 +98,300 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       throws Exception {
 
     final QueryContext context = environment.getContext();
+    return GraphQLConcurrencyUtils.supplyAsync(
+        () -> {
+          final AppConfig appConfig = new AppConfig();
 
-    final AppConfig appConfig = new AppConfig();
+          appConfig.setAppVersion(_gitVersion.getVersion());
 
-    appConfig.setAppVersion(_gitVersion.getVersion());
+          final LineageConfig lineageConfig = new LineageConfig();
+          lineageConfig.setSupportsImpactAnalysis(_supportsImpactAnalysis);
+          appConfig.setLineageConfig(lineageConfig);
 
-    final LineageConfig lineageConfig = new LineageConfig();
-    lineageConfig.setSupportsImpactAnalysis(_supportsImpactAnalysis);
-    appConfig.setLineageConfig(lineageConfig);
+          final AnalyticsConfig analyticsConfig = new AnalyticsConfig();
+          analyticsConfig.setEnabled(_isAnalyticsEnabled);
 
-    final AnalyticsConfig analyticsConfig = new AnalyticsConfig();
-    analyticsConfig.setEnabled(_isAnalyticsEnabled);
+          final AuthConfig authConfig = new AuthConfig();
+          authConfig.setTokenAuthEnabled(_authenticationConfiguration.isEnabled());
+          final AccessTokenConfiguration accessTokenConfiguration =
+              _authenticationConfiguration.getAccessTokens() != null
+                  ? _authenticationConfiguration.getAccessTokens()
+                  : AccessTokenConfiguration.defaults();
+          authConfig.setAllowNoExpiry(accessTokenConfiguration.isAllowNoExpiry());
+          authConfig.setAllowedAccessTokenDurations(accessTokenConfiguration.getAllowedDurations());
 
-    final AuthConfig authConfig = new AuthConfig();
-    authConfig.setTokenAuthEnabled(_authenticationConfiguration.isEnabled());
+          final PoliciesConfig policiesConfig = new PoliciesConfig();
+          policiesConfig.setEnabled(_authorizationConfiguration.getDefaultAuthorizer().isEnabled());
 
-    final PoliciesConfig policiesConfig = new PoliciesConfig();
-    policiesConfig.setEnabled(_authorizationConfiguration.getDefaultAuthorizer().isEnabled());
+          policiesConfig.setPlatformPrivileges(
+              com.linkedin.metadata.authorization.PoliciesConfig.PLATFORM_PRIVILEGES.stream()
+                  .map(this::mapPrivilege)
+                  .collect(Collectors.toList()));
 
-    policiesConfig.setPlatformPrivileges(
-        com.linkedin.metadata.authorization.PoliciesConfig.PLATFORM_PRIVILEGES.stream()
-            .map(this::mapPrivilege)
-            .collect(Collectors.toList()));
+          policiesConfig.setResourcePrivileges(
+              com.linkedin.metadata.authorization.PoliciesConfig.RESOURCE_PRIVILEGES.stream()
+                  .map(this::mapResourcePrivileges)
+                  .collect(Collectors.toList()));
 
-    policiesConfig.setResourcePrivileges(
-        com.linkedin.metadata.authorization.PoliciesConfig.RESOURCE_PRIVILEGES.stream()
-            .map(this::mapResourcePrivileges)
-            .collect(Collectors.toList()));
+          final IdentityManagementConfig identityManagementConfig = new IdentityManagementConfig();
+          identityManagementConfig.setEnabled(
+              true); // Identity Management always enabled. TODO: Understand if there's a case where
+          // this
+          // should change.
 
-    final IdentityManagementConfig identityManagementConfig = new IdentityManagementConfig();
-    identityManagementConfig.setEnabled(
-        true); // Identity Management always enabled. TODO: Understand if there's a case where this
-    // should change.
+          final ManagedIngestionConfig ingestionConfig = new ManagedIngestionConfig();
+          ingestionConfig.setEnabled(_ingestionConfiguration.isEnabled());
 
-    final ManagedIngestionConfig ingestionConfig = new ManagedIngestionConfig();
-    ingestionConfig.setEnabled(_ingestionConfiguration.isEnabled());
+          appConfig.setAnalyticsConfig(analyticsConfig);
+          appConfig.setPoliciesConfig(policiesConfig);
+          appConfig.setIdentityManagementConfig(identityManagementConfig);
+          appConfig.setManagedIngestionConfig(ingestionConfig);
+          appConfig.setAuthConfig(authConfig);
 
-    appConfig.setAnalyticsConfig(analyticsConfig);
-    appConfig.setPoliciesConfig(policiesConfig);
-    appConfig.setIdentityManagementConfig(identityManagementConfig);
-    appConfig.setManagedIngestionConfig(ingestionConfig);
-    appConfig.setAuthConfig(authConfig);
-
-    final VisualConfig visualConfig = new VisualConfig();
-    if (_visualConfiguration != null) {
-      if (_visualConfiguration.getAssets() != null) {
-        visualConfig.setLogoUrl(_visualConfiguration.getAssets().getLogoUrl());
-        visualConfig.setFaviconUrl(_visualConfiguration.getAssets().getFaviconUrl());
-      }
-      if (_visualConfiguration.getAppTitle() != null) {
-        visualConfig.setAppTitle(_visualConfiguration.getAppTitle());
-      }
-      visualConfig.setHideGlossary(_visualConfiguration.isHideGlossary());
-      visualConfig.setShowFullTitleInLineage(_visualConfiguration.isShowFullTitleInLineage());
-    }
-    if (_visualConfiguration != null && _visualConfiguration.getQueriesTab() != null) {
-      QueriesTabConfig queriesTabConfig = new QueriesTabConfig();
-      queriesTabConfig.setQueriesTabResultSize(
-          _visualConfiguration.getQueriesTab().getQueriesTabResultSize());
-      visualConfig.setQueriesTab(queriesTabConfig);
-    }
-    if (_visualConfiguration != null && _visualConfiguration.getEntityProfile() != null) {
-      EntityProfilesConfig entityProfilesConfig = new EntityProfilesConfig();
-      if (_visualConfiguration.getEntityProfile().getDomainDefaultTab() != null) {
-        EntityProfileConfig profileConfig = new EntityProfileConfig();
-        profileConfig.setDefaultTab(_visualConfiguration.getEntityProfile().getDomainDefaultTab());
-        entityProfilesConfig.setDomain(profileConfig);
-      }
-      visualConfig.setEntityProfiles(entityProfilesConfig);
-    }
-    if (_visualConfiguration != null && _visualConfiguration.getSearchResult() != null) {
-      SearchResultsVisualConfig searchResultsVisualConfig = new SearchResultsVisualConfig();
-      if (_visualConfiguration.getSearchResult().getEnableNameHighlight() != null) {
-        searchResultsVisualConfig.setEnableNameHighlight(
-            _visualConfiguration.getSearchResult().getEnableNameHighlight());
-      }
-      visualConfig.setSearchResult(searchResultsVisualConfig);
-    }
-    if (_visualConfiguration != null && _visualConfiguration.getTheme() != null) {
-      ThemeConfig themeConfig = new ThemeConfig();
-      if (_visualConfiguration.getTheme().getThemeId() != null) {
-        themeConfig.setThemeId(_visualConfiguration.getTheme().getThemeId());
-      }
-      visualConfig.setTheme(themeConfig);
-    }
-    if (_settingsService != null) {
-      ApplicationConfig applicationConfig = new ApplicationConfig();
-      final GlobalSettingsInfo globalSettings =
-          _settingsService.getGlobalSettings(context.getOperationContext());
-      if (globalSettings != null
-          && globalSettings.hasApplications()
-          && globalSettings.getApplications().hasEnabled()) {
-        applicationConfig.setShowApplicationInNavigation(
-            globalSettings.getApplications().isEnabled());
-        applicationConfig.setShowSidebarSectionWhenEmpty(
-            globalSettings.getApplications().isEnabled());
-      } else {
-        applicationConfig.setShowApplicationInNavigation(false);
-        applicationConfig.setShowSidebarSectionWhenEmpty(false);
-      }
-      visualConfig.setApplication(applicationConfig);
-    }
-
-    appConfig.setVisualConfig(visualConfig);
-
-    final TelemetryConfig telemetryConfig = new TelemetryConfig();
-    telemetryConfig.setEnableThirdPartyLogging(_telemetryConfiguration.isEnableThirdPartyLogging());
-    appConfig.setTelemetryConfig(telemetryConfig);
-
-    final TestsConfig testsConfig = new TestsConfig();
-    testsConfig.setEnabled(_testsConfiguration.isEnabled());
-    appConfig.setTestsConfig(testsConfig);
-
-    final ViewsConfig viewsConfig = new ViewsConfig();
-    viewsConfig.setEnabled(_viewsConfiguration.isEnabled());
-    appConfig.setViewsConfig(viewsConfig);
-
-    final SearchBarConfig searchBarConfig = new SearchBarConfig();
-    try {
-      searchBarConfig.setApiVariant(SearchBarAPI.valueOf(_searchBarConfig.getApiVariant()));
-    } catch (IllegalArgumentException e) {
-      searchBarConfig.setApiVariant(SearchBarAPI.AUTOCOMPLETE_FOR_MULTIPLE);
-    }
-    appConfig.setSearchBarConfig(searchBarConfig);
-
-    final SearchCardConfig searchCardConfig = new SearchCardConfig();
-    searchCardConfig.setShowDescription(_searchCardConfig.getShowDescription());
-    appConfig.setSearchCardConfig(searchCardConfig);
-
-    final SearchFlagsConfig searchFlagsConfig = new SearchFlagsConfig();
-    searchFlagsConfig.setDefaultSkipHighlighting(_searchFlagsConfig.getDefaultSkipHighlighting());
-    appConfig.setSearchFlagsConfig(searchFlagsConfig);
-
-    final HomePageConfig homePageConfig = new HomePageConfig();
-    try {
-      homePageConfig.setFirstInPersonalSidebar(
-          PersonalSidebarSection.valueOf(_homePageConfig.getFirstInPersonalSidebar()));
-    } catch (Exception e) {
-      log.warn(
-          String.format(
-              "Unexpected value set for firstInPersonalSidebar: %s",
-              _homePageConfig.getFirstInPersonalSidebar()),
-          e);
-      homePageConfig.setFirstInPersonalSidebar(PersonalSidebarSection.YOUR_ASSETS);
-    }
-    appConfig.setHomePageConfig(homePageConfig);
-
-    final FeatureFlagsConfig featureFlagsConfig =
-        FeatureFlagsConfig.builder()
-            .setShowSearchFiltersV2(_featureFlags.isShowSearchFiltersV2())
-            .setBusinessAttributeEntityEnabled(_featureFlags.isBusinessAttributeEntityEnabled())
-            .setReadOnlyModeEnabled(_featureFlags.isReadOnlyModeEnabled())
-            .setShowBrowseV2(_featureFlags.isShowBrowseV2())
-            .setShowAcrylInfo(_featureFlags.isShowAcrylInfo())
-            .setErModelRelationshipFeatureEnabled(
-                _featureFlags.isErModelRelationshipFeatureEnabled())
-            .setShowAccessManagement(_featureFlags.isShowAccessManagement())
-            .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
-            .setPlatformBrowseV2(_featureFlags.isPlatformBrowseV2())
-            .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
-            .setEditableDatasetNameEnabled(_featureFlags.isEditableDatasetNameEnabled())
-            .setThemeV2Enabled(_featureFlags.isThemeV2Enabled())
-            .setThemeV2Default(_featureFlags.isThemeV2Default())
-            .setThemeV2Toggleable(_featureFlags.isThemeV2Toggleable())
-            .setLineageGraphV2(_featureFlags.isLineageGraphV2())
-            .setShowSeparateSiblings(_featureFlags.isShowSeparateSiblings())
-            .setShowManageStructuredProperties(_featureFlags.isShowManageStructuredProperties())
-            .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
-            .setHideDbtSourceInLineage(_featureFlags.isHideDbtSourceInLineage())
-            .setSchemaFieldLineageIgnoreStatus(_featureFlags.isSchemaFieldLineageIgnoreStatus())
-            .setShowNavBarRedesign(_featureFlags.isShowNavBarRedesign())
-            .setShowAutoCompleteResults(_featureFlags.isShowAutoCompleteResults())
-            .setEntityVersioningEnabled(_featureFlags.isEntityVersioning())
-            .setShowHasSiblingsFilter(_featureFlags.isShowHasSiblingsFilter())
-            .setShowSearchBarAutocompleteRedesign(
-                _featureFlags.isShowSearchBarAutocompleteRedesign())
-            .setShowManageTags(_featureFlags.isShowManageTags())
-            .setShowIntroducePage(_featureFlags.isShowIntroducePage())
-            .setShowIngestionPageRedesign(_featureFlags.isShowIngestionPageRedesign())
-            .setShowLineageExpandMore(_featureFlags.isShowLineageExpandMore())
-            .setShowStatsTabRedesign(_featureFlags.isShowStatsTabRedesign())
-            .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
-            .setShowHomePageRedesign(_featureFlags.isShowHomePageRedesign())
-            .setShowProductUpdates(_featureFlags.isShowProductUpdates())
-            .setLineageGraphV3(_featureFlags.isLineageGraphV3())
-            .setLogicalModelsEnabled(_featureFlags.isLogicalModelsEnabled())
-            .setShowHomepageUserRole(_featureFlags.isShowHomepageUserRole())
-            .setAssetSummaryPageV1(_featureFlags.isAssetSummaryPageV1())
-            .setDatasetSummaryPageV1(_featureFlags.isDatasetSummaryPageV1())
-            .setMetricsEnabled(_featureFlags.isMetricsEnabled())
-            .setDocumentationFileUploadV1(isDocumentationFileUploadV1Enabled())
-            .setContextDocumentsEnabled(_featureFlags.isContextDocumentsEnabled())
-            .setIngestionOnboardingRedesignV1(_featureFlags.isIngestionOnboardingRedesignV1())
-            .setHideLineageInSearchCards(_featureFlags.isHideLineageInSearchCards())
-            .setMultipleDataProductsPerAsset(_featureFlags.isMultipleDataProductsPerAsset())
-            .setGlossaryBasedPoliciesEnabled(_featureFlags.isGlossaryBasedPoliciesEnabled())
-            .setShowTestsInHealthIcon(_featureFlags.isShowTestsInHealthIcon())
-            .setI18nEnabled(_featureFlags.isI18nEnabled())
-            .setBrowserTracingEnabled(_featureFlags.isBrowserTracingEnabled())
-            .setBrowserWebVitalsEnabled(_featureFlags.isBrowserWebVitalsEnabled())
-            .build();
-
-    appConfig.setFeatureFlags(featureFlagsConfig);
-
-    final ChromeExtensionConfig chromeExtensionConfig = new ChromeExtensionConfig();
-    chromeExtensionConfig.setEnabled(_chromeExtensionConfiguration.isEnabled());
-    chromeExtensionConfig.setLineageEnabled(_chromeExtensionConfiguration.isLineageEnabled());
-    appConfig.setChromeExtensionConfig(chromeExtensionConfig);
-
-    // Populate semantic search configuration
-    if (_semanticSearchConfiguration != null) {
-      final SemanticSearchConfig semanticSearchConfig = new SemanticSearchConfig();
-      semanticSearchConfig.setEnabled(_semanticSearchConfiguration.isEnabled());
-      semanticSearchConfig.setEnabledEntities(
-          new java.util.ArrayList<>(_semanticSearchConfiguration.getEnabledEntities()));
-
-      // Build EmbeddingConfig from server's embedding provider configuration
-      if (_semanticSearchConfiguration.getEmbeddingProvider() != null) {
-        final com.linkedin.metadata.config.search.EmbeddingProviderConfiguration providerConfig =
-            _semanticSearchConfiguration.getEmbeddingProvider();
-
-        final EmbeddingConfig embeddingConfig = new EmbeddingConfig();
-        embeddingConfig.setProvider(providerConfig.getType());
-        embeddingConfig.setModelId(providerConfig.getModelId());
-
-        // Derive and set canonical model embedding key
-        final String modelEmbeddingKey = deriveModelEmbeddingKey(providerConfig.getModelId());
-        embeddingConfig.setModelEmbeddingKey(modelEmbeddingKey);
-
-        // Populate provider-specific configuration
-        if ("aws-bedrock".equalsIgnoreCase(providerConfig.getType())
-            && providerConfig.getBedrock() != null
-            && providerConfig.getBedrock().getAwsRegion() != null) {
-          final AwsProviderConfig awsProviderConfig = new AwsProviderConfig();
-          awsProviderConfig.setRegion(providerConfig.getBedrock().getAwsRegion());
-          embeddingConfig.setAwsProviderConfig(awsProviderConfig);
-        } else if ("vertex_ai".equalsIgnoreCase(providerConfig.getType())
-            && providerConfig.getVertexai() != null) {
-          final com.linkedin.metadata.config.search.EmbeddingProviderConfiguration.VertexAiConfig
-              vertexConfig = providerConfig.getVertexai();
-          final boolean projectIdSet =
-              vertexConfig.getProjectId() != null && !vertexConfig.getProjectId().isBlank();
-          final boolean locationSet =
-              vertexConfig.getLocation() != null && !vertexConfig.getLocation().isBlank();
-          if (projectIdSet && locationSet) {
-            final VertexProviderConfig vertexProviderConfig = new VertexProviderConfig();
-            vertexProviderConfig.setProjectId(vertexConfig.getProjectId());
-            vertexProviderConfig.setLocation(vertexConfig.getLocation());
-            embeddingConfig.setVertexProviderConfig(vertexProviderConfig);
-          } else {
-            log.warn(
-                "Vertex AI semantic search config has missing or blank projectId or location "
-                    + "(projectIdSet={}, locationSet={}). vertexProviderConfig will be omitted "
-                    + "from GraphQL response. Set VERTEX_AI_PROJECT_ID and VERTEX_AI_LOCATION env vars "
-                    + "(or embeddingProvider.vertexai.{projectId,location} in application.yaml).",
-                projectIdSet,
-                locationSet);
+          final VisualConfig visualConfig = new VisualConfig();
+          if (_visualConfiguration != null) {
+            if (_visualConfiguration.getAssets() != null) {
+              visualConfig.setLogoUrl(_visualConfiguration.getAssets().getLogoUrl());
+              visualConfig.setFaviconUrl(_visualConfiguration.getAssets().getFaviconUrl());
+            }
+            if (_visualConfiguration.getAppTitle() != null) {
+              visualConfig.setAppTitle(_visualConfiguration.getAppTitle());
+            }
+            visualConfig.setHideGlossary(_visualConfiguration.isHideGlossary());
+            visualConfig.setShowFullTitleInLineage(_visualConfiguration.isShowFullTitleInLineage());
           }
-        }
+          if (_visualConfiguration != null && _visualConfiguration.getQueriesTab() != null) {
+            QueriesTabConfig queriesTabConfig = new QueriesTabConfig();
+            queriesTabConfig.setQueriesTabResultSize(
+                _visualConfiguration.getQueriesTab().getQueriesTabResultSize());
+            visualConfig.setQueriesTab(queriesTabConfig);
+          }
+          if (_visualConfiguration != null && _visualConfiguration.getEntityProfile() != null) {
+            EntityProfilesConfig entityProfilesConfig = new EntityProfilesConfig();
+            if (_visualConfiguration.getEntityProfile().getDomainDefaultTab() != null) {
+              EntityProfileConfig profileConfig = new EntityProfileConfig();
+              profileConfig.setDefaultTab(
+                  _visualConfiguration.getEntityProfile().getDomainDefaultTab());
+              entityProfilesConfig.setDomain(profileConfig);
+            }
+            visualConfig.setEntityProfiles(entityProfilesConfig);
+          }
+          if (_visualConfiguration != null && _visualConfiguration.getSearchResult() != null) {
+            SearchResultsVisualConfig searchResultsVisualConfig = new SearchResultsVisualConfig();
+            if (_visualConfiguration.getSearchResult().getEnableNameHighlight() != null) {
+              searchResultsVisualConfig.setEnableNameHighlight(
+                  _visualConfiguration.getSearchResult().getEnableNameHighlight());
+            }
+            visualConfig.setSearchResult(searchResultsVisualConfig);
+          }
+          if (_visualConfiguration != null && _visualConfiguration.getTheme() != null) {
+            ThemeConfig themeConfig = new ThemeConfig();
+            if (_visualConfiguration.getTheme().getThemeId() != null) {
+              themeConfig.setThemeId(_visualConfiguration.getTheme().getThemeId());
+            }
+            visualConfig.setTheme(themeConfig);
+          }
+          if (_settingsService != null) {
+            ApplicationConfig applicationConfig = new ApplicationConfig();
+            final GlobalSettingsInfo globalSettings =
+                _settingsService.getGlobalSettings(context.getOperationContext());
+            if (globalSettings != null
+                && globalSettings.hasApplications()
+                && globalSettings.getApplications().hasEnabled()) {
+              applicationConfig.setShowApplicationInNavigation(
+                  globalSettings.getApplications().isEnabled());
+              applicationConfig.setShowSidebarSectionWhenEmpty(
+                  globalSettings.getApplications().isEnabled());
+            } else {
+              applicationConfig.setShowApplicationInNavigation(false);
+              applicationConfig.setShowSidebarSectionWhenEmpty(false);
+            }
+            visualConfig.setApplication(applicationConfig);
+          }
 
-        semanticSearchConfig.setEmbeddingConfig(embeddingConfig);
-      }
+          appConfig.setVisualConfig(visualConfig);
 
-      appConfig.setSemanticSearchConfig(semanticSearchConfig);
-    }
+          final TelemetryConfig telemetryConfig = new TelemetryConfig();
+          telemetryConfig.setEnableThirdPartyLogging(
+              _telemetryConfiguration.isEnableThirdPartyLogging());
+          appConfig.setTelemetryConfig(telemetryConfig);
 
-    return CompletableFuture.completedFuture(appConfig);
+          final TestsConfig testsConfig = new TestsConfig();
+          testsConfig.setEnabled(_testsConfiguration.isEnabled());
+          appConfig.setTestsConfig(testsConfig);
+
+          final ViewsConfig viewsConfig = new ViewsConfig();
+          viewsConfig.setEnabled(_viewsConfiguration.isEnabled());
+          appConfig.setViewsConfig(viewsConfig);
+
+          final SearchBarConfig searchBarConfig = new SearchBarConfig();
+          try {
+            searchBarConfig.setApiVariant(SearchBarAPI.valueOf(_searchBarConfig.getApiVariant()));
+          } catch (IllegalArgumentException e) {
+            searchBarConfig.setApiVariant(SearchBarAPI.AUTOCOMPLETE_FOR_MULTIPLE);
+          }
+          appConfig.setSearchBarConfig(searchBarConfig);
+
+          final SearchCardConfig searchCardConfig = new SearchCardConfig();
+          searchCardConfig.setShowDescription(_searchCardConfig.getShowDescription());
+          appConfig.setSearchCardConfig(searchCardConfig);
+
+          final SearchFlagsConfig searchFlagsConfig = new SearchFlagsConfig();
+          searchFlagsConfig.setDefaultSkipHighlighting(
+              _searchFlagsConfig.getDefaultSkipHighlighting());
+          appConfig.setSearchFlagsConfig(searchFlagsConfig);
+
+          final HomePageConfig homePageConfig = new HomePageConfig();
+          try {
+            homePageConfig.setFirstInPersonalSidebar(
+                PersonalSidebarSection.valueOf(_homePageConfig.getFirstInPersonalSidebar()));
+          } catch (Exception e) {
+            log.warn(
+                String.format(
+                    "Unexpected value set for firstInPersonalSidebar: %s",
+                    _homePageConfig.getFirstInPersonalSidebar()),
+                e);
+            homePageConfig.setFirstInPersonalSidebar(PersonalSidebarSection.YOUR_ASSETS);
+          }
+          appConfig.setHomePageConfig(homePageConfig);
+
+          final FeatureFlagsConfig featureFlagsConfig =
+              FeatureFlagsConfig.builder()
+                  .setShowSearchFiltersV2(_featureFlags.isShowSearchFiltersV2())
+                  .setBusinessAttributeEntityEnabled(
+                      _featureFlags.isBusinessAttributeEntityEnabled())
+                  .setReadOnlyModeEnabled(_featureFlags.isReadOnlyModeEnabled())
+                  .setShowBrowseV2(_featureFlags.isShowBrowseV2())
+                  .setShowAcrylInfo(_featureFlags.isShowAcrylInfo())
+                  .setErModelRelationshipFeatureEnabled(
+                      _featureFlags.isErModelRelationshipFeatureEnabled())
+                  .setShowAccessManagement(_featureFlags.isShowAccessManagement())
+                  .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
+                  .setPlatformBrowseV2(_featureFlags.isPlatformBrowseV2())
+                  .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
+                  .setEditableDatasetNameEnabled(_featureFlags.isEditableDatasetNameEnabled())
+                  .setThemeV2Enabled(_featureFlags.isThemeV2Enabled())
+                  .setThemeV2Default(_featureFlags.isThemeV2Default())
+                  .setThemeV2Toggleable(_featureFlags.isThemeV2Toggleable())
+                  .setThemeDarkModeEnabled(_featureFlags.isThemeDarkModeEnabled())
+                  .setShowSeparateSiblings(_featureFlags.isShowSeparateSiblings())
+                  .setShowManageStructuredProperties(
+                      _featureFlags.isShowManageStructuredProperties())
+                  .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
+                  .setHideDbtSourceInLineage(_featureFlags.isHideDbtSourceInLineage())
+                  .setSchemaFieldLineageIgnoreStatus(
+                      _featureFlags.isSchemaFieldLineageIgnoreStatus())
+                  .setShowNavBarRedesign(_featureFlags.isShowNavBarRedesign())
+                  .setShowAutoCompleteResults(_featureFlags.isShowAutoCompleteResults())
+                  .setEntityVersioningEnabled(_featureFlags.isEntityVersioning())
+                  .setShowHasSiblingsFilter(_featureFlags.isShowHasSiblingsFilter())
+                  .setShowSearchBarAutocompleteRedesign(
+                      _featureFlags.isShowSearchBarAutocompleteRedesign())
+                  .setShowManageTags(_featureFlags.isShowManageTags())
+                  .setShowIntroducePage(_featureFlags.isShowIntroducePage())
+                  // Deprecated in app.graphql; always true.
+                  .setShowIngestionPageRedesign(true)
+                  .setShowLineageExpandMore(_featureFlags.isShowLineageExpandMore())
+                  .setShowLineageFilterNodes(_featureFlags.isShowLineageFilterNodes())
+                  .setShowStatsTabRedesign(_featureFlags.isShowStatsTabRedesign())
+                  .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
+                  .setShowHomePageRedesign(_featureFlags.isShowHomePageRedesign())
+                  .setShowProductUpdates(_featureFlags.isShowProductUpdates())
+                  .setLogicalModelsEnabled(_featureFlags.isLogicalModelsEnabled())
+                  .setShowHomepageUserRole(_featureFlags.isShowHomepageUserRole())
+                  .setAssetSummaryPageV1(_featureFlags.isAssetSummaryPageV1())
+                  .setDatasetSummaryPageV1(_featureFlags.isDatasetSummaryPageV1())
+                  .setMetricsEnabled(_featureFlags.isMetricsEnabled(context.getOperationContext()))
+                  .setDocumentationFileUploadV1(isDocumentationFileUploadV1Enabled())
+                  .setContextDocumentsEnabled(_featureFlags.isContextDocumentsEnabled())
+                  .setDocumentExplicitSaveEnabled(_featureFlags.isDocumentExplicitSaveEnabled())
+                  // Deprecated in app.graphql; always true.
+                  .setIngestionOnboardingRedesignV1(true)
+                  .setHideLineageInSearchCards(_featureFlags.isHideLineageInSearchCards())
+                  .setDataProductLineageEnabled(_featureFlags.isDataProductLineageEnabled())
+                  .setMultipleDataProductsPerAsset(_featureFlags.isMultipleDataProductsPerAsset())
+                  .setGlossaryBasedPoliciesEnabled(_featureFlags.isGlossaryBasedPoliciesEnabled())
+                  .setStructuredPropertiesInPoliciesEnabled(
+                      _featureFlags.isStructuredPropertiesInPoliciesEnabled())
+                  .setShowTestsInHealthIcon(_featureFlags.isShowTestsInHealthIcon())
+                  .setI18nEnabled(_featureFlags.isI18nEnabled())
+                  .setBrowserTracingEnabled(_featureFlags.isBrowserTracingEnabled())
+                  .setBrowserWebVitalsEnabled(_featureFlags.isBrowserWebVitalsEnabled())
+                  .build();
+
+          appConfig.setFeatureFlags(featureFlagsConfig);
+
+          final ChromeExtensionConfig chromeExtensionConfig = new ChromeExtensionConfig();
+          chromeExtensionConfig.setEnabled(_chromeExtensionConfiguration.isEnabled());
+          chromeExtensionConfig.setLineageEnabled(_chromeExtensionConfiguration.isLineageEnabled());
+          appConfig.setChromeExtensionConfig(chromeExtensionConfig);
+
+          // Populate semantic search configuration
+          if (_semanticSearchConfiguration != null) {
+            final SemanticSearchConfig semanticSearchConfig = new SemanticSearchConfig();
+            semanticSearchConfig.setEnabled(_semanticSearchConfiguration.isEnabled());
+            semanticSearchConfig.setEnabledEntities(
+                new java.util.ArrayList<>(_semanticSearchConfiguration.getEnabledEntities()));
+
+            // Build EmbeddingConfig from server's embedding provider configuration
+            if (_semanticSearchConfiguration.getEmbeddingProvider() != null) {
+              final com.linkedin.metadata.config.search.EmbeddingProviderConfiguration
+                  providerConfig = _semanticSearchConfiguration.getEmbeddingProvider();
+
+              final EmbeddingConfig embeddingConfig = new EmbeddingConfig();
+              embeddingConfig.setProvider(providerConfig.getType());
+              embeddingConfig.setModelId(providerConfig.getModelId());
+
+              // Derive and set canonical model embedding key
+              final String modelEmbeddingKey = deriveModelEmbeddingKey(providerConfig.getModelId());
+              embeddingConfig.setModelEmbeddingKey(modelEmbeddingKey);
+
+              // Populate provider-specific configuration
+              if ("aws-bedrock".equalsIgnoreCase(providerConfig.getType())
+                  && providerConfig.getBedrock() != null
+                  && providerConfig.getBedrock().getAwsRegion() != null) {
+                final AwsProviderConfig awsProviderConfig = new AwsProviderConfig();
+                awsProviderConfig.setRegion(providerConfig.getBedrock().getAwsRegion());
+                embeddingConfig.setAwsProviderConfig(awsProviderConfig);
+              } else if ("vertex_ai".equalsIgnoreCase(providerConfig.getType())
+                  && providerConfig.getVertexai() != null) {
+                final com.linkedin.metadata.config.search.EmbeddingProviderConfiguration
+                        .VertexAiConfig
+                    vertexConfig = providerConfig.getVertexai();
+                final boolean projectIdSet =
+                    vertexConfig.getProjectId() != null && !vertexConfig.getProjectId().isBlank();
+                final boolean locationSet =
+                    vertexConfig.getLocation() != null && !vertexConfig.getLocation().isBlank();
+                if (projectIdSet && locationSet) {
+                  final VertexProviderConfig vertexProviderConfig = new VertexProviderConfig();
+                  vertexProviderConfig.setProjectId(vertexConfig.getProjectId());
+                  vertexProviderConfig.setLocation(vertexConfig.getLocation());
+                  embeddingConfig.setVertexProviderConfig(vertexProviderConfig);
+                } else {
+                  log.warn(
+                      "Vertex AI semantic search config has missing or blank projectId or location "
+                          + "(projectIdSet={}, locationSet={}). vertexProviderConfig will be omitted "
+                          + "from GraphQL response. Set VERTEX_AI_PROJECT_ID and VERTEX_AI_LOCATION env vars "
+                          + "(or embeddingProvider.vertexai.{projectId,location} in application.yaml).",
+                      projectIdSet,
+                      locationSet);
+                }
+              }
+
+              semanticSearchConfig.setEmbeddingConfig(embeddingConfig);
+            }
+
+            appConfig.setSemanticSearchConfig(semanticSearchConfig);
+          }
+
+          final EntityIndexV3Config entityIndexV3Config = new EntityIndexV3Config();
+          entityIndexV3Config.setEnabled(_entityIndexV3Enabled);
+          appConfig.setEntityIndexV3(entityIndexV3Config);
+
+          return appConfig;
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**
@@ -487,6 +520,50 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         .getResourceType()
         .equals(resourceType)) {
       return EntityType.DATA_PLATFORM_INSTANCE;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.ML_MODEL_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.MLMODEL;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.ML_FEATURE_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.MLFEATURE;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.ML_FEATURE_TABLE_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.MLFEATURE_TABLE;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.STRUCTURED_PROPERTIES_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.STRUCTURED_PROPERTY;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.DATA_PROCESS_INSTANCE_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.DATA_PROCESS_INSTANCE;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.NOTEBOOK_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.NOTEBOOK;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.DATA_PRODUCT_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.DATA_PRODUCT;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.VERSION_SET_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.VERSION_SET;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.INGESTION_SOURCE_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.INGESTION_SOURCE;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.APPLICATION_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.APPLICATION;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.ASSERTION_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.ASSERTION;
     } else {
       return null;
     }

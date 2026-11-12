@@ -715,8 +715,7 @@ public class MLModel extends Entity
       throws IOException, ExecutionException, InterruptedException {
 
     log.debug(
-        "Transforming mlModelProperties patch to full aspect for entity: {}",
-        patch.getEntityUrn().toString());
+        "Transforming mlModelProperties patch to full aspect for entity: {}", patch.getEntityUrn());
 
     // Step 1: Fetch current mlModelProperties aspect with version info for optimistic locking
     datahub.client.v2.operations.AspectWithMetadata<MLModelProperties> aspectWithMetadata =

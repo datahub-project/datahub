@@ -1,4 +1,6 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import { Star } from '@phosphor-icons/react/dist/csr/Star';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import type { Meta, StoryObj } from '@storybook/react';
@@ -9,11 +11,18 @@ import { Pill, SUPPORTED_CONFIGURATIONS } from '@components/components/Pills/Pil
 import { PillProps } from '@components/components/Pills/types';
 import { ColorValues, PillVariantValues, SizeValues, getSizeName } from '@components/theme/config';
 
+const ICON_OPTIONS = {
+    Info,
+    Star,
+    Globe,
+} as const;
+
 const defaults: PillProps = {
     label: 'Label',
     size: 'md',
     variant: 'filled',
-    clickable: true,
+    color: 'gray',
+    clickable: false,
 };
 
 const meta: Meta = {
@@ -42,16 +51,16 @@ const meta: Meta = {
         },
         leftIcon: {
             description: 'The icon to display in the Pill icon.',
-            type: 'string',
-            options: ['Info', 'Star', 'Globe'],
+            options: Object.keys(ICON_OPTIONS),
+            mapping: ICON_OPTIONS,
             control: {
                 type: 'select',
             },
         },
         rightIcon: {
             description: 'The icon to display in the Pill icon.',
-            type: 'string',
-            options: ['Info', 'Star', 'Globe'],
+            options: Object.keys(ICON_OPTIONS),
+            mapping: ICON_OPTIONS,
             control: {
                 type: 'select',
             },
@@ -67,7 +76,7 @@ const meta: Meta = {
             },
         },
         variant: {
-            description: 'The size of the Pill.',
+            description: 'The variant of the Pill.',
             options: Object.values(PillVariantValues),
             table: {
                 defaultValue: { summary: defaults.variant },
@@ -78,7 +87,7 @@ const meta: Meta = {
         },
         color: {
             description: 'The color of the Pill.',
-            options: Object.values(ColorValues),
+            options: Object.values(ColorValues).filter((color) => color !== ColorValues.black),
             table: {
                 defaultValue: { summary: defaults.color },
             },
@@ -87,9 +96,9 @@ const meta: Meta = {
             },
         },
         showLabel: {
-            description: 'Controls whether the label should be displayed.',
+            description: 'Adds the label as a native `title` tooltip. The label itself always renders.',
             table: {
-                defaultValue: { summary: 'true' }, // Assuming true is the default
+                defaultValue: { summary: 'false' },
             },
             control: {
                 type: 'boolean',
@@ -100,11 +109,8 @@ const meta: Meta = {
     // Define defaults
     args: {
         label: defaults.label,
-        leftIcon: defaults.leftIcon,
-        rightIcon: defaults.rightIcon,
         size: defaults.size,
         variant: defaults.variant,
-        showLabel: true,
     },
 } satisfies Meta<typeof Pill>;
 
@@ -140,6 +146,24 @@ export const outline = () => (
         <Pill label="Default" variant="outline" clickable />
         {SUPPORTED_CONFIGURATIONS[PillVariantValues.outline].map((color) => (
             <Pill key={color} label={color} color={color} variant="outline" clickable />
+        ))}
+    </GridList>
+);
+
+export const squareFilled = () => (
+    <GridList>
+        <Pill label="Default" variant="squareFilled" clickable />
+        {SUPPORTED_CONFIGURATIONS[PillVariantValues.squareFilled].map((color) => (
+            <Pill key={color} label={color} color={color} variant="squareFilled" clickable />
+        ))}
+    </GridList>
+);
+
+export const squareOutline = () => (
+    <GridList>
+        <Pill label="Default" variant="squareOutline" clickable />
+        {SUPPORTED_CONFIGURATIONS[PillVariantValues.squareOutline].map((color) => (
+            <Pill key={color} label={color} color={color} variant="squareOutline" clickable />
         ))}
     </GridList>
 );

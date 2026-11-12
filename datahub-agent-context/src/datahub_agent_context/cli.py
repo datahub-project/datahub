@@ -2,6 +2,8 @@ import logging
 
 import click
 
+from datahub.cli.specific.agent_cli import register, upsert
+
 logger = logging.getLogger(__name__)
 
 
@@ -9,6 +11,10 @@ logger = logging.getLogger(__name__)
 def agent() -> None:
     """Helper commands for Creating and managing Agent on DataHub."""
     pass
+
+
+agent.add_command(register)
+agent.add_command(upsert)
 
 
 @agent.group()

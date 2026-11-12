@@ -7,8 +7,21 @@ import {
     AssertionType,
     AuditStamp,
     DataPlatform,
+    EntityType,
+    Ownership,
     TagAssociation,
 } from '@src/types.generated';
+
+export type EntityStagedForAssertion = {
+    urn: string;
+    platform: DataPlatform;
+    entityType: EntityType;
+};
+
+export type AssertionBuilderSiblingOptions = {
+    title: string;
+    disabled?: boolean;
+} & Partial<EntityStagedForAssertion>;
 
 export type AssertionListFilter = {
     sortBy: string;
@@ -20,10 +33,12 @@ export type AssertionListFilter = {
         tags: string[];
         column: string[];
         source: AssertionSourceType[];
+        owners: string[];
     };
 };
 
 export type AssertionListTableRow = {
+    key: string;
     type?: AssertionType | string;
     lastUpdated?: AuditStamp;
     tags: TagAssociation[];
@@ -36,6 +51,7 @@ export type AssertionListTableRow = {
     lastEvaluationResult?: AssertionResultType; // add type
     lastEvaluationUrl?: string;
     assertion: Assertion;
+    ownership?: Ownership | null;
     status: AssertionRunStatus; // status;
     groupName?: string;
     name?: string;
@@ -44,27 +60,25 @@ export type AssertionListTableRow = {
 export type AssertionStatusGroup = {
     name: string;
     assertions: AssertionListTableRow[];
-    summary: { [key: string]: number };
+    summary: Record<string, number>;
     groupName?: JSX.Element;
 };
 
 export type AssertionColumnGroup = {
     name: string;
     assertions: AssertionListTableRow[];
-    summary?: { [key: string]: number };
-};
-
-type AssertionGroupBy = {
-    type: any[];
-    status: AssertionStatusGroup[];
-    column: AssertionColumnGroup[];
+    summary?: Record<string, number>;
 };
 
 export type AssertionTable = {
     assertions: AssertionListTableRow[];
-    groupBy: AssertionGroupBy;
-    filterOptions?: any;
-    originalFilterOptions?: any;
+    groupBy: {
+        type: any[];
+        status: AssertionStatusGroup[];
+        column: AssertionColumnGroup[];
+    };
+    filterOptions?: AssertionFilterOptions;
+    originalFilterOptions?: AssertionFilterOptions;
     filteredCount?: number;
     searchMatchesCount?: number;
     totalCount?: number;
@@ -72,18 +86,19 @@ export type AssertionTable = {
 
 export type AssertionFilterOptions = {
     filterGroupOptions: {
-        type: AssertionType[];
-        status: AssertionResultType[];
-        column: string[];
-        tags: string[];
-        source: AssertionSourceType[];
+        type: AssertionRecommendedFilter[];
+        status: AssertionRecommendedFilter[];
+        column: AssertionRecommendedFilter[];
+        tags: AssertionRecommendedFilter[];
+        source: AssertionRecommendedFilter[];
+        owners: AssertionRecommendedFilter[];
     };
     recommendedFilters: AssertionRecommendedFilter[];
 };
 
 export type AssertionRecommendedFilter = {
     name: string;
-    category: 'status' | 'type' | 'source';
+    category: 'status' | 'type' | 'source' | 'tags' | 'column' | 'owners';
     count: number;
     displayName: string;
 };

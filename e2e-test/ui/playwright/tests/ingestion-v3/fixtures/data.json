@@ -135,7 +135,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataHubIngestionSourceInfo",
     "aspect": {
-      "value": "{\"name\":\"playwright v3 execute source\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
+      "value": "{\"name\":\"playwright v3 execute source\",\"type\":\"demo-data\",\"config\":{\"version\":\"1.6.0.10\",\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
       "contentType": "application/json"
     }
   },
@@ -156,6 +156,26 @@
     "aspectName": "dataHubIngestionSourceInfo",
     "aspect": {
       "value": "{\"name\":\"playwright v3 sources search banana\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:playwright-v3-filter-source",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "value": "{\"name\":\"playwright v3 filter source\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:playwright-v3-filter-cli-source",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "value": "{\"name\":\"playwright v3 filter cli source\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"__datahub_cli_\"}}",
       "contentType": "application/json"
     }
   },

@@ -5,6 +5,7 @@ import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.search.features.Features;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -59,16 +60,33 @@ public final class SearchResultUtils {
   @Nonnull
   public static StringMap toExtraFields(
       @Nonnull ObjectMapper objectMapper, @Nullable Map<String, Object> sourceAsMap) {
-    StringMap stringMap = new StringMap();
     if (sourceAsMap == null) {
+      return new StringMap();
+    }
+    return toExtraFields(objectMapper, sourceAsMap, sourceAsMap.keySet());
+  }
+
+  /**
+   * JSON-stringify only the requested {@code keys} from {@code sourceAsMap}. Missing keys are
+   * skipped. Empty or null {@code keys} yields an empty map.
+   */
+  @Nonnull
+  public static StringMap toExtraFields(
+      @Nonnull ObjectMapper objectMapper,
+      @Nullable Map<String, Object> sourceAsMap,
+      @Nullable Collection<String> keys) {
+    StringMap stringMap = new StringMap();
+    if (sourceAsMap == null || keys == null || keys.isEmpty()) {
       return stringMap;
     }
-    for (Map.Entry<String, Object> entry : sourceAsMap.entrySet()) {
+    for (String key : keys) {
+      if (key == null || key.isBlank() || !sourceAsMap.containsKey(key)) {
+        continue;
+      }
       try {
-        stringMap.put(entry.getKey(), objectMapper.writeValueAsString(entry.getValue()));
+        stringMap.put(key, objectMapper.writeValueAsString(sourceAsMap.get(key)));
       } catch (IOException e) {
-        // Log and skip fields that fail to serialize to maintain parity and aid debugging.
-        log.warn("Failed to serialize extra field {}", entry.getKey(), e);
+        log.warn("Failed to serialize extra field {}", key, e);
       }
     }
     return stringMap;

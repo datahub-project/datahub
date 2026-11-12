@@ -2,7 +2,6 @@ import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render } from '@testing-library/react';
 import React from 'react';
 
-import { EntityContext } from '@app/entity/shared/EntityContext';
 import SchemaRow from '@app/entityV2/dataset/profile/schema/components/SchemaRow';
 import {
     sampleSchema,
@@ -11,6 +10,7 @@ import {
     sampleSchemaWithTags,
     sampleSchemaWithoutFields,
 } from '@app/entityV2/dataset/profile/stories/sampleSchema';
+import { EntityContext } from '@app/entityV2/shared/EntityContext';
 import { SchemaTab } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTab';
 import { TabRenderType } from '@app/entityV2/shared/types';
 import { mocks } from '@src/Mocks';
@@ -58,7 +58,7 @@ describe('Schema', () => {
     }, 30_000);
 
     it('renders raw', () => {
-        const { getByText, queryAllByTestId } = render(
+        const { getByTestId, queryAllByTestId } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <EntityContext.Provider
@@ -88,12 +88,12 @@ describe('Schema', () => {
 
         expect(queryAllByTestId('schema-raw-view')).toHaveLength(0);
 
-        const rawButton = getByText('Raw');
+        const rawButton = getByTestId('schema-raw-view-button');
         fireEvent.click(rawButton);
 
         expect(queryAllByTestId('schema-raw-view')).toHaveLength(1);
 
-        const schemaButton = getByText('Tabular');
+        const schemaButton = getByTestId('schema-tabular-view-button');
         fireEvent.click(schemaButton);
 
         expect(queryAllByTestId('schema-raw-view')).toHaveLength(0);

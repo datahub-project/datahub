@@ -35,6 +35,9 @@ mutation {
 }
 ```
 
+You may use either `duration` (enum) or `durationIso` (ISO-8601 string such as `P30D`). Exactly one is required.
+`NO_EXPIRY` requires `ACCESS_TOKEN_ALLOW_NO_EXPIRY=true`. Allowed finite durations are configured with `ACCESS_TOKEN_ALLOWED_DURATIONS`.
+
 _As CURL_
 
 ```curl
@@ -47,7 +50,7 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 ### Listing Access Tokens
 
 Listing tokens is a powerful endpoint that allows you to list the tokens owned by a particular user (ie. YOU).
-To list all tokens that you own, you must specify a filter with: `{field: "actorUrn", value: "<your user urn>"}` configuration.
+To list all tokens that you own, you must specify a filter with: `{field: "actorUrn", values: "<your user urn>"}` configuration.
 
 _As GraphQL_
 
@@ -57,7 +60,7 @@ _As GraphQL_
     input: {
       start: 0
       count: 100
-      filters: [{ field: "ownerUrn", value: "urn:li:corpuser:datahub" }]
+      filters: [{ field: "ownerUrn", values: "urn:li:corpuser:datahub" }]
     }
   ) {
     start
@@ -78,7 +81,7 @@ _As CURL_
 curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'X-DataHub-Actor: urn:li:corpuser:datahub' \
 --header 'Content-Type: application/json' \
---data-raw '{ "query":"{ listAccessTokens(input: {start: 0, count: 100, filters: [{field: \"ownerUrn\", value: \"urn:li:corpuser:datahub\"}]}) { start count total tokens {urn id actorUrn} } }", "variables":{}}'
+--data-raw '{ "query":"{ listAccessTokens(input: {start: 0, count: 100, filters: [{field: \"ownerUrn\", values: \"urn:li:corpuser:datahub\"}]}) { start count total tokens {urn id actorUrn} } }", "variables":{}}'
 ```
 
 Admin users can also list tokens owned by other users of the platform. To list tokens belonging to other users, you must have the `Manage All Access Tokens` Platform privilege.

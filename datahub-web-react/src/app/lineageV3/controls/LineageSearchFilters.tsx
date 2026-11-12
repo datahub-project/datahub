@@ -50,6 +50,8 @@ export default function LineageSearchFilters() {
         setShowDataProcessInstances,
         showGhostEntities,
         setShowGhostEntities,
+        outputPortsOnly,
+        setOutputPortsOnly,
     } = useContext(LineageNodesContext);
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
 
@@ -61,9 +63,26 @@ export default function LineageSearchFilters() {
         [rootUrn, rootType, nodes, nodeVersion],
     );
     return (
-        <ControlPanel>
+        <ControlPanel data-testid="lineage-filters-panel">
             <ControlPanelTitle>{t('controls.filters.title')}</ControlPanelTitle>
             <ControlPanelSubtext>{t('controls.filters.description')}</ControlPanelSubtext>
+            {rootType === EntityType.DataProduct && (
+                <ToggleWrapper>
+                    <ToggleLabel>
+                        {t('controls.filters.outputPortsOnly.label')}
+                        <StyledInfoPopover
+                            content={<PopoverWrapper>{t('controls.filters.outputPortsOnly.tooltip')}</PopoverWrapper>}
+                        />
+                    </ToggleLabel>
+                    <Switch
+                        label=""
+                        labelStyle={{ display: 'none' }}
+                        data-testid="lineage-filter-output-ports-only"
+                        isChecked={outputPortsOnly}
+                        onChange={() => setOutputPortsOnly(!outputPortsOnly)}
+                    />
+                </ToggleWrapper>
+            )}
             <ToggleWrapper>
                 <ToggleLabel>
                     {t('controls.filters.hideTransformations.label')}
@@ -76,6 +95,7 @@ export default function LineageSearchFilters() {
                         label=""
                         labelStyle={{ display: 'none' }}
                         isDisabled={!hasTransformations}
+                        data-testid="lineage-filter-hide-transformations"
                         isChecked={hideTransformations}
                         onChange={() => setHideTransformations(!hideTransformations)}
                     />
@@ -91,6 +111,7 @@ export default function LineageSearchFilters() {
                 <Switch
                     label=""
                     labelStyle={{ display: 'none' }}
+                    data-testid="lineage-filter-hide-process-instances"
                     isChecked={!showDataProcessInstances}
                     onChange={() => setShowDataProcessInstances(!showDataProcessInstances)}
                 />
@@ -109,6 +130,7 @@ export default function LineageSearchFilters() {
                         label=""
                         labelStyle={{ display: 'none' }}
                         isDisabled={mustShowGhostEntities}
+                        data-testid="lineage-filter-show-ghost-entities"
                         isChecked={showGhostEntities}
                         onChange={() => setShowGhostEntities(!showGhostEntities)}
                     />

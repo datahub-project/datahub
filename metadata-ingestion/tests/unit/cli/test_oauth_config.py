@@ -317,7 +317,80 @@ class TestRefreshOAuthTokenIfNeeded:
         ) as mock_post:
             refresh_oauth_token_if_needed()
         called_url = mock_post.call_args[0][0]
-        assert called_url == "https://example.datahub.io/gms/auth/oauth2/token"
+        assert called_url == "https://example.datahub.io/auth/oauth2/token"
+
+    def test_refuses_cleartext_token_endpoint(self, config_path: Path) -> None:
+        jwt = _make_jwt(30)
+        data = {
+            "gms": {"server": "https://example.datahub.io/gms", "token": jwt},
+            "oauth": {
+                "client_id": "dcr-client",
+                "refresh_token": "rt-123",
+                "token_endpoint": "http://example.datahub.io/auth/oauth2/token",
+            },
+        }
+        with open(config_path, "w") as f:
+            yaml.dump(data, f)
+        with patch("requests.post") as mock_post:
+            refresh_oauth_token_if_needed()
+        mock_post.assert_not_called()
+        assert yaml.safe_load(config_path.read_text())["gms"]["token"] == jwt
+
+    def test_allows_localhost_http_token_endpoint(self, config_path: Path) -> None:
+        jwt = _make_jwt(30)
+        data = {
+            "gms": {"server": "http://localhost:9002", "token": jwt},
+            "oauth": {
+                "client_id": "dcr-client",
+                "refresh_token": "rt-123",
+                "token_endpoint": "http://127.0.0.1:9002/auth/oauth2/token",
+            },
+        }
+        with open(config_path, "w") as f:
+            yaml.dump(data, f)
+        with patch(
+            "requests.post", return_value=self._mock_token_refresh("at-new")
+        ) as mock_post:
+            refresh_oauth_token_if_needed()
+        assert mock_post.call_args[0][0] == "http://127.0.0.1:9002/auth/oauth2/token"
+        assert mock_post.call_args.kwargs["allow_redirects"] is False
+
+    def test_allows_ipv6_loopback_http_token_endpoint(self, config_path: Path) -> None:
+        jwt = _make_jwt(30)
+        data = {
+            "gms": {"server": "http://[::1]:9002", "token": jwt},
+            "oauth": {
+                "client_id": "dcr-client",
+                "refresh_token": "rt-123",
+                "token_endpoint": "http://[::1]:9002/auth/oauth2/token",
+            },
+        }
+        with open(config_path, "w") as f:
+            yaml.dump(data, f)
+        with patch(
+            "requests.post", return_value=self._mock_token_refresh("at-new")
+        ) as mock_post:
+            refresh_oauth_token_if_needed()
+        assert mock_post.call_args[0][0] == "http://[::1]:9002/auth/oauth2/token"
+
+    def test_malformed_token_endpoint_keeps_the_current_token(
+        self, config_path: Path
+    ) -> None:
+        jwt = _make_jwt(30)
+        data = {
+            "gms": {"server": "https://example.datahub.io/gms", "token": jwt},
+            "oauth": {
+                "client_id": "dcr-client",
+                "refresh_token": "rt-123",
+                "token_endpoint": "https://[broken",
+            },
+        }
+        with open(config_path, "w") as f:
+            yaml.dump(data, f)
+        with patch("requests.post") as mock_post:
+            refresh_oauth_token_if_needed()
+        mock_post.assert_not_called()
+        assert yaml.safe_load(config_path.read_text())["gms"]["token"] == jwt
 
     def test_cleans_up_legacy_token_expiry_field_on_refresh(
         self, config_path: Path
@@ -385,7 +458,59 @@ class TestInitOAuthFlag:
             init,
             ["--oauth", "--host", "https://example.datahub.io/gms", "--force"],
         )
-        self.mock_pkce.assert_called_once_with("https://example.datahub.io/gms")
+        self.mock_pkce.assert_called_once_with(
+            "https://example.datahub.io/gms", support=False, ticket_id=None
+        )
+
+    def test_oauth_without_host_prompts_for_cloud_url(
+        self, config_path: Path, clean_env: None
+    ) -> None:
+        result = CliRunner().invoke(
+            init,
+            ["--oauth", "--force"],
+            input="https://example.datahub.io/gms\n",
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "Enter your DataHub host" in result.output
+        self.mock_pkce.assert_called_once_with(
+            "https://example.datahub.io/gms", support=False, ticket_id=None
+        )
+
+    def test_oauth_support_passes_ticket_to_pkce_login(
+        self, config_path: Path, clean_env: None
+    ) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            init,
+            [
+                "--oauth",
+                "--support",
+                "--ticket-id",
+                "SUPPORT-123",
+                "--host",
+                "https://example.datahub.io/gms",
+                "--force",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        self.mock_pkce.assert_called_once_with(
+            "https://example.datahub.io/gms",
+            support=True,
+            ticket_id="SUPPORT-123",
+        )
+
+    def test_oauth_support_requires_ticket(
+        self, config_path: Path, clean_env: None
+    ) -> None:
+        result = CliRunner().invoke(
+            init,
+            ["--oauth", "--support", "--host", "https://example.datahub.io/gms"],
+        )
+
+        assert result.exit_code != 0
+        assert "requires --ticket-id" in result.output
 
     def test_oauth_prints_refresh_token_stored_message(
         self, config_path: Path, clean_env: None

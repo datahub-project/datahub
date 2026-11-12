@@ -14,13 +14,14 @@ USE dorisdb;
 -- Table: customers
 -- Doris doesn't support INT(11) syntax, just use INT
 CREATE TABLE IF NOT EXISTS customers (
-  customer_id INT NOT NULL,
-  customer_name VARCHAR(100) NOT NULL,
-  email VARCHAR(100),
-  country VARCHAR(50),
+  customer_id INT NOT NULL COMMENT 'Unique customer identifier',
+  customer_name VARCHAR(100) NOT NULL COMMENT "Customer's full name",
+  email VARCHAR(100) COMMENT 'Contact email, may be "unverified"',
+  country VARCHAR(50) COMMENT '国家 (ISO country name)',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )
 DUPLICATE KEY(customer_id)
+COMMENT 'One row per registered customer'
 DISTRIBUTED BY HASH(customer_id) BUCKETS 1
 PROPERTIES (
   "replication_num" = "1"
@@ -57,6 +58,7 @@ CREATE TABLE IF NOT EXISTS analytics_data (
   percentile_data QUANTILE_STATE QUANTILE_UNION COMMENT 'Quantile state for percentile calculations'
 )
 AGGREGATE KEY(id, name, created_at)
+COMMENT 'Aggregated analytics with Doris-specific types'
 DISTRIBUTED BY HASH(id) BUCKETS 1
 PROPERTIES (
   "replication_num" = "1"

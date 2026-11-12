@@ -3,7 +3,6 @@ import type { DataHubLogger } from '../../../../utils/logger';
 import { BaseTab } from './base.tab';
 import { ModalComponent } from '@pages/common/modal-component';
 import { ConfirmationModalComponent } from '@pages/common/confirmation-modal-component';
-import { ToastComponent } from '@pages/common/toast-component';
 import { GraphQLHelper } from '../../../../helpers/graphql-helper';
 
 export class SecretsBaseTab extends BaseTab {
@@ -17,7 +16,6 @@ export class SecretsBaseTab extends BaseTab {
   readonly secretDescriptionInput: Locator;
   readonly secretModalCreateButton: Locator;
 
-  protected readonly toast: ToastComponent;
   protected readonly graphql: GraphQLHelper;
 
   constructor(
@@ -36,7 +34,6 @@ export class SecretsBaseTab extends BaseTab {
     this.secretValueInput = page.getByTestId('secret-modal-value-input').getByRole('textbox');
     this.secretDescriptionInput = page.getByTestId('secret-modal-description-input').getByRole('textbox');
     this.secretModalCreateButton = page.getByTestId('secret-modal-create-button');
-    this.toast = new ToastComponent(page);
     this.graphql = new GraphQLHelper(page);
   }
 

@@ -21,12 +21,11 @@ export class PoliciesPage extends BasePage {
     await expect(this.searchInput).toBeVisible();
     await this.searchInput.clear();
     await this.searchInput.fill(policyName);
-    await this.page.waitForTimeout(500);
   }
 
   async openRowMenu(policyName: string): Promise<void> {
     await this.page.getByRole('row').filter({ hasText: policyName }).getByRole('button').last().click({ force: true });
-    await this.page.waitForTimeout(300);
+    await expect(this.page.getByRole('menuitem').first()).toBeVisible();
   }
 
   async clickMenuAction(actionText: string): Promise<void> {
@@ -42,11 +41,11 @@ export class PoliciesPage extends BasePage {
       const roleText = await row.getByRole('cell').nth(3).textContent();
       if (roleText?.includes('All Users')) {
         await row.getByRole('button').last().click({ force: true });
-        await this.page.waitForTimeout(300);
+        await expect(this.page.getByRole('menuitem').first()).toBeVisible();
         const deactivateItem = this.page.getByRole('menuitem').getByText('Deactivate');
         if ((await deactivateItem.count()) > 0) {
           await deactivateItem.click();
-          await expect(this.page.getByText('Successfully deactivated policy.')).toBeVisible({ timeout: 15000 });
+          await this.toast.expectVisible('Successfully deactivated policy.', { timeout: 15000 });
         }
       }
     }

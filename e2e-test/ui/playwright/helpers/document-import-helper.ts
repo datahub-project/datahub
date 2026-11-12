@@ -1,5 +1,7 @@
 import type { Page } from '@playwright/test';
 
+import { DATAHUB_GRAPHQL_PATH } from '../utils/constants';
+
 type GraphQLPayload = {
   data?: Record<string, unknown>;
   errors?: unknown;
@@ -10,7 +12,7 @@ export async function executeGraphQL(
   query: string,
   variables?: Record<string, unknown>,
 ): Promise<GraphQLPayload> {
-  const response = await page.request.post('/api/v2/graphql', {
+  const response = await page.request.post(DATAHUB_GRAPHQL_PATH, {
     data: { query, variables: variables ?? {} },
     headers: { 'Content-Type': 'application/json' },
   });

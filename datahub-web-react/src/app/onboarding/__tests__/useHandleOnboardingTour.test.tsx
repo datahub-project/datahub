@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useHandleOnboardingTour } from '@app/onboarding/useHandleOnboardingTour';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const mockSetTourReshow = vi.fn();
 const mockSetIsTourOpen = vi.fn();
@@ -54,6 +54,19 @@ describe('useHandleOnboardingTour', () => {
         renderHook(() => useHandleOnboardingTour(), { wrapper });
 
         expect(addEventListenerSpy).toHaveBeenCalledWith('keydown', expect.any(Function));
+    });
+
+    it('keeps the same keydown listener across rerenders', () => {
+        const addEventListenerSpy = vi.spyOn(document, 'addEventListener');
+        const removeEventListenerSpy = vi.spyOn(document, 'removeEventListener');
+
+        const { rerender } = renderHook(() => useHandleOnboardingTour(), { wrapper });
+        rerender();
+
+        const keydownAdds = addEventListenerSpy.mock.calls.filter(([type]) => type === 'keydown');
+        const keydownRemoves = removeEventListenerSpy.mock.calls.filter(([type]) => type === 'keydown');
+        expect(keydownAdds).toHaveLength(1);
+        expect(keydownRemoves).toHaveLength(0);
     });
 
     it('should remove event listener on unmount', () => {

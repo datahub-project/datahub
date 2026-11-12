@@ -14,11 +14,14 @@ import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import com.linkedin.metadata.timeline.data.entity.StructuredPropertyAssignmentChangeEvent;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
-import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import jakarta.json.JsonPatch;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import javax.annotation.Nonnull;
 
 public class StructuredPropertyChangeEventGenerator
@@ -27,6 +30,10 @@ public class StructuredPropertyChangeEventGenerator
       "Structured property '%s' added to entity '%s'.";
   private static final String STRUCTURED_PROPERTY_REMOVED_FORMAT =
       "Structured property '%s' removed from entity '%s'.";
+  private static final String STRUCTURED_PROPERTY_CHANGED_FORMAT =
+      "Structured property '%s' changed on entity '%s'.";
+
+  private static final Comparator<Urn> URN_COMPARATOR = Comparator.comparing(Urn::toString);
 
   public List<ChangeEvent> getChangeEvents(
       @Nonnull Urn urn,
@@ -36,21 +43,6 @@ public class StructuredPropertyChangeEventGenerator
       @Nonnull Aspect<StructuredProperties> to,
       @Nonnull AuditStamp auditStamp) {
     return computeDiffs(from.getValue(), to.getValue(), urn.toString(), auditStamp);
-  }
-
-  private static void sortStructuredPropertiesByStructuredPropertyUrn(
-      StructuredProperties structuredProperties) {
-    if (structuredProperties == null) {
-      return;
-    }
-    List<StructuredPropertyValueAssignment> structuredPropertyValueAssignments =
-        new ArrayList<>(structuredProperties.getProperties());
-    structuredPropertyValueAssignments.sort(
-        Comparator.comparing(
-            StructuredPropertyValueAssignment::getPropertyUrn,
-            Comparator.comparing(Urn::toString)));
-    structuredProperties.setProperties(
-        new StructuredPropertyValueAssignmentArray(structuredPropertyValueAssignments));
   }
 
   private static StructuredProperties getStructuredPropertiesFromAspect(EntityAspect entityAspect) {
@@ -72,12 +64,15 @@ public class StructuredPropertyChangeEventGenerator
       throw new IllegalArgumentException("Aspect is not " + STRUCTURED_PROPERTIES_ASPECT_NAME);
     }
 
-    StructuredProperties baseGlobalTags = getStructuredPropertiesFromAspect(previousValue);
-    StructuredProperties targetGlobalTags = getStructuredPropertiesFromAspect(currentValue);
+    StructuredProperties baseStructuredProperties =
+        getStructuredPropertiesFromAspect(previousValue);
+    StructuredProperties targetStructuredProperties =
+        getStructuredPropertiesFromAspect(currentValue);
     List<ChangeEvent> changeEvents = new ArrayList<>();
     if (element == ChangeCategory.STRUCTURED_PROPERTY) {
       changeEvents.addAll(
-          computeDiffs(baseGlobalTags, targetGlobalTags, currentValue.getUrn(), null));
+          computeDiffs(
+              baseStructuredProperties, targetStructuredProperties, currentValue.getUrn(), null));
     }
 
     // Assess the highest change at the transaction(schema) level.
@@ -97,140 +92,84 @@ public class StructuredPropertyChangeEventGenerator
         .build();
   }
 
-  private List<ChangeEvent> computeDiffs(
+  private static List<ChangeEvent> computeDiffs(
       final StructuredProperties previousAspect,
       final StructuredProperties newAspect,
       final String entityUrn,
       final AuditStamp auditStamp) {
 
-    sortStructuredPropertiesByStructuredPropertyUrn(previousAspect);
-    sortStructuredPropertiesByStructuredPropertyUrn(newAspect);
+    Map<Urn, StructuredPropertyValueAssignment> baseAssignments =
+        buildAssignmentMap(previousAspect);
+    Map<Urn, StructuredPropertyValueAssignment> targetAssignments = buildAssignmentMap(newAspect);
+
+    // Sorted for deterministic event ordering.
+    Set<Urn> allPropertyUrns = new TreeSet<>(URN_COMPARATOR);
+    allPropertyUrns.addAll(baseAssignments.keySet());
+    allPropertyUrns.addAll(targetAssignments.keySet());
+
     List<ChangeEvent> changeEvents = new ArrayList<>();
-    StructuredPropertyValueAssignmentArray baseAssignments =
-        (previousAspect != null)
-            ? previousAspect.getProperties()
-            : new StructuredPropertyValueAssignmentArray();
-    StructuredPropertyValueAssignmentArray targetAssignments =
-        (newAspect != null)
-            ? newAspect.getProperties()
-            : new StructuredPropertyValueAssignmentArray();
-    int baseIdx = 0;
-    int targetIdx = 0;
+    for (Urn propertyUrn : allPropertyUrns) {
+      StructuredPropertyValueAssignment baseAssignment = baseAssignments.get(propertyUrn);
+      StructuredPropertyValueAssignment targetAssignment = targetAssignments.get(propertyUrn);
 
-    while (baseIdx < baseAssignments.size() && targetIdx < targetAssignments.size()) {
-      StructuredPropertyValueAssignment baseAssignment = baseAssignments.get(baseIdx);
-      StructuredPropertyValueAssignment targetAssignment = targetAssignments.get(targetIdx);
-      int comparison =
-          baseAssignment
-              .getPropertyUrn()
-              .toString()
-              .compareTo(targetAssignment.getPropertyUrn().toString());
-
-      if (comparison == 0) {
-        // No change to this property.
-        ++baseIdx;
-        ++targetIdx;
-        if (!baseAssignment.getValues().equals(targetAssignment.getValues())) {
-          changeEvents.add(
-              StructuredPropertyAssignmentChangeEvent
-                  .entityStructuredPropertyAssignmentChangeEventBuilder()
-                  .modifier(targetAssignment.getPropertyUrn().toString())
-                  .entityUrn(entityUrn)
-                  .category(ChangeCategory.STRUCTURED_PROPERTY)
-                  .operation(ChangeOperation.MODIFY)
-                  .semVerChange(SemanticChangeType.MINOR)
-                  .description(
-                      String.format(
-                          STRUCTURED_PROPERTY_ADDED_FORMAT,
-                          targetAssignment.getPropertyUrn().getId(),
-                          entityUrn))
-                  .auditStamp(auditStamp)
-                  .structuredPropertyValueAssignment(targetAssignment)
-                  .build());
-        }
-      } else if (comparison < 0) {
-        // Property got removed.
+      if (baseAssignment == null) {
         changeEvents.add(
-            StructuredPropertyAssignmentChangeEvent.builder()
-                .modifier(baseAssignment.getPropertyUrn().toString())
-                .entityUrn(entityUrn)
-                .category(ChangeCategory.STRUCTURED_PROPERTY)
-                .operation(ChangeOperation.REMOVE)
-                .semVerChange(SemanticChangeType.MINOR)
-                .description(
-                    String.format(
-                        STRUCTURED_PROPERTY_REMOVED_FORMAT,
-                        baseAssignment.getPropertyUrn().getId(),
-                        entityUrn))
-                .auditStamp(auditStamp)
-                .build());
-        ++baseIdx;
-      } else {
-        // Property got added.
+            buildChangeEvent(
+                ChangeOperation.ADD,
+                STRUCTURED_PROPERTY_ADDED_FORMAT,
+                targetAssignment,
+                entityUrn,
+                auditStamp));
+      } else if (targetAssignment == null) {
         changeEvents.add(
-            StructuredPropertyAssignmentChangeEvent
-                .entityStructuredPropertyAssignmentChangeEventBuilder()
-                .modifier(targetAssignment.getPropertyUrn().toString())
-                .entityUrn(entityUrn)
-                .category(ChangeCategory.STRUCTURED_PROPERTY)
-                .operation(ChangeOperation.ADD)
-                .semVerChange(SemanticChangeType.MINOR)
-                .description(
-                    String.format(
-                        STRUCTURED_PROPERTY_ADDED_FORMAT,
-                        targetAssignment.getPropertyUrn().getId(),
-                        entityUrn))
-                .auditStamp(auditStamp)
-                .structuredPropertyValueAssignment(targetAssignment)
-                .build());
-        ++targetIdx;
+            buildChangeEvent(
+                ChangeOperation.REMOVE,
+                STRUCTURED_PROPERTY_REMOVED_FORMAT,
+                baseAssignment,
+                entityUrn,
+                auditStamp));
+      } else if (!baseAssignment.getValues().equals(targetAssignment.getValues())) {
+        changeEvents.add(
+            buildChangeEvent(
+                ChangeOperation.MODIFY,
+                STRUCTURED_PROPERTY_CHANGED_FORMAT,
+                targetAssignment,
+                entityUrn,
+                auditStamp));
       }
     }
 
-    // Handle remaining properties in baseAssignments (removed properties)
-    while (baseIdx < baseAssignments.size()) {
-      StructuredPropertyValueAssignment baseAssignment = baseAssignments.get(baseIdx);
-      changeEvents.add(
-          StructuredPropertyAssignmentChangeEvent
-              .entityStructuredPropertyAssignmentChangeEventBuilder()
-              .modifier(baseAssignment.getPropertyUrn().toString())
-              .entityUrn(entityUrn)
-              .category(ChangeCategory.STRUCTURED_PROPERTY)
-              .operation(ChangeOperation.REMOVE)
-              .semVerChange(SemanticChangeType.MINOR)
-              .description(
-                  String.format(
-                      STRUCTURED_PROPERTY_REMOVED_FORMAT,
-                      baseAssignment.getPropertyUrn().getId(),
-                      entityUrn))
-              .auditStamp(auditStamp)
-              .structuredPropertyValueAssignment(baseAssignment)
-              .build());
-      ++baseIdx;
-    }
-
-    // Handle remaining properties in targetAssignments (added properties)
-    while (targetIdx < targetAssignments.size()) {
-      StructuredPropertyValueAssignment targetAssignment = targetAssignments.get(targetIdx);
-      changeEvents.add(
-          StructuredPropertyAssignmentChangeEvent
-              .entityStructuredPropertyAssignmentChangeEventBuilder()
-              .modifier(targetAssignment.getPropertyUrn().toString())
-              .entityUrn(entityUrn)
-              .category(ChangeCategory.STRUCTURED_PROPERTY)
-              .operation(ChangeOperation.ADD)
-              .semVerChange(SemanticChangeType.MINOR)
-              .description(
-                  String.format(
-                      STRUCTURED_PROPERTY_ADDED_FORMAT,
-                      targetAssignment.getPropertyUrn().getId(),
-                      entityUrn))
-              .auditStamp(auditStamp)
-              .structuredPropertyValueAssignment(targetAssignment)
-              .build());
-      ++targetIdx;
-    }
-
     return changeEvents;
+  }
+
+  private static Map<Urn, StructuredPropertyValueAssignment> buildAssignmentMap(
+      StructuredProperties structuredProperties) {
+    Map<Urn, StructuredPropertyValueAssignment> map = new TreeMap<>(URN_COMPARATOR);
+    if (structuredProperties != null) {
+      structuredProperties
+          .getProperties()
+          .forEach(assignment -> map.put(assignment.getPropertyUrn(), assignment));
+    }
+    return map;
+  }
+
+  private static ChangeEvent buildChangeEvent(
+      final ChangeOperation operation,
+      final String descriptionFormat,
+      final StructuredPropertyValueAssignment assignment,
+      final String entityUrn,
+      final AuditStamp auditStamp) {
+    return StructuredPropertyAssignmentChangeEvent
+        .entityStructuredPropertyAssignmentChangeEventBuilder()
+        .modifier(assignment.getPropertyUrn().toString())
+        .entityUrn(entityUrn)
+        .category(ChangeCategory.STRUCTURED_PROPERTY)
+        .operation(operation)
+        .semVerChange(SemanticChangeType.MINOR)
+        .description(
+            String.format(descriptionFormat, assignment.getPropertyUrn().getId(), entityUrn))
+        .auditStamp(auditStamp)
+        .structuredPropertyValueAssignment(assignment)
+        .build();
   }
 }

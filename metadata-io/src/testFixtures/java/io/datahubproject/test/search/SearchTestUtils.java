@@ -9,9 +9,7 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
-import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
-import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.SystemMetadataServiceConfig;
@@ -23,11 +21,17 @@ import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.EntityTypeListConfig;
+import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.config.search.ImpactConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.PartialConfiguration;
+import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
+import com.linkedin.metadata.config.search.StructuredPropertyQueryConfiguration;
+import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -38,8 +42,10 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingSettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.DocumentIdSchemeStampingMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
@@ -47,7 +53,10 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettin
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntitySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
@@ -75,12 +84,54 @@ public class SearchTestUtils {
   public static StructuredPropertiesConfiguration TEST_ES_STRUCT_PROPS_DISABLED =
       StructuredPropertiesConfiguration.builder().enabled(false).systemUpdateEnabled(false).build();
 
+  private static ExactMatchConfiguration testExactMatchConfiguration() {
+    ExactMatchConfiguration config = new ExactMatchConfiguration();
+    config.setExclusive(false);
+    config.setWithPrefix(true);
+    config.setExactFactor(16.0f);
+    config.setPrefixFactor(1.1f);
+    config.setCaseSensitivityFactor(0.0f);
+    config.setEnableStructured(true);
+    return config;
+  }
+
+  private static WordGramConfiguration testWordGramConfiguration() {
+    WordGramConfiguration config = new WordGramConfiguration();
+    config.setTwoGramFactor(1.2f);
+    config.setThreeGramFactor(1.5f);
+    config.setFourGramFactor(1.8f);
+    return config;
+  }
+
+  private static PartialConfiguration testPartialConfiguration() {
+    PartialConfiguration config = new PartialConfiguration();
+    config.setUrnFactor(0.5f);
+    config.setFactor(0.4f);
+    return config;
+  }
+
   // Base configuration for tests
   private static final ElasticSearchConfiguration BASE_TEST_CONFIG =
       ElasticSearchConfiguration.builder()
           .search(
               SearchConfiguration.builder()
                   .pointInTimeCreationEnabled(false) // Disable PIT for search entities by default
+                  // The query/aggregation builders read these without null guards or defaults;
+                  // leaving them unset fails any test that builds a query. Values mirror
+                  // application.yaml defaults; SearchCommonTestConfiguration overrides them with
+                  // its own tuned boosts for the Spring-based search tests.
+                  .maxTermBucketSize(60)
+                  .exactMatch(testExactMatchConfiguration())
+                  .wordGram(testWordGramConfiguration())
+                  .partial(testPartialConfiguration())
+                  .structuredProperties(
+                      StructuredPropertyQueryConfiguration.builder()
+                          .cacheTtlSeconds(300)
+                          .defaultTextWeight(0.8f)
+                          .stemmedFactor(0.5f)
+                          .pageSize(500)
+                          .maxProperties(1000)
+                          .build())
                   .graph(
                       GraphQueryConfiguration.builder()
                           .batchSize(1000)
@@ -120,6 +171,7 @@ public class SearchTestUtils {
                   .numReplicas(1)
                   .numRetries(3)
                   .refreshIntervalSeconds(3)
+                  .refreshIntervals(RefreshIntervals.allServices(3))
                   .maxArrayLength(1000)
                   .maxObjectKeys(1000)
                   .maxValueLength(4096)
@@ -134,6 +186,7 @@ public class SearchTestUtils {
                   .reindexBatchSize(5000)
                   .reindexMaxSlices(256)
                   .reindexNoProgressRetryMinutes(5)
+                  .waitForUnresolvedReindexTask(true)
                   .createIndexRetryEnabled(true)
                   .build())
           .entityIndex(
@@ -198,9 +251,11 @@ public class SearchTestUtils {
   static {
     SEARCHABLE_ENTITIES =
         Stream.concat(
-                SearchUtils.SEARCHABLE_ENTITY_TYPES.stream(),
-                SearchUtils.AUTO_COMPLETE_ENTITY_TYPES.stream())
-            .map(EntityTypeMapper::getName)
+                EntityTypeListConfig.parseCsv(EntityTypeListConfig.DEFAULT_SEARCH_ENTITY_TYPES)
+                    .stream(),
+                EntityTypeListConfig.parseCsv(
+                    EntityTypeListConfig.DEFAULT_AUTOCOMPLETE_ENTITY_TYPES)
+                    .stream())
             .distinct()
             .collect(Collectors.toList());
   }
@@ -381,9 +436,7 @@ public class SearchTestUtils {
             .withLineageFlags(flags -> flags),
         root,
         LineageDirection.DOWNSTREAM,
-        SearchUtils.SEARCHABLE_ENTITY_TYPES.stream()
-            .map(EntityTypeMapper::getName)
-            .collect(Collectors.toList()),
+        EntityTypeListConfig.parseCsv(EntityTypeListConfig.DEFAULT_SEARCH_ENTITY_TYPES),
         "*",
         hops,
         ResolverUtils.buildFilter(filters, List.of()),
@@ -506,7 +559,7 @@ public class SearchTestUtils {
     List<SettingsBuilder> settingsBuilders = new ArrayList<>();
 
     if (entityIndexConfiguration.getV2().isEnabled()) {
-      settingsBuilders.add(new V2LegacySettingsBuilder(indexConfiguration, indexConvention));
+      settingsBuilders.add(new V2LegacySettingsBuilder(indexConfiguration, indexConvention, false));
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {
@@ -522,8 +575,9 @@ public class SearchTestUtils {
 
   /**
    * Creates a DelegatingMappingsBuilder with the appropriate mappings builders based on the entity
-   * index configuration. This utility method encapsulates the common pattern of creating a list of
-   * MappingsBuilder implementations and passing them to DelegatingMappingsBuilder constructor.
+   * index configuration, using the default (OpenSearch) partial-ngram mapping shape. Tests that
+   * create indices on a real cluster should use {@link #createDelegatingMappingsBuilder(
+   * EntityIndexConfiguration, SearchClientShim)} so the mappings match what that engine stores.
    *
    * @param entityIndexConfiguration the entity index configuration to determine which builders to
    *     include
@@ -532,6 +586,17 @@ public class SearchTestUtils {
    */
   public static DelegatingMappingsBuilder createDelegatingMappingsBuilder(
       EntityIndexConfiguration entityIndexConfiguration) {
+    return createDelegatingMappingsBuilder(entityIndexConfiguration, null);
+  }
+
+  /**
+   * Creates a DelegatingMappingsBuilder as the GMS factories do: the partial-ngram mapping shape
+   * comes from the search client, since engines differ in what they store (ES8 drops {@code
+   * doc_values: false} from {@code search_as_you_type}). A null client uses the default shape.
+   */
+  public static DelegatingMappingsBuilder createDelegatingMappingsBuilder(
+      EntityIndexConfiguration entityIndexConfiguration,
+      @Nullable SearchClientShim<?> searchClient) {
 
     List<MappingsBuilder> builders = new ArrayList<>();
 
@@ -539,12 +604,19 @@ public class SearchTestUtils {
       builders.add(
           new V2MappingsBuilder(
               entityIndexConfiguration,
-              com.linkedin.metadata.search.elasticsearch.client.shim.impl
-                  .OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG));
+              searchClient != null
+                  ? searchClient.partialNgramConfig()
+                  : OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+              ESUtils.KEYWORD_MAXLENGTH));
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {
-        builders.add(new MultiEntityMappingsBuilder(entityIndexConfiguration));
+        // As the factory wires it: every V3 index is created with the document-id scheme stamp.
+        builders.add(
+            new DocumentIdSchemeStampingMappingsBuilder(
+                new MultiEntityMappingsBuilder(
+                    entityIndexConfiguration, searchClient, ESUtils.KEYWORD_MAXLENGTH, List.of()),
+                new V3DocumentIdScheme(new Sha256UrnEntityDocumentIdHasher())));
       } catch (IOException e) {
         throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
       }

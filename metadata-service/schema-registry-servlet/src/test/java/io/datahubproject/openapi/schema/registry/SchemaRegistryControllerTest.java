@@ -1,6 +1,10 @@
 package io.datahubproject.openapi.schema.registry;
 
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.testng.Assert.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,15 +17,22 @@ import com.linkedin.metadata.registry.SchemaRegistryServiceImpl;
 import com.linkedin.mxe.TopicConvention;
 import com.linkedin.mxe.TopicConventionImpl;
 import com.linkedin.mxe.Topics;
+import io.datahubproject.schema_registry.openapi.generated.Association;
+import io.datahubproject.schema_registry.openapi.generated.AssociationBatchResponse;
 import io.datahubproject.schema_registry.openapi.generated.Config;
 import io.datahubproject.schema_registry.openapi.generated.Schema;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -56,6 +67,7 @@ public class SchemaRegistryControllerTest {
 
   private SchemaRegistryController controller;
   private MockHttpServletRequest mockRequest;
+  private MockMvc mockMvc;
 
   @BeforeMethod
   public void setUp() {
@@ -63,6 +75,10 @@ public class SchemaRegistryControllerTest {
     mockRequest = new MockHttpServletRequest();
     controller =
         new SchemaRegistryController(new ObjectMapper(), mockRequest, mockSchemaRegistryService);
+    mockMvc =
+        MockMvcBuilders.standaloneSetup(controller)
+            .setMessageConverters(new MappingJackson2HttpMessageConverter())
+            .build();
   }
 
   // ============================================================================
@@ -99,6 +115,78 @@ public class SchemaRegistryControllerTest {
     assertEquals(response.getBody().size(), 2);
     assertTrue(response.getBody().contains("test-subject-value"));
     assertTrue(response.getBody().contains("another-subject-value"));
+  }
+
+  @Test
+  public void testGetAssociationsByResourceName_ReturnsEmptyList() {
+    ResponseEntity<List<Association>> response =
+        controller.getAssociationsByResourceName(
+            "-", "MetadataChangeLog_Versioned_v1", null, null, null, null, null);
+    assertEquals(response.getStatusCode(), HttpStatus.OK);
+    assertNotNull(response.getBody());
+    assertTrue(response.getBody().isEmpty());
+  }
+
+  @Test
+  public void testGetAssociationsByResourceId_ReturnsEmptyList() {
+    ResponseEntity<List<Association>> response =
+        controller.getAssociationsByResourceId("topic-1", "topic", List.of("value"), null, 0, -1);
+    assertEquals(response.getStatusCode(), HttpStatus.OK);
+    assertTrue(response.getBody().isEmpty());
+  }
+
+  @Test
+  public void testGetAssociationsBySubject_ReturnsEmptyList() {
+    ResponseEntity<List<Association>> response =
+        controller.getAssociationsBySubject("PlatformEvent_v1", null, null, null, null, null);
+    assertEquals(response.getStatusCode(), HttpStatus.OK);
+    assertTrue(response.getBody().isEmpty());
+  }
+
+  @Test
+  public void testBatchGetAssociations_ReturnsEmptyResults() {
+    ResponseEntity<AssociationBatchResponse> response =
+        controller.batchGetAssociations(Map.of(), false);
+    assertEquals(response.getStatusCode(), HttpStatus.OK);
+    assertNotNull(response.getBody());
+    assertTrue(response.getBody().getResults().isEmpty());
+  }
+
+  @Test
+  public void testCreateAssociation_NotImplemented() {
+    ResponseEntity<Void> response = controller.createAssociation(Map.of(), null, false);
+    assertEquals(response.getStatusCode(), HttpStatus.NOT_IMPLEMENTED);
+  }
+
+  @Test
+  public void testAssociationsHttpMapping_ResourceNameReturns200EmptyList() throws Exception {
+    mockMvc
+        .perform(
+            get("/schema-registry/api/associations/resources/-/MetadataChangeLog_Versioned_v1")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(content().json("[]"));
+  }
+
+  @Test
+  public void testAssociationsHttpMapping_PlatformEventReturns200EmptyList() throws Exception {
+    mockMvc
+        .perform(
+            get("/schema-registry/api/associations/resources/-/PlatformEvent_v1")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(content().json("[]"));
+  }
+
+  @Test
+  public void testAssociationsHttpMapping_CreateReturns501() throws Exception {
+    mockMvc
+        .perform(
+            post("/schema-registry/api/associations")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isNotImplemented());
   }
 
   @Test

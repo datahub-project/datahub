@@ -120,6 +120,31 @@ public class VertexAiEmbeddingProvider implements EmbeddingProvider {
       @Nonnull final String text,
       @Nullable final String model,
       @Nonnull final EmbeddingTaskType taskType) {
+    return embed(text, model, taskType, MAX_ATTEMPTS, DEFAULT_TIMEOUT);
+  }
+
+  @Override
+  @Nonnull
+  public float[] embed(
+      @Nonnull final String text,
+      @Nullable final String model,
+      @Nonnull final EmbeddingTaskType taskType,
+      @Nonnull final Duration timeout) {
+    return embed(
+        text,
+        model,
+        taskType,
+        1,
+        timeout.compareTo(DEFAULT_TIMEOUT) < 0 ? timeout : DEFAULT_TIMEOUT);
+  }
+
+  @Nonnull
+  private float[] embed(
+      @Nonnull final String text,
+      @Nullable final String model,
+      @Nonnull final EmbeddingTaskType taskType,
+      final int maxAttempts,
+      @Nonnull final Duration attemptTimeout) {
     Objects.requireNonNull(text, "text cannot be null");
     Objects.requireNonNull(taskType, "taskType cannot be null");
 
@@ -129,13 +154,13 @@ public class VertexAiEmbeddingProvider implements EmbeddingProvider {
 
     Exception lastException = null;
 
-    for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
       // Build the request fresh each attempt so retries pick up a refreshed bearer token —
       // GoogleCredentials may rotate the token between attempts.
       HttpRequest request =
           HttpRequest.newBuilder()
               .uri(uri)
-              .timeout(DEFAULT_TIMEOUT)
+              .timeout(attemptTimeout)
               .header("Authorization", "Bearer " + tokenSupplier.get())
               .header("Content-Type", "application/json")
               .POST(HttpRequest.BodyPublishers.ofString(requestBody))
@@ -165,13 +190,13 @@ public class VertexAiEmbeddingProvider implements EmbeddingProvider {
           String msg =
               String.format(
                   "Vertex AI returned %d for model %s (attempt %d/%d)",
-                  status, effectiveModel, attempt, MAX_ATTEMPTS);
-          if (attempt >= MAX_ATTEMPTS) {
+                  status, effectiveModel, attempt, maxAttempts);
+          if (attempt >= maxAttempts) {
             // Preserve last response body so debugging context isn't lost on retry exhaustion.
             throw new RuntimeException(
                 String.format(
                     "Vertex AI call failed after %d attempts: %s, body=%.500s",
-                    MAX_ATTEMPTS, msg, body != null ? body : "(no body)"));
+                    maxAttempts, msg, body != null ? body : "(no body)"));
           }
           log.warn("{}, retrying", msg);
           lastException = new RuntimeException(msg);
@@ -198,13 +223,13 @@ public class VertexAiEmbeddingProvider implements EmbeddingProvider {
             "Vertex AI embedding interrupted for model " + effectiveModel, e);
       } catch (IOException e) {
         lastException = e;
-        if (attempt >= MAX_ATTEMPTS) {
+        if (attempt >= maxAttempts) {
           break;
         }
         log.warn(
             "Vertex AI network error on attempt {}/{} for model {}: {}",
             attempt,
-            MAX_ATTEMPTS,
+            maxAttempts,
             effectiveModel,
             e.getMessage());
         try {
@@ -219,13 +244,13 @@ public class VertexAiEmbeddingProvider implements EmbeddingProvider {
 
     log.error(
         "All {} attempts failed for Vertex AI embedding with model {}",
-        MAX_ATTEMPTS,
+        maxAttempts,
         effectiveModel);
     throw new RuntimeException(
         String.format(
             "Vertex AI call failed for model %s after %d attempts: %s",
             effectiveModel,
-            MAX_ATTEMPTS,
+            maxAttempts,
             lastException != null ? lastException.getMessage() : "unknown error"),
         lastException);
   }

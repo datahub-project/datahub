@@ -116,7 +116,7 @@ public class DomainUtils {
 
   public static void validateDomain(
       @Nonnull OperationContext opContext, Urn domainUrn, EntityService<?> entityService) {
-    if (!entityService.exists(opContext, domainUrn, true)) {
+    if (!existingUrns(opContext, List.of(domainUrn), entityService).contains(domainUrn)) {
       throw new IllegalArgumentException(
           String.format("Failed to validate Domain with urn %s. Urn does not exist.", domainUrn));
     }

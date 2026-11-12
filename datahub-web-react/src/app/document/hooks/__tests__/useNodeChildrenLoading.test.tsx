@@ -1,9 +1,10 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DocumentTreeNode, DocumentTreeProvider, useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useNodeChildrenLoading } from '@app/document/hooks/useNodeChildrenLoading';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
     <DocumentTreeProvider>{children}</DocumentTreeProvider>
@@ -45,6 +46,20 @@ describe('useNodeChildrenLoading', () => {
         expect(loadChildren).toHaveBeenCalledWith('f');
         // The in-flight marker is cleared once the fetch settles.
         expect(result.current.loading.loadingUrns.has('f')).toBe(false);
+    });
+
+    it('does not refetch when children are already loaded', async () => {
+        const { result } = render();
+        act(() => {
+            result.current.tree.addNode(makeNode({ urn: 'f', hasChildren: true, children: [] }));
+        });
+
+        await act(async () => {
+            await result.current.loading.handleToggleExpand('f');
+        });
+
+        expect(result.current.tree.expandedUrns.has('f')).toBe(true);
+        expect(loadChildren).not.toHaveBeenCalled();
     });
 
     it('collapses an already-expanded folder without refetching', async () => {

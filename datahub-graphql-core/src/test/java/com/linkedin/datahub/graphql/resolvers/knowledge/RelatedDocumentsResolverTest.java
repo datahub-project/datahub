@@ -35,8 +35,10 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -218,7 +220,9 @@ public class RelatedDocumentsResolverTest {
     Filter capturedFilter = filterCaptor.getValue();
     assertNotNull(capturedFilter);
     assertNotNull(capturedFilter.getOr());
-    assertEquals(capturedFilter.getOr().size(), 2); // PUBLISHED OR UNPUBLISHED owned
+    // 4 clauses: lifecycle published, lifecycle non-published owned, legacy published, legacy
+    // unpublished owned
+    assertEquals(capturedFilter.getOr().size(), 4);
 
     // Check that relatedAssets filter is in both clauses
     boolean foundRelatedAssetsFilter = false;
@@ -253,9 +257,29 @@ public class RelatedDocumentsResolverTest {
 
     assertNotNull(result);
 
-    // Verify service was called
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
     verify(mockService, times(1))
-        .searchDocuments(any(OperationContext.class), eq("*"), any(), any(), eq(0), eq(10));
+        .searchDocuments(
+            any(OperationContext.class), eq("*"), filterCaptor.capture(), any(), eq(0), eq(10));
+
+    final List<Criterion> criteria = flattenCriteria(filterCaptor.getValue());
+    assertTrue(
+        criteria.stream().noneMatch(c -> "subTypes".equals(c.getField())),
+        "must filter on the ES field typeNames, not the aspect name subTypes");
+    assertTrue(
+        criteria.stream()
+            .anyMatch(
+                c ->
+                    "typeNames".equals(c.getField())
+                        && c.getValues().containsAll(ImmutableList.of("tutorial", "guide"))),
+        "typeNames filter should carry the requested subtypes");
+  }
+
+  private static List<Criterion> flattenCriteria(Filter filter) {
+    return filter.getOr().stream()
+        .filter(conj -> conj.getAnd() != null)
+        .flatMap(conj -> conj.getAnd().stream())
+        .collect(Collectors.toList());
   }
 
   @Test

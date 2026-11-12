@@ -3,11 +3,13 @@ package com.linkedin.gms.factory.telemetry;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.telemetry.MixpanelEventSender;
 import com.datahub.telemetry.TrackingService;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.dao.producer.KafkaUsageEventPublisher;
+import com.linkedin.metadata.dao.producer.context.outbound.OutboundContextResolver;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.UsageEventPublisher;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -59,7 +61,7 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
 
     // Use reflection to access the Mixpanel components
     java.lang.reflect.Field mixpanelAPIField =
-        trackingService.getClass().getDeclaredField("mixpanelAPI");
+        trackingService.getClass().getDeclaredField("mixpanelSender");
     mixpanelAPIField.setAccessible(true);
     Object mixpanelAPI = mixpanelAPIField.get(trackingService);
 
@@ -69,7 +71,7 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     Object mixpanelMessageBuilder = mixpanelMessageBuilderField.get(trackingService);
 
     // Verify that Mixpanel components are null when telemetry is disabled
-    assertNull(mixpanelAPI, "MixpanelAPI should be null when telemetry is disabled");
+    assertNull(mixpanelAPI, "MixpanelEventSender should be null when telemetry is disabled");
     assertNull(
         mixpanelMessageBuilder, "MixpanelMessageBuilder should be null when telemetry is disabled");
 
@@ -100,7 +102,7 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
 
     // Use reflection to access the Mixpanel components
     java.lang.reflect.Field mixpanelAPIField =
-        trackingService.getClass().getDeclaredField("mixpanelAPI");
+        trackingService.getClass().getDeclaredField("mixpanelSender");
     mixpanelAPIField.setAccessible(true);
     Object mixpanelAPI = mixpanelAPIField.get(trackingService);
 
@@ -110,7 +112,8 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     Object mixpanelMessageBuilder = mixpanelMessageBuilderField.get(trackingService);
 
     // Verify that Mixpanel components are initialized when telemetry is enabled
-    assertNotNull(mixpanelAPI, "MixpanelAPI should be initialized when telemetry is enabled");
+    assertNotNull(
+        mixpanelAPI, "MixpanelEventSender should be initialized when telemetry is enabled");
     assertNotNull(
         mixpanelMessageBuilder,
         "MixpanelMessageBuilder should be initialized when telemetry is enabled");
@@ -167,6 +170,12 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     }
 
     @Bean
+    @Qualifier("mixpanelEventSender")
+    public MixpanelEventSender mixpanelEventSender() {
+      return mock(MixpanelEventSender.class);
+    }
+
+    @Bean
     @Qualifier("mixpanelMessageBuilder")
     public MessageBuilder mixpanelMessageBuilder() {
       return mock(MessageBuilder.class);
@@ -201,7 +210,10 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     public UsageEventPublisher dataHubUsageEventProducer(
         @Qualifier("dataHubUsageProducer") Producer<String, String> producer) {
       return new KafkaUsageEventPublisher(
-          producer, mock(KafkaHealthChecker.class), mock(MetricUtils.class));
+          producer,
+          mock(KafkaHealthChecker.class),
+          mock(MetricUtils.class),
+          mock(OutboundContextResolver.class));
     }
   }
 
@@ -245,6 +257,12 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     }
 
     @Bean
+    @Qualifier("mixpanelEventSender")
+    public MixpanelEventSender mixpanelEventSender() {
+      return mock(MixpanelEventSender.class);
+    }
+
+    @Bean
     @Qualifier("mixpanelMessageBuilder")
     public MessageBuilder mixpanelMessageBuilder() {
       return mock(MessageBuilder.class);
@@ -279,7 +297,10 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     public UsageEventPublisher dataHubUsageEventProducer(
         @Qualifier("dataHubUsageProducer") Producer<String, String> producer) {
       return new KafkaUsageEventPublisher(
-          producer, mock(KafkaHealthChecker.class), mock(MetricUtils.class));
+          producer,
+          mock(KafkaHealthChecker.class),
+          mock(MetricUtils.class),
+          mock(OutboundContextResolver.class));
     }
   }
 }

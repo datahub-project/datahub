@@ -1,0 +1,18 @@
+namespace com.linkedin.service
+
+/**
+ * Key for a Service entity.
+ *
+ * A Service represents an external service that can be integrated with DataHub,
+ * such as an MCP server, REST API, or other service types.
+ */
+@Aspect = {
+  "name": "serviceKey"
+}
+record ServiceKey {
+  /**
+   * Unique identifier for this service.
+   * Examples: glean-search, internal-tools, weather-api
+   */
+  id: string
+}

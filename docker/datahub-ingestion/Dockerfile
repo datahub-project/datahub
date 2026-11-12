@@ -2,7 +2,7 @@
 # This image has two variants: full and slim.
 # The full variant has a larger set of ingestion sources, but is a larger image.
 ARG APP_ENV=full
-ARG PYTHON_VERSION=3.10
+ARG PYTHON_VERSION=3.11
 
 # INLINE-BEGIN @/docker/snippets/ingestion_base
 # This is the "base" image workflow.
@@ -44,8 +44,13 @@ RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
 ARG PYTHON_VERSION
 RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
 
+# Cache-bust the apt layer so a cached build cannot keep a stale ca-certificates
+# package. Bump UBUNTU_PKG_REFRESH to force a fresh `apt-get install` whenever base
+# packages need refreshing.
+ARG UBUNTU_PKG_REFRESH=2026-10-27
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    echo "ubuntu pkg refresh: ${UBUNTU_PKG_REFRESH}" && \
     apt-get update && apt-get install -y \
     ca-certificates \
     git \
@@ -68,6 +73,9 @@ RUN uv python install ${PYTHON_VERSION}
 USER datahub
 WORKDIR $HOME
 RUN uv venv --python "$PYTHON_VERSION"
+# Pre-create as datahub so BuildKit cache mounts at $HOME/.cache/uv do not leave
+# the parent root-owned (siblings like puccinialin then hit PermissionError).
+RUN mkdir -p $HOME/.cache
 ENV VIRTUAL_ENV=$HOME/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 
@@ -76,14 +84,16 @@ ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 # uv uses a different mechanism. See https://github.com/astral-sh/uv/issues/1474.
 ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+# gRPC ignores SSL_CERT_FILE and trusts its own bundled roots.pem by default.
+ENV GRPC_DEFAULT_SSL_ROOTS_FILE_PATH="/etc/ssl/certs/ca-certificates.crt"
 
 ARG UV_PROFILE=default
 ARG DEFAULT_INDEX_URL=""
 ARG EXTRA_INDEX_URLS=""
 RUN --mount=type=bind,source=./docker/snippets/uv,target=/tmp/uv-config \
     mkdir -p $HOME/.config/uv && \
-    if [ "${UV_PROFILE}" = "custom" ]; then \
-        DEFAULT_INDEX_URL="${DEFAULT_INDEX_URL}" EXTRA_INDEX_URLS="${EXTRA_INDEX_URLS}" bash /tmp/uv-config/generate-config.sh > $HOME/.config/uv/uv.toml; \
+    if [ "${UV_PROFILE}" = "custom" ] || [ -n "${EXTRA_INDEX_URLS}" ]; then \
+        PROFILES_DIR=/tmp/uv-config/profiles BASE_PROFILE="${UV_PROFILE}" UV_PROFILE="${UV_PROFILE}" DEFAULT_INDEX_URL="${DEFAULT_INDEX_URL}" EXTRA_INDEX_URLS="${EXTRA_INDEX_URLS}" bash /tmp/uv-config/generate-config.sh > $HOME/.config/uv/uv.toml; \
     else \
         cp /tmp/uv-config/profiles/${UV_PROFILE}.toml $HOME/.config/uv/uv.toml; \
     fi
@@ -172,32 +182,28 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 
 FROM add-code-slim AS final-slim
 
-ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
-
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
-    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,s3-slim,gcs-slim,abs-slim,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
     datahub --version
 RUN rm -rf $HOME/.config/uv
 
 FROM add-code-full AS final-full
 
-ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
-
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
-    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     UV_LINK_MODE=copy uv pip install \
-        -e "/metadata-ingestion/[all]" \
+        -e "/metadata-ingestion/[all,datahub-documents,notion,confluence,google-drive]" \
+    && uv pip install pip \
+    && python -m spacy download en_core_web_sm \
     && datahub --version
 RUN rm -rf $HOME/.config/uv
 
 FROM add-code-locked AS final-locked
 
-ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
-
 # Locked variant: minimal install with s3-slim, network will be blocked
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
-    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" && \
     datahub --version
 RUN rm -rf $HOME/.config/uv

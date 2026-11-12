@@ -17,7 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
  *
  * <p>Spark 4 is Scala 2.13 + Java 17 only, so this test lives in its own {@code sparkSmoke4} source
  * set built against {@code spark-sql_2.13:4.0.0} + {@code openlineage-spark_2.13} (OpenLineage
- * 1.50's {@code spark40} integration module) — it cannot share the Scala 2.12 / Spark 3.5 smoke
+ * 1.53's {@code spark40} integration module) — it cannot share the Scala 2.12 / Spark 3.5 smoke
  * suite's classpath.
  *
  * <p>It runs a real local Spark 4 job (CSV read → write) with the {@code DatahubSparkListener}

@@ -1,6 +1,7 @@
 import { EdgeMarkerType } from '@reactflow/core/dist/esm/types/edges';
 import { Edge, Node } from 'reactflow';
 
+import { DataFlowLineageControlData } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
 import { LINEAGE_BOUNDING_BOX_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
 import { LINEAGE_TABLE_EDGE_NAME } from '@app/lineageV3/LineageEdge/LineageTableEdge';
 import { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/LineageEntityNode/LineageEntityNode';
@@ -36,14 +37,16 @@ import { LINEAGE_ARROW_MARKER } from '@app/lineageV3/lineageSVGs';
 
 import { EntityType, LineageDirection } from '@types';
 
-const MAIN_X_SEP_RATIO = 0.5;
-const MAIN_TO_MINI_X_SEP_RATIO = 0.25;
-const MINI_X_SEP_RATIO = 0.125;
-const MAIN_Y_SEP_RATIO = 0.5;
-const MINI_Y_SEP_RATIO = MAIN_Y_SEP_RATIO / 2;
+export const MAIN_X_SEP_RATIO = 0.5;
+export const MAIN_TO_MINI_X_SEP_RATIO = 0.25;
+export const MINI_X_SEP_RATIO = 0.125;
+export const MAIN_Y_SEP_RATIO = 0.5;
+export const MINI_Y_SEP_RATIO = MAIN_Y_SEP_RATIO / 2;
 const TRANSFORMATIONAL_LEAF_OFFSET = 25;
 
-export type LineageVisualizationNode = Node<LineageEntity | LineageFilter | LineageBoundingBox | LineageAnnotationNode>;
+export type LineageVisualizationNode = Node<
+    LineageEntity | LineageFilter | LineageBoundingBox | LineageAnnotationNode | DataFlowLineageControlData
+>;
 type LineageVisualizationEdgeData = LineageTableEdgeData | DataJobInputOutputEdgeData;
 
 export function getNodePriority(node: LineageVisualizationNode) {
@@ -119,6 +122,10 @@ export default class NodeBuilder {
 
     isHorizontal: boolean;
 
+    // If set, layers are computed from the provided `parents` map (requires nodes in topological
+    // order, as in the data flow DAG visualization), rather than via shortest path from the home node
+    useProvidedParents: boolean;
+
     // Must set node layers in rough topological order
     // A node must be preceded by all its min-parents, the parents along the shortest paths from the home node to it
     // TODO: Memoize this min-parent calculation?
@@ -147,14 +154,17 @@ export default class NodeBuilder {
         nodes: LineageNode[],
         parents: Map<string, Set<string>>,
         isHorizontal = true,
+        useProvidedParents = !isHorizontal,
     ) {
         this.homeUrn = rootUrn;
         this.homeType = rootType;
         this.roots = new Set(roots.map((node) => node.urn));
         this.parents = parents;
         this.isHorizontal = isHorizontal;
-        this.nodeHeight = rootType === EntityType.DataFlow ? LINEAGE_NODE_WIDTH : LINEAGE_NODE_HEIGHT;
-        this.nodeWidth = rootType === EntityType.DataFlow ? LINEAGE_NODE_HEIGHT - 10 : LINEAGE_NODE_WIDTH;
+        this.useProvidedParents = useProvidedParents;
+        const isDataJobStack = rootType === EntityType.DataFlow && !isHorizontal;
+        this.nodeHeight = isDataJobStack ? LINEAGE_NODE_WIDTH : LINEAGE_NODE_HEIGHT;
+        this.nodeWidth = isDataJobStack ? LINEAGE_NODE_HEIGHT - 10 : LINEAGE_NODE_WIDTH;
 
         // +15 accounts for column footer
         this.separationNodeHeight = this.nodeHeight + (rootType === EntityType.SchemaField ? 15 : 0);
@@ -331,13 +341,14 @@ export default class NodeBuilder {
             // Exemptions for lineage filter node and queries because they aren't fully in the adjacency list
             // As well as the data flow graph, in which nodes have no direction
             // TODO: Unify into single function + figure out why this.parents doesn't work
-            const parents = this.isHorizontal
-                ? getParents(node, adjacencyList)
-                : Array.from(this.parents.get(node.id) || []);
+            const parents = this.useProvidedParents
+                ? Array.from(this.parents.get(node.id) || [])
+                : getParents(node, adjacencyList);
             const minParentLayer = parents
                 .map<NodeInformation | undefined>((parent) => this.nodeInformation[parent])
                 .filter(
                     (parent) =>
+                        this.useProvidedParents ||
                         this.homeType === EntityType.DataFlow ||
                         node.type === LINEAGE_FILTER_TYPE ||
                         (node.type === EntityType.Query && [node.direction, undefined].includes(parent?.direction)) ||
@@ -376,8 +387,12 @@ export default class NodeBuilder {
         const nextLayerMap = this.#computeLayerPositions();
         this.transformations.forEach((node) => {
             const nextLayer = nextLayerMap.get(this.nodeInformation[node.id].layer || '');
-            if (node.direction) {
-                const children = Array.from(adjacencyList[node.direction].get(node.urn) || []).filter(
+            // The home node has children in both directions and is always placed at y=0, so it
+            // doesn't need its children for positioning
+            if (node.urn !== this.homeUrn) {
+                // Direction-less nodes (e.g. in the data flow DAG or box interiors) flow downstream
+                const direction = node.direction ?? LineageDirection.Downstream;
+                const children = Array.from(adjacencyList[direction].get(node.urn) || []).filter(
                     (child) => !nextLayer || this.nodeInformation[child]?.layer === nextLayer,
                 );
                 this.transformationChildren.set(node.urn, new Set(children));
@@ -475,7 +490,9 @@ export default class NodeBuilder {
                 return;
             }
 
-            const sortedNodes = Array.from(nodes).sort((idA, idB) => goalY[idA] - goalY[idB] || idA.localeCompare(idB));
+            // Stable sort: nodes with the same goal position keep their display (priority) order,
+            // so paginating in more children adds them below their existing siblings
+            const sortedNodes = Array.from(nodes).sort((idA, idB) => goalY[idA] - goalY[idB]);
             const getY = (idx: number): number => {
                 const id = sortedNodes[idx];
                 const val = this.nodeInformation[id].y;

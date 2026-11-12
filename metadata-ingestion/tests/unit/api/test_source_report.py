@@ -1,12 +1,14 @@
 import json
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import SourceReport
+from datahub.metadata.schema_classes import SubTypesClass
 
 
 def test_report_to_string_unsampled():
     source_report: SourceReport = SourceReport()
-    source_report.report_warning("key1", "problem 1")
-    source_report.report_failure("key2", "reason 2")
+    source_report.warning("key1", "problem 1", log=False)
+    source_report.failure("key2", "reason 2")
     str = source_report.as_string()
     assert "'warnings': [{'message': 'key1', 'context': ['problem 1']}]" in str
     assert "'failures': [{'message': 'key2', 'context': ['reason 2']}]" in str
@@ -15,7 +17,7 @@ def test_report_to_string_unsampled():
 def test_report_to_string_sampled():
     source_report = SourceReport()
     for i in range(0, 100):
-        source_report.report_warning(f"key{i}", "Test message")
+        source_report.warning(f"key{i}", "Test message", log=False)
 
     str = source_report.as_string()
     assert "sampled of 100 total elements" in str
@@ -23,3 +25,18 @@ def test_report_to_string_sampled():
     print(str)
     report_as_dict = json.loads(str)
     assert len(report_as_dict["warnings"]) == 11
+
+
+def test_report_accepts_empty_subtypes() -> None:
+    report = SourceReport()
+    try:
+        report.report_workunit(
+            MetadataChangeProposalWrapper(
+                entityUrn="urn:li:document:example",
+                aspect=SubTypesClass(typeNames=[]),
+            ).as_workunit()
+        )
+        report.compute_stats()
+        assert report.aspects_by_subtypes["document"]["unknown"]["subTypes"] == 1
+    finally:
+        report.close()

@@ -18,6 +18,7 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -27,6 +28,7 @@ import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
@@ -34,6 +36,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -499,6 +502,25 @@ public interface EntityClient {
       throws RemoteInvocationException;
 
   /**
+   * Hard delete an entity, then hand back the delete of all references to it, for the caller to run
+   * where it ran {@link #deleteEntityReferences}. The entity delete runs before this returns and
+   * its failure is thrown, so references to an entity that stays are left alone.
+   */
+  @Nonnull
+  default ReferencesCleanup deleteEntityThenReferences(
+      @Nonnull OperationContext opContext, @Nonnull final Urn urn)
+      throws RemoteInvocationException {
+    deleteEntity(opContext, urn);
+    return () -> deleteEntityReferences(opContext, urn);
+  }
+
+  /** The delete of the references to an entity, as {@link #deleteEntityThenReferences} gives it. */
+  @FunctionalInterface
+  interface ReferencesCleanup {
+    void run() throws RemoteInvocationException;
+  }
+
+  /**
    * Filters entities based on a particular Filter and Sort criterion
    *
    * @param entity filter entity
@@ -684,6 +706,10 @@ public interface EntityClient {
         .get(aspectName);
   }
 
+  // Routes through the 4-arg batchGetV2 so SystemEntityClient implementations can intercept
+  // it with a cache. The 5-arg overload bypasses that cache. When alwaysIncludeKeyAspect is
+  // requested, the key aspect is synthesized from the URN after the cached fetch — zero DB
+  // cost, no cache-key pollution, and no contract change on other batchGetV2 callers.
   @Nonnull
   default Map<Urn, Map<String, Aspect>> getLatestAspects(
       @Nonnull OperationContext opContext,
@@ -692,10 +718,26 @@ public interface EntityClient {
       @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
-    return entityResponseToAspectMap(
-        batchGetV2(opContext, entityName, urns, aspectNames, alwaysIncludeKeyAspect));
+    Map<Urn, Map<String, Aspect>> result =
+        entityResponseToAspectMap(batchGetV2(opContext, entityName, urns, aspectNames));
+    if (alwaysIncludeKeyAspect != null && alwaysIncludeKeyAspect) {
+      EntityRegistry registry = opContext.getEntityRegistry();
+      for (Urn urn : urns) {
+        Map<String, Aspect> aspects = result.computeIfAbsent(urn, k -> new HashMap<>());
+        String keyName = opContext.getKeyAspectName(urn);
+        if (!aspects.containsKey(keyName)) {
+          RecordTemplate key = EntityApiUtils.buildKeyAspect(registry, urn);
+          aspects.put(keyName, new Aspect(key.data()));
+        }
+      }
+    }
+    return result;
   }
 
+  // Same cache-routing rationale as getLatestAspects above. When alwaysIncludeKeyAspect is
+  // requested, the call falls through to the uncached 5-arg batchGetV2 because SystemAspect
+  // carries DB metadata (version, createdOn, systemMetadata) that cannot be synthesized from
+  // the URN alone.
   @Nonnull
   default Map<Urn, Map<String, SystemAspect>> getLatestSystemAspect(
       @Nonnull OperationContext opContext,
@@ -704,8 +746,12 @@ public interface EntityClient {
       @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
+    if (alwaysIncludeKeyAspect != null && alwaysIncludeKeyAspect) {
+      return entityResponseToSystemAspectMap(
+          batchGetV2(opContext, entityName, urns, aspectNames, true),
+          opContext.getEntityRegistry());
+    }
     return entityResponseToSystemAspectMap(
-        batchGetV2(opContext, entityName, urns, aspectNames, alwaysIncludeKeyAspect),
-        opContext.getEntityRegistry());
+        batchGetV2(opContext, entityName, urns, aspectNames), opContext.getEntityRegistry());
   }
 }

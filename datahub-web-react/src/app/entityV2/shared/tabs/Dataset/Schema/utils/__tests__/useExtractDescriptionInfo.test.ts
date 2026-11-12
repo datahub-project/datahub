@@ -1,7 +1,6 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import useExtractFieldDescriptionInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldDescriptionInfo';
 import { EditableSchemaMetadata, SchemaField, SchemaFieldDataType } from '@src/types.generated';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 describe('useExtractDescriptionInfo', () => {
     const emptyEditableSchemaMetadata: EditableSchemaMetadata = { editableSchemaFieldInfo: [] };
@@ -33,6 +32,7 @@ describe('useExtractDescriptionInfo', () => {
         mockedGetFieldDescriptionDetails.mockReturnValue({
             displayedDescription: 'testDescription',
             isPropagated: false,
+            isInferred: false,
             sourceDetail: '',
         });
 

@@ -65,6 +65,9 @@ from ..mysql_client import MySQLClient
 
 log = logging.getLogger(__name__)
 
+# Private DATAHUB_REVISION for this phase's sweep — see _find_migrate_result.
+_MIGRATE_REVISION = "326"
+
 
 _DEFAULT_SEED_V1_COUNT = 100
 _DEFAULT_SEED_V4_COUNT = 100
@@ -154,9 +157,7 @@ class SkipAlreadyMigratedSweepPhase(Phase):
         cap.post_sweep_v4_untouched_count = self._count_untouched(v4_urns, v4_snapshot)
 
         try:
-            _, parsed = self._mysql.find_upgrade_result_by_urn_prefix(
-                "migrate-aspects-"
-            )
+            _, parsed = self._find_migrate_result()
             if parsed is not None:
                 cap.final_upgrade_state = parsed.get("state")
         except Exception as exc:
@@ -316,6 +317,14 @@ class SkipAlreadyMigratedSweepPhase(Phase):
             **token_env,
             "ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED": "true",
             "SYSTEM_UPDATE_MIGRATE_ASPECTS_ENABLED": "true",
+            # Give this sweep its own upgrade id so its state/cursor assertions
+            # describe its own job. MigrateAspects ids are
+            # "migrate-aspects-<gitVersion>-<revision>" and the framework controls
+            # only the revision, so a private one separates this sweep from the
+            # boot-time run (revision 0), the upgrade phases (1) and the other
+            # sweeps. Without it MigrateAspectsStep short-circuits on whichever
+            # sweep finished first and left a SUCCEEDED result.
+            "DATAHUB_REVISION": _MIGRATE_REVISION,
             "ASPECT_MIGRATION_MUTATOR_ENABLED": "true",
             # Loads ZduTestMutatorConfiguration so the test-only mutator beans
             # wire into the chain (independent flag from production gate above).
@@ -327,6 +336,22 @@ class SkipAlreadyMigratedSweepPhase(Phase):
             extra_args=["-u", "SystemUpdateNonBlocking"],
             compose_env=compose_env,
             container_name=_CONTAINER_NAME,
+        )
+
+    def _find_migrate_result(self) -> tuple[str | None, dict | None]:
+        """Locate this phase's own ``migrate-aspects-*`` upgrade result.
+
+        Matched by the private ``DATAHUB_REVISION`` this phase runs its sweep
+        under (326). MigrateAspects derives its upgrade id as
+        ``migrate-aspects-<gitVersion>-<revision>``
+        (``NonBlockingConfigs.java``), and the framework knows only the
+        revision half — so the revision is the suffix we match on. Note
+        ``SYSTEM_UPDATE_MIGRATE_ASPECTS_UPGRADE_VERSION`` is NOT a way to do
+        this: no such property exists in application.yaml, so setting it has no
+        effect at all.
+        """
+        return self._mysql.find_upgrade_result_by_urn_prefix_suffix(
+            "migrate-aspects-", f"-{_MIGRATE_REVISION}"
         )
 
     def _fail(self, started_at: datetime, duration_s: float, error: str) -> PhaseResult:

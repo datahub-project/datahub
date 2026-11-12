@@ -42,6 +42,17 @@ class ThoughtSpotReport(StaleEntityRemovalSourceReport):
     num_sql_parser_column_error: int = 0
     sql_parsing_total_sec: float = 0.0
 
+    # Per-reason breakdown for ``_resolve_external_upstream`` returning
+    # ``None``. Previously only the "connection not found" case was
+    # counted (and not even surfaced in the report), so every other
+    # reason a Table's cross-platform lineage failed to resolve was
+    # completely silent — no log line, no counter, no warning. These
+    # make each reason visible in the run report.
+    num_external_lineage_skipped_internal: int = 0
+    num_external_lineage_unresolvable_connection: int = 0
+    num_external_lineage_skipped_unmapped_connection_type: int = 0
+    num_external_lineage_skipped_missing_database: int = 0
+
     # Per-phase wall-clock timers. At 10K-dashboard scale the dominant
     # cost is TML enrichment inside ``liveboard_extraction_time`` —
     # exposing per-phase wall-clock makes that obvious in the run report
@@ -73,3 +84,24 @@ class ThoughtSpotReport(StaleEntityRemovalSourceReport):
     def report_api_error(self) -> None:
         """Increment API error counter."""
         self.api_errors += 1
+
+    def report_external_lineage_skipped_internal(self) -> None:
+        """Table has no federated connection to resolve (in-memory/FALCON/
+        DEFAULT data, or an unrecognized table-level type) — expected, not
+        a failure."""
+        self.num_external_lineage_skipped_internal += 1
+
+    def report_external_lineage_unresolvable_connection(self) -> None:
+        """Table's connection id isn't in the connection lookup (stale
+        reference, deleted connection, or no read access)."""
+        self.num_external_lineage_unresolvable_connection += 1
+
+    def report_external_lineage_skipped_unmapped_connection_type(self) -> None:
+        """Table resolved to a connection whose ``data_source_type`` isn't
+        in the platform map."""
+        self.num_external_lineage_skipped_unmapped_connection_type += 1
+
+    def report_external_lineage_skipped_missing_database(self) -> None:
+        """Table resolved to a known platform but TS didn't return enough
+        physical database/table information to build an upstream URN."""
+        self.num_external_lineage_skipped_missing_database += 1

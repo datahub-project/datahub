@@ -56,8 +56,7 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
               .map(AndFilterInput::getAnd)
               .flatMap(List::stream)
               .collect(Collectors.toList());
-      log.debug(
-          "User {} listing policies with filters {}", context.getActorUrn(), filters.toString());
+      log.debug("User {} listing policies with filters {}", context.getActorUrn(), filters);
 
       final Filter filter = ResolverUtils.buildFilter(facetFilters, Collections.emptyList());
 
@@ -80,6 +79,9 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
   private static List<Policy> mapEntities(
       @Nullable QueryContext context, final List<PolicyFetcher.Policy> policies) {
     return policies.stream()
+        .filter(
+            policy ->
+                !PolicyInfoPolicyMapper.isUnrepresentable(policy.getPolicyInfo(), policy.getUrn()))
         .map(
             policy -> {
               Policy mappedPolicy = PolicyInfoPolicyMapper.map(context, policy.getPolicyInfo());

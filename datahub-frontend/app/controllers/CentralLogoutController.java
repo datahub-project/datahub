@@ -21,6 +21,7 @@ public class CentralLogoutController extends LogoutController {
 
   @Inject private SsoManager ssoManager;
   @Inject private Config config;
+  @Inject private ProxyAdmission proxyAdmission;
 
   private String loginUrl;
   private String logoutPattern;
@@ -52,24 +53,28 @@ public class CentralLogoutController extends LogoutController {
     setLogoutUrlPattern(logoutPattern);
 
     if (ssoManager.isSsoEnabled()) {
-      try {
-        return logout(request).toCompletableFuture().get().withNewSession();
-      } catch (Exception e) {
-        log.error(
-            "Caught exception while attempting to perform SSO logout! It's likely that SSO integration is mis-configured.",
-            e);
+      return ProxyAdmission.admit(
+          proxyAdmission,
+          () -> {
+            try {
+              return logout(request).toCompletableFuture().get().withNewSession();
+            } catch (Exception e) {
+              log.error(
+                  "Caught exception while attempting to perform SSO logout! It's likely that SSO integration is mis-configured.",
+                  e);
 
-        String errorLoginUrl =
-            String.format(
-                "%s?error_msg=%s",
-                loginUrl,
-                URLEncoder.encode(
-                    "Failed to sign out using Single Sign-On provider. Please contact your DataHub Administrator, "
-                        + "or refer to server logs for more information.",
-                    StandardCharsets.UTF_8));
+              String errorLoginUrl =
+                  String.format(
+                      "%s?error_msg=%s",
+                      loginUrl,
+                      URLEncoder.encode(
+                          "Failed to sign out using Single Sign-On provider. Please contact your DataHub Administrator, "
+                              + "or refer to server logs for more information.",
+                          StandardCharsets.UTF_8));
 
-        return redirect(errorLoginUrl).withNewSession();
-      }
+              return redirect(errorLoginUrl).withNewSession();
+            }
+          });
     }
     return Results.redirect(loginUrl).withNewSession();
   }

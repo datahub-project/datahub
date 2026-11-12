@@ -5,6 +5,7 @@ plugins {
 
 apply from: '../../gradle/coverage/java-coverage.gradle'
 apply from: "../../gradle/versioning/versioning.gradle"
+apply from: '../../gradle/testing/boot-test.gradle'
 apply from: "../../gradle/docker/docker.gradle"
 
 ext {
@@ -35,6 +36,8 @@ dependencies {
     implementation externalDependency.log4j2Api
     compileOnly externalDependency.lombok
     implementation externalDependency.logbackClassic
+    implementation externalDependency.janino
+    implementation externalDependency.lokiLogbackAppender
     runtimeOnly externalDependency.opentelemetryExporter
     runtimeOnly externalDependency.openTelemetryExporterLogging
     runtimeOnly externalDependency.openTelemetryExporterCommon

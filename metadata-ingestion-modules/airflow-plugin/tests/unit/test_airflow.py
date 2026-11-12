@@ -1,13 +1,19 @@
 import json
+import logging
 from contextlib import contextmanager
-from typing import Iterator
+from datetime import datetime, timedelta
+from typing import Iterator, List, Optional, Union
 from unittest import mock
 
 import airflow.configuration
 import pytest
+from airflow import DAG
 from airflow.models import Connection, DagBag
+from airflow.sdk import Asset
 
 import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.errors import DataHubDeprecationWarning
 from datahub.ingestion.graph.config import ClientMode
 from datahub_airflow_plugin import get_provider_info
 from datahub_airflow_plugin.entities import Dataset, Urn
@@ -65,7 +71,7 @@ def test_dags_load_with_no_errors(pytestconfig: pytest.Config) -> None:
     )
 
     # Note: the .airflowignore file skips the snowflake DAG.
-    dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
+    dag_bag = DagBag(dag_folder=str(airflow_examples_folder))
 
     import_errors = dag_bag.import_errors
 
@@ -97,7 +103,7 @@ def test_datahub_rest_hook(mock_emitter):
             datahub_component="airflow-plugin",
         )
         instance = mock_emitter.return_value
-        instance.emit.assert_called_with(lineage_mce)
+        instance.emit.assert_called_once_with(next(iter(mcps_from_mce(lineage_mce))))
 
 
 @mock.patch("datahub.emitter.rest_emitter.DataHubRestEmitter", autospec=True)
@@ -117,7 +123,7 @@ def test_datahub_rest_hook_with_timeout(mock_emitter):
             datahub_component="airflow-plugin",
         )
         instance = mock_emitter.return_value
-        instance.emit.assert_called_with(lineage_mce)
+        instance.emit.assert_called_once_with(next(iter(mcps_from_mce(lineage_mce))))
 
 
 @mock.patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter", autospec=True)
@@ -153,6 +159,44 @@ def test_datahub_lineage_operator(mock_emit):
         task.execute({})
 
         mock_emit.assert_called()
+
+
+@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit")
+def test_datahub_emitter_operator_mces_is_deprecated_alias(mock_emit, caplog):
+    mcps = list(mcps_from_mce(lineage_mce))
+    with patch_airflow_connection(datahub_rest_connection_config) as config:
+        assert config.conn_id
+        with pytest.warns(DataHubDeprecationWarning, match="mces="):
+            old = DatahubEmitterOperator(
+                task_id="old", datahub_conn_id=config.conn_id, mces=mcps
+            )
+        # Logged per task run, not on every DAG parse.
+        assert "mces=" not in caplog.text
+        old.execute({})
+        assert "mces=" in caplog.text
+
+        new = DatahubEmitterOperator(
+            task_id="new", datahub_conn_id=config.conn_id, mcps=mcps
+        )
+        new.execute({})
+
+        assert [c.args[0] for c in mock_emit.call_args_list] == [mcps, mcps]
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {},
+        {
+            "mcps": list(mcps_from_mce(lineage_mce)),
+            "mces": [lineage_mce],
+        },
+    ],
+    ids=["neither", "both"],
+)
+def test_datahub_emitter_operator_needs_exactly_one_of_mcps_mces(kwargs):
+    with pytest.raises(ValueError):
+        DatahubEmitterOperator(task_id="t", datahub_conn_id="c", **kwargs)
 
 
 @pytest.mark.parametrize(
@@ -261,6 +305,15 @@ def test_get_base_url_prefers_api_over_webserver():
         ),
         # only webserver set -> webserver fallback
         ({("webserver", "base_url"): "http://web:8080"}, "http://web:8080"),
+        # trailing slashes are stripped so path-prefixed deployments get clean links
+        (
+            {("api", "base_url"): "https://airflow.example.com/airflow/"},
+            "https://airflow.example.com/airflow",
+        ),
+        (
+            {("webserver", "base_url"): "http://web:8080/"},
+            "http://web:8080",
+        ),
         # neither set -> localhost default
         ({}, "http://localhost:8080"),
     ]
@@ -270,6 +323,118 @@ def test_get_base_url_prefers_api_over_webserver():
             side_effect=conf_get(values),
         ):
             assert _get_base_url() == expected
+
+
+@pytest.mark.parametrize(
+    "base_url, expected_url",
+    [
+        ("http://localhost:8080", "http://localhost:8080/dags/example_dag"),
+        (
+            "https://airflow.example.com/airflow/",
+            "https://airflow.example.com/airflow/dags/example_dag",
+        ),
+    ],
+)
+def test_dataflow_url_uses_airflow_dag_route(base_url: str, expected_url: str) -> None:
+    from airflow.sdk import DAG
+
+    from datahub_airflow_plugin._config import get_lineage_config
+    from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
+
+    config = get_lineage_config()
+    dag = DAG(dag_id="example_dag")
+    with mock.patch(
+        "datahub_airflow_plugin.client.airflow_generator.conf.get",
+        side_effect=lambda section, key, fallback=None: (
+            base_url if (section, key) == ("api", "base_url") else fallback
+        ),
+    ):
+        dataflow = AirflowGenerator.generate_dataflow(config, dag)
+
+    assert dataflow.url == expected_url
+
+
+@pytest.mark.parametrize(
+    ["schedule", "expected"],
+    [
+        pytest.param("0 6 * * *", "0 6 * * *", id="cron"),
+        pytest.param("@daily", "0 0 * * *", id="cron-preset"),
+        pytest.param(timedelta(hours=2), "2:00:00", id="timedelta"),
+        pytest.param("@once", "@once", id="once"),
+        pytest.param(None, "None", id="none"),
+        pytest.param([Asset("s3://bucket/key")], "Asset", id="assets"),
+    ],
+)
+def test_generate_dataflow_captures_schedule(
+    schedule: Optional[Union[str, timedelta, List[Asset]]],
+    expected: str,
+) -> None:
+    """The DAG-run hooks emit the DataFlow from a SerializedDAG, which has no
+    `schedule` attribute, while the task hooks emit it from a Task SDK DAG, whose
+    timetable has no `summary` on Airflow 3.2+. Both must produce the same
+    `schedule` property, or the value flips depending on which hook ran last."""
+    from datahub_airflow_plugin._config import get_lineage_config
+    from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
+
+    dag = DAG(
+        dag_id="test_dag_schedule",
+        schedule=schedule,
+        start_date=datetime(2024, 1, 1),
+    )
+    try:
+        # Airflow 3.2+
+        from airflow.serialization.serialized_objects import DagSerialization
+
+        serialized_dag = DagSerialization.from_dict(DagSerialization.to_dict(dag))
+    except ImportError:
+        # Airflow 3.0 and 3.1 keep the (de)serializers on SerializedDAG itself.
+        # mypy checks against 3.2+, where they moved to DagSerialization, hence
+        # the attr-defined ignore.
+        from airflow.serialization.serialized_objects import SerializedDAG
+
+        serialized_dag = SerializedDAG.from_dict(SerializedDAG.to_dict(dag))  # type: ignore[attr-defined]
+
+    config = get_lineage_config()
+    for dag_object in (dag, serialized_dag):
+        properties = AirflowGenerator.generate_dataflow(config, dag_object).properties
+        assert properties["schedule"] == expected
+
+
+def test_generate_dataflow_omits_schedule_for_unregistered_timetable(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A Task SDK timetable that isn't registered as a plugin has no `summary`,
+    and converting it to a core timetable raises TimetableNotRegistered. That
+    must not propagate out of generate_dataflow and drop the DAG's metadata;
+    the `schedule` property is omitted and the failure logged at warning."""
+    try:
+        from airflow.sdk.bases.timetable import BaseTimetable
+    except ImportError:
+        pytest.skip("Task SDK timetables require Airflow 3.2+")
+
+    from datahub_airflow_plugin._config import get_lineage_config
+    from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
+
+    class _Unregistered(BaseTimetable):
+        pass
+
+    dag = DAG(
+        dag_id="test_dag_unregistered_timetable",
+        schedule=_Unregistered(),
+        start_date=datetime(2024, 1, 1),
+    )
+
+    with caplog.at_level(logging.WARNING):
+        properties = AirflowGenerator.generate_dataflow(
+            get_lineage_config(), dag
+        ).properties
+
+    assert "schedule" not in properties
+    assert any(
+        r.levelno == logging.WARNING
+        and "test_dag_unregistered_timetable" in r.getMessage()
+        for r in caplog.records
+    )
 
 
 def test_entities():

@@ -9,6 +9,7 @@ from typing import (
     TYPE_CHECKING,
     Iterable,
     List,
+    Optional,
     Tuple,
 )
 
@@ -18,6 +19,7 @@ from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
+from datahub.ingestion.source.dataplex.dataplex_helpers import ExportedEntry
 from datahub.ingestion.source.dataplex.dataplex_mappers import (
     EntryMappingContext,
     get_entry_mapper,
@@ -63,12 +65,23 @@ class DataplexEntriesReport(Report):
 
     entries_processed: int = 0
     entries_processed_samples: LossyList[str] = field(default_factory=LossyList)
+    # Aspect types dropped from custom properties by aspect_type_pattern (default
+    # deny "datahub-.*"). Surfaces both the intended sync-back filtering and any
+    # native aspect that happened to match the pattern.
+    aspects_filtered: int = 0
+    aspects_filtered_samples: LossyList[str] = field(default_factory=LossyList)
     catalog_api: dict[str, tuple[int, float]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         # Lock protecting all mutable fields when report methods are called from
         # parallel worker threads (Phase 1b of process_entries).
         self._lock: threading.Lock = threading.Lock()
+
+    def report_filtered_aspect(self, aspect_type: str) -> None:
+        """Record one aspect type dropped by ``aspect_type_pattern``."""
+        with self._lock:
+            self.aspects_filtered += 1
+            self.aspects_filtered_samples.append(aspect_type)
 
     def report_catalog_api_call(self, api_name: str, elapsed_seconds: float) -> None:
         """Accumulate per-API call count and total latency in seconds."""
@@ -132,11 +145,13 @@ class DataplexEntriesProcessor:
     def __init__(
         self,
         config: DataplexConfig,
-        catalog_client: dataplex_v1.CatalogServiceClient,
+        catalog_client: Optional[dataplex_v1.CatalogServiceClient],
         report: DataplexEntriesReport,
         source_report: SourceReport,
         ctx: DataplexContext,
     ) -> None:
+        # catalog_client is None in export mode (extraction_method: export),
+        # where entries arrive pre-fetched from GCS via process_exported_entries.
         self.config = config
         self.catalog_client = catalog_client
         self.report = report
@@ -221,6 +236,33 @@ class DataplexEntriesProcessor:
             for location in self.config.entries_locations:
                 yield from self._process_spanner_entries(project_id, location)
 
+    def process_exported_entries(
+        self, entries: Iterable[ExportedEntry]
+    ) -> Iterable["Entity"]:
+        """Build entities from pre-fetched entries (``extraction_method: export``).
+
+        ``entries`` yields ``ExportedEntry`` items parsed from the metadata
+        export's GCS JSONL output. Exported entries already carry full detail
+        (aspects included), so there is no per-entry RPC to parallelise — this
+        is a plain sequential pass through the same filter + mapper pipeline as
+        the API path. Note that ``filter_config.entry_groups.pattern`` does not
+        apply here (the export is scoped by entry type, not entry group); use
+        the entry-level ``pattern`` / ``fqn_pattern`` filters instead.
+        """
+        for exported in entries:
+            entry = exported.entry
+            if not self._report_and_should_process_entry(entry):
+                continue
+            try:
+                yield from self._build_entities_for_entry(entry, exported.location)
+            except Exception as exc:
+                self.source_report.warning(
+                    title="Dataplex entry processing failed",
+                    message="Failed to build entity for exported entry. Skipping.",
+                    context=f"entry_name={entry.name}",
+                    exc=exc,
+                )
+
     def _list_entry_stubs(self, project_id: str, location: str) -> List[str]:
         """Return entry names that pass filters for one project/location pair.
 
@@ -228,6 +270,7 @@ class DataplexEntriesProcessor:
         call ``get_entry``.  Meant to be called sequentially in Phase 1a so
         that the slower ``get_entry`` calls can be parallelised in Phase 1b.
         """
+        assert self.catalog_client is not None, "api extraction requires catalog_client"
         entry_names: List[str] = []
         for entry_group in self.list_entry_groups(project_id, location):
             logger.info(f"Listing entry group {entry_group.name}")
@@ -237,9 +280,8 @@ class DataplexEntriesProcessor:
             if filtered:
                 continue
 
-            request = dataplex_v1.ListEntriesRequest(parent=entry_group.name)
             with PerfTimer() as timer:
-                for entry in self.catalog_client.list_entries(request=request):
+                for entry in self.list_entries(entry_group.name):
                     logger.info(
                         f"Listing entry {entry.name} from group {entry_group.name}"
                     )
@@ -262,15 +304,28 @@ class DataplexEntriesProcessor:
         client (thread-safe) and reports via the lock-protected report methods.
         Raises on failure; callers should catch via ``future.result()``.
         """
-        request = dataplex_v1.GetEntryRequest(
-            name=entry_name,
-            view=dataplex_v1.EntryView.ALL,
-        )
         with PerfTimer() as timer:
-            detailed_entry = self.catalog_client.get_entry(request=request)
+            detailed_entry = self.get_entry(entry_name)
         self.report.report_catalog_api_call("get_entry", timer.elapsed_seconds())
         logger.debug(f"Detailed entry {detailed_entry}")
         return detailed_entry
+
+    def list_entries(self, entry_group_name: str) -> Iterable[dataplex_v1.Entry]:
+        """Every entry in one entry group, unfiltered and unlogged: the
+        request ingestion's listing sends, shared with the probe."""
+        assert self.catalog_client is not None, "api extraction requires catalog_client"
+        request = dataplex_v1.ListEntriesRequest(parent=entry_group_name)
+        return self.catalog_client.list_entries(request=request)
+
+    def get_entry(self, entry_name: str) -> dataplex_v1.Entry:
+        """One entry with its aspects (view=ALL), as ingestion reads it. Logs
+        nothing: the aspect data is the catalog's content."""
+        assert self.catalog_client is not None, "api extraction requires catalog_client"
+        return self.catalog_client.get_entry(
+            request=dataplex_v1.GetEntryRequest(
+                name=entry_name, view=dataplex_v1.EntryView.ALL
+            )
+        )
 
     def _build_entities_for_entry(
         self, entry: dataplex_v1.Entry, location: str
@@ -298,6 +353,7 @@ class DataplexEntriesProcessor:
                 config=self.config,
                 location=location,
                 report=self.source_report,
+                entries_report=self.report,
             ),
         )
         if result is None:
@@ -317,6 +373,8 @@ class DataplexEntriesProcessor:
         if result.main_entity is not None:
             if result.lineage_entry is not None:
                 self._ctx.append_entry(result.lineage_entry)
+            # Unlike lineage_entry, registered for Container entities too.
+            self._ctx.register_entry_urn(entry.name, result.main_entity.urn.urn())
             results.append(result.main_entity)
 
         return results
@@ -336,6 +394,7 @@ class DataplexEntriesProcessor:
         ``get_entry(view=ALL)`` call is made per entry to fetch full detail
         including schema aspects.
         """
+        assert self.catalog_client is not None, "api extraction requires catalog_client"
         logger.info(
             f"SearchEntries spanner for project={project_id} location={location}"
         )
@@ -386,6 +445,7 @@ class DataplexEntriesProcessor:
         self, project_id: str, location: str
     ) -> Iterable[dataplex_v1.EntryGroup]:
         """List entry groups for a ``(project_id, location)`` pair."""
+        assert self.catalog_client is not None, "api extraction requires catalog_client"
         parent = f"projects/{project_id}/locations/{location}"
         request = dataplex_v1.ListEntryGroupsRequest(parent=parent)
         with PerfTimer() as timer:

@@ -1,0 +1,23 @@
+# Vendored verbatim (below this header) from the Open Data Contract Standard
+# repository, tag v3.1.0: docs/examples/schema/table-column.odcs.yaml
+# https://github.com/bitol-io/open-data-contract-standard (Apache-2.0; see /NOTICE)
+version: 1.0.0
+kind: DataContract
+id: 53581432-6c55-4ba2-a65f-72344a91553b
+status: active
+name: my_table
+dataProduct: my_quantum
+apiVersion: v3.0.2
+schema:
+  - name: tbl
+    physicalType: table
+    properties:
+    - name: rcvr_cntry_code
+      businessName: Receiver country code
+      logicalType: string
+      physicalType: varchar(2)
+      authoritativeDefinitions:
+        - url: https://collibra.com/asset/748f-71a5-4ab1-bda4-8c25
+          type: Business definition
+        - url: https://github.com/myorg/myrepo
+          type: Reference implementation

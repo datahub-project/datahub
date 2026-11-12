@@ -31,7 +31,9 @@ GROUP_PLUGINS_ENV_PREFIX = "BUNDLED_VENV_PLUGINS_"
 # aligned with BUNDLED_VENV_PLUGINS_<same>).
 GROUP_AUX_PRIMARY_ENV_PREFIX = "BUNDLED_VENV_AUX_PRIMARY_"
 
-# Plugins with PySpark-heavy extras — use -slim in slim mode (matches executor image builds).
+# Plugins that expose a -slim extra — use it in slim mode (matches executor image builds).
+# Since profiling became pure-Python, s3-slim/gcs-slim are aliases of the full extras and
+# only abs-slim still differs (it omits the profiler).
 PLUGINS_WITH_SLIM_VARIANT = ["s3", "gcs", "abs"]
 
 # Additional extras to install for specific plugins beyond the standard set.

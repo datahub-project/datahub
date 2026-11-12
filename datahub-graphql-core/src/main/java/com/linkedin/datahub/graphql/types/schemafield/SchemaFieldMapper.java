@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.datahub.graphql.types.businessattribute.mappers.BusinessAttributesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.AiContextMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DocumentationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -20,11 +21,13 @@ import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.semanticmodel.mappers.SemanticFieldAnnotationMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.logical.LogicalParent;
+import com.linkedin.semanticmodel.SemanticFieldAnnotation;
 import com.linkedin.structured.StructuredProperties;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -43,6 +46,8 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
   public SchemaFieldEntity apply(
       @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
     Urn entityUrn = entityResponse.getUrn();
+    // A parent of an entity type GraphQL can't map (e.g. added by a newer version before a
+    // rollback) leaves `parent` unset.
     final SchemaFieldEntity result = this.mapSchemaFieldUrn(context, entityUrn);
 
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
@@ -88,6 +93,16 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
                         logicalParent ->
                             UrnToEntityMapper.map(context, logicalParent.getDestinationUrn()))
                     .orElse(null)));
+    mappingHelper.mapToResult(
+        SEMANTIC_FIELD_ANNOTATION_ASPECT_NAME,
+        (schemaField, dataMap) ->
+            schemaField.setSemanticFieldAnnotation(
+                SemanticFieldAnnotationMapper.map(new SemanticFieldAnnotation(dataMap))));
+    mappingHelper.mapToResult(
+        AI_CONTEXT_ASPECT_NAME,
+        (schemaField, dataMap) ->
+            schemaField.setAiContext(
+                AiContextMapper.map(new com.linkedin.common.AiContext(dataMap))));
 
     return result;
   }

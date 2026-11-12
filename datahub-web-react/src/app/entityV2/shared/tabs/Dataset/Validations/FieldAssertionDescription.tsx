@@ -2,14 +2,12 @@ import { Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import i18next from 'i18next';
 import React from 'react';
-import { Trans } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import {
     getFieldDescription,
-    getFieldOperatorDescription,
-    getFieldParametersDescription,
-    getFieldTransformDescription,
+    getFieldDescriptionDescriptor,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/fieldDescriptionUtils';
 
 import { FieldAssertionInfo } from '@types';
@@ -19,6 +17,7 @@ type Props = {
     showColumnTag?: boolean;
     // use below description which is present in assertion info object to decide whether to show description or generate dynamic one
     assertionDescription?: Maybe<string>;
+    ellipsis?: boolean;
 };
 
 const StyledDescrptionContainer = styled.div`
@@ -54,29 +53,32 @@ const renderFallbackDescription = (field: string | null | undefined) => (
     />
 );
 
-export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assertionDescription }: Props) => {
+export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assertionDescription, ellipsis }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const field = getFieldDescription(assertionInfo);
     let descriptionContent: React.ReactNode = assertionDescription;
 
-    /* eslint-disable i18next/no-literal-string -- (untranslated-text) Inline prepositions and labels ('of', 'column', 'Values') assembled
-       into description sentence; word order differs by language */
     if (!assertionDescription) {
         try {
-            const transform = getFieldTransformDescription(assertionInfo);
-            // Do not pluralize if this is a metric assertion since you're checking one metric, not multiple values
-            const operator = getFieldOperatorDescription({ assertionInfo, isPlural: showColumnTag && !transform });
-            const parameters = getFieldParametersDescription(assertionInfo);
+            const descriptor = getFieldDescriptionDescriptor(assertionInfo, {
+                showColumnTag,
+            });
             descriptionContent = (
-                <>
-                    {transform}
-                    {transform ? ' of ' : ''}
-                    {showColumnTag ? (
-                        (transform && 'column') || 'Values'
-                    ) : (
-                        <Typography.Text style={{ fontWeight: 'bold' }}>{field}</Typography.Text>
-                    )}{' '}
-                    {operator} {parameters}
-                </>
+                <Trans
+                    t={t}
+                    i18nKey={`fieldDescription.${descriptor.shape}.${descriptor.operatorKey}`}
+                    values={{
+                        field: descriptor.field,
+                        transform: descriptor.transformLabelKey ? t(descriptor.transformLabelKey) : '',
+                        metric: descriptor.metricLabelKey ? t(descriptor.metricLabelKey) : '',
+                        value: descriptor.tokens.value,
+                        minValue: descriptor.tokens.minValue,
+                        maxValue: descriptor.tokens.maxValue,
+                    }}
+                    components={{
+                        bold: <Typography.Text style={{ fontWeight: 'bold' }} />,
+                    }}
+                />
             );
         } catch (e) {
             // Helpers throw on unsupported enum values (e.g. operator = _NATIVE_ from external
@@ -85,11 +87,10 @@ export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assert
             descriptionContent = renderFallbackDescription(field);
         }
     }
-    /* eslint-enable i18next/no-literal-string */
 
     return (
         <StyledDescrptionContainer>
-            <Typography.Text>{descriptionContent}</Typography.Text>
+            <Typography.Text ellipsis={ellipsis ? { tooltip: true } : undefined}>{descriptionContent}</Typography.Text>
             {showColumnTag && <StyledColumnTag>{field}</StyledColumnTag>}
         </StyledDescrptionContainer>
     );

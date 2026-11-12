@@ -42,8 +42,10 @@ describe('getFieldDescriptionDetails', () => {
 
             expect(result.displayedDescription).toBe('');
             expect(result.isPropagated).toBe(false);
+            expect(result.isInferred).toBe(false);
             expect(result.sourceDetail).toBeUndefined();
             expect(result.propagatedDescription).toBeUndefined();
+            expect(result.inferredDescription).toBeUndefined();
             expect(result.attribution).toBeUndefined();
         });
 
@@ -54,6 +56,7 @@ describe('getFieldDescriptionDetails', () => {
 
             expect(result.displayedDescription).toBe('Default description');
             expect(result.isPropagated).toBe(false);
+            expect(result.isInferred).toBe(false);
         });
 
         it('handles null schemaFieldEntity', () => {
@@ -64,6 +67,7 @@ describe('getFieldDescriptionDetails', () => {
 
             expect(result.displayedDescription).toBe('Default description');
             expect(result.isPropagated).toBe(false);
+            expect(result.isInferred).toBe(false);
         });
     });
 
@@ -80,6 +84,7 @@ describe('getFieldDescriptionDetails', () => {
 
             expect(result.displayedDescription).toBe('Editable description');
             expect(result.isPropagated).toBe(false);
+            expect(result.isInferred).toBe(false);
         });
 
         it('uses defaultDescription when editableFieldInfo is not provided', () => {
@@ -92,6 +97,7 @@ describe('getFieldDescriptionDetails', () => {
 
             expect(result.displayedDescription).toBe('Default description');
             expect(result.isPropagated).toBe(false);
+            expect(result.isInferred).toBe(false);
         });
 
         it('uses documentation when editableFieldInfo and defaultDescription are not provided', () => {
@@ -103,6 +109,7 @@ describe('getFieldDescriptionDetails', () => {
 
             expect(result.displayedDescription).toBe('Documentation text');
             expect(result.isPropagated).toBe(false);
+            expect(result.isInferred).toBe(false);
         });
 
         it('prioritizes defaultDescription over documentation', () => {
@@ -152,6 +159,73 @@ describe('getFieldDescriptionDetails', () => {
             });
 
             expect(result.displayedDescription).toBe('Doc with time');
+        });
+    });
+
+    describe('inferred documentation', () => {
+        it('filters out inferred documentation when enableInferredDescriptions is false', () => {
+            const schemaFieldEntity = createMockSchemaFieldEntity([
+                createMockDocumentation('Inferred doc', 200, [{ key: 'inferred', value: 'true' }]),
+                createMockDocumentation('Regular doc', 100, [{ key: 'inferred', value: 'false' }]),
+            ]);
+
+            const result = getFieldDescriptionDetails({
+                schemaFieldEntity,
+                enableInferredDescriptions: false,
+            });
+
+            expect(result.displayedDescription).toBe('Regular doc');
+            expect(result.isInferred).toBe(false);
+        });
+
+        it('includes inferred documentation when enableInferredDescriptions is true', () => {
+            const schemaFieldEntity = createMockSchemaFieldEntity([
+                createMockDocumentation('Inferred doc', 200, [{ key: 'inferred', value: 'true' }]),
+                createMockDocumentation('Regular doc', 100, [{ key: 'inferred', value: 'false' }]),
+            ]);
+
+            const result = getFieldDescriptionDetails({
+                schemaFieldEntity,
+                enableInferredDescriptions: true,
+            });
+
+            expect(result.displayedDescription).toBe('Inferred doc');
+            expect(result.isInferred).toBe(true);
+            expect(result.inferredDescription).toBe('Inferred doc');
+        });
+
+        it('defaults to including inferred documentation when enableInferredDescriptions is undefined', () => {
+            const schemaFieldEntity = createMockSchemaFieldEntity([
+                createMockDocumentation('Inferred doc', 200, [{ key: 'inferred', value: 'true' }]),
+            ]);
+
+            const result = getFieldDescriptionDetails({
+                schemaFieldEntity,
+                editableFieldInfo: undefined,
+                defaultDescription: undefined,
+                enableInferredDescriptions: true,
+            });
+
+            expect(result.displayedDescription).toBe('Inferred doc');
+            expect(result.isInferred).toBe(true);
+            expect(result.inferredDescription).toBe('Inferred doc');
+        });
+
+        it('does not mark as inferred when documentation is not using documentation aspect', () => {
+            const schemaFieldEntity = createMockSchemaFieldEntity([
+                createMockDocumentation('Inferred doc', 200, [{ key: 'inferred', value: 'true' }]),
+            ]);
+            const editableFieldInfo = createMockEditableFieldInfo('Editable description');
+
+            const result = getFieldDescriptionDetails({
+                schemaFieldEntity,
+                editableFieldInfo,
+                enableInferredDescriptions: true,
+            });
+
+            expect(result.displayedDescription).toBe('Editable description');
+            expect(result.isInferred).toBe(false);
+            expect(result.inferredDescription).toBeUndefined();
         });
     });
 
@@ -242,6 +316,7 @@ describe('getFieldDescriptionDetails', () => {
 
             expect(result.displayedDescription).toBe('Default description');
             expect(result.isPropagated).toBe(false);
+            expect(result.isInferred).toBe(false);
         });
 
         it('handles missing documentation field', () => {
@@ -273,6 +348,7 @@ describe('getFieldDescriptionDetails', () => {
 
             expect(result.displayedDescription).toBe('Doc without attribution');
             expect(result.isPropagated).toBe(false);
+            expect(result.isInferred).toBe(false);
             expect(result.attribution).toBeUndefined();
         });
 
@@ -293,6 +369,7 @@ describe('getFieldDescriptionDetails', () => {
 
             expect(result.displayedDescription).toBe('Doc without sourceDetail');
             expect(result.isPropagated).toBe(false);
+            expect(result.isInferred).toBe(false);
             expect(result.sourceDetail).toBeUndefined();
         });
 
@@ -325,11 +402,15 @@ describe('getFieldDescriptionDetails', () => {
     describe('return object completeness', () => {
         it('returns all expected properties', () => {
             const schemaFieldEntity = createMockSchemaFieldEntity([
-                createMockDocumentation('Test doc', 100, [{ key: 'propagated', value: 'true' }]),
+                createMockDocumentation('Test doc', 100, [
+                    { key: 'propagated', value: 'true' },
+                    { key: 'inferred', value: 'true' },
+                ]),
             ]);
 
             const result = getFieldDescriptionDetails({
                 schemaFieldEntity,
+                enableInferredDescriptions: true,
             });
 
             expect(result).toHaveProperty('displayedDescription');
@@ -339,6 +420,7 @@ describe('getFieldDescriptionDetails', () => {
             expect(result).toHaveProperty('sourceDetail');
             expect(result).toHaveProperty('uiAuthoredDescription');
             expect(result).toHaveProperty('propagatedDescription');
+            expect(result).toHaveProperty('inferredDescription');
             expect(result).toHaveProperty('attribution');
         });
 

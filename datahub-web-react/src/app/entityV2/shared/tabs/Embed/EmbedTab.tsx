@@ -3,7 +3,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
+import { safeUrl } from '@utils/urlUtils';
 
 const EmbedContainer = styled.div`
     width: 100%;
@@ -27,9 +28,9 @@ export const EmbedTab = () => {
     const embedRenderUrl = entityData?.embed?.renderUrl;
     return (
         <EmbedContainer>
-            {(embedRenderUrl && <StyledIframe src={embedRenderUrl} title={entityData?.urn} frameBorder={0} />) || (
-                <StyledEmpty description={t('embed.noPreview')} />
-            )}
+            {(embedRenderUrl && (
+                <StyledIframe src={safeUrl(embedRenderUrl)} title={entityData?.urn} frameBorder={0} />
+            )) || <StyledEmpty description={t('embed.noPreview')} />}
         </EmbedContainer>
     );
 };

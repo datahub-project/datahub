@@ -22,6 +22,7 @@ public final class GraphqlUsageCoverageClassifier {
     this.registry = registry;
   }
 
+  /** Builds a classifier from OSS {@code usage_operations.yaml}. */
   @Nonnull
   public static GraphqlUsageCoverageClassifier fromBundledYaml(
       @Nonnull UsageOperationsLoader loader) {

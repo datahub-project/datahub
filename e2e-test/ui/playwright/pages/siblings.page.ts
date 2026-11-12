@@ -14,7 +14,6 @@ export class SiblingsPage extends BasePage {
   private addTermsButton: Locator;
   private searchResults: Locator;
   private mergedIndicator: Locator;
-  private termAddedToast: Locator;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
@@ -28,7 +27,6 @@ export class SiblingsPage extends BasePage {
     this.modalConfirmButton = page.getByTestId('modal-confirm-button');
     this.searchResults = page.getByTestId('search-result-item');
     this.mergedIndicator = this.entityHeader.getByText('&');
-    this.termAddedToast = page.getByText(/Added Terms/i);
   }
 
   // ── Private helper methods ────────────────────────────────────────────────
@@ -37,12 +35,12 @@ export class SiblingsPage extends BasePage {
     return this.entityHeader.getByTestId(`platform-icon-${platform.toLowerCase()}`);
   }
 
-  private getSearchResultPlatformIcon(platform: string): Locator {
-    return this.page.getByTestId(`platform-icon-${platform.toLowerCase()}`);
-  }
-
   private getTermOption(termName: string): Locator {
     return this.page.getByTestId(`tag-term-option-${termName}`);
+  }
+
+  private getSelectedTermPill(termName: string): Locator {
+    return this.page.getByTestId(`selected-${termName}`);
   }
 
   private getRemoveTermButton(termName: string): Locator {
@@ -116,11 +114,18 @@ export class SiblingsPage extends BasePage {
   }
 
   async verifySingleSearchResult(datasetName: string, platforms: string[]): Promise<void> {
-    await expect(this.searchResults).toHaveCount(1);
-    await expect(this.searchResults.getByText(datasetName)).toBeVisible();
+    // Match the result title (not any card text) so incidental mentions do not
+    // inflate the count. Search cards render logos as <img alt="...">, not
+    // entity-profile platform-icon-* test ids.
+    const result = this.searchResults.filter({
+      has: this.page.getByTestId('entity-title').getByText(datasetName, { exact: true }),
+    });
+    await expect(result).toHaveCount(1, { timeout: TIMEOUTS.LONG });
 
     for (const platform of platforms) {
-      await expect(this.getSearchResultPlatformIcon(platform)).toBeVisible();
+      await expect(result.getByRole('img', { name: new RegExp(platform, 'i') })).toBeVisible({
+        timeout: TIMEOUTS.MEDIUM,
+      });
     }
   }
 
@@ -131,7 +136,7 @@ export class SiblingsPage extends BasePage {
   }
 
   async verifyTermAddedToast(): Promise<void> {
-    await expect(this.termAddedToast).toBeVisible();
+    await this.toast.expectVisible(/Added Terms/i);
   }
 
   // ── Interaction methods ───────────────────────────────────────────────────
@@ -140,19 +145,25 @@ export class SiblingsPage extends BasePage {
     await this.addTermsButton.click();
     await this.tagTermModalTrigger.click();
     await this.tagTermInput.waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     await this.tagTermInput.click();
     await this.tagTermInput.fill(termName);
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     const termOption = this.getTermOption(termName);
     await termOption.waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
     await termOption.scrollIntoViewIfNeeded();
-    await termOption.click({ force: true });
+    // A forced click skips the wait for the dropdown to settle and can be dropped while the
+    // search results re-render. Retry until the selected-term pill shows; clicking an option
+    // that is already selected would deselect it, so only click while the pill is absent.
+    const selectedPill = this.getSelectedTermPill(termName);
+    await expect(async () => {
+      if (!(await selectedPill.isVisible())) {
+        await termOption.click({ force: true });
+      }
+      await expect(selectedPill).toBeVisible({ timeout: TIMEOUTS.SHORT });
+    }).toPass({ timeout: TIMEOUTS.EXTRA_LONG });
 
     await this.tagTermModalTrigger.click();
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
     await this.addTagTermConfirmButton.click();
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }

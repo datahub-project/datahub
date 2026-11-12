@@ -1,25 +1,23 @@
 import { useLocation } from 'react-router-dom';
 
-import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from '@app/entity/dataset/profile/schema/utils/constants';
+import { getFieldPathFromSchemaFieldUrn } from '@app/entityV2/schemaField/utils';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType } from '@types';
 
-export function downgradeV2FieldPath(fieldPath: string): string;
-export function downgradeV2FieldPath(fieldPath?: string | null) {
-    if (!fieldPath) {
-        return fieldPath;
+export function processDocumentationString(docString): string {
+    if (!docString) {
+        return '';
     }
+    const fieldRegex = /'(\[version=2\.0\](?:\.\[key=True\])?\.\[type=[^\]]+\]\.[^']+)'/g;
+    return docString.replace(fieldRegex, (_, fieldPath) => `'${downgradeV2FieldPath(fieldPath)}'`);
+}
 
-    const cleanedFieldPath = fieldPath.replace(KEY_SCHEMA_PREFIX, '').replace(VERSION_PREFIX, '');
-
-    // strip out all annotation segments
-    return cleanedFieldPath
-        .split('.')
-        .map((segment) => (segment.startsWith('[') ? null : segment))
-        .filter(Boolean)
-        .join('.');
+export function getV1FieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
+    return downgradeV2FieldPath(getFieldPathFromSchemaFieldUrn(schemaFieldUrn)) as string;
 }
 
 export function getEntityTypeFromEntityUrn(urn: string, registry: EntityRegistry): EntityType | undefined {
@@ -33,7 +31,7 @@ export function getLineageUrl(
     location: ReturnType<typeof useLocation>,
     entityRegistry: EntityRegistry,
 ) {
-    return `${entityRegistry.getEntityUrl(type, urn)}/Lineage${location.search}`;
+    return `${entityRegistry.getEntityUrl(type, urn)}/${EntityTabPath.LINEAGE}${location.search}`;
 }
 
 export function useGetLineageUrl(urn?: string, type?: EntityType) {

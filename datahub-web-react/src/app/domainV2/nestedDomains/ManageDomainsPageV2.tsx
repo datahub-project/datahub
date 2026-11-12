@@ -16,13 +16,14 @@ import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 const PageWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => props.theme.colors.bg};
     flex: 1;
+    height: 100%;
     display: flex;
     flex-direction: column;
     overflow: hidden;
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     margin-left: ${(props) => (props.$isShowNavBarRedesign ? '0' : '12px')};
-    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.colors.shadowNavbar};`}
+    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.colors.shadowSm};`}
 `;
 
 const Header = styled.div`

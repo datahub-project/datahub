@@ -6,7 +6,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -76,8 +76,8 @@ class ExcelSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         "For example to allow the worksheet Sheet1 from file report.xlsx, use the pattern: 'report.Sheet1'.",
     )
 
-    profiling: GEProfilingConfig = Field(
-        default=GEProfilingConfig(),
+    profiling: ProfilingConfig = Field(
+        default=ProfilingConfig(),
         description="Configuration for profiling",
     )
 
