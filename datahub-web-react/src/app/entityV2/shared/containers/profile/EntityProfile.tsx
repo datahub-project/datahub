@@ -317,12 +317,11 @@ export const EntityProfile = <T, U>({
             },
         })) || [];
 
-    // Tabs contributed by micro frontends placed in the `entity.detail.tab` slot (see mfeframework/slots).
-    const mfeTabs = useMFEEntityTabs(entityType);
+    // Host tabs plus those contributed by micro frontends placed in the `entity.detail.tab` slot, each at the
+    // position its `placement.after` asks for (see mfeframework/slots).
+    const allTabs = useMFEEntityTabs(entityType, [...tabsWithDefaults, ...autoRenderTabs]);
 
-    const visibleTabs = [...tabsWithDefaults, ...autoRenderTabs, ...mfeTabs].filter((tab) =>
-        tab.display?.visible(entityData, dataPossiblyCombinedWithSiblings),
-    );
+    const visibleTabs = allTabs.filter((tab) => tab.display?.visible(entityData, dataPossiblyCombinedWithSiblings));
 
     const enabledAndVisibleTabs = visibleTabs.filter((tab) =>
         tab.display?.enabled(entityData, dataPossiblyCombinedWithSiblings),

@@ -1,6 +1,14 @@
 import type { MFEConfig } from '@app/mfeframework/mfeConfigLoader';
 import { getPlacement } from '@app/mfeframework/slots/slotPlacement';
-import { EntityDetailTabContextV1, MFESlotId, NavPageContextV1, SlotContext } from '@app/mfeframework/slots/slotTypes';
+import {
+    EntityDetailTabContextV1,
+    EntityRegionContextV1,
+    EntityRegionSlotId,
+    MFESlotId,
+    NavPageContextV1,
+    SchemaFieldDrawerContextV1,
+    SlotContext,
+} from '@app/mfeframework/slots/slotTypes';
 
 /**
  * Everything the host can offer a slot context builder. Each builder takes only what its slot's
@@ -13,6 +21,8 @@ export type SlotContextBuilderArgs = {
     entityType?: string;
     /** The authenticated viewer, when known. */
     principal?: { user: string };
+    /** The column a field-scoped slot is showing (schemaField.drawer.section only). */
+    fieldPath?: string;
 };
 
 /** Returns `null` when the host lacks something the contract requires, so the MFE is not mounted. */
@@ -41,6 +51,36 @@ function buildEntityDetailTabContextV1({
     };
 }
 
+function buildEntityRegionContextV1(
+    slot: EntityRegionSlotId,
+): (args: SlotContextBuilderArgs) => EntityRegionContextV1 | null {
+    return ({ urn, entityType, principal }) => {
+        if (!urn || !entityType) return null;
+        return {
+            slot,
+            contractVersion: '1.0.0',
+            entity: { urn, type: entityType },
+            ...(principal ? { principal } : {}),
+        };
+    };
+}
+
+function buildSchemaFieldDrawerContextV1({
+    urn,
+    entityType,
+    principal,
+    fieldPath,
+}: SlotContextBuilderArgs): SchemaFieldDrawerContextV1 | null {
+    if (!urn || !entityType || !fieldPath) return null;
+    return {
+        slot: 'schemaField.drawer.section',
+        contractVersion: '1.0.0',
+        entity: { urn, type: entityType },
+        field: { fieldPath },
+        ...(principal ? { principal } : {}),
+    };
+}
+
 /**
  * The context shapes this host can produce, keyed by `placement.contractVersion` then by slot.
  *
@@ -53,6 +93,10 @@ export const SLOT_CONTEXT_BUILDERS: Record<string, Partial<Record<MFESlotId, Slo
     '1.0.0': {
         'nav.page': buildNavPageContextV1,
         'entity.detail.tab': buildEntityDetailTabContextV1,
+        'entity.summary.top': buildEntityRegionContextV1('entity.summary.top'),
+        'entity.summary.bottom': buildEntityRegionContextV1('entity.summary.bottom'),
+        'entity.sidebar.section': buildEntityRegionContextV1('entity.sidebar.section'),
+        'schemaField.drawer.section': buildSchemaFieldDrawerContextV1,
     },
 };
 

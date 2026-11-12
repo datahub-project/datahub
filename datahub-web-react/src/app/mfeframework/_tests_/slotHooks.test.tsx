@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { UserContext } from '@app/context/userContext';
 import { EntityContext } from '@app/entityV2/shared/EntityContext';
+import { EntitySidebarSection, EntityTab } from '@app/entityV2/shared/types';
 import { MFEConfigContext } from '@app/mfeframework/MFEConfigContext';
 import MFEConfigProvider from '@app/mfeframework/MFEConfigProvider';
 import { MFEBaseConfigurablePage, MFEMount } from '@app/mfeframework/MFEConfigurableContainer';
@@ -18,10 +19,12 @@ import {
     useMFEConfigFetch,
 } from '@app/mfeframework/mfeConfigLoader';
 import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeNavBarMenuUtils';
+import MFEEntityRegion from '@app/mfeframework/slots/MFEEntityRegion';
 import MFEEntityTab from '@app/mfeframework/slots/MFEEntityTab';
 import { buildSlotContext } from '@app/mfeframework/slots/slotContextBuilders';
 import { DEFAULT_SLOT_CONTRACT_VERSION, isMFESlotId } from '@app/mfeframework/slots/slotTypes';
-import { useMFEEntityTabs } from '@app/mfeframework/slots/useMFEEntityTabs';
+import { insertSlotTabs, useMFEEntityTabs } from '@app/mfeframework/slots/useMFEEntityTabs';
+import { useMFESidebarSections } from '@app/mfeframework/slots/useMFESidebarSections';
 import { useResolveSlot } from '@app/mfeframework/slots/useResolveSlot';
 import * as navBarHooks from '@app/useShowNavBarRedesign';
 
@@ -513,5 +516,190 @@ microFrontends:
         });
         expect(mountFn).not.toHaveBeenCalled();
         expect(screen.queryByTestId('mfe-configurable-container')).toBeNull();
+    });
+});
+
+describe('slot tab position (placement.after)', () => {
+    const tab = (path: string) => ({ path, name: path, component: () => null }) as EntityTab;
+    const host = [tab('Summary'), tab('Columns'), tab('Lineage')];
+    const paths = (tabs: EntityTab[]) => tabs.map((t) => t.path);
+
+    it('places a tab right after the named host tab, matching its path case-insensitively', () => {
+        expect(paths(insertSlotTabs(host, [{ tab: tab('mfe-a'), after: 'summary' }]))).toEqual([
+            'Summary',
+            'mfe-a',
+            'Columns',
+            'Lineage',
+        ]);
+    });
+
+    it('keeps config order for several tabs after the same target', () => {
+        const placed = insertSlotTabs(host, [
+            { tab: tab('mfe-a'), after: 'Summary' },
+            { tab: tab('mfe-b'), after: 'Summary' },
+        ]);
+        expect(paths(placed)).toEqual(['Summary', 'mfe-a', 'mfe-b', 'Columns', 'Lineage']);
+    });
+
+    it('appends a tab with no target, or with a target the page does not have', () => {
+        const placed = insertSlotTabs(host, [{ tab: tab('mfe-a'), after: 'NoSuchTab' }, { tab: tab('mfe-b') }]);
+        expect(paths(placed)).toEqual(['Summary', 'Columns', 'Lineage', 'mfe-a', 'mfe-b']);
+    });
+
+    it('useMFEEntityTabs merges slot tabs into the host tabs at their configured position', () => {
+        const positioned: MFESchema = {
+            ...SCHEMA,
+            microFrontends: [{ ...TAB, placement: { ...TAB.placement!, after: 'Columns' } }],
+        };
+        const positionedWrapper = ({ children }: { children: React.ReactNode }) => (
+            <MFEConfigContext.Provider value={{ provided: true, config: positioned, loading: false }}>
+                {children}
+            </MFEConfigContext.Provider>
+        );
+        const { result } = renderHook(() => useMFEEntityTabs('DATASET', host), { wrapper: positionedWrapper });
+        expect(paths(result.current)).toEqual(['Summary', 'Columns', 'mfe-access-tab', 'Lineage']);
+    });
+
+    it('rejects an entry whose placement.after is not a non-empty string', () => {
+        const entry = (after: string) => `subNavigationMode: false
+microFrontends:
+  - id: tab
+    label: Tab
+    remoteEntry: http://r/remoteEntry.js
+    module: m/mount
+    flags:
+      enabled: true
+    placement:
+      slot: entity.detail.tab
+      contractVersion: "1.0.0"
+      entityTypes: [dataset]
+      after: ${after}`;
+        expect(loadMFEConfigFromYAML(entry('Summary')).microFrontends).toHaveLength(1);
+        expect(loadMFEConfigFromYAML(entry('42')).microFrontends).toHaveLength(0);
+        expect(loadMFEConfigFromYAML(entry('"  "')).microFrontends).toHaveLength(0);
+    });
+});
+
+describe('Summary tab regions (entity.summary.top / entity.summary.bottom)', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.spyOn(console, 'log').mockImplementation(() => {});
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        vi.spyOn(navBarHooks, 'useShowNavBarRedesign').mockReturnValue(true);
+    });
+    afterEach(() => vi.restoreAllMocks());
+
+    const region = (id: string, slot: 'entity.summary.top' | 'entity.summary.bottom', extra = {}): MFEConfig => ({
+        ...TAB,
+        id,
+        placement: { slot, contractVersion: '1.0.0', entityTypes: ['dataset'], ...extra },
+    });
+
+    function renderRegion(
+        slot: 'entity.summary.top' | 'entity.summary.bottom',
+        microFrontends: MFEConfig[],
+        entityData: unknown = { platform: {} },
+    ) {
+        const schema: MFESchema = { ...SCHEMA, microFrontends };
+        return render(
+            withProviders(
+                <MFEConfigContext.Provider value={{ provided: true, config: schema, loading: false }}>
+                    <EntityContext.Provider
+                        value={{ urn: DATASET_URN, entityType: EntityType.Dataset, entityData, loading: false } as any}
+                    >
+                        <MFEEntityRegion slot={slot} />
+                    </EntityContext.Provider>
+                </MFEConfigContext.Provider>,
+            ),
+        );
+    }
+
+    it('mounts each entry placed in the region with the region slot in its context', async () => {
+        const mountFn = vi.fn(() => vi.fn());
+        getRemoteMock.mockResolvedValue({ mount: mountFn });
+        unwrapModuleMock.mockResolvedValue({ mount: mountFn });
+        await act(async () => {
+            renderRegion('entity.summary.top', [
+                region('top-a', 'entity.summary.top'),
+                region('bottom-a', 'entity.summary.bottom'),
+                TAB,
+            ]);
+        });
+        expect(mountFn).toHaveBeenCalledTimes(1);
+        expect(mountFn).toHaveBeenCalledWith(expect.anything(), {
+            slot: 'entity.summary.top',
+            contractVersion: '1.0.0',
+            entity: { urn: DATASET_URN, type: 'DATASET' },
+            principal: { user: 'urn:li:corpuser:jdoe' },
+        });
+    });
+
+    it('renders nothing when no entry applies, including one hidden by visibleWhen', async () => {
+        await act(async () => {
+            renderRegion('entity.summary.bottom', [
+                region('bottom-logical', 'entity.summary.bottom', { visibleWhen: ['logicalDataset'] }),
+            ]);
+        });
+        expect(screen.queryByTestId('mfe-region-entity.summary.bottom')).toBeNull();
+        expect(getRemoteMock).not.toHaveBeenCalled();
+    });
+
+    it('requires an entity type opt-in like any other entity-scoped slot', () => {
+        expect(isMFESlotId('entity.summary.top')).toBe(true);
+        const noTypes = region('top', 'entity.summary.top', { entityTypes: undefined });
+        const { result } = renderHook(() => useResolveSlot('entity.summary.top', { entityType: 'DATASET' }), {
+            wrapper: ({ children }: { children: React.ReactNode }) => (
+                <MFEConfigContext.Provider
+                    value={{ provided: true, config: { ...SCHEMA, microFrontends: [noTypes] }, loading: false }}
+                >
+                    {children}
+                </MFEConfigContext.Provider>
+            ),
+        });
+        expect(result.current).toEqual([]);
+    });
+});
+
+describe('sidebar sections (entity.sidebar.section)', () => {
+    const section = (key: string) => ({ key, component: () => null }) as EntitySidebarSection;
+    const host = [section('about'), section('notes'), section('logical'), section('owners')];
+    const sidebarEntry = (id: string, after?: string, visibleWhen?: string[]): MFEConfig => ({
+        ...TAB,
+        id,
+        placement: {
+            slot: 'entity.sidebar.section',
+            contractVersion: '1.0.0',
+            entityTypes: ['dataset'],
+            after,
+            visibleWhen,
+        },
+    });
+
+    function renderSections(microFrontends: MFEConfig[]) {
+        const wrapper = ({ children }: { children: React.ReactNode }) => (
+            <MFEConfigContext.Provider
+                value={{ provided: true, config: { ...SCHEMA, microFrontends }, loading: false }}
+            >
+                <EntityContext.Provider
+                    value={
+                        { urn: DATASET_URN, entityType: EntityType.Dataset, entityData: null, loading: false } as any
+                    }
+                >
+                    {children}
+                </EntityContext.Provider>
+            </MFEConfigContext.Provider>
+        );
+        return renderHook(() => useMFESidebarSections(host), { wrapper }).result.current;
+    }
+
+    it('places a section right after the host section its placement names, else at the end', () => {
+        const sections = renderSections([sidebarEntry('custom', 'notes'), sidebarEntry('tail'), TAB]);
+        expect(sections.map((s) => s.key)).toEqual(['about', 'notes', 'mfe-custom', 'logical', 'owners', 'mfe-tail']);
+    });
+
+    it('gates each section on visibleWhen against the entity on screen', () => {
+        const [, , gated] = renderSections([sidebarEntry('custom', 'notes', ['logicalDataset'])]);
+        expect(gated.display?.visible({ platform: { properties: { logical: true } } } as any, null)).toBe(true);
+        expect(gated.display?.visible({ platform: {} } as any, null)).toBe(false);
     });
 });

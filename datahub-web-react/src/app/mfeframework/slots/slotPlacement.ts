@@ -28,6 +28,13 @@ export type MFEPlacement = {
      * Visible if ANY predicate matches. Omitted/empty => no extra constraint.
      */
     visibleWhen?: string[];
+    /**
+     * Where to place this entry among the host's own items: for `entity.detail.tab`, the stable `path` of
+     * the tab to follow (e.g. `Summary`, `Columns`); for `entity.sidebar.section`, the `key` of the sidebar
+     * section to follow (e.g. `notes`, `owners`). Case-insensitive. Omitted, or naming something the page
+     * does not have => last. Ignored by other slots.
+     */
+    after?: string;
 };
 
 /**

@@ -15,10 +15,30 @@
  * newly added. Never widen `SlotBaseContext` with surface-specific fields.
  */
 
-/** Slots the host currently exposes. `nav.page` is the original full-page MFE surface. */
-export type MFESlotId = 'nav.page' | 'entity.detail.tab';
+/**
+ * Slots the host currently exposes. `nav.page` is the original full-page MFE surface; the
+ * `entity.summary.*` slots are inline regions at the top and bottom of an entity's Summary tab, and
+ * `entity.sidebar.section` is a section of the entity's right-hand sidebar.
+ */
+export type MFESlotId =
+    | 'nav.page'
+    | 'entity.detail.tab'
+    | 'entity.summary.top'
+    | 'entity.summary.bottom'
+    | 'entity.sidebar.section'
+    | 'schemaField.drawer.section';
 
-export const MFE_SLOT_IDS: readonly MFESlotId[] = ['nav.page', 'entity.detail.tab'];
+export const MFE_SLOT_IDS: readonly MFESlotId[] = [
+    'nav.page',
+    'entity.detail.tab',
+    'entity.summary.top',
+    'entity.summary.bottom',
+    'entity.sidebar.section',
+    'schemaField.drawer.section',
+];
+
+/** Inline regions on an entity page: the Summary tab's top and bottom, and sidebar sections. */
+export type EntityRegionSlotId = 'entity.summary.top' | 'entity.summary.bottom' | 'entity.sidebar.section';
 
 export const DEFAULT_MFE_SLOT: MFESlotId = 'nav.page';
 
@@ -52,16 +72,47 @@ export type EntityDetailTabContextV1 = SlotBaseContext & {
 };
 
 /**
+ * Context for an MFE rendered inline on an entity page (Summary tab regions, sidebar sections) — v1. Same
+ * entity identity as a tab; `slot` tells a remote placed in several regions which one it is rendering.
+ */
+export type EntityRegionContextV1 = SlotBaseContext & {
+    slot: EntityRegionSlotId;
+    contractVersion: '1.0.0';
+    entity: {
+        urn: string;
+        /** GraphQL `EntityType` name, e.g. `DATASET`. */
+        type: string;
+    };
+};
+
+/**
+ * Context for an MFE rendered as a section of the column drawer's About panel (on a dataset's Columns tab) — v1.
+ * `entity` is the dataset; `field` is the column the drawer is showing.
+ */
+export type SchemaFieldDrawerContextV1 = SlotBaseContext & {
+    slot: 'schemaField.drawer.section';
+    contractVersion: '1.0.0';
+    entity: { urn: string; type: string };
+    field: { fieldPath: string };
+};
+
+/**
  * Every versioned context the host can emit for a slot. Widen these unions as new versions ship
  * (e.g. `NavPageContextV1 | NavPageContextV2`). Adding an optional field to a shipped version is fine;
  * removing one, or changing its type or meaning, needs a new version.
  */
 export type NavPageContext = NavPageContextV1;
 export type EntityDetailTabContext = EntityDetailTabContextV1;
+export type EntityRegionContext = EntityRegionContextV1;
+export type SchemaFieldDrawerContext = SchemaFieldDrawerContextV1;
 
 export type SlotContextMap = {
     'nav.page': NavPageContext;
     'entity.detail.tab': EntityDetailTabContext;
+    'entity.summary.top': EntityRegionContext;
+    'entity.summary.bottom': EntityRegionContext;
+    'entity.sidebar.section': EntityRegionContext;
+    'schemaField.drawer.section': SchemaFieldDrawerContext;
 };
 
 export type SlotContext = SlotContextMap[MFESlotId];

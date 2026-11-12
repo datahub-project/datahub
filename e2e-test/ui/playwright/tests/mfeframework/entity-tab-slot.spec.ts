@@ -106,6 +106,18 @@ test.describe('MFE Framework — entity.detail.tab slot', () => {
     expect(tabOrder[tabOrder.length - 1]).toBe(`${TAB_PATH}-entity-tab-header`);
   });
 
+  test('places the tab right after the tab named by placement.after', async ({ page }) => {
+    await mfePage.mockFetchForMFEConfig(yaml(tabEntry('      entityTypes: [dataset]\n      after: Summary\n')));
+    await mfePage.mockRemoteEntry(200, REMOTE_ENTRY_ECHO_CTX);
+    await mfePage.gotoDataset(DATASET_URN);
+
+    await expect(mfePage.entityTabHeader(TAB_PATH)).toBeVisible({ timeout: TIMEOUTS.LONG });
+    const tabOrder = await page
+      .getByTestId(/-entity-tab-header$/)
+      .evaluateAll((els) => els.map((el) => el.getAttribute('data-testid')));
+    expect(tabOrder.indexOf(`${TAB_PATH}-entity-tab-header`)).toBe(tabOrder.indexOf('Summary-entity-tab-header') + 1);
+  });
+
   test('passes a typed EntityDetailTabContext to mount(el, ctx)', async () => {
     await mfePage.mockFetchForMFEConfig(TAB_MFE);
     await mfePage.mockRemoteEntry(200, REMOTE_ENTRY_ECHO_CTX);

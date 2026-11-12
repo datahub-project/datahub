@@ -74,6 +74,9 @@ function validatePlacement(placement: any, errors: string[]): void {
     ) {
         errors.push('[MFE Loader] placement.visibleWhen must be an array of strings');
     }
+    if (placement.after !== undefined && (typeof placement.after !== 'string' || placement.after.trim().length === 0)) {
+        errors.push('[MFE Loader] placement.after must be a non-empty string');
+    }
 }
 
 /**

@@ -11,7 +11,13 @@ type ResolveSlotFilter = {
 };
 
 /** Slots that render on an entity page, and therefore must declare which entity types they apply to. */
-const ENTITY_SCOPED_SLOTS: readonly MFESlotId[] = ['entity.detail.tab'];
+const ENTITY_SCOPED_SLOTS: readonly MFESlotId[] = [
+    'entity.detail.tab',
+    'entity.summary.top',
+    'entity.summary.bottom',
+    'entity.sidebar.section',
+    'schemaField.drawer.section',
+];
 
 /**
  * Layer 1 of visibility: the coarse page-class gate, evaluated before an `EntityTab` is created and

@@ -3,6 +3,7 @@ import styled from 'styled-components/macro';
 
 import { useBaseEntity, useEntityData } from '@app/entityV2/shared/EntityContext';
 import { EntitySidebarSection, TabContextType, TabRenderType } from '@app/entityV2/shared/types';
+import { useMFESidebarSections } from '@app/mfeframework/slots/useMFESidebarSections';
 import { ENTITY_PROFILE_V2_SIDEBAR_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
 
 const Container = styled.div`
@@ -46,6 +47,8 @@ type Props = {
 export const EntitySidebarSections = <T,>({ sidebarSections, topSection, renderType, contextType }: Props) => {
     const { entityData } = useEntityData();
     const baseEntity = useBaseEntity<T>();
+    // Host sections plus any placed by micro frontends in the `entity.sidebar.section` slot.
+    const sections = useMFESidebarSections(sidebarSections ?? []);
 
     return (
         <Container id={ENTITY_PROFILE_V2_SIDEBAR_ID}>
@@ -56,7 +59,7 @@ export const EntitySidebarSections = <T,>({ sidebarSections, topSection, renderT
                 />
             )}
             <Content>
-                {sidebarSections?.map((section) => {
+                {sections.map((section) => {
                     if (section.display?.visible(entityData, baseEntity, contextType) !== true) {
                         return null;
                     }

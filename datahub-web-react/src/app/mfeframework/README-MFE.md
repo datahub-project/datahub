@@ -152,10 +152,13 @@ By default an MFE is a **full page** reached from the left navigation (`/mfe<pat
 instead be placed into a named, host-owned region of an existing page — a _slot_ — with the optional
 `placement` field. The host owns the slot and everything around it; the MFE owns only what renders inside.
 
-| Slot                | Where it renders                                        | Extra context passed to `mount` |
-| ------------------- | ------------------------------------------------------- | ------------------------------- |
-| `nav.page`          | A standalone page at `/mfe<path>` (default)             | —                               |
-| `entity.detail.tab` | A tab on the profile pages of the entity types it lists | `entity: { urn, type }`         |
+| Slot                     | Where it renders                                                      | Extra context passed to `mount` |
+| ------------------------ | --------------------------------------------------------------------- | ------------------------------- |
+| `nav.page`               | A standalone page at `/mfe<path>` (default)                           | —                               |
+| `entity.detail.tab`      | A tab on the profile pages of the entity types it lists               | `entity: { urn, type }`         |
+| `entity.summary.top`     | Inline, at the top of the Summary tab of the entity types it lists    | `entity: { urn, type }`         |
+| `entity.summary.bottom`  | Inline, at the bottom of the Summary tab of the entity types it lists | `entity: { urn, type }`         |
+| `entity.sidebar.section` | A section of the right-hand sidebar of the entity types it lists      | `entity: { urn, type }`         |
 
 An entry declares one placement, but that placement can cover several pages: `entityTypes` is a list, so a
 single tab entry can appear on datasets, charts and dashboards at once. To put the same remote in more than
@@ -174,6 +177,7 @@ microFrontends:
           slot: entity.detail.tab
           entityTypes: [dataset] # REQUIRED opt-in (GraphQL EntityType names, case-insensitive)
           visibleWhen: [physicalDataset] # optional fine-grained rule (see Visibility)
+          after: Summary # optional tab position (see Tab position)
 ```
 
 `path` and `navIcon` are only required for `nav.page` entries, and `flags.showInNav` is nav-only. A slot
@@ -206,14 +210,63 @@ Layer 2 is an allow-list of **host-registered predicate names** (`slots/slotVisi
 visible if **any** listed predicate matches; an unknown name matches nothing and logs an error, so a typo
 hides the tab rather than exposing it somewhere it was meant to be excluded from.
 
-| Predicate         | True when                                               |
-| ----------------- | ------------------------------------------------------- |
-| `physicalDataset` | the entity is a dataset that is **not** a logical model |
+| Predicate         | True when                                                  |
+| ----------------- | ---------------------------------------------------------- |
+| `physicalDataset` | the entity is a dataset that is **not** a logical model    |
+| `logicalDataset`  | the entity is a dataset that **is** a logical model        |
+| `physicalChild`   | the entity is a physical dataset linked to a logical model |
 
 `physicalDataset` exists because "logical" is not an entity type: a logical model is an ordinary dataset
 whose data platform is flagged `logical: true`, so `entityTypes: [dataset]` cannot tell the two apart.
 Features that are meaningless without a real, physical asset behind the dataset opt out of logical models
-with `visibleWhen: [physicalDataset]`.
+with `visibleWhen: [physicalDataset]`. Features that only make sense on the model itself, such as listing
+the physical instances linked to it, use `visibleWhen: [logicalDataset]`.
+
+While the page's entity is still loading, `physicalDataset` matches (the tab may show for a moment and then
+hide) and `logicalDataset` does not (the tab appears once the platform is known), so neither predicate
+shows a tab on the wrong kind of dataset once the page has loaded.
+
+### Summary tab regions
+
+`entity.summary.top` and `entity.summary.bottom` render inline on an entity's Summary tab — above the
+properties row, and below everything else — rather than as a tab of their own. They take the same
+`entityTypes` and `visibleWhen` as a tab and receive the same `entity: { urn, type }` context; `ctx.slot`
+says which region is rendering, so one remote can be placed in several slots and pick a layout per slot.
+Several entries in one region stack in config order. A region with nothing placed in it renders nothing, so
+the Summary tab is unchanged until an entry opts in. `label` names the entry in error messages but is not
+shown as a heading, and `after` does not apply.
+
+```yaml
+- id: access-glance
+  label: Access at a glance
+  remoteEntry: https://mydomain-dev.com/access/remoteEntry.js
+  module: accessMFE/mount
+  flags:
+      enabled: true
+  placement:
+      contractVersion: '1.0.0'
+      slot: entity.summary.top
+      entityTypes: [dataset]
+```
+
+### Sidebar sections
+
+`entity.sidebar.section` adds a section to an entity's right-hand sidebar, with the same `entityTypes`,
+`visibleWhen` and `entity: { urn, type }` context as the other entity slots. `placement.after` names the
+sidebar section to follow by its stable key; without it, or when the page has no such section, the section
+goes last. Dataset sidebar keys: `header`, `datasetHeader`, `about`, `notes`, `logical` (Logical Parent /
+Physical Children), `lineage`, `owners`, `domain`, `application`, `dataProducts`, `tags`, `glossaryTerms`,
+`siblings`, `viewDefinition`, `queryOperations`, `structuredProperties`, `status`. So `after: notes` puts a
+section directly above the built-in Logical Parent / Physical Children section.
+
+### Tab position
+
+A slot tab is appended after every tab the host renders, unless `placement.after` names the tab it should
+follow. The value is that tab's stable URL segment — `Summary`, `Columns`, `Lineage`, `Properties` and so
+on, matched case-insensitively — never its translated caption. Several entries naming the same target keep
+their config order after it. A target the page does not have (for example `Columns` on a chart) falls back
+to last. Placement is resolved before visibility, so a target that is hidden on a particular entity still
+anchors the tab to where that target would be.
 
 ### Tab addressing
 
