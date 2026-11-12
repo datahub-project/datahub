@@ -1386,6 +1386,12 @@ def has_qualified_name(
     return len(name.split(".")) >= required
 
 
+def app_table_identifier(app_id: str, table_name: str) -> str:
+    """The dataset name of an app's table, however the table was found: its
+    URN must not change between a script, data model and lineage graph read."""
+    return f"{app_id}.{table_name}".lower()
+
+
 def connection_lookup_names(name: str) -> List[str]:
     # Qlik Cloud scripts reference connections as `<space>:<connection>`.
     short_name = name.rsplit(SPACE_SEPARATOR, 1)[-1]

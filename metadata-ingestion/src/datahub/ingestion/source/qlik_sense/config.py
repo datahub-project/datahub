@@ -354,10 +354,11 @@ class QlikSourceConfig(
     )
     include_column_lineage: bool = Field(
         default=True,
-        description="Qlik Cloud only. Read the field level of Qlik's lineage graph "
-        "for each app table and each dataset an app stores into, for column-level "
-        "lineage and the fields of tables a load script drops. Costs one request "
-        "per table.",
+        description="Emit column-level lineage, from load scripts and app data "
+        "models and, on Qlik Cloud, from the field level of Qlik's lineage graph, "
+        "which is read for each app table and each dataset an app stores into and "
+        "also gives the fields of tables a load script drops. The field-level "
+        "reads cost one request per table.",
     )
     # Qlik app dataset upstream tables from data connection to platform instance mapping
     data_connection_to_platform_instance: Dict[str, PlatformDetail] = Field(

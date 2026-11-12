@@ -838,12 +838,25 @@ def _qvd_qlik() -> _Qlik:
     return qlik
 
 
-def _qvd_upstreams(workunits: List[MetadataWorkUnit]) -> Optional[List[str]]:
+def _qvd_lineage_ops(workunits: List[MetadataWorkUnit]) -> List[Tuple[str, str]]:
+    """The (op, upstream dataset) of each table edge patched onto the QVD."""
+    ops = []
     for wu in workunits:
-        lineage = wu.get_aspect_of_type(UpstreamLineageClass)
-        if wu.get_urn() == CLEAN_QVD and lineage is not None:
-            return [upstream.dataset for upstream in lineage.upstreams]
-    return None
+        if (
+            wu.get_urn() == CLEAN_QVD
+            and isinstance(wu.metadata, MetadataChangeProposalClass)
+            and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+            and wu.metadata.aspect is not None
+        ):
+            for op in json.loads(wu.metadata.aspect.value):
+                parts = op["path"].split("/")
+                if parts[1] == "upstreams":
+                    ops.append((op["op"], parts[2].replace("~1", "/")))
+    return ops
+
+
+def _qvd_upstreams(workunits: List[MetadataWorkUnit]) -> List[str]:
+    return [urn for op, urn in _qvd_lineage_ops(workunits) if op == "add"]
 
 
 def test_kept_unchanged_app_still_writes_its_qvd(
@@ -888,7 +901,7 @@ def test_app_checkpoint_from_before_qvd_lineage_is_read_again(
     # lineage is written from what it writes now instead of being blocked.
     assert qlik.engine_opens == opens + 2
     assert second.reporter.apps_skipped_unchanged == 0
-    assert _qvd_upstreams(second_wus) is not None
+    assert _qvd_upstreams(second_wus)
 
 
 def test_partly_read_app_kept_from_its_checkpoint_only_adds_qvd_lineage(
@@ -906,7 +919,7 @@ def test_partly_read_app_kept_from_its_checkpoint_only_adds_qvd_lineage(
 
     # Its last full read may no longer be what it writes, so the QVD's edges
     # are added to rather than replaced.
-    assert _qvd_upstreams(second_wus) is None
+    assert not [op for op, _ in _qvd_lineage_ops(second_wus) if op == "remove"]
     assert any(
         wu.get_urn() == CLEAN_QVD
         and isinstance(wu.metadata, MetadataChangeProposalClass)
