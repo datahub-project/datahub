@@ -272,6 +272,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # app has been read.
         self._dataset_store_sources: Dict[str, List[str]] = {}
         self._dataset_store_field_sources: Dict[str, Dict[str, List[str]]] = {}
+        # Graph tables whose fields have no type, such as a table the script
+        # drops after storing it, by URN.
+        self._untyped_tables: Dict[str, Tuple[str, List[QlikDatasetSchemaField]]] = {}
+        self._dataset_field_types: Dict[str, Dict[str, Optional[str]]] = {}
         # Field names seen this run, by their field id in Qlik's lineage graph.
         self._field_names_by_id: Dict[str, str] = {}
         # Owned here rather than by the automatic processor so that entities of
@@ -1487,13 +1491,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             script_table = script_tables.get(table.qri)
             identifier = self._lineage_table_identifier(app.id, table)
             dataset_urn = self._gen_qlik_dataset_urn(identifier)
-            yield from self._gen_app_table_entity(
-                identifier,
-                self._table_schema(
-                    identifier, self._lineage_table_fields(table, script_table)
-                ),
-                app.id,
+            schema = self._table_schema(
+                identifier, self._lineage_table_fields(table, script_table)
             )
+            if schema and all(field.dataType is None for field in schema):
+                self._untyped_tables[dataset_urn] = (identifier, schema)
+            yield from self._gen_app_table_entity(identifier, schema, app.id)
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=DatasetProperties(
@@ -1899,6 +1902,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 dataset.stored_field_source_qris
             )
         self._learn_field_names(field.name for field in dataset.datasetSchema)
+        self._dataset_field_types[dataset_urn] = {
+            field.name: field.dataType for field in dataset.datasetSchema
+        }
 
         yield self._gen_entity_status_aspect(dataset_urn)
 
@@ -2025,6 +2031,38 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 exc=e,
             )
             return None
+
+    def _gen_stored_table_types(self) -> Iterable[MetadataWorkUnit]:
+        """Types for the fields of untyped graph tables, from the datasets they
+        are stored into: a STORE writes a field's values unchanged, so a field
+        stored under its own name has the stored field's type. A field stored
+        into datasets that disagree on its type keeps none."""
+        types: Dict[str, Dict[str, Set[Optional[str]]]] = {}
+        for dataset_urn, field_sources in self._dataset_store_field_sources.items():
+            dataset_types = self._dataset_field_types.get(dataset_urn, {})
+            for field, source_qris in field_sources.items():
+                for field_qri in source_qris:
+                    table_qri, _, field_id = field_qri.rpartition("#")
+                    table_urn = self._app_table_urns_by_qri.get(table_qri)
+                    if (
+                        table_urn in self._untyped_tables
+                        and field_id == _qlik_field_id(field)
+                        and dataset_types.get(field)
+                    ):
+                        types.setdefault(table_urn, {}).setdefault(field, set()).add(
+                            dataset_types[field]
+                        )
+        for table_urn, field_types in types.items():
+            identifier, schema = self._untyped_tables[table_urn]
+            typed = [
+                field.model_copy(
+                    update={"dataType": next(iter(field_types[field.name]))}
+                )
+                if len(field_types.get(field.name, ())) == 1
+                else field
+                for field in schema
+            ]
+            yield self._gen_schema_metadata(identifier, typed)
 
     def _gen_dataset_store_lineage(self) -> Iterable[MetadataWorkUnit]:
         datasets = self._dataset_urns_by_secure_qri
@@ -2170,6 +2208,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 item, space_names.get(space_id, space_id), record_state
             )
         yield from self._gen_dataset_store_lineage()
+        yield from self._gen_stored_table_types()
         if self.qlik_api.lineage_read_failures:
             self.reporter.warning(
                 title="Unable to read Qlik dataset lineage",
