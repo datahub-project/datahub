@@ -6,8 +6,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
 
-import { Editor } from '@components/components/Editor';
-
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import NodeParentSelect from '@app/entityV2/shared/EntityDropdown/NodeParentSelect';
@@ -24,6 +22,7 @@ import {
     getGlossaryRootToUpdate,
     updateGlossarySidebar,
 } from '@app/glossaryV2/utils';
+import { Editor } from '@app/sharedV2/editor/Editor';
 import { validateCustomUrnId } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -249,6 +248,9 @@ function CreateGlossaryEntityModal(props: Props) {
                     onClick: createGlossaryEntity,
                     variant: 'filled',
                     disabled: createButtonDisabled || !canCreateGlossaryEntity,
+                    tooltip: canCreateGlossaryEntity
+                        ? undefined
+                        : t('createGlossary.noCreatePermission', { entityName }),
                     buttonDataTestId: 'glossary-entity-modal-create-button',
                 },
             ]}

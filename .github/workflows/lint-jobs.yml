@@ -62,13 +62,10 @@ jobs:
     if: needs.setup.outputs.markdown == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        with:
-          gradle-home-cache-excludes: caches/build-cache-1
+          python: false
       # mdPrettierCheck dependsOn yarnInstall (full datahub-web-react deps).
       # Restore ~/.cache/yarn so the install is a warm no-op instead of a cold fetch.
       # Restore-only: ci-cache-warmup.yml warm-web-yarn-cache writes this key on
@@ -91,13 +88,10 @@ jobs:
     if: needs.setup.outputs.github-actions == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        with:
-          gradle-home-cache-excludes: caches/build-cache-1
+          python: false
       # githubActionsPrettierCheck dependsOn yarnInstall (full datahub-web-react deps).
       # Restore ~/.cache/yarn so the install is a warm no-op instead of a cold fetch.
       # Restore-only: ci-cache-warmup.yml warm-web-yarn-cache writes this key on
@@ -120,13 +114,10 @@ jobs:
     if: needs.setup.outputs.product-update-sync == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        with:
-          gradle-home-cache-excludes: caches/build-cache-1
+          python: false
       - name: Check product-update JSONs match the latest release notes and UI locales
         run: ./gradlew :metadata-service:configuration:productUpdateReleaseSyncCheck
       - name: Probe product-update CTA URLs
@@ -139,13 +130,10 @@ jobs:
     if: needs.setup.outputs.docs-website == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        with:
-          gradle-home-cache-excludes: caches/build-cache-1
+          python: false
       # Restore-only: this workflow is pull_request-only, so a save here would be
       # ref-scoped to the PR and never shared. The master-scoped entry is written
       # by ci-cache-warmup.yml warm-docs-website-yarn-cache. Prefix keeps this
@@ -168,13 +156,10 @@ jobs:
     if: needs.setup.outputs.spotless == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        with:
-          gradle-home-cache-excludes: caches/build-cache-1
+          python: false
       - name: Run Spotless check
         run: ./gradlew spotlessCheck
 
@@ -185,13 +170,11 @@ jobs:
     if: needs.setup.outputs.workflow-validation == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          python-version: "3.11"
-      - name: Install uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
-        with:
-          enable-cache: true
+          java: false
+          gradle: false
       - name: Install pyyaml
         run: uv pip install pyyaml --system
       - name: Validate post-workflow-actions.yml workflow list
@@ -212,7 +195,7 @@ jobs:
       issues: write
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - uses: reviewdog/action-actionlint@0d952c597ef8459f634d7145b0b044a9699e5e43 # v1
+      - uses: reviewdog/action-actionlint@619a81ec64ff8c0211cd6146eb2b21e8f1d7f440 # v1
         with:
           reporter: github-pr-review
 
@@ -240,9 +223,10 @@ jobs:
     if: needs.setup.outputs.code-check-sources == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - uses: ./.github/actions/setup-toolchain
         with:
-          python-version: "3.11"
+          java: false
+          gradle: false
       - name: run check
         run: python .github/scripts/check_event_type.py
 
@@ -253,9 +237,10 @@ jobs:
     if: needs.setup.outputs.code-check-sources == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - uses: ./.github/actions/setup-toolchain
         with:
-          python-version: "3.11"
+          java: false
+          gradle: false
       - name: run check
         run: python .github/scripts/check_policies.py
 
@@ -266,9 +251,10 @@ jobs:
     if: needs.setup.outputs.code-check-sources == 'true'
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - uses: ./.github/actions/setup-toolchain
         with:
-          python-version: "3.11"
+          java: false
+          gradle: false
       - name: run check
         run: python .github/scripts/check_gradle_lockfiles.py
 
@@ -283,9 +269,10 @@ jobs:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - uses: ./.github/actions/setup-toolchain
         with:
-          python-version: "3.11"
+          java: false
+          gradle: false
       - name: Verify schemaVersion is bumped for changed PDL aspects
         env:
           BASE_REF: ${{ github.base_ref }}
@@ -303,19 +290,15 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
 
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.11"
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
 
-      # Ahead of the uv/gradle steps on purpose: the check is stdlib-only, so it
-      # still runs when the venv install breaks, and it fails in seconds rather
-      # than after the install.
+      # Ahead of the venv install on purpose: the check is stdlib-only, so it
+      # still runs when the install breaks, and it fails in seconds rather
+      # than after it.
       - name: Check p0 test dependencies
         run: python ./.github/scripts/check_p0_dependencies.py
 
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
-        with:
-          gradle-home-cache-excludes: caches/build-cache-1
       # Restore-only: this workflow is pull_request-only, so a save here would be
       # ref-scoped to the PR and never shared. The entry is written by
       # ci-cache-warmup.yml (push to master) on both cache backends under this exact key.
@@ -349,17 +332,8 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - name: Set up JDK 25
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "temurin"
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        with:
-          gradle-home-cache-excludes: caches/build-cache-1
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.11"
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
       - name: Restore uv cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -468,9 +442,9 @@ jobs:
           key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+      - uses: ./.github/actions/setup-toolchain
         with:
-          gradle-home-cache-excludes: caches/build-cache-1
+          python: false
       - name: Run lint
         env:
           ANTD_IMPORT_BASELINE_REF: origin/${{ github.base_ref }}
@@ -531,9 +505,12 @@ jobs:
             playwright-${{ runner.os }}-yarn-
             ${{ runner.os }}-yarn-
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: ./.github/actions/setup-toolchain
         with:
-          node-version: "22"
+          java: false
+          python: false
+          gradle: false
+          node: true
       - name: Install dependencies
         working-directory: e2e-test/ui/playwright
         run: yarn install --frozen-lockfile
@@ -552,9 +529,12 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: ./.github/actions/setup-toolchain
         with:
-          node-version: "22"
+          java: false
+          python: false
+          gradle: false
+          node: true
       - name: Run vitals unit tests
         working-directory: e2e-test/perf/vitals
         env:

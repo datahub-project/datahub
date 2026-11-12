@@ -828,6 +828,12 @@
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
           "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Checks semantic embedding availability",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubDocumentsSource",
@@ -2039,6 +2045,68 @@
       "platform_name": "Hex",
       "support_status": "GA"
     },
+    "hightouch": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default, one per workspace",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default, from parsed model SQL and sync field mappings",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled by default via `extract_owners`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default for models",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default, from warehouse tables through models and syncs to destinations",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.hightouch.hightouch.HightouchSource",
+      "platform_id": "hightouch",
+      "platform_name": "Hightouch",
+      "support_status": "ALPHA"
+    },
     "hive": {
       "capabilities": [
         {
@@ -2407,9 +2475,9 @@
       "capabilities": [
         {
           "capability": "LINEAGE_FINE",
-          "description": "Not supported",
+          "description": "Optionally emits column-level lineage from Confluent Cloud Flink SQL statements (`stream_processing_lineage.flink.enabled`, with `stream_processing_lineage.include_column_lineage`).",
           "subtype_modifier": null,
-          "supported": false
+          "supported": true
         },
         {
           "capability": "DATA_PROFILING",
@@ -2455,9 +2523,9 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Not supported. If you use Kafka Connect, the kafka-connect source can generate lineage.",
+          "description": "Optionally emits topic-to-topic lineage from Stream Catalog cluster links / mirror topics via `confluent_catalog.include_lineage`, and from Confluent Cloud Flink SQL via `stream_processing_lineage.flink.enabled`. For source/sink lineage to external systems, use the kafka-connect source.",
           "subtype_modifier": null,
-          "supported": false
+          "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
@@ -2897,7 +2965,7 @@
         },
         {
           "capability": "TAGS",
-          "description": "Metric, attribute, and temporal field tags",
+          "description": "Metric, attribute, temporal, and derived-metric field tags",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4788,6 +4856,12 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Opt-in: topic to raw-delivery queue, when both have schemas",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "SNS has no description",
           "subtype_modifier": null,
@@ -4825,13 +4899,13 @@
         },
         {
           "capability": "SCHEMA_METADATA",
-          "description": "SNS has no schema",
+          "description": "Opt-in: AWS Glue Schema Registry schemas listed in `glue_schema_registry.topic_schema_map`, or found by `use_naming_convention`",
           "subtype_modifier": null,
-          "supported": false
+          "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Topic to subscribed queue and to subscription dead-letter queue",
+          "description": "Subscribed queues and dead-letter queues, Lambda, EventBridge rules and Pipes",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4989,6 +5063,12 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Queue to dead-letter queue, when both have schemas",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "SQS has no description",
           "subtype_modifier": null,
@@ -5020,13 +5100,13 @@
         },
         {
           "capability": "SCHEMA_METADATA",
-          "description": "SQS has no schema",
+          "description": "Opt-in: AWS Glue Schema Registry schemas listed in `glue_schema_registry.queue_schema_map`, or found by `use_naming_convention`",
           "subtype_modifier": null,
-          "supported": false
+          "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Queue to dead-letter queue",
+          "description": "Dead-letter queues, Lambda triggers and destinations, EventBridge rules and Pipes",
           "subtype_modifier": null,
           "supported": true
         },

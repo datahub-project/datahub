@@ -20,6 +20,36 @@ public final class EntitySearchIndexResolver {
 
   private EntitySearchIndexResolver() {}
 
+  /**
+   * Field a filter reads for the index family being queried. Search V3 stores the view's creator as
+   * the system actor copied from {@code systemMetadata.aspectCreated}, while V2 stores it as {@code
+   * createdBy} from the view's audit stamp.
+   */
+  @Nonnull
+  public static String viewCreatorField(@Nullable EntityIndexConfiguration entityIndex) {
+    return shouldReadV3(entityIndex) ? MappingConstants.SYSTEM_CREATED_ACTOR_FIELD : "createdBy";
+  }
+
+  /**
+   * Field a sort or filter reads. Search V3 drops the entity audit stamp and stores the time and
+   * actor on {@code _system}, resolved through the V3 field mapping. V2 keeps the name the caller
+   * already uses.
+   */
+  @Nonnull
+  public static String indexedField(
+      @Nullable EntityIndexConfiguration entityIndex,
+      @Nonnull OperationContext opContext,
+      @Nonnull String v2Field,
+      @Nonnull String v3Field,
+      @Nonnull SearchFieldResolver.Intent intent) {
+    if (!shouldReadV3(entityIndex)) {
+      return v2Field;
+    }
+    return V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry())
+        .resolver()
+        .exactPath(v3Field, intent);
+  }
+
   public static boolean shouldReadV3(@Nullable EntityIndexConfiguration entityIndex) {
     if (entityIndex == null || entityIndex.getV3() == null || !entityIndex.getV3().isEnabled()) {
       return false;

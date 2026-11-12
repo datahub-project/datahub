@@ -41,19 +41,12 @@ jobs:
       # compiles release-25 modules (e.g. metadata-service:configuration) that javac 21 can't emit.
       # JDK 21 is also provisioned so the real-Spark test tasks fork on it (javaLauncher pinned to 21
       # in acryl-spark-lineage/build.gradle) — Spark 3.x/Hadoop can't run on JDK 24+ (JEP 486).
-      - name: Set up JDK 25 (build) + 21 (Spark runtime)
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          distribution: "temurin"
           java-version: |
             21
             25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        with:
-          gradle-home-cache-excludes: caches/build-cache-1
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.11"
       - name: Configure fast APT mirror
         if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
         uses: ./.github/actions/configure-fast-apt-mirror

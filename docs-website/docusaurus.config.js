@@ -255,6 +255,10 @@ module.exports = {
               to: "https://demo.datahub.com/",
             },
             {
+              label: "Product Tours",
+              href: "https://tours.datahub.com/?utm_source=oss-docs&utm_medium=oss-referral&utm_campaign=oss-product-tours&utm_content=docs-footer",
+            },
+            {
               label: "Free Trial",
               href: "https://datahub.com/free-trial/",
             },

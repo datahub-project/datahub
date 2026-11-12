@@ -54,7 +54,9 @@ public class V2MappingsBuilderTest {
     // historical test expectations — pre-refactor, this constructor produced legacy ngram config.
     mappingsBuilder =
         new V2MappingsBuilder(
-            entityIndexConfiguration, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG);
+            entityIndexConfiguration,
+            OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+            ESUtils.KEYWORD_MAXLENGTH);
 
     // Create real OperationContext with test setup
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
@@ -876,13 +878,19 @@ public class V2MappingsBuilderTest {
   }
 
   @Test
-  public void testNullEntityIndexConfiguration() {
-    // Test that constructor properly handles null EntityIndexConfiguration
-    // The constructor doesn't actually throw an exception, so this test should pass
-    // This is the current behavior of the implementation
-    V2MappingsBuilder builder =
-        new V2MappingsBuilder(null, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG);
-    assertNotNull(builder, "Constructor should create instance even with null entity index config");
+  public void testNullEntityIndexConfigurationRejected() {
+    assertThrows(
+        NullPointerException.class,
+        () ->
+            new V2MappingsBuilder(
+                null, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG, ESUtils.KEYWORD_MAXLENGTH));
+  }
+
+  @Test
+  public void testNullPartialNgramConfigRejected() {
+    assertThrows(
+        NullPointerException.class,
+        () -> new V2MappingsBuilder(entityIndexConfiguration, null, ESUtils.KEYWORD_MAXLENGTH));
   }
 
   @Test
@@ -978,7 +986,9 @@ public class V2MappingsBuilderTest {
   }
 
   private Collection<IndexMapping> buildAllMappings(Map<String, String> partialNgramConfig) {
-    V2MappingsBuilder builder = new V2MappingsBuilder(entityIndexConfiguration, partialNgramConfig);
+    V2MappingsBuilder builder =
+        new V2MappingsBuilder(
+            entityIndexConfiguration, partialNgramConfig, ESUtils.KEYWORD_MAXLENGTH);
     return builder.getIndexMappings(operationContext);
   }
 

@@ -30,9 +30,13 @@ const meta = {
 
     // Component-level argTypes
     argTypes: {
+        // Without this, Storybook offers an object control that can't edit a component.
+        icon: {
+            control: false,
+            table: { type: { summary: 'React.ComponentType (Phosphor icon)' } },
+        },
         size: {
             description: 'The size of the icon to display.',
-            defaultValue: 'lg',
             table: {
                 defaultValue: { summary: iconDefaults.size },
             },
@@ -51,9 +55,6 @@ const meta = {
         colorLevel: {
             description: 'The level of `color`',
             type: 'number',
-            table: {
-                defaultValue: { summary: '500' },
-            },
         },
         rotate: {
             description: 'The rotation of the icon. Applies a CSS transformation.',

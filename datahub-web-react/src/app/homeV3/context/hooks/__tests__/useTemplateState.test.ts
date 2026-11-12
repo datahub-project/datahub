@@ -1,10 +1,11 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { vi } from 'vitest';
 
 import { useGlobalSettings } from '@app/context/GlobalSettingsContext';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import { useTemplateState } from '@app/homeV3/context/hooks/useTemplateState';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { PageTemplateFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, PageTemplateSurfaceType } from '@types';

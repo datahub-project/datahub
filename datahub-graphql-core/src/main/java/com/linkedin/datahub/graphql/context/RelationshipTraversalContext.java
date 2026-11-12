@@ -32,13 +32,16 @@ public class RelationshipTraversalContext {
    * Marks the given URN as visited for this request. Call before resolving relationships for that
    * entity.
    *
+   * <p>Short-circuits only when at the cap (to prevent OOM). When the URN was already visited (e.g.
+   * same entity, different relationship type such as features vs trainedBy), the caller should
+   * proceed so multiple relationship types for the same entity are all resolved.
+   *
    * @param urn entity URN being visited
-   * @return true if under the cap (caller should proceed); false only when at cap (caller should
-   *     short-circuit). Resolving multiple relationship types for the same entity in one request is
-   *     allowed and does not short-circuit.
+   * @return true if caller should proceed (under cap, or URN already visited); false only when at
+   *     cap and URN not yet visited (caller should short-circuit to prevent OOM)
    */
   public boolean tryVisit(@Nonnull String urn) {
-    if (_visitedUrns.size() >= _maxVisitedUrns) {
+    if (_visitedUrns.size() >= _maxVisitedUrns && !_visitedUrns.contains(urn)) {
       return false;
     }
     _visitedUrns.add(urn);
