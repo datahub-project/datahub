@@ -51,6 +51,9 @@ class FakeBackend:
     def related_documents(self, urn: str, start: int, count: int) -> dict:
         return {}
 
+    def search_documents(self, variables: JsonObject, *, semantic: bool) -> JsonObject:
+        return {}
+
     def search_entities(self, variables: JsonObject) -> JsonObject:
         self.sent.append(dict(variables))
         total = self.total_for(variables)

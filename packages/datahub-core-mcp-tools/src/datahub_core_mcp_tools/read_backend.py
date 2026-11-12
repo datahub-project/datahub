@@ -52,6 +52,12 @@ class ReadBackend(Protocol):
         """``searchAcrossEntities`` for the variables of ``search.gql``."""
         ...
 
+    def search_documents(self, variables: JsonObject, *, semantic: bool) -> JsonObject:
+        """``searchAcrossEntities`` over documents for the variables of
+        ``document_search.gql``; with ``semantic``, ``semanticSearchAcrossEntities``
+        for those of ``document_semantic_search.gql``."""
+        ...
+
 
 @dataclass(frozen=True)
 class ReadBackendBinding:
@@ -141,6 +147,26 @@ class GraphQLReadBackend:
                 variables=variables,
                 operation_name="search",
             )["searchAcrossEntities"],
+        )
+
+    def search_documents(self, variables: JsonObject, *, semantic: bool) -> JsonObject:
+        if semantic:
+            document, operation = (
+                "document_semantic_search.gql",
+                "documentSemanticSearch",
+            )
+            key = "semanticSearchAcrossEntities"
+        else:
+            document, operation = "document_search.gql", "documentSearch"
+            key = "searchAcrossEntities"
+        return cast(
+            JsonObject,
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document(document),
+                variables=variables,
+                operation_name=operation,
+            )[key],
         )
 
 

@@ -23,6 +23,7 @@ from .progress_heartbeat import with_progress_heartbeat
 from .result_policy import trust_label_tags
 from .schema_matching import SchemaFieldMatcher
 from .tool_context import BackgroundExecution
+from .tools.documents import search_documents
 from .tools.entities import (
     SchemaFieldsTool,
     get_entities,
@@ -203,4 +204,5 @@ def register_tools(
             schema_tools.list_schema_fields if schema_tools else list_schema_fields,
             ToolType.SEARCH,
         )
+    add("search_documents", search_documents, ToolType.SEARCH)
     return registered
