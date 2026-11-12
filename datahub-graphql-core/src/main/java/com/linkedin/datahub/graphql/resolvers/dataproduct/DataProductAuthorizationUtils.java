@@ -41,8 +41,18 @@ public class DataProductAuthorizationUtils {
         context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups);
   }
 
+  /**
+   * Platform-wide {@code MANAGE_ALL_DATA_PRODUCTS}, which applies to Data Products in any Domain.
+   */
+  public static boolean canManageAllDataProducts(@Nonnull QueryContext context) {
+    return EntityAspectAuthorizationUtils.canManageAllDataProducts(context.getOperationContext());
+  }
+
   public static boolean isAuthorizedToManageDataProducts(
       @Nonnull QueryContext context, Urn domainUrn) {
+    if (canManageAllDataProducts(context)) {
+      return true;
+    }
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
@@ -66,6 +76,9 @@ public class DataProductAuthorizationUtils {
   /** Requires {@code MANAGE_DATA_PRODUCTS} on at least one domain associated with the product. */
   public static boolean isAuthorizedToManageDataProductsOnAnyDomain(
       @Nonnull QueryContext context, @Nullable Domains domains) {
+    if (canManageAllDataProducts(context)) {
+      return true;
+    }
     return EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(domains).stream()
         .anyMatch(domainUrn -> isAuthorizedToManageDataProducts(context, domainUrn));
   }
@@ -76,6 +89,9 @@ public class DataProductAuthorizationUtils {
    */
   public static boolean isAuthorizedToManageDataProduct(
       @Nonnull QueryContext context, @Nonnull Urn dataProductUrn, @Nullable Domains domains) {
+    if (canManageAllDataProducts(context)) {
+      return true;
+    }
     Set<Urn> liveDomainUrns = liveDomainUrns(context, domains);
     if (!liveDomainUrns.isEmpty()) {
       return liveDomainUrns.stream()
