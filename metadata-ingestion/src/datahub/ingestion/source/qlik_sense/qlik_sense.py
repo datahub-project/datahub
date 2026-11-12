@@ -328,6 +328,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._file_sources_by_app: Dict[str, FileSourceResolver] = {}
         self._app_space_ids: Dict[str, str] = {}
         self._apps_variables_unread: Set[str] = set()
+        self._apps_with_includes: Set[str] = set()
+        self._reported_include_apps: Set[str] = set()
         self._resolved_file_qris: Set[str] = set()
         self._allowed_space_ids: Set[str] = set()
         self._reported_no_graph = False
@@ -1624,19 +1626,33 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # as ADLS, are datasets. Other sources, such as database tables,
             # have opaque QRIs; the load script parser traces SQL loads instead.
             datasets = self._dataset_urns_by_secure_qri
-            if datasets is None:
-                return None, False
-            urn = datasets.get(table_qri.rpartition("#")[0])
+            urn = datasets.get(table_qri.rpartition("#")[0]) if datasets else None
             if urn is None and own_app_id is not None and FILE_QRI_RE.match(table_qri):
+                # Files on a storage connection resolve from the load script,
+                # without the list of datasets.
                 urn = self._resolve_file_source(own_app_id, table_qri)
                 if urn is None and self._file_inputs_incomplete(own_app_id):
-                    # The file may be one the script reads through a path or
-                    # connection this run could not read, so the last run's
-                    # edge to it must stay.
+                    # The file may be one the script reads through a path,
+                    # connection or included script this run could not read,
+                    # so the last run's edge to it must stay.
                     return None, False
+            if urn is None and datasets is None:
+                return None, False
         return (urn if urn != dataset_urn else None), True
 
     def _file_inputs_incomplete(self, app_id: str) -> bool:
+        if app_id in self._apps_with_includes:
+            if app_id not in self._reported_include_apps:
+                self._reported_include_apps.add(app_id)
+                self.reporter.warning(
+                    title="Qlik app loads files from an included script",
+                    message="Files loaded in scripts brought in with $(Include) "
+                    "or $(Must_Include) are not read, so a file in the app's "
+                    "lineage graph that its own script does not load only adds "
+                    "to the table's lineage.",
+                    context=app_id,
+                )
+            return True
         return app_id in self._apps_variables_unread or any(
             item.name == UNREAD_DATA_CONNECTIONS for item in self.qlik_api.unread_items
         )
@@ -2039,6 +2055,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.apps_without_load_model.append(app.id)
         parsed = self._parsed_script(app)
         self._file_sources_by_app[app.id] = self._file_source_resolver(app, parsed)
+        if parsed.has_includes:
+            self._apps_with_includes.add(app.id)
         if app.variables_read_failed:
             self._apps_variables_unread.add(app.id)
             self.reporter.warning(

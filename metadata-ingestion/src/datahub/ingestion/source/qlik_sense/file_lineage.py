@@ -137,12 +137,18 @@ def file_storage_of_uri(uri: str) -> Optional[FileStorage]:
     """The storage an Azure (`abfss://`, `abfs://` or Azure HTTPS), `s3://` or
     `gs://` URI names."""
     uri = uri.strip()
+    scheme, separator, rest = uri.partition("://")
+    if separator:
+        # Schemes are case-insensitive; the helpers below expect lower case.
+        uri = f"{scheme.lower()}://{rest}"
     if is_azure_path(uri):
         try:
             azure = parse_azure_path(uri)
         except ValueError:
             # az:// and adl:// need an account name, which the container
             # location does not include.
+            return None
+        if not azure.container_name:
             return None
         location = [azure.container_name, azure.object_path.strip("/")]
         return FileStorage(platform="abs", location="/".join(filter(None, location)))
