@@ -64,6 +64,14 @@ DOCUMENT_CONTENT_CHAR_LIMIT = _env_limit("DOCUMENT_CONTENT_CHAR_LIMIT", 8000)
 # Every piece of per-column text (description, edited description, deprecation
 # note), so a column reads the same length whichever aspect its text came from.
 SCHEMA_FIELD_TEXT_LENGTH_LIMIT = _env_limit("FIELD_DESCRIPTION_LENGTH_LIMIT", 120)
+# Each string value of a column's structured property, and the values per property:
+# some carry long-form guidance written for agents.
+FIELD_STRUCTURED_PROPERTY_CHAR_LIMIT = _env_limit(
+    "FIELD_STRUCTURED_PROPERTY_CHAR_LIMIT", 1000
+)
+FIELD_STRUCTURED_PROPERTY_MAX_VALUES = _env_limit(
+    "FIELD_STRUCTURED_PROPERTY_MAX_VALUES", 25
+)
 # An assertion's source-defined key/value lists (run nativeResults and error
 # properties, nativeParameters, customProperties) have no size limit (compiled SQL,
 # sampled rows), so both the key count and each value are capped.

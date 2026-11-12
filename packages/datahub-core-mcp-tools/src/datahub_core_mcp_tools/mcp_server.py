@@ -12,6 +12,7 @@ from enum import Enum
 from typing import Awaitable, Callable, Collection, Optional, ParamSpec, TypeVar
 
 from anyio.lowlevel import checkpoint_if_cancelled
+from datahub.cli.env_utils import get_boolean_env_variable
 from fastmcp import FastMCP
 from loguru import logger
 from mcp.server.lowlevel.server import NotificationOptions
@@ -22,7 +23,12 @@ from .progress_heartbeat import with_progress_heartbeat
 from .result_policy import trust_label_tags
 from .schema_matching import SchemaFieldMatcher
 from .tool_context import BackgroundExecution
-from .tools.entities import SchemaFieldsTool, get_entities, get_entities_description
+from .tools.entities import (
+    SchemaFieldsTool,
+    get_entities,
+    get_entities_description,
+    list_schema_fields,
+)
 from .tools.get_me import get_me
 from .tools.search import search, search_description
 from .version_requirements import tool_annotations
@@ -191,4 +197,10 @@ def register_tools(
         ToolType.SEARCH,
         description=get_entities_description(is_oss=is_oss),
     )
+    if get_boolean_env_variable("LIST_SCHEMA_FIELDS_ENABLED", default=True):
+        add(
+            "list_schema_fields",
+            schema_tools.list_schema_fields if schema_tools else list_schema_fields,
+            ToolType.SEARCH,
+        )
     return registered

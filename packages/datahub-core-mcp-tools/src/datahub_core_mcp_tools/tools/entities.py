@@ -1,8 +1,17 @@
-"""Entity retrieval: get_entities."""
+"""Entity retrieval: get_entities and list_schema_fields."""
 
 import inspect
 from dataclasses import dataclass
-from typing import Annotated, List, Literal, Optional, Sequence, cast
+from typing import (
+    Annotated,
+    Callable,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    cast,
+)
 
 from datahub.cli.env_utils import get_boolean_env_variable
 from fastmcp.exceptions import ToolError
@@ -18,15 +27,22 @@ from ..result_policy import (
     configuration_response,
     current_decisions,
     is_configuration,
+    label_reader_response,
     trust_labeled,
 )
-from ..schema_matching import SchemaFieldMatcher, SubstringMatcher
+from ..schema_matching import FieldText, SchemaFieldMatcher, SubstringMatcher
 from ..sibling_merge import merge_siblings
 from ..version_requirements import read_only
 
 # Opt-in: structured properties on every schema field cost tokens on every column.
 SCHEMA_FIELD_EXTRA_ATTRS_IN_GET_ENTITIES = get_boolean_env_variable(
     "SCHEMA_FIELD_EXTRA_ATTRS_IN_GET_ENTITIES", default=False
+)
+# list_schema_fields pages by keyword, limit and offset under the schema token budget,
+# so it returns them by default: otherwise properties written to columns (e.g. agent
+# guidance) could be written through the tools but never read back.
+SCHEMA_FIELD_EXTRA_ATTRS_IN_LIST_SCHEMA_FIELDS = get_boolean_env_variable(
+    "SCHEMA_FIELD_EXTRA_ATTRS_IN_LIST_SCHEMA_FIELDS", default=True
 )
 
 # `fields` is a strict allowlist: naming `ownership` returns the core fields plus
@@ -685,10 +701,227 @@ class SchemaFieldsTool:
             return results[0]
         return results
 
+    def _keyword_scores(self, keywords: List[str], fields: List[dict]) -> list[float]:
+        """Score each raw schema field against ``keywords`` with the host's matcher."""
+        field_texts = []
+        for field in fields:
+            schema_field_entity = field.get("schemaFieldEntity") or {}
+            texts = [field.get("description") or "", field.get("label") or ""]
+            # A column documented only by propagation or AI has no `description`.
+            texts.extend(
+                entity_cleaning.documentation_text_of(
+                    entity_cleaning.documentation_entries(
+                        schema_field_entity.get("documentation"),
+                        max_length=graphql_helpers.SCHEMA_FIELD_TEXT_LENGTH_LIMIT,
+                    )
+                )
+            )
+            # Whole values, so a keyword past the response's cut still matches.
+            texts.extend(
+                str(value)
+                for prop in entity_cleaning.structured_properties_of(
+                    schema_field_entity, bounded=False
+                )
+                for value in prop["values"]
+            )
+            for wrapper, list_key, item_key in (
+                (field.get("tags"), "tags", "tag"),
+                (field.get("glossaryTerms"), "terms", "term"),
+            ):
+                for item in (wrapper or {}).get(list_key) or []:
+                    texts.append(
+                        ((item.get(item_key) or {}).get("properties") or {}).get("name")
+                        or ""
+                    )
+            field_texts.append(
+                FieldText(
+                    path=field.get("fieldPath") or "",
+                    text=tuple(text for text in texts if text),
+                )
+            )
+        return self.matcher.scores(keywords, field_texts)
+
+    @read_only
+    def list_schema_fields(
+        self,
+        urn: Annotated[str, Field(validation_alias=arg_validation.URN_ALIASES)],
+        keywords: Annotated[
+            Optional[List[str]],
+            BeforeValidator(arg_validation.coerce_keyword_list),
+            Field(validation_alias=arg_validation.KEYWORDS_ALIASES),
+        ] = None,
+        limit: Annotated[
+            int, Field(validation_alias=arg_validation.SIZE_ALIASES)
+        ] = 100,
+        offset: Annotated[
+            int, Field(validation_alias=arg_validation.OFFSET_ALIASES)
+        ] = 0,
+    ) -> dict:
+        """Explore a dataset's columns, ranking keyword matches first.
+
+        Pass `keywords` unless you need every column — an unfiltered dump of a wide schema
+        is ~5x the cost. Keywords match descriptions and terms too, so they find columns
+        whose names you cannot guess. If you already know the names,
+        get_entities(schema_columns=[...]) answers in one call.
+
+        Keyword-matched columns return their full description; an unfiltered dump returns
+        each description as a preview, and one ending in a `[+N chars]` marker is truncated —
+        pass that column's name as a keyword to get its full definition. Each column also
+        carries its structured properties (e.g. guidance written for agents), when set.
+
+        Column descriptions, tags and terms include those of the dataset's siblings (e.g.
+        its dbt model), merged as the DataHub UI shows them.
+
+        Args:
+            urn: Dataset URN
+            keywords: Keywords to rank schema fields (OR matching). Omit only to page
+                     through an entire schema.
+                     - Commas separate keywords; whitespace does not. Use a single keyword for a field name or phrase.
+                     - Multiple keywords: Multiple keywords, matches any (OR logic).
+                     - None or empty list: Returns all fields in priority order (same as get_entities).
+                     Matches against fieldPath, description (including propagated and
+                     AI-inferred documentation), label, tags, glossary terms and
+                     structured property values.
+                     UI-edited descriptions, tags and terms are returned but are not searched.
+                     Matching fields are returned first, best match first. Nonmatching fields
+                     follow them to fill the page; keywords rank rather than filter.
+            limit: Maximum number of fields to return (default: 100)
+            offset: Number of fields to skip for pagination (default: 0)
+
+        Returns:
+            Dictionary with:
+            - urn: The dataset URN
+            - fields: List of schema fields (paginated)
+            - totalFields: Total number of fields in the schema
+            - returned: Number of fields actually returned
+            - remainingCount: Number of fields after this page (accounts for limit and token budget; 0 at the end)
+            - matchingCount: Number of fields that matched keywords (if keywords provided, None otherwise)
+            - siblings: URNs of the dataset's siblings, when it has any
+            - offset: The offset used
+            - note: Explains additional matches and the continuation offset, no keyword
+              matches, or a dataset with no schema fields, when applicable
+
+        `returned` can be smaller than `limit` when the token budget is reached, so
+        continue from offset + returned while remainingCount > 0.
+
+        Examples:
+            # Single keyword (list) - search for exact field name or phrase
+            list_schema_fields(urn="urn:li:dataset:(...)", keywords=["user_email"])
+
+            # Multiple keywords (list) - OR matching
+            list_schema_fields(urn="urn:li:dataset:(...)", keywords=["email", "user"])
+
+            # Pagination through all fields
+            list_schema_fields(urn="urn:li:dataset:(...)", limit=100, offset=0)   # First 100
+            list_schema_fields(urn="urn:li:dataset:(...)", limit=100, offset=100) # Next 100
+        """
+        # The `urn` alias lets a bare table name reach this body, where it would return
+        # an empty result. Reject it and name the tool that resolves it.
+        urn = arg_validation.require_urn(urn, tool="list_schema_fields")
+        backend = get_read_backend()
+        if not backend.exists(urn):
+            raise ToolError(f"Entity {urn} not found")
+        raw = backend.entity(urn)
+        if raw is None:
+            raise ToolError(
+                f"Entity {urn} exists but no data could be retrieved. This can happen "
+                "if the entity has no aspects ingested yet, or if there's a permissions issue."
+            )
+        result = cast(dict, raw)
+        merge_siblings(result)
+        # Most useful when the table itself has no schema and its sibling does.
+        sibling_list = (
+            {"siblings": result["siblings"]} if result.get("siblings") else {}
+        )
+        entity_cleaning.truncate_descriptions(result)
+
+        raw_fields = (result.get("schemaMetadata") or {}).get("fields") or []
+        total_fields = len(raw_fields)
+        if total_fields == 0:
+            return label_reader_response(
+                {
+                    "urn": urn,
+                    "totalFields": 0,
+                    "returned": 0,
+                    "remainingCount": 0,
+                    "matchingCount": None,
+                    "note": "the dataset has no schema fields",
+                    "offset": offset,
+                    **sibling_list,
+                    "fields": [],
+                },
+                urn,
+            )
+
+        sort_fn: Optional[Callable[[List[dict]], Iterator[dict]]] = None
+        matching_count: Optional[int] = None
+        # The keyword-matched columns get their full definition.
+        full_text_columns: Optional[List[str]] = None
+        if keywords:
+            scores = self._keyword_scores(keywords, raw_fields)
+            matched = [
+                path
+                for score, field in zip(scores, raw_fields, strict=True)
+                if score > 0 and (path := field.get("fieldPath"))
+            ]
+            matching_count = len(matched)
+            full_text_columns = matched or None
+
+            def best_match_first(fields: List[dict]) -> Iterator[dict]:
+                # The cleaner passes the same fields in their original order.
+                ranked = sorted(
+                    zip(scores, fields, strict=True),
+                    key=lambda pair: (-pair[0], pair[1].get("fieldPath", "")),
+                )
+                return iter(field for _, field in ranked)
+
+            sort_fn = best_match_first
+
+        cleaned = entity_cleaning.clean_get_entities_response(
+            result,
+            sort_fn=sort_fn,
+            offset=offset,
+            limit=limit,
+            include_schema_field_entity_attrs=SCHEMA_FIELD_EXTRA_ATTRS_IN_LIST_SCHEMA_FIELDS,
+            full_text_columns=full_text_columns,
+        )
+        fields = (cleaned.get("schemaMetadata") or {}).get("fields") or []
+        next_offset = offset + len(fields)
+
+        note = {}
+        if keywords and matching_count == 0:
+            note["note"] = (
+                f"no column matched {keywords} in the searched metadata; "
+                "UI-edited metadata is not searched; the columns below are unfiltered"
+            )
+        elif matching_count is not None and matching_count > next_offset:
+            note["note"] = (
+                f"{matching_count - next_offset} more columns matched; "
+                f"call again with offset={next_offset}"
+            )
+
+        return label_reader_response(
+            {
+                "urn": urn,
+                "totalFields": total_fields,
+                "returned": len(fields),
+                # An offset past the end is a valid empty page; never negative, so a
+                # caller can stop at 0.
+                "remainingCount": max(0, total_fields - next_offset),
+                "matchingCount": matching_count,
+                "offset": offset,
+                **sibling_list,
+                **note,
+                "fields": fields,
+            },
+            urn,
+        )
+
 
 # The substring default, for direct callers and servers that bind no matcher.
 _SUBSTRING_TOOLS = SchemaFieldsTool(matcher=SubstringMatcher())
 get_entities = _SUBSTRING_TOOLS.get_entities
+list_schema_fields = _SUBSTRING_TOOLS.list_schema_fields
 
 # `documentation` (propagated, AI and document-extracted descriptions) is read only on
 # DataHub Cloud: entity_details.gql gates it, so DataHub Core never returns it.
