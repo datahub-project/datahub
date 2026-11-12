@@ -145,6 +145,8 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     # QVD paths a load script names that resolve to no single file, such as a
     # wildcard, a variable, a relative path or an unknown data connection.
     unresolved_qvd_paths: LossyList[str] = field(default_factory=LossyList)
+    # QVDs loaded without a table label, which Qlik names itself.
+    unlabelled_qvd_loads: LossyList[str] = field(default_factory=LossyList)
     # Apps Qlik Cloud has no lineage graph for, read as having no tables.
     apps_without_lineage_graph: LossyList[str] = field(default_factory=LossyList)
     unresolved_data_connections: LossyList[str] = field(default_factory=LossyList)
@@ -248,15 +250,16 @@ class QlikOnPremConfig(ConfigModel):
     )
 
     read_data_model: bool = Field(
-        default=True,
+        default=False,
         description="Open each app with its data to read its data model, which "
         "gives every table its fields and types, including tables loaded with "
         "`LOAD *` and from QVDs, and lets charts link to exactly the tables and "
-        "fields they use. The Engine keeps an app it opened with its data in "
-        "memory until the app cache time set on the engine in the QMC has passed "
-        "since its last session, as it does for users. Set to false to open apps "
-        "without their data, which is faster and uses no Engine memory on large "
-        "sites; table fields then come only from the load script.",
+        "fields they use. Off by default: apps are then opened without their "
+        "data, which is much faster, and table fields come only from the load "
+        "script. Opening an app with its data loads it into Engine memory until "
+        "the app cache time set in the QMC has passed since its last session, "
+        "reads one app at a time unless `max_workers` is set, and fails for apps "
+        "whose section access denies the service user their data.",
     )
     qvd_folder_aliases: Dict[str, str] = Field(
         default={},
@@ -351,10 +354,11 @@ class QlikSourceConfig(
     )
     include_column_lineage: bool = Field(
         default=True,
-        description="Qlik Cloud only. Read the field level of Qlik's lineage graph "
-        "for each app table and each dataset an app stores into, for column-level "
-        "lineage and the fields of tables a load script drops. Costs one request "
-        "per table.",
+        description="Emit column-level lineage, from load scripts and app data "
+        "models and, on Qlik Cloud, from the field level of Qlik's lineage graph, "
+        "which is read for each app table and each dataset an app stores into and "
+        "also gives the fields of tables a load script drops. The field-level "
+        "reads cost one request per table.",
     )
     # Qlik app dataset upstream tables from data connection to platform instance mapping
     data_connection_to_platform_instance: Dict[str, PlatformDetail] = Field(

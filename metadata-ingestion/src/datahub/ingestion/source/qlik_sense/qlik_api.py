@@ -213,9 +213,10 @@ class QlikAPI(QlikBaseAPI):
                         )
                     )
         except Exception as e:
-            self._record_unread(
-                "datasets", f"Unable to list datasets. Exception: {e}", e
-            )
+            # Only lineage needs the list, and it falls back to adding edges,
+            # so this is not a failed read of the run's entities.
+            log_read_error(f"Unable to list datasets. Exception: {e}")
+            self.dataset_listing_error = str(e)
             return None
         return datasets
 
@@ -416,9 +417,14 @@ class QlikAPI(QlikBaseAPI):
             if not app.tables or not all(table.tableQri for table in app.tables):
                 # Graph and script tables carry no fields of their own; the
                 # data model has them as the last reload left them.
+                model_errors = len(errors.messages)
                 app.data_model_tables = self._read_data_model(
                     websocket_connection, app_id, errors
                 )
+                if len(errors.messages) > model_errors:
+                    # Unlabelled script tables are named from the data model,
+                    # so without it they may not match their graph tables.
+                    app.tables_read_failed = True
             app.read_errors = errors.messages
             app.sheets_complete = not errors.sheets_unread
             app.read_fallbacks = errors.fallbacks
