@@ -11,6 +11,7 @@ import { StructuredPopover } from '@components/components/StructuredPopover';
 import { TableGroupHeaderRow } from '@components/components/Table/TableGroupHeaderRow';
 import {
     BaseTable,
+    FixedHeightCellContent,
     HeaderContainer,
     LoadingContainer,
     RowDetailCell,
@@ -384,6 +385,13 @@ export const Table = <T,>({
                             renderCell(column, row, index)
                         );
                         if (hasExpandableRows && i === primaryColumnIndex) content = renderTreeCell(item, content);
+                        if (virtualization) {
+                            content = (
+                                <FixedHeightCellContent rowHeight={virtualization.rowHeight}>
+                                    {content}
+                                </FixedHeightCellContent>
+                            );
+                        }
                         const cellContent = column.cellWrapper ? column.cellWrapper(content, row) : content;
                         const clickable = column.isCellClickable ? column.isCellClickable(row) : !!column.onCellClick;
 
@@ -467,6 +475,7 @@ export const Table = <T,>({
             isScrollable={isScrollable}
             maxHeight={maxHeight}
             isBorderless={isBorderless}
+            isVirtualized={!!virtualization}
         >
             <BaseTable {...props}>
                 {/* Render the table header if enabled */}

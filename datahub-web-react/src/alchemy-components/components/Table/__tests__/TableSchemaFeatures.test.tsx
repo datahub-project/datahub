@@ -294,6 +294,16 @@ describe('Table virtualization', () => {
         expect(scroller.scrollTop).toBeLessThanOrEqual(700 * ROW_HEIGHT);
     });
 
+    it('keeps rows at their fixed height and opts out of scroll anchoring', () => {
+        const { container } = renderVirtualTable();
+
+        // Rows taller than rowHeight, or anchoring adjusting scrollTop as spacers change, would move the
+        // window on every scroll and remount the rows at its edges.
+        expect(container.firstElementChild).toHaveStyle({ overflowAnchor: 'none' });
+        const cellContent = within(screen.getByTestId('row-field_0000')).getByText('string');
+        expect(cellContent).toHaveStyle({ maxHeight: `${ROW_HEIGHT}px`, overflow: 'hidden' });
+    });
+
     it('does not re-render cells that stay in view while scrolling', () => {
         const renderType = vi.fn((field: Field) => field.type);
         const spiedColumns: Column<Field>[] = [columns[0], { ...columns[1], render: renderType }];
