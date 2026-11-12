@@ -18,6 +18,8 @@ from .graphql_helpers import (
     DESCRIPTION_LENGTH_HARD_LIMIT,
     DOCUMENT_CONTENT_CHAR_LIMIT,
     ENTITY_SCHEMA_TOKEN_BUDGET,
+    FIELD_STRUCTURED_PROPERTY_CHAR_LIMIT,
+    FIELD_STRUCTURED_PROPERTY_MAX_VALUES,
     MAX_ASSERTION_KEY_VALUE_CHARS,
     MAX_ASSERTION_KEY_VALUE_ENTRIES,
     MAX_CONTRACT_DATA_QUALITY_ASSERTIONS,
@@ -377,6 +379,64 @@ def _compact_semantic_field_annotation(annotation: object) -> Optional[dict]:
     return compact or None
 
 
+def structured_properties_of(
+    schema_field_entity: dict, *, bounded: bool = True
+) -> list[dict]:
+    """A column's structured properties as ``[{"name", "values"}]``.
+
+    Long-form values (e.g. guidance written for agents) are bounded: each string to
+    FIELD_STRUCTURED_PROPERTY_CHAR_LIMIT and each property to
+    FIELD_STRUCTURED_PROPERTY_MAX_VALUES values. ``bounded=False`` returns them
+    whole, for keyword matching past the cut.
+    """
+    wrapper = schema_field_entity.get("structuredProperties")
+    entries = wrapper.get("properties") if isinstance(wrapper, dict) else None
+    out: list[dict] = []
+    for entry in entries if isinstance(entries, list) else []:
+        if not isinstance(entry, dict):
+            continue
+        prop = entry.get("structuredProperty") or {}
+        definition = prop.get("definition") or {}
+        name = (
+            definition.get("displayName")
+            or definition.get("qualifiedName")
+            or prop.get("urn")
+        )
+        if not name:
+            continue
+        values: list[str | float] = []
+        # Null items are allowed in values and valueEntities.
+        for value in entry.get("values") or []:
+            if not value:
+                continue
+            if (string_value := value.get("stringValue")) is not None:
+                values.append(
+                    truncate_with_ellipsis(
+                        string_value,
+                        FIELD_STRUCTURED_PROPERTY_CHAR_LIMIT,
+                        dropped_count=True,
+                    )
+                    if bounded
+                    else string_value
+                )
+            elif (number_value := value.get("numberValue")) is not None:
+                values.append(number_value)
+        # GMS returns a URN-valued property in both lists, so valueEntities is read
+        # only when values held nothing.
+        if not values:
+            values = [
+                value_entity["urn"]
+                for value_entity in entry.get("valueEntities") or []
+                if value_entity and value_entity.get("urn")
+            ]
+        if not values:
+            continue
+        if bounded:
+            values = values[:FIELD_STRUCTURED_PROPERTY_MAX_VALUES]
+        out.append({"name": name, "values": values})
+    return out
+
+
 def _compact_schema_field_entity_attrs(
     schema_field_entity: dict,
     *,
@@ -395,23 +455,9 @@ def _compact_schema_field_entity_attrs(
     ):
         out["documentation"] = entries
     if include_structured_properties and (
-        wrapper := schema_field_entity.get("structuredProperties")
+        compact_props := structured_properties_of(schema_field_entity)
     ):
-        compact_props = []
-        for entry in wrapper.get("properties") or []:
-            definition = (entry.get("structuredProperty") or {}).get("definition") or {}
-            name = definition.get("displayName") or definition.get("qualifiedName")
-            if not name:
-                continue
-            values = []
-            for v in entry.get("values") or []:
-                if sv := v.get("stringValue"):
-                    values.append(sv)
-                elif nv := v.get("numberValue"):
-                    values.append(nv)
-            compact_props.append({"name": name, "values": values})
-        if compact_props:
-            out["structuredProperties"] = compact_props
+        out["structuredProperties"] = compact_props
     if annotation := _compact_semantic_field_annotation(
         schema_field_entity.get("semanticFieldAnnotation")
     ):
