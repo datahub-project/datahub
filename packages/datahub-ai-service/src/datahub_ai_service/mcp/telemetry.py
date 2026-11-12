@@ -4,6 +4,7 @@ import dataclasses
 import time
 from typing import Any, Optional, Protocol, Sequence
 
+import anyio
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from loguru import logger
 
@@ -18,6 +19,9 @@ class ToolCallEvent:
     error_type: Optional[str]
     """The exception class name when the call failed, never its message: messages
     can carry user data."""
+
+    cancelled: bool = False
+    """The client cancelled the call or went away before it finished."""
 
 
 class ToolCallObserver(Protocol):
@@ -36,8 +40,12 @@ class ToolCallTelemetryMiddleware(Middleware):
 
         started = time.perf_counter()
         error_type: Optional[str] = None
+        cancelled = False
         try:
             return await call_next(context)
+        except anyio.get_cancelled_exc_class():
+            cancelled = True
+            raise
         except BaseException as e:
             error_type = type(e).__name__
             raise
@@ -48,6 +56,7 @@ class ToolCallTelemetryMiddleware(Middleware):
                 actor_urn=caller.actor_urn if caller else None,
                 duration_seconds=time.perf_counter() - started,
                 error_type=error_type,
+                cancelled=cancelled,
             )
             for observer in self._observers:
                 try:

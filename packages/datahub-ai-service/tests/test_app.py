@@ -7,6 +7,7 @@ import pytest
 from fastmcp import Client
 from fastmcp.client.transports import StreamableHttpTransport
 from helpers import FakeClientFactory, FakeGms, serve
+from sse_starlette import EventSourceResponse
 
 from datahub_ai_service.app import create_app
 from datahub_ai_service.config import AiServiceConfig, ResponseMode
@@ -174,3 +175,64 @@ async def test_tool_call_observers(gms: FakeGms) -> None:
     assert events[0].tool_name == "get_me"
     assert events[0].actor_urn == "urn:li:corpuser:alice"
     assert events[0].error_type is None
+
+
+async def test_sse_keepalive_without_a_progress_token(
+    gms: FakeGms, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The SDK's SSE responses ping every 15 s; shorten it so the test is quick.
+    monkeypatch.setattr(EventSourceResponse, "DEFAULT_PING_INTERVAL", 0.1)
+    gms.get_me_seconds = 0.5
+    call = {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {"name": "get_me", "arguments": {}},
+    }
+
+    async with serve(_app(gms)) as url, httpx.AsyncClient() as http:
+        async with http.stream(
+            "POST",
+            f"{url}/mcp",
+            json=call,
+            headers={
+                **MCP_HEADERS,
+                "Authorization": "Bearer alice-token",
+                "MCP-Protocol-Version": "2025-06-18",
+            },
+        ) as response:
+            lines = [line async for line in response.aiter_lines()]
+
+    pings = [line for line in lines if line.startswith(":")]
+    result = next(line for line in lines if line.startswith("data:"))
+    assert pings, lines
+    assert lines.index(pings[0]) < lines.index(result)
+    assert "urn:li:corpuser:alice" in result
+
+
+async def test_cancelled_calls_are_recorded(gms: FakeGms) -> None:
+    events: list[ToolCallEvent] = []
+
+    class Recorder:
+        def on_tool_call(self, event: ToolCallEvent) -> None:
+            events.append(event)
+
+    gms.get_me_seconds = 1.0
+    async with serve(_app(gms, observers=[Recorder()])) as url:
+        async with _client(url, "alice-token") as client:
+            call = asyncio.create_task(client.call_tool("get_me"))
+            await asyncio.sleep(0.3)
+            call.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await call
+        # The server notices the dropped request and finishes the worker first.
+        for _ in range(50):
+            if events:
+                break
+            await asyncio.sleep(0.1)
+
+    assert len(events) == 1
+    assert events[0].cancelled
+    assert events[0].error_type is None
+    # The worker kept its client until it finished; then it was closed once.
+    assert gms.open_clients == 0

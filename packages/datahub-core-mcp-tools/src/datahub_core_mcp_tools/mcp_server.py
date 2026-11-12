@@ -11,12 +11,14 @@ import inspect
 from enum import Enum
 from typing import Awaitable, Callable, Collection, Optional, ParamSpec, TypeVar
 
+from anyio.lowlevel import checkpoint_if_cancelled
 from fastmcp import FastMCP
 from loguru import logger
 from mcp.server.lowlevel.server import NotificationOptions
 
 from .background_execution import run_in_background
 from .graphql_helpers import get_mcp_context
+from .progress_heartbeat import with_progress_heartbeat
 from .tool_context import BackgroundExecution
 from .tools.get_me import get_me
 from .version_requirements import tool_annotations
@@ -68,6 +70,12 @@ def async_background(fn: Callable[_P, _R]) -> Callable[_P, Awaitable[_R]]:
             if execution is None:
                 logger.exception(f"Tool function {_tool_fn_label(fn)} failed")
             raise
+        finally:
+            # The worker thread can't be interrupted, so a cancellation that arrives
+            # while it runs waits for it. Deliver that cancellation now, instead of
+            # returning a result the MCP SDK would then try to send for a request
+            # the client already cancelled, which breaks the session.
+            await checkpoint_if_cancelled()
 
     return wrapper
 
@@ -95,19 +103,21 @@ def register_tool(
     *,
     tool_type: ToolType,
     description: Optional[str] = None,
+    slow: bool = False,
 ) -> None:
     """Register one synchronous tool function on ``mcp_instance``.
 
     The function runs in a worker thread (see ``async_background``), is tagged
     with its tool type, and carries MCP annotations from its @read_only,
-    @destructive and @open_world markers.
+    @destructive and @open_world markers. A ``slow`` tool also reports progress
+    while it runs, to clients that ask for it.
     """
     mcp_instance.tool(
         name=name,
         description=description or fn.__doc__,
         tags={tool_type.value},
         annotations=tool_annotations(fn),
-    )(async_background(fn))
+    )(with_progress_heartbeat(fn) if slow else async_background(fn))
 
 
 def register_tools(
