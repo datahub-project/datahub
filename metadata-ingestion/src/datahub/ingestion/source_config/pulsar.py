@@ -118,6 +118,13 @@ class PulsarSourceConfig(
             )
         return self
 
+    @model_validator(mode="after")
+    def exclude_partitions_from_topic_patterns(self) -> "PulsarSourceConfig":
+        # Do not include each individual partition for partitioned topics.
+        if self.exclude_individual_partitions:
+            self.topic_patterns = self.topic_patterns.with_deny(r".*-partition-[0-9]+")
+        return self
+
     @pydantic.field_validator("web_service_url", mode="after")
     @classmethod
     def web_service_url_scheme_host_port(cls, val: str) -> str:

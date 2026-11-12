@@ -120,4 +120,4 @@ auto.offset.reset=latest
 [admin.trace-reader]
 bootstrap.servers=[producer-broker:9092] (List)
 client.id=trace-reader
-security.protocol=PLAINTEXT
+security.protocol=SSL

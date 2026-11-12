@@ -170,10 +170,13 @@ export class EntityDocumentationPage extends BasePage {
         if (attempt === maxAttempts || this.page.isClosed()) {
           throw err;
         }
-        // Dismiss a stuck modal before retrying the drawer → edit flow.
+        // Dismiss a stuck modal before retrying the drawer → edit flow. If it stays open, the
+        // next attempt fails on its own steps, so don't fail here.
         await this.page.keyboard.press('Escape').catch(() => undefined);
-        // eslint-disable-next-line playwright/no-wait-for-timeout
-        await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS * attempt);
+        await this.page
+          .getByText('Update description')
+          .waitFor({ state: 'hidden', timeout: TIMEOUTS.SHORT })
+          .catch(() => undefined);
       }
     }
   }
@@ -182,11 +185,7 @@ export class EntityDocumentationPage extends BasePage {
 
   async openAddLinkForm(): Promise<void> {
     await this.addRelatedButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(500);
     await this.page.getByText('Add link').click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(500);
   }
 
   async fillLinkForm(url: string, label: string, showInPreview: boolean): Promise<void> {
