@@ -199,7 +199,7 @@ Profiles add configuration state and selection rules that users must learn. A st
 | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
 | Single-instance users                                                    | Nothing. `~/.datahubenv` is the `default` profile.                                                  |
 | CI using `DATAHUB_GMS_URL` / `DATAHUB_GMS_TOKEN`                         | Nothing.                                                                                            |
-| CI re-running `datahub init` against a different host on a reused runner | Breaking: needs `--force` (or `--profile`). Document in `docs/how/updating-datahub.md`.             |
+| CI re-running `datahub init` against a different host on a reused runner | Breaking: needs `--force` (or `--profile`). Document in `docs/how/breaking-changes.md`.             |
 | HOME-hack users                                                          | `HOME=~/.datahub/profiles/x datahub …` becomes `datahub --profile x …`. The old form keeps working. |
 | SDK scripts calling `load_client_config()`                               | Pick up `DATAHUB_PROFILE` and `current-profile` automatically; add a `profile=` argument.           |
 
