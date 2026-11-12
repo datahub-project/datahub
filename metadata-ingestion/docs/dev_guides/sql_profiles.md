@@ -86,18 +86,20 @@ Profiling issues one query per metric per column, so a wide table can cost hundr
 
 `max_queries_to_combine` (default 40) caps how many **queries** share one statement — not columns. A 12-column numeric table issues 109 queries under default settings, 85 of them combinable, because each column contributes several and an unsampled median adds more; a table of strings queues far fewer. Raising it cuts round trips, and with flattening on it also cuts scans, because a flattened statement is one aggregate list over one table. With flattening off each merged query is still its own aggregate, so only round trips fall.
 
-The database bounds how far it can usefully be raised: a merged statement cross-joins one subquery per query, and MySQL allows 61 tables in a join, SQLite 64. Past that every merged statement fails and is retried one query at a time. A value above the limit is therefore slower than not combining at all; the profiler warns at startup when it can tell, which it can for MySQL, MariaDB and SQLite.
+The database bounds how far it can usefully be raised: a merged statement cross-joins one subquery per query, and MySQL allows 61 tables in a join, SQLite 64. Past that every merged statement fails and has to be split back down below the limit (see below), which costs extra statements on every batch. A value above the limit is therefore slower than staying under it; the profiler warns at startup when it can tell, which it can for MySQL, MariaDB and SQLite.
 
-A flattened statement does not join, so its normal path is not subject to that limit. Its recovery is: a flat statement that fails is re-routed through the joining path, so above the limit that recovery skips straight to one query at a time.
+A flattened statement does not join, so its normal path is not subject to that limit. Its recovery is: a flat statement that fails is re-routed through the joining path, and if that fails too the group is bisected like any other failed batch.
 
-The other trade is that a statement which fails is retried one query at a time, and that retry is scoped to the batch that failed — so a bigger batch means a bigger retry.
+The other trade is recovery. When a merged statement fails, the batch is bisected: it is re-issued as two halves, the half that fails is split again, and only a single query is ever run on its own. One bad expression in a batch of 40 (a column-level grant, a function the platform lacks, an overflow) costs about 10 statements instead of 40. A statement that timed out is the exception: its halves would each pay the limit again, so it is retried one query at a time. The row-count gate still runs first and alone, so an unreadable or empty table costs one statement.
 
-Measured on a 20-column numeric SQLite table (101 queued queries, with sample values, median and stddev off):
+Measured on a 20-column numeric SQLite table (101 queued queries, with sample values, median and stddev off), flattening off:
 
-| `max_queries_to_combine` | flattening off | flattening on, flat form rejected |
-| ------------------------ | -------------- | --------------------------------- |
-| 40                       | 3 statements   | 6 statements                      |
-| 100 (above SQLite's 64)  | 102 statements | 83 statements                     |
+| `max_queries_to_combine` | statements                                 |
+| ------------------------ | ------------------------------------------ |
+| 40                       | 3                                          |
+| 100 (above SQLite's 64)  | 11 (102 when failed batches went serially) |
+
+`python -m tests.performance.sqlalchemy_profiler.bench_combiner_recovery` reproduces these numbers and a few failure shapes.
 
 ### Aggregate flattening
 
@@ -128,7 +130,7 @@ Flattening trades round trips for scans, so `combined_queries_issued` can rise w
 | `flatten_singletons`          | queries alone in their table group, sent to the CTE path because flattening one saves nothing      |
 | `flat_group_failures`         | flat statements that failed and fell back                                                          |
 | `flat_group_cte_recoveries`   | of those, how many the CTE path recovered in one round trip                                        |
-| `flat_group_serial_fallbacks` | of those, how many ended up one query per round trip                                               |
+| `flat_group_serial_fallbacks` | of those, how many the CTE path did not recover: bisected, or run serially after a flat timeout    |
 
 If `scans_avoided` is low, `flatten_singletons` through `flat_group_serial_fallbacks` say why. High `flatten_singletons` means the workload has little to merge; a non-zero `flat_group_serial_fallbacks` means flattening is costing round trips rather than saving scans, and the flag is better off.
 
@@ -138,6 +140,13 @@ Two more counters are about the row-count gate rather than flattening, and a hig
 | ----------------------------- | -------------------------------------------------------------------------------------------------- |
 | `queries_skipped_after_gate`  | queries never issued because the table's row count failed on its own, so it could not be read      |
 | `queries_skipped_empty_table` | queries never issued because the exact row count was 0, so their results would have been discarded |
+
+Two are about recovering a failed batch, flattening on or off:
+
+| counter                    | meaning                                                                                      |
+| -------------------------- | -------------------------------------------------------------------------------------------- |
+| `failed_windows_bisected`  | failed batches sent down the bisection path (a one-query window is just retried on its own)  |
+| `bisect_statements_issued` | merged statements those bisections cost; single queries count in `uncombined_queries_issued` |
 
 One more is about `query_timeout_seconds` rather than flattening:
 
