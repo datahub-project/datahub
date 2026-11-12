@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Mapping, Optional, Sequence
 
 from datahub.emitter.mcp_builder import StructuredPropertyWriteMode
 from datahub.ingestion.source.snowflake.snowflake_config import TagOption
@@ -14,7 +14,15 @@ from datahub.ingestion.source.snowflake.snowflake_tag_resolver import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
-from datahub.metadata.schema_classes import PlatformResourceInfoClass, StatusClass
+from datahub.metadata.schema_classes import (
+    GlobalTagsClass,
+    PlatformResourceInfoClass,
+    StatusClass,
+    StructuredPropertiesClass,
+    StructuredPropertyValueAssignmentClass,
+    TagAssociationClass,
+    _Aspect,
+)
 from datahub.metadata.urns import PlatformResourceUrn, StructuredPropertyUrn, TagUrn
 from tests.unit.snowflake.conftest import (
     aspects,
@@ -24,11 +32,14 @@ from tests.unit.snowflake.conftest import (
 )
 
 _TAG = SnowflakeTag(database="TEST_DB", schema="PUBLIC", name="PII", value="HIGH")
-_TAG_30 = SnowflakeTag(database="TEST_DB", schema="PUBLIC", name="PII", value="30")
+_LOW = SnowflakeTag(database="TEST_DB", schema="PUBLIC", name="PII", value="LOW")
+_TIER = SnowflakeTag(database="TEST_DB", schema="PUBLIC", name="TIER", value="1")
 _NATIVE_TAG_URN = TagUrn("test_db.public.pii:high")
 _NATIVE_SP_URN = StructuredPropertyUrn("snowflake.test_db.public.pii")
 _RETENTION = "urn:li:structuredProperty:retention"
-_NUMBER = "urn:li:dataType:datahub.number"
+_DATASET = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.t1,PROD)"
+_UPSERT = StructuredPropertyWriteMode.UPSERT
+_PATCH = StructuredPropertyWriteMode.PATCH
 
 
 def resolver(
@@ -36,21 +47,17 @@ def resolver(
     *,
     repository: Optional[SnowflakeTagPlatformResourceRepository] = None,
     no_repository: bool = False,
-    sp_mode: Optional[StructuredPropertyWriteMode] = None,
-    value_type: Optional[str] = None,
+    in_datahub: Optional[Mapping[str, Sequence[_Aspect]]] = None,
     platform_instance: Optional[str] = None,
     extract_tags: Optional[TagOption] = None,
 ) -> SnowflakeTagResolver:
     overrides: Dict[str, object] = {}
     if extract_tags is not None:
         overrides["extract_tags"] = extract_tags
-    if sp_mode is not None:
-        overrides["extract_tags_as_structured_properties"] = True
-        overrides["structured_properties_write_mode"] = sp_mode
     config = make_v2_config(**overrides)
     report = SnowflakeV2Report()
     if repository is None and not no_repository:
-        repository = fake_tag_repository(records, value_type)
+        repository = fake_tag_repository(records, in_datahub=in_datahub)
     return SnowflakeTagResolver(
         repository=repository,
         config=config,
@@ -71,74 +78,132 @@ def emitted_secondary_keys(r: SnowflakeTagResolver) -> List[List[str]]:
     return [info.secondaryKeys or [] for info in infos.values()]
 
 
+def _tags(global_tags: Optional[GlobalTagsClass]) -> Optional[List[str]]:
+    return None if global_tags is None else [t.tag for t in global_tags.tags]
+
+
 def test_no_repository_resolves_native_tag_and_property() -> None:
     r = resolver(no_repository=True)
 
     assert r.resolve_tag_urn(_TAG) == _NATIVE_TAG_URN
     assert r.is_native(_TAG)
-    assert r.resolve_structured_properties([_TAG]) == {_NATIVE_SP_URN: "HIGH"}
+    assert _tags(r.global_tags(_DATASET, [_TAG])) == [_NATIVE_TAG_URN.urn()]
+    assert r.resolve_structured_properties(_DATASET, [_TAG], _UPSERT) == {
+        _NATIVE_SP_URN: "HIGH"
+    }
     assert emitted_secondary_keys(r) == []
 
 
-def test_tag_mode_managed_tag_maps_back() -> None:
-    r = resolver([tag_record(_TAG, "urn:li:tag:pii")])
+def test_managed_tag_term_or_property_is_never_taken_from_snowflake() -> None:
+    for record in [
+        tag_record(_TAG, "urn:li:tag:pii"),
+        tag_record(_TAG, "urn:li:glossaryTerm:abc"),
+        tag_record(_TAG, _RETENTION, with_value=False),
+    ]:
+        r = resolver([record])
 
-    assert r.resolve_tag_urn(_TAG) == TagUrn("pii")
-    assert not r.is_native(_TAG)
-    assert r.report.num_tags_mapped_to_datahub_urn == 1
-
-
-def test_managed_tag_is_skipped_when_mapping_back_is_off() -> None:
-    r = resolver([tag_record(_TAG, "urn:li:tag:pii")])
-
-    assert r.resolve_tag_urn(_TAG, map_back=False) is None
-    assert r.report.num_tags_skipped_datahub_managed == 1
-
-
-def test_tag_mode_managed_term_is_skipped() -> None:
-    r = resolver([tag_record(_TAG, "urn:li:glossaryTerm:abc")])
-
-    assert r.resolve_tag_urn(_TAG) is None
-    assert r.report.num_tags_skipped_datahub_managed == 1
+        assert r.resolve_tag_urn(_TAG) is None
+        assert not r.is_native(_TAG)
+        assert r.resolve_structured_properties(_DATASET, [_TAG], _PATCH) is None
+        assert r.report.num_tags_skipped_datahub_managed == 1
+        assert r.report.num_structured_properties_skipped_datahub_managed == 1
 
 
-def test_tag_mode_managed_structured_property_is_skipped() -> None:
-    r = resolver([tag_record(_TAG, _RETENTION, with_value=False)])
-
-    assert r.resolve_tag_urn(_TAG) is None
-    assert not r.is_native(_TAG)
-
-
-def test_sp_upsert_managed_property_maps_back_with_cast() -> None:
+def test_global_tags_keep_the_managed_tags_datahub_holds() -> None:
+    # Snowflake's tag_references lags: it may still list a tag the user just
+    # removed in DataHub, or not yet list one just added. DataHub decides.
     r = resolver(
-        [tag_record(_TAG_30, _RETENTION, with_value=False)],
-        sp_mode=StructuredPropertyWriteMode.UPSERT,
-        value_type=_NUMBER,
+        [tag_record(_TAG, "urn:li:tag:pii"), tag_record(_TIER, "urn:li:tag:gold")],
+        in_datahub={
+            _DATASET: [
+                GlobalTagsClass(
+                    tags=[
+                        TagAssociationClass("urn:li:tag:gold"),
+                        TagAssociationClass("urn:li:tag:test_db.public.pii:old"),
+                    ]
+                )
+            ]
+        },
     )
 
-    assert r.resolve_structured_properties([_TAG_30]) == {
-        StructuredPropertyUrn("retention"): 30.0
+    assert _tags(r.global_tags(_DATASET, [_TAG, _LOW])) == [
+        "urn:li:tag:test_db.public.pii:low",
+        "urn:li:tag:gold",
+    ]
+    assert r.report.num_managed_tags_preserved_from_datahub == 1
+
+
+def test_only_managed_tags_write_no_global_tags() -> None:
+    r = resolver([tag_record(_TAG, "urn:li:tag:pii")])
+
+    assert r.global_tags(_DATASET, [_TAG]) is None
+    assert r.repository is not None
+    assert r.repository.graph.get_aspect.call_count == 0  # type: ignore[attr-defined]
+
+
+def test_datahub_is_not_read_without_managed_records() -> None:
+    r = resolver([tag_record(_TAG, _NATIVE_TAG_URN.urn(), managed=False)])
+
+    assert _tags(r.global_tags(_DATASET, [_TAG])) == [_NATIVE_TAG_URN.urn()]
+    assert r.resolve_structured_properties(_DATASET, [_TAG], _UPSERT) == {
+        _NATIVE_SP_URN: "HIGH"
     }
-    assert r.report.num_structured_properties_mapped_to_datahub_urn == 1
+    assert r.repository is not None
+    assert r.repository.graph.get_aspect.call_count == 0  # type: ignore[attr-defined]
 
 
-def test_sp_patch_managed_property_is_skipped() -> None:
+def test_unreadable_datahub_aspect_writes_nothing() -> None:
+    # Writing the aspect without DataHub's managed values would delete them.
+    repository = fake_tag_repository(
+        [
+            tag_record(_TAG, "urn:li:tag:pii"),
+            tag_record(_TAG, _RETENTION, with_value=False),
+        ],
+        read_error=RuntimeError("timed out"),
+    )
+    r = resolver(repository=repository)
+
+    assert r.global_tags(_DATASET, [_TIER]) is None
+    assert r.resolve_structured_properties(_DATASET, [_TIER], _UPSERT) is None
+    assert r.report.num_datahub_aspect_read_failures == 2
+    assert len(r.report.warnings) == 2
+
+
+def test_upsert_keeps_the_values_datahub_holds_for_managed_properties() -> None:
     r = resolver(
         [tag_record(_TAG, _RETENTION, with_value=False)],
-        sp_mode=StructuredPropertyWriteMode.PATCH,
+        in_datahub={
+            _DATASET: [
+                StructuredPropertiesClass(
+                    properties=[
+                        StructuredPropertyValueAssignmentClass(
+                            propertyUrn=_RETENTION, values=[30.0, 60.0]
+                        ),
+                        StructuredPropertyValueAssignmentClass(
+                            propertyUrn="urn:li:structuredProperty:snowflake.old",
+                            values=["x"],
+                        ),
+                    ]
+                )
+            ]
+        },
     )
 
-    assert r.resolve_structured_properties([_TAG]) == {}
-    assert r.report.num_structured_properties_skipped_datahub_managed == 1
+    assert r.resolve_structured_properties(_DATASET, [_TAG, _TIER], _UPSERT) == {
+        StructuredPropertyUrn("snowflake.test_db.public.tier"): "1",
+        StructuredPropertyUrn("retention"): [30.0, 60.0],
+    }
+    assert r.report.num_managed_structured_properties_preserved_from_datahub == 1
 
 
-def test_sp_mode_managed_tag_or_term_is_skipped() -> None:
-    for urn in ["urn:li:tag:pii", "urn:li:glossaryTerm:abc"]:
-        r = resolver(
-            [tag_record(_TAG, urn)], sp_mode=StructuredPropertyWriteMode.UPSERT
-        )
+def test_patch_does_not_read_datahub() -> None:
+    r = resolver([tag_record(_TAG, _RETENTION, with_value=False)])
 
-        assert r.resolve_structured_properties([_TAG]) == {}
+    assert r.resolve_structured_properties(_DATASET, [_TAG, _TIER], _PATCH) == {
+        StructuredPropertyUrn("snowflake.test_db.public.tier"): "1"
+    }
+    assert r.repository is not None
+    assert r.repository.graph.get_aspect.call_count == 0  # type: ignore[attr-defined]
 
 
 def test_native_tag_queues_one_not_managed_record() -> None:
@@ -153,9 +218,11 @@ def test_native_tag_queues_one_not_managed_record() -> None:
 
 
 def test_native_property_links_the_valueless_record() -> None:
-    r = resolver(sp_mode=StructuredPropertyWriteMode.UPSERT)
+    r = resolver()
 
-    assert r.resolve_structured_properties([_TAG]) == {_NATIVE_SP_URN: "HIGH"}
+    assert r.resolve_structured_properties(_DATASET, [_TAG], _UPSERT) == {
+        _NATIVE_SP_URN: "HIGH"
+    }
     assert emitted_secondary_keys(r) == [[_NATIVE_SP_URN.urn()]]
 
 
@@ -287,45 +354,3 @@ def test_managed_record_without_urn_is_native() -> None:
 
     assert r.resolve_tag_urn(_TAG) == _NATIVE_TAG_URN
     assert r.is_native(_TAG)
-
-
-def test_uncastable_managed_value_blocks_the_whole_upsert_aspect() -> None:
-    # UPSERT replaces the aspect, so dropping one property would delete it.
-    thirty = SnowflakeTag(
-        database="TEST_DB", schema="PUBLIC", name="PII", value="thirty"
-    )
-    native = SnowflakeTag(database="TEST_DB", schema="PUBLIC", name="TIER", value="1")
-    r = resolver(
-        [tag_record(thirty, _RETENTION, with_value=False)],
-        sp_mode=StructuredPropertyWriteMode.UPSERT,
-        value_type=_NUMBER,
-    )
-
-    assert r.resolve_structured_properties([thirty, native]) is None
-    assert r.report.num_structured_properties_unresolved == 1
-    assert len(r.report.warnings) == 1
-
-
-def test_missing_property_definition_blocks_the_upsert_aspect() -> None:
-    # Writing a value for a property that no longer exists fails the whole write.
-    r = resolver(
-        [tag_record(_TAG, _RETENTION, with_value=False)],
-        sp_mode=StructuredPropertyWriteMode.UPSERT,
-        value_type=None,
-    )
-
-    assert r.resolve_structured_properties([_TAG]) is None
-    assert r.report.num_structured_properties_unresolved == 1
-    assert len(r.report.warnings) == 1
-
-
-def test_non_finite_number_blocks_the_upsert_aspect() -> None:
-    for value in ["nan", "inf", "-Infinity"]:
-        tag = SnowflakeTag(database="TEST_DB", schema="PUBLIC", name="PII", value=value)
-        r = resolver(
-            [tag_record(tag, _RETENTION, with_value=False)],
-            sp_mode=StructuredPropertyWriteMode.UPSERT,
-            value_type=_NUMBER,
-        )
-
-        assert r.resolve_structured_properties([tag]) is None, value

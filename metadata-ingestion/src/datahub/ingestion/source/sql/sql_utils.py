@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Iterable, List, Mapping, Optional, Union
+from typing import Dict, Iterable, List, Mapping, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
@@ -12,6 +12,7 @@ from datahub.emitter.mcp_builder import (
     ContainerKey,
     DatabaseKey,
     SchemaKey,
+    StructuredPropertyValues,
     add_dataset_to_container,
     add_domain_to_entity_wu,
     gen_containers,
@@ -78,7 +79,7 @@ def gen_schema_container(
     last_modified: Optional[int] = None,
     extra_properties: Optional[Dict[str, str]] = None,
     structured_properties: Optional[
-        Mapping[StructuredPropertyUrn, Union[str, float]]
+        Mapping[StructuredPropertyUrn, StructuredPropertyValues]
     ] = None,
 ) -> Iterable[MetadataWorkUnit]:
     domain_urn: Optional[str] = None
@@ -141,7 +142,7 @@ def gen_database_container(
     last_modified: Optional[int] = None,
     extra_properties: Optional[Dict[str, str]] = None,
     structured_properties: Optional[
-        Mapping[StructuredPropertyUrn, Union[str, float]]
+        Mapping[StructuredPropertyUrn, StructuredPropertyValues]
     ] = None,
 ) -> Iterable[MetadataWorkUnit]:
     domain_urn: Optional[str] = None
