@@ -266,6 +266,16 @@ describe('Qlik Sense recipe form', () => {
         ]);
     });
 
+    it('accepts a bare script variable name and rejects $() or surrounding spaces', () => {
+        const nameRule = QLIK_SCRIPT_VARIABLES.keyField?.rules?.find((rule) => 'pattern' in rule) as {
+            pattern: RegExp;
+        };
+        expect(nameRule.pattern.test('vSchema')).toBe(true);
+        expect(nameRule.pattern.test('v')).toBe(true);
+        expect(nameRule.pattern.test('$(vSchema)')).toBe(false);
+        expect(nameRule.pattern.test(' vSchema')).toBe(false);
+    });
+
     it('accepts a bare tenant hostname and rejects a scheme or path', () => {
         expect(tenantHostnameRule.pattern.test('example.us.qlikcloud.com')).toBe(true);
         expect(tenantHostnameRule.pattern.test('https://example.us.qlikcloud.com')).toBe(false);

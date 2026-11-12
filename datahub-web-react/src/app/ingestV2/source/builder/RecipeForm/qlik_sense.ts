@@ -586,7 +586,10 @@ const SCRIPT_VARIABLE_NAME: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'variable_name',
     placeholder: 'vSchema',
-    rules: [{ required: true, message: 'Variable Name is required' }],
+    rules: [
+        { required: true, message: 'Variable Name is required' },
+        { pattern: /^[^$()=\s](?:[^$()=]*[^$()=\s])?$/, message: 'Enter the name alone, without $() or spaces around it' },
+    ],
 };
 
 const SCRIPT_VARIABLE_VALUE: RecipeField = {

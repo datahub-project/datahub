@@ -1,5 +1,5 @@
 import re
-from typing import AbstractSet, Dict, List, Optional
+from typing import AbstractSet, Dict, List, Optional, Set
 
 from pydantic import BaseModel, Field
 
@@ -505,6 +505,20 @@ def _first_group(match: "re.Match[str]") -> str:
 class _BranchState(BaseModel):
     connection: Optional[str] = None
     variables: Dict[str, str] = {}
+    # Variables the visible script gives values it can't know here, such as a
+    # loop variable, so the app's or recipe's single value would be wrong.
+    unknown: Set[str] = set()
+
+    def set_variable(self, name: str, value: Optional[str]) -> None:
+        self.unknown.discard(name)
+        if value is None:
+            self.variables.pop(name, None)
+        else:
+            self.variables[name] = value
+
+    def forget_variable(self, name: str) -> None:
+        self.variables.pop(name, None)
+        self.unknown.add(name)
 
 
 class _Block(BaseModel):
@@ -547,7 +561,7 @@ class _ControlFlowTracker(BaseModel):
             # The loop variable takes values that are not known here.
             variable = FOR_VARIABLE_RE.match(control.group("forloop"))
             if variable:
-                self.state.variables.pop(variable.group("name"), None)
+                self.state.forget_variable(variable.group("name"))
 
     def forget_state(self) -> None:
         self.state = _BranchState()
@@ -564,15 +578,19 @@ class _ControlFlowTracker(BaseModel):
         if not block.has_default:
             outcomes.append(block.before)
         first, *rest = outcomes
+        variables = {
+            name: value
+            for name, value in first.variables.items()
+            if all(other.variables.get(name) == value for other in rest)
+        }
+        set_anywhere = {name for outcome in outcomes for name in outcome.variables}
         self.state = _BranchState(
             connection=first.connection
             if all(other.connection == first.connection for other in rest)
             else None,
-            variables={
-                name: value
-                for name, value in first.variables.items()
-                if all(other.variables.get(name) == value for other in rest)
-            },
+            variables=variables,
+            unknown=set().union(*(outcome.unknown for outcome in outcomes))
+            | (set_anywhere - variables.keys()),
         )
 
     def record_variable(self, statement: str) -> bool:
@@ -582,12 +600,13 @@ class _ControlFlowTracker(BaseModel):
         value = match.group("value").strip()
         literal = STRING_LITERAL_RE.fullmatch(value)
         if literal:
-            self.state.variables[match.group("name")] = _first_group(literal)
+            self.state.set_variable(match.group("name"), _first_group(literal))
         elif match.group("kind").upper() == "SET":
-            self.state.variables[match.group("name")] = value
+            self.state.set_variable(match.group("name"), value)
         else:
-            # LET evaluates an expression, so its value is unknown here.
-            self.state.variables.pop(match.group("name"), None)
+            # LET evaluates an expression the parser can't, so the value the
+            # app's last reload left, if any, stands in for it.
+            self.state.set_variable(match.group("name"), None)
         return True
 
 
@@ -801,24 +820,27 @@ class _ScriptParser(BaseModel):
             return
         # The body runs with the connection and variables in effect here, and
         # its parameters hold the arguments only for the call.
-        variables = self.flow.state.variables
-        saved = {param: variables.get(param) for param in sub.params}
+        state = self.flow.state
+        saved = {
+            param: (state.variables.get(param), param in state.unknown)
+            for param in sub.params
+        }
         values = _split_top_level(args) if args else []
         for index, param in enumerate(sub.params):
             value = _literal_value(values[index]) if index < len(values) else None
             if value is None:
-                variables.pop(param, None)
+                state.forget_variable(param)
             else:
-                variables[param] = value
+                state.set_variable(param, value)
         self.calling.append(name.lower())
         self.run(sub.body)
         self.calling.pop()
-        variables = self.flow.state.variables
-        for param, value in saved.items():
-            if value is None:
-                variables.pop(param, None)
+        state = self.flow.state
+        for param, (value, unknown) in saved.items():
+            if unknown:
+                state.forget_variable(param)
             else:
-                variables[param] = value
+                state.set_variable(param, value)
 
     def _statement(self, statement: str) -> None:
         statement, includes = INCLUDE_RE.subn("", statement)
@@ -831,7 +853,7 @@ class _ScriptParser(BaseModel):
         # Variables the visible script sets take precedence from where it sets
         # them; others come from the app's last reload or the recipe.
         statement = _expand_variables(
-            statement, {**self.app_variables, **self.flow.state.variables}
+            statement, {**self._fallback_variables(), **self.flow.state.variables}
         )
         if not statement:
             return
@@ -934,13 +956,23 @@ class _ScriptParser(BaseModel):
                 self.last_label = label or self.pending_label
             self._clear_pending()
 
+    def _fallback_variables(self) -> Dict[str, str]:
+        # A value starting with `=` is an expression Qlik evaluates, not text
+        # the script would hold.
+        unknown = self.flow.state.unknown
+        return {
+            name: value
+            for name, value in self.app_variables.items()
+            if name not in unknown and not value.lstrip().startswith("=")
+        }
+
     def _expand_app_variables(self, path: str) -> str:
         """A path with the app's variables as its last reload left them, which
         include those set with LET or in an included script that the parser
         can't evaluate. A variable can hold another, such as a folder built
         from a connection prefix."""
         for _ in range(_MAX_VARIABLE_DEPTH):
-            expanded = _expand_variables(path, self.app_variables)
+            expanded = _expand_variables(path, self._fallback_variables())
             if expanded == path:
                 break
             path = expanded
@@ -1046,18 +1078,10 @@ class _ScriptParser(BaseModel):
 
 
 def parse_script(
-    script: str,
-    app_variables: Optional[Dict[str, str]] = None,
-    script_variables: Optional[Dict[str, str]] = None,
+    script: str, app_variables: Optional[Dict[str, str]] = None
 ) -> ParsedScript:
-    """`app_variables` are the app's variables from the Engine, as its last
-    reload left them; `script_variables` are recipe values for variables
-    neither the app nor its visible script has."""
     parsed = _script_pieces(script)
-    parser = _ScriptParser(
-        subs=parsed.subs,
-        app_variables={**(script_variables or {}), **(app_variables or {})},
-    )
+    parser = _ScriptParser(subs=parsed.subs, app_variables=app_variables or {})
     parser.run(parsed.pieces)
     return ParsedScript(
         tables=parser.tables,

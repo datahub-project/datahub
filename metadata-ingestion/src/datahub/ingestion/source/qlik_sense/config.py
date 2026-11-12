@@ -415,8 +415,8 @@ class QlikSourceConfig(
         "such as ones computed with LET, set in an included script, or deleted "
         "after the reload, keyed by variable name without `$()`. Used in QVD and "
         "file paths, connection names, SQL and chart expressions. An app's own "
-        "variables, as its last reload left them, and variables set in the "
-        "visible script take precedence.",
+        "variables, as its last reload left them, take precedence, and a "
+        "variable the visible script sets overrides it from where it is set.",
     )
     file_connection_to_storage: Dict[str, FileStorageDetail] = Field(
         default={},
@@ -427,6 +427,19 @@ class QlikSourceConfig(
         "when the API key's user cannot see the connection, and `platform_instance` "
         "and `env` to match the source that ingests the storage.",
     )
+
+    @field_validator("script_variables")
+    @classmethod
+    def script_variable_names_are_bare(cls, value: Dict[str, str]) -> Dict[str, str]:
+        # A name such as `$(vSchema)` or ` vSchema` never matches a reference
+        # in the script, so it would be ignored without notice.
+        for name in value:
+            if not name or name != name.strip() or any(c in name for c in "$()="):
+                raise ValueError(
+                    f"Invalid script_variables name {name!r}: use the variable "
+                    "name alone, such as vSchema, without $() or spaces around it"
+                )
+        return value
 
     @model_validator(mode="after")
     def validate_connection(self) -> "QlikSourceConfig":

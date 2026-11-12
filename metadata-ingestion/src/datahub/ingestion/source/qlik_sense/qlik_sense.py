@@ -1431,11 +1431,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _parsed_script(self, app: App) -> ParsedScript:
         return (
-            parse_script(
-                app.script,
-                app.variables,
-                script_variables=self.config.script_variables,
-            )
+            parse_script(app.script, self._app_variables(app))
             if app.script
             else ParsedScript()
         )
@@ -1721,8 +1717,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _app_variables(self, app: App) -> Dict[str, str]:
-        """The app's variables as its last reload left them, with the recipe's
-        values for any it doesn't have."""
+        # The app's own values, as its last reload left them, beat the recipe's.
         return {**self.config.script_variables, **app.variables}
 
     def _file_source_resolver(
@@ -2163,8 +2158,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.warning(
                 title="Unable to read Qlik app variables",
                 message="Load script paths and chart expressions that use these "
-                "apps' variables are not expanded, so lineage from them is only "
-                "added to this run.",
+                "apps' variables are only expanded from `script_variables`, so "
+                "lineage from them is only added to this run.",
                 context=app.id,
             )
         self._app_space_ids[app.id] = app.spaceId
