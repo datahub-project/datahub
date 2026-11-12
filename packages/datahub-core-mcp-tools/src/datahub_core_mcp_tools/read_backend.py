@@ -32,6 +32,10 @@ class ReadBackend(Protocol):
         """
         ...
 
+    def search_entities(self, variables: JsonObject) -> JsonObject:
+        """``searchAcrossEntities`` for the variables of ``search.gql``."""
+        ...
+
 
 @dataclass(frozen=True)
 class ReadBackendBinding:
@@ -56,6 +60,17 @@ class GraphQLReadBackend:
         return cast(
             dict[str, JsonObject],
             {k: (v.to_obj() if hasattr(v, "to_obj") else v) for k, v in raw.items()},
+        )
+
+    def search_entities(self, variables: JsonObject) -> JsonObject:
+        return cast(
+            JsonObject,
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document("search.gql"),
+                variables=variables,
+                operation_name="search",
+            )["searchAcrossEntities"],
         )
 
 

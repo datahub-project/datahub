@@ -1,0 +1,155 @@
+# Note: The following entity types are not currently included:
+# - DataJob
+# - DataFlow
+# - ML entities (MLModel, MLModelGroup, MLFeature, MLFeatureTable, MLPrimaryKey)
+# - Tag
+# - StructuredProperty
+# - CorpUser
+# - CorpGroup
+
+fragment SearchEntityInfo on Entity {
+  urn
+
+  # For some entity types, the urns are not human-readable. For those,
+  # we pull the name as well. lastModified is shown as a date (see freshness.py).
+  ... on Dataset {
+    # Key name. Used when properties.name was never set (semantic-model datasets).
+    name
+    properties {
+      name
+      lastModified {
+        time
+      }
+    }
+  }
+  ... on Document {
+    info {
+      title
+      lastModified {
+        time
+      }
+    }
+  }
+  ... on SemanticModel {
+    # Aliased: a document's info.lastModified is non-null and a semantic model's is
+    # nullable, and GraphQL rejects merging the two under one response key.
+    semanticModelInfo: info {
+      name
+      lastModified {
+        time
+      }
+    }
+  }
+  ... on Chart {
+    properties {
+      name
+    }
+  }
+  ... on Dashboard {
+    properties {
+      name
+    }
+  }
+  ... on Container {
+    properties {
+      name
+    }
+  }
+  ... on GlossaryTerm {
+    properties {
+      name
+    }
+  }
+  ... on GlossaryNode {
+    properties {
+      name
+    }
+  }
+  ... on Domain {
+    properties {
+      name
+    }
+  }
+  ... on DataProduct {
+    properties {
+      name
+    }
+  }
+  ... on Metric {
+    metricInfo: info {
+      name
+      lastModified {
+        time
+      }
+    }
+  }
+}
+
+fragment FacetEntityInfo on Entity {
+  ... on Dataset {
+    name
+    properties {
+      name
+    }
+  }
+  ... on Container {
+    subTypes {
+      typeNames
+    }
+    properties {
+      name
+    }
+  }
+  ... on GlossaryTerm {
+    properties {
+      name
+    }
+  }
+}
+
+# searchFlags is a variable so that a host's SearchFlagsOverride can merge over the
+# defaults (see tools/search.py).
+query search(
+  $types: [EntityType!]
+  $query: String!
+  $orFilters: [AndFilterInput!]
+  $count: Int!
+  $start: Int!
+  $viewUrn: String
+  $sortInput: SearchSortInput
+  $searchFlags: SearchFlags
+) {
+  searchAcrossEntities(
+    input: {
+      query: $query
+      count: $count
+      start: $start
+      types: $types
+      orFilters: $orFilters
+      viewUrn: $viewUrn
+      sortInput: $sortInput
+      searchFlags: $searchFlags
+    }
+  ) {
+    start
+    count
+    total
+    searchResults {
+      entity {
+        ...SearchEntityInfo
+      }
+    }
+    facets {
+      field
+      displayName
+      aggregations {
+        value
+        count
+        displayName
+        entity {
+          ...FacetEntityInfo
+        }
+      }
+    }
+  }
+}

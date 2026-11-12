@@ -74,7 +74,12 @@ def test_resolve_tool_refs(
 
 @pytest.mark.parametrize(
     ("groups", "expected"),
-    [(None, {"get_me"}), ([], {"get_me"}), (["write_metadata"], {"get_me"})],
+    [
+        (None, {"get_me", "search"}),
+        ([], {"get_me"}),
+        (["write_metadata"], {"get_me"}),
+        (["read_metadata"], {"get_me", "search"}),
+    ],
 )
 async def test_register_tools_by_group_always_keeps_system_tools(
     groups: Optional[list[str]], expected: set[str]

@@ -19,7 +19,7 @@ OpenAI-compatible endpoints, which reject the *whole* tool list with a 422
 
 from typing import Annotated, List, Optional
 
-from pydantic import BeforeValidator, WithJsonSchema
+from pydantic import AliasChoices, BeforeValidator, WithJsonSchema
 from pydantic_core import from_json
 
 
@@ -93,3 +93,21 @@ def coerce_keyword_list(
             # BeforeValidator sees unvalidated items; leave them for pydantic to reject.
             keywords.append(item)
     return keywords
+
+
+# Other names agents use for the same parameter, for ``Field(validation_alias=...)``.
+# An alias doesn't change the published schema: each parameter still advertises one
+# name, so the alternatives cost no tokens and strict clients see no union. A
+# canonical name missing from its own set becomes unreachable, so every name these
+# are applied to appears in them.
+FILTER_ALIASES = AliasChoices("filter", "filters")
+SIZE_ALIASES = AliasChoices(
+    "num_results",
+    "limit",
+    "count",
+    "max_results",
+    "numResults",
+    "page_size",
+    "pageSize",
+)
+OFFSET_ALIASES = AliasChoices("offset", "start")
