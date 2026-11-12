@@ -355,6 +355,7 @@ class QlikOnPremAPI(QlikBaseAPI):
                 websocket_connection = self._open_engine(app.id)
                 self._open_doc(websocket_connection, app.id, with_data=False)
                 with_data = False
+                app.data_load_failed = True
                 self.opened_without_data.append(f"{app.id}: {e}")
             app.sheets = self._get_app_sheets(
                 websocket_connection,
