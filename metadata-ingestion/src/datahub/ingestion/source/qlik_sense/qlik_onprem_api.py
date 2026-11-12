@@ -326,6 +326,7 @@ class QlikOnPremAPI(QlikBaseAPI):
                 f"Unable to connect to the Engine for app {app.id}. Exception: {e}"
             )
             app.read_errors = errors.messages
+            app.sheets_complete = False
             return app
         try:
             websocket_connection.websocket_send_request(
@@ -355,9 +356,12 @@ class QlikOnPremAPI(QlikBaseAPI):
                 )
         except Exception as e:
             errors.record(f"Unable to open app {app.id} in the Engine. Exception: {e}")
+            # It may have failed before the sheets were read.
+            errors.sheets_unread = True
         finally:
             self._close_engine(websocket_connection, app.id)
         app.read_errors = errors.messages
+        app.sheets_complete = not errors.sheets_unread
         app.read_fallbacks = errors.fallbacks
         return app
 

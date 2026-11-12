@@ -57,6 +57,9 @@ class ReadErrors:
     messages: List[str] = field(default_factory=list)
     # Batch reads that fell back to one request per object: slower, not partial.
     fallbacks: List[str] = field(default_factory=list)
+    # A sheet, or the list of sheets, could not be read, so the app's sheets
+    # are not all known.
+    sheets_unread: bool = False
 
     def record(self, message: str) -> None:
         log_read_error(message)
@@ -286,6 +289,7 @@ class QlikBaseAPI(ABC):
             return sheet
         except Exception as e:
             errors.record(f"Unable to fetch sheet with id {sheet_id}. Exception: {e}")
+            errors.sheets_unread = True
         return None
 
     def _get_app_sheets(
@@ -316,4 +320,5 @@ class QlikBaseAPI(ABC):
             )
         except Exception as e:
             errors.record(f"Unable to fetch sheets for app {app_id}. Exception: {e}")
+            errors.sheets_unread = True
         return sheets

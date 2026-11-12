@@ -386,6 +386,8 @@ class App(Item):
     tables_read_failed: bool = False
     # Engine reads of this app that failed, so its metadata is only partly read.
     read_errors: List[str] = []
+    # Every sheet of the app was read, even if other parts of the app were not.
+    sheets_complete: bool = True
     # Batch Engine reads that fell back to slower per-object reads.
     read_fallbacks: List[str] = []
 

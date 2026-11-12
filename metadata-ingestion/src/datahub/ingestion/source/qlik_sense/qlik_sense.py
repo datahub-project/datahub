@@ -152,6 +152,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from datahub.specific.chart import ChartPatchBuilder
+from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
@@ -884,24 +885,25 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return index
 
     def _gen_app_dashboard_workunit(
-        self, app: App, owner_username: Optional[str]
+        self,
+        app: App,
+        owner_username: Optional[str],
+        table_urns: Optional[List[str]],
     ) -> Iterable[MetadataWorkUnit]:
-        """The app as a dashboard of its sheets, as well as their container, so it
-        shows in lineage downstream of its sheets and charts."""
+        """The app as a dashboard of its sheets and its tables, as well as their
+        container, so lineage runs from the app's data sources to the app.
+        `table_urns` is None when the app's tables are not all known."""
         dashboard_urn = self._gen_dashboard_urn(app.id)
         yield self._gen_entity_status_aspect(dashboard_urn)
-        # A partly read app may miss sheets, and the edges replace the last
-        # full read's.
-        if app.read_complete:
+        sheet_urns = [self._gen_dashboard_urn(sheet.id) for sheet in app.sheets]
+        if app.sheets_complete and table_urns is not None:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dashboard_urn,
                 aspect=DashboardInfoClass(
                     title=app.qTitle,
                     description=app.description or "",
-                    dashboards=[
-                        EdgeClass(destinationUrn=self._gen_dashboard_urn(sheet.id))
-                        for sheet in app.sheets
-                    ],
+                    dashboards=[EdgeClass(destinationUrn=urn) for urn in sheet_urns],
+                    datasetEdges=[EdgeClass(destinationUrn=urn) for urn in table_urns],
                     lastModified=ChangeAuditStampsClass(
                         created=self._get_audit_stamp(app.createdAt, app.ownerId),
                         lastModified=self._get_audit_stamp(app.updatedAt, app.ownerId),
@@ -910,6 +912,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     dashboardUrl=f"https://{self.ui_host}/sense/app/{app.id}/overview",
                 ),
             ).as_workunit()
+        else:
+            # Sheets or tables that could not be read this run may still exist,
+            # so the edges read are added to the last full read's.
+            patch = DashboardPatchBuilder(dashboard_urn).set_title(app.qTitle)
+            for urn in sheet_urns:
+                patch.add_dashboard(urn)
+            for urn in table_urns or []:
+                patch.add_dataset_edge(urn)
+            for mcp in patch.build():
+                yield MetadataWorkUnit(
+                    id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+                )
         yield MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn,
             aspect=SubTypes(typeNames=[BIContainerSubTypes.QLIK_APP]),
@@ -1871,7 +1885,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
         )
         yield from container_workunits
-        yield from self._gen_app_dashboard_workunit(app, owner_username)
+        yield from self._gen_app_dashboard_workunit(
+            app,
+            owner_username,
+            None if app.tables_read_failed else input_tables_urns,
+        )
         yield from self._gen_sheets_workunit(
             app,
             None if app.tables_read_failed else input_tables_urns,

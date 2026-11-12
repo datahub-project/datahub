@@ -1,8 +1,14 @@
+import json
+from typing import List, Optional
 from unittest.mock import patch
 
 import pytest
 
-from datahub.emitter.mce_builder import make_container_urn, make_dashboard_urn
+from datahub.emitter.mce_builder import (
+    make_container_urn,
+    make_dashboard_urn,
+    make_dataset_urn,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import App, Sheet
@@ -10,6 +16,7 @@ from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.metadata.schema_classes import (
     ContainerClass,
     DashboardInfoClass,
+    MetadataChangeProposalClass,
     SubTypesClass,
 )
 
@@ -28,7 +35,7 @@ def _sheet(sheet_id: str) -> Sheet:
     )
 
 
-def _app(read_errors: list) -> App:
+def _app(read_errors: list, sheets_complete: bool = True) -> App:
     return App.model_validate(
         {
             "id": "app-1",
@@ -40,35 +47,66 @@ def _app(read_errors: list) -> App:
             "spaceId": "space-1",
             "sheets": [_sheet("sheet-1"), _sheet("sheet-2")],
             "read_errors": read_errors,
+            "sheets_complete": sheets_complete,
         }
     )
 
 
-@pytest.mark.parametrize("read_errors", [[], ["sheet-3: unable to read"]])
-def test_app_is_a_dashboard_of_its_sheets(read_errors: list) -> None:
+TABLES = [
+    make_dataset_urn("qlik-sense", "app-1.orders"),
+    make_dataset_urn("qlik-sense", "app-1.customers"),
+]
+
+
+@pytest.mark.parametrize(
+    "sheets_complete, table_urns, written_whole",
+    [
+        # Another part of the app failed, but its sheets and tables are known.
+        (True, TABLES, True),
+        (False, TABLES, False),
+        (True, None, False),
+    ],
+)
+def test_app_is_a_dashboard_of_its_sheets_and_tables(
+    sheets_complete: bool, table_urns: Optional[List[str]], written_whole: bool
+) -> None:
     with patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI"):
         source = QlikSenseSource(
             QlikSourceConfig.model_validate(CLOUD_CONFIG),
             PipelineContext(run_id="test-app-dashboard"),
         )
-    app = _app(read_errors)
-    workunits = list(source._gen_app_dashboard_workunit(app, None))
+    app = _app(["chart-1: unable to read"], sheets_complete=sheets_complete)
+    workunits = list(source._gen_app_dashboard_workunit(app, None, table_urns))
 
     app_urn = make_dashboard_urn("qlik-sense", "app-1")
+    sheets = [
+        make_dashboard_urn("qlik-sense", "sheet-1"),
+        make_dashboard_urn("qlik-sense", "sheet-2"),
+    ]
     assert {wu.get_urn() for wu in workunits} == {app_urn}
     infos = [
         info for wu in workunits if (info := wu.get_aspect_of_type(DashboardInfoClass))
     ]
-    if read_errors:
-        # A partly read app may miss sheets, so its last full read is kept.
-        assert infos == []
-    else:
+    if written_whole:
         [info] = infos
         assert info.title == "Sales"
-        assert [edge.destinationUrn for edge in info.dashboards or []] == [
-            make_dashboard_urn("qlik-sense", "sheet-1"),
-            make_dashboard_urn("qlik-sense", "sheet-2"),
+        assert [edge.destinationUrn for edge in info.dashboards or []] == sheets
+        assert [edge.destinationUrn for edge in info.datasetEdges or []] == TABLES
+    else:
+        # What was read is added to the edges of the last full read.
+        assert infos == []
+        [patch_mcp] = [
+            wu.metadata
+            for wu in workunits
+            if isinstance(wu.metadata, MetadataChangeProposalClass)
+            and wu.metadata.aspectName == DashboardInfoClass.ASPECT_NAME
         ]
+        assert patch_mcp.aspect is not None
+        paths = [op["path"] for op in json.loads(patch_mcp.aspect.value)]
+        assert sum(path.startswith("/dashboards/") for path in paths) == 2
+        assert sum(path.startswith("/datasetEdges/") for path in paths) == len(
+            table_urns or []
+        )
     [subtypes] = [
         types for wu in workunits if (types := wu.get_aspect_of_type(SubTypesClass))
     ]

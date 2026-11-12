@@ -420,6 +420,7 @@ class QlikAPI(QlikBaseAPI):
                     websocket_connection, app_id, errors
                 )
             app.read_errors = errors.messages
+            app.sheets_complete = not errors.sheets_unread
             app.read_fallbacks = errors.fallbacks
             return app
         finally:
