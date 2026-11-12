@@ -56,7 +56,6 @@ export type IncidentGroup = {
     stage?: IncidentStage;
     state?: IncidentState;
     priority?: IncidentPriority;
-    groupName?: JSX.Element;
 };
 
 export type IncidentFilterOptions = {

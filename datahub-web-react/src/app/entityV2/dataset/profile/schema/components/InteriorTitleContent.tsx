@@ -39,11 +39,12 @@ const DeprecatedContainer = styled.div`
     color: ${(props) => props.theme.colors.textSecondary};
 `;
 
+// Both schema tables style their first column as the row title, so the field path inherits it.
 const FieldPathText = styled(Typography.Text)<{ $isCompact: boolean }>`
-    font-size: 12px;
+    font-size: inherit;
     line-height: ${(props) => (props.$isCompact ? '14px' : '24px')};
-    font-weight: 600;
-    color: ${(props) => props.theme.colors.textSecondary};
+    font-weight: inherit;
+    color: inherit;
 
     display: flex;
     align-items: center;
