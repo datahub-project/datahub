@@ -5,7 +5,7 @@ import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
 import { Table } from '@components/components/Table';
-import { Column, SortingState, TableSortState } from '@components/components/Table/types';
+import { Column, SortingState, TableSortState, TableTreeDataProps } from '@components/components/Table/types';
 import { getSortedData } from '@components/components/Table/utils';
 
 import useSchemaTitleRenderer from '@app/entityV2/dataset/profile/schema/utils/schemaTitleRenderer';
@@ -238,8 +238,7 @@ export default function SchemaTable({
             title: tc('description'),
             dataIndex: 'description',
             key: 'description',
-            render: (description, record, index) =>
-                renderMetadataCell(120, () => descriptionRender(description, record, index)),
+            render: (description, record) => renderMetadataCell(120, () => descriptionRender(description, record)),
             sorter: (sourceA, sourceB) =>
                 (extractFieldDescription(sourceA).sanitizedDescription ? 1 : 0) -
                 (extractFieldDescription(sourceB).sanitizedDescription ? 1 : 0),
@@ -346,7 +345,15 @@ export default function SchemaTable({
         setExpandedRows((previousRows) => new Set([...expandedRowsFromFilter, ...previousRows]));
     }, [expandedRowsFromFilter]);
 
-    const expandedRowKeys = useMemo(() => Array.from(expandedRows), [expandedRows]);
+    // Memoized: whenever this object changes, the table re-sorts and re-flattens the whole field tree.
+    const treeData = useMemo(
+        (): TableTreeDataProps<ExtendedSchemaFields> => ({
+            getChildren: (field) => field.children,
+            expandedRowKeys: Array.from(expandedRows),
+            onExpandedRowsChange: (keys) => setExpandedRows(new Set(keys)),
+        }),
+        [expandedRows],
+    );
 
     // The rows on screen in table order (children sorted within their parent, like the table),
     // so keyboard navigation and the drawer's previous/next follow what the user sees.
@@ -386,11 +393,7 @@ export default function SchemaTable({
                     isScrollable
                     maxHeight="100%"
                     virtualization={VIRTUALIZATION}
-                    treeData={{
-                        getChildren: (field) => field.children,
-                        expandedRowKeys,
-                        onExpandedRowsChange: (keys) => setExpandedRows(new Set(keys)),
-                    }}
+                    treeData={treeData}
                     sortState={sortState}
                     onSortChange={setSortState}
                     focusedRowKey={expandedDrawerFieldPath}

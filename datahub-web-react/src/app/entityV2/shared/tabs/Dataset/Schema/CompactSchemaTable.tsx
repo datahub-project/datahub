@@ -6,7 +6,7 @@ import styled from 'styled-components';
 
 import { Button } from '@components/components/Button';
 import { Table } from '@components/components/Table';
-import { Column } from '@components/components/Table/types';
+import { Column, TableTreeDataProps } from '@components/components/Table/types';
 
 import useSchemaTitleRenderer from '@app/entityV2/dataset/profile/schema/utils/schemaTitleRenderer';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
@@ -89,7 +89,15 @@ export default function CompactSchemaTable({
 
     // Shared with the keyboard controls, so ArrowRight/ArrowLeft expand and collapse the rows on screen.
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-    const expandedRowKeys = useMemo(() => Array.from(expandedRows), [expandedRows]);
+    // Memoized: whenever this object changes, the table re-sorts and re-flattens the whole field tree.
+    const treeData = useMemo(
+        (): TableTreeDataProps<ExtendedSchemaFields> => ({
+            getChildren: (field) => field.children,
+            expandedRowKeys: Array.from(expandedRows),
+            onExpandedRowsChange: (keys) => setExpandedRows(new Set(keys)),
+        }),
+        [expandedRows],
+    );
 
     const { selectPreviousField, selectNextField } = useKeyboardControls(
         shortenedRows,
@@ -129,7 +137,7 @@ export default function CompactSchemaTable({
             {
                 title: tc('description'),
                 key: 'description',
-                render: (record, index) => descriptionRender(record.description ?? undefined, record, index),
+                render: (record) => descriptionRender(record.description ?? undefined, record),
                 sorter: (sourceA, sourceB) =>
                     (extractFieldDescription(sourceA).sanitizedDescription ? 1 : 0) -
                     (extractFieldDescription(sourceB).sanitizedDescription ? 1 : 0),
@@ -165,11 +173,7 @@ export default function CompactSchemaTable({
                 size="sm"
                 isScrollable
                 memoizeCells
-                treeData={{
-                    getChildren: (field) => field.children,
-                    expandedRowKeys,
-                    onExpandedRowsChange: (keys) => setExpandedRows(new Set(keys)),
-                }}
+                treeData={treeData}
                 focusedRowKey={expandedDrawerFieldPath}
                 rowDataTestId={(record) => `compact-column-${record.fieldPath}`}
             />

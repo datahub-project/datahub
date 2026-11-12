@@ -330,7 +330,8 @@ describe('Table virtualization', () => {
         // window on every scroll and remount the rows at its edges.
         expect(container.firstElementChild).toHaveStyle({ overflowAnchor: 'none' });
         const cellContent = within(screen.getByTestId('row-field_0000')).getByText('string');
-        expect(cellContent).toHaveStyle({ maxHeight: `${ROW_HEIGHT}px`, overflow: 'hidden' });
+        // The cell's 1px bottom border makes up the rest of the row.
+        expect(cellContent).toHaveStyle({ height: `${ROW_HEIGHT - 1}px`, overflow: 'hidden' });
     });
 
     it('does not re-render cells that stay in view while scrolling', () => {

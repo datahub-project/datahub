@@ -23,13 +23,13 @@ export default function useDescriptionRenderer(
     const refetch = useRefetch();
     const schemaRefetch = useSchemaRefetch();
     const [updateDescription] = useUpdateDescriptionMutation();
-    const [expandedRows, setExpandedRows] = useState({});
+    const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
     const fallbackMaps = useEditableSchemaFieldInfoMaps(fieldInfoMaps ? undefined : editableSchemaMetadata);
     const maps = fieldInfoMaps ?? fallbackMaps;
     const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata, maps);
 
     return useCallback(
-        (description: string | undefined, record: SchemaField, index: number): JSX.Element => {
+        (description: string | undefined, record: SchemaField): JSX.Element => {
             const editableFieldInfo = maps.exactMap.get(record.fieldPath);
             const { displayedDescription, sanitizedDescription, isPropagated, attribution } = extractFieldDescription(
                 record,
@@ -37,7 +37,9 @@ export default function useDescriptionRenderer(
             );
             const original = record.description ? sanitizeRichText(record.description) : undefined;
 
-            const handleExpandedRows = (expanded) => setExpandedRows((prev) => ({ ...prev, [index]: expanded }));
+            // Keyed by field path: a row's index shifts when a struct expands or the table is re-sorted.
+            const handleExpandedRows = (expanded) =>
+                setExpandedRows((prev) => ({ ...prev, [record.fieldPath]: expanded }));
 
             if (isCompact) {
                 return <CompactMarkdownViewer content={displayedDescription} />;
@@ -46,7 +48,7 @@ export default function useDescriptionRenderer(
             return (
                 <DescriptionField
                     onExpanded={handleExpandedRows}
-                    expanded={!!expandedRows[index]}
+                    expanded={!!expandedRows[record.fieldPath]}
                     description={sanitizedDescription}
                     original={original}
                     isEdited={!!editableFieldInfo?.description}

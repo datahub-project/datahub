@@ -278,10 +278,15 @@ export const TreeExpanderSlot = styled.span({
     height: '16px',
 });
 
-// Caps a virtualized cell at the row height: a taller cell would grow its row past `rowHeight`, and the
-// spacers that stand in for off-screen rows would no longer match the rows they replace.
+// Holds a virtualized cell at the row height: a taller cell would grow its row past `rowHeight`, and the
+// spacers that stand in for off-screen rows would no longer match the rows they replace. It fills the row
+// (less the cell's 1px bottom border) and centers its content, so content that draws a little outside
+// itself, like a badge's count, stays inside the clip.
 export const FixedHeightCellContent = styled.div<{ rowHeight: number }>(({ rowHeight }) => ({
-    maxHeight: rowHeight,
+    height: rowHeight - 1,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
     overflow: 'hidden',
 }));
 
