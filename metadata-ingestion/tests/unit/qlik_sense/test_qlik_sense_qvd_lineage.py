@@ -22,6 +22,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    FineGrainedLineageClass,
     MetadataChangeProposalClass,
     SchemaMetadataClass,
     SubTypesClass,
@@ -220,6 +221,11 @@ def _run(
     graph = MagicMock()
     # The QVDs' lineage as DataHub holds it before the run.
     graph.get_aspect.return_value = current
+    graph.get_entities.side_effect = lambda entity_name, urns, aspects: (
+        {urn: {UpstreamLineageClass.ASPECT_NAME: (current, None)} for urn in urns}
+        if current is not None
+        else {}
+    )
     with patch(
         "datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI"
     ) as mock_api_cls:
@@ -431,3 +437,66 @@ def test_stored_qvd_takes_the_data_model_fields_a_load_star_hides() -> None:
         ("id", "id"),
         ("amount", "amount"),
     ]
+
+
+def _removed_columns(aspects: Dict[str, Dict[str, Any]], urn: str) -> List[str]:
+    return [
+        parts[4]
+        for kind, parts in aspects[urn].get("lineage_ops", [])
+        if kind == "remove" and parts[0] == "fineGrainedLineages"
+    ]
+
+
+def test_stale_qvd_edges_of_known_apps_are_removed_while_another_is_unknown() -> None:
+    _, aspects = _run(
+        [
+            _app("etl-app", ETL_SCRIPT),
+            _app("report-app", REPORT_SCRIPT),
+            _app("unreadable-app", None),
+        ],
+        current=UpstreamLineageClass(
+            upstreams=[
+                # A table of an app read this run that no longer stores here.
+                UpstreamClass(
+                    dataset=_urn("report-app.orders"),
+                    type=DatasetLineageTypeClass.COPY,
+                ),
+                # The unreadable app may still store here.
+                UpstreamClass(
+                    dataset=_urn("unreadable-app.orders"),
+                    type=DatasetLineageTypeClass.COPY,
+                ),
+            ]
+        ),
+    )
+    assert _upstreams(aspects, CLEAN, "remove") == [_urn("report-app.orders")]
+
+
+def test_store_with_unknown_fields_keeps_its_column_edges() -> None:
+    orders = _urn("etl-app.orders")
+    _, aspects = _run(
+        [
+            _app(
+                "etl-app",
+                "Orders: LOAD * FROM [lib://QVD Data/raw/orders.qvd] (qvd);\n"
+                "STORE Orders INTO [lib://QVD Data/clean/orders.qvd] (qvd);\n",
+            )
+        ],
+        current=UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(dataset=orders, type=DatasetLineageTypeClass.COPY)
+            ],
+            fineGrainedLineages=[
+                FineGrainedLineageClass(
+                    upstreamType="FIELD_SET",
+                    upstreams=[make_schema_field_urn(orders, "id")],
+                    downstreamType="FIELD",
+                    downstreams=[make_schema_field_urn(CLEAN, "id")],
+                )
+            ],
+        ),
+    )
+    # LOAD * hides which fields the STORE writes, so the edge an earlier run
+    # wrote stays.
+    assert not _removed_columns(aspects, CLEAN)
+    assert not _upstreams(aspects, CLEAN, "remove")

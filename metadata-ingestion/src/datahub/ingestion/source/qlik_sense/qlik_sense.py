@@ -300,6 +300,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._data_connections: Optional[Dict[str, DataConnectionInfo]] = None
         self._allowed_space_ids: Set[str] = set()
         self._reported_no_graph = False
+        # Datasets with a column edge whose source field could not be named.
+        self._unnamed_field_lineage: Set[str] = set()
         # Table QRI -> dataset URN for the tables of apps read or kept this run.
         # Lineage only links to tables in here, as other URNs may never exist.
         self._app_table_urns_by_qri: Dict[str, str] = {}
@@ -624,7 +626,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             AppCheckpoint(
                 fingerprint=fingerprint,
                 urns=list(urns),
-                table_urns_by_qri=self._app_table_urns(app),
+                # Tables that could not all be read are recorded as unknown, so
+                # a later run can't take them for the app having no tables.
+                table_urns_by_qri=None
+                if app.tables_read_failed
+                else self._app_table_urns(app),
                 qvds=self._app_qvds.get(app.id),
             ),
         )
@@ -1632,6 +1638,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     if _qlik_field_id(field) == field_id
                     else self._field_names_by_id.get(field_id)
                 )
+                if urn and not name:
+                    # The source field is real but no field of that name has
+                    # been read yet, such as a renamed load from a QVD read
+                    # later in the run, so the table's column lineage is not
+                    # all known.
+                    self._unnamed_field_lineage.add(dataset_urn)
                 if urn and name:
                     upstream = builder.make_schema_field_urn(urn, name)
                     if upstream not in upstreams:
@@ -1727,7 +1739,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if (
                 resolved.complete
                 and not app.script_read_failed
+                and not app.tables_read_failed
                 and not table.field_lineage_failed
+                and dataset_urn not in self._unnamed_field_lineage
             ):
                 # The app owns its tables, so the lineage is written whole, which
                 # also drops upstreams the app no longer reads.
@@ -2272,18 +2286,23 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if self.qlik_api.unread_items:
             unknown["apps that could not be listed"] = "they were not read"
         if unknown:
-            # An app whose QVD writes are unknown may write any QVD, so edges
-            # are only added and a QVD only it writes keeps its last schema.
+            # An app whose QVD writes are unknown may write any QVD, so its
+            # edges are kept and a QVD only it writes keeps its last schema.
             self.reporter.warning(
                 title="Lineage of Qlik QVDs only added to",
-                message="The QVDs some apps write are not known this run, so QVD "
-                "lineage is added to the last run's rather than replaced, and only "
-                "QVDs written by an app read this run get a new schema.",
+                message="The QVDs some apps write are not known this run, so "
+                "their edges into QVDs are kept, and only QVDs written by an app "
+                "read this run get a new schema.",
                 context=_bounded_list(
                     [f"{app}: {reason}" for app, reason in sorted(unknown.items())]
                 ),
             )
-        for urn in sorted({*writes, *reads}):
+        qvd_urns = sorted({*writes, *reads})
+        # Read in batches up front rather than one request per QVD. Removal is
+        # limited to edges from apps whose writes are known, so it runs even
+        # while other apps are unknown.
+        current_lineage = self._current_upstreams_batch(qvd_urns)
+        for urn in qvd_urns:
             fields = (
                 _qvd_fields(writes.get(urn, []), reads.get(urn, []))
                 if urn in writes or not unknown
@@ -2305,7 +2324,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 ).as_workunit()
             # A QVD no app writes any more still loses its old writers' edges.
             yield from self._gen_qvd_upstreams(
-                urn, writes.get(urn, []), replace=not unknown
+                urn, writes.get(urn, []), current_lineage.get(urn)
             )
 
     def _report_unresolved_qvds(self) -> None:
@@ -2341,7 +2360,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return app_id in self._app_qvds and app_id not in self._apps_qvds_unknown
 
     def _gen_qvd_upstreams(
-        self, qvd_urn: str, writes: List[QvdWrite], replace: bool
+        self,
+        qvd_urn: str,
+        writes: List[QvdWrite],
+        current: Optional[UpstreamLineage],
     ) -> Iterable[MetadataWorkUnit]:
         table_urns = list(dict.fromkeys(write.table_urn for write in writes))
         fine_grained = [
@@ -2366,9 +2388,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_column_lineage:
             for lineage in fine_grained:
                 patch.add_fine_grained_lineage(lineage)
-        # With every writer known, edges from tables that no longer store into
-        # the QVD are removed one by one.
-        current = self._current_upstreams(qvd_urn) if replace else None
+        # Edges from tables of apps whose writes are known this run, that no
+        # longer store into the QVD, are removed one by one.
         if current is not None:
             seen = {
                 *(u.dataset for u in current.upstreams),
@@ -2384,8 +2405,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 if upstream.dataset in owned and upstream.dataset not in table_urns:
                     patch.remove_upstream_lineage(upstream.dataset)
             if self.config.include_column_lineage:
+                # A write whose fields are unknown, such as a STORE of a LOAD *
+                # table, may still write the columns an earlier run saw.
+                fields_unknown = {
+                    write.table_urn for write in writes if write.fields is None
+                }
                 for lineage in self._stale_field_lineage(
-                    current.fineGrainedLineages or [], fine_grained, owned
+                    current.fineGrainedLineages or [],
+                    fine_grained,
+                    owned - fields_unknown,
                 ):
                     patch.remove_fine_grained_lineage(lineage)
         for mcp in patch.build():
@@ -2413,10 +2441,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             app.tables_read_failed = True
         else:
             self.reporter.apps_without_lineage_graph.append(app.id)
-            if previous is None:
+            # A last read whose tables are unknown can't tell either.
+            unknown = previous is None or previous.table_urns_by_qri is None
+            if unknown and self.app_state.is_checkpointing_enabled():
                 # With no last read to compare with, the graph may only be
                 # missing because Qlik has not computed it yet, such as right
-                # after a reload, so the app's lineage is only added to.
+                # after a reload, so the app's lineage is only added to. Without
+                # stateful ingestion there is never a last read, so the app is
+                # taken as having no tables, as before.
                 app.tables_read_failed = True
                 self.reporter.warning(
                     title="Qlik Cloud has no lineage graph for app",
@@ -2495,6 +2527,40 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         elif isinstance(item, QlikDataset):
             yield from self._gen_dataset_workunit(item)
 
+    def _current_upstreams_batch(
+        self, dataset_urns: List[str]
+    ) -> Dict[str, Optional[UpstreamLineage]]:
+        """DataHub's current lineage of each dataset; None for those that could
+        not be read, whose lineage is then only added to."""
+        graph = self.ctx.graph
+        if graph is None:
+            return {urn: self._current_upstreams(urn) for urn in dataset_urns}
+        current: Dict[str, Optional[UpstreamLineage]] = {}
+        for start in range(0, len(dataset_urns), ENTITY_CHECK_BATCH_SIZE):
+            batch = dataset_urns[start : start + ENTITY_CHECK_BATCH_SIZE]
+            try:
+                entities = graph.get_entities(
+                    "dataset", batch, aspects=[UpstreamLineage.ASPECT_NAME]
+                )
+            except Exception as e:
+                self.reporter.warning(
+                    title="Unable to read Qlik dataset lineage from DataHub",
+                    message="The lineage of these datasets from apps that store "
+                    "into them is only added to.",
+                    context=_bounded_list(batch),
+                    exc=e,
+                )
+                current.update(dict.fromkeys(batch))
+                continue
+            for urn in batch:
+                found = entities.get(urn, {}).get(UpstreamLineage.ASPECT_NAME)
+                current[urn] = (
+                    found[0]
+                    if found and isinstance(found[0], UpstreamLineage)
+                    else UpstreamLineage(upstreams=[])
+                )
+        return current
+
     def _current_upstreams(self, dataset_urn: str) -> Optional[UpstreamLineage]:
         graph = self.ctx.graph
         if graph is None:
@@ -2572,6 +2638,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_dataset_store_lineage(self) -> Iterable[MetadataWorkUnit]:
         datasets = self._dataset_urns_by_secure_qri
         qlik_datasets = set(datasets.values()) if datasets is not None else None
+        owned = self._known_app_table_urns()
         for dataset_urn, source_qris in self._dataset_store_sources.items():
             resolved = self._resolve_lineage_sources(
                 source_qris, dataset_urn, own_app_id=None
@@ -2608,7 +2675,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 else None
             )
             if current is not None:
-                owned = self._known_app_table_urns()
                 for upstream in current.upstreams:
                     if upstream.dataset in owned and upstream.dataset not in (
                         resolved.urns
@@ -2617,6 +2683,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 if (
                     self.config.include_column_lineage
                     and dataset_urn not in self._dataset_store_fields_unknown
+                    and dataset_urn not in self._unnamed_field_lineage
                 ):
                     for lineage in self._stale_field_lineage(
                         current.fineGrainedLineages or [], stored_fields, owned
