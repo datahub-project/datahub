@@ -1,10 +1,11 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import React, { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FetchStatus, LineageEntity, NodeContext } from '@app/lineageV3/common';
 import useSearchAcrossLineage from '@app/lineageV3/queries/useSearchAcrossLineage';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { SearchAcrossLineageStructureDocument } from '@graphql/search.generated';
 import { EntityType, LineageDirection } from '@types';
