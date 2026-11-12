@@ -493,12 +493,20 @@ const connectionMappingOverrides = (fieldPath: string, keyField: RecipeField, de
         const named = (rows ?? []).filter((row) => !!row?.[keyField.name]);
         if (!named.length) return setFieldValueOnRecipe(recipe, null, fieldPath);
 
-        const mapping: Record<string, MappingRow> = {};
+        const current = get(recipe, fieldPath) ?? {};
+        const formKeys = new Set(detailFields.map((f) => f.name));
+        const mapping: Record<string, Record<string, unknown>> = {};
         named.forEach((row) => {
-            // Empty inputs are left out so the connector infers or defaults them.
-            mapping[row[keyField.name] as string] = Object.fromEntries(
-                detailFields.filter((f) => !!row[f.name]).map((f) => [f.name, row[f.name]]),
+            const name = row[keyField.name] as string;
+            // Settings the form has no field for, set in the YAML, are kept.
+            const kept = Object.fromEntries(
+                Object.entries(current[name] ?? {}).filter(([key]) => !formKeys.has(key)),
             );
+            // Empty inputs are left out so the connector infers or defaults them.
+            mapping[name] = {
+                ...kept,
+                ...Object.fromEntries(detailFields.filter((f) => !!row[f.name]).map((f) => [f.name, row[f.name]])),
+            };
         });
         return setFieldValueOnRecipe(recipe, mapping, fieldPath);
     },

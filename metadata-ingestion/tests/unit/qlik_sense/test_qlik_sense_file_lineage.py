@@ -457,3 +457,36 @@ def test_unresolved_file_keeps_lineage_when_its_inputs_were_not_read(
 
     assert (writes.get(ORDERS) == "") is written_whole
     assert writes.get(ORDERS) != "patch" or not written_whole
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_visible_connection_of_another_kind_does_not_block_the_file(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        # Qlik's own data files, which can't be on Azure Storage.
+        {"Sales Space:Files": DataConnectionInfo(name="Files")},
+    )
+    script = SCRIPT + "Copy:\nLOAD * FROM [lib://Sales Space:Files/ref/regions.xlsx];\n"
+    app = App.model_validate(
+        {
+            "id": "app-3",
+            "qTitle": "Sales",
+            "description": "",
+            "createdDate": "2024-01-09T18:05:36.000Z",
+            "modifiedDate": "2024-01-09T18:05:36.000Z",
+            "spaceId": "space-1",
+        }
+    )
+    source._file_sources_by_app[app.id] = source._file_source_resolver(
+        app, parse_script(script)
+    )
+    source._app_space_ids[app.id] = app.spaceId
+
+    assert (
+        source._resolve_file_source(
+            "app-3", _file_qri("adls", "unknown", "ref/regions.xlsx")
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:abs,lake/ref/regions.xlsx,PROD)"
+    )

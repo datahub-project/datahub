@@ -17,7 +17,10 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     QlikTable,
     Space,
 )
-from datahub.ingestion.source.qlik_sense.file_lineage import file_storage_of_connection
+from datahub.ingestion.source.qlik_sense.file_lineage import (
+    file_connector_platform,
+    file_storage_of_connection,
+)
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
     UNREAD_DATA_CONNECTIONS,
     IsUnchanged,
@@ -350,6 +353,9 @@ class QlikAPI(QlikBaseAPI):
                     ),
                 )
                 info.file_storage = file_storage_of_connection(
+                    connection.get(Constant.QCONNECTSTATEMENT) or ""
+                )
+                info.file_platform = file_connector_platform(
                     connection.get(Constant.QCONNECTSTATEMENT) or ""
                 )
                 # A personal connection has no space, like a personal app.
