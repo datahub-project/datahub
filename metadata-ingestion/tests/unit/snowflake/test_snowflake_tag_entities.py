@@ -1,3 +1,6 @@
+from datahub.api.entities.platformresource.platform_resource import (
+    PlatformResourceKey,
+)
 from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeTag
 from datahub.ingestion.source.snowflake.snowflake_tag_entities import (
     SnowflakeTagPlatformResource,
@@ -66,3 +69,18 @@ def test_platform_resource_round_trip_keeps_flag_and_urns() -> None:
     assert restored.is_managed_by_datahub()
     assert restored.datahub_linked_resources().urns == ["urn:li:tag:pii"]
     assert restored.id.database == "TEST_DB"
+
+
+def test_platform_instance_is_lower_cased_in_the_key() -> None:
+    # The sync-back writer derives the instance from a dataset URN, which may be
+    # lower-cased, while ingestion uses the configured value as typed.
+    key = SnowflakeTagPlatformResourceId.from_snowflake_tag(
+        _TAG, "My_Account", with_value=True
+    ).to_platform_resource_key()
+
+    assert key == PlatformResourceKey(
+        platform="snowflake",
+        resource_type="SnowflakeTagPlatformResource",
+        primary_key="test_db.public.pii:high",
+        platform_instance="my_account",
+    )
