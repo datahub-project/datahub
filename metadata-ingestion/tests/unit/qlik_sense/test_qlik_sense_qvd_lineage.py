@@ -10,6 +10,7 @@ from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import App
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.qvd_lineage import (
+    AppQvdLineage,
     QvdPathResolver,
     app_qvd_lineage,
     canonical_path,
@@ -454,3 +455,26 @@ def test_qvds_are_in_folder_containers_of_their_share() -> None:
     share = aspects[clean_folder]["ContainerClass"].container
     assert names[share] == "qvd"
     assert names[aspects[share]["ContainerClass"].container] == "nas"
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_every_app_emits_the_folders_of_its_qvds(mock_api_cls: MagicMock) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(ONPREM_CONFIG),
+        PipelineContext(run_id="test-qvd-lineage"),
+    )
+
+    def folder_urns(lineage: AppQvdLineage) -> List[str]:
+        return [
+            wu.get_urn()
+            for wu in source._gen_qvd_entities(lineage)
+            if wu.get_aspect_of_type(ContainerPropertiesClass)
+        ]
+
+    first = folder_urns(AppQvdLineage(paths={CLEAN: "//nas/qvd/clean/orders.qvd"}))
+    second = folder_urns(AppQvdLineage(paths={RAW: "//nas/qvd/raw/orders.qvd"}))
+
+    # Each app's checkpoint keeps only what it emitted, so the server and
+    # share it shares with the other app are emitted by both.
+    assert len(first) == len(second) == 3
+    assert first[:2] == second[:2]
