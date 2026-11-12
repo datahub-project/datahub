@@ -1,0 +1,68 @@
+name: Restore dependency caches (docker-unified buckets)
+description: >
+  Read-only restore of ~/.cache/uv and ~/.cache/yarn. Callers pass keys produced
+  by the same hashFiles / prefix convention as docker-unified. Do not add
+  actions/cache/save for these buckets in workflows that only restore here.
+  Gradle caching is handled by gradle/actions/setup-gradle, not here.
+
+inputs:
+  uv_cache_key:
+    description: Full Actions cache key for the UV path.
+    required: true
+  uv_cache_key_prefix:
+    description: restore-keys prefix for the UV path.
+    required: true
+  yarn_cache_key:
+    description: Full Actions cache key for the Yarn path.
+    required: true
+  yarn_cache_key_prefix:
+    description: restore-keys prefix for the Yarn path.
+    required: true
+  restore_yarn:
+    description: >
+      Pass 'false' from jobs that never run yarn (pytest batches, stack-free
+      pytest, Java integration tests). The yarn entry is about 1.7 GB and costs
+      10-70 s per job to download and extract, so only restore it where a yarn
+      install actually runs.
+    required: false
+    default: "true"
+
+# actions/cache/restore leaves cache-hit unset on a complete miss (no primary or
+# prefix match; actions/cache#1466), so an unguarded passthrough would read as empty
+# and the callers that gate their saves on 'false' would never seed a cold backend.
+# Normalize to 'true' / 'false' whenever the restore ran.
+outputs:
+  uv-cache-hit:
+    description: >
+      'true' when the uv restore matched its primary key. 'false' when the
+      restore ran and the primary key was a miss or a prefix hit. Empty when
+      this action was skipped.
+    value: ${{ steps.restore-uv.outcome == 'success' && (steps.restore-uv.outputs.cache-hit == 'true' && 'true' || 'false') || '' }}
+  yarn-cache-hit:
+    description: >
+      'true' when the yarn restore matched its primary key. 'false' when the
+      restore ran and the primary key was a miss or a prefix hit. Empty when
+      this action was skipped or restore_yarn was 'false'.
+    value: ${{ steps.restore-yarn.outcome == 'success' && (steps.restore-yarn.outputs.cache-hit == 'true' && 'true' || 'false') || '' }}
+
+runs:
+  using: composite
+  steps:
+    - id: restore-uv
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/.cache/uv
+        key: ${{ inputs.uv_cache_key }}
+        restore-keys: |
+          ${{ inputs.uv_cache_key_prefix }}
+
+    - id: restore-yarn
+      if: ${{ inputs.restore_yarn == 'true' }}
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/.cache/yarn
+        key: ${{ inputs.yarn_cache_key }}
+        restore-keys: |
+          ${{ inputs.yarn_cache_key_prefix }}

@@ -1,0 +1,21 @@
+{
+    "cloudLabel": "DataHub Cloud",
+    "docPropagation.assetLevelDescription": "Propagar nueva documentación de los activos upstream a los downstream según las relaciones de Lineage de datos.",
+    "docPropagation.assetLevelTitle": "Propagación a nivel de activo",
+    "docPropagation.backfillButton": "Inicializar",
+    "docPropagation.backfillTitle": "Rellenar de forma retroactiva la documentación existente desde las columnas/activos upstream a los downstream",
+    "docPropagation.columnLevelDescription": "Propagar nueva documentación de las columnas upstream a las downstream según las relaciones de Lineage a nivel de columna.",
+    "docPropagation.columnLevelTitle": "Propagación a nivel de columna",
+    "docPropagation.comingSoon": "¡Próximamente!",
+    "docPropagation.description": "Propagar automáticamente la documentación de las columnas y activos upstream a los downstream.",
+    "docPropagation.rollbackButton": "Revertir",
+    "docPropagation.rollbackTitle": "Revertir los cambios de propagación",
+    "docPropagation.title": "Propagación de documentación",
+    "docPropagation.updateError": "No se pudieron actualizar los ajustes de propagación de documentación",
+    "docPropagation.updateSuccess": "Ajustes de propagación de documentación actualizados correctamente",
+    "learnMore": "Más información",
+    "newLabel": "¡Nuevo!",
+    "onlyOnCloud": "Solo disponible en DataHub Cloud",
+    "pageSubTitle": "Explore y configure funciones específicas",
+    "pageTitle": "Funciones"
+}

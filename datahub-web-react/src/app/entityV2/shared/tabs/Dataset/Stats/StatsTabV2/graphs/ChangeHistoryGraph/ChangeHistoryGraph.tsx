@@ -1,5 +1,6 @@
 import { CalendarChart, GraphCard } from '@components';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
 import { ChangeHistoryDrawer } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/ChangeHistoryDrawer';
@@ -19,12 +20,13 @@ import NoPermission from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/gra
 import MoreInfoModalContent from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MoreInfoModalContent';
 import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { DayData } from '@src/alchemy-components/components/CalendarChart/types';
-import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
+import { capitalizeFirstLetter } from '@src/app/sharedV2/textUtil';
 import { OperationType, TimeRange } from '@src/types.generated';
 
 const CHANGE_HISTORY_TIME_RANGE = TimeRange.Year;
 
 export default function ChangeHistoryGraph() {
+    const { t } = useTranslation('entity.profile.stats');
     const {
         dataInfo: { capabilitiesLoading, oldestOperationTime },
         statsEntityUrn,
@@ -115,7 +117,7 @@ export default function ChangeHistoryGraph() {
         }
     }, [buckets, loading, sections.changes, setSectionState, canViewDatasetOperations]);
 
-    const chartName = 'Change History';
+    const chartName = t('changeHistoryGraph.title');
 
     return (
         <>
@@ -130,7 +132,8 @@ export default function ChangeHistoryGraph() {
                     />
                 }
                 isEmpty={buckets.length === 0 || !canViewDatasetOperations}
-                emptyContent={!canViewDatasetOperations && <NoPermission statName="change history" />}
+                emptyMessage={t('changeHistoryGraph.empty')}
+                emptyContent={!canViewDatasetOperations && <NoPermission statName={t('changeHistoryGraph.statName')} />}
                 renderControls={() => (
                     <>
                         <TypesSelect

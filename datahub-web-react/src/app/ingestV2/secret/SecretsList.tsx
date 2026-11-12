@@ -1,13 +1,13 @@
-import { Icon, Pagination, SearchBar, Table } from '@components';
+import { Button, Pagination, SearchBar, Table, Text, Tooltip, toast } from '@components';
 import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
-import { Typography, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import EmptySources from '@app/ingestV2/EmptySources';
 import { DEFAULT_PAGE_SIZE } from '@app/ingestV2/constants';
 import { SecretBuilderModal } from '@app/ingestV2/secret/SecretBuilderModal';
@@ -17,8 +17,8 @@ import {
     updateSecretInListSecretsCache,
 } from '@app/ingestV2/secret/cacheUtils';
 import { SecretBuilderState } from '@app/ingestV2/secret/types';
-import { scrollToTop } from '@app/shared/searchUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 
 import {
     useCreateSecretMutation,
@@ -30,24 +30,8 @@ import {
 const ButtonsContainer = styled.div`
     display: flex;
     justify-content: end;
-    gap: 8px;
-
-    button {
-        border: 1px solid ${(props) => props.theme.colors.border};
-        border-radius: 20px;
-        width: 24px;
-        height: 24px;
-        padding: 3px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: none;
-        color: ${(props) => props.theme.colors.textTertiary};
-
-        :hover {
-            cursor: pointer;
-        }
-    }
+    align-items: center;
+    gap: 4px;
 `;
 
 const SecretsContainer = styled.div`
@@ -79,8 +63,12 @@ const TableContainer = styled.div`
     overflow: auto;
 `;
 
-const TextContainer = styled(Typography.Text)`
+const TextContainer = styled(Text)`
     color: ${(props) => props.theme.colors.textSecondary};
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 `;
 
 type TableDataType = {
@@ -95,7 +83,8 @@ interface Props {
 }
 
 export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateModal: setIsCreatingSecret }: Props) => {
-    const theme = useTheme();
+    const { t } = useTranslation('ingestion');
+    const { t: tl } = useTranslation('common.labels');
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
@@ -108,7 +97,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
     const start = (page - 1) * pageSize;
 
     const [editSecret, setEditSecret] = useState<SecretBuilderState | undefined>(undefined);
-    const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
+    const [secretUrnToDelete, setSecretUrnToDelete] = useState<string | null>();
 
     const [deleteSecretMutation] = useDeleteSecretMutation();
     const [createSecretMutation] = useCreateSecretMutation();
@@ -124,6 +113,15 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
         fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
     });
 
+    useEffect(() => {
+        if (error) {
+            toast.error(t('secret.loadError', { errorMessage: error.message || '' }), {
+                duration: 3,
+                key: 'secrets-list-load-error',
+            });
+        }
+    }, [error, t]);
+
     const totalSecrets = data?.listSecrets?.total || 0;
     const secrets = data?.listSecrets?.secrets || [];
 
@@ -132,16 +130,15 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
             variables: { urn },
         })
             .then(() => {
-                message.success({ content: 'Removed secret.', duration: 2 });
+                toast.success(t('secret.removeSuccess'), { duration: 2 });
                 removeSecretFromListSecretsCache(urn, client, page, pageSize);
             })
             .catch((e: unknown) => {
-                message.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to remove secret: \n ${e.message || ''}`, duration: 3 });
+                    toast.error(t('secret.removeError', { errorMessage: e.message || '' }), { duration: 3 });
                 }
             });
-        setShowConfirmDelete(false);
+        setSecretUrnToDelete(null);
         refetch();
     };
 
@@ -166,10 +163,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
             },
         })
             .then((res) => {
-                message.success({
-                    content: `Successfully created Secret!`,
-                    duration: 3,
-                });
+                toast.success(t('secret.createSuccess'), { duration: 3 });
                 resetBuilderState();
                 setIsCreatingSecret(false);
                 addSecretToListSecretsCache(
@@ -183,11 +177,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                 );
             })
             .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: `Failed to update secret!: \n ${e.message || ''}`,
-                    duration: 3,
-                });
+                toast.error(t('secret.updateErrorLower', { errorMessage: e.message || '' }), { duration: 3 });
             });
     };
     const onUpdate = (state: SecretBuilderState, resetBuilderState: () => void) => {
@@ -202,10 +192,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
             },
         })
             .then(() => {
-                message.success({
-                    content: `Successfully updated Secret!`,
-                    duration: 3,
-                });
+                toast.success(t('secret.updateSuccess'), { duration: 3 });
                 resetBuilderState();
                 setIsCreatingSecret(false);
                 setEditSecret(undefined);
@@ -224,16 +211,12 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                 }, 3000);
             })
             .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: `Failed to update Secret!: \n ${e.message || ''}`,
-                    duration: 3,
-                });
+                toast.error(t('secret.updateError', { errorMessage: e.message || '' }), { duration: 3 });
             });
     };
 
     const handleDeleteClose = () => {
-        setShowConfirmDelete(false);
+        setSecretUrnToDelete(null);
     };
 
     const onEditSecret = (urnData: any) => {
@@ -248,39 +231,24 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
 
     const tableColumns = [
         {
-            title: 'Name',
+            title: tl('name'),
             key: 'name',
             render: (record: TableDataType) => (
-                <TextContainer
-                    ellipsis={{
-                        tooltip: {
-                            title: record.name,
-                            overlayInnerStyle: { color: theme.colors.textSecondary },
-                            showArrow: false,
-                        },
-                    }}
-                >
-                    {record.name}
-                </TextContainer>
+                <Tooltip title={record.name} showArrow={false}>
+                    <TextContainer>{record.name}</TextContainer>
+                </Tooltip>
             ),
             sorter: (a: TableDataType, b: TableDataType) => a.name.localeCompare(b.name),
         },
         {
-            title: 'Description',
+            title: tl('description'),
             key: 'description',
             render: (record: TableDataType) => {
+                const description = record.description || t('secret.noDescription');
                 return (
-                    <TextContainer
-                        ellipsis={{
-                            tooltip: {
-                                title: record.description,
-                                overlayInnerStyle: { color: theme.colors.textSecondary },
-                                showArrow: false,
-                            },
-                        }}
-                    >
-                        {record.description || 'No description'}
-                    </TextContainer>
+                    <Tooltip title={description} showArrow={false}>
+                        <TextContainer>{description}</TextContainer>
+                    </Tooltip>
                 );
             },
             width: '75%',
@@ -291,27 +259,24 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
             render: (record: TableDataType) => (
                 <>
                     <ButtonsContainer>
-                        <button type="button" onClick={() => onEditSecret(record)} aria-label="Edit secret">
-                            <Icon icon={PencilSimpleLine} />
-                        </button>
-                        <button
-                            type="button"
-                            className="delete-action"
-                            onClick={() => setShowConfirmDelete(true)}
-                            aria-label="Delete secret"
-                            data-test-id="delete-secret-action"
+                        <Button
+                            variant="text"
+                            isCircle
+                            icon={{ icon: PencilSimpleLine, size: 'lg' }}
+                            aria-label={t('secret.editAriaLabel')}
+                            onClick={() => onEditSecret(record)}
+                        />
+                        <Button
+                            variant="text"
+                            isCircle
+                            color="red"
+                            icon={{ icon: Trash, size: 'lg' }}
+                            aria-label={t('secret.deleteAriaLabel')}
+                            data-testid="delete-secret-action"
                             data-icon="delete"
-                        >
-                            <Icon icon={Trash} color="red" />
-                        </button>
+                            onClick={() => setSecretUrnToDelete(record.urn)}
+                        />
                     </ButtonsContainer>
-                    <ConfirmationModal
-                        isOpen={showConfirmDelete}
-                        modalTitle="Confirm Secret Removal"
-                        modalText="Are you sure you want to remove this secret? Sources that use it may no longer work as expected."
-                        handleConfirm={() => deleteSecret(record.urn)}
-                        handleClose={handleDeleteClose}
-                    />
                 </>
             ),
             width: '100px',
@@ -327,19 +292,18 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
 
     return (
         <>
-            {error && message.error({ content: `Failed to load secrets! \n ${error.message || ''}`, duration: 3 })}
             <SecretsContainer>
                 <StyledTabToolbar>
                     <SearchContainer>
                         <StyledSearchBar
-                            placeholder="Search..."
+                            placeholder={t('source.searchPlaceholder')}
                             value={query || ''}
                             onChange={(value) => handleSearch(value)}
                         />
                     </SearchContainer>
                 </StyledTabToolbar>
                 {!loading && totalSecrets === 0 ? (
-                    <EmptySources sourceType="secrets" isEmptySearchResult={!!query} />
+                    <EmptySources sourceType={t('secret.secretsNoun')} isEmptySearchResult={!!query} />
                 ) : (
                     <>
                         <TableContainer>
@@ -350,6 +314,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                                 isScrollable
                                 style={{ tableLayout: 'fixed' }}
                                 isLoading={loading}
+                                rowDataTestId={(record) => `secret-row-${record.urn}`}
                             />
                         </TableContainer>
                         <Pagination
@@ -357,7 +322,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                             itemsPerPage={pageSize}
                             total={totalSecrets}
                             showLessItems
-                            onChange={onChangePage}
+                            onPageChange={onChangePage}
                             showSizeChanger={false}
                             hideOnSinglePage
                         />
@@ -370,6 +335,17 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                 onUpdate={onUpdate}
                 onSubmit={onSubmit}
                 onCancel={onCancel}
+            />
+            <ConfirmationModal
+                isOpen={!!secretUrnToDelete}
+                modalTitle={t('secret.removeConfirmTitle')}
+                modalText={t('secret.removeConfirmText')}
+                handleConfirm={() => {
+                    if (secretUrnToDelete) {
+                        deleteSecret(secretUrnToDelete);
+                    }
+                }}
+                handleClose={handleDeleteClose}
             />
         </>
     );

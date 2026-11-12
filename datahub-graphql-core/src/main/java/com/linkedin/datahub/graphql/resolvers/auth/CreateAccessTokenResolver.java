@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.auth;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+import com.datahub.authentication.AccessTokenConfiguration;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.token.StatefulTokenService;
@@ -26,6 +27,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 /** Resolver for creating personal & service principal v2-type (stateful) access tokens. */
@@ -34,11 +36,15 @@ public class CreateAccessTokenResolver implements DataFetcher<CompletableFuture<
 
   private final StatefulTokenService _statefulTokenService;
   private final EntityClient _entityClient;
+  private final AccessTokenConfiguration _accessTokenConfiguration;
 
   public CreateAccessTokenResolver(
-      final StatefulTokenService statefulTokenService, final EntityClient entityClient) {
+      final StatefulTokenService statefulTokenService,
+      final EntityClient entityClient,
+      @Nonnull final AccessTokenConfiguration accessTokenConfiguration) {
     _statefulTokenService = statefulTokenService;
     _entityClient = entityClient;
+    _accessTokenConfiguration = accessTokenConfiguration;
   }
 
   @Override
@@ -73,6 +79,8 @@ public class CreateAccessTokenResolver implements DataFetcher<CompletableFuture<
                     String.format(
                         "The specified URN is not a service account: %s", input.getActorUrn()));
               }
+            } catch (IllegalArgumentException e) {
+              throw e;
             } catch (Exception e) {
               log.error("Failed to validate service account", e);
               throw new RuntimeException("Failed to validate service account", e);
@@ -89,7 +97,9 @@ public class CreateAccessTokenResolver implements DataFetcher<CompletableFuture<
             final String actorUrn = input.getActorUrn();
             final Date date = new Date();
             final long createdAtInMs = date.getTime();
-            final Optional<Long> expiresInMs = AccessTokenUtil.mapDurationToMs(input.getDuration());
+            final Optional<Long> expiresInMs =
+                AccessTokenDurationPolicy.resolveExpiresInMs(
+                    _accessTokenConfiguration, input.getDuration(), input.getDurationIso());
 
             final String tokenName = input.getName();
             final String tokenDescription = input.getDescription();
@@ -105,10 +115,11 @@ public class CreateAccessTokenResolver implements DataFetcher<CompletableFuture<
                     tokenDescription,
                     context.getActorUrn());
             log.info(
-                "Generated access token for {} of type {} with duration {}",
+                "Generated access token for {} of type {} with duration {} durationIso {}",
                 input.getActorUrn(),
                 input.getType(),
-                input.getDuration());
+                input.getDuration(),
+                input.getDurationIso());
             try {
               final String tokenHash = _statefulTokenService.hash(accessToken);
 

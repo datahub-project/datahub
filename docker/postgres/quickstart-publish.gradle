@@ -1,0 +1,7 @@
+// Registers :docker:buildImagespublishPostgres (see publish-datahub-postgres workflow). Applied from :docker build.gradle.
+ext.quickstart_configs.put('publishPostgres', [
+        profile: 'quickstart-postgres',
+        modules: [
+                ':docker:postgres',
+        ],
+])

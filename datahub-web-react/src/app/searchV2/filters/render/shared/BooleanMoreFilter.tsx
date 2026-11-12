@@ -7,6 +7,9 @@ import BooleanSearchFilterMenu from '@app/searchV2/filters/render/shared/Boolean
 import { MoreFilterOptionLabel } from '@app/searchV2/filters/styledComponents';
 import { useElementDimensions } from '@app/searchV2/filters/utils';
 
+const CSS_SIDE_RIGHT = 'right';
+const CSS_SIDE_LEFT = 'left';
+
 const SubMenuWrapper = styled.div`
     position: relative;
 `;
@@ -55,7 +58,7 @@ export default function BooleanMoreFilter({ title, option, count, initialSelecte
                     style={{
                         position: 'absolute',
                         top: -height,
-                        [isElementOutsideWindow ? 'right' : 'left']: width,
+                        [isElementOutsideWindow ? CSS_SIDE_RIGHT : CSS_SIDE_LEFT]: width,
                     }}
                 />
             )}

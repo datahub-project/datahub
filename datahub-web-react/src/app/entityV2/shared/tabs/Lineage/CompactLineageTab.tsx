@@ -1,12 +1,14 @@
-import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import { Icon, Tooltip } from '@components';
+import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
+import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Button, Divider } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/siblingUtils';
 import { ImpactAnalysis } from '@app/entityV2/shared/tabs/Lineage/ImpactAnalysis';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
 import { UnionType } from '@app/search/utils/constants';
@@ -23,12 +25,12 @@ const Container = styled.div`
 
 const LineageButton = styled(Button)<{ $isSelected: boolean }>`
     &&& {
-        background-color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : 'none')};
+        background-color: ${(props) => (props.$isSelected ? props.theme.colors.buttonFillBrand : 'none')};
         color: ${(props) => (props.$isSelected ? props.theme.colors.bg : props.theme.colors.textTertiary)};
         border-radius: 8px;
         margin-right: 12px;
         min-height: 32px;
-        ${(props) => props.$isSelected && `border-color: ${props.theme.styles['primary-color']}`};
+        ${(props) => props.$isSelected && `border-color: ${props.theme.colors.borderBrand}`};
     }
 `;
 
@@ -63,9 +65,9 @@ const LevelFilter = styled.div<{ $isSelected: boolean }>`
     padding: 2px 8px;
     margin-right: 12px;
     border-radius: 8px;
-    color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
+    color: ${(props) => (props.$isSelected ? props.theme.colors.textBrand : props.theme.colors.textTertiary)};
     border: 1px solid
-        ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
+        ${(props) => (props.$isSelected ? props.theme.colors.borderBrand : props.theme.colors.textTertiary)};
     &:hover {
         opacity: 0.8;
         cursor: pointer;
@@ -80,14 +82,14 @@ const AdvancedFiltersButton = styled(Button)<{ $isSelected: boolean }>`
     }
 `;
 
-const StyledArrowDownOutlined = styled(ArrowDownOutlined)`
+const StyledArrowDownOutlined = styled(ArrowDown)`
     && {
         margin-right: 4px;
         font-size: 10px;
     }
 `;
 
-const StyledArrowUpOutlined = styled(ArrowUpOutlined)`
+const StyledArrowUpOutlined = styled(ArrowUp)`
     && {
         margin-right: 4px;
         font-size: 10px;
@@ -115,6 +117,7 @@ enum LevelFilterType {
 const DEFAULT_SELECTED_LEVELS = new Set([LevelFilterType.DIRECT]);
 
 export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: LineageDirection }) => {
+    const { t } = useTranslation('lineage');
     const entityRegistry = useEntityRegistry();
     const { urn, entityData, entityType } = useEntityData();
     const onIndividualSiblingPage = useIsSeparateSiblingsMode();
@@ -142,21 +145,21 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
             label: (
                 <span data-testid="compact-lineage-tab-direction-select-option-upstream">
                     <StyledArrowUpOutlined />
-                    <b>Upstreams</b>
+                    <b>{t('direction.upstreams')}</b>
                 </span>
             ),
             value: LineageDirection.Upstream,
-            tip: `View the data assets that ${entityName} depends on`,
+            tip: t('direction.upstreamTooltip', { entityName }),
         },
         {
             label: (
                 <span data-testid="compact-lineage-tab-direction-select-option-downstream">
                     <StyledArrowDownOutlined />
-                    <b>Downstreams</b>
+                    <b>{t('direction.downstreams')}</b>
                 </span>
             ),
             value: LineageDirection.Downstream,
-            tip: `View the data assets that depend on ${entityName}`,
+            tip: t('direction.downstreamTooltip', { entityName }),
         },
     ];
 
@@ -206,26 +209,26 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
             <ThinDivider />
             <Filters>
                 <LevelFilters>
-                    <Tooltip title="Show directly related data assets" placement="bottom" showArrow={false}>
+                    <Tooltip title={t('levelFilter.directTooltip')} placement="bottom" showArrow={false}>
                         <LevelFilter
                             $isSelected={selectedLevels.has(LevelFilterType.DIRECT)}
                             onClick={() => toggleLevelFilter(LevelFilterType.DIRECT)}
                         >
-                            direct
+                            {t('levelFilter.direct')}
                         </LevelFilter>
                     </Tooltip>
-                    <Tooltip title="Show indirectly related data assets" placement="bottom" showArrow={false}>
+                    <Tooltip title={t('levelFilter.indirectTooltip')} placement="bottom" showArrow={false}>
                         <LevelFilter
                             $isSelected={selectedLevels.has(LevelFilterType.INDIRECT)}
                             onClick={() => toggleLevelFilter(LevelFilterType.INDIRECT)}
                         >
-                            indirect
+                            {t('levelFilter.indirect')}
                         </LevelFilter>
                     </Tooltip>
                 </LevelFilters>
                 <Tooltip
                     placement="left"
-                    title={!showAdvancedFilters ? 'Show search bar' : 'Hide search bar'}
+                    title={!showAdvancedFilters ? t('searchBar.showTooltip') : t('searchBar.hideTooltip')}
                     showArrow={false}
                 >
                     <AdvancedFiltersButton

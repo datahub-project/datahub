@@ -26,6 +26,7 @@ interface Props {
     manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
     aggregationsEntityTypes?: Array<EntityType>;
     isRenderedInSubMenu?: boolean;
+    showDefaultOptions?: boolean;
 }
 
 export default function ValueSelector({
@@ -40,6 +41,7 @@ export default function ValueSelector({
     manuallyUpdateFilters,
     aggregationsEntityTypes,
     isRenderedInSubMenu,
+    showDefaultOptions,
 }: Props) {
     const [isMenuOpen, setIsMenuOpen] = useState<boolean>(isOpen ?? false);
 
@@ -97,6 +99,7 @@ export default function ValueSelector({
                             includeCount
                             manuallyUpdateFilters={onManuallyUpdateFilters}
                             aggregationsEntityTypes={aggregationsEntityTypes}
+                            showDefaultOptions={showDefaultOptions}
                         />
                     </MenuContainer>
                 );

@@ -1,8 +1,8 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
-import static com.linkedin.metadata.entity.ebean.EbeanAspectDao.TX_ISOLATION;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -23,31 +23,48 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.util.RecordUtils;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.config.EbeanConfiguration;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
+import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
+import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.retention.RetentionTestUtils;
+import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.retention.DataHubRetentionConfig;
@@ -72,6 +89,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -96,8 +114,12 @@ import org.testng.annotations.Test;
 public class EbeanEntityServiceTest
     extends EntityServiceTest<EbeanAspectDao, EbeanRetentionService> {
 
+  private static final String NEWER_OWNER = "urn:li:entityFromNewerBuild:bot";
+
   /** Real retention service used to test policy resolution without spy stubbing. */
   private EbeanRetentionService<ChangeItemImpl> _realRetentionService;
+
+  private final MetricUtils metricUtils = mock(MetricUtils.class);
 
   public EbeanEntityServiceTest() throws EntityRegistryException {}
 
@@ -132,14 +154,37 @@ public class EbeanEntityServiceTest
         EbeanTestUtils.createTestServer(
             EbeanEntityServiceTest.class.getSimpleName() + "_" + (cdcMode ? "CDC" : "NonCDC"));
 
-    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null, List.of(), null);
+    _aspectDao =
+        new EbeanAspectDao(
+            PrimaryStorageTestUtils.ebeanResolver(server),
+            EbeanConfiguration.testDefault,
+            null,
+            List.of(),
+            null,
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(server));
 
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
-        new EntityServiceImpl(_aspectDao, _mockProducer, false, cdcMode, preProcessHooks, true);
+        new EntityServiceImpl(
+            _aspectDao,
+            _mockProducer,
+            preProcessHooks,
+            new EntityServiceConfiguration()
+                .setAlwaysEmitChangeLog(false)
+                .setCdcModeChangeLog(cdcMode)
+                .setEnableBrowseV2(true),
+            metricUtils);
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
-    _realRetentionService = new EbeanRetentionService<>(_entityServiceImpl, server, 1000);
+    _realRetentionService =
+        new EbeanRetentionService<>(
+            _entityServiceImpl,
+            server,
+            1000,
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(server),
+            RetentionTestUtils.systemEntityClient(_entityServiceImpl, _mockProducer, metricUtils));
     _retentionService = (EbeanRetentionService<ChangeItemImpl>) spy(_realRetentionService);
     doReturn(20)
         .when(_retentionService)
@@ -239,14 +284,17 @@ public class EbeanEntityServiceTest
     // Prevent actual saves
     EntityAspect mockEntityAspect = mock(EntityAspect.class);
     when(mockEntityAspect.getMetadata()).thenReturn("");
-    doReturn(Optional.of(mockEntityAspect)).when(aspectDao).updateAspect(any(), any());
-    doReturn(Optional.of(mockEntityAspect)).when(aspectDao).insertAspect(any(), any(), anyLong());
+    doReturn(Optional.of(mockEntityAspect)).when(aspectDao).updateAspect(any(), any(), any());
+    doReturn(Optional.of(mockEntityAspect))
+        .when(aspectDao)
+        .insertAspect(any(), any(), any(), anyLong());
 
     // Stub methods that the transaction block will call
     // Use mutable maps because the code calls computeIfAbsent() on them
     when(aspectDao.getLatestAspects(any(), any(), anyBoolean()))
         .thenReturn(new java.util.HashMap<>());
-    when(aspectDao.getNextVersions(any())).thenReturn(new java.util.HashMap<>());
+    when(aspectDao.getNextVersions(any(), any(), anyBoolean()))
+        .thenReturn(new java.util.HashMap<>());
     // Stub saveLatestAspect to return a Pair with the mocked entity aspects
     when(aspectDao.saveLatestAspect(any(), any(), any(), any(), anyInt()))
         .thenReturn(Pair.of(Optional.of(mockEntityAspect), Optional.of(mockEntityAspect)));
@@ -257,8 +305,10 @@ public class EbeanEntityServiceTest
 
     doAnswer(
             invocation -> {
-              Function<TransactionContext, TransactionResult<?>> block = invocation.getArgument(0);
-              Integer maxTransactionRetry = invocation.getArgument(2);
+              // Signature: runInTransactionWithRetry(OperationContext, Function, AspectsBatch, int)
+              // index 0=opContext, 1=block, 2=batch, 3=maxTransactionRetry
+              Function<TransactionContext, TransactionResult<?>> block = invocation.getArgument(1);
+              Integer maxTransactionRetry = invocation.getArgument(3);
 
               // Use mock instead of spy to avoid Mockito global interceptor
               TransactionContext txContext = mock(TransactionContext.class);
@@ -279,13 +329,18 @@ public class EbeanEntityServiceTest
               return result.getResults();
             })
         .when(aspectDao)
-        .runInTransactionWithRetry(any(), any(), anyInt());
+        .runInTransactionWithRetry(any(), any(), any(), anyInt());
 
     // Create the service with our mocked dao
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(false);
     EntityServiceImpl entityService =
-        new EntityServiceImpl(aspectDao, _mockProducer, false, preProcessHooks, true);
+        new EntityServiceImpl(
+            aspectDao,
+            _mockProducer,
+            preProcessHooks,
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false).setEnableBrowseV2(true),
+            metricUtils);
 
     // Create the test batch
     List<ChangeItemImpl> items =
@@ -311,7 +366,7 @@ public class EbeanEntityServiceTest
     assertEquals(results.size(), 0, "Expected no results for rolled back transaction");
 
     // Verify transaction behavior
-    verify(aspectDao).runInTransactionWithRetry(any(), eq(batch), anyInt());
+    verify(aspectDao).runInTransactionWithRetry(any(), any(), eq(batch), anyInt());
     verify(capturedTxContext.get()).commitAndContinue();
 
     // Verify the transaction result was a rollback
@@ -482,12 +537,10 @@ public class EbeanEntityServiceTest
   public void testNestedTransactions() throws AssertionError {
     Database server = _aspectDao.getServer();
 
-    try (Transaction transaction =
-        server.beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
+    try (Transaction transaction = server.beginTransaction(TxScope.requiresNew())) {
       transaction.setBatchMode(true);
       // Work 1
-      try (Transaction transaction2 =
-          server.beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
+      try (Transaction transaction2 = server.beginTransaction(TxScope.requiresNew())) {
         transaction2.setBatchMode(true);
         // Work 2
         transaction2.commit();
@@ -538,9 +591,10 @@ public class EbeanEntityServiceTest
     try (Transaction transaction =
         ((EbeanAspectDao) _entityServiceImpl.aspectDao)
             .getServer()
-            .beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
+            .beginTransaction(TxScope.requiresNew())) {
       TransactionContext transactionContext = TransactionContext.empty(transaction, 3);
       _entityServiceImpl.aspectDao.insertAspect(
+          opContext,
           transactionContext,
           EntityAspect.EntitySystemAspect.builder()
               .forInsert(
@@ -813,6 +867,83 @@ public class EbeanEntityServiceTest
         });
   }
 
+  /**
+   * An aspect written for the first time while a bounded entity delete runs, committed after the
+   * delete's locked check (which had no row of it to lock) and before its delete, survives and
+   * keeps the entity. The write is committed from a separate transaction right after the check.
+   */
+  @Test
+  public void testBoundedDeleteUrnKeepsAnAspectFirstWrittenDuringTheDelete() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:boundedDeleteFirstWriteDuring");
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    CorpUserEditableInfo writtenDuring = new CorpUserEditableInfo().setAboutMe("written during");
+    String editableName = AspectGenerationUtils.getAspectName(writtenDuring);
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        entityUrn,
+        List.of(
+            Pair.<String, RecordTemplate>of(
+                infoName, AspectGenerationUtils.createCorpUserInfo("a@test.com"))),
+        TEST_AUDIT_STAMP,
+        AspectGenerationUtils.createSystemMetadata());
+    DeleteCeiling ceiling = _entityServiceImpl.captureDeleteCeiling(opContext, entityUrn).get();
+
+    EbeanAspectDao aspectDao = spy(_aspectDao);
+    AtomicBoolean written = new AtomicBoolean();
+    doAnswer(
+            invocation -> {
+              Object locked = invocation.callRealMethod();
+              // The first locked read is the delete's check of every latest row.
+              if (written.compareAndSet(false, true)) {
+                try (Transaction transaction =
+                    _aspectDao.getServer().beginTransaction(TxScope.requiresNew())) {
+                  _aspectDao.insertAspect(
+                      opContext,
+                      TransactionContext.empty(transaction, 3),
+                      EntityAspect.EntitySystemAspect.builder()
+                          .forInsert(
+                              EntityAspect.builder()
+                                  .urn(entityUrn.toString())
+                                  .aspect(editableName)
+                                  .metadata(RecordUtils.toJsonString(writtenDuring))
+                                  .createdBy(TEST_AUDIT_STAMP.getActor().toString())
+                                  .createdOn(new Timestamp(TEST_AUDIT_STAMP.getTime()))
+                                  .systemMetadata(
+                                      RecordUtils.toJsonString(
+                                          AspectGenerationUtils.createSystemMetadata()))
+                                  .build(),
+                              opContext.getEntityRegistry()),
+                      ASPECT_LATEST_VERSION);
+                  transaction.commit();
+                }
+              }
+              return locked;
+            })
+        .when(aspectDao)
+        .getLatestAspectsLocked(any(), any());
+    EntityServiceImpl entityService =
+        new EntityServiceImpl(
+            aspectDao,
+            _mockProducer,
+            new PreProcessHooks(),
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false).setEnableBrowseV2(true),
+            metricUtils);
+    entityService.setUpdateIndicesService(_mockUpdateIndicesService);
+
+    RollbackRunResult result = entityService.deleteUrn(opContext, entityUrn, ceiling);
+
+    assertTrue(written.get());
+    assertTrue(
+        result.getRollbackResults().stream()
+            .noneMatch(r -> Boolean.TRUE.equals(r.getKeyAffected())));
+    assertNotNull(
+        _entityServiceImpl.getLatestAspect(
+            opContext, entityUrn, opContext.getKeyAspectName(entityUrn)));
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            writtenDuring, _entityServiceImpl.getLatestAspect(opContext, entityUrn, editableName)));
+  }
+
   private static class MultiThreadTestWorker implements Runnable {
     private final OperationContext operationContext;
     private final EntityServiceImpl entityService;
@@ -835,7 +966,7 @@ public class EbeanEntityServiceTest
             break;
           }
           final AuditStamp auditStamp = new AuditStamp();
-          auditStamp.setActor(Urn.createFromString(Constants.DATAHUB_ACTOR));
+          auditStamp.setActor(Urn.createFromString("urn:li:corpuser:datahub"));
           auditStamp.setTime(System.currentTimeMillis());
           AspectsBatchImpl batch =
               AspectsBatchImpl.builder()
@@ -854,5 +985,92 @@ public class EbeanEntityServiceTest
     // Shutdown all Database instances to prevent thread pool and connection leaks
     // This includes the "gma.heartBeat" thread and connection pools
     EbeanTestUtils.shutdownDatabaseFromAspectDao(_aspectDao);
+  }
+
+  @Test
+  public void testTolerantRollbackRestoresThePreviousVersionAsStored() {
+    // The restored version must keep the references only a newer version knows, which reads
+    // drop: the older row is deleted after the copy.
+    assertTrue(
+        rollBackOverStoredUnknownOwner("rb_tolerant", TolerantHandling.INSTANCE)
+            .contains(NEWER_OWNER));
+  }
+
+  @Test
+  public void testStrictRollbackRestoresThePreviousVersionAsBefore() {
+    // Strict reads drop nothing, so the stored row is restored as it was before tolerance. The
+    // change event for the restored row still fails strict validation afterwards, as before.
+    assertTrue(
+        rollBackOverStoredUnknownOwner("rb_strict", StrictHandling.INSTANCE).contains(NEWER_OWNER));
+  }
+
+  /**
+   * Run r1 stores ownership [alice, NEWER_OWNER] (as a newer version wrote it), run r2 writes
+   * [alice, bob] over it with tolerance on (strict handling rejects writing over such a row), and
+   * r2 is rolled back under {@code rollbackHandling}. Returns the latest stored ownership row.
+   */
+  private String rollBackOverStoredUnknownOwner(String name, UnknownDataHandling rollbackHandling) {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+    Urn dataset = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive," + name + ",PROD)");
+    String run1 = name + "-r1";
+    String run2 = name + "-r2";
+    ingestOwnership(dataset, run1, "urn:li:corpuser:alice");
+    _aspectDao
+        .getServer()
+        .sqlUpdate(
+            "UPDATE metadata_aspect_v2 SET metadata = :metadata"
+                + " WHERE urn = :urn AND aspect = 'ownership' AND version = 0")
+        .setParameter(
+            "metadata",
+            "{\"owners\":[{\"owner\":\"urn:li:corpuser:alice\",\"type\":\"DATAOWNER\"},"
+                + "{\"owner\":\""
+                + NEWER_OWNER
+                + "\",\"type\":\"DATAOWNER\"}],"
+                + "\"lastModified\":{\"time\":0,\"actor\":\"urn:li:corpuser:datahub\"}}")
+        .setParameter("urn", dataset.toString())
+        .execute();
+    ingestOwnership(dataset, run2, "urn:li:corpuser:alice", "urn:li:corpuser:bob");
+
+    AspectRowSummary row = new AspectRowSummary();
+    row.setRunId(run2);
+    row.setAspectName("ownership");
+    row.setUrn(dataset.toString());
+    UnknownDataHandlingsForTests.use(rollbackHandling);
+    try {
+      _entityServiceImpl.rollbackRun(opContext, ImmutableList.of(row), run2, true);
+    } catch (ValidationException e) {
+      // Strict handling only: emitting the restored row's change event rejects the unknown urn.
+      assertTrue(rollbackHandling instanceof StrictHandling);
+    }
+
+    EntityAspect latest = _aspectDao.getAspect(opContext, dataset.toString(), "ownership", 0);
+    assertEquals(
+        _aspectDao.getVersionRange(opContext, dataset.toString(), "ownership").getSecond(), 0L);
+    return latest.getMetadata();
+  }
+
+  private void ingestOwnership(Urn dataset, String runId, String... owners) {
+    OwnerArray ownerArray = new OwnerArray();
+    for (String owner : owners) {
+      ownerArray.add(new Owner().setOwner(UrnUtils.getUrn(owner)).setType(OwnershipType.DATAOWNER));
+    }
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(dataset)
+                        .aspectName("ownership")
+                        .recordTemplate(
+                            new Ownership().setOwners(ownerArray).setLastModified(TEST_AUDIT_STAMP))
+                        .systemMetadata(
+                            AspectGenerationUtils.createSystemMetadata(1625792689, runId))
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever())))
+            .build(opContext),
+        true,
+        true);
   }
 }

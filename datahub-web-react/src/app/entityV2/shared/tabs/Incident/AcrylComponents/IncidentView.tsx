@@ -1,6 +1,7 @@
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -24,14 +25,14 @@ import {
     Text,
 } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import { getOnOpenAssertionLink } from '@app/entityV2/shared/tabs/Incident/hooks';
-import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
+import { IncidentTableRow, TimelineContentDetails } from '@app/entityV2/shared/tabs/Incident/types';
 import { getAssigneeNamesWithAvatarUrl } from '@app/entityV2/shared/tabs/Incident/utils';
+import { IncidentPriorityLabel } from '@app/sharedV2/incidentPriorityLabel';
+import { IncidentStagePill } from '@app/sharedV2/incidentStagePill';
+import { getCapitalizeWord } from '@app/sharedV2/textUtil';
 import { Avatar } from '@src/alchemy-components';
 import { IconLabel } from '@src/alchemy-components/components/IconLabel';
 import { IconType } from '@src/alchemy-components/components/IconLabel/types';
-import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel';
-import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
-import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
 // eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { EntityLinkList } from '@src/app/homeV2/reference/sections/EntityLinkList';
@@ -64,6 +65,8 @@ const IncidentStates = {
 };
 
 export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
+    const { t } = useTranslation('entity.profile.incident');
+    const { t: tl } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const [getAssigneeEntities, { data: resolvedAssignees, loading }] = useGetEntitiesLazyQuery();
@@ -136,8 +139,9 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
         });
     };
 
-    const renderActivities = (() => {
-        const baseActivity = {
+    const renderActivities = ((): TimelineContentDetails[] => {
+        const baseActivity: TimelineContentDetails = {
+            key: 'raised',
             actor: incidentCreator,
             action: INCIDENT_STATE_TO_ACTIVITY.RAISED,
             time: incident?.creator?.time,
@@ -148,6 +152,7 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
             return [
                 baseActivity,
                 {
+                    key: 'resolved',
                     actor: incidentResolver,
                     action: INCIDENT_STATE_TO_ACTIVITY.RESOLVED,
                     time: incident?.lastUpdated?.time,
@@ -178,7 +183,7 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
         <Container>
             <DescriptionSection>
                 <Header onClick={() => setDescriptionOpen(!isDescriptionOpen)}>
-                    <DetailsLabel>Description</DetailsLabel>
+                    <DetailsLabel>{tl('description')}</DetailsLabel>
                     <CompactMarkdownViewer
                         content={incident?.description || ''}
                         lineLimit={2}
@@ -188,26 +193,23 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
                 </Header>
             </DescriptionSection>
             <DetailsSection>
-                <DetailsLabel>Category</DetailsLabel>
+                <DetailsLabel>{tl('category')}</DetailsLabel>
                 <CategoryText>{categoryName}</CategoryText>
             </DetailsSection>
             <DetailsSection>
-                <DetailsLabel>Priority</DetailsLabel>
-                <IncidentPriorityLabel
-                    priority={incident?.priority}
-                    title={incident?.priority ? getCapitalizeWord(incident?.priority) : incident?.priority}
-                />
+                <DetailsLabel>{t('field.priorityLabel')}</DetailsLabel>
+                <IncidentPriorityLabel priority={incident?.priority} />
             </DetailsSection>
             <DetailsSection>
-                <DetailsLabel>Stage</DetailsLabel>
+                <DetailsLabel>{t('field.stageLabel')}</DetailsLabel>
                 <IncidentStagePill stage={incident?.stage} />
             </DetailsSection>
             <DetailsSection>
-                <DetailsLabel>Assignees</DetailsLabel>
+                <DetailsLabel>{t('field.assigneesLabel')}</DetailsLabel>
                 <ListContainer>{renderAssignees(getAssigneeNamesWithAvatarUrl(incident?.assignees))}</ListContainer>
             </DetailsSection>
             <DetailsSection>
-                <DetailsLabel>Linked Assets</DetailsLabel>
+                <DetailsLabel>{t('field.linkedAssetsLabel')}</DetailsLabel>
                 <ListContainer style={{ maxWidth: '30vw' }}>
                     <EntityLinkList
                         entities={incident?.linkedAssets?.slice(0, entityCount)}
@@ -223,7 +225,7 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
                 </ListContainer>
             </DetailsSection>
             <DetailsSection>
-                <DetailsLabel>State</DetailsLabel>
+                <DetailsLabel>{tl('state')}</DetailsLabel>
                 <CategoryText>
                     <IconLabel
                         style={{ paddingLeft: 8 }}
@@ -236,7 +238,7 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
 
             {isAssertionFailureIncident ? (
                 <DetailsSection>
-                    <DetailsLabel>Raised By</DetailsLabel>
+                    <DetailsLabel>{t('details.raisedBy')}</DetailsLabel>
                     <Text onClick={() => onClickAssertion()}>{assertionDescription}</Text>
                 </DetailsSection>
             ) : null}

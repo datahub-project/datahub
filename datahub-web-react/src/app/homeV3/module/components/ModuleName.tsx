@@ -5,9 +5,10 @@ import { NameContainer } from '@app/homeV3/styledComponents';
 
 interface Props {
     text?: string;
+    dataTestId?: string;
 }
 
-export default function ModuleName({ text }: Props) {
+export default function ModuleName({ text, dataTestId }: Props) {
     const theme = useTheme();
     return (
         <NameContainer
@@ -17,6 +18,7 @@ export default function ModuleName({ text }: Props) {
                     showArrow: false,
                 },
             }}
+            data-testid={dataTestId}
         >
             {text}
         </NameContainer>

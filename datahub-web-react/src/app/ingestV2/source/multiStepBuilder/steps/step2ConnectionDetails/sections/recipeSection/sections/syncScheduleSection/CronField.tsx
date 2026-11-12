@@ -1,7 +1,9 @@
 import { Input, Switch, Text } from '@components';
 import React, { useState } from 'react';
-import Cron from 'react-js-cron';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import { CronBuilder } from '@components/components/CronBuilder';
 
 import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/constants';
 
@@ -48,7 +50,7 @@ const ScheduleContainer = styled.div`
 `;
 
 const CronFormat = styled.div`
-    background-color: ${(props) => props.theme.colors.bgSurfaceNewNav};
+    background-color: ${(props) => props.theme.colors.bgCode};
     border-radius: 4px;
     padding: 3px 6px;
     width: fit-content;
@@ -56,7 +58,7 @@ const CronFormat = styled.div`
 
 interface Props {
     scheduleCronInterval: string;
-    setScheduleCronInterval: React.Dispatch<React.SetStateAction<string>>;
+    setScheduleCronInterval: (interval: string) => void;
     cronAsText: {
         text: string | undefined;
         error: boolean;
@@ -64,6 +66,7 @@ interface Props {
 }
 
 export default function CronField({ scheduleCronInterval, setScheduleCronInterval, cronAsText }: Props) {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const [advancedCronCheck, setAdvancedCronCheck] = useState(false);
 
     return (
@@ -78,7 +81,7 @@ export default function CronField({ scheduleCronInterval, setScheduleCronInterva
                         label=""
                     />
                 ) : (
-                    <Cron
+                    <CronBuilder
                         value={scheduleCronInterval}
                         setValue={setScheduleCronInterval}
                         clearButton={false}
@@ -88,7 +91,7 @@ export default function CronField({ scheduleCronInterval, setScheduleCronInterva
                 )}
                 <AdvancedSchedule>
                     <Switch
-                        label="View Advanced Settings"
+                        label={t('multiStep.schedule.viewAdvancedSettings')}
                         checked={advancedCronCheck}
                         onChange={(e) => setAdvancedCronCheck(e.target.checked)}
                         labelPosition="right"
@@ -97,17 +100,17 @@ export default function CronField({ scheduleCronInterval, setScheduleCronInterva
             </Schedule>
             <CronText>
                 {cronAsText.error && (
-                    <Text color="red" size="sm">
-                        Invalid cron schedule. Cron must be of UNIX form:
+                    <Text color="textError" size="sm">
+                        {t('multiStep.schedule.invalidCron')}
                     </Text>
                 )}
                 {!cronAsText.text && (
                     <CronFormat>
-                        <Text size="sm">minute, hour, day, month, day of week</Text>
+                        <Text size="sm">{t('multiStep.schedule.cronFormat')}</Text>
                     </CronFormat>
                 )}
                 {cronAsText.text && (
-                    <Text color="gray" size="sm">
+                    <Text color="textSecondary" size="sm">
                         {cronAsText.text}
                     </Text>
                 )}

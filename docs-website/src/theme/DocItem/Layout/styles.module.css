@@ -1,0 +1,20 @@
+/* Copied from @docusaurus/theme-classic DocItem/Layout, plus .docItemHeaderRow. */
+
+.docItemContainer header + *,
+.docItemContainer article > *:first-child {
+  margin-top: 0;
+}
+
+@media (min-width: 997px) {
+  .docItemCol {
+    max-width: 75% !important;
+  }
+}
+
+/* Breadcrumbs on the left, the AI-tools dropdown pushed to the top-right. */
+.docItemHeaderRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}

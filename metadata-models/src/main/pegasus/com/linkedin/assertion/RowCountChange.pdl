@@ -24,4 +24,9 @@ record RowCountChange {
   * Note that only numeric parameter types are valid inputs: NUMBER.
   */
   parameters: AssertionStdParameters
+
+  /**
+   * Optional configuration for assigning severities to failed row count change assertions.
+   */
+  failureSeverityConfig: optional AssertionFailureSeverityConfig
 }

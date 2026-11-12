@@ -1,5 +1,6 @@
 import { Avatar, Table } from '@components';
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -15,7 +16,7 @@ import { GraphCard } from '@src/alchemy-components/components/GraphCard';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import analytics, { EventType } from '@src/app/analytics';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Maybe, UserUsageCounts } from '@src/types.generated';
 
 const CardWrapper = styled.div`
@@ -33,7 +34,9 @@ interface Props {
 }
 
 const TopUsers = ({ users }: Props) => {
-    const entityRegistry = useEntityRegistryV2();
+    const { t } = useTranslation('entity.profile.stats');
+    const { t: tl } = useTranslation('common.labels');
+    const entityRegistry = useEntityRegistry();
 
     const {
         permissions: { canViewDatasetUsage },
@@ -62,7 +65,7 @@ const TopUsers = ({ users }: Props) => {
 
     const topUsersTableColumns = [
         {
-            title: 'Name',
+            title: tl('name'),
             key: 'name',
             render: (record) => {
                 const userEntity = record.user;
@@ -85,7 +88,7 @@ const TopUsers = ({ users }: Props) => {
             width: '50%',
         },
         {
-            title: 'Queries last month',
+            title: t('topUsers.queriesLastMonthColumn'),
             key: 'queries',
             alignment: 'right' as AlignmentOptions,
             render: (record) => {
@@ -104,10 +107,11 @@ const TopUsers = ({ users }: Props) => {
     return (
         <CardWrapper>
             <GraphCard
-                title="Top Users"
+                title={t('topUsers.title')}
                 renderGraph={renderTopUsersTable}
                 isEmpty={!isUsersDataPresent || !canViewDatasetUsage}
-                emptyContent={!canViewDatasetUsage && <NoPermission statName="top users" />}
+                emptyMessage={t('topUsers.empty')}
+                emptyContent={!canViewDatasetUsage && <NoPermission statName={t('topUsers.statName')} />}
                 moreInfoModalContent={<MoreInfoModalContent />}
             />
         </CardWrapper>

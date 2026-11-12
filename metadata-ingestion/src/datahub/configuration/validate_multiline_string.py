@@ -1,13 +1,15 @@
-from typing import TYPE_CHECKING, Optional, Type, Union
+from typing import Any, Optional, Type, Union
 
 import pydantic
 from pydantic import field_validator
 
-if TYPE_CHECKING:
-    from pydantic.deprecated.class_validators import V1Validator
+
+def escaped_newlines_to_real(value: str) -> str:
+    """What pydantic_multiline_string does to a field's string value."""
+    return value.replace(r"\n", "\n")
 
 
-def pydantic_multiline_string(field: str) -> "V1Validator":
+def pydantic_multiline_string(field: str) -> Any:
     """If the field is present and contains an escaped newline, replace it with a real newline.
 
     This makes the assumption that the field value is never supposed to have a
@@ -24,7 +26,7 @@ def pydantic_multiline_string(field: str) -> "V1Validator":
         if v is not None:
             if isinstance(v, pydantic.SecretStr):
                 v = v.get_secret_value()
-            v = v.replace(r"\n", "\n")
+            v = escaped_newlines_to_real(v)
 
         return v
 

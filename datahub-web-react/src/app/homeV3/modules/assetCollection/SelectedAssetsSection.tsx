@@ -1,7 +1,8 @@
 import { Text } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import DraggableEntityItem from '@app/homeV3/modules/assetCollection/dragAndDrop/DraggableEntityItem';
@@ -18,12 +19,14 @@ const SelectedAssetsContainer = styled.div`
     gap: 8px;
     height: 100%;
     max-height: 440px;
+    min-height: 0;
 `;
 
 const ResultsContainer = styled.div`
     margin: 0 -12px 0 -8px;
     overflow-y: auto;
     scrollbar-gutter: stable;
+    min-height: 0;
 `;
 
 type Props = {
@@ -32,6 +35,7 @@ type Props = {
 };
 
 const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props) => {
+    const { t } = useTranslation('modules');
     const [orderedUrns, setOrderedUrns] = useState(selectedAssetUrns);
 
     useEffect(() => {
@@ -45,16 +49,24 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
         setSelectedAssetUrns(urns);
     };
 
-    // To prevent refetch on only order change
-    const stableUrns = useMemo(() => [...selectedAssetUrns].sort(), [selectedAssetUrns]);
-    const { entities } = useGetEntities(stableUrns);
+    // Cache resolved entities and fetch only new URNs, so the list doesn't empty (flicker) on each change
+    const [entitiesMap, setEntitiesMap] = useState<Record<string, Entity>>({});
+    const unresolvedUrns = useMemo(
+        () => selectedAssetUrns.filter((urn) => !entitiesMap[urn]),
+        [selectedAssetUrns, entitiesMap],
+    );
+    const { entities } = useGetEntities(unresolvedUrns);
 
-    const entitiesMap = useMemo(() => {
-        const map: Record<string, Entity> = {};
-        entities.forEach((entity) => {
-            map[entity.urn] = entity;
-        });
-        return map;
+    useEffect(() => {
+        if (entities.length) {
+            setEntitiesMap((prev) => {
+                const next = { ...prev };
+                entities.forEach((entity) => {
+                    next[entity.urn] = entity;
+                });
+                return next;
+            });
+        }
     }, [entities]);
 
     const handleRemoveAsset = (entity: Entity) => {
@@ -92,7 +104,7 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
     } else {
         content = (
             <EmptyContainer>
-                <Text color="gray">No assets selected.</Text>
+                <Text color="gray">{t('assetCollection.noAssetsSelected')}</Text>
             </EmptyContainer>
         );
     }
@@ -100,7 +112,7 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
     return (
         <SelectedAssetsContainer>
             <Text color="gray" weight="bold">
-                Selected Assets
+                {t('assetCollection.selectedAssetsHeader')}
             </Text>
             <VerticalDragAndDrop items={orderedUrns} onChange={onChangeOrder}>
                 <ResultsContainer data-testid="selected-assets-list">{content}</ResultsContainer>

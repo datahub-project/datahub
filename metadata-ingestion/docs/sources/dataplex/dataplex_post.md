@@ -3,14 +3,14 @@
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
 :::caution
-The Dataplex connector will overwrite metadata from other Google Cloud source connectors (BigQuery, GCS, etc.) if they extract the same entities. If you're running multiple Google Cloud connectors, be aware that the last connector to run will determine the final metadata state for overlapping entities.
+The Google Cloud Knowledge Catalog (Dataplex) connector will overwrite metadata from other Google Cloud source connectors (BigQuery, GCS, etc.) if they extract the same entities. If you're running multiple Google Cloud connectors, be aware that the last connector to run will determine the final metadata state for overlapping entities.
 :::
 
 #### Platform Alignment
 
-Datasets discovered by Dataplex use the same URNs as native connectors (e.g., `bigquery`, `gcs`). This means:
+Datasets discovered use the same URNs as native connectors (e.g., `bigquery`, `gcs`). This means:
 
-- **No Duplication**: Dataplex and native BigQuery/GCS connectors can run together - entities discovered by both will merge
+- **No Duplication**: Google Cloud Knowledge Catalog (Dataplex) and native BigQuery/GCS connectors can run together - entities discovered by both will merge
 - **Native Containers**: BigQuery tables appear in their native dataset containers
 - **Unified View**: Users see a single view of all datasets regardless of discovery method
 
@@ -18,18 +18,18 @@ Datasets discovered by Dataplex use the same URNs as native connectors (e.g., `b
 
 The connector adds the following custom properties to datasets:
 
-| Property                        | Always Present | Description                                                                |
-| ------------------------------- | -------------- | -------------------------------------------------------------------------- |
-| `dataplex_ingested`             | Yes            | Marker indicating the dataset was ingested via Dataplex                    |
-| `dataplex_entry_id`             | Yes            | The entry identifier in Dataplex                                           |
-| `dataplex_entry_group`          | Yes            | The entry group containing this entry                                      |
-| `dataplex_fully_qualified_name` | Yes            | The fully qualified name of the entry                                      |
-| `dataplex_entry_type`           | No             | The Dataplex entry type (e.g. `bigquery-table`)                            |
-| `dataplex_parent_entry`         | No             | The parent entry name, if set                                              |
-| `dataplex_source_resource`      | No             | The source resource identifier from the entry source                       |
-| `dataplex_source_system`        | No             | The source system from the entry source                                    |
-| `dataplex_source_platform`      | No             | The source platform from the entry source                                  |
-| `dataplex_aspect_<aspect_type>` | No             | One property per aspect attached to the entry, named after the aspect type |
+| Property                        | Always Present | Description                                                                              |
+| ------------------------------- | -------------- | ---------------------------------------------------------------------------------------- |
+| `dataplex_ingested`             | Yes            | Marker indicating the dataset was ingested via Google Cloud Knowledge Catalog (Dataplex) |
+| `dataplex_entry_id`             | Yes            | The entry identifier in Google Cloud Knowledge Catalog (Dataplex)                        |
+| `dataplex_entry_group`          | Yes            | The entry group containing this entry                                                    |
+| `dataplex_fully_qualified_name` | Yes            | The fully qualified name of the entry                                                    |
+| `dataplex_entry_type`           | No             | The Google Cloud Knowledge Catalog (Dataplex) entry type (e.g. `bigquery-table`)         |
+| `dataplex_parent_entry`         | No             | The parent entry name, if set                                                            |
+| `dataplex_source_resource`      | No             | The source resource identifier from the entry source                                     |
+| `dataplex_source_system`        | No             | The source system from the entry source                                                  |
+| `dataplex_source_platform`      | No             | The source platform from the entry source                                                |
+| `dataplex_aspect_<aspect_type>` | No             | One property per aspect attached to the entry, named after the aspect type               |
 
 #### Filtering Configuration
 
@@ -46,17 +46,19 @@ source:
 
     filter_config:
       entries:
-        pattern:
+        # Matched on the fully qualified name, bigquery:<project>.<dataset>.<table>.
+        # A BigQuery entry's resource name ends in a long API path, not the table.
+        fqn_pattern:
           allow:
-            - "production_.*" # Only production datasets
+            - "bigquery:my-gcp-project\\.production_.*" # Only datasets named production_*
           deny:
-            - ".*_test" # Exclude test datasets
-            - ".*_temp" # Exclude temporary datasets
+            - ".*_test$" # Exclude test tables
+            - ".*_temp$" # Exclude temporary tables
 ```
 
 #### Lineage
 
-When `include_lineage` is enabled and proper permissions are granted, the connector extracts **table-level lineage** using the Dataplex Lineage API. Dataplex automatically tracks lineage from these Google Cloud systems:
+When `include_lineage` is enabled and proper permissions are granted, the connector extracts **table-level lineage** using the Dataplex Lineage API. The connector automatically tracks lineage from these Google Cloud systems:
 
 **Supported Systems:**
 
@@ -73,18 +75,17 @@ Only **BigQuery** lineage has been thoroughly tested with this connector. Lineag
 
 **Not Supported:**
 
-- **Column-level lineage**: The connector extracts only table-level lineage (column-level lineage is available in Dataplex but not exposed through this connector)
+- **Column-level lineage**: The connector extracts only table-level lineage (column-level lineage is available in Dataplex Lineage API but not exposed through this connector)
 - **Custom sources**: Only Google Cloud systems with automatic lineage tracking are supported
 - **BigQuery Data Transfer Service**: Recurring loads are not automatically tracked
 
 **Lineage Limitations:**
 
-- Lineage data is retained for 30 days in Dataplex
+- Lineage data is retained for 30 days in Google Cloud Knowledge Catalog (Dataplex)
 - Lineage may take up to 24 hours to appear after job completion
-- Cross-region lineage is not supported by Dataplex
 - Lineage is only available for entries with active lineage tracking enabled
 
-For more details, see [Dataplex Lineage Documentation](https://docs.cloud.google.com/dataplex/docs/about-data-lineage).
+For more details, see [Google Cloud Knowledge Catalog (Dataplex) Lineage Documentation](https://docs.cloud.google.com/dataplex/docs/about-data-lineage).
 
 #### Configuration Options
 
@@ -178,11 +179,114 @@ source:
     batch_size: 1000 # Process and emit 1000 entries at a time to optimize memory usage
 ```
 
+#### Business Glossary
+
+When `include_glossaries` is enabled (default), the connector ingests all [Dataplex Business Glossaries](https://cloud.google.com/dataplex/docs/glossaries-overview) from the configured `glossary_locations` (default: `global`) and emits the full Glossary → Category → Term hierarchy as DataHub Glossary entities.
+
+Each term is emitted as a `GlossaryTerm` with:
+
+- `term_source: EXTERNAL` and a `source_url` linking directly to the term in the Dataplex console
+- `custom_properties` carrying `project_id`, `location`, `glossary_id`, and `term_id`
+
+When `include_glossary_term_associations` is enabled (opt-in, default: `false`), the connector additionally resolves term-to-asset links using the Dataplex `lookupEntryLinks` API and attaches the corresponding terms to each linked DataHub dataset. For each term, the API is called at the term's location to retrieve all linked assets (regardless of where those assets are located). This phase runs after entries are ingested, so only assets already discovered by the entries stage can be linked. It requires a role granting `resourcemanager.projects.get` (such as [`roles/browser`](https://cloud.google.com/iam/docs/understanding-roles#browser)) on all configured projects. See the Permissions table in the [Prerequisites](#permissions) section above and the GCP [Resource Manager roles reference](https://cloud.google.com/iam/docs/understanding-roles#resource-manager-roles).
+
+:::warning Term associations replace existing glossary terms
+
+`glossaryTerms` has no server-side merge, so each run writes the complete term list for an
+asset. Terms added in the DataHub UI, or applied by another connector to the same entity, are
+replaced by whatever Dataplex reports. Column-level terms are unaffected.
+
+To keep Dataplex's terms scoped to Dataplex and leave everything else intact, add the
+[`set_attribution`](../../../../metadata-ingestion/docs/transformer/set_attribution.md)
+transformer to your recipe:
+
+```yaml
+transformers:
+  - type: "set_attribution"
+    config:
+      attribution_source: "urn:li:dataPlatform:dataplex"
+```
+
+With the default `patch_mode: false`, a run still replaces Dataplex's own terms — so unlinking
+a term in Dataplex removes it from DataHub on the next run — while terms attributed to any
+other source are left untouched.
+
+:::
+
+**Configuration:**
+
+| Field                                | Default    | Description                                                                                                                                                                                                                |
+| ------------------------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `include_glossaries`                 | `true`     | Ingest Dataplex Business Glossaries as `GlossaryNode`/`GlossaryTerm`                                                                                                                                                       |
+| `include_glossary_term_associations` | `false`    | Attach glossary terms to linked datasets via `lookupEntryLinks`. Requires a role granting `resourcemanager.projects.get` such as [`roles/browser`](https://cloud.google.com/iam/docs/understanding-roles#browser) (opt-in) |
+| `glossary_locations`                 | `[global]` | GCP locations to scan for glossaries; most glossaries live in `global`                                                                                                                                                     |
+| `max_workers_glossary`               | `10`       | Parallel workers for glossary ingestion and term-association lookups                                                                                                                                                       |
+
+**Example:**
+
+```yaml
+source:
+  type: dataplex
+  config:
+    project_ids:
+      - "my-gcp-project"
+    entries_locations:
+      - "us"
+
+    # Business Glossary ingestion (enabled by default)
+    include_glossaries: true
+    glossary_locations:
+      - "global"
+
+    # Term-to-asset associations (opt-in; requires roles/browser or another
+    # role granting resourcemanager.projects.get on each configured project)
+    # include_glossary_term_associations: true
+# Scope term writes to Dataplex so terms curated in the UI are not replaced.
+# See the warning above.
+# transformers:
+#   - type: "set_attribution"
+#     config:
+#       attribution_source: "urn:li:dataPlatform:dataplex"
+```
+
+#### Probe support
+
+`datahub recipe probe` lists what the catalog holds and judges it against your recipe's filters before you run ingestion:
+
+```bash
+datahub recipe probe run entry_groups --recipe recipe.yml --project my-project
+datahub recipe probe run entries --recipe recipe.yml --project my-project \
+  --entry_group projects/my-project/locations/us/entryGroups/my-group
+datahub recipe probe filter --recipe recipe.yml --kind Entry \
+  --parent my-project --parent projects/my-project/locations/us/entryGroups/my-group \
+  --name projects/my-project/locations/us/entryGroups/my-group/entries/my-entry
+```
+
+The `filter_config` patterns match full resource names exactly as the API returns them, and a pattern must match from the start of the name. Copy names from the `entry_groups` and `entries` output instead of writing them by hand, because the project segment may be a project number. An entry is ingested only when both `filter_config.entries.pattern` (on its name) and `filter_config.entries.fqn_pattern` (on its fully-qualified name) include it. `--kind Entry` judges both when it is given an `entries` listing with `--from-run`, which carries each FQN; for bare names, check the FQNs with `--kind EntryFqn`. The `export` and `read_export` extraction methods do not apply `filter_config.entry_groups.pattern`. In the default `api` method, Spanner entries are read through a catalog search that also bypasses `filter_config.entry_groups.pattern`, so only the entry and project filters decide them.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
+#### Entity Type Support
+
+Dataplex entries map to either DataHub **Dataset** entities (BigQuery tables and views, Cloud SQL for MySQL tables, Spanner tables and graphs, Bigtable tables, Pub/Sub topics, Vertex AI datasets, Dataproc Metastore tables) or DataHub **Container** entities (BigQuery datasets, Cloud SQL for MySQL instances and databases, Spanner instances and databases, Bigtable instances, Dataproc Metastore services and databases).
+
+**Lineage extraction** applies to Dataset entities only. Containers have no lineage in Dataplex, so no lineage is emitted for them.
+
+**Glossary term associations** apply to both Dataset and Container entities, so a term attached to a BigQuery dataset in Dataplex appears on the corresponding DataHub container. Only assets already discovered by the entries stage can be linked — a term pointing at an entry outside the configured projects, `entries_locations`, or `entries` pattern is reported under `term_links_unmatched` and skipped.
+
 ### Troubleshooting
+
+#### Expected Knowledge Catalog (Dataplex) sync latency
+
+Please be aware of the following documented delays when using this connector. These are standard Knowledge Catalog (Dataplex) behaviors and typically do not indicate an error:
+
+- Metadata Sync: Updates to metadata or new entries can take up to 10 minutes to appear due to backend caching.
+- Data Lineage: Lineage graphs are not real-time; updates typically take 30 minutes to 3 hours, but can take up to 24 hours to fully populate.
+- Data Quality Results: Results from Auto Data Quality scans may have a slight processing delay before appearing in the UI.
+
+If updates exceed these windows, check your [Cloud Logging](https://docs.cloud.google.com/dataplex/docs/logging) for specific job errors or permission issues.
 
 #### Lineage Extraction Issues
 

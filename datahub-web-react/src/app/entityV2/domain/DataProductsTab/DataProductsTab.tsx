@@ -1,25 +1,31 @@
-import { LoadingOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Empty, Pagination } from 'antd';
+import { Button, EmptyState, Loader, Pagination } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import * as QueryString from 'query-string';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
-import { DomainsPaginationContainer } from '@app/domain/DomainsList';
-import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import CreateDataProductModal from '@app/entityV2/domain/DataProductsTab/CreateDataProductModal';
 import DataProductResult from '@app/entityV2/domain/DataProductsTab/DataProductResult';
+import { useEntityContext, useEntityData } from '@app/entityV2/shared/EntityContext';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { SearchBar } from '@app/search/SearchBar';
 import { DOMAINS_FILTER_NAME } from '@app/search/utils/constants';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { DataProduct, Domain, EntityType } from '@types';
 
-const DataProductsPaginationWrapper = styled(DomainsPaginationContainer)`
+const DataProductsPaginationWrapper = styled.div`
+    display: flex;
     justify-content: center;
+    align-items: center;
+    padding: 12px;
+    padding-left: 16px;
+    border-bottom: 1px solid;
+    border-color: ${(props) => props.theme.colors.border};
 `;
 
 const ResultsWrapper = styled.div`
@@ -35,10 +41,6 @@ const ResultsWrapper = styled.div`
     background: ${(props) => props.theme.colors.bgSurface};
 `;
 
-const StyledLoading = styled(LoadingOutlined)`
-    font-size: 32px;
-`;
-
 const LoadingWrapper = styled.div`
     display: flex;
     justify-content: center;
@@ -48,7 +50,7 @@ const LoadingWrapper = styled.div`
 const DEFAULT_PAGE_SIZE = 10;
 
 export default function DataProductsTab() {
-    const theme = useTheme();
+    const { t } = useTranslation('entity.types');
     const { refetch } = useEntityContext();
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
@@ -108,15 +110,16 @@ export default function DataProductsTab() {
         <>
             <TabToolbar>
                 <Button
-                    type="text"
+                    variant="text"
+                    icon={{ icon: Plus }}
                     onClick={() => setIsCreateModalVisible(true)}
                     data-testid="create-data-product-button"
                 >
-                    <PlusOutlined /> New Data Product
+                    {t('dataProduct.newDataProduct')}
                 </Button>
                 <SearchBar
                     initialQuery={query || ''}
-                    placeholderText="Search data products..."
+                    placeholderText={t('dataProduct.searchPlaceholder')}
                     suggestions={[]}
                     style={{
                         maxWidth: 220,
@@ -134,15 +137,11 @@ export default function DataProductsTab() {
             </TabToolbar>
             <ResultsWrapper>
                 {!loading && !displayedDataProducts.length && (
-                    <Empty
-                        description="No Data Products"
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        style={{ color: theme.colors.textTertiary }}
-                    />
+                    <EmptyState title={t('dataProduct.noDataProductsEmpty')} size="sm" />
                 )}
                 {loading && (
                     <LoadingWrapper>
-                        <StyledLoading />
+                        <Loader size="md" />
                     </LoadingWrapper>
                 )}
                 {!loading &&
@@ -157,11 +156,11 @@ export default function DataProductsTab() {
             </ResultsWrapper>
             <DataProductsPaginationWrapper>
                 <Pagination
-                    current={page}
-                    pageSize={DEFAULT_PAGE_SIZE}
+                    currentPage={page}
+                    itemsPerPage={DEFAULT_PAGE_SIZE}
                     total={totalResults}
                     showLessItems
-                    onChange={onChangePage}
+                    onPageChange={onChangePage}
                     showSizeChanger={false}
                 />
             </DataProductsPaginationWrapper>

@@ -1,20 +1,11 @@
-import { Divider, Empty } from 'antd';
+import { Empty } from 'antd';
 import React, { useEffect } from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 
 import { BrowseProvider } from '@app/searchV2/sidebar/BrowseContext';
 import PlatformNode from '@app/searchV2/sidebar/PlatformNode';
 import SidebarLoadingError from '@app/searchV2/sidebar/SidebarLoadingError';
 import useSidebarPlatforms from '@app/searchV2/sidebar/useSidebarPlatforms';
-
-const BrowsePlatformIcons = styled.div`
-    display: flex;
-    flex-direction: column;
-`;
-
-const DividerStyle = styled(Divider)`
-    margin: unset;
-`;
 
 type Props = {
     visible: boolean;
@@ -25,6 +16,7 @@ type Props = {
 };
 
 const PlatformBrowse = ({ visible, collapsed = false, expand, hideSidebar, unhideSidebar }: Props) => {
+    const { t } = useTranslation('search');
     const { error, platformAggregations, retry } = useSidebarPlatforms({
         skip: !visible,
     });
@@ -41,22 +33,18 @@ const PlatformBrowse = ({ visible, collapsed = false, expand, hideSidebar, unhid
 
     return (
         <>
-            {isEmpty && <Empty description="No matching platforms found" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
-            <BrowsePlatformIcons>
-                {platformAggregations
-                    ?.sort((a, b) => b.count - a.count)
-                    ?.map((platformAggregation, i, lst) => (
-                        <BrowseProvider key={platformAggregation.value} platformAggregation={platformAggregation}>
-                            <PlatformNode
-                                iconSize={24}
-                                hasOnlyOnePlatform={lst.length === 1}
-                                toggleCollapse={expand}
-                                collapsed={collapsed}
-                            />
-                            {platformAggregation && i < platformAggregations.length - 1 && <DividerStyle />}
-                        </BrowseProvider>
-                    ))}
-            </BrowsePlatformIcons>
+            {isEmpty && <Empty description={t('sidebar.noMatchingPlatforms')} image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+            {platformAggregations
+                ?.sort((a, b) => b.count - a.count)
+                ?.map((platformAggregation, _i, lst) => (
+                    <BrowseProvider key={platformAggregation.value} platformAggregation={platformAggregation}>
+                        <PlatformNode
+                            hasOnlyOnePlatform={lst.length === 1}
+                            toggleCollapse={expand}
+                            collapsed={collapsed}
+                        />
+                    </BrowseProvider>
+                ))}
             {error && <SidebarLoadingError onClickRetry={retry} />}
         </>
     );

@@ -1,5 +1,7 @@
-import { ClockCircleOutlined, LineChartOutlined } from '@ant-design/icons';
+import { ChartLine } from '@phosphor-icons/react/dist/csr/ChartLine';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import LookbackWindowSelect from '@app/entityV2/shared/tabs/Dataset/Stats/historical/LookbackWindowSelect';
@@ -77,6 +79,7 @@ export default function StatsSidebarHeader({
     setLookbackWindow,
     reportedAt,
 }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     const handleTabClick = (type: StatsViewType) => {
         setActiveTab(type);
     };
@@ -95,15 +98,15 @@ export default function StatsSidebarHeader({
                     isActive={activeTab === StatsViewType.LATEST}
                     onClick={() => handleTabClick(StatsViewType.LATEST)}
                 >
-                    <LineChartOutlined />
-                    Stats & Insights
+                    <ChartLine />
+                    {t('statsSidebar.statsAndInsights')}
                 </StatsTabViewSwitch>
                 <StatsTabViewSwitch
                     isActive={activeTab === StatsViewType.HISTORICAL}
                     onClick={() => handleTabClick(StatsViewType.HISTORICAL)}
                 >
-                    <ClockCircleOutlined />
-                    Historical Stats
+                    <Clock />
+                    {t('statsSidebar.historicalStats')}
                 </StatsTabViewSwitch>
             </SwitchWrapper>
             <ActionContainer>{actionView}</ActionContainer>

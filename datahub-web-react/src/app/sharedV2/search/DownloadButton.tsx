@@ -1,6 +1,7 @@
 import { Button, Tooltip } from '@components';
-import { DownloadSimple } from '@phosphor-icons/react/dist/ssr';
+import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 type Props = {
     setShowDownloadAsCsvModal: (showDownloadAsCsvModal: boolean) => any;
@@ -9,8 +10,9 @@ type Props = {
 };
 
 export default function DownloadButton({ setShowDownloadAsCsvModal, isDownloadingCsv, disabled }: Props) {
+    const { t } = useTranslation('shared.search');
     return (
-        <Tooltip title="Download results..." showArrow={false} placement="top">
+        <Tooltip title={t('downloadResults.tooltip')} showArrow={false} placement="top">
             <Button
                 onClick={() => setShowDownloadAsCsvModal(true)}
                 disabled={isDownloadingCsv || disabled}
@@ -20,7 +22,7 @@ export default function DownloadButton({ setShowDownloadAsCsvModal, isDownloadin
                 size="md"
                 data-testid="download-csv-button"
             >
-                {isDownloadingCsv ? 'Downloading...' : null}
+                {isDownloadingCsv ? t('downloading') : null}
             </Button>
         </Tooltip>
     );

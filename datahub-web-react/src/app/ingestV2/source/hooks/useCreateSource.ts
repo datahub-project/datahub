@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import { useCallback } from 'react';
 
 import { useAddOwners } from '@app/sharedV2/owners/useAddOwners';
@@ -20,11 +21,15 @@ export function useCreateSource() {
                             addOwners(owners, newSourceUrn);
                             resolve(newSourceUrn);
                         } else {
-                            reject(new Error('Failed to create ingestion source!'));
+                            reject(new Error(i18next.t('ingestion:source.createError')));
                         }
                     })
                     .catch((e) => {
-                        reject(new Error(`Failed to create ingestion source!: \n ${e.message || ''}`));
+                        reject(
+                            new Error(
+                                i18next.t('ingestion:source.createErrorInterpolated', { error: e.message || '' }),
+                            ),
+                        );
                     });
             });
         },

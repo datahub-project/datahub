@@ -1,7 +1,13 @@
 import os
 from unittest.mock import patch
 
-from datahub.configuration.env_vars import is_ci
+import pytest
+
+from datahub.configuration.env_vars import (
+    get_rest_sink_default_tcp_keepalive,
+    get_sql_agg_max_queries_per_downstream,
+    is_ci,
+)
 
 
 def test_is_ci_with_ci_true():
@@ -80,3 +86,27 @@ def test_is_ci_with_ci_and_github_actions_both_true():
     """Test that is_ci() returns True when both CI and GITHUB_ACTIONS are true"""
     with patch.dict(os.environ, {"CI": "true", "GITHUB_ACTIONS": "true"}, clear=True):
         assert is_ci() is True
+
+
+def test_get_rest_sink_default_tcp_keepalive() -> None:
+    """Only the literal string 'true' (case-insensitive) enables the default."""
+    with patch.dict(
+        os.environ, {"DATAHUB_REST_SINK_DEFAULT_TCP_KEEPALIVE": "true"}, clear=True
+    ):
+        assert get_rest_sink_default_tcp_keepalive() is True
+    with patch.dict(
+        os.environ, {"DATAHUB_REST_SINK_DEFAULT_TCP_KEEPALIVE": "1"}, clear=True
+    ):
+        assert get_rest_sink_default_tcp_keepalive() is False
+    with patch.dict(os.environ, {}, clear=True):
+        assert get_rest_sink_default_tcp_keepalive() is False
+
+
+def test_get_sql_agg_max_queries_per_downstream() -> None:
+    var = "DATAHUB_SQL_AGG_MAX_QUERIES_PER_DOWNSTREAM"
+    with patch.dict(os.environ, {}, clear=True):
+        assert get_sql_agg_max_queries_per_downstream() == 0
+    with patch.dict(os.environ, {var: "5000"}, clear=True):
+        assert get_sql_agg_max_queries_per_downstream() == 5000
+    with patch.dict(os.environ, {var: "-1"}, clear=True), pytest.raises(ValueError):
+        get_sql_agg_max_queries_per_downstream()

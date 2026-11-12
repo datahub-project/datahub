@@ -33,16 +33,17 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          DataProductResolverUtils.verifyResources(resources, context, _dataProductService);
-          DataProductResolverUtils.verifyDataProduct(
-              maybeDataProductUrn, context, _dataProductService);
-
           try {
             List<Urn> resourceUrns =
                 resources.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
             if (maybeDataProductUrn != null) {
+              DataProductResolverUtils.verifyProductSideMembershipChange(
+                  maybeDataProductUrn, context, _dataProductService);
+              DataProductResolverUtils.verifyResourcesExist(
+                  resources, context, _dataProductService);
               batchSetDataProduct(maybeDataProductUrn, resourceUrns, context);
             } else {
+              DataProductResolverUtils.verifyResources(resources, context, _dataProductService);
               batchUnsetDataProduct(resourceUrns, context);
             }
             return true;

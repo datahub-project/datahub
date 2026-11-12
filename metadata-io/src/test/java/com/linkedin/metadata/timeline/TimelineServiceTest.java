@@ -19,6 +19,7 @@ import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
+import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.MySqlDDL;
@@ -106,25 +107,35 @@ public abstract class TimelineServiceTest<T_AD extends AspectDao> {
     elements.add(ChangeCategory.TECHNICAL_SCHEMA);
     List<ChangeTransaction> changes =
         _entityTimelineService.getTimeline(
-            entityUrn, elements, createTestAuditStamp(10).getTime(), 0, null, null, false);
-    // Assert.assertEquals(changes.size(), 7);
-    // Assert.assertEquals(changes.get(0).getChangeEvents().get(0).getChangeType(),
-    // ChangeOperation.ADD);
-    // Assert.assertEquals(changes.get(0).getTimestamp(), timestamps.get(0).getTime().longValue());
-    // Assert.assertEquals(changes.get(1).getChangeEvents().get(0).getChangeType(),
-    // ChangeOperation.MODIFY);
-    // Assert.assertEquals(changes.get(1).getTimestamp(), timestamps.get(1).getTime().longValue());
+            opContext,
+            entityUrn,
+            elements,
+            createTestAuditStamp(10).getTime(),
+            0,
+            null,
+            null,
+            false);
+    // Schema changes within the window collapse into a single transaction at the latest timestamp.
+    Assert.assertEquals(changes.size(), 1);
+    Assert.assertEquals(
+        changes.get(0).getChangeEvents().get(0).getOperation(), ChangeOperation.ADD);
+    Assert.assertEquals(changes.get(0).getTimestamp(), timestamps.get(6).getTime().longValue());
 
     changes =
         _entityTimelineService.getTimeline(
-            entityUrn, elements, timestamps.get(4).getTime() - 3000L, 0, null, null, false);
-    // Assert.assertEquals(changes.size(), 3);
-    // Assert.assertEquals(changes.get(0).getChangeEvents().get(0).getChangeType(),
-    // ChangeOperation.MODIFY);
-    // Assert.assertEquals(changes.get(0).getTimestamp(), timestamps.get(4).getTime().longValue());
-    // Assert.assertEquals(changes.get(1).getChangeEvents().get(0).getChangeType(),
-    // ChangeOperation.MODIFY);
-    // Assert.assertEquals(changes.get(1).getTimestamp(), timestamps.get(5).getTime().longValue());
+            opContext,
+            entityUrn,
+            elements,
+            timestamps.get(4).getTime() - 3000L,
+            0,
+            null,
+            null,
+            false);
+    // A window starting mid-history yields the same collapsed transaction.
+    Assert.assertEquals(changes.size(), 1);
+    Assert.assertEquals(
+        changes.get(0).getChangeEvents().get(0).getOperation(), ChangeOperation.ADD);
+    Assert.assertEquals(changes.get(0).getTimestamp(), timestamps.get(6).getTime().longValue());
   }
 
   @Test
@@ -153,7 +164,7 @@ public abstract class TimelineServiceTest<T_AD extends AspectDao> {
 
     // Fetch all with high limit — should return all change transactions
     List<ChangeTransaction> allChanges =
-        _entityTimelineService.getTimeline(entityUrn, elements, 100, false);
+        _entityTimelineService.getTimeline(opContext, entityUrn, elements, 100, false);
     Assert.assertTrue(
         allChanges.size() > 0, "Expected at least one change transaction from count-based query");
 
@@ -166,7 +177,7 @@ public abstract class TimelineServiceTest<T_AD extends AspectDao> {
 
     // Fetch with limit of 2 — should return only the 2 most recent transactions
     List<ChangeTransaction> limitedChanges =
-        _entityTimelineService.getTimeline(entityUrn, elements, 2, false);
+        _entityTimelineService.getTimeline(opContext, entityUrn, elements, 2, false);
     Assert.assertTrue(limitedChanges.size() <= 2, "Expected at most 2 transactions with limit=2");
 
     // The limited set should be a suffix of the full set (most recent transactions)

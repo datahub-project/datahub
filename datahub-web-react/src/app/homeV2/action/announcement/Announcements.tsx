@@ -1,7 +1,9 @@
-import { CloseOutlined, NotificationOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { Bell } from '@phosphor-icons/react/dist/csr/Bell';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Button, Carousel } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType, HomePageModule } from '@app/analytics';
@@ -13,7 +15,7 @@ import { useUpdateLastViewedAnnouncementTime } from '@app/homeV2/shared/updateLa
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 
 const Card = styled.div`
-    border: 1px solid ${(props) => props.theme.colors.bgSurface};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 11px;
     background-color: ${(props) => props.theme.colors.bg};
     overflow: hidden;
@@ -36,13 +38,13 @@ const Title = styled.div`
     justify-content: start;
 `;
 
-const Icon = styled(NotificationOutlined)`
+const Icon = styled(Bell)`
     margin-right: 8px;
     color: ${(props) => props.theme.colors.textSuccess};
     font-size: 16px;
 `;
 
-const StyledCloseOutlined = styled(CloseOutlined)`
+const StyledCloseOutlined = styled(X)`
     color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
 `;
@@ -54,7 +56,7 @@ const StyledCarousel = styled(Carousel)`
     overflow: hidden;
 
     > .slick-dots li button {
-        background-color: ${(props) => props.theme.colors.border};
+        background-color: ${(props) => props.theme.colors.iconDisabled};
     }
 
     > .slick-dots li.slick-active button {
@@ -72,6 +74,7 @@ type Props = {
 };
 
 export const Announcements = ({ setHasAnnouncements }: Props) => {
+    const { t } = useTranslation('home.v2');
     const { user } = useUserContext();
     const { announcements, loading } = useGetUnseenAnnouncements();
     const { updateLastViewedAnnouncementTime } = useUpdateLastViewedAnnouncementTime();
@@ -112,12 +115,12 @@ export const Announcements = ({ setHasAnnouncements }: Props) => {
     }
 
     return (
-        <Card>
+        <Card data-testid="v2-home-page-announcements">
             <Header>
                 <Title>
-                    <Icon /> Announcements
+                    <Icon /> {t('announcements.title')}
                 </Title>
-                <Tooltip placement="left" showArrow={false} title="Hide announcements">
+                <Tooltip placement="left" showArrow={false} title={t('announcements.hideTooltip')}>
                     <CloseButton type="text" onClick={hideAnnouncements}>
                         <StyledCloseOutlined />
                     </CloseButton>

@@ -1,9 +1,26 @@
 source:
   type: dataplex
   config:
-    # Required: GCP project ID(s) where Dataplex resources are located
+    # GCP project selection — set at least one of project_ids, project_id_pattern,
+    # or project_labels. project_ids takes precedence and skips Resource Manager
+    # API calls; the pattern/labels options auto-discover projects (require
+    # roles/browser or any role granting resourcemanager.projects.get on the
+    # candidate projects).
     project_ids:
       - "my-gcp-project"
+
+    # Optional: regex allow/deny patterns to filter auto-discovered projects.
+    # Ignored when project_ids is set explicitly.
+    # project_id_pattern:
+    #   allow:
+    #     - "^prod-.*"
+    #   deny:
+    #     - "-sandbox$"
+
+    # Optional: filter discovered projects by GCP labels in `key:value` form.
+    # Ignored when project_ids is set explicitly.
+    # project_labels:
+    #   - "env:prod"
 
     # Optional: GCP location(s) for entries (Universal Catalog)
     # Use multi-region locations (us, eu, asia) to access system entry groups like @bigquery
@@ -25,6 +42,28 @@ source:
     # Optional: Metadata extraction
     # include_lineage: true   # Extract lineage (default: true)
     # include_schema: true    # Extract schema metadata (default: true)
+
+    # Optional: Extraction method (default: api)
+    # Use 'export' for central-catalog / federated setups where assets surface
+    # in a catalog project via Dataplex catalog linking and list_entries returns
+    # nothing. One metadata export job runs per entries location; each location
+    # must resolve to a GCS bucket.
+    # extraction_method: export
+    # export_config:
+    #   export_job_runner_project: "my-runner-project" # needs roles/dataplex.metadataJobOwner
+    #   bucket_base_name: "my-export-bucket" # bucket per location: {base}-{location}
+    #   # export_bucket_config: # explicit per-location buckets (take priority)
+    #   #   us: "my-export-bucket-us"
+    #   # prefix: "dataplex-exports" # optional folder prefix inside each bucket (max 128 chars)
+    #   # export_poll_seconds: 15
+    #   # export_timeout_seconds: 3600
+
+    # Or: ingest exports you orchestrate yourself instead of submitting jobs
+    # (only needs roles/storage.objectViewer on the buckets).
+    # extraction_method: read_export
+    # read_export_config:
+    #   export_paths:
+    #     us: "gs://my-export-bucket-us/dataplex-exports"
 
     # Optional: Lineage retry settings
     # lineage_max_retries: 3                    # Max retry attempts (range: 1-10, default: 3)

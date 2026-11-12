@@ -1,10 +1,13 @@
 package com.linkedin.metadata.kafka.hook;
 
+import static com.linkedin.metadata.Constants.APP_SOURCE;
+import static com.linkedin.metadata.Constants.UI_SOURCE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.testng.Assert.assertThrows;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -17,8 +20,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 public class UpdateIndicesHookBatchTest {
 
@@ -26,7 +29,7 @@ public class UpdateIndicesHookBatchTest {
   private OperationContext mockOperationContext;
   private UpdateIndicesHook hook;
 
-  @BeforeEach
+  @BeforeMethod
   public void setUp() {
     mockUpdateIndicesService = mock(UpdateIndicesService.class);
     mockOperationContext = mock(OperationContext.class);
@@ -44,7 +47,7 @@ public class UpdateIndicesHookBatchTest {
     List<MetadataChangeLog> events = Arrays.asList(event1, event2, event3);
 
     // Invoke batch processing
-    hook.invokeBatch(events);
+    hook.invokeBatch(mockOperationContext, events);
 
     // Verify that handleChangeEvents was called once with all events
     verify(mockUpdateIndicesService, times(1))
@@ -54,7 +57,7 @@ public class UpdateIndicesHookBatchTest {
   @Test
   public void testInvokeBatchWithEmptyCollection() {
     // Invoke batch processing with empty collection
-    hook.invokeBatch(Collections.emptyList());
+    hook.invokeBatch(mockOperationContext, Collections.emptyList());
 
     // Verify that handleChangeEvents was not called
     verify(mockUpdateIndicesService, times(0))
@@ -75,11 +78,25 @@ public class UpdateIndicesHookBatchTest {
     List<MetadataChangeLog> events = Arrays.asList(uiEvent, normalEvent);
 
     // Invoke batch processing
-    hookNoReprocess.invokeBatch(events);
+    hookNoReprocess.invokeBatch(mockOperationContext, events);
 
     // Verify that handleChangeEvents was called only with the non-UI event
     verify(mockUpdateIndicesService, times(1))
         .handleChangeEvents(eq(mockOperationContext), eq(Arrays.asList(normalEvent)));
+  }
+
+  @Test
+  public void testConstructorRejectsBothIndexPathsOffWhenConsumingMcl() {
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            new UpdateIndicesHook(
+                mockUpdateIndicesService, true, false, false, "test-suffix", true));
+  }
+
+  @Test
+  public void testConstructorAllowsBothIndexPathsOffWhenNotConsumingMcl() {
+    new UpdateIndicesHook(mockUpdateIndicesService, true, false, false, "test-suffix", false);
   }
 
   private MetadataChangeLog createTestEvent(String urnString) {
@@ -97,7 +114,7 @@ public class UpdateIndicesHookBatchTest {
 
     SystemMetadata systemMetadata = new SystemMetadata();
     StringMap properties = new StringMap();
-    properties.put("app", "ui");
+    properties.put(APP_SOURCE, UI_SOURCE);
     systemMetadata.setProperties(properties);
     event.setSystemMetadata(systemMetadata);
 

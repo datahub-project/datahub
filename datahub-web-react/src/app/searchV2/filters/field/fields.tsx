@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { FieldType, FilterField } from '@app/searchV2/filters/types';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
@@ -15,11 +17,11 @@ import {
     FIELD_TO_LABEL,
     GLOSSARY_TERMS_FILTER_NAME,
     HAS_ACTIVE_INCIDENTS_FILTER_NAME,
-    HAS_FAILING_ASSERTIONS_FILTER_NAME,
     HAS_SIBLINGS_FILTER_NAME,
     LAST_MODIFIED_FILTER_NAME,
     ORIGIN_FILTER_NAME,
     OWNERS_FILTER_NAME,
+    PARENT_DOCUMENT_FILTER_NAME,
     PLATFORM_FILTER_NAME,
     REMOVED_FILTER_NAME,
     STRUCTURED_PROPERTIES_FILTER_NAME,
@@ -31,143 +33,188 @@ import { EntityType } from '@types';
 
 const ENTITY_SUB_TYPE_FILTER: FilterField = {
     field: ENTITY_SUB_TYPE_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[ENTITY_SUB_TYPE_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[ENTITY_SUB_TYPE_FILTER_NAME];
+    },
     type: FieldType.NESTED_ENTITY_TYPE,
 };
 
 const ENTITY_TYPE_FILTER: FilterField = {
     field: ENTITY_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[ENTITY_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[ENTITY_FILTER_NAME];
+    },
     type: FieldType.ENTITY_TYPE,
 };
 
 const TYPE_NAMES_FILTER: FilterField = {
     field: TYPE_NAMES_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[TYPE_NAMES_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[TYPE_NAMES_FILTER_NAME];
+    },
     type: FieldType.ENUM,
 };
 
 const PLATFORM_FILTER: FilterField = {
     field: PLATFORM_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[PLATFORM_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[PLATFORM_FILTER_NAME];
+    },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.DataPlatform],
 };
 
 const OWNERS_FILTER: FilterField = {
     field: OWNERS_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[OWNERS_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[OWNERS_FILTER_NAME];
+    },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.CorpUser, EntityType.CorpGroup],
 };
 
 const DOMAINS_FILTER: FilterField = {
     field: DOMAINS_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[DOMAINS_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[DOMAINS_FILTER_NAME];
+    },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.Domain],
 };
 
 const TAGS_FILTER: FilterField = {
     field: TAGS_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[TAGS_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[TAGS_FILTER_NAME];
+    },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.Tag],
 };
 
 const GLOSSARY_TERMS_FILTER: FilterField = {
     field: GLOSSARY_TERMS_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[GLOSSARY_TERMS_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[GLOSSARY_TERMS_FILTER_NAME];
+    },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.GlossaryTerm],
 };
 
 const CONTAINER_FILTER: FilterField = {
     field: CONTAINER_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[CONTAINER_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[CONTAINER_FILTER_NAME];
+    },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.Container],
 };
 
+export const PARENT_DOCUMENT_FILTER: FilterField = {
+    field: PARENT_DOCUMENT_FILTER_NAME,
+    get displayName() {
+        return FIELD_TO_LABEL[PARENT_DOCUMENT_FILTER_NAME];
+    },
+    type: FieldType.ENTITY,
+    entityTypes: [EntityType.Document],
+};
+
 const FIELD_PATHS_FILTER: FilterField = {
     field: FIELD_PATHS_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[FIELD_PATHS_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[FIELD_PATHS_FILTER_NAME];
+    },
     type: FieldType.TEXT,
 };
 
 const FIELD_TAGS_FILTER: FilterField = {
     field: FIELD_TAGS_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[FIELD_TAGS_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[FIELD_TAGS_FILTER_NAME];
+    },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.Tag],
 };
 
 const FIELD_GLOSSARY_TERMS_FILTER: FilterField = {
     field: FIELD_GLOSSARY_TERMS_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[FIELD_GLOSSARY_TERMS_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[FIELD_GLOSSARY_TERMS_FILTER_NAME];
+    },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.GlossaryTerm],
 };
 
 const DESCRIPTION_FILTER: FilterField = {
     field: DESCRIPTION_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[DESCRIPTION_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[DESCRIPTION_FILTER_NAME];
+    },
     type: FieldType.TEXT,
 };
 
 const FIELD_DESCRIPTIONS_FILTER: FilterField = {
     field: FIELD_DESCRIPTIONS_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[FIELD_DESCRIPTIONS_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[FIELD_DESCRIPTIONS_FILTER_NAME];
+    },
     type: FieldType.TEXT,
 };
 
 const REMOVED_FILTER: FilterField = {
     field: REMOVED_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[REMOVED_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[REMOVED_FILTER_NAME];
+    },
     type: FieldType.BOOLEAN,
 };
 
 const HAS_ACTIVE_INCIDENTS_FILTER: FilterField = {
     field: HAS_ACTIVE_INCIDENTS_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[HAS_ACTIVE_INCIDENTS_FILTER_NAME],
-    type: FieldType.BOOLEAN,
-};
-
-const HAS_FAILING_ASSERTIONS_FILTER: FilterField = {
-    field: HAS_FAILING_ASSERTIONS_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[HAS_FAILING_ASSERTIONS_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[HAS_ACTIVE_INCIDENTS_FILTER_NAME];
+    },
     type: FieldType.BOOLEAN,
 };
 
 const ORIGIN_FILTER: FilterField = {
     field: ORIGIN_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[ORIGIN_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[ORIGIN_FILTER_NAME];
+    },
     type: FieldType.ENUM,
 };
 
 const DATA_PLATFORM_INSTANCE_FILTER: FilterField = {
     field: DATA_PLATFORM_INSTANCE_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[DATA_PLATFORM_INSTANCE_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[DATA_PLATFORM_INSTANCE_FILTER_NAME];
+    },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.DataPlatformInstance],
 };
 
 const DATA_PRODUCT_FILTER: FilterField = {
     field: DATA_PRODUCT_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[DATA_PRODUCT_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[DATA_PRODUCT_FILTER_NAME];
+    },
     type: FieldType.ENTITY,
     entityTypes: [EntityType.DataProduct],
 };
 
 export const STRUCTURED_PROPERTY_FILTER: FilterField = {
     field: STRUCTURED_PROPERTIES_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[STRUCTURED_PROPERTIES_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[STRUCTURED_PROPERTIES_FILTER_NAME];
+    },
     type: FieldType.TEXT,
 };
 
 const HAS_SIBLINGS_FILTER: FilterField = {
     field: HAS_SIBLINGS_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[HAS_SIBLINGS_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[HAS_SIBLINGS_FILTER_NAME];
+    },
     type: FieldType.BOOLEAN,
 };
 
@@ -175,48 +222,54 @@ const DAY_IN_MILLIS = 24 * 60 * 60 * 1000;
 
 export const LAST_MODIFIED_FILTER: FilterField = {
     field: LAST_MODIFIED_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[LAST_MODIFIED_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[LAST_MODIFIED_FILTER_NAME];
+    },
     type: FieldType.BUCKETED_TIMESTAMP,
     useDatePicker: true,
-    options: [
-        {
-            label: 'Last 1 day',
-            startOffsetMillis: DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last 3 days',
-            startOffsetMillis: 3 * DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last week',
-            startOffsetMillis: 7 * DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last two weeks',
-            startOffsetMillis: 14 * DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last month',
-            startOffsetMillis: 31 * DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last 3 months',
-            startOffsetMillis: 92 * DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last 6 months',
-            startOffsetMillis: 184 * DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last year',
-            startOffsetMillis: 365 * DAY_IN_MILLIS,
-        },
-    ],
+    get options() {
+        return [
+            {
+                label: i18next.t('search:filters.dateRange.last1Day'),
+                startOffsetMillis: DAY_IN_MILLIS,
+            },
+            {
+                label: i18next.t('search:filters.dateRange.last3Days'),
+                startOffsetMillis: 3 * DAY_IN_MILLIS,
+            },
+            {
+                label: i18next.t('search:filters.dateRange.lastWeek'),
+                startOffsetMillis: 7 * DAY_IN_MILLIS,
+            },
+            {
+                label: i18next.t('search:filters.dateRange.lastTwoWeeks'),
+                startOffsetMillis: 14 * DAY_IN_MILLIS,
+            },
+            {
+                label: i18next.t('search:filters.dateRange.lastMonth'),
+                startOffsetMillis: 31 * DAY_IN_MILLIS,
+            },
+            {
+                label: i18next.t('search:filters.dateRange.last3Months'),
+                startOffsetMillis: 92 * DAY_IN_MILLIS,
+            },
+            {
+                label: i18next.t('search:filters.dateRange.last6Months'),
+                startOffsetMillis: 184 * DAY_IN_MILLIS,
+            },
+            {
+                label: i18next.t('search:filters.dateRange.lastYear'),
+                startOffsetMillis: 365 * DAY_IN_MILLIS,
+            },
+        ];
+    },
 };
 
 const BROWSE_FILTER: FilterField = {
     field: BROWSE_PATH_V2_FILTER_NAME,
-    displayName: FIELD_TO_LABEL[BROWSE_PATH_V2_FILTER_NAME],
+    get displayName() {
+        return FIELD_TO_LABEL[BROWSE_PATH_V2_FILTER_NAME];
+    },
     type: FieldType.BROWSE_PATH,
 };
 
@@ -230,6 +283,7 @@ export const DEFAULT_FILTER_FIELDS: FilterField[] = [
     TAGS_FILTER,
     GLOSSARY_TERMS_FILTER,
     CONTAINER_FILTER,
+    PARENT_DOCUMENT_FILTER,
     FIELD_PATHS_FILTER,
     FIELD_TAGS_FILTER,
     FIELD_GLOSSARY_TERMS_FILTER,
@@ -237,7 +291,6 @@ export const DEFAULT_FILTER_FIELDS: FilterField[] = [
     FIELD_DESCRIPTIONS_FILTER,
     REMOVED_FILTER,
     HAS_ACTIVE_INCIDENTS_FILTER,
-    HAS_FAILING_ASSERTIONS_FILTER,
     ORIGIN_FILTER,
     DATA_PLATFORM_INSTANCE_FILTER,
     HAS_SIBLINGS_FILTER,

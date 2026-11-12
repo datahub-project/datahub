@@ -10,6 +10,7 @@ import static io.datahubproject.test.search.SearchTestUtils.createDelegatingSett
 import static org.testng.Assert.*;
 
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -18,6 +19,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
@@ -27,6 +29,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataMappingsBuilder;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -34,9 +37,11 @@ import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.EntityRegistryContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.PartialNgramEntityRegistry;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -45,6 +50,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.opensearch.OpenSearchException;
@@ -61,6 +67,7 @@ import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.rest.RestStatus;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.util.CollectionUtils;
+import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -77,7 +84,9 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   protected static final String TEST_INDEX_NAME =
       "estest_datasetindex_v2"; // Use v2 as default for backward compatibility
   protected static final String TEST_V2_INDEX_NAME = TEST_INDEX_NAME;
-  protected static final String TEST_V3_INDEX_NAME = "estest_primaryindex_v3";
+  protected static final String TEST_V3_INDEX_NAME = "estest_datasetindex_v3";
+  private static final String OBJECT_ROUNDTRIP_INDEX = "estest_objectroundtripindex_v2";
+  private static final String PARTIAL_NGRAM_V3_INDEX = "estest_partialngramtestentityindex_v3";
   private ElasticSearchConfiguration testDefaultConfig;
   private ESIndexBuilder testDefaultBuilder;
   private ESIndexBuilder testReplicasBuilder;
@@ -87,14 +96,15 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   protected static final int REPLICASTEST = 2;
 
   /** Helper method to build an index using the new ReindexConfig pattern */
-  private static void buildIndex(
+  private void buildIndex(
       ESIndexBuilder builder,
       String indexName,
       Map<String, Object> mappings,
       Map<String, Object> settings)
       throws IOException {
-    ReindexConfig reindexConfig = builder.buildReindexState(indexName, mappings, settings);
-    builder.buildIndex(reindexConfig);
+    ReindexConfig reindexConfig =
+        builder.buildReindexState(opContext, indexName, mappings, settings);
+    builder.buildIndex(opContext, reindexConfig);
   }
 
   @BeforeClass
@@ -114,6 +124,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                     .numReplicas(0)
                     .numRetries(3)
                     .refreshIntervalSeconds(0)
+                    .refreshIntervals(RefreshIntervals.allServices(0))
                     .build())
             .build();
     testDefaultBuilder =
@@ -129,6 +140,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                     .numReplicas(REPLICASTEST)
                     .numRetries(3)
                     .refreshIntervalSeconds(0)
+                    .refreshIntervals(RefreshIntervals.allServices(0))
                     .build())
             .build();
     testReplicasBuilder =
@@ -138,20 +150,21 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     // Setup real IndexConvention for both v2 and v3
     indexConvention =
         new IndexConventionImpl(
-            IndexConventionImpl.IndexConventionConfig.builder()
-                .prefix("estest")
-                .hashIdAlgo("MD5")
-                .build(),
+            IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+            new ConfiguredIndexPrefixResolver("estest"),
             V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION);
 
     // Create operation context with our index convention
     opContext =
-        TestOperationContexts.systemContextNoSearchAuthorization().toBuilder()
-            .searchContext(SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build())
-            .build(
-                TestOperationContexts.systemContextNoSearchAuthorization()
-                    .getSessionAuthentication(),
-                true);
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoSearchAuthorization().toBuilder()
+                .searchContext(
+                    SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build())
+                .build(
+                    TestOperationContexts.systemContextNoSearchAuthorization()
+                        .getSessionAuthentication(),
+                    true),
+            getSearchClient());
 
     // Setup DelegatingSettingsBuilder and DelegatingMappingsBuilder
     IndexConfiguration indexConfiguration =
@@ -164,7 +177,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
     // Create DelegatingMappingsBuilder using utility method
     delegatingMappingsBuilder =
-        createDelegatingMappingsBuilder(V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION);
+        createDelegatingMappingsBuilder(
+            V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION, getSearchClient());
   }
 
   /** Pattern matching incremental reindex next indices created during tests. */
@@ -177,10 +191,15 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
       GetAliasesRequest patternRequest = new GetAliasesRequest();
       patternRequest.indices(INCREMENTAL_NEXT_INDEX_PATTERN);
       GetAliasesResponse matchingAliases =
-          getSearchClient().getIndexAliases(patternRequest, RequestOptions.DEFAULT);
+          getSearchClient()
+              .getIndexAliases(OperationFingerprint.EMPTY, patternRequest, RequestOptions.DEFAULT);
       for (String index : matchingAliases.getAliases().keySet()) {
         try {
-          getSearchClient().deleteIndex(new DeleteIndexRequest(index), RequestOptions.DEFAULT);
+          getSearchClient()
+              .deleteIndex(
+                  OperationFingerprint.EMPTY,
+                  new DeleteIndexRequest(index),
+                  RequestOptions.DEFAULT);
         } catch (Exception e) {
           // ignore
         }
@@ -190,25 +209,37 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     }
 
     // Clean up all test indices
-    String[] testIndices = {TEST_V2_INDEX_NAME, TEST_V3_INDEX_NAME};
+    String[] testIndices = {
+      TEST_V2_INDEX_NAME, TEST_V3_INDEX_NAME, OBJECT_ROUNDTRIP_INDEX, PARTIAL_NGRAM_V3_INDEX
+    };
 
     for (String indexName : testIndices) {
       try {
         getSearchClient()
-            .getIndexAliases(new GetAliasesRequest(indexName), RequestOptions.DEFAULT)
+            .getIndexAliases(
+                OperationFingerprint.EMPTY,
+                new GetAliasesRequest(indexName),
+                RequestOptions.DEFAULT)
             .getAliases()
             .keySet()
             .forEach(
                 index -> {
                   try {
                     getSearchClient()
-                        .deleteIndex(new DeleteIndexRequest(index), RequestOptions.DEFAULT);
+                        .deleteIndex(
+                            OperationFingerprint.EMPTY,
+                            new DeleteIndexRequest(index),
+                            RequestOptions.DEFAULT);
                   } catch (IOException e) {
                     throw new RuntimeException(e);
                   }
                 });
 
-        getSearchClient().deleteIndex(new DeleteIndexRequest(indexName), RequestOptions.DEFAULT);
+        getSearchClient()
+            .deleteIndex(
+                OperationFingerprint.EMPTY,
+                new DeleteIndexRequest(indexName),
+                RequestOptions.DEFAULT);
       } catch (OpenSearchException exception) {
         if (exception.status() != RestStatus.NOT_FOUND) {
           throw exception;
@@ -224,65 +255,75 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   public GetIndexResponse getTestIndex() throws IOException {
     return getSearchClient()
         .getIndex(
-            new GetIndexRequest(TEST_INDEX_NAME).includeDefaults(true), RequestOptions.DEFAULT);
+            OperationFingerprint.EMPTY,
+            new GetIndexRequest(TEST_INDEX_NAME).includeDefaults(true),
+            RequestOptions.DEFAULT);
   }
 
   public GetIndexResponse getV2TestIndex() throws IOException {
     return getSearchClient()
         .getIndex(
-            new GetIndexRequest(TEST_V2_INDEX_NAME).includeDefaults(true), RequestOptions.DEFAULT);
+            OperationFingerprint.EMPTY,
+            new GetIndexRequest(TEST_V2_INDEX_NAME).includeDefaults(true),
+            RequestOptions.DEFAULT);
   }
 
   public GetIndexResponse getV3TestIndex() throws IOException {
     return getSearchClient()
         .getIndex(
-            new GetIndexRequest(TEST_V3_INDEX_NAME).includeDefaults(true), RequestOptions.DEFAULT);
+            OperationFingerprint.EMPTY,
+            new GetIndexRequest(TEST_V3_INDEX_NAME).includeDefaults(true),
+            RequestOptions.DEFAULT);
   }
 
   @Test
   public void testTweakReplicasStepOps() throws Exception {
     ReindexConfig indexState =
         testReplicasBuilder.buildReindexState(
-            TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
-    testReplicasBuilder.buildIndex(indexState);
+            opContext,
+            TEST_INDEX_NAME,
+            SystemMetadataMappingsBuilder.getMappings(),
+            Map.<String, Object>of());
+    testReplicasBuilder.buildIndex(opContext, indexState);
     // assert initial state, index has 0 docs, REPLICASTEST replica
     assertEquals(
         getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"), "" + REPLICASTEST);
 
     // 0,1 --> 0,1 with dryRun
-    testReplicasBuilder.tweakReplicas(indexState, true);
+    testReplicasBuilder.tweakReplicas(opContext, indexState, true);
     assertEquals(
         getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"), "" + REPLICASTEST);
     // 0,1 --> 0,0
-    testReplicasBuilder.tweakReplicas(indexState, false);
+    testReplicasBuilder.tweakReplicas(opContext, indexState, false);
     assertEquals(getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"), "0");
     // 0,0 --> verify not undesired changes
-    testReplicasBuilder.tweakReplicas(indexState, false);
+    testReplicasBuilder.tweakReplicas(opContext, indexState, false);
     assertEquals(getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"), "0");
     // index one doc
     IndexRequest indexRequest =
         new IndexRequest(TEST_INDEX_NAME).id("1").source(new HashMap<>(), XContentType.JSON);
     IndexResponse indexResponse =
-        getSearchClient().indexDocument(indexRequest, RequestOptions.DEFAULT);
+        getSearchClient().indexDocument(opContext, indexRequest, RequestOptions.DEFAULT);
     // make sure it will be counted
     getSearchClient()
         .refreshIndex(
+            OperationFingerprint.EMPTY,
             new org.opensearch.action.admin.indices.refresh.RefreshRequest(TEST_INDEX_NAME),
             RequestOptions.DEFAULT);
     long numDocs =
         getSearchClient()
-            .count(new CountRequest(TEST_INDEX_NAME), RequestOptions.DEFAULT)
+            .count(opContext, new CountRequest(TEST_INDEX_NAME), RequestOptions.DEFAULT)
             .getCount();
     assertEquals(numDocs, 1, "Expected 0 documents in the test index");
     // 1,0 --> 1,0 with dryRun
-    testReplicasBuilder.tweakReplicas(indexState, true);
+    testReplicasBuilder.tweakReplicas(opContext, indexState, true);
     assertEquals(getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"), "0");
     // 1,0 --> 1,1
-    testReplicasBuilder.tweakReplicas(indexState, false);
+    testReplicasBuilder.tweakReplicas(opContext, indexState, false);
     assertEquals(
         getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"), "" + REPLICASTEST);
     // 1,1 --> verify not undesired changes
-    testReplicasBuilder.tweakReplicas(indexState, false);
+    testReplicasBuilder.tweakReplicas(opContext, indexState, false);
     assertEquals(
         getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"), "" + REPLICASTEST);
   }
@@ -291,8 +332,9 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   public void testESIndexBuilderNoSkipNdocs() throws Exception {
     // Set test defaults
     ReindexConfig reindexConfig =
-        testDefaultBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
-    testDefaultBuilder.buildIndex(reindexConfig);
+        testDefaultBuilder.buildReindexState(
+            opContext, TEST_INDEX_NAME, Map.<String, Object>of(), Map.<String, Object>of());
+    testDefaultBuilder.buildIndex(opContext, reindexConfig);
     String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
     String expectedShards = "2";
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
@@ -312,11 +354,12 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     IndexRequest indexRequest =
         new IndexRequest(TEST_INDEX_NAME).id("1").source(new HashMap<>(), XContentType.JSON);
     IndexResponse indexResponse =
-        getSearchClient().indexDocument(indexRequest, RequestOptions.DEFAULT);
+        getSearchClient().indexDocument(opContext, indexRequest, RequestOptions.DEFAULT);
     // reindex
     ReindexConfig reindexConfig2 =
-        changedShardBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
-    ReindexResult rr = changedShardBuilder.buildIndex(reindexConfig2);
+        changedShardBuilder.buildReindexState(
+            opContext, TEST_INDEX_NAME, Map.<String, Object>of(), Map.<String, Object>of());
+    ReindexResult rr = changedShardBuilder.buildIndex(opContext, reindexConfig2);
     Map.Entry<String, List<AliasMetadata>> newIndex =
         getTestIndex().getAliases().entrySet().stream()
             .filter(
@@ -329,7 +372,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     assertNotEquals(
         beforeCreationDate, afterCreationDate, "Expected reindex to result in different timestamp");
     assertNotEquals(rr, ReindexResult.REINDEXED_SKIPPED_0DOCS);
-    long nbdocs = changedShardBuilder.getCount(newIndex.getKey());
+    long nbdocs = changedShardBuilder.getCount(opContext, newIndex.getKey());
     assertEquals(1, nbdocs);
   }
 
@@ -337,8 +380,9 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   public void testESIndexBuilderSkip0docs() throws Exception {
     // Set test defaults
     ReindexConfig reindexConfig =
-        testDefaultBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
-    testDefaultBuilder.buildIndex(reindexConfig);
+        testDefaultBuilder.buildReindexState(
+            opContext, TEST_INDEX_NAME, Map.<String, Object>of(), Map.<String, Object>of());
+    testDefaultBuilder.buildIndex(opContext, reindexConfig);
     String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
     String expectedShards = "2";
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
@@ -356,8 +400,9 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             gitVersion);
     // reindex
     ReindexConfig reindexConfig2 =
-        changedShardBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
-    ReindexResult rr = changedShardBuilder.buildIndex(reindexConfig2);
+        changedShardBuilder.buildReindexState(
+            opContext, TEST_INDEX_NAME, Map.<String, Object>of(), Map.<String, Object>of());
+    ReindexResult rr = changedShardBuilder.buildIndex(opContext, reindexConfig2);
     Map.Entry<String, List<AliasMetadata>> newIndex =
         getTestIndex().getAliases().entrySet().stream()
             .filter(
@@ -370,7 +415,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     assertNotEquals(
         beforeCreationDate, afterCreationDate, "Expected reindex to result in different timestamp");
     assertEquals(rr, ReindexResult.REINDEXED_SKIPPED_0DOCS);
-    long nbdocs = changedShardBuilder.getCount(newIndex.getKey());
+    long nbdocs = changedShardBuilder.getCount(opContext, newIndex.getKey());
     assertEquals(nbdocs, 0);
   }
 
@@ -388,14 +433,16 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                         .numReplicas(1)
                         .numRetries(1)
                         .refreshIntervalSeconds(1)
+                        .refreshIntervals(RefreshIntervals.allServices(1))
                         .build())
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
             gitVersion);
     ReindexConfig reindexConfig =
-        nsecBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
-    nsecBuilder.buildIndex(reindexConfig);
+        nsecBuilder.buildReindexState(
+            opContext, TEST_INDEX_NAME, Map.<String, Object>of(), Map.<String, Object>of());
+    nsecBuilder.buildIndex(opContext, reindexConfig);
     String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
     // add some docs
     int NDOCS = 5;
@@ -403,11 +450,12 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
       IndexRequest indexRequest =
           new IndexRequest(TEST_INDEX_NAME).id("" + i).source(new HashMap<>(), XContentType.JSON);
       IndexResponse indexResponse =
-          getSearchClient().indexDocument(indexRequest, RequestOptions.DEFAULT);
+          getSearchClient().indexDocument(opContext, indexRequest, RequestOptions.DEFAULT);
     }
     // make sure it will be counted
     getSearchClient()
         .refreshIndex(
+            OperationFingerprint.EMPTY,
             new org.opensearch.action.admin.indices.refresh.RefreshRequest(TEST_INDEX_NAME),
             RequestOptions.DEFAULT);
     // new index
@@ -421,6 +469,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                         .numReplicas(2)
                         .numRetries(2)
                         .refreshIntervalSeconds(2)
+                        .refreshIntervals(RefreshIntervals.allServices(2))
                         .build())
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
@@ -428,8 +477,9 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             gitVersion);
     // reindex
     ReindexConfig reindexConfig2 =
-        changedShardBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
-    ReindexResult rr = changedShardBuilder.buildIndex(reindexConfig2);
+        changedShardBuilder.buildReindexState(
+            opContext, TEST_INDEX_NAME, Map.<String, Object>of(), Map.<String, Object>of());
+    ReindexResult rr = changedShardBuilder.buildIndex(opContext, reindexConfig2);
     assertEquals(rr, ReindexResult.REINDEXING);
     Map.Entry<String, List<AliasMetadata>> newIndex =
         getTestIndex().getAliases().entrySet().stream()
@@ -442,7 +492,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     String afterCreationDate = getTestIndex().getSetting(newIndex.getKey(), "index.creation_date");
     assertNotEquals(
         beforeCreationDate, afterCreationDate, "Expected reindex to result in different timestamp");
-    long numDocs = changedShardBuilder.getCount(newIndex.getKey());
+    long numDocs = changedShardBuilder.getCount(opContext, newIndex.getKey());
     assertEquals(numDocs, NDOCS, "Expected " + NDOCS + " documents in the test index");
     assertEquals(getTestIndex().getSetting(newIndex.getKey(), "index.number_of_replicas"), "2");
     assertEquals(getTestIndex().getSetting(newIndex.getKey(), "index.number_of_shards"), "2");
@@ -464,6 +514,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                         .numReplicas(0)
                         .numRetries(0)
                         .refreshIntervalSeconds(0)
+                        .refreshIntervals(RefreshIntervals.allServices(0))
                         .build())
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
@@ -472,15 +523,19 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
     // No mappings
     ReindexConfig reindexConfig =
-        enabledMappingReindex.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
-    enabledMappingReindex.buildIndex(reindexConfig);
+        enabledMappingReindex.buildReindexState(
+            opContext, TEST_INDEX_NAME, Map.<String, Object>of(), Map.<String, Object>of());
+    enabledMappingReindex.buildIndex(opContext, reindexConfig);
     String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
 
     // add new mappings
     ReindexConfig reindexConfig2 =
         enabledMappingReindex.buildReindexState(
-            TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
-    enabledMappingReindex.buildIndex(reindexConfig2);
+            opContext,
+            TEST_INDEX_NAME,
+            SystemMetadataMappingsBuilder.getMappings(),
+            Map.<String, Object>of());
+    enabledMappingReindex.buildIndex(opContext, reindexConfig2);
 
     String afterAddedMappingCreationDate =
         getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
@@ -503,8 +558,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     ReindexConfig reindexConfig3 =
         enabledMappingReindex.buildReindexState(
-            TEST_INDEX_NAME, Map.of("properties", newProps), Map.of());
-    enabledMappingReindex.buildIndex(reindexConfig3);
+            opContext, TEST_INDEX_NAME, Map.of("properties", newProps), Map.<String, Object>of());
+    enabledMappingReindex.buildIndex(opContext, reindexConfig3);
 
     assertTrue(
         Arrays.stream(getTestIndex().getIndices()).noneMatch(name -> name.equals(TEST_INDEX_NAME)),
@@ -628,8 +683,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 noReindexConfig.toBuilder()
                     .index(
                         noReindexConfig.getIndex().toBuilder()
-                            .refreshIntervalSeconds(
-                                10) // testDefaultBuilder.getRefreshIntervalSeconds() + 10
+                            .refreshIntervalSeconds(10)
+                            .refreshIntervals(RefreshIntervals.allServices(10))
                             .build())
                     .build(),
                 TEST_ES_STRUCT_PROPS_DISABLED,
@@ -700,6 +755,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                         .numReplicas(0)
                         .numRetries(0)
                         .refreshIntervalSeconds(0)
+                        .refreshIntervals(RefreshIntervals.allServices(0))
                         .build())
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
@@ -708,7 +764,10 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
     ReindexConfig reindexConfigNoIndexBefore =
         enabledMappingReindex.buildReindexState(
-            TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
+            opContext,
+            TEST_INDEX_NAME,
+            SystemMetadataMappingsBuilder.getMappings(),
+            Map.<String, Object>of());
     assertTrue(CollectionUtils.isEmpty(reindexConfigNoIndexBefore.currentMappings()));
     assertEquals(
         reindexConfigNoIndexBefore.targetMappings(), SystemMetadataMappingsBuilder.getMappings());
@@ -725,7 +784,10 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     // Test build reindex config with no structured properties added
     ReindexConfig reindexConfigNoChange =
         enabledMappingReindex.buildReindexState(
-            TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
+            opContext,
+            TEST_INDEX_NAME,
+            SystemMetadataMappingsBuilder.getMappings(),
+            Map.<String, Object>of());
     assertEquals(
         reindexConfigNoChange.currentMappings(), SystemMetadataMappingsBuilder.getMappings());
     assertEquals(
@@ -741,7 +803,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
     // Test build reindex config for new fields with no structured properties added
     ReindexConfig reindexConfigNewField =
-        enabledMappingReindex.buildReindexState(TEST_INDEX_NAME, targetMappingsNewField, Map.of());
+        enabledMappingReindex.buildReindexState(
+            opContext, TEST_INDEX_NAME, targetMappingsNewField, Map.<String, Object>of());
     assertEquals(
         reindexConfigNewField.currentMappings(), SystemMetadataMappingsBuilder.getMappings());
     assertEquals(reindexConfigNewField.targetMappings(), targetMappingsNewField);
@@ -765,7 +828,10 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     // Test build reindex config with structured properties not copied
     ReindexConfig reindexConfigNoCopy =
         enabledMappingReindex.buildReindexState(
-            TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
+            opContext,
+            TEST_INDEX_NAME,
+            SystemMetadataMappingsBuilder.getMappings(),
+            Map.<String, Object>of());
     Map<String, Object> expectedMappingsStructPropsNested;
     if (SearchClientShim.SearchEngineType.ELASTICSEARCH_8.equals(
         getSearchClient().getEngineType())) {
@@ -797,14 +863,21 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                       "myStringProp",
                       Map.of(ESUtils.TYPE, V2LegacySettingsBuilder.KEYWORD))));
     }
+    // With structured-property system-update disabled, existing SP mappings are preserved on
+    // the target even when copyStructuredPropertyMappings is false — otherwise a reindex would
+    // drop them (container is dynamic:false).
     assertEquals(reindexConfigNoCopy.currentMappings(), expectedMappingsStructPropsNested);
-    assertEquals(reindexConfigNoCopy.targetMappings(), SystemMetadataMappingsBuilder.getMappings());
+    assertEquals(reindexConfigNoCopy.targetMappings(), expectedMappingsStructPropsNested);
     assertFalse(reindexConfigNoCopy.isPureMappingsAddition());
 
     // Test build reindex config with structured properties copied
     ReindexConfig reindexConfigCopy =
         enabledMappingReindex.buildReindexState(
-            TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of(), true);
+            opContext,
+            TEST_INDEX_NAME,
+            SystemMetadataMappingsBuilder.getMappings(),
+            Map.<String, Object>of(),
+            true);
     assertEquals(reindexConfigCopy.currentMappings(), expectedMappingsStructPropsNested);
     assertEquals(reindexConfigCopy.targetMappings(), expectedMappingsStructPropsNested);
     assertFalse(reindexConfigCopy.requiresApplyMappings());
@@ -813,7 +886,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     // Test build reindex config with new field added and structured properties copied
     ReindexConfig reindexConfigCopyAndNewField =
         enabledMappingReindex.buildReindexState(
-            TEST_INDEX_NAME, targetMappingsNewField, Map.of(), true);
+            opContext, TEST_INDEX_NAME, targetMappingsNewField, Map.<String, Object>of(), true);
     assertEquals(reindexConfigCopyAndNewField.currentMappings(), expectedMappingsStructPropsNested);
     Map<String, Object> targetMappingsNewFieldAndStructProps =
         new HashMap<>(expectedMappingsStructPropsNested);
@@ -843,8 +916,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
         delegatingSettingsBuilder.getSettings(testDefaultConfig.getIndex(), TEST_V2_INDEX_NAME);
 
     ReindexConfig v2ReindexConfig =
-        testDefaultBuilder.buildReindexState(TEST_V2_INDEX_NAME, v2Mappings, v2Settings);
-    testDefaultBuilder.buildIndex(v2ReindexConfig);
+        testDefaultBuilder.buildReindexState(opContext, TEST_V2_INDEX_NAME, v2Mappings, v2Settings);
+    testDefaultBuilder.buildIndex(opContext, v2ReindexConfig);
 
     // Verify v2 index was created
     GetIndexResponse v2Index = getV2TestIndex();
@@ -863,11 +936,146 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
     // Verify IndexConvention correctly identifies v2 index
     assertTrue(
-        indexConvention.isV2EntityIndex(TEST_V2_INDEX_NAME),
+        indexConvention.isV2EntityIndex(opContext, TEST_V2_INDEX_NAME),
         "IndexConvention should identify dataset v2 index as v2");
     assertFalse(
-        indexConvention.isV3EntityIndex(TEST_V2_INDEX_NAME),
+        indexConvention.isV3EntityIndex(opContext, TEST_V2_INDEX_NAME),
         "IndexConvention should not identify dataset v2 index as v3");
+  }
+
+  /**
+   * Guards against ES8 settings reindex loops: after creating an index with analysis settings, a
+   * second {@link ESIndexBuilder#buildReindexState} pass must not detect spurious analysis drift
+   * (e.g. ES8-injected {@code type=custom} on analyzers).
+   */
+  @Test
+  public void testNoSettingsReindexLoopAfterAnalysisIndexCreationOnES8() throws Exception {
+    if (getSearchClient().getEngineType() != SearchClientShim.SearchEngineType.ELASTICSEARCH_8) {
+      throw new SkipException("ES8 engine round-trip reindex loop test");
+    }
+
+    Map<String, Object> minimalMappings =
+        ImmutableMap.of("properties", ImmutableMap.of("name", ImmutableMap.of("type", "keyword")));
+    Map<String, Object> v2Settings =
+        delegatingSettingsBuilder.getSettings(testDefaultConfig.getIndex(), TEST_V2_INDEX_NAME);
+
+    ReindexConfig createConfig =
+        testDefaultBuilder.buildReindexState(
+            opContext, TEST_V2_INDEX_NAME, minimalMappings, v2Settings);
+    assertEquals(testDefaultBuilder.buildIndex(opContext, createConfig), ReindexResult.CREATED_NEW);
+
+    GetIndexResponse v2Index = getV2TestIndex();
+    String concreteIndex = v2Index.getIndices()[0];
+    assertEquals(
+        v2Index.getSetting(concreteIndex, "index.analysis.analyzer.browse_path_hierarchy.type"),
+        "custom",
+        "ES8 should persist type=custom for custom analyzers");
+
+    ReindexConfig secondPass =
+        testDefaultBuilder.buildReindexState(
+            opContext, TEST_V2_INDEX_NAME, minimalMappings, v2Settings);
+
+    assertTrue(secondPass.exists(), "Index should exist for round-trip comparison");
+    assertFalse(
+        secondPass.requiresApplySettings(),
+        "ES8 round-trip must not detect spurious analysis settings drift");
+    assertFalse(
+        secondPass.requiresReindex(),
+        "Second system-update pass must not enter a settings reindex loop on ES8");
+  }
+
+  /**
+   * Guards against ES8 mapping reindex loops: nested object mappings gain {@code type: object} on
+   * persistence; a second pass must treat authored implicit-object mappings as equal.
+   */
+  @Test
+  public void testNoMappingsReindexLoopAfterObjectMappingCreationOnES8() throws Exception {
+    if (getSearchClient().getEngineType() != SearchClientShim.SearchEngineType.ELASTICSEARCH_8) {
+      throw new SkipException("ES8 mapping round-trip reindex loop test");
+    }
+
+    String indexName = OBJECT_ROUNDTRIP_INDEX;
+    Map<String, Object> implicitObjectMappings =
+        ImmutableMap.of(
+            "properties",
+            ImmutableMap.of(
+                "partitionSpec",
+                ImmutableMap.of(
+                    "properties",
+                    ImmutableMap.of(
+                        "partition", ImmutableMap.of("type", "keyword"),
+                        "timePartition", ImmutableMap.of("type", "keyword")))));
+
+    ReindexConfig createConfig =
+        testDefaultBuilder.buildReindexState(
+            opContext, indexName, implicitObjectMappings, Map.<String, Object>of());
+    assertEquals(testDefaultBuilder.buildIndex(opContext, createConfig), ReindexResult.CREATED_NEW);
+
+    ReindexConfig secondPass =
+        testDefaultBuilder.buildReindexState(
+            opContext, indexName, implicitObjectMappings, Map.<String, Object>of());
+
+    assertTrue(secondPass.exists());
+    assertFalse(
+        secondPass.requiresApplyMappings(),
+        "ES8 object mapping round-trip must not produce a synthetic mapping diff");
+    assertFalse(
+        secondPass.requiresReindex(),
+        "Second system-update pass must not enter a mapping reindex loop on ES8");
+  }
+
+  /**
+   * Guards against a V3 mapping reindex loop on ES8, which strips {@code doc_values: false} from
+   * {@code search_as_you_type} fields. With mappings built from the cluster's client, as the GMS
+   * factories build them, creating a V3 index with a partial-ngram field and deciding again must
+   * find nothing to change. The default registry declares no V3 {@code TEXT_PARTIAL} field, so the
+   * test uses one that does.
+   */
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testNoV3PartialNgramMappingsReindexLoopOnES8() throws Exception {
+    if (getSearchClient().getEngineType() != SearchClientShim.SearchEngineType.ELASTICSEARCH_8) {
+      throw new SkipException("ES8 V3 partial-ngram mapping round-trip test");
+    }
+    OperationContext partialNgramContext =
+        opContext.toBuilder()
+            .entityRegistryContext(
+                EntityRegistryContext.builder().build(new PartialNgramEntityRegistry()))
+            .build(opContext.getSessionAuthentication(), true);
+    MappingsBuilder.IndexMapping v3Mapping =
+        createDelegatingMappingsBuilder(V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION, getSearchClient())
+            .getIndexMappings(partialNgramContext, List.of())
+            .stream()
+            .filter(mapping -> PARTIAL_NGRAM_V3_INDEX.equals(mapping.getIndexName()))
+            .findFirst()
+            .orElseThrow();
+    String indexName = v3Mapping.getIndexName();
+    Map<String, Object> mappings = v3Mapping.getMappings();
+    Map<String, Object> label =
+        (Map<String, Object>)
+            ((Map<String, Object>) mappings.get("properties")).get("partialNgramTitle");
+    Map<String, Object> ngram =
+        (Map<String, Object>) ((Map<String, Object>) label.get("fields")).get("ngram");
+    assertEquals(ngram.get("type"), "search_as_you_type");
+    Map<String, Object> settings =
+        delegatingSettingsBuilder.getSettings(testDefaultConfig.getIndex(), indexName);
+
+    ReindexConfig createConfig =
+        testDefaultBuilder.buildReindexState(partialNgramContext, indexName, mappings, settings);
+    assertEquals(
+        testDefaultBuilder.buildIndex(partialNgramContext, createConfig),
+        ReindexResult.CREATED_NEW);
+
+    ReindexConfig secondPass =
+        testDefaultBuilder.buildReindexState(partialNgramContext, indexName, mappings, settings);
+
+    assertTrue(secondPass.exists());
+    assertFalse(
+        secondPass.requiresApplyMappings(),
+        "ES8 V3 partial-ngram mapping round-trip must not produce a mapping diff");
+    assertFalse(
+        secondPass.requiresReindex(),
+        "Second system-update pass must not enter a V3 mapping reindex loop on ES8");
   }
 
   @Test
@@ -902,8 +1110,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
         delegatingSettingsBuilder.getSettings(testDefaultConfig.getIndex(), TEST_V3_INDEX_NAME);
 
     ReindexConfig v3ReindexConfig =
-        testDefaultBuilder.buildReindexState(TEST_V3_INDEX_NAME, v3Mappings, v3Settings);
-    testDefaultBuilder.buildIndex(v3ReindexConfig);
+        testDefaultBuilder.buildReindexState(opContext, TEST_V3_INDEX_NAME, v3Mappings, v3Settings);
+    testDefaultBuilder.buildIndex(opContext, v3ReindexConfig);
 
     // Verify v3 index was created
     GetIndexResponse v3Index = getV3TestIndex();
@@ -922,10 +1130,10 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
     // Verify IndexConvention correctly identifies v3 index
     assertTrue(
-        indexConvention.isV3EntityIndex(TEST_V3_INDEX_NAME),
+        indexConvention.isV3EntityIndex(opContext, TEST_V3_INDEX_NAME),
         "IndexConvention should identify dataset v3 index as v3");
     assertFalse(
-        indexConvention.isV2EntityIndex(TEST_V3_INDEX_NAME),
+        indexConvention.isV2EntityIndex(opContext, TEST_V3_INDEX_NAME),
         "IndexConvention should not identify dataset v3 index as v2");
   }
 
@@ -963,8 +1171,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     Map<String, Object> v2Settings =
         delegatingSettingsBuilder.getSettings(testDefaultConfig.getIndex(), TEST_V2_INDEX_NAME);
     ReindexConfig v2ReindexConfig =
-        testDefaultBuilder.buildReindexState(TEST_V2_INDEX_NAME, v2Mappings, v2Settings);
-    testDefaultBuilder.buildIndex(v2ReindexConfig);
+        testDefaultBuilder.buildReindexState(opContext, TEST_V2_INDEX_NAME, v2Mappings, v2Settings);
+    testDefaultBuilder.buildIndex(opContext, v2ReindexConfig);
 
     // Create v3 index
     Map<String, Object> v3Mappings =
@@ -979,8 +1187,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     Map<String, Object> v3Settings =
         delegatingSettingsBuilder.getSettings(testDefaultConfig.getIndex(), TEST_V3_INDEX_NAME);
     ReindexConfig v3ReindexConfig =
-        testDefaultBuilder.buildReindexState(TEST_V3_INDEX_NAME, v3Mappings, v3Settings);
-    testDefaultBuilder.buildIndex(v3ReindexConfig);
+        testDefaultBuilder.buildReindexState(opContext, TEST_V3_INDEX_NAME, v3Mappings, v3Settings);
+    testDefaultBuilder.buildIndex(opContext, v3ReindexConfig);
 
     // Verify both indices exist
     GetIndexResponse v2Index = getV2TestIndex();
@@ -1007,16 +1215,16 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
     // Verify IndexConvention correctly identifies both indices
     assertTrue(
-        indexConvention.isV2EntityIndex(TEST_V2_INDEX_NAME),
+        indexConvention.isV2EntityIndex(opContext, TEST_V2_INDEX_NAME),
         "IndexConvention should identify v2 index as v2");
     assertTrue(
-        indexConvention.isV3EntityIndex(TEST_V3_INDEX_NAME),
+        indexConvention.isV3EntityIndex(opContext, TEST_V3_INDEX_NAME),
         "IndexConvention should identify v3 index as v3");
     assertFalse(
-        indexConvention.isV3EntityIndex(TEST_V2_INDEX_NAME),
+        indexConvention.isV3EntityIndex(opContext, TEST_V2_INDEX_NAME),
         "IndexConvention should not identify v2 index as v3");
     assertFalse(
-        indexConvention.isV2EntityIndex(TEST_V3_INDEX_NAME),
+        indexConvention.isV2EntityIndex(opContext, TEST_V3_INDEX_NAME),
         "IndexConvention should not identify v3 index as v2");
   }
 
@@ -1064,24 +1272,14 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     Map<String, Object> aspectsProperties = (Map<String, Object>) aspects.get("properties");
     assertNotNull(aspectsProperties, "_aspects should have properties");
 
-    // Verify that structuredProperties is NOT in _aspects (it should be at root level)
-    assertNull(
-        aspectsProperties.get("structuredProperties"),
-        "structuredProperties should not be in _aspects, it should be at root level");
+    // Values stay at the root. The aspect holds only parsed-name sources that copy_to can clear.
+    assertOnlyParsedUrnSources(aspectsProperties.get("structuredProperties"));
 
     // Check that structuredProperties exists at root level
     @SuppressWarnings("unchecked")
     Map<String, Object> structuredProps =
         (Map<String, Object>) properties.get("structuredProperties");
     assertNotNull(structuredProps, "structuredProperties should exist at root level");
-
-    // Verify that other aspects are properly nested under _aspects
-    // This is a basic check - in a real scenario, you'd have actual aspect names
-    assertTrue(
-        aspectsProperties.isEmpty()
-            || aspectsProperties.keySet().stream()
-                .noneMatch(key -> "structuredProperties".equals(key)),
-        "No aspect in _aspects should be named 'structuredProperties'");
   }
 
   /**
@@ -1247,11 +1445,127 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
       @SuppressWarnings("unchecked")
       Map<String, Object> aspectsProperties = (Map<String, Object>) aspects.get("properties");
       if (aspectsProperties != null) {
-        assertNull(
-            aspectsProperties.get("structuredProperties"),
-            "structuredProperties should not be in _aspects");
+        assertOnlyParsedUrnSources(aspectsProperties.get("structuredProperties"));
       }
     }
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testEngineRejectionOfNewStructuredPropertyFields() throws Exception {
+    // The engine's own total-fields rejection: system-update applies the rest of the change and
+    // leaves the new structured property fields out, and a fill into the index fails on it.
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            testDefaultConfig,
+            StructuredPropertiesConfiguration.builder()
+                .enabled(true)
+                .systemUpdateEnabled(false)
+                .build(),
+            Map.of(),
+            new GitVersion("0.0.0-test", "123456", Optional.empty()));
+    // field1 and the structured property container take two of the three fields allowed.
+    Map<String, Object> settings = Map.of("mapping", Map.of("total_fields", Map.of("limit", 3)));
+    buildIndex(builder, TEST_INDEX_NAME, structuredPropertyTestMappings(false, Map.of()), settings);
+    Map<String, Object> target =
+        structuredPropertyTestMappings(
+            true, Map.of("propA", Map.of("type", "keyword"), "propB", Map.of("type", "keyword")));
+
+    ReindexConfig withNewField =
+        builder.buildReindexState(opContext, TEST_INDEX_NAME, target, settings);
+    assertTrue(withNewField.isPureMappingsAddition());
+    builder.buildIndex(opContext, withNewField);
+
+    ReindexConfig onlyStructuredPropertiesMissing =
+        builder.buildReindexState(opContext, TEST_INDEX_NAME, target, settings);
+    Map<String, Object> properties =
+        (Map<String, Object>) onlyStructuredPropertiesMissing.currentMappings().get("properties");
+    assertTrue(properties.containsKey("field2"));
+    assertEquals(structuredPropertyFieldNames(properties), Set.of());
+    assertFalse(onlyStructuredPropertiesMissing.requiresApplyMappings());
+    assertFalse(onlyStructuredPropertiesMissing.requiresApplySettings());
+
+    assertEquals(
+        builder.buildIndex(opContext, onlyStructuredPropertiesMissing),
+        ReindexResult.NOT_REINDEXED_NOTHING_APPLIED);
+    assertThrows(
+        Exception.class,
+        () ->
+            builder.addUnmappedStructuredPropertyFields(
+                opContext, onlyStructuredPropertiesMissing));
+    assertEquals(
+        structuredPropertyFieldNames(
+            (Map<String, Object>)
+                builder
+                    .buildReindexState(opContext, TEST_INDEX_NAME, target, settings)
+                    .currentMappings()
+                    .get("properties")),
+        Set.of());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testReindexFallsBackToLiveStructuredPropertyFieldsOnRejection() throws Exception {
+    // The engine rejects a destination with the definitions' fields; the reindex completes with
+    // the fields the index maps now instead of failing with its writes blocked.
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            testDefaultConfig.toBuilder()
+                .index(testDefaultConfig.getIndex().toBuilder().enableMappingsReindex(true).build())
+                .build(),
+            StructuredPropertiesConfiguration.builder()
+                .enabled(true)
+                .systemUpdateEnabled(false)
+                .build(),
+            Map.of(),
+            new GitVersion("0.0.0-test", "123456", Optional.empty()));
+    // field1, the container and propLive fill the limit.
+    Map<String, Object> settings = Map.of("mapping", Map.of("total_fields", Map.of("limit", 3)));
+    Map<String, Object> keyword = Map.of(ESUtils.TYPE, ESUtils.KEYWORD);
+    buildIndex(
+        builder,
+        TEST_INDEX_NAME,
+        structuredPropertyTestMappings(false, Map.of("propLive", keyword)),
+        settings);
+    // Only a reindex changes field1's type; propA and propB take the destination past the limit.
+    Map<String, Object> target =
+        structuredPropertyTestMappings(
+            false, Map.of("propLive", keyword, "propA", keyword, "propB", keyword));
+    ((Map<String, Object>) target.get("properties")).put("field1", Map.of(ESUtils.TYPE, "text"));
+
+    ReindexConfig config = builder.buildReindexState(opContext, TEST_INDEX_NAME, target, settings);
+    assertTrue(config.requiresReindex());
+    builder.buildIndex(opContext, config);
+
+    Map<String, Object> properties =
+        (Map<String, Object>)
+            builder
+                .buildReindexState(opContext, TEST_INDEX_NAME, target, settings)
+                .currentMappings()
+                .get("properties");
+    assertEquals(((Map<String, Object>) properties.get("field1")).get(ESUtils.TYPE), "text");
+    assertEquals(structuredPropertyFieldNames(properties), Set.of("propLive"));
+  }
+
+  private static Map<String, Object> structuredPropertyTestMappings(
+      boolean withField2, Map<String, Object> structuredPropertyFields) {
+    Map<String, Object> properties = new HashMap<>();
+    properties.put("field1", Map.of(ESUtils.TYPE, ESUtils.KEYWORD));
+    if (withField2) {
+      properties.put("field2", Map.of(ESUtils.TYPE, ESUtils.KEYWORD));
+    }
+    properties.put(
+        STRUCTURED_PROPERTY_MAPPING_FIELD,
+        Map.of("type", "object", "dynamic", false, "properties", structuredPropertyFields));
+    return Map.of("properties", properties);
+  }
+
+  private static Set<?> structuredPropertyFieldNames(Map<String, Object> properties) {
+    Object container = properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+    Object fields = container instanceof Map<?, ?> map ? map.get("properties") : null;
+    return fields instanceof Map<?, ?> fieldMap ? fieldMap.keySet() : Set.of();
   }
 
   // --- Incremental reindex integration tests ---
@@ -1262,8 +1576,9 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
     // Step 1: Create initial index with 1 shard
     ReindexConfig initialConfig =
-        testDefaultBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
-    testDefaultBuilder.buildIndex(initialConfig);
+        testDefaultBuilder.buildReindexState(
+            opContext, TEST_INDEX_NAME, Map.<String, Object>of(), Map.<String, Object>of());
+    testDefaultBuilder.buildIndex(opContext, initialConfig);
 
     // Step 2: Index some documents
     for (int i = 0; i < 5; i++) {
@@ -1271,15 +1586,16 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
           new IndexRequest(TEST_INDEX_NAME)
               .id(String.valueOf(i))
               .source(Map.of("field", "value" + i), XContentType.JSON);
-      getSearchClient().indexDocument(indexRequest, RequestOptions.DEFAULT);
+      getSearchClient().indexDocument(opContext, indexRequest, RequestOptions.DEFAULT);
     }
     getSearchClient()
         .refreshIndex(
+            OperationFingerprint.EMPTY,
             new org.opensearch.action.admin.indices.refresh.RefreshRequest(TEST_INDEX_NAME),
             RequestOptions.DEFAULT);
     assertEquals(
         getSearchClient()
-            .count(new CountRequest(TEST_INDEX_NAME), RequestOptions.DEFAULT)
+            .count(opContext, new CountRequest(TEST_INDEX_NAME), RequestOptions.DEFAULT)
             .getCount(),
         5,
         "Expected 5 documents in the initial index");
@@ -1298,12 +1614,13 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             gitVersion);
 
     ReindexConfig reindexConfig =
-        changedShardBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
+        changedShardBuilder.buildReindexState(
+            opContext, TEST_INDEX_NAME, Map.<String, Object>of(), Map.<String, Object>of());
     assertTrue(reindexConfig.requiresReindex(), "Expected config to require reindex");
 
     // Step 4: Run incremental reindex (Phase 1)
     ESIndexBuilder.IncrementalReindexResult incrementalResult =
-        changedShardBuilder.buildIndexIncremental(reindexConfig, upgradeVersion);
+        changedShardBuilder.buildIndexIncremental(opContext, reindexConfig, upgradeVersion);
 
     // Verify next index name contains the version
     String expectedPrefix = TEST_INDEX_NAME + "_0_14_0-0_";
@@ -1320,6 +1637,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     // Step 5: Poll until reindex completes
     ESIndexBuilder.PollReindexResult pollResult =
         changedShardBuilder.pollReindexCompletion(
+            opContext,
             TEST_INDEX_NAME,
             incrementalResult.nextIndexName(),
             () -> (long) incrementalResult.sourceDocCount(),
@@ -1330,24 +1648,32 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
     // Step 6: Restore settings
     changedShardBuilder.undoReindexOptimalSettings(
-        incrementalResult.nextIndexName(), reindexConfig, pollResult.latestReindexInfo());
+        opContext,
+        incrementalResult.nextIndexName(),
+        reindexConfig,
+        pollResult.latestReindexInfo());
 
     // Step 7: Verify next index has all documents
     getSearchClient()
         .refreshIndex(
+            OperationFingerprint.EMPTY,
             new org.opensearch.action.admin.indices.refresh.RefreshRequest(
                 incrementalResult.nextIndexName()),
             RequestOptions.DEFAULT);
     long nextDocCount =
         getSearchClient()
-            .count(new CountRequest(incrementalResult.nextIndexName()), RequestOptions.DEFAULT)
+            .count(
+                opContext,
+                new CountRequest(incrementalResult.nextIndexName()),
+                RequestOptions.DEFAULT)
             .getCount();
     assertEquals(nextDocCount, 5, "Next index should have all 5 documents");
 
     // Step 8: Verify alias still points to original index (no swap happened)
     GetAliasesRequest aliasRequest = new GetAliasesRequest(TEST_INDEX_NAME);
     GetAliasesResponse aliasResponse =
-        getSearchClient().getIndexAliases(aliasRequest, RequestOptions.DEFAULT);
+        getSearchClient()
+            .getIndexAliases(OperationFingerprint.EMPTY, aliasRequest, RequestOptions.DEFAULT);
     // The alias should resolve, and the backing index should NOT be the next index
     assertFalse(
         aliasResponse.getAliases().containsKey(incrementalResult.nextIndexName()),
@@ -1357,6 +1683,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     GetIndexResponse nextIndexResponse =
         getSearchClient()
             .getIndex(
+                OperationFingerprint.EMPTY,
                 new GetIndexRequest(incrementalResult.nextIndexName()).includeDefaults(true),
                 RequestOptions.DEFAULT);
     assertEquals(
@@ -1376,8 +1703,9 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
     // Create initial index with no documents
     ReindexConfig initialConfig =
-        testDefaultBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
-    testDefaultBuilder.buildIndex(initialConfig);
+        testDefaultBuilder.buildReindexState(
+            opContext, TEST_INDEX_NAME, Map.<String, Object>of(), Map.<String, Object>of());
+    testDefaultBuilder.buildIndex(opContext, initialConfig);
 
     // Create builder with different shard count to force requiresReindex
     GitVersion gitVersion = new GitVersion("0.14.0", "abcdef", Optional.empty());
@@ -1392,18 +1720,43 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             gitVersion);
 
     ReindexConfig reindexConfig =
-        changedShardBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
+        changedShardBuilder.buildReindexState(
+            opContext, TEST_INDEX_NAME, Map.<String, Object>of(), Map.<String, Object>of());
     assertTrue(reindexConfig.requiresReindex());
 
     // Run incremental reindex
     ESIndexBuilder.IncrementalReindexResult result =
-        changedShardBuilder.buildIndexIncremental(reindexConfig, upgradeVersion);
+        changedShardBuilder.buildIndexIncremental(opContext, reindexConfig, upgradeVersion);
 
     assertTrue(result.skippedEmpty(), "Should skip _reindex for empty index");
     // Next index should still be created (with correct mappings/settings)
     assertTrue(
         getSearchClient()
-            .indexExists(new GetIndexRequest(result.nextIndexName()), RequestOptions.DEFAULT),
+            .indexExists(
+                OperationFingerprint.EMPTY,
+                new GetIndexRequest(result.nextIndexName()),
+                RequestOptions.DEFAULT),
         "Next index should exist even when source is empty");
+  }
+
+  /**
+   * Structured-property values stay at the document root. Under {@code _aspects} the aspect, when
+   * present, stores only the parsed URN name keywords a later update clears.
+   */
+  @SuppressWarnings("unchecked")
+  private static void assertOnlyParsedUrnSources(Object structuredPropertiesAspect) {
+    if (structuredPropertiesAspect == null) {
+      return;
+    }
+    Map<String, Object> aspect = (Map<String, Object>) structuredPropertiesAspect;
+    Map<String, Object> properties = (Map<String, Object>) aspect.get("properties");
+    assertNotNull(properties, "structuredProperties aspect sources should declare properties");
+    assertFalse(properties.isEmpty(), "parsed URN sources should be present");
+    for (String fieldName : properties.keySet()) {
+      assertTrue(
+          fieldName.endsWith("__urn_name"),
+          "structuredProperties under _aspects should only store parsed URN names, found "
+              + fieldName);
+    }
   }
 }

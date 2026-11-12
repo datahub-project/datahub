@@ -5,19 +5,35 @@ These tests focus on end-to-end workflows, complex interactions,
 and integration between different components.
 """
 
+import threading
+import time
+from collections import defaultdict
 from datetime import datetime
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy.pool import NullPool, QueuePool
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.teradata import (
+    LineageQuery,
     TeradataConfig,
     TeradataSource,
     TeradataTable,
 )
 from datahub.metadata.urns import CorpUserUrn
+
+
+@pytest.fixture(autouse=True)
+def isolate_teradata_caches(monkeypatch):
+    """Reset TeradataSource class-level caches before each test.
+
+    The caches are class attributes, so without isolation tests that populate
+    them via `source._tables_cache["schema"] = …` leak state into later tests.
+    """
+    monkeypatch.setattr(TeradataSource, "_tables_cache", defaultdict(list))
+    monkeypatch.setattr(TeradataSource, "_table_creator_cache", {})
 
 
 def _base_config() -> Dict[str, Any]:
@@ -87,6 +103,9 @@ class TestEndToEndWorkflow:
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
         ) as mock_aggregator_class:
             mock_aggregator = MagicMock()
+            # The source registers the aggregator via ExitStack.enter_context(), which
+            # returns __enter__()'s value; real Closeables return self, so mirror that.
+            mock_aggregator.__enter__.return_value = mock_aggregator
             mock_aggregator_class.return_value = mock_aggregator
 
             with patch(
@@ -177,7 +196,6 @@ class TestEndToEndWorkflow:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=f"SELECT {i}",
                 )
                 for i in range(5)
             ]
@@ -245,7 +263,6 @@ class TestEndToEndWorkflow:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=f"SELECT {i}",
                 )
                 for i in range(3)
             ]
@@ -389,17 +406,22 @@ class TestConfigurationIntegration:
             ):
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
-            # Test that profiling affects SQL configuration
-            mock_sql_config = MagicMock()
-            mock_sql_config.is_profiling_enabled.return_value = True
-            mock_sql_config.options = {}
+            # Pins the wiring: TeradataSource declares QueuePool as its profiling
+            # pool, and the base class sets it before deciding on max_overflow.
+            # That the combination survives create_engine() is covered at the
+            # base level in test_sql_common.py.
+            source._add_default_options(config)
 
-            source._add_default_options(mock_sql_config)
+            assert config.options["poolclass"] == QueuePool
+            assert config.options["max_overflow"] == config.profiling.max_workers
 
-            # Should add QueuePool for profiling
-            from sqlalchemy.pool import QueuePool
+            # A poolclass in the user's options is not overridden.
+            config_dict_with_pool = {**config_dict, "options": {"poolclass": NullPool}}
+            config_with_pool = TeradataConfig.model_validate(config_dict_with_pool)
+            source._add_default_options(config_with_pool)
 
-            assert mock_sql_config.options["poolclass"] == QueuePool
+            assert config_with_pool.options["poolclass"] == NullPool
+            assert "max_overflow" not in config_with_pool.options
 
 
 class TestComplexQueryScenarios:
@@ -427,7 +449,9 @@ class TestComplexQueryScenarios:
             with patch.object(
                 source,
                 "_make_lineage_queries",
-                return_value=["SELECT * FROM large_table"],
+                return_value=[
+                    LineageQuery(sql="SELECT * FROM large_table", label="current_only")
+                ],
             ):
                 # Create large result set simulation
                 total_entries = 15000  # Larger than batch size
@@ -604,6 +628,9 @@ class TestResourceManagement:
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
         ) as mock_aggregator_class:
             mock_aggregator = MagicMock()
+            # The source registers the aggregator via ExitStack.enter_context(), which
+            # returns __enter__()'s value; real Closeables return self, so mirror that.
+            mock_aggregator.__enter__.return_value = mock_aggregator
             mock_aggregator_class.return_value = mock_aggregator
 
             with patch(
@@ -620,8 +647,9 @@ class TestResourceManagement:
             ):
                 source.close()
 
-                # Should close aggregator
-                mock_aggregator.close.assert_called_once()
+                # close() unwinds the ExitStack, which exits the aggregator's context
+                # manager; a real Closeable.__exit__ calls close().
+                mock_aggregator.__exit__.assert_called_once()
 
     def test_connection_cleanup_in_error_scenarios(self):
         """Test that connections are cleaned up even when errors occur."""
@@ -639,7 +667,9 @@ class TestResourceManagement:
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
             with patch.object(
-                source, "_make_lineage_queries", return_value=["SELECT 1"]
+                source,
+                "_make_lineage_queries",
+                return_value=[LineageQuery(sql="SELECT 1", label="current_only")],
             ):
                 mock_engine = MagicMock()
 
@@ -666,3 +696,120 @@ class TestResourceManagement:
 
                     # Engine should still be disposed
                     mock_engine.dispose.assert_called_once()
+
+
+class TestViewProcessingHangProtection:
+    """Verify the parallel view-processing executor cannot block on a hung view."""
+
+    def _make_source_with_views(self, view_names, **overrides):
+        config_dict = {
+            **_base_config(),
+            "max_workers": 4,
+            "view_processing_timeout_seconds": 1,
+            # heartbeat_seconds also drives how often the inner wait() wakes up
+            # to check for stalled futures — keep it small so the test completes
+            # within a couple of seconds, well under the < 10s assertion below.
+            "view_processing_heartbeat_seconds": 1,
+            **overrides,
+        }
+        config = TeradataConfig.model_validate(config_dict)
+
+        with patch(
+            "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator_class.return_value = MagicMock()
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+        source._tables_cache["test_schema"] = [
+            TeradataTable(
+                database="test_schema",
+                name=name,
+                description=None,
+                object_type="View",
+                create_timestamp=datetime.now(),
+                last_alter_name=None,
+                last_alter_timestamp=None,
+            )
+            for name in view_names
+        ]
+        return source
+
+    def test_hung_view_is_abandoned_and_others_complete(self):
+        """A single hung view must not stall the executor — the other views still complete."""
+        # The first view blocks until the test releases it. The others return immediately.
+        release = threading.Event()
+
+        def fake_process_view(dataset_name, inspector, schema, view, sql_config):
+            if view == "hung_view":
+                # Simulate a hung DB call. The hang-protection timeout
+                # (1s in this test) must abandon this before the test releases it.
+                release.wait(timeout=30)
+            yield MagicMock(spec=[])
+
+        source = self._make_source_with_views(["fast_a", "hung_view", "fast_b"])
+        mock_sql_config = MagicMock()
+        mock_sql_config.view_pattern.allowed.return_value = True
+
+        try:
+            with (
+                patch.object(source, "_process_view", side_effect=fake_process_view),
+                patch.object(source, "_get_or_create_pooled_engine") as mock_engine,
+                patch("datahub.ingestion.source.sql.teradata.inspect") as mock_inspect,
+            ):
+                mock_engine.return_value.connect.return_value.__enter__.return_value = (
+                    MagicMock()
+                )
+                mock_inspect.return_value = MagicMock()
+
+                started = time.time()
+                work_units = list(
+                    source.cached_loop_views(
+                        MagicMock(), "test_schema", mock_sql_config
+                    )
+                )
+                elapsed = time.time() - started
+
+            # Must not be blocked by the hung view: should return within a few
+            # seconds (timeout=1s + slack), nowhere near release.wait()'s 30s.
+            assert elapsed < 10, (
+                f"Executor blocked on hung view for {elapsed:.1f}s — hang protection failed"
+            )
+            # The two fast views must have produced their work units.
+            assert len(work_units) == 2
+            # The hung view must be counted as a timeout.
+            assert source.report.num_view_processing_timeouts == 1
+            assert "test_schema.hung_view" in source.report.stalled_views
+        finally:
+            # Always release the hung thread so it doesn't outlive the test.
+            release.set()
+
+    def test_all_views_complete_when_none_hang(self):
+        """Baseline: when no view hangs, all work units are produced and no timeouts are recorded."""
+
+        def fake_process_view(dataset_name, inspector, schema, view, sql_config):
+            yield MagicMock(spec=[])
+
+        source = self._make_source_with_views(["a", "b", "c"])
+        mock_sql_config = MagicMock()
+        mock_sql_config.view_pattern.allowed.return_value = True
+
+        with (
+            patch.object(source, "_process_view", side_effect=fake_process_view),
+            patch.object(source, "_get_or_create_pooled_engine") as mock_engine,
+            patch("datahub.ingestion.source.sql.teradata.inspect") as mock_inspect,
+        ):
+            mock_engine.return_value.connect.return_value.__enter__.return_value = (
+                MagicMock()
+            )
+            mock_inspect.return_value = MagicMock()
+
+            work_units = list(
+                source.cached_loop_views(MagicMock(), "test_schema", mock_sql_config)
+            )
+
+        assert len(work_units) == 3
+        assert source.report.num_view_processing_timeouts == 0
+        assert len(source.report.stalled_views) == 0

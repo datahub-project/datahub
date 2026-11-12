@@ -33,7 +33,7 @@ public class CreateSecretResolverTest {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     SecretService mockSecretService = Mockito.mock(SecretService.class);
-    Mockito.when(mockSecretService.encrypt(Mockito.eq(TEST_INPUT.getValue())))
+    Mockito.when(mockSecretService.encrypt(Mockito.any(), Mockito.eq(TEST_INPUT.getValue())))
         .thenReturn("encryptedvalue");
     CreateSecretResolver resolver = new CreateSecretResolver(mockClient, mockSecretService);
 

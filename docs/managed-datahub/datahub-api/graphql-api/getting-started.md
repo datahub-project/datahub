@@ -1,5 +1,5 @@
 ---
-description: Getting started with the DataHub GraphQL API.
+description: "Get started with the DataHub Cloud GraphQL API to query, mutate, and integrate metadata into your applications and workflows."
 ---
 
 # Getting Started

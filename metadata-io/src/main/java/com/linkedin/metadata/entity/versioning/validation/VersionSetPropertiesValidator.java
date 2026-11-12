@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity.versioning.validation;
 
 import static com.linkedin.metadata.Constants.VERSION_SET_PROPERTIES_ASPECT_NAME;
 
+import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.entity.Aspect;
@@ -33,9 +34,11 @@ public class VersionSetPropertiesValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     return validatePropertiesUpserts(
+        operationContext,
         mcpItems.stream()
             .filter(i -> VERSION_SET_PROPERTIES_ASPECT_NAME.equals(i.getAspectName()))
             .collect(Collectors.toList()),
@@ -44,12 +47,15 @@ public class VersionSetPropertiesValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
 
   @VisibleForTesting
   public static Stream<AspectValidationException> validatePropertiesUpserts(
+      OperationFingerprint operationFingerprint,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
@@ -59,7 +65,8 @@ public class VersionSetPropertiesValidator extends AspectPayloadValidator {
           Optional.ofNullable(
               retrieverContext
                   .getAspectRetriever()
-                  .getLatestAspectObject(mcpItem.getUrn(), VERSION_SET_PROPERTIES_ASPECT_NAME));
+                  .getLatestAspectObject(
+                      operationFingerprint, mcpItem.getUrn(), VERSION_SET_PROPERTIES_ASPECT_NAME));
       if (aspect.isPresent()) {
         VersionSetProperties previousVersionSetProperties =
             RecordUtils.toRecordTemplate(VersionSetProperties.class, aspect.get().data());

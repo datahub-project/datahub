@@ -2,6 +2,12 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
+#### Table and Column Descriptions
+
+Table and column comments are read from `information_schema.TABLES` and `information_schema.COLUMNS`, with one query each per database, and ingested as dataset and field descriptions. They are not taken from `SHOW CREATE TABLE`: Doris writes comments there in double quotes, which the MySQL DDL parser does not read.
+
+Comments of tables in an external catalog need Doris 2.1 or later, where each catalog has its own `information_schema` ([apache/doris#28919](https://github.com/apache/doris/pull/28919)).
+
 #### Migration from MySQL Connector
 
 If you were previously ingesting Doris using the MySQL connector, switch to the dedicated Doris connector for better support:
@@ -17,6 +23,52 @@ If you were previously ingesting Doris using the MySQL connector, switch to the 
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
+#### Cross-catalog view lineage
+
+One run ingests one catalog, so a view that reads from a table in a different Doris catalog gets no lineage for that view — the reference cannot be resolved without pointing the edge at a same-named table in the ingested catalog. Those views are counted in the ingestion report under a `View lineage skipped for cross-catalog reference` warning. Ingest each catalog with its own recipe to catalog both sides.
+
+#### Truncated column comments
+
+Doris truncates `information_schema.COLUMNS.COLUMN_COMMENT` to `column_comment_length_limit` characters when that FE configuration is greater than zero. It defaults to `-1`, which means no limit; raise it or set it back to `-1` if long column descriptions arrive cut short.
+
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
+
+#### Unknown database when using an Iceberg (or other external) catalog
+
+If logs show `Unknown database 'db_ods'` (or similar) after databases were discovered, the source is reconnecting without the catalog name. Set `catalog: your_catalog` (or `database: your_catalog.db_ods`) so connections use `catalog.database`. See **Multi-Catalog** under Prerequisites.
+
+#### "Table reflected without keys"
+
+Doris rejects `SHOW CREATE TABLE` for some objects, most commonly async materialized views. Those tables are still ingested — columns and types come from `DESCRIBE` instead — but primary keys and foreign keys are unavailable. Table and column comments are still read from `information_schema`. The warning context names each affected table along with the error Doris returned.
+
+This is expected on any instance that has async materialized views, and needs no action. Investigate only if the count is higher than the number of async materialized views you have.
+
+#### "Table reflected without keys after an unexpected error"
+
+The same degradation as above, but triggered by an error Doris is not known to raise for this — most often a missing grant on the table. The table is still ingested from `DESCRIBE`, so its columns are complete, but keys and foreign keys are missing.
+
+Check that the ingestion account can run `SHOW CREATE TABLE` on the tables named in the warning context. Unlike the warning above, this one is worth acting on.
+
+#### "Doris column types unavailable"
+
+`DESCRIBE` failed on a table that otherwise reflected normally, so its column types fall back to what the MySQL protocol reports. Columns and names are correct, but Doris-specific types such as `HLL`, `BITMAP`, `VARIANT` and `LARGEINT` appear as their closest MySQL equivalent rather than the real type.
+
+Confirm the ingestion account can run `DESCRIBE` on the tables named in the warning context.
+
+#### "Doris table and column comments unavailable"
+
+The `information_schema` comment lookup failed for the database named in the warning context, so some or all of its tables and columns were ingested without descriptions. This clears the descriptions an earlier run ingested from Doris; descriptions edited in DataHub are kept. Everything else about those tables is unaffected.
+
+Confirm the ingestion account can query `information_schema.TABLES` and `information_schema.COLUMNS`. On a large external catalog the lookup can also outrun the connection's read timeout (`options.connect_args.read_timeout`) or Doris' `query_timeout` session variable, so raise whichever one the error in the warning context names.
+
+#### "Lost the Doris connection while reflecting a table"
+
+The connection dropped while the table or view named in the failure context was being read, so it was skipped rather than ingested with an empty or partial schema, and stale-entity removal is skipped for this run so it is not deleted. The source then reconnects and carries on with the tables after it, unless the reconnect fails (see below).
+
+Check FE availability and any proxy or load-balancer idle timeout between the ingestion executor and Doris, then rerun.
+
+#### "Could not reconnect to Doris"
+
+After a dropped connection the source could not reconnect, so it skipped the rest of that database's tables and views rather than waiting out a connect timeout for each one. `tables_skipped_after_connection_loss` in the report counts them. Stale-entity removal is skipped for the run, so they are not deleted. Check that the FE is up and reachable from the ingestion executor, then rerun.

@@ -2,7 +2,7 @@
 
 Teradata is a DataHub utility or metadata-focused integration. Learn more in the [official Teradata documentation](https://docs.teradata.com/r/Lake-Database-Reference/Database-Administration/Tracking-Query-Behavior-with-Database-Query-Logging-Operational-DBAs/SQL-Statements-to-Control-Logging/LIMIT-Logging-Options).
 
-The DataHub integration for Teradata covers metadata entities and operational objects relevant to this connector. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Teradata covers metadata entities and operational objects relevant to this connector. It also captures table- and column-level lineage, usage statistics, data profiling, ownership, and stateful deletion detection.
 
 ## Concept Mapping
 

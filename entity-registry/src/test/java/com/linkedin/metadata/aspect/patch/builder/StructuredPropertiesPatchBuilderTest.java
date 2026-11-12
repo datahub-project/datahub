@@ -107,10 +107,11 @@ public class StructuredPropertiesPatchBuilderTest {
     byte[] bytes = mcp.getAspect().getValue().copyBytes();
     JsonNode payload = new ObjectMapper().readTree(bytes);
 
-    // Plain patch: a JSON array, no arrayPrimaryKeys envelope
-    assertTrue(payload.isArray(), "add must produce a plain JSON array (no envelope)");
-    assertEquals(payload.size(), 1);
-    JsonNode op = payload.get(0);
+    assertTrue(payload.isObject());
+    JsonNode patches = payload.get("patch");
+    assertTrue(patches.isArray());
+    assertEquals(patches.size(), 1);
+    JsonNode op = patches.get(0);
     assertEquals(op.get("op").asText(), "add");
     assertTrue(op.get("path").asText().startsWith("/properties/"));
   }

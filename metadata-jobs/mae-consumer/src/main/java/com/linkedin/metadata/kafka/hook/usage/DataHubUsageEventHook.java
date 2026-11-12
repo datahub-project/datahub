@@ -12,7 +12,7 @@ public interface DataHubUsageEventHook extends EventHook<JsonNode> {
   }
 
   /** Invoke the hook when a DataHubUsageEvent is received */
-  void invoke(@Nonnull JsonNode event) throws Exception;
+  void invoke(@Nonnull OperationContext operationContext, @Nonnull JsonNode event) throws Exception;
 
   /**
    * Controls hook execution ordering

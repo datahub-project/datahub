@@ -2,13 +2,15 @@ import { Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import BaseProperty from '@app/entityV2/summary/properties/property/properties/BaseProperty';
 import { PropertyComponentProps } from '@app/entityV2/summary/properties/types';
 import { formatTimestamp } from '@app/sharedV2/time/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Popover } from '@src/alchemy-components';
 
-import { Document, EntityType } from '@types';
+const DATE_TIME_FORMAT = 'll LTS';
+const DATE_FORMAT = 'll';
 
 const DateWithTooltip = styled.span`
     cursor: help;
@@ -21,22 +23,16 @@ const DateWithTooltip = styled.span`
 
 export default function CreatedProperty(props: PropertyComponentProps) {
     const { entityData, entityType, loading } = useEntityContext();
+    const entityRegistry = useEntityRegistry();
 
-    // Different entities store created timestamp in different locations
-    let createdTimestamp: number | undefined;
-
-    if (entityType === EntityType.Document) {
-        const document = entityData as Document;
-        createdTimestamp = document?.info?.created?.time;
-    } else {
-        createdTimestamp = entityData?.properties?.createdOn?.time;
-    }
+    const createdTimestamp =
+        entityRegistry.getCreatedTime(entityType, entityData) ?? entityData?.properties?.createdOn?.time;
 
     const renderCreated = (timestamp: number) => {
         return (
-            <Popover content={formatTimestamp(timestamp, 'll LTS')} placement="top">
+            <Popover content={formatTimestamp(timestamp, DATE_TIME_FORMAT)} placement="top">
                 <DateWithTooltip>
-                    <Text>{formatTimestamp(timestamp, 'll')}</Text>
+                    <Text>{formatTimestamp(timestamp, DATE_FORMAT)}</Text>
                 </DateWithTooltip>
             </Popover>
         );

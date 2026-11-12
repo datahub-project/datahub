@@ -5,13 +5,17 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Legac
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.Status;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.VersionProperties;
 import com.linkedin.common.VersionTag;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.lifecycle.LifecycleStageSettings;
+import com.linkedin.lifecycle.LifecycleStageTypeInfo;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.MCPItem;
@@ -64,6 +68,20 @@ public class VersionPropertiesSideEffectTest {
   private static final Urn ML_MODEL_URN =
       UrnUtils.getUrn("urn:li:mlModel:(urn:li:dataPlatform:mlflow,model,PROD)");
 
+  // Entity in a hidden lifecycle stage — used as the NEW incoming entity in the hidden-stage test
+  private static final Urn HIDDEN_STAGE_ENTITY_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,hidden-entity,PROD)");
+  private static final Urn HIDDEN_LIFECYCLE_STAGE_URN =
+      UrnUtils.getUrn("urn:li:lifecycleStageType:ARCHIVED");
+  private static final Urn NON_HIDDEN_LIFECYCLE_STAGE_URN =
+      UrnUtils.getUrn("urn:li:lifecycleStageType:DRAFT");
+
+  // Version set used for the hidden-stage guard test.
+  // Its latest points to PREVIOUS_LATEST_URN (sortId "abc"), so the incoming
+  // HIDDEN_STAGE_ENTITY_URN (sortId "zzz") would normally become the new latest.
+  private static final Urn HIDDEN_STAGE_VERSION_SET_URN =
+      UrnUtils.getUrn("urn:li:versionSet:(hidden-stage-set,dataset)");
+
   private static final AspectPluginConfig TEST_PLUGIN_CONFIG =
       AspectPluginConfig.builder()
           .className(VersionSetSideEffect.class.getName())
@@ -81,9 +99,11 @@ public class VersionPropertiesSideEffectTest {
   private MockAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
   private VersionPropertiesSideEffect sideEffect;
+  private OperationFingerprint mockOpContext;
 
   @BeforeMethod
   public void setup() {
+    mockOpContext = mock(OperationFingerprint.class);
     VersionProperties previousLatestVersionProperties =
         new VersionProperties()
             .setVersionSet(HAS_SET_PROPERTIES_VERSION_SET_URN)
@@ -101,11 +121,33 @@ public class VersionPropertiesSideEffectTest {
     VersionSetKey existingVersionSetKey =
         new VersionSetKey().setId("missing-properties-exists").setEntityType(DATASET_ENTITY_NAME);
 
+    // Version set for the hidden-stage guard test: latest = PREVIOUS_LATEST_URN (sortId "abc"),
+    // so an incoming entity with sortId "zzz" would normally become the new latest.
+    VersionSetProperties hiddenStageVersionSetProperties =
+        new VersionSetProperties()
+            .setLatest(PREVIOUS_LATEST_URN)
+            .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING);
+
+    // HIDDEN_STAGE_ENTITY_URN is in a hidden lifecycle stage (hideInSearch=true)
+    Status hiddenEntityStatus = new Status().setLifecycleStage(HIDDEN_LIFECYCLE_STAGE_URN);
+    LifecycleStageTypeInfo hiddenStageInfo =
+        new LifecycleStageTypeInfo()
+            .setSettings(new LifecycleStageSettings().setHideInSearch(true));
+
+    // NON_HIDDEN_LIFECYCLE_STAGE_URN: hideInSearch=false (normal visibility)
+    LifecycleStageTypeInfo nonHiddenStageInfo =
+        new LifecycleStageTypeInfo()
+            .setSettings(new LifecycleStageSettings().setHideInSearch(false));
+
     Map<Urn, List<RecordTemplate>> data = new HashMap<>();
     data.put(PREVIOUS_LATEST_URN, List.of(previousLatestVersionProperties));
     data.put(HAS_SET_PROPERTIES_VERSION_SET_URN, List.of(existingVersionSetProperties));
     data.put(MISSING_SET_PROPERTIES_VERSION_SET_URN, List.of(existingVersionSetKey));
     data.put(INVALID_VERSION_SET_URN, List.of(invalidVersionSetProperties));
+    data.put(HIDDEN_STAGE_VERSION_SET_URN, List.of(hiddenStageVersionSetProperties));
+    data.put(HIDDEN_STAGE_ENTITY_URN, List.of(hiddenEntityStatus));
+    data.put(HIDDEN_LIFECYCLE_STAGE_URN, List.of(hiddenStageInfo));
+    data.put(NON_HIDDEN_LIFECYCLE_STAGE_URN, List.of(nonHiddenStageInfo));
     mockAspectRetriever = new MockAspectRetriever(data);
     mockAspectRetriever.setEntityRegistry(TEST_REGISTRY);
 
@@ -145,7 +187,8 @@ public class VersionPropertiesSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results: key, set properties, and isLatest=true write for the entity
@@ -200,7 +243,8 @@ public class VersionPropertiesSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results: set properties, old-latest patch, and isLatest=true write for new entity
@@ -255,7 +299,8 @@ public class VersionPropertiesSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results
@@ -288,7 +333,8 @@ public class VersionPropertiesSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results: key, set properties, and isLatest=true write for the entity
@@ -341,7 +387,8 @@ public class VersionPropertiesSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results: set properties and isLatest=true write for the entity
@@ -381,7 +428,7 @@ public class VersionPropertiesSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .postMCPSideEffect(Collections.singletonList(mclItem), retrieverContext)
+            .postMCPSideEffect(mockOpContext, Collections.singletonList(mclItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify no changes for non-version set properties aspects
@@ -412,7 +459,7 @@ public class VersionPropertiesSideEffectTest {
 
     // First pass (initial transaction attempt)
     sideEffect
-        .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+        .applyMCPSideEffect(mockOpContext, Collections.singletonList(changeItem), retrieverContext)
         .collect(Collectors.toList());
 
     // The incoming recordTemplate must not have isLatest set — if it were mutated here,
@@ -424,7 +471,8 @@ public class VersionPropertiesSideEffectTest {
     // Second pass (simulated transaction retry) — must produce the same result without error
     List<MCPItem> retryResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     assertEquals(retryResults.size(), 3, "Retry must produce the same three MCPs");
@@ -434,6 +482,119 @@ public class VersionPropertiesSideEffectTest {
         retryResults.stream().filter(item -> item.getUrn().equals(ENTITY_URN)).findFirst();
     assertTrue(setIsLatestMCP.isPresent());
     assertTrue(setIsLatestMCP.get().getAspect(VersionProperties.class).isIsLatest());
+  }
+
+  @Test
+  public void testEntityInHiddenLifecycleStageIsNotPromotedToLatest() {
+    // HIDDEN_STAGE_VERSION_SET_URN currently points to PREVIOUS_LATEST_URN (sortId "abc").
+    // HIDDEN_STAGE_ENTITY_URN proposes with sortId "zzz" — normally the new latest,
+    // but it has a Status whose lifecycle stage has hideInSearch=true, so the guard fires
+    // and prevents promotion.
+    VersionProperties properties =
+        new VersionProperties()
+            .setVersionSet(HIDDEN_STAGE_VERSION_SET_URN)
+            .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING)
+            .setVersion(new VersionTag().setVersionTag("v2"))
+            .setSortId("zzz");
+
+    EntitySpec entitySpec = TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME);
+    ChangeItemImpl changeItem =
+        ChangeItemImpl.builder()
+            .urn(HIDDEN_STAGE_ENTITY_URN)
+            .aspectName(VERSION_PROPERTIES_ASPECT_NAME)
+            .entitySpec(entitySpec)
+            .aspectSpec(entitySpec.getAspectSpec(VERSION_PROPERTIES_ASPECT_NAME))
+            .recordTemplate(properties)
+            .previousSystemAspect(mock(SystemAspect.class))
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    List<MCPItem> sideEffectResults =
+        sideEffect
+            .applyMCPSideEffect(
+                mock(OperationFingerprint.class),
+                Collections.singletonList(changeItem),
+                retrieverContext)
+            .collect(Collectors.toList());
+
+    assertEquals(
+        sideEffectResults.size(),
+        0,
+        "Entity in a hidden lifecycle stage must not be promoted to isLatest");
+  }
+
+  @Test
+  public void testEntityInNonHiddenLifecycleStageIsPromotedNormally() {
+    // ENTITY_URN has a Status pointing to NON_HIDDEN_LIFECYCLE_STAGE_URN (hideInSearch=false).
+    // It should still be promoted when it has a higher sortId than the current latest.
+    // Build a local retriever that adds a Status for ENTITY_URN on top of the standard data.
+    Map<Urn, List<RecordTemplate>> extraData = new HashMap<>();
+    extraData.put(
+        PREVIOUS_LATEST_URN,
+        List.of(
+            new VersionProperties()
+                .setVersionSet(HAS_SET_PROPERTIES_VERSION_SET_URN)
+                .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING)
+                .setVersion(new VersionTag().setVersionTag("v1"))
+                .setSortId("abc")));
+    extraData.put(
+        HAS_SET_PROPERTIES_VERSION_SET_URN,
+        List.of(
+            new VersionSetProperties()
+                .setLatest(PREVIOUS_LATEST_URN)
+                .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING)));
+    extraData.put(
+        ENTITY_URN, List.of(new Status().setLifecycleStage(NON_HIDDEN_LIFECYCLE_STAGE_URN)));
+    extraData.put(
+        NON_HIDDEN_LIFECYCLE_STAGE_URN,
+        List.of(
+            new LifecycleStageTypeInfo()
+                .setSettings(new LifecycleStageSettings().setHideInSearch(false))));
+
+    MockAspectRetriever localRetriever = new MockAspectRetriever(extraData);
+    localRetriever.setEntityRegistry(TEST_REGISTRY);
+    RetrieverContext localContext =
+        RetrieverContext.builder()
+            .searchRetriever(mock(SearchRetriever.class))
+            .aspectRetriever(localRetriever)
+            .graphRetriever(mock(GraphRetriever.class))
+            .build();
+
+    VersionProperties properties =
+        new VersionProperties()
+            .setVersionSet(HAS_SET_PROPERTIES_VERSION_SET_URN)
+            .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING)
+            .setVersion(new VersionTag().setVersionTag("v2"))
+            .setSortId("zzz");
+
+    EntitySpec entitySpec = TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME);
+    ChangeItemImpl changeItem =
+        ChangeItemImpl.builder()
+            .urn(ENTITY_URN)
+            .aspectName(VERSION_PROPERTIES_ASPECT_NAME)
+            .entitySpec(entitySpec)
+            .aspectSpec(entitySpec.getAspectSpec(VERSION_PROPERTIES_ASPECT_NAME))
+            .recordTemplate(properties)
+            .previousSystemAspect(mock(SystemAspect.class))
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(localRetriever);
+
+    List<MCPItem> sideEffectResults =
+        sideEffect
+            .applyMCPSideEffect(
+                mock(OperationFingerprint.class),
+                Collections.singletonList(changeItem),
+                localContext)
+            .collect(Collectors.toList());
+
+    assertEquals(
+        sideEffectResults.size(),
+        3,
+        "Entity in a non-hidden lifecycle stage should still be promoted normally");
+
+    MCPItem setIsLatestMCP = sideEffectResults.get(2);
+    assertEquals(setIsLatestMCP.getUrn(), ENTITY_URN);
+    assertTrue(setIsLatestMCP.getAspect(VersionProperties.class).isIsLatest());
   }
 
   @Test
@@ -459,7 +620,7 @@ public class VersionPropertiesSideEffectTest {
 
     // First pass
     sideEffect
-        .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+        .applyMCPSideEffect(mockOpContext, Collections.singletonList(changeItem), retrieverContext)
         .collect(Collectors.toList());
 
     assertFalse(
@@ -469,7 +630,8 @@ public class VersionPropertiesSideEffectTest {
     // Second pass (simulated retry) — must succeed without error
     List<MCPItem> retryResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     assertEquals(retryResults.size(), 3, "Retry must produce the same three MCPs");

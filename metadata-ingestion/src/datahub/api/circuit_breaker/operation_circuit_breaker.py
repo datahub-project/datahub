@@ -35,11 +35,11 @@ class OperationCircuitBreaker(AbstractCircuitBreaker):
         _token = (
             config.datahub_token.get_secret_value() if config.datahub_token else None
         )
-        super().__init__(config.datahub_host, _token, config.timeout)
         self.config = config
         self.operation_api = Operation(
             datahub_host=config.datahub_host,
             datahub_token=_token,
+            datahub_auth=config.datahub_auth,
             timeout=config.timeout,
         )
 

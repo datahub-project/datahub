@@ -11,10 +11,11 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.boot.BootstrapStep;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
@@ -47,7 +48,6 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
   private final OperationContext opContext;
   private final EntityService<?> entityService;
   private final ElasticSearchService elasticSearchService;
-  private final SearchClientShim<?> restHighLevelClient;
 
   private final boolean reprocessEnabled;
   private final Integer batchSize;
@@ -60,7 +60,6 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
       OperationContext opContext,
       EntityService<?> entityService,
       ElasticSearchService elasticSearchService,
-      SearchClientShim<?> restHighLevelClient,
       boolean reprocessEnabled,
       Integer batchSize,
       Integer batchDelayMs,
@@ -69,7 +68,6 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
     this.opContext = opContext;
     this.entityService = entityService;
     this.elasticSearchService = elasticSearchService;
-    this.restHighLevelClient = restHighLevelClient;
     this.reprocessEnabled = reprocessEnabled;
     this.batchSize = batchSize;
     this.batchDelayMs = batchDelayMs;
@@ -91,7 +89,9 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
 
       String runEventsIndexName =
           indexConvention.getTimeseriesAspectIndexName(
-              DATA_PROCESS_INSTANCE_ENTITY_NAME, DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME);
+              opContext,
+              DATA_PROCESS_INSTANCE_ENTITY_NAME,
+              DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME);
 
       DataHubUpgradeState upgradeState = DataHubUpgradeState.SUCCEEDED;
 
@@ -130,7 +130,9 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
           SearchResponse response;
 
           try {
-            response = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
+            response =
+                SearchClients.forComponent(opContext, SearchComponent.TIMESERIES)
+                    .search(opContext, searchRequest, RequestOptions.DEFAULT);
           } catch (IOException e) {
             log.error(Throwables.getStackTraceAsString(e));
             log.error("Error querying index {}", runEventsIndexName);
@@ -155,12 +157,13 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
           if (!urns.isEmpty()) {
             urns = entityService.exists(opContext, urns);
             urns.forEach(
-                urn ->
-                    elasticSearchService.upsertDocument(
-                        opContext,
-                        DATA_PROCESS_INSTANCE_ENTITY_NAME,
-                        json.toString(),
-                        indexConvention.getEntityDocumentId(urn)));
+                urn -> {
+                  elasticSearchService.upsertDocument(
+                      opContext,
+                      DATA_PROCESS_INSTANCE_ENTITY_NAME,
+                      json.toString(),
+                      indexConvention.getEntityDocumentId(urn));
+                });
           }
           if (aggregation.afterKey() == null) {
             break;

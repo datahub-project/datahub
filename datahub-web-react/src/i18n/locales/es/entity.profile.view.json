@@ -1,0 +1,13 @@
+{
+    "viewDefinitionTab.detailsHeading": "Detalles",
+    "viewDefinitionTab.formatCompiled": "Compilado",
+    "viewDefinitionTab.formatFormatted": "Formateado",
+    "viewDefinitionTab.formatRaw": "Sin procesar",
+    "viewDefinitionTab.formatSource": "Origen",
+    "viewDefinitionTab.languageLabel": "Idioma",
+    "viewDefinitionTab.logicHeading": "Lógica",
+    "viewDefinitionTab.materializedFalse": "No",
+    "viewDefinitionTab.materializedLabel": "Materializado",
+    "viewDefinitionTab.materializedTrue": "Sí",
+    "viewDefinitionTab.noViewPermission": "No tiene permiso para ver la lógica SQL de esta vista."
+}

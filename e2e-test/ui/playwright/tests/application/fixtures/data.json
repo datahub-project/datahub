@@ -1,0 +1,17 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,playwright_project.jaffle_shop.customers,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "customers",
+              "description": "Dataset without application association for testing add/remove application feature"
+            }
+          }
+        ]
+      }
+    }
+  }
+]

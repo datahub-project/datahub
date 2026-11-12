@@ -1,8 +1,9 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import SidebarContentsLoadingSection from '@app/entityV2/shared/containers/profile/sidebar/Container/SidebarContentsLoadingSection';
 import {
     getContentsSummary,
@@ -39,6 +40,8 @@ const ViewAllButton = styled.div`
 `;
 
 const SidebarContentsSection = () => {
+    const { t } = useTranslation('entity.shared.containers');
+    const { t: tc } = useTranslation('common.actions');
     const { urn, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
@@ -55,7 +58,7 @@ const SidebarContentsSection = () => {
 
     return (
         <SidebarSection
-            title="Contents"
+            title={t('sidebar.contents.sectionTitle')}
             key="Contents"
             content={
                 <>
@@ -71,11 +74,11 @@ const SidebarContentsSection = () => {
                                         navigateToContainerContents(urn, entityType, history, entityRegistry)
                                     }
                                 >
-                                    View all
+                                    {tc('viewAll')}
                                 </ViewAllButton>
                             </Section>
                         ) : (
-                            <EmptySectionText message="No contents yet" />
+                            <EmptySectionText message={t('sidebar.contents.emptyText')} />
                         ))}
                 </>
             }

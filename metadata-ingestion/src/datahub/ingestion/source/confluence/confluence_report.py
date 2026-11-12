@@ -26,6 +26,10 @@ class ConfluenceSourceReport(StaleEntityRemovalSourceReport):
     pages_failed: int = 0
     failed_pages: List[Tuple[str, str]] = field(default_factory=list)
 
+    # Folder-level metrics
+    folders_ingested: int = 0
+    folders_failed: int = 0
+
     # Content metrics
     total_text_extracted_bytes: int = 0
     total_chunks_generated: int = 0
@@ -54,7 +58,11 @@ class ConfluenceSourceReport(StaleEntityRemovalSourceReport):
         """Record space processing failure."""
         self.spaces_failed += 1
         self.failed_spaces.append(space_key)
-        self.report_warning(space_key, f"Failed to process space: {error}")
+        self.warning(
+            message="Failed to process space",
+            context=f"{space_key}: {error}",
+            log=False,
+        )
 
     def report_page_scanned(self) -> None:
         """Record that a page was scanned."""
@@ -73,13 +81,27 @@ class ConfluenceSourceReport(StaleEntityRemovalSourceReport):
     def report_page_skipped(self, page_id: str, reason: str) -> None:
         """Record that a page was skipped."""
         self.pages_skipped += 1
-        self.report_warning(page_id, f"Skipped page: {reason}")
+        self.warning(message="Skipped page", context=f"{page_id}: {reason}", log=False)
 
     def report_page_failed(self, page_id: str, space_key: str, error: str) -> None:
         """Record page processing failure."""
         self.pages_failed += 1
         self.failed_pages.append((space_key, page_id))
-        self.report_failure(page_id, f"Failed to process page: {error}")
+        self.failure(message="Failed to process page", context=f"{page_id}: {error}")
+
+    def report_folder_failed(self, folder_id: str, error: str) -> None:
+        """Record a folder discovery/emission failure.
+
+        Folders are a best-effort hierarchy reconstruction layered on top of the
+        pages we already ingest, so a folder problem is reported as a warning
+        rather than a hard failure — it must never sink the ingestion job.
+        """
+        self.folders_failed += 1
+        self.warning(
+            message="Failed to process folder",
+            context=f"{folder_id}: {error}",
+            log=False,
+        )
 
     def report_text_extracted(self, num_bytes: int) -> None:
         """Record text extraction metrics."""

@@ -1,24 +1,25 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
-import { useMutationUrn } from '@app/entity/shared/EntityContext';
 import { pathMatchesExact } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { useMutationUrn } from '@app/entityV2/shared/EntityContext';
 import NotesSection from '@app/entityV2/shared/notes/NotesSection';
 import FieldBusinessAttribute from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldBusinessAttribute';
 import FieldDescription from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldDescription';
 import { FieldDetails } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldDetails';
+import FieldLogicalSection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldLogicalSection';
 import FieldTags from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTags';
 import FieldTerms from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTerms';
-import SampleValuesSection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SampleValuesSection';
-import StatsSection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSection';
+import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsTabWrapper';
 import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
-import useFileUpload from '@app/shared/hooks/useFileUpload';
-import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
+import useFileUpload from '@app/sharedV2/hooks/useFileUpload';
+import useFileUploadAnalyticsCallbacks from '@app/sharedV2/hooks/useFileUploadAnalyticsCallbacks';
 import SidebarStructuredProperties from '@src/app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import dayjs from '@utils/dayjs';
 
 import {
     DatasetFieldProfile,
+    DatasetProfile,
     EditableSchemaMetadata,
     Post,
     SchemaField,
@@ -38,7 +39,9 @@ interface AboutFieldTabProps {
         editableSchemaMetadata?: EditableSchemaMetadata | null;
         usageStats?: UsageQueryResult | null;
         fieldProfile: DatasetFieldProfile | undefined;
-        profiles: any[];
+        profiles: DatasetProfile[];
+        fetchDataWithLookbackWindow: (lookbackWindow: any) => void;
+        profilesDataLoading: boolean;
         notes: Post[];
         setSelectedTabName: any;
         refetch?: () => void;
@@ -101,6 +104,7 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                             refetch={delayedRefetchNotes}
                         />
                         {!!notes?.length && <StyledDivider />}
+                        <FieldLogicalSection expandedField={expandedField} />
                         <FieldDescription
                             expandedField={expandedField}
                             editableFieldInfo={editableFieldInfo}
@@ -127,12 +131,16 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                                 fieldEntity: expandedField.schemaFieldEntity,
                             }}
                         />
-                        <StatsSection
-                            fieldProfile={properties.fieldProfile}
-                            setSelectedTabName={properties.setSelectedTabName}
-                        />
-                        <SampleValuesSection fieldProfile={properties.fieldProfile} />
                     </MetadataSections>
+                    <StatsTabWrapper
+                        properties={{
+                            expandedField,
+                            fieldProfile: properties.fieldProfile,
+                            profiles: properties.profiles,
+                            fetchDataWithLookbackWindow: properties.fetchDataWithLookbackWindow,
+                            profilesDataLoading: properties.profilesDataLoading,
+                        }}
+                    />
                 </>
             )}
         </>

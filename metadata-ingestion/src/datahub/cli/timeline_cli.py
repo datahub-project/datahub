@@ -61,6 +61,7 @@ def get_timeline(
     start_time: Optional[int],
     end_time: Optional[int],
     diff: bool,
+    include_version_set: bool = False,
     graph: Optional[DataHubGraph] = None,
 ) -> Any:
     client = graph if graph else get_default_graph(ClientMode.CLI)
@@ -79,9 +80,10 @@ def get_timeline(
     start_time_param: str = f"&startTime={start_time}" if start_time else ""
     end_time_param: str = f"&endTime={end_time}" if end_time else ""
     diff_param: str = f"&raw={diff}" if diff else ""
+    version_set_param: str = "&includeVersionSet=true" if include_version_set else ""
     endpoint: str = (
         host
-        + f"/openapi/v2/timeline/v1/{encoded_urn}?categories={categories}{start_time_param}{end_time_param}{diff_param}"
+        + f"/openapi/v2/timeline/v1/{encoded_urn}?categories={categories}{start_time_param}{end_time_param}{diff_param}{version_set_param}"
     )
     click.echo(endpoint)
 
@@ -109,7 +111,7 @@ def get_timeline(
     required=True,
     multiple=True,
     type=str,
-    help="One of tag, glossary_term, technical_schema, documentation, ownership (or owner), domain, structured_property, application, asset_membership",
+    help="One of tag, glossary_term, technical_schema, documentation, ownership (or owner), domain, structured_property, application, asset_membership, versioning",
 )
 @click.option(
     "--start",
@@ -127,6 +129,15 @@ def get_timeline(
     "--verbose", "-v", type=bool, is_flag=True, help="Show the underlying http response"
 )
 @click.option("--raw", type=bool, is_flag=True, help="Show the raw diff")
+@click.option(
+    "--include-version-set",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="When set, fetches and merges timelines for ALL versions in the same VersionSet. "
+    "Currently supported for versioned GlossaryTerms; silently ignored for entities "
+    "without a versionProperties aspect (output is identical to omitting the flag).",
+)
 @click.pass_context
 @upgrade.check_upgrade
 def timeline(
@@ -137,6 +148,7 @@ def timeline(
     end: Optional[str],
     verbose: bool,
     raw: bool,
+    include_version_set: bool,
 ) -> None:
     """Get timeline for an entity based on certain categories"""
 
@@ -150,6 +162,7 @@ def timeline(
         "STRUCTURED_PROPERTY",
         "APPLICATION",
         "ASSET_MEMBERSHIP",
+        "VERSIONING",
     ]
     # Accept OWNER as a backward-compat alias for OWNERSHIP
     category_aliases = {"OWNER": "OWNERSHIP"}
@@ -190,6 +203,7 @@ def timeline(
         start_time=start_time_millis,
         end_time=end_time_millis,
         diff=raw,
+        include_version_set=include_version_set,
     )
 
     if isinstance(timeline, list) and not verbose:

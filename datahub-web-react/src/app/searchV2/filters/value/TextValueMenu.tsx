@@ -1,8 +1,10 @@
 import { Text } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { FilterField, FilterValue } from '@app/searchV2/filters/types';
+import { useFilterDisplayName } from '@app/searchV2/filters/utils';
 import TextValueInput from '@app/searchV2/filters/value/TextValueInput';
 
 const Container = styled.div<{ $shouldAddWrapperStyles: boolean }>`
@@ -28,12 +30,15 @@ interface Props {
 }
 
 export default function TextValueMenu({ field, values, onChangeValues, isRenderedInSubMenu }: Props) {
-    const { displayName } = field;
+    const { t } = useTranslation('search');
+    // Resolve the human-readable label (e.g. "UUID Filter Test") rather than the raw field name
+    // (structuredProperties.uuidFilterTest), consistent with the enum/entity menus.
+    const displayName = useFilterDisplayName(field);
     const value = values.length > 0 ? values[0].displayName || values[0].value : '';
 
     return (
         <Container $shouldAddWrapperStyles={!isRenderedInSubMenu}>
-            <Title>{`Filter by ${displayName}`}</Title>
+            <Title>{t('filters.filterBy', { name: displayName })}</Title>
             <TextValueInput
                 name={displayName}
                 value={value}

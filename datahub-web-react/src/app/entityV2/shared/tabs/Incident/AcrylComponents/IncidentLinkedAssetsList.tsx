@@ -1,7 +1,7 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search/SearchSelectModal';
@@ -13,9 +13,9 @@ import {
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { LinkedAssetsContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
 import { IncidentLinkedAssetsListProps } from '@app/entityV2/shared/tabs/Incident/types';
-import { Button, Pill } from '@src/alchemy-components';
+import { Button, Loader, Pill } from '@src/alchemy-components';
 import { EntityCapabilityType } from '@src/app/entityV2/Entity';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 
 const RESOURCE_URN_FIELD_NAME = 'resourceUrns';
@@ -33,8 +33,10 @@ export const IncidentLinkedAssetsList = ({
     setCachedLinkedAssets,
     setIsLinkedAssetsLoading,
 }: IncidentLinkedAssetsListProps) => {
+    const { t } = useTranslation('entity.profile.incident');
+    const { t: tc } = useTranslation('common.actions');
     const [getEntities, { data: resolvedLinkedAssets, loading: entitiesLoading }] = useGetEntitiesLazyQuery();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const [linkedAssets, setLinkedAssets] = useState<any[]>(data?.linkedAssets || []);
     const [isBatchAddAssetListModalVisible, setIsBatchAddAssetListModalVisible] = useState(false);
@@ -109,13 +111,13 @@ export const IncidentLinkedAssetsList = ({
             <AssetWrapper>
                 {entitiesLoading && (
                     <LoadingWrapper>
-                        <LoadingOutlined />
+                        <Loader size="xs" />
                     </LoadingWrapper>
                 )}
                 {form.getFieldValue(RESOURCE_URN_FIELD_NAME)?.length > 0 &&
                     (entitiesLoading ? (
                         <LoadingWrapper>
-                            <LoadingOutlined />
+                            <Loader size="xs" />
                         </LoadingWrapper>
                     ) : (
                         <LinkedAssetsContainer>
@@ -126,7 +128,7 @@ export const IncidentLinkedAssetsList = ({
                                             key={asset.urn}
                                             label={entityRegistry.getDisplayName(asset.type, asset)}
                                             rightIcon={X}
-                                            color="violet"
+                                            color="primary"
                                             variant="outline"
                                             onClickRightIcon={() => {
                                                 removeLinkedAsset(asset);
@@ -151,8 +153,8 @@ export const IncidentLinkedAssetsList = ({
             </AssetWrapper>
             {isBatchAddAssetListModalVisible && (
                 <SearchSelectModal
-                    titleText="Link assets to incident"
-                    continueText="Add"
+                    titleText={t('editor.linkAssetsModalTitle')}
+                    continueText={tc('add')}
                     onContinue={batchAddAssets}
                     onCancel={() => setIsBatchAddAssetListModalVisible(false)}
                     fixedEntityTypes={Array.from(

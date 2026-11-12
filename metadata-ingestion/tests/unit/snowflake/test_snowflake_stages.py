@@ -1,0 +1,334 @@
+from datetime import datetime
+from typing import Any, List, Optional
+from unittest.mock import MagicMock
+
+from datahub.ingestion.source.data_lake_common.config import (
+    DataLakeLineageProviderConfig,
+)
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.ingestion.source.snowflake.snowflake_schema import (
+    SnowflakeStage,
+    SnowflakeStageType,
+)
+from datahub.ingestion.source.snowflake.snowflake_stages import (
+    SnowflakeStagesExtractor,
+)
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeIdentifierBuilder,
+)
+from datahub.metadata.schema_classes import (
+    ContainerPropertiesClass,
+    DatasetPropertiesClass,
+    SubTypesClass,
+)
+
+
+def _make_config(**kwargs: Any) -> SnowflakeV2Config:
+    return SnowflakeV2Config(
+        account_id="test_account",
+        username="user",
+        password="pass",  # type: ignore
+        include_stages=True,
+        **kwargs,
+    )
+
+
+def _make_internal_stage(name: str = "int_stage") -> SnowflakeStage:
+    return SnowflakeStage(
+        name=name,
+        created=datetime(2024, 1, 1),
+        owner="ADMIN",
+        database_name="TEST_DB",
+        schema_name="PUBLIC",
+        comment="Internal stage for loading",
+        stage_type=SnowflakeStageType.INTERNAL,
+    )
+
+
+def _make_external_stage(
+    name: str = "ext_stage",
+    url: Optional[str] = "s3://my-bucket/data/",
+) -> SnowflakeStage:
+    return SnowflakeStage(
+        name=name,
+        created=datetime(2024, 1, 1),
+        owner="ADMIN",
+        database_name="TEST_DB",
+        schema_name="PUBLIC",
+        comment="External S3 stage",
+        stage_type=SnowflakeStageType.EXTERNAL,
+        url=url,
+        cloud="aws",
+        region="us-east-1",
+        storage_integration="S3_INT",
+    )
+
+
+def _collect_workunits(
+    stages: List[SnowflakeStage],
+    config: Optional[SnowflakeV2Config] = None,
+) -> tuple:
+    """Returns (workunits, extractor) so tests can inspect the stage_lookup."""
+    if config is None:
+        config = _make_config()
+    report = SnowflakeV2Report()
+    identifiers = SnowflakeIdentifierBuilder(
+        identifier_config=config, structured_reporter=report
+    )
+    data_dict = MagicMock()
+    data_dict.get_stages_for_schema.return_value = stages
+
+    schema_key = identifiers.gen_schema_key("TEST_DB", "PUBLIC")
+
+    extractor = SnowflakeStagesExtractor(
+        config=config,
+        report=report,
+        data_dictionary=data_dict,
+        identifiers=identifiers,
+    )
+    wus = list(extractor.get_workunits("TEST_DB", "PUBLIC", schema_key))
+    return wus, extractor, report
+
+
+class TestSnowflakeStagesExtractor:
+    def test_no_stages_emits_nothing(self) -> None:
+        wus, extractor, report = _collect_workunits([])
+        assert len(wus) == 0
+        assert report.stages_scanned == 0
+        assert len(extractor.stage_lookup) == 0
+
+    def test_internal_stage_emits_container_and_dataset(self) -> None:
+        stage = _make_internal_stage()
+        wus, extractor, report = _collect_workunits([stage])
+
+        assert report.stages_scanned == 1
+        assert len(extractor.stage_lookup) == 1
+
+        # Should have container MCPs + dataset MCPs
+        # Container: containerProperties, subTypes, container (parent), status, dataPlatformInstance ~ 5 MCPs
+        # Dataset: datasetProperties, subTypes, status, container (parent) ~ 4 MCPs
+        assert len(wus) >= 5
+
+        # Check container subtype
+        container_subtypes = [
+            wu.metadata.aspect
+            for wu in wus
+            if hasattr(wu.metadata, "aspect")
+            and isinstance(wu.metadata.aspect, SubTypesClass)
+            and "Snowflake Stage" in wu.metadata.aspect.typeNames
+        ]
+        assert len(container_subtypes) == 1
+
+        # Check dataset was emitted (internal stage placeholder)
+        dataset_props = [
+            wu.metadata.aspect
+            for wu in wus
+            if hasattr(wu.metadata, "aspect")
+            and isinstance(wu.metadata.aspect, DatasetPropertiesClass)
+        ]
+        assert len(dataset_props) == 1
+        assert (
+            dataset_props[0].description == "Internal stage data managed by Snowflake"
+        )
+        assert dataset_props[0].customProperties["stage_type"] == "INTERNAL"
+        assert dataset_props[0].customProperties["stage_name"] == "int_stage"
+
+        # Check dataset subtype
+        dataset_subtypes = [
+            wu.metadata.aspect
+            for wu in wus
+            if hasattr(wu.metadata, "aspect")
+            and isinstance(wu.metadata.aspect, SubTypesClass)
+            and "Snowflake Stage Data" in wu.metadata.aspect.typeNames
+        ]
+        assert len(dataset_subtypes) == 1
+
+        # Lookup entry should have dataset_urn
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.INT_STAGE")
+        assert entry is not None
+        assert entry.dataset_urn is not None
+        assert "int_stage" in entry.dataset_urn
+
+    def test_external_stage_emits_container_only(self) -> None:
+        stage = _make_external_stage()
+        wus, extractor, report = _collect_workunits([stage])
+
+        assert report.stages_scanned == 1
+
+        # Should have container MCPs but NO dataset MCPs
+        dataset_props = [
+            wu.metadata.aspect
+            for wu in wus
+            if hasattr(wu.metadata, "aspect")
+            and isinstance(wu.metadata.aspect, DatasetPropertiesClass)
+        ]
+        assert len(dataset_props) == 0
+
+        # Lookup entry should have a resolved S3 dataset_urn
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE")
+        assert entry is not None
+        assert entry.dataset_urn is not None
+        assert "s3" in entry.dataset_urn
+        assert entry.stage.url == "s3://my-bucket/data/"
+
+    def test_external_stage_container_has_url_in_properties(self) -> None:
+        stage = _make_external_stage()
+        wus, _, _ = _collect_workunits([stage])
+
+        container_props = [
+            wu.metadata.aspect
+            for wu in wus
+            if hasattr(wu.metadata, "aspect")
+            and isinstance(wu.metadata.aspect, ContainerPropertiesClass)
+        ]
+        assert len(container_props) == 1
+        props = container_props[0]
+        assert props.customProperties is not None
+        assert props.customProperties["stage_type"] == "EXTERNAL"
+        assert props.customProperties["url"] == "s3://my-bucket/data/"
+        assert props.customProperties["cloud"] == "aws"
+        assert props.customProperties["region"] == "us-east-1"
+        assert props.customProperties["storage_integration"] == "S3_INT"
+
+    def test_mixed_stages(self) -> None:
+        internal = _make_internal_stage("int_stg")
+        external = _make_external_stage("ext_stg")
+        wus, extractor, report = _collect_workunits([internal, external])
+
+        assert report.stages_scanned == 2
+        assert len(extractor.stage_lookup) == 2
+
+        int_entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.INT_STG")
+        ext_entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STG")
+        assert int_entry is not None and int_entry.dataset_urn is not None
+        assert ext_entry is not None and ext_entry.dataset_urn is not None
+        # Internal resolves to snowflake platform, external to s3
+        assert "snowflake" in int_entry.dataset_urn
+        assert "s3" in ext_entry.dataset_urn
+
+    def test_stage_pattern_filtering(self) -> None:
+        config = _make_config()
+        config.stage_pattern.deny = [".*INT.*"]
+        report = SnowflakeV2Report()
+        identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config, structured_reporter=report
+        )
+        data_dict = MagicMock()
+        data_dict.get_stages_for_schema.return_value = [
+            _make_internal_stage("int_stage"),
+            _make_external_stage("ext_stage"),
+        ]
+        schema_key = identifiers.gen_schema_key("TEST_DB", "PUBLIC")
+
+        extractor = SnowflakeStagesExtractor(
+            config=config,
+            report=report,
+            data_dictionary=data_dict,
+            identifiers=identifiers,
+        )
+        list(extractor.get_workunits("TEST_DB", "PUBLIC", schema_key))
+
+        # Only external stage should be emitted
+        assert report.stages_scanned == 1
+        assert extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.INT_STAGE") is None
+        assert extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE") is not None
+
+    def test_external_stage_prefix_folded_via_path_spec(self) -> None:
+        config = _make_config(
+            datalake_lineage_config=DataLakeLineageProviderConfig(
+                path_specs=[PathSpec(include="s3://my-bucket/{table}/*/*/*.csv")],
+                ignore_non_path_spec_path=True,
+            )
+        )
+        stage = _make_external_stage(url="s3://my-bucket/events/year=2024/month=01/")
+        _, extractor, report = _collect_workunits([stage], config=config)
+
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE")
+        assert entry is not None
+        assert (
+            entry.dataset_urn
+            == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/events,PROD)"
+        )
+        assert report.num_stage_external_lineage_resolved == 1
+        assert report.num_stage_external_lineage_dropped == 0
+
+    def test_external_stage_dropped_when_not_matching_path_spec(self) -> None:
+        config = _make_config(
+            datalake_lineage_config=DataLakeLineageProviderConfig(
+                path_specs=[PathSpec(include="s3://other-bucket/{table}/*.csv")],
+                ignore_non_path_spec_path=True,
+            )
+        )
+        stage = _make_external_stage(url="s3://my-bucket/data/")
+        _, extractor, report = _collect_workunits([stage], config=config)
+
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE")
+        assert entry is not None
+        assert entry.dataset_urn is None
+        assert report.num_stage_external_lineage_dropped == 1
+        assert report.num_stage_external_lineage_resolved == 0
+
+    def test_unsupported_azure_host_does_not_abort_extraction(self) -> None:
+        """Regression: an ADLS Gen2 stage URL raised ValueError out of the stage loop,
+        aborting stages, tasks and pipes for the whole run."""
+        stages = [
+            _make_external_stage(
+                name="ADLS_STAGE",
+                url="azure://acct.dfs.core.windows.net/container/events/",
+            ),
+            _make_external_stage(name="GOOD_STAGE", url="s3://my-bucket/events/"),
+        ]
+        _, extractor, report = _collect_workunits(stages)
+
+        # The bad stage is reported, not raised, and the following stage still lands.
+        bad = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.ADLS_STAGE")
+        assert bad is not None
+        assert bad.dataset_urn is None
+        good = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.GOOD_STAGE")
+        assert good is not None
+        assert (
+            good.dataset_urn
+            == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/events,PROD)"
+        )
+        assert report.num_stage_external_lineage_dropped == 1
+        assert report.num_stage_external_lineage_resolved == 1
+
+    def test_external_stage_without_url_is_counted_and_reported(self) -> None:
+        stage = _make_external_stage(url=None)
+        _, extractor, report = _collect_workunits([stage])
+
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE")
+        assert entry is not None
+        assert entry.dataset_urn is None
+        assert report.num_stage_external_lineage_dropped == 1
+
+    def test_excluded_stage_prefix_emits_no_lineage(self) -> None:
+        """An explicit `exclude` must not be overridden by the fallback, even with
+        the default ignore_non_path_spec_path=False."""
+        config = _make_config(
+            datalake_lineage_config=DataLakeLineageProviderConfig(
+                path_specs=[
+                    PathSpec(
+                        include="s3://my-bucket/{table}/*/*.csv",
+                        exclude=["s3://my-bucket/internal/**"],
+                    )
+                ],
+            )
+        )
+        stage = _make_external_stage(url="s3://my-bucket/internal/year=2024/")
+        _, extractor, report = _collect_workunits([stage], config=config)
+
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE")
+        assert entry is not None
+        assert entry.dataset_urn is None
+        assert report.num_stage_external_lineage_dropped == 1
+
+    def test_lookup_is_case_insensitive(self) -> None:
+        stage = _make_internal_stage("My_Stage")
+        _, extractor, _ = _collect_workunits([stage])
+
+        # Lookup should work regardless of case
+        assert extractor.get_stage_lookup_entry("test_db.public.my_stage") is not None
+        assert extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.MY_STAGE") is not None

@@ -1,10 +1,11 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useGlossaryChildren from '@app/entityV2/glossaryNode/useGlossaryChildren';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { useGetGlossaryNodeCanManageChildrenQuery } from '@src/graphql/lifecycle.generated';
 import { useGetAutoCompleteMultipleResultsQuery, useScrollAcrossEntitiesQuery } from '@src/graphql/search.generated';
 import { Entity, EntityType } from '@src/types.generated';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // Mock the context
 vi.mock('@app/entityV2/shared/GlossaryEntityContext', () => ({
@@ -17,9 +18,13 @@ vi.mock('@src/graphql/search.generated', () => ({
     useGetAutoCompleteMultipleResultsQuery: vi.fn(),
 }));
 
+vi.mock('@src/graphql/lifecycle.generated', () => ({
+    useGetGlossaryNodeCanManageChildrenQuery: vi.fn(),
+}));
+
 // Mock the entity registry
 vi.mock('@app/useEntityRegistry', () => ({
-    useEntityRegistryV2: () => ({
+    useEntityRegistry: () => ({
         getDisplayName: (type: EntityType) => {
             if (type === EntityType.GlossaryTerm) {
                 return 'Test Term';
@@ -55,6 +60,8 @@ describe('useGlossaryChildren', () => {
         setNodeToNewEntity: vi.fn(),
         nodeToDeletedUrn: {},
         setNodeToDeletedUrn: vi.fn(),
+        urnsToUpdate: [] as string[],
+        setUrnsToUpdate: vi.fn(),
     };
 
     beforeEach(() => {
@@ -68,6 +75,39 @@ describe('useGlossaryChildren', () => {
             data: undefined,
             loading: false,
         });
+        (useGetGlossaryNodeCanManageChildrenQuery as any).mockReturnValue({
+            data: undefined,
+            loading: false,
+        });
+    });
+
+    const mockCanManageChildren = (canManageChildren: boolean) =>
+        (useGetGlossaryNodeCanManageChildrenQuery as any).mockReturnValue({
+            data: { glossaryNode: { urn: 'test-urn', privileges: { canManageChildren } } },
+            loading: false,
+        });
+
+    const lastScrollSearchFlags = () => {
+        const { calls } = (useScrollAcrossEntitiesQuery as any).mock;
+        return calls[calls.length - 1][0].variables.input.searchFlags;
+    };
+
+    it('includes draft terms for users who can manage the node', () => {
+        mockCanManageChildren(true);
+        renderHook(() => useGlossaryChildren({ entityUrn: 'test-urn' }));
+        expect(lastScrollSearchFlags().includeHiddenLifecycleStages).toBe(true);
+    });
+
+    it('leaves draft terms out for users who cannot manage the node', () => {
+        mockCanManageChildren(false);
+        renderHook(() => useGlossaryChildren({ entityUrn: 'test-urn' }));
+        expect(lastScrollSearchFlags().includeHiddenLifecycleStages).toBeFalsy();
+    });
+
+    it('waits for the node privileges before loading children', () => {
+        (useGetGlossaryNodeCanManageChildrenQuery as any).mockReturnValue({ data: undefined, loading: true });
+        renderHook(() => useGlossaryChildren({ entityUrn: 'test-urn' }));
+        expect(useScrollAcrossEntitiesQuery).toHaveBeenLastCalledWith(expect.objectContaining({ skip: true }));
     });
 
     it('should skip query when entityUrn is not provided', () => {

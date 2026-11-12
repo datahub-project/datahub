@@ -3,9 +3,11 @@ import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
 import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { Tabs } from 'antd';
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
 
-import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
+import { useBaseEntity, useEntityData } from '@app/entityV2/shared/EntityContext';
+import { EntitySidebarTabKey } from '@app/entityV2/shared/constants';
 import { EntitySidebarTab } from '@app/entityV2/shared/types';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 
@@ -154,6 +156,7 @@ const TabText = styled.span<{ $isSelected?: boolean }>`
 `;
 
 const TabTextWithTooltip = ({ text, isSelected }: { text: string; isSelected?: boolean }) => {
+    const { t } = useTranslation('entity.shared.containers');
     const textRef = React.useRef<HTMLSpanElement>(null);
     const [isOverflowing, setIsOverflowing] = React.useState(false);
 
@@ -164,7 +167,8 @@ const TabTextWithTooltip = ({ text, isSelected }: { text: string; isSelected?: b
         }
     }, [text]);
 
-    const tooltipText = text === 'Props' ? 'Structured Properties' : text;
+    const tooltipText =
+        text === t('sidebar.tabs.propsAbbreviation') ? t('sidebar.tabs.structuredPropertiesTooltip') : text;
 
     return (
         <Tooltip title={isOverflowing ? tooltipText : null} placement="right">
@@ -259,6 +263,7 @@ const TabsWrapper = styled.div`
 `;
 
 export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideCollapse }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityData } = useEntityData();
     const baseEntity = useBaseEntity<T>();
     const { isClosed, setSidebarClosed } = useContext(EntitySidebarContext);
@@ -294,7 +299,7 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                 {!hideCollapse && (
                     <Tab
                         tab={
-                            <TabIconContainer>
+                            <TabIconContainer data-testid="entity-sidebar-collapse-tab">
                                 <IconWrapper>
                                     <Icon icon={isClosed ? ArrowLineLeft : ArrowLineRight} size="lg" color="inherit" />
                                 </IconWrapper>
@@ -315,7 +320,11 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                         <Tab
                             disabled={isDisabled}
                             tab={
-                                <TabIconContainer $isSelected={isSelected}>
+                                <TabIconContainer
+                                    $isSelected={isSelected}
+                                    data-testid={`entity-sidebar-tab-${tab.key}`}
+                                    data-sidebar-tab={tab.key}
+                                >
                                     <IconWrapper $isSelected={isSelected}>
                                         {isSelected ? (
                                             <SelectedTabIcon size={20} weight="fill" />
@@ -325,15 +334,15 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                                     </IconWrapper>
                                     <TabTextWithTooltip
                                         text={(() => {
-                                            switch (name) {
-                                                case 'Summary':
-                                                    return 'Summary';
-                                                case 'Properties':
-                                                    return 'Props';
-                                                case 'Columns':
-                                                    return 'Columns';
-                                                case 'Lineage':
-                                                    return 'Lineage';
+                                            switch (tab.key) {
+                                                case EntitySidebarTabKey.SUMMARY:
+                                                    return t('sidebar.tabs.summaryLabel');
+                                                case EntitySidebarTabKey.PROPERTIES:
+                                                    return t('sidebar.tabs.propsAbbreviation');
+                                                case EntitySidebarTabKey.COLUMNS:
+                                                    return t('sidebar.tabs.columnsLabel');
+                                                case EntitySidebarTabKey.LINEAGE:
+                                                    return t('sidebar.tabs.lineageLabel');
                                                 default:
                                                     return name;
                                             }

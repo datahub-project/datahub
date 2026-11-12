@@ -1,5 +1,6 @@
 ---
-title: Configuration
+title: Tableau Configuration
+description: "Configure DataHub UI ingestion to connect to Tableau using the dedicated DataHub user and Site Administrator Explorer access."
 ---
 
 # Configuring Your Tableau Connector to DataHub
@@ -52,10 +53,10 @@ This will securely store your Tableau `password` within DataHub
 
 ## Configure Recipe
 
-5. Navigate to on the **Sources** tab and then **Create new source**
+5. Navigate to the **Sources** tab and click **Create Source**
 
 <p align="center">
-  <img width="75%" alt="Click &quot;Create new source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_click_create_new_source_button.png"/>
+  <img width="75%" alt="Click &quot;Create Source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_click_create_new_source_button.png"/>
 </p>
 
 6. Select Tableau
@@ -65,6 +66,8 @@ This will securely store your Tableau `password` within DataHub
 </p>
 
 7.  Fill in the Tableau Recipe form:
+
+    Enter a **Source Name** at the top of the **Connection Details** page, then fill in the connection fields.
 
     You need to set minimum following fields in the recipe:
 
@@ -90,13 +93,11 @@ Your recipe should look something like this:
   <img width="70%" alt="tableau recipe in form format" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-recipe.png"/>
 </p>
 
-Click **Next** when you're done.
-
 ## Schedule Execution
 
 Now it's time to schedule a recurring ingestion pipeline to regularly extract metadata from your Tableau instance.
 
-8. Decide how regularly you want this ingestion to run-- day, month, year, hour, minute, etc. Select from the dropdown
+8. In the **Sync Schedule** section, turn on **Run on a schedule**, then decide how regularly you want this ingestion to run-- day, month, year, hour, minute, etc. Select from the dropdown
 
 <p align="center">
     <img width="75%" alt="schedule selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_set_execution_schedule.png"/>
@@ -107,14 +108,9 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
     <img width="75%" alt="timezone_selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_set_execution_timezone.png"/>
 </p>
 
-10. Click **Next** when you are done
+## Save and Run
 
-## Finish Up
-
-11. Name your ingestion source, then click **Save and Run**
-<p align="center">
-  <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-ingestion-save-and-run.png"/>
-</p>
+10. Click **Save and Run** at the top of the page
 
 You will now find your new ingestion source running
 
@@ -124,25 +120,25 @@ You will now find your new ingestion source running
 
 ## Validate Ingestion Runs
 
-12. View the latest status of ingestion runs on the Ingestion page
+11. View the latest status of ingestion runs on the Ingestion page
 
 <p align="center">
   <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-ingestion-succeeded.png"/>
 </p>
 
-13. Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run
+12. Open the **Run History** tab to see the full list of historical runs and outcomes; click a run's status to open its **Run Details** page
 
 <p align="center">
   <img width="75%" alt="ingestion_details" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-ingestion-history.png"/>
 </p>
 
-14. From the Ingestion Run Details page, pick **View All** to see which entities were ingested
+13. In the **Assets** section of the **Run Details** page, click **View all** to see which entities were ingested
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-ingestion-run-detail.png"/>
 </p>
 
-15. Pick an entity from the list to manually validate if it contains the detail you expected
+14. Pick an entity from the list to manually validate if it contains the detail you expected
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-ingestion-assets.png"/>

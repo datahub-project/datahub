@@ -9,6 +9,8 @@ import lombok.Data;
 public class EntityAnnotationDto {
   private String name;
   private String keyAspect;
+  private String searchGroup;
+  private boolean viewUnrestricted;
 
   public static EntityAnnotationDto fromEntityAnnotation(EntityAnnotation annotation) {
     if (annotation == null) {
@@ -18,6 +20,8 @@ public class EntityAnnotationDto {
     return EntityAnnotationDto.builder()
         .name(annotation.getName())
         .keyAspect(annotation.getKeyAspect())
+        .searchGroup(annotation.getSearchGroup())
+        .viewUnrestricted(annotation.isViewUnrestricted())
         .build();
   }
 }

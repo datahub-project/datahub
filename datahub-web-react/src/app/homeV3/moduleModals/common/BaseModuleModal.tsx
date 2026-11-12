@@ -1,10 +1,11 @@
 import { Modal } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { ModalButton } from '@components/components/Modal/Modal';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
-import { ANT_NOTIFICATION_Z_INDEX } from '@app/shared/constants';
+import { ANT_NOTIFICATION_Z_INDEX } from '@app/sharedV2/constants';
 
 const modalBodyStyles = {
     overflow: 'auto',
@@ -31,6 +32,7 @@ export default function BaseModuleModal({
     submitButtonProps,
     bodyStyles,
 }: React.PropsWithChildren<Props>) {
+    const { t: tc } = useTranslation('common.actions');
     const {
         moduleModalState: { close, isOpen, isEditing },
     } = usePageTemplateContext();
@@ -38,13 +40,13 @@ export default function BaseModuleModal({
     // Modal buttons configuration
     const buttons: ModalButton[] = [
         {
-            text: 'Cancel',
+            text: tc('cancel'),
             color: 'gray',
             variant: 'text',
             onClick: close,
         },
         {
-            text: `${isEditing ? 'Update' : 'Create'}`,
+            text: isEditing ? tc('update') : tc('create'),
             color: 'primary',
             variant: 'filled',
             onClick: onUpsert,

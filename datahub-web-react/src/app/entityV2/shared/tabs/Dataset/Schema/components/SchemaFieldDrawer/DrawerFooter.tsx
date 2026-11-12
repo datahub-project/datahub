@@ -1,10 +1,10 @@
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
-import { pluralize } from '@app/shared/textUtil';
 
 const HeaderWrapper = styled.div`
     position: absolute;
@@ -72,17 +72,22 @@ export default function DrawerFooter({
     selectNextField,
     displayedRows,
 }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     return (
         <HeaderWrapper>
             <ButtonsWrapper>
                 <StyledIcon onClick={selectPreviousField}>
-                    <KeyboardArrowUpIcon />
+                    <CaretUp />
                 </StyledIcon>
                 <FieldIndexText>
-                    {expandedFieldIndex + 1} of {displayedRows.length} {pluralize(displayedRows.length, 'field')}
+                    {t('fieldDrawer.fieldNavigation', {
+                        count: displayedRows.length,
+                        current: expandedFieldIndex + 1,
+                        total: displayedRows.length,
+                    })}
                 </FieldIndexText>
                 <StyledIcon onClick={selectNextField}>
-                    <KeyboardArrowDownIcon />
+                    <CaretDown />
                 </StyledIcon>
             </ButtonsWrapper>
         </HeaderWrapper>

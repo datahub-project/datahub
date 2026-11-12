@@ -5,28 +5,7 @@ plugins {
 
 apply from: '../../gradle/coverage/java-coverage.gradle'
 
-sourceSets {
-  integTest {
-    compileClasspath += sourceSets.main.output
-    runtimeClasspath += sourceSets.main.output
-  }
-}
-
-idea {
-  module {
-    testSourceDirs += file('src/integTest/java')
-    scopes.TEST.plus += [ configurations.integTestCompileOnly ]
-  }
-}
-
-
 configurations {
-  integTestImplementation.extendsFrom implementation
-  integTestRuntimeOnly.extendsFrom runtimeOnly
-  integTestCompileOnly {
-    extendsFrom compileOnly
-    canBeResolved = true
-  }
   modelValidation
 }
 
@@ -59,36 +38,20 @@ dependencies {
 
   annotationProcessor externalDependency.lombok
 
+  testImplementation testFixtures(project(':metadata-utils'))
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
   testImplementation project(':mock-entity-registry')
   testImplementation externalDependency.mockito
-  testImplementation externalDependency.mockitoInline
   testImplementation externalDependency.testng
-
-  integTestImplementation externalDependency.junitJupiterApi
-  integTestRuntimeOnly externalDependency.junitJupiterEngine
-
-  integTestCompileOnly externalDependency.junitJupiterApi
-  integTestCompileOnly externalDependency.junitJupiterParams
 
   modelValidation project(path: ':metadata-models-validator')
   dataModel project(path: ':metadata-models', configuration: 'dataTemplate')
   dataModel project(path: ':li-utils', configuration: 'dataTemplate')
 }
 
-task integrationTest(type: Test) {
-  description = 'Runs integration tests.'
-  group = 'verification'
-  useJUnitPlatform()
-
-  testClassesDirs = sourceSets.integTest.output.classesDirs
-  classpath = sourceSets.integTest.runtimeClasspath
-  shouldRunAfter test
-}
-
 task validateModels(type: JavaExec) {
-  main = 'com.linkedin.metadata.model.validation.ModelValidationTask'
+  mainClass = 'com.linkedin.metadata.model.validation.ModelValidationTask'
   args '../../metadata-models/src/main/pegasus/:' + '../../li-utils/src/main/pegasus/:' + configurations.dataModel.asPath, project.getProjectDir().getAbsolutePath() + "/../../metadata-models/src/main/pegasus",
   classpath = project.configurations.modelValidation
   debugOptions {
@@ -98,8 +61,6 @@ task validateModels(type: JavaExec) {
 }
 
 compileJava.dependsOn validateModels
-check.dependsOn integrationTest
-integrationTest.enabled = false
 
 // Generate IDLs
 pegasus.main.idlOptions.addIdlItem([

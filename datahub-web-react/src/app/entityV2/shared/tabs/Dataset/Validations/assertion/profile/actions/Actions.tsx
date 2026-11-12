@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { ContractAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ContractAction';
 import { CopyLinkAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/CopyLinkAction';
 import { CopyUrnAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/CopyUrnAction';
+import { DeleteAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/DeleteAction';
 import { ExternalUrlAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ExternalUrlAction';
 import { useIsOnSiblingsView } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 
@@ -37,6 +38,11 @@ export const Actions = ({ assertion, contract, canEditContract, refetch }: Props
                 null}
             <CopyLinkAction assertion={assertion} />
             <CopyUrnAction assertion={assertion} />
+            <DeleteAction
+                assertion={assertion}
+                canEdit={!!assertion.dataset?.privileges?.canEditAssertions}
+                refetch={refetch}
+            />
         </ActionList>
     );
 };

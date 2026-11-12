@@ -1,15 +1,34 @@
+import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { VerticalTimeline, VerticalTimelineElement } from 'react-vertical-timeline-component';
 import 'react-vertical-timeline-component/style.min.css';
 import styled, { useTheme } from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 
 import { useGetTimelineQuery } from '@graphql/timeline.generated';
-import { ChangeCategoryType } from '@types';
+import { ChangeCategoryType, ChangeOperationType } from '@types';
 
-import TimelineIcon from '@images/timeline-icon.svg?react';
+const PLACEHOLDER_SUBTITLE = 'subtitle';
+const PLACEHOLDER_DESC = 'description';
+
+const TIMELINE_LAYOUT = '1-column-left';
+
+const CONTENT_STYLE: React.CSSProperties = {
+    boxShadow: 'none',
+    padding: 0,
+};
+
+const ICON_STYLE: React.CSSProperties = {
+    height: '10px',
+    width: '10px',
+    boxShadow: 'none',
+    position: 'absolute',
+    top: '30%',
+    left: 0,
+};
 
 const TimeLine = styled(VerticalTimeline)`
     svg {
@@ -37,8 +56,22 @@ const Event = styled(Typography.Text)`
 `;
 
 export const SchemaTimelineSection = () => {
+    const { t } = useTranslation('entity.profile.timeline');
     const theme = useTheme();
     const { urn } = useEntityData();
+
+    const getChangeTitle = (operation: ChangeOperationType | null | undefined, fieldPath: string): string => {
+        switch (operation) {
+            case ChangeOperationType.Add:
+                return t('schemaTimeline.changeAdded', { fieldPath });
+            case ChangeOperationType.Modify:
+                return t('schemaTimeline.changeModified', { fieldPath });
+            case ChangeOperationType.Remove:
+                return t('schemaTimeline.changeRemoved', { fieldPath });
+            default:
+                return '';
+        }
+    };
 
     const timelineResult = useGetTimelineQuery({
         // also pass in the changeCategories
@@ -51,14 +84,13 @@ export const SchemaTimelineSection = () => {
     transactions?.forEach((transaction) => {
         const time = new Date(transaction.timestampMillis).toDateString();
         transaction.changes?.forEach((change) => {
+            const fieldPath = change.parameters?.find((parameter) => parameter.key === 'fieldPath')?.value ?? '';
             const entry = {
                 // operation: change.operation,
                 // description: change.description,
-                title: `${
-                    change.parameters?.find((parameter) => parameter.key === 'fieldPath')?.value
-                } was ${change.operation?.toLowerCase()}ed.`,
-                subtitle: 'subtitle',
-                desc: 'description',
+                title: getChangeTitle(change.operation, fieldPath),
+                subtitle: PLACEHOLDER_SUBTITLE,
+                desc: PLACEHOLDER_DESC,
                 time,
             };
             timelineHistory.push(entry);
@@ -66,31 +98,21 @@ export const SchemaTimelineSection = () => {
     });
 
     return (
-        <TimeLine layout="1-column-left" lineColor={theme.colors.border} animate={false}>
-            {timelineHistory.map((t) => {
+        <TimeLine layout={TIMELINE_LAYOUT} lineColor={theme.colors.border} animate={false}>
+            {timelineHistory.map((entry) => {
                 return (
                     <VerticalTimelineElement
-                        key={t.title}
-                        contentStyle={{
-                            boxShadow: 'none',
-                            padding: 0,
-                        }}
-                        date={t.date}
-                        icon={<TimelineIcon />}
-                        iconStyle={{
-                            height: '10px',
-                            width: '10px',
-                            boxShadow: 'none',
-                            position: 'absolute',
-                            top: '30%',
-                            left: 0,
-                        }}
+                        key={entry.title}
+                        contentStyle={CONTENT_STYLE}
+                        date={entry.date}
+                        icon={<ClockCounterClockwise size={10} />}
+                        iconStyle={ICON_STYLE}
                     >
-                        {t.title && (
+                        {entry.title && (
                             <>
-                                <DateText> {t.time}</DateText>
+                                <DateText> {entry.time}</DateText>
                                 <div>
-                                    <Event>{t.title} </Event>
+                                    <Event>{entry.title} </Event>
                                 </div>
                             </>
                         )}

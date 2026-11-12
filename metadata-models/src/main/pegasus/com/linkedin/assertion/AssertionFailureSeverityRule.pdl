@@ -1,0 +1,28 @@
+namespace com.linkedin.assertion
+
+/**
+ * A rule that maps an assertion failure amount to a failure severity.
+ */
+record AssertionFailureSeverityRule {
+  /**
+   * The severity to assign if this rule matches the computed failure amount.
+   */
+  severity: AssertionResultSeverity
+
+  /**
+   * The operator to apply to the computed failure amount.
+   *
+   * For MVP, only single-threshold numeric comparison operators are valid:
+   * GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, LESS_THAN, and
+   * LESS_THAN_OR_EQUAL_TO.
+   */
+  operator: AssertionStdOperator
+
+  /**
+   * The parameters to provide as input to the operator.
+   *
+   * These values are compared against the computed failure amount, not the
+   * original assertion value.
+   */
+  parameters: AssertionStdParameters
+}

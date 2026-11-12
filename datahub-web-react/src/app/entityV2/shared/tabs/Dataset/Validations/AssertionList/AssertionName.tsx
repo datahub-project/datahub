@@ -2,6 +2,7 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import AcrylAssertionListStatusDot from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListStatusDot';
 import { DataContractBadge } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/DataContractBadge';
 import { AssertionPlatformAvatar } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionPlatformAvatar';
@@ -9,7 +10,7 @@ import { AssertionResultPopover } from '@app/entityV2/shared/tabs/Dataset/Valida
 import { ResultStatusType } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
 import { useBuildAssertionPrimaryLabel } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
 import { isAssertionPartOfContract } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
 import { UNKNOWN_DATA_PLATFORM } from '@src/app/entityV2/shared/constants';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Assertion, AssertionRunEvent, DataContract, DataPlatform, EntityType, Maybe } from '@src/types.generated';
@@ -68,8 +69,7 @@ export const AssertionName = ({
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
 
-    const monitorSchedule = null;
-    const name = useBuildAssertionPrimaryLabel(assertion.info, monitorSchedule, {
+    const name = useBuildAssertionPrimaryLabel(assertion.info, {
         showColumnTag: true,
     });
 
@@ -114,7 +114,7 @@ export const AssertionName = ({
                                 link={`${entityRegistry.getEntityUrl(
                                     EntityType.Dataset,
                                     entityData.urn,
-                                )}/Quality/Data Contract`}
+                                )}/${EntityTabPath.QUALITY}/Data Contract`}
                             />
                         )) ||
                             undefined}

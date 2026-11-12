@@ -1,0 +1,1231 @@
+import logging
+from dataclasses import dataclass
+from typing import (
+    Dict,
+    Iterable,
+    List,
+    MutableMapping,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+)
+
+import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import ConfigurationError
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.microstrategy.config import (
+    ConnectionPlatformConfig,
+    MicroStrategyConfig,
+)
+from datahub.ingestion.source.microstrategy.constants import (
+    MSTR_CREATE_TABLE_NAME_RE,
+    MSTR_DEFAULT_QUALIFIED_NAME_PARTS,
+    MSTR_HEX_OBJECT_ID_RE,
+    MSTR_LINEAGE_IRRELEVANT_STATEMENT_RE,
+    MSTR_LINEAGE_STOP_WORDS,
+    MSTR_METRIC_REFERENCE_RE,
+    MSTR_NAME_TOKEN_RE,
+    MSTR_NON_ALNUM_RE,
+    MSTR_PLATFORM_QUALIFIED_NAME_PARTS,
+    MSTR_SELECT_STATEMENT_RE,
+    MSTR_SOURCE_TYPE_TO_DATAHUB_PLATFORM,
+    MSTR_SQL_EXPRESSION_KEYWORDS,
+    MSTR_SQL_IDENTIFIER_RE,
+    MSTR_SQL_VIEW_OUTPUT_SENTINEL,
+    MSTR_WHITESPACE_RE,
+)
+from datahub.ingestion.source.microstrategy.models import (
+    ColumnSet,
+    DashboardDefinition,
+    DatasetObject,
+    Datasource,
+    DatasourceConnection,
+    DatasourceReference,
+    Visualization,
+    normalize_object_id,
+)
+from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+
+logger = logging.getLogger(__name__)
+
+LineageKey = TypeVar("LineageKey")
+
+
+@dataclass(frozen=True)
+class WarehouseLineageContext:
+    platform: str
+    env: str
+    platform_instance: Optional[str] = None
+    database: Optional[str] = None
+    schema: Optional[str] = None
+    convert_urns_to_lowercase: bool = True
+
+
+@dataclass(frozen=True)
+class ModelFieldLineage:
+    upstream_dataset_urn: str
+    upstream_field_urns: List[str]
+
+
+@dataclass(frozen=True)
+class SqlViewLineage:
+    # Table-level upstream dataset urns and, keyed by dataset field path, the
+    # upstream warehouse schemaField urns feeding that field.
+    upstream_urns: List[str]
+    field_upstreams: Dict[str, List[str]]
+
+
+@dataclass(frozen=True)
+class ColumnSetBinding:
+    """Per-column-group dataset attribution for a compound-grid visualization.
+    Keys are column-set keys (falling back to names when a key is absent)."""
+
+    dataset_id_by_column_set: Dict[str, str]
+    unbound_column_sets: List[str]
+
+    @property
+    def dataset_ids(self) -> List[str]:
+        return sorted(set(self.dataset_id_by_column_set.values()))
+
+
+@dataclass
+class ModelLineageIndex:
+    fact_upstreams: Dict[str, List[ModelFieldLineage]]
+    attribute_upstreams: Dict[str, List[ModelFieldLineage]]
+    attribute_form_upstreams: Dict[Tuple[str, str], List[ModelFieldLineage]]
+
+    def fact_field_urns(self, fact_ids: Iterable[str]) -> List[str]:
+        upstreams: List[str] = []
+        for fact_id in fact_ids:
+            for lineage in self.fact_upstreams.get(normalize_object_id(fact_id), []):
+                upstreams.extend(lineage.upstream_field_urns)
+        return _dedupe_sorted(upstreams)
+
+    def attribute_field_urns(
+        self,
+        attribute_id: str,
+        form_name: Optional[str] = None,
+    ) -> List[str]:
+        normalized_attribute_id = normalize_object_id(attribute_id)
+        upstreams: List[str] = []
+        if form_name:
+            upstreams.extend(
+                field_urn
+                for lineage in self.attribute_form_upstreams.get(
+                    (normalized_attribute_id, _normalize_lineage_key(form_name)),
+                    [],
+                )
+                for field_urn in lineage.upstream_field_urns
+            )
+        if not upstreams:
+            upstreams.extend(
+                field_urn
+                for lineage in self.attribute_upstreams.get(
+                    normalized_attribute_id,
+                    [],
+                )
+                for field_urn in lineage.upstream_field_urns
+            )
+        return _dedupe_sorted(upstreams)
+
+
+class MicroStrategyLineageExtractor:
+    def __init__(self, config: MicroStrategyConfig, report: MicroStrategyReport):
+        self.config = config
+        self.report = report
+        # upstream dataset urn -> {lower(fieldPath): fieldPath}, or None when the
+        # warehouse dataset has no schema in the graph. Cached so each upstream is
+        # fetched at most once per run.
+        self._warehouse_field_cache: Dict[str, Optional[Dict[str, str]]] = {}
+
+    def dataset_urn(
+        self,
+        project_id: str,
+        parent_id: str,
+        dataset: DatasetObject,
+    ) -> str:
+        """URN for a MicroStrategy dataset scoped to its parent dashboard or report."""
+        return make_dataset_urn_with_platform_instance(
+            platform=self.config.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            name=f"{project_id}.{parent_id}.{dataset.id}".lower(),
+        )
+
+    def visualization_inputs(
+        self,
+        project_id: str,
+        dashboard: DashboardDefinition,
+        visualization: Visualization,
+    ) -> List[str]:
+        dataset_by_id = {dataset.id: dataset for dataset in dashboard.datasets}
+        # Visualization payloads and the dashboard can differ in GUID case.
+        dataset_id_by_normalized = {
+            normalize_object_id(dataset.id): dataset.id
+            for dataset in dashboard.datasets
+        }
+        bound_ids = {
+            dataset_id_by_normalized[normalize_object_id(dataset_id)]
+            for dataset_id in visualization.datasets
+            if normalize_object_id(dataset_id) in dataset_id_by_normalized
+        }
+
+        # A compound grid reads one dataset per column group, while the earlier
+        # binding tiers (explicit dataset ids, dataset-scoped derived objects)
+        # can prove only some of them — live: 1 of 3. Union rather than tier:
+        # every id here carries positive evidence, and stopping at the first
+        # non-empty tier is exactly what hid the other groups' columns.
+        if visualization.column_sets:
+            binding = bind_visualization_column_sets(dashboard, visualization)
+            if binding.unbound_column_sets:
+                self.report.report_column_sets_unbound(len(binding.unbound_column_sets))
+            column_set_ids = {
+                dataset_id
+                for dataset_id in binding.dataset_ids
+                if dataset_id in dataset_by_id
+            }
+            if column_set_ids - bound_ids:
+                self.report.report_visualization_bound_by_column_sets()
+            bound_ids |= column_set_ids
+
+        if bound_ids:
+            return sorted(
+                self.dataset_urn(project_id, dashboard.id, dataset_by_id[dataset_id])
+                for dataset_id in bound_ids
+            )
+        if visualization.datasets:
+            # The definition names its datasets but none is on the dashboard;
+            # guessing another one would be wrong lineage.
+            return []
+
+        if len(dashboard.datasets) == 1:
+            return [self.dataset_urn(project_id, dashboard.id, dashboard.datasets[0])]
+
+        inferred = self._infer_visualization_dataset_inputs(
+            project_id, dashboard, visualization
+        )
+        if inferred:
+            return inferred
+
+        return []
+
+    def dashboard_dataset_urns(
+        self,
+        project_id: str,
+        dashboard: DashboardDefinition,
+    ) -> List[str]:
+        seen: Set[str] = set()
+        urns: List[str] = []
+        for dataset in dashboard.datasets:
+            urn = self.dataset_urn(project_id, dashboard.id, dataset)
+            if urn not in seen:
+                urns.append(urn)
+                seen.add(urn)
+        return urns
+
+    def unresolved_visualization_datasets(
+        self, dashboard: DashboardDefinition
+    ) -> Dict[str, List[str]]:
+        dataset_ids = {
+            normalize_object_id(dataset.id) for dataset in dashboard.datasets
+        }
+        unresolved: Dict[str, List[str]] = {}
+        for visualization in dashboard.visualizations:
+            missing = [
+                dataset_id
+                for dataset_id in visualization.datasets
+                if normalize_object_id(dataset_id) not in dataset_ids
+            ]
+            if missing:
+                unresolved[visualization.key] = sorted(missing)
+        return unresolved
+
+    def warehouse_lineage_from_sql(
+        self,
+        sql: str,
+        context: WarehouseLineageContext,
+        dataset_field_paths: Iterable[str],
+        graph: Optional[DataHubGraph] = None,
+    ) -> "SqlViewLineage":
+        """Table- and column-level warehouse lineage from a SQL view, in one parse.
+
+        MicroStrategy SQL views are multi-pass scripts: statements (often CREATE
+        VOLATILE/TEMP TABLE ... AS select) concatenated without semicolons, ending
+        in a SELECT. A single ``create_lineage_from_sql_statements`` call resolves
+        lineage through those intermediates to the real base tables; its
+        ``in_tables`` are the table-level upstreams. The dialect does not mark the
+        intermediates as temporary, so we pass an ``is_temp_table`` predicate (any
+        table the script creates). When dataset field paths are supplied and the
+        script ends in a SELECT, that SELECT is wrapped as a sentinel CTAS so its
+        projection becomes a concrete downstream we can read column lineage from,
+        and each output column is matched back to a dataset field
+        (case-insensitively; best effort).
+        """
+        field_path_by_name = {path.lower(): path for path in dataset_field_paths}
+        if not sql.strip():
+            return SqlViewLineage([], {})
+
+        # Deferred import: sqlglot_lineage pulls in the full sqlglot parser,
+        # which is expensive to import and only needed for opt-in SQL lineage.
+        # A missing module here is an installation problem, never a
+        # per-statement parse failure, so it must surface as one.
+        try:
+            from datahub.sql_parsing.split_statements import split_statements
+            from datahub.sql_parsing.sql_parsing_common import get_dialect_str
+            from datahub.sql_parsing.sqlglot_lineage import (
+                create_lineage_from_sql_statements,
+            )
+        except ImportError as error:
+            raise _sql_lineage_dependency_error(error) from error
+
+        # Resolve the sqlglot dialect through DataHub's central platform->dialect
+        # map so tokenization matches what the parser itself uses.
+        dialect = get_dialect_str(context.platform)
+        statements = [
+            statement
+            for statement in split_statements(sql, dialect=dialect)
+            if statement.strip() and not _is_lineage_irrelevant_statement(statement)
+        ]
+        if not statements:
+            return SqlViewLineage([], {})
+
+        self.report.report_sql_view_parsed()
+        created_tables = _created_table_leaf_names(statements)
+        # Column lineage needs the final SELECT wrapped as a sentinel CTAS so its
+        # projection is a concrete downstream; table-level upstreams don't, so
+        # skip the wrap when there are no field paths or no trailing SELECT.
+        want_columns = bool(field_path_by_name) and bool(
+            MSTR_SELECT_STATEMENT_RE.match(statements[-1])
+        )
+        queries = list(statements)
+        if want_columns:
+            queries[-1] = (
+                f"CREATE TABLE {MSTR_SQL_VIEW_OUTPUT_SENTINEL} AS\n{queries[-1]}"
+            )
+
+        try:
+            result = create_lineage_from_sql_statements(
+                queries=queries,
+                default_db=context.database,
+                default_schema=context.schema,
+                platform=context.platform,
+                platform_instance=context.platform_instance,
+                env=context.env,
+                graph=graph,
+                is_temp_table=lambda name: _leaf_identifier(name) in created_tables,
+            )
+        except ImportError as error:
+            # The parser lazily imports some of its own dependencies; an
+            # ImportError is environmental (every statement would fail the
+            # same way), not something to count against this SQL view.
+            raise _sql_lineage_dependency_error(error) from error
+        except Exception as error:
+            self._report_sql_parse_failure(sql, context, error)
+            return SqlViewLineage([], {})
+        if result.debug_info.error is not None:
+            self._report_sql_parse_failure(sql, context, result.debug_info.error)
+            return SqlViewLineage([], {})
+
+        field_upstreams: Dict[str, List[str]] = {}
+        if want_columns:
+            for column_lineage in result.column_lineage or []:
+                field_path = field_path_by_name.get(
+                    column_lineage.downstream.column.lower()
+                )
+                if field_path is None:
+                    continue
+                # Temp tables have already been collapsed, so every remaining
+                # upstream is a real warehouse column.
+                upstream_urns = column_lineage.upstream_schema_field_urns()
+                if upstream_urns:
+                    field_upstreams.setdefault(field_path, []).extend(upstream_urns)
+
+        return SqlViewLineage(
+            upstream_urns=_dedupe_sorted(result.in_tables),
+            field_upstreams={
+                field_path: _dedupe_sorted(urns)
+                for field_path, urns in field_upstreams.items()
+            },
+        )
+
+    def _report_sql_parse_failure(
+        self,
+        sql: str,
+        context: WarehouseLineageContext,
+        error: BaseException,
+    ) -> None:
+        self.report.report_sql_parse_failure(
+            f"platform={context.platform}, "
+            f"error={type(error).__name__}: {str(error)[:160]}, "
+            f"sql_prefix={sql.strip()[:80]!r}"
+        )
+        self.report.warning(
+            title="Failed to parse MicroStrategy SQL view",
+            message=(
+                "A MicroStrategy SQL view could not be parsed; warehouse lineage "
+                "for this dataset was skipped."
+            ),
+            context=f"platform={context.platform}, sql_prefix={sql.strip()[:80]!r}",
+        )
+        logger.debug(
+            "Failed to parse MicroStrategy SQL view (%s): %s",
+            error,
+            sql.strip()[:200],
+        )
+
+    def model_lineage_index_from_tables(
+        self,
+        model_tables: List[Dict[str, object]],
+        context: WarehouseLineageContext,
+        graph: Optional[DataHubGraph] = None,
+    ) -> ModelLineageIndex:
+        fact_upstreams: Dict[str, List[ModelFieldLineage]] = {}
+        attribute_upstreams: Dict[str, List[ModelFieldLineage]] = {}
+        attribute_form_upstreams: Dict[Tuple[str, str], List[ModelFieldLineage]] = {}
+
+        for table in model_tables:
+            if not isinstance(table, dict):
+                continue
+            physical_table = table.get("physicalTable")
+            if not isinstance(physical_table, dict):
+                continue
+            physical_table_name = _physical_table_name(physical_table, context)
+            if not physical_table_name:
+                continue
+            upstream_dataset_urn = self.warehouse_dataset_urn(
+                context,
+                physical_table_name,
+            )
+
+            for fact in _coerce_dicts(table.get("facts")):
+                fact_id = _object_id(fact.get("information"))
+                if not fact_id:
+                    continue
+                field_urns = self._upstream_field_urns(
+                    _model_expression_field_names(fact),
+                    upstream_dataset_urn,
+                    context.convert_urns_to_lowercase,
+                    graph,
+                )
+                if field_urns:
+                    _append_lineage(
+                        fact_upstreams,
+                        normalize_object_id(fact_id),
+                        ModelFieldLineage(upstream_dataset_urn, field_urns),
+                    )
+
+            for attribute in _coerce_dicts(table.get("attributes")):
+                attribute_id = _object_id(attribute.get("information"))
+                if not attribute_id:
+                    continue
+                attribute_lineages: List[ModelFieldLineage] = []
+                for form in _coerce_dicts(attribute.get("forms")):
+                    field_urns = self._upstream_field_urns(
+                        _model_expression_field_names(form),
+                        upstream_dataset_urn,
+                        context.convert_urns_to_lowercase,
+                        graph,
+                    )
+                    if not field_urns:
+                        continue
+                    lineage = ModelFieldLineage(upstream_dataset_urn, field_urns)
+                    attribute_lineages.append(lineage)
+                    form_name = _form_name(form)
+                    if form_name:
+                        _append_lineage(
+                            attribute_form_upstreams,
+                            (normalize_object_id(attribute_id), form_name),
+                            lineage,
+                        )
+                for lineage in attribute_lineages:
+                    _append_lineage(
+                        attribute_upstreams,
+                        normalize_object_id(attribute_id),
+                        lineage,
+                    )
+
+        return ModelLineageIndex(
+            fact_upstreams=fact_upstreams,
+            attribute_upstreams=attribute_upstreams,
+            attribute_form_upstreams=attribute_form_upstreams,
+        )
+
+    def warehouse_dataset_urn(
+        self,
+        context: WarehouseLineageContext,
+        table_name: str,
+    ) -> str:
+        qualified_name = qualify_table_name(
+            table_name,
+            database=context.database,
+            schema=context.schema,
+            name_parts=_platform_name_parts(context.platform),
+        )
+        return make_dataset_urn_with_platform_instance(
+            platform=context.platform,
+            platform_instance=context.platform_instance,
+            env=context.env,
+            name=qualified_name.lower()
+            if context.convert_urns_to_lowercase
+            else qualified_name,
+        )
+
+    def _upstream_field_urns(
+        self,
+        field_names: List[str],
+        upstream_dataset_urn: str,
+        convert_to_lowercase: bool,
+        graph: Optional[DataHubGraph],
+    ) -> List[str]:
+        # Prefer the warehouse dataset's real column casing from the graph so
+        # schemaField urns byte-match regardless of the case MicroStrategy reports;
+        # fall back to the casing heuristic when the schema is unavailable.
+        schema_fields = self._warehouse_field_map(upstream_dataset_urn, graph)
+        urns: List[str] = []
+        for field_name in field_names:
+            resolved = None
+            if schema_fields is not None:
+                resolved = schema_fields.get(field_name.lower())
+            if resolved is None:
+                resolved = field_name.lower() if convert_to_lowercase else field_name
+            urns.append(builder.make_schema_field_urn(upstream_dataset_urn, resolved))
+        return urns
+
+    def _warehouse_field_map(
+        self,
+        upstream_dataset_urn: str,
+        graph: Optional[DataHubGraph],
+    ) -> Optional[Dict[str, str]]:
+        if graph is None:
+            return None
+        if upstream_dataset_urn in self._warehouse_field_cache:
+            return self._warehouse_field_cache[upstream_dataset_urn]
+
+        field_map: Optional[Dict[str, str]] = None
+        try:
+            schema = graph.get_schema_metadata(upstream_dataset_urn)
+        except Exception as error:
+            logger.debug(
+                "Failed to fetch schema for %s from graph: %s",
+                upstream_dataset_urn,
+                error,
+            )
+            schema = None
+        if schema is not None:
+            # Later fields win on case-insensitive collisions, which is rare and
+            # harmless since either casing anchors to the same column.
+            field_map = {
+                field.fieldPath.lower(): field.fieldPath for field in schema.fields
+            }
+        self._warehouse_field_cache[upstream_dataset_urn] = field_map
+        return field_map
+
+    def _infer_visualization_dataset_inputs(
+        self,
+        project_id: str,
+        dashboard: DashboardDefinition,
+        visualization: Visualization,
+    ) -> List[str]:
+        if not visualization.object_ids:
+            return []
+
+        visualization_object_ids = set(visualization.object_ids)
+        visualization_tokens = _lineage_name_tokens(visualization.name)
+        inputs: List[str] = []
+        for dataset in dashboard.datasets:
+            overlap = visualization_object_ids.intersection(dataset.object_ids)
+            if not overlap:
+                continue
+            dataset_tokens = _lineage_name_tokens(dataset.name)
+            if visualization_tokens.intersection(dataset_tokens):
+                inputs.append(self.dataset_urn(project_id, dashboard.id, dataset))
+
+        unique_inputs = sorted(set(inputs))
+        # Dashboards built from many cubes sharing one object catalog (e.g. one cube per
+        # time period) make every dataset "match" every visualization. An inference that
+        # excludes nothing carries no signal, so treat it as unresolved rather than emit an
+        # all-to-all fan-out. Two-dataset dashboards are exempt (a combined viz is plausible);
+        # dashboard-level fallback remains via `emit_dashboard_dataset_edges`.
+        if len(dashboard.datasets) > 2 and len(unique_inputs) == len(
+            dashboard.datasets
+        ):
+            self.report.report_unresolved_visualization()
+            self.report.report_visualization_suppressed_ambiguous()
+            logger.debug(
+                "Visualization %s matched all %d datasets of dashboard %s; "
+                "treating the binding as unresolved",
+                visualization.key,
+                len(dashboard.datasets),
+                dashboard.id,
+            )
+            return []
+        return unique_inputs
+
+
+def ensure_sql_lineage_dependencies() -> None:
+    """Import the SQL-view lineage parser eagerly so a broken install fails the
+    run at startup with a clear message instead of silently emitting zero
+    lineage. create_lineage_from_sql_statements lazily imports the
+    SqlParsingAggregator module on first use, and that module transitively
+    needs sqlparse (usage_common -> sql_formatter), which the `microstrategy`
+    extra now declares; an environment built from an older extra, or from a
+    bare wheel, lacks it and used to fail one SQL view at a time."""
+    try:
+        import datahub.sql_parsing.sql_parsing_aggregator
+        import datahub.sql_parsing.sqlglot_lineage  # noqa: F401
+    except ImportError as error:
+        raise _sql_lineage_dependency_error(error) from error
+
+
+def _sql_lineage_dependency_error(error: ImportError) -> ConfigurationError:
+    return ConfigurationError(
+        "MicroStrategy SQL-view lineage (extract_warehouse_lineage / "
+        "extract_report_sql_lineage) needs DataHub's SQL parsing dependencies, "
+        f"which are not installed: {error}. Install the connector with its extra, "
+        "`pip install 'acryl-datahub[microstrategy]'`, or disable those flags."
+    )
+
+
+def datahub_platform_for_datasource(
+    datasource: DatasourceReference,
+) -> Optional[str]:
+    return datahub_platform_for_source_type(
+        datasource.database_type,
+        datasource.datasource_type,
+        datasource.dbms_name,
+    )
+
+
+def datahub_platform_for_connection(
+    connection: DatasourceConnection,
+) -> Optional[str]:
+    return datahub_platform_for_source_type(
+        connection.database_type,
+        connection.driver_type,
+    )
+
+
+def datahub_platform_for_source_type(*values: Optional[str]) -> Optional[str]:
+    for value in values:
+        normalized = _normalize_source_type(value)
+        if not normalized:
+            continue
+        platform = MSTR_SOURCE_TYPE_TO_DATAHUB_PLATFORM.get(normalized)
+        if platform:
+            return platform
+    return None
+
+
+DatasourcePlatformMapping = Optional[Dict[str, ConnectionPlatformConfig]]
+
+
+def _detail_for_names(
+    mapping: DatasourcePlatformMapping,
+    *names: Optional[str],
+) -> Optional[ConnectionPlatformConfig]:
+    if not mapping:
+        return None
+    for name in names:
+        if name and name in mapping:
+            return mapping[name]
+    return None
+
+
+def warehouse_context_from_datasources(
+    datasources: List[Datasource],
+    env: str,
+    mapping: DatasourcePlatformMapping = None,
+) -> Optional[WarehouseLineageContext]:
+    resolved = (
+        warehouse_context_from_datasource(datasource, env, mapping)
+        for datasource in datasources
+    )
+    contexts = {context for context in resolved if context is not None}
+    if len(contexts) == 1:
+        return next(iter(contexts))
+    return None
+
+
+def warehouse_context_from_datasource(
+    datasource: DatasourceReference,
+    env: str,
+    mapping: DatasourcePlatformMapping = None,
+) -> Optional[WarehouseLineageContext]:
+    detail = _detail_for_names(mapping, datasource.connection_name, datasource.name)
+    platform = (
+        detail.platform if detail and detail.platform else None
+    ) or datahub_platform_for_datasource(datasource)
+    if not platform:
+        return None
+    return WarehouseLineageContext(
+        platform=platform,
+        env=(detail.env if detail and detail.env else env),
+        platform_instance=detail.platform_instance if detail else None,
+        database=datasource.database_name,
+        schema=datasource.schema_name,
+        convert_urns_to_lowercase=(
+            detail.convert_urns_to_lowercase if detail else True
+        ),
+    )
+
+
+def matching_datasource_for_context(
+    datasources: List[Datasource],
+    context: WarehouseLineageContext,
+    mapping: DatasourcePlatformMapping = None,
+) -> Optional[Datasource]:
+    for datasource in datasources:
+        if (
+            warehouse_context_from_datasource(datasource, context.env, mapping)
+            == context
+        ):
+            return datasource
+    return None
+
+
+def warehouse_context_with_connection(
+    context: WarehouseLineageContext,
+    connection: DatasourceConnection,
+    mapping: DatasourcePlatformMapping = None,
+) -> WarehouseLineageContext:
+    detail = _detail_for_names(mapping, connection.name)
+    platform = (
+        (detail.platform if detail and detail.platform else None)
+        or datahub_platform_for_connection(connection)
+        or context.platform
+    )
+    return WarehouseLineageContext(
+        platform=platform,
+        env=(detail.env if detail and detail.env else context.env),
+        platform_instance=(
+            detail.platform_instance if detail else context.platform_instance
+        ),
+        database=connection.database_name or context.database,
+        schema=connection.schema_name or context.schema,
+        convert_urns_to_lowercase=(
+            detail.convert_urns_to_lowercase
+            if detail
+            else context.convert_urns_to_lowercase
+        ),
+    )
+
+
+def sql_statement_from_sql_view_entry(entry: Dict[str, object]) -> str:
+    for key in ("sqlStatement", "sql", "statement"):
+        value = entry.get(key)
+        if isinstance(value, str):
+            return value
+    return ""
+
+
+def sql_view_dataset_key(entry: Dict[str, object]) -> Optional[str]:
+    for key in ("id", "objectId", "datasetId", "dataSetId"):
+        value = entry.get(key)
+        if value:
+            return str(value)
+    return None
+
+
+def sql_view_dataset_name(entry: Dict[str, object]) -> Optional[str]:
+    for key in ("name", "title"):
+        value = entry.get(key)
+        if value:
+            return str(value)
+    return None
+
+
+def qualify_table_name(
+    table_name: str,
+    database: Optional[str] = None,
+    schema: Optional[str] = None,
+    name_parts: int = MSTR_DEFAULT_QUALIFIED_NAME_PARTS,
+) -> str:
+    parts = [part for part in table_name.split(".") if part]
+    if name_parts <= 2:
+        # 2-part platforms (e.g. MySQL) qualify as database.table; they have no
+        # schema layer, so the schema/tablePrefix is never part of the native urn.
+        if len(parts) == 1 and database:
+            return f"{database}.{parts[0]}"
+        return ".".join(parts)
+    if len(parts) == 1:
+        if database and schema:
+            return f"{database}.{schema}.{parts[0]}"
+        if schema:
+            return f"{schema}.{parts[0]}"
+    if len(parts) == 2 and database:
+        return f"{database}.{parts[0]}.{parts[1]}"
+    return table_name
+
+
+def metric_fact_ids_from_model(model: Dict[str, object]) -> List[str]:
+    return _expression_target_ids(model, "fact")
+
+
+def metric_metric_ids_from_model(model: Dict[str, object]) -> List[str]:
+    return _expression_target_ids(model, "metric")
+
+
+def metric_attribute_ids_from_model(model: Dict[str, object]) -> List[str]:
+    return _expression_target_ids(model, "attribute")
+
+
+def metric_consolidation_ids_from_model(model: Dict[str, object]) -> List[str]:
+    return _expression_target_ids(model, "consolidation")
+
+
+def _expression_target_ids(model: Dict[str, object], subtype: str) -> List[str]:
+    object_ids: Set[str] = set()
+    for target in _expression_targets(model):
+        target_subtype = str(
+            target.get("subType") or target.get("subtype") or ""
+        ).lower()
+        if target_subtype == subtype:
+            object_id = _object_id(target)
+            if object_id:
+                object_ids.add(normalize_object_id(object_id))
+    return sorted(object_ids)
+
+
+def _is_lineage_irrelevant_statement(statement: str) -> bool:
+    return bool(MSTR_LINEAGE_IRRELEVANT_STATEMENT_RE.match(statement))
+
+
+def _lineage_name_tokens(name: str) -> Set[str]:
+    return {
+        token
+        for token in MSTR_NAME_TOKEN_RE.findall(name.upper())
+        if len(token) > 1 and token not in MSTR_LINEAGE_STOP_WORDS
+    }
+
+
+def _normalize_source_type(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    return MSTR_NON_ALNUM_RE.sub("_", value.strip().lower()).strip("_")
+
+
+def _platform_name_parts(platform: str) -> int:
+    return MSTR_PLATFORM_QUALIFIED_NAME_PARTS.get(
+        platform, MSTR_DEFAULT_QUALIFIED_NAME_PARTS
+    )
+
+
+def _physical_table_name(
+    physical_table: Dict[str, object],
+    context: WarehouseLineageContext,
+) -> Optional[str]:
+    table_name = _clean_identifier_part(physical_table.get("tableName"))
+    if not table_name:
+        information = physical_table.get("information")
+        if isinstance(information, dict):
+            table_name = _clean_identifier_part(information.get("name"))
+    if not table_name:
+        return None
+    # The warehouse context carries the real database (from the JDBC
+    # connection); MicroStrategy's table "namespace" is a logical namespace
+    # (e.g. "SALES_DM_1" with a dedup suffix), so it is only a last resort.
+    return qualify_table_name(
+        table_name,
+        database=context.database
+        or _clean_identifier_part(physical_table.get("namespace")),
+        schema=_clean_identifier_part(physical_table.get("tablePrefix"))
+        or context.schema,
+        name_parts=_platform_name_parts(context.platform),
+    )
+
+
+def _model_expression_field_names(item: Dict[str, object]) -> List[str]:
+    expression = item.get("expression")
+    text = ""
+    if isinstance(expression, dict):
+        text = str(expression.get("text") or "")
+    return extract_field_names_from_expression(text)
+
+
+def extract_field_names_from_expression(expression: str) -> List[str]:
+    if not expression.strip():
+        return []
+    identifiers = [
+        identifier
+        for identifier in MSTR_SQL_IDENTIFIER_RE.findall(expression)
+        if identifier.lower() not in MSTR_SQL_EXPRESSION_KEYWORDS
+    ]
+    return _dedupe_sorted(identifiers)
+
+
+def _expression_targets(model: Dict[str, object]) -> List[Dict[str, object]]:
+    expression = model.get("expression")
+    if not isinstance(expression, dict):
+        return []
+    targets: List[Dict[str, object]] = []
+    tokens = expression.get("tokens")
+    if not isinstance(tokens, list):
+        return targets
+    for token in tokens:
+        if not isinstance(token, dict):
+            continue
+        target = token.get("target")
+        if isinstance(target, dict):
+            targets.append(target)
+            continue
+        value = token.get("value")
+        if isinstance(value, dict):
+            targets.append(value)
+            continue
+        # Some MicroStrategy versions inline the object reference directly on
+        # the token instead of nesting it under target/value.
+        if token.get("objectId") or token.get("id"):
+            targets.append(token)
+    return targets
+
+
+def consolidation_attribute_ids(consolidation_model: Dict[str, object]) -> List[str]:
+    """Attribute ids a consolidation's elements are built over.
+
+    Walks each element's expression tree generically (elements_object/
+    object_reference/operator nodes all nest arbitrarily) rather than
+    modeling the tree shape explicitly, matching _expression_targets' "be
+    liberal about where the reference lives" approach.
+    """
+    object_ids: Set[str] = set()
+
+    def visit(node: object) -> None:
+        if isinstance(node, dict):
+            attribute = node.get("attribute")
+            if isinstance(attribute, dict):
+                object_id = _object_id(attribute)
+                if object_id:
+                    object_ids.add(normalize_object_id(object_id))
+            for value in node.values():
+                visit(value)
+        elif isinstance(node, list):
+            for item in node:
+                visit(item)
+
+    for element in _coerce_dicts(consolidation_model.get("elements")):
+        expression = element.get("expression")
+        if isinstance(expression, dict):
+            visit(expression.get("tree"))
+    return sorted(object_ids)
+
+
+@dataclass(frozen=True)
+class AttributeRelationship:
+    parent_attribute_id: str
+    child_attribute_id: str
+    relationship_table_id: Optional[str]
+    relationship_type: Optional[str]
+
+
+def parse_attribute_relationships(
+    response: Dict[str, object],
+) -> List[AttributeRelationship]:
+    relationships: List[AttributeRelationship] = []
+    for entry in _coerce_dicts(response.get("relationships")):
+        parent = entry.get("parent")
+        child = entry.get("child")
+        parent_id = _object_id(parent) if isinstance(parent, dict) else None
+        child_id = _object_id(child) if isinstance(child, dict) else None
+        if not parent_id or not child_id:
+            continue
+        table = entry.get("relationshipTable")
+        table_id = _object_id(table) if isinstance(table, dict) else None
+        relationship_type = entry.get("relationshipType")
+        relationships.append(
+            AttributeRelationship(
+                parent_attribute_id=normalize_object_id(parent_id),
+                child_attribute_id=normalize_object_id(child_id),
+                relationship_table_id=(
+                    normalize_object_id(table_id) if table_id else None
+                ),
+                relationship_type=(
+                    str(relationship_type) if relationship_type else None
+                ),
+            )
+        )
+    return relationships
+
+
+def _form_name(form: Dict[str, object]) -> Optional[str]:
+    for key in ("name", "title", "id"):
+        value = form.get(key)
+        if value:
+            return _normalize_lineage_key(str(value))
+    form_category = form.get("formCategory")
+    if isinstance(form_category, dict):
+        value = form_category.get("name")
+        if value:
+            return _normalize_lineage_key(str(value))
+    return None
+
+
+def unique_derived_object_owners(model_document: Dict[str, object]) -> Dict[str, str]:
+    """Map each derived-object id to the single dataset that defines it. Only an entry's
+    own id and its ``embeddedObjects`` ids count — ids merely referenced from expression
+    trees may be shared-catalog objects and would mis-attribute ownership. Ids seen in more
+    than one dataset carry no signal and are dropped. Keys are upper-cased object ids."""
+    owners: Dict[str, str] = {}
+    shared: Set[str] = set()
+    for dataset in _coerce_dicts(model_document.get("datasets")):
+        information = dataset.get("information")
+        dataset_id = _object_id(information) if isinstance(information, dict) else None
+        if not dataset_id:
+            continue
+        derived_ids: Set[str] = set()
+        for derived_entry in _coerce_dicts(
+            dataset.get("derivedMetrics")
+        ) + _coerce_dicts(dataset.get("derivedAttributes")):
+            entry_information = derived_entry.get("information")
+            if isinstance(entry_information, dict):
+                _add_hex_object_id(entry_information.get("objectId"), derived_ids)
+                _add_hex_object_id(entry_information.get("id"), derived_ids)
+            for embedded in _coerce_dicts(derived_entry.get("embeddedObjects")):
+                _add_hex_object_id(embedded.get("id"), derived_ids)
+                _add_hex_object_id(embedded.get("objectId"), derived_ids)
+        derived_ids.discard(normalize_object_id(dataset_id))
+        for derived_id in derived_ids:
+            if derived_id in owners and owners[derived_id] != dataset_id:
+                shared.add(derived_id)
+            else:
+                owners[derived_id] = dataset_id
+    for derived_id in shared:
+        owners.pop(derived_id, None)
+    return owners
+
+
+def bind_visualization_column_sets(
+    dashboard: DashboardDefinition,
+    visualization: Visualization,
+) -> ColumnSetBinding:
+    """Bind each column group of a compound-grid visualization to the dossier
+    dataset backing it.
+
+    In multi-cube compound grids, pages are often named by time window and
+    datasets by subject and window, while column groups are named by subject.
+    Object ids discriminate the subject but not the window (the same metric
+    lives in every window's cube), and group names don't reliably
+    substring-match dataset names, so binding combines a page-name filter,
+    name-token overlap and non-derived member-id containment. A group with no
+    unique match stays unbound.
+
+    Column sets whose identifier is empty (no key, no name) or collides with a
+    sibling's cannot be stored or looked up unambiguously, so they are reported
+    as unbound rather than bound to a guess.
+    """
+    column_sets = list(visualization.column_sets)
+    if not column_sets:
+        return ColumnSetBinding({}, [])
+    if not dashboard.datasets:
+        return ColumnSetBinding(
+            {},
+            [
+                column_set.identifier or f"<unnamed column set {index}>"
+                for index, column_set in enumerate(column_sets)
+            ],
+        )
+
+    identifier_counts: Dict[str, int] = {}
+    for column_set in column_sets:
+        identifier_counts[column_set.identifier] = (
+            identifier_counts.get(column_set.identifier, 0) + 1
+        )
+
+    page_candidates = _page_filtered_datasets(dashboard, visualization)
+    catalog_ids_by_dataset = {
+        dataset.id: dataset.normalized_object_ids() for dataset in page_candidates
+    }
+
+    bindings: Dict[str, str] = {}
+    unbound: List[ColumnSet] = []
+    unbindable: List[ColumnSet] = []
+    for column_set in column_sets:
+        if not column_set.identifier or identifier_counts[column_set.identifier] > 1:
+            unbindable.append(column_set)
+            continue
+        tokens = _lineage_name_tokens(column_set.name or "")
+        name_matches = [
+            dataset
+            for dataset in page_candidates
+            if tokens and tokens.intersection(_lineage_name_tokens(dataset.name))
+        ]
+        member_ids = _column_set_member_ids(column_set)
+        id_matches = [
+            dataset
+            for dataset in page_candidates
+            if member_ids and member_ids <= catalog_ids_by_dataset[dataset.id]
+        ]
+        # When member ids are known they must agree with a name match, so a
+        # shared generic token ("SALES") cannot bind on its own; they also
+        # rescue groups whose name matches nothing.
+        if member_ids:
+            candidates = (
+                [dataset for dataset in name_matches if dataset in id_matches]
+                if name_matches
+                else id_matches
+            )
+        else:
+            candidates = name_matches
+        if len(candidates) == 1:
+            bindings[column_set.identifier] = candidates[0].id
+        else:
+            unbound.append(column_set)
+
+    return ColumnSetBinding(
+        dataset_id_by_column_set=bindings,
+        unbound_column_sets=[
+            column_set.identifier or f"<unnamed column set {index}>"
+            for index, column_set in enumerate(unbound + unbindable)
+        ],
+    )
+
+
+def _page_filtered_datasets(
+    dashboard: DashboardDefinition,
+    visualization: Visualization,
+) -> List[DatasetObject]:
+    page = _normalize_lineage_key(visualization.page_name or "")
+    if page:
+        matches = [
+            dataset
+            for dataset in dashboard.datasets
+            if page in _normalize_lineage_key(dataset.name)
+        ]
+        if matches:
+            return matches
+    return list(dashboard.datasets)
+
+
+def _column_set_member_ids(column_set: ColumnSet) -> Set[str]:
+    """Normalized ids of the group's non-derived metric members. Derived
+    members are excluded: their ids are visualization-local and can never
+    appear in a dataset's catalog."""
+    return {
+        normalize_object_id(metric.id)
+        for metric in column_set.metrics
+        if metric.id and not metric.derived
+    }
+
+
+def metric_formula_references(expression_text: str) -> List[str]:
+    """Sibling-object names a metric formula references as `{Name}` (Modeling
+    API text) or `[Name]` (Strategy Web editor syntax) tokens."""
+    return _dedupe_sorted(
+        reference.strip()
+        for braced, bracketed in MSTR_METRIC_REFERENCE_RE.findall(expression_text)
+        for reference in (braced or bracketed,)
+        if reference.strip()
+    )
+
+
+def bind_visualizations_by_derived_objects(
+    dashboard: DashboardDefinition,
+    owner_by_derived_id: Dict[str, str],
+) -> int:
+    """Set ``visualization.datasets`` from dataset-scoped derived-object ids, ignoring ids
+    in any dataset's shared object catalog (they cannot discriminate). Returns the count bound."""
+    # Modeling documents and dossier definitions can differ in GUID case.
+    dataset_id_by_normalized = {
+        normalize_object_id(dataset.id): dataset.id for dataset in dashboard.datasets
+    }
+    shared_catalog_ids = {
+        normalize_object_id(object_id)
+        for dataset in dashboard.datasets
+        for object_id in dataset.object_ids
+    }
+    bound = 0
+    for visualization in dashboard.visualizations:
+        if visualization.datasets or not visualization.object_ids:
+            continue
+        owners: Set[str] = set()
+        for object_id in visualization.object_ids:
+            normalized = normalize_object_id(object_id)
+            if (
+                normalized in owner_by_derived_id
+                and normalized not in shared_catalog_ids
+            ):
+                owners.add(owner_by_derived_id[normalized])
+        owners = {
+            dataset_id_by_normalized[normalize_object_id(owner)]
+            for owner in owners
+            if normalize_object_id(owner) in dataset_id_by_normalized
+        }
+        if owners:
+            visualization.datasets = sorted(owners)
+            bound += 1
+    return bound
+
+
+def _add_hex_object_id(value: object, out: Set[str]) -> None:
+    if isinstance(value, str) and MSTR_HEX_OBJECT_ID_RE.fullmatch(value):
+        out.add(normalize_object_id(value))
+
+
+def _object_id(value: object) -> Optional[str]:
+    if not isinstance(value, dict):
+        return None
+    for key in ("objectId", "id"):
+        candidate = value.get(key)
+        if candidate:
+            return str(candidate)
+    return None
+
+
+def _coerce_dicts(value: object) -> List[Dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+def _append_lineage(
+    target: MutableMapping[LineageKey, List[ModelFieldLineage]],
+    key: LineageKey,
+    lineage: ModelFieldLineage,
+) -> None:
+    target.setdefault(key, []).append(lineage)
+
+
+def _normalize_lineage_key(value: str) -> str:
+    return MSTR_WHITESPACE_RE.sub(" ", value).strip().lower()
+
+
+def _clean_identifier_part(value: object) -> Optional[str]:
+    if value is None:
+        return None
+    cleaned = str(value).strip().strip(".")
+    return cleaned or None
+
+
+def _dedupe_sorted(values: Iterable[str]) -> List[str]:
+    return sorted(set(values))
+
+
+def _leaf_identifier(name: str) -> str:
+    return name.split(".")[-1].strip('"[]').lower()
+
+
+def _created_table_leaf_names(statements: List[str]) -> Set[str]:
+    names: Set[str] = set()
+    for statement in statements:
+        match = MSTR_CREATE_TABLE_NAME_RE.match(statement)
+        if match:
+            names.add(_leaf_identifier(match.group(1)))
+    return names
+
+
+# Public reuse surface for other MicroStrategy modules (the semantic-model
+# mapper) that need the same object-id/table-name parsing this module already
+# does for warehouse lineage, without duplicating it.
+def object_id(value: object) -> Optional[str]:
+    return _object_id(value)
+
+
+def coerce_dicts(value: object) -> List[Dict[str, object]]:
+    return _coerce_dicts(value)
+
+
+def physical_table_name(
+    physical_table: Dict[str, object], context: WarehouseLineageContext
+) -> Optional[str]:
+    return _physical_table_name(physical_table, context)

@@ -1,5 +1,6 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { Content, SideBar } from '@app/entityV2/shared/SidebarStyledComponents';
@@ -20,6 +21,8 @@ type Props = {
  * UserSidebar- Sidebar section for users profiles.
  */
 export default function UserSidebar({ sidebarData, refetch }: Props) {
+    const { t } = useTranslation('entity.types');
+    const { t: tf } = useTranslation('common.feedback');
     const { aboutText, groupsDetails, dataHubRoles, urn, ownershipResults } = sidebarData;
 
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
@@ -39,15 +42,12 @@ export default function UserSidebar({ sidebarData, refetch }: Props) {
             },
         })
             .then(() => {
-                message.success({
-                    content: `Changes saved.`,
-                    duration: 3,
-                });
+                toast.success(tf('changesSaved'), { duration: 3 });
                 refetch();
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
+                toast.destroy();
+                toast.error(t('shared.saveChangesError', { error: e.message || '' }), { duration: 3 });
             });
     };
 

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List
 from unittest.mock import MagicMock, call, patch
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
@@ -359,7 +359,7 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
             self.report.num_soft_deleted_retained_due_to_age_by_type.get("dataset"), 1
         )
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_get_urns(self):
         """Test that _get_urns calls get_urns_by_filter with correct parameters."""
         # Setup mock for get_urns_by_filter
@@ -381,7 +381,7 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
         # Check the returned urns
         self.assertEqual(urns, ["urn1", "urn2", "urn3"])
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_get_urns_with_dpi(self):
         """Test that _get_urns calls get_urns_by_filter with correct parameters."""
         # Setup mock for get_urns_by_filter
@@ -462,6 +462,37 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
 
             # Check report was updated
             self.assertEqual(self.report.num_soft_deleted_entity_processed, 1)
+
+    def test_process_futures_reports_failed_future_with_its_urn(self):
+        """A failed delete is reported against its own URN and does not abort processing."""
+        failed_urn = Urn.from_string(
+            "urn:li:dataset:(urn:li:dataPlatform:example,failed,PROD)"
+        )
+        pending_urn = Urn.from_string(
+            "urn:li:dataset:(urn:li:dataPlatform:example,pending,PROD)"
+        )
+
+        failed_future = MagicMock(spec=Future)
+        failed_future.exception.return_value = Exception("delete failed")
+        pending_future = MagicMock(spec=Future)
+        pending_future.exception.return_value = None
+
+        with patch(
+            "datahub.ingestion.source.gc.soft_deleted_entity_cleanup.wait",
+            return_value=({failed_future}, {pending_future}),
+        ):
+            futures = {failed_future: failed_urn, pending_future: pending_urn}
+
+            result = self.cleanup._process_futures(futures)  # type: ignore
+
+        self.assertEqual(result, {pending_future: pending_urn})
+        self.assertEqual(self.report.num_soft_deleted_entity_processed, 1)
+
+        failures = list(self.report.failures)
+        self.assertEqual(len(failures), 1)
+        self.assertEqual(len(failures[0].context), 1)
+        self.assertIn(failed_urn.urn(), failures[0].context[0])
+        self.assertIn("delete failed", failures[0].context[0])
 
     def test_cleanup_disabled(self):
         """Test that cleanup doesn't run when disabled."""

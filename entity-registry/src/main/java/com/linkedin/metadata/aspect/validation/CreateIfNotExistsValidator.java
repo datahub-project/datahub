@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.validation;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.ReadItem;
@@ -32,7 +33,9 @@ public class CreateIfNotExistsValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
 
@@ -87,6 +90,7 @@ public class CreateIfNotExistsValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();

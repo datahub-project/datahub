@@ -1,7 +1,9 @@
 package com.linkedin.metadata.aspect.patch.template;
 
 import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
+import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_NAME_LENGTH;
 import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
+import static com.linkedin.metadata.Constants.MAX_JACKSON_NAME_LENGTH;
 import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
 
 import com.fasterxml.jackson.core.StreamReadConstraints;
@@ -26,9 +28,17 @@ public class TemplateUtil {
         Integer.parseInt(
             System.getenv()
                 .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    int maxNameLength =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_NAME_LENGTH, MAX_JACKSON_NAME_LENGTH));
     OBJECT_MAPPER
         .getFactory()
-        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+        .setStreamReadConstraints(
+            StreamReadConstraints.builder()
+                .maxStringLength(maxSize)
+                .maxNameLength(maxNameLength)
+                .build());
   }
 
   public static List<Pair<PatchOperationType, String>> getPaths(JsonPatch jsonPatch) {
@@ -78,9 +88,12 @@ public class TemplateUtil {
       String[] keys = operationPath.getSecond().split("/", -1);
       JsonNode parent = transformedNodeClone;
 
-      // if not remove, skip last key as we only need to populate top level
+      // if not remove, skip last key as we only need to populate top level — except for
+      // trailing-empty tokens (e.g. /tags/<urn>/), which Parsson rejects unless the parent
+      // already exposes the empty key.
+      boolean trailingEmpty = keys[keys.length - 1].isEmpty();
       int endIdx =
-          PatchOperationType.REMOVE.equals(operationPath.getFirst())
+          PatchOperationType.REMOVE.equals(operationPath.getFirst()) || trailingEmpty
               ? keys.length
               : keys.length - 1;
       // Skip first as it will always be blank due to path starting with /

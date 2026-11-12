@@ -1,12 +1,13 @@
+import { toast } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { SelectItemPopover } from '@src/alchemy-components/components/SelectItemsPopover';
+import { SelectItemPopover } from '@app/sharedV2/selectItemsPopover';
 import DataHubTooltip from '@src/alchemy-components/components/Tooltip/Tooltip';
 import { handleBatchError } from '@src/app/entityV2/shared/utils';
-import { useGetRecommendations } from '@src/app/shared/recommendation';
+import { useGetRecommendations } from '@src/app/sharedV2/recommendation';
 import Tag from '@src/app/sharedV2/tags/tag/Tag';
 import { useBatchAddTagsMutation, useBatchRemoveTagsMutation } from '@src/graphql/mutations.generated';
 import { Entity, EntityType, TagAssociation, Tag as TagType } from '@src/types.generated';
@@ -66,6 +67,7 @@ interface AcrylAssertionTagColumnProps {
 }
 
 export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = ({ record, refetch }) => {
+    const { t } = useTranslation('entity.profile.validations');
     const [popoverVisible, setPopoverVisible] = useState(false);
 
     const { recommendedData: allGlobalTags } = useGetRecommendations([EntityType.Tag]);
@@ -85,7 +87,7 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
             {displayTags?.map((tag) => (
                 <Tag
                     tag={tag}
-                    key={tag.urn}
+                    key={tag.tag.urn}
                     options={{
                         shouldNotOpenDrawerOnClick: true,
                         shouldNotAddBottomMargin: true,
@@ -104,7 +106,7 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                                 ?.slice(1, MAX_TAGS_FOR_HOVER)
                                 .map((tag) => (
                                     <Tag
-                                        key={tag.urn}
+                                        key={tag.tag.urn}
                                         tag={{ tag: tag.tag } as TagAssociation}
                                         options={{ shouldNotOpenDrawerOnClick: true }}
                                         maxWidth={120}
@@ -112,7 +114,9 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                                     />
                                 ))}
                             {(record?.tags?.length ?? 0) > MAX_TAGS_FOR_HOVER ? (
-                                <TooltipMoreText>+ {record.tags.length - MAX_TAGS_FOR_HOVER} more</TooltipMoreText>
+                                <TooltipMoreText>
+                                    {t('assertionList.tagsMore', { count: record.tags.length - MAX_TAGS_FOR_HOVER })}
+                                </TooltipMoreText>
                             ) : null}
                         </TooltipTitleWrapper>
                     }
@@ -155,7 +159,11 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                 },
             });
         } catch (e) {
-            message.error(handleBatchError(newTags, e, 'Failed to add entities.'));
+            const { content, duration } = handleBatchError(newTags, e, {
+                content: t('tags.failedToAddEntities'),
+                duration: 3,
+            });
+            toast.error(content, { duration });
         }
     };
 
@@ -171,7 +179,11 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                 },
             });
         } catch (e) {
-            message.error(handleBatchError(removedTags, e, 'Failed to remove entities.'));
+            const { content, duration } = handleBatchError(removedTags, e, {
+                content: t('tags.failedToRemoveEntities'),
+                duration: 3,
+            });
+            toast.error(content, { duration });
         }
     };
 
@@ -188,7 +200,7 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                 }
 
                 // Notify success and refresh UI
-                message.success('Tags Updated!', 2);
+                toast.success(t('tags.tagsUpdated'), { duration: 2 });
                 setPopoverVisible(false);
                 refetch?.();
             } catch (e) {

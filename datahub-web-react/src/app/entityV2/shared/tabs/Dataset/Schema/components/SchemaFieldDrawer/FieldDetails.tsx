@@ -1,13 +1,14 @@
 import { Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useMutationUrn } from '@app/entity/shared/EntityContext';
+import { useMutationUrn } from '@app/entityV2/shared/EntityContext';
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
 import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateEntityAnnouncementModal';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { FieldPopularity } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldPopularity';
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import SchemaEditableContext from '@app/sharedV2/SchemaEditableContext';
 import { Button } from '@src/alchemy-components';
 import MarkAsDeprecatedButton from '@src/app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
 
@@ -86,6 +87,8 @@ type FieldDetailsProps = {
 };
 
 export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch, refetchNotes }: FieldDetailsProps) => {
+    const { t } = useTranslation('entity.profile.schema');
+    const { t: te } = useTranslation('entity.shared.entityDropdown');
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
     const [isPostModalVisible, setIsPostModalVisible] = useState(false);
@@ -104,9 +107,9 @@ export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch, refe
                             subResourceType: SubResourceType.DatasetField,
                         },
                     ]}
+                    initialDeprecation={deprecation?.deprecated ? deprecation : null}
                     onClose={() => setIsDeprecationModalVisible(false)}
                     refetch={refetch}
-                    zIndexOverride={1000}
                 />
             )}
             {isPostModalVisible && (
@@ -119,7 +122,7 @@ export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch, refe
             )}
             <FieldDetailsContent>
                 <PopularityContainer>
-                    <DetailLabel>Popularity</DetailLabel>
+                    <DetailLabel>{t('fieldDetails.popularity')}</DetailLabel>
                     <DetailValue>
                         <FieldPopularity
                             isFieldSelected={false}
@@ -130,7 +133,7 @@ export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch, refe
                     </DetailValue>
                 </PopularityContainer>
                 <NotesWrapper>
-                    <DetailLabel>Notes</DetailLabel>
+                    <DetailLabel>{t('fieldDetails.notes')}</DetailLabel>
                     {isSchemaEditable && (
                         <StyledButton
                             variant="text"
@@ -140,28 +143,36 @@ export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch, refe
                                 setIsPostModalVisible(true);
                             }}
                         >
-                            + Add Note
+                            {t('fieldDetails.addNote')}
                         </StyledButton>
                     )}
                 </NotesWrapper>
                 <DeprecationWrapper>
-                    <DetailLabel>Deprecation</DetailLabel>
+                    <DetailLabel>{t('fieldDetails.deprecation')}</DetailLabel>
                     {!deprecation?.deprecated && (
                         <MarkAsDeprecatedButtonContainer>
                             <MarkAsDeprecatedButton onClick={() => setIsDeprecationModalVisible(true)} />
                         </MarkAsDeprecatedButtonContainer>
                     )}
                     {!!deprecation?.deprecated && (
-                        <DeprecationIcon
-                            urn={datasetUrn}
-                            subResource={fieldPath}
-                            subResourceType={SubResourceType.DatasetField}
-                            deprecation={deprecation}
-                            showUndeprecate
-                            refetch={refetch}
-                            // default zIndex of the popover
-                            zIndexOverride={1030}
-                        />
+                        <>
+                            <DeprecationIcon
+                                urn={datasetUrn}
+                                subResource={fieldPath}
+                                subResourceType={SubResourceType.DatasetField}
+                                deprecation={deprecation}
+                                showUndeprecate
+                                refetch={refetch}
+                                // default zIndex of the popover
+                                zIndexOverride={1030}
+                            />
+                            <MarkAsDeprecatedButtonContainer>
+                                <MarkAsDeprecatedButton
+                                    onClick={() => setIsDeprecationModalVisible(true)}
+                                    internalText={te('deprecation.editDeprecated')}
+                                />
+                            </MarkAsDeprecatedButtonContainer>
+                        </>
                     )}
                 </DeprecationWrapper>
             </FieldDetailsContent>

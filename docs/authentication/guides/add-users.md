@@ -1,3 +1,7 @@
+---
+description: "Provision new user accounts in DataHub via invite links, JIT SSO provisioning, or direct creation through the metadata APIs."
+---
+
 # Onboarding Users to DataHub
 
 New user accounts can be provisioned on DataHub in 3 ways:
@@ -13,7 +17,7 @@ be reserved for special circumstances where access must be closely monitored and
 
 ### Generating an Invite Link
 
-If you have the `Manage User Credentials` [Platform Privilege](../../authorization/access-policies-guide.md), you can invite new users to DataHub by sharing an invite link.
+If you have the `Manage User Credentials` [Platform Privilege](../../authorization/access-policies-guide.md), you can invite new users to DataHub by sharing an invite link. Choosing a role for that link also requires the `Manage Policies` privilege. Without it, the link invites a user with no role.
 
 To do so, navigate to the **Users & Groups** section inside of Settings page. Here you can generate a shareable invite link by clicking the `Invite Users` button. If you
 do not have the correct privileges to invite users, this button will be disabled.
@@ -74,9 +78,9 @@ To complete the integration, you'll need the following:
 
 These values can be obtained from your Identity Provider by following Step 1 on the [OpenID Connect Authentication](sso/configure-oidc-react.md)) Guide.
 
-### Self-Hosted DataHub
+### DataHub Core
 
-For information about configuring Self-Hosted DataHub to use OpenID Connect (OIDC) to
+For information about configuring DataHub Core to use OpenID Connect (OIDC) to
 perform authentication, check out [OIDC Authentication](sso/configure-oidc-react.md).
 
 > **A note about user URNs**: User URNs are unique identifiers for users on DataHub. The username received from an Identity Provider
@@ -94,7 +98,7 @@ using this mechanism. It is highly recommended that admins change or remove the 
 
 ## Adding new users using a user.props file
 
-:::NOTE
+:::note
 Adding users via the `user.props` will require disabling existence checks on GMS using the `METADATA_SERVICE_AUTH_ENFORCE_EXISTENCE_ENABLED=false` environment variable or using the API to enable the user prior to login.
 The directions below demonstrate using the API to enable the user.
 :::
@@ -156,7 +160,7 @@ For example, to mount a user.props file that is stored on my local filesystem at
     build:
       context: ../
       dockerfile: docker/datahub-frontend/Dockerfile
-    image: acryldata/datahub-frontend-react:${DATAHUB_VERSION:-head}
+    image: acryldata/datahub-frontend-react:${DATAHUB_VERSION:-quickstart}
     .....
     # The new stuff
     volumes:

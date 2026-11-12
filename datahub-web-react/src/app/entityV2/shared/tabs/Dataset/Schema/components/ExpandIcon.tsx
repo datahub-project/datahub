@@ -1,10 +1,11 @@
-import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-
-import RowIcon from '@images/row-icon.svg?react';
 
 const Prefix = styled.div<{ padding: number }>`
     position: absolute;
@@ -23,39 +24,28 @@ const Padding = styled.span<{ padding: number }>`
     margin-left: ${(props) => props.padding}px;
 `;
 
-const Down = styled(DownOutlined)<{ $isCompact?: boolean }>`
+const Down = styled(CaretDown).attrs<{ $isCompact?: boolean }>(({ $isCompact }) => ({
+    size: $isCompact ? 8 : 14,
+    weight: 'bold' as const,
+}))<{ $isCompact?: boolean }>`
     :hover {
         color: ${(props) => props.theme.colors.textHover};
-        stroke: ${(props) => props.theme.colors.textHover};
-        stroke-width: 140px;
     }
     color: ${(props) => props.theme.colors.textSecondary};
-    stroke: ${(props) => props.theme.colors.textSecondary};
-    stroke-width: 100px;
     padding-right: 5px;
-    ${(props) =>
-        props.$isCompact &&
-        `
-        font-size: 8px;
-        
-    `}
+    cursor: pointer;
 `;
 
-const Right = styled(RightOutlined)<{ isCompact?: boolean }>`
+const Right = styled(CaretRight).attrs<{ isCompact?: boolean }>(({ isCompact }) => ({
+    size: isCompact ? 8 : 14,
+    weight: 'bold' as const,
+}))<{ isCompact?: boolean }>`
     :hover {
-        stroke: ${(props) => props.theme.colors.textHover};
         color: ${(props) => props.theme.colors.textHover};
-        stroke-width: 140px;
     }
     color: ${(props) => props.theme.colors.textSecondary};
-    stroke: ${(props) => props.theme.colors.textSecondary};
-    stroke-width: 100px;
     padding-right: 5px;
-    ${(props) =>
-        props.isCompact &&
-        `
-        font-size: 8px;
-    `}
+    cursor: pointer;
 `;
 
 const RowIconContainer = styled.div`
@@ -78,13 +68,13 @@ const DepthContainer = styled.div<{ multipleDigits?: boolean }>`
 const DepthNumber = styled(Typography.Text)`
     margin-left: 4px;
     background: transparent;
-    color: ${(props) => props.theme.colors.bg};
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     font-size: 10px;
     font-weight: 400;
 `;
 
 const StyledTooltip = styled(Tooltip)`
-    .ant-tooltip-inner {
+    .alchemy-floating-overlay-inner {
         border-radius: 3px;
         background: ${(props) => props.theme.colors.bgSurface};
         font-size: 10px;
@@ -105,9 +95,10 @@ type Props = {
 };
 
 export default function ExpandIcon(props: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     const { expanded, onExpand, expandable, record, isCompact = false } = props;
 
-    function toggleExpand(e: React.MouseEvent<HTMLSpanElement, MouseEvent>) {
+    function toggleExpand(e: React.MouseEvent) {
         e.stopPropagation();
         onExpand(record, e);
     }
@@ -123,13 +114,13 @@ export default function ExpandIcon(props: Props) {
                         <Padding padding={DEPTH_PADDING * (record.depth + 1)} />
                         <StyledTooltip
                             placement="bottom"
-                            title={`${record.depth + 1} level${record.depth === 0 ? '' : 's'} nested`}
+                            title={t('expandIcon.levelsNested', { count: record.depth + 1 })}
                             getPopupContainer={(triggerNode) => triggerNode}
                             showArrow={false}
                             className="row-icon-tooltip"
                         >
                             <RowIconContainer className="row-icon">
-                                <RowIcon height={16} width={16} />
+                                <Rows size={16} />
                                 <DepthContainer multipleDigits={record.depth >= 9} className="depth-container">
                                     <DepthNumber className="depth-text">{record.depth + 1}</DepthNumber>
                                 </DepthContainer>
@@ -140,9 +131,9 @@ export default function ExpandIcon(props: Props) {
                 {expandable &&
                     record.children !== undefined &&
                     (expanded ? (
-                        <Down onClick={toggleExpand} $isCompact={isCompact} />
+                        <Down onClick={toggleExpand} $isCompact={isCompact} data-testid="schema-expand-icon-down" />
                     ) : (
-                        <Right onClick={toggleExpand} isCompact={isCompact} />
+                        <Right onClick={toggleExpand} isCompact={isCompact} data-testid="schema-expand-icon-right" />
                     ))}
             </IconContainer>
         </>

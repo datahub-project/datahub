@@ -4,6 +4,10 @@
 
 Access Policies define who can do what to which resources. In conjunction with [Roles](./roles.md), Access Policies determine what users are allowed to do on DataHub.
 
+:::note View-based access control
+If you are creating policies to **restrict what users can view or discover** (not just edit), read [Designing policies for view-based access control](./policies.md#designing-policies-for-view-based-access-control) in the Policies Guide before creating policies.
+:::
+
 ## Policy Types
 
 There are 2 types of Access Policy within DataHub:
@@ -128,9 +132,7 @@ You can optionally provide a text description to add richer detail about the pur
 
 #### Step 2: Configure Privileges
 
-In the second step, we can simply select the Privileges that this Metadata Policy will grant.
-To begin, we should first determine which assets that the Privileges should be granted for (i.e. the _scope_), then
-select the appropriate Privileges to grant.
+In the second step, we can simply select the Resources (the _scope_) and Privileges that this Metadata Policy will grant.
 
 Using the `Resource Type` selector, we can narrow down the _type_ of the assets that the Policy applies to. If left blank,
 all entity types will be in scope.
@@ -161,6 +163,25 @@ select it.
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-resource-domain.png"/>
 </p>
+
+In the same way, you can limit the scope to assets in specific **Containers**, or assets annotated with specific
+**Tags** or **Glossary Terms**. If left blank, these filters do not restrict the scope.
+
+<p align="center">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies/policy-match-condition.png"/>
+</p>
+
+Each of these filters has a condition selector next to it, which defaults to **Equals**:
+
+- **Equals**: The Policy applies to assets that match any of the selected values.
+- **Not Equals**: The Policy applies to assets that match none of the selected values. For example, select `Datasets`
+  as the Resource Type and **Not Equals** `Finance` as the Domain to cover every dataset outside the Finance domain.
+- **Starts With**: Instead of selecting values, enter a prefix. The Policy applies to assets whose value starts with
+  that prefix, for example `urn:li:tag:pii_` for all tags whose URN starts with that prefix. This option is not
+  available for the Resource Type filter.
+
+Switching a filter to or from **Starts With** clears its current values. See
+[Match Conditions](./policies.md#match-conditions) for details on how each condition is evaluated.
 
 Finally, we will choose the Privileges to grant when the selected entities fall into the defined
 scope.

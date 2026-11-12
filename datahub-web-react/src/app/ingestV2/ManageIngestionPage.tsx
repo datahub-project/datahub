@@ -1,6 +1,8 @@
-import { Button, PageTitle, Tabs, Tooltip } from '@components';
+import { Button, PageTitle, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import * as QueryString from 'query-string';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -9,7 +11,6 @@ import { Tab } from '@components/components/Tabs/Tabs';
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { ExecutionsTab } from '@app/ingestV2/executions/ExecutionsTab';
-import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
 import { SecretsList } from '@app/ingestV2/secret/SecretsList';
 import { IngestionSourceList } from '@app/ingestV2/source/IngestionSourceList';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
@@ -18,8 +19,9 @@ import {
     INGESTION_CREATE_SOURCE_ID,
     INGESTION_REFRESH_SOURCES_ID,
 } from '@app/onboarding/config/IngestionOnboardingConfig';
-import { NoPageFound } from '@app/shared/NoPageFound';
-import { useUrlQueryParam } from '@app/shared/useUrlQueryParam';
+import { NoPageFound } from '@app/sharedV2/NoPageFound';
+import { Tabs } from '@app/sharedV2/tabs/Tabs';
+import { useUrlQueryParam } from '@app/sharedV2/useUrlQueryParam';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';
@@ -33,7 +35,6 @@ const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         props.$isShowNavBarRedesign &&
         `
  overflow: hidden;
- margin: 5px;
 box-shadow: ${props.theme.colors.shadowSm};
  height: 100%;
  `}
@@ -73,6 +74,7 @@ export const ManageIngestionPage = () => {
     /**
      * Determines which view should be visible: ingestion sources or secrets.
      */
+    const { t } = useTranslation('ingestion');
     const { platformPrivileges, loaded: loadedPlatformPrivileges } = useUserContext();
     const { config, loaded: loadedAppConfig } = useAppConfig();
     const location = useLocation();
@@ -80,13 +82,11 @@ export const ManageIngestionPage = () => {
     const canManageIngestion = platformPrivileges?.manageIngestion;
     const showIngestionTab = isIngestionEnabled && canManageIngestion;
     const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
-    const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
     // undefined == not loaded, null == no permissions
     const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
 
     const isShowNavBarRedesign = useShowNavBarRedesign();
-    const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
     const history = useHistory();
     const shouldPreserveParams = useRef(false);
@@ -95,6 +95,12 @@ export const ManageIngestionPage = () => {
     const { value: hideSystemSources, setValue: setHideSystemSources } = useUrlQueryParam('hideSystem', 'true');
     const { value: sourceFilter, setValue: setSourceFilter } = useUrlQueryParam('sourceFilter');
     const { value: searchQuery, setValue: setSearchQuery } = useUrlQueryParam('query');
+    const { value: sourceTypesParam, setValue: setSourceTypesParam } = useUrlQueryParam('sourceTypes');
+
+    const sourceTypes = useMemo(
+        () => (sourceTypesParam ? sourceTypesParam.split(',').filter(Boolean) : []),
+        [sourceTypesParam],
+    );
 
     // Stable callbacks to prevent infinite re-render loops in child components
     const handleSetSourceFilter = useCallback(
@@ -102,9 +108,30 @@ export const ManageIngestionPage = () => {
         [setSourceFilter],
     );
 
+    const handleSetSourceTypes = useCallback(
+        (values: string[]) => setSourceTypesParam(values.join(',')),
+        [setSourceTypesParam],
+    );
+
     const handleSetHideSystemSources = useCallback(
         (value: boolean) => setHideSystemSources(value.toString()),
         [setHideSystemSources],
+    );
+
+    const handleExecutionSourceClick = useCallback(
+        (record: { urn?: string; name?: string }) => {
+            setSelectedTab(TabType.Sources);
+            history.replace({
+                pathname: tabUrlMap[TabType.Sources],
+                search: QueryString.stringify({ query: record.name }, { arrayFormat: 'comma' }),
+            });
+        },
+        [history],
+    );
+
+    const getExecutionRunDetailsPath = useCallback(
+        (urn: string) => PageRoutes.INGESTION_RUN_DETAILS.replace(':urn', urn),
+        [],
     );
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
@@ -149,8 +176,6 @@ export const ManageIngestionPage = () => {
         showIngestionTab && {
             component: (
                 <IngestionSourceList
-                    showCreateModal={showCreateSourceModal}
-                    setShowCreateModal={setShowCreateSourceModal}
                     shouldPreserveParams={shouldPreserveParams}
                     hideSystemSources={hideSystemSources === 'true'}
                     setHideSystemSources={handleSetHideSystemSources}
@@ -160,10 +185,12 @@ export const ManageIngestionPage = () => {
                     setSourceFilter={handleSetSourceFilter}
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
+                    sourceTypes={sourceTypes}
+                    setSourceTypes={handleSetSourceTypes}
                 />
             ),
             key: TabType.Sources as string,
-            name: TabType.Sources as string,
+            name: t('page.tabSources'),
         },
         {
             component: (
@@ -171,19 +198,21 @@ export const ManageIngestionPage = () => {
                     shouldPreserveParams={shouldPreserveParams}
                     hideSystemSources={hideSystemSources === 'true'}
                     setHideSystemSources={handleSetHideSystemSources}
-                    selectedTab={selectedTab}
-                    setSelectedTab={setSelectedTab}
+                    isActive={selectedTab === TabType.RunHistory}
+                    onSourceClick={handleExecutionSourceClick}
+                    getRunDetailsPath={getExecutionRunDetailsPath}
+                    runDetailsFromUrl={`${location.pathname}${location.search}`}
                 />
             ),
             key: TabType.RunHistory as string,
-            name: 'Run History',
+            name: t('page.tabRunHistory'),
         },
         showSecretsTab && {
             component: (
                 <SecretsList showCreateModal={showCreateSecretModal} setShowCreateModal={setShowCreateSecretModal} />
             ),
             key: TabType.Secrets as string,
-            name: TabType.Secrets as string,
+            name: t('page.tabSecrets'),
         },
     ].filter((tab): tab is Tab => Boolean(tab));
 
@@ -197,16 +226,12 @@ export const ManageIngestionPage = () => {
     const getCurrentUrl = useCallback(() => location.pathname, [location.pathname]);
 
     const handleCreateSource = useCallback(() => {
-        if (showIngestionOnboardingRedesignV1) {
-            analytics.event({
-                type: EventType.EnterIngestionFlowEvent,
-                entryPoint: 'sources_page_cta',
-            });
-            history.push(PageRoutes.INGESTION_CREATE);
-        } else {
-            setShowCreateSourceModal(true);
-        }
-    }, [showIngestionOnboardingRedesignV1, history]);
+        analytics.event({
+            type: EventType.EnterIngestionFlowEvent,
+            entryPoint: 'sources_page_cta',
+        });
+        history.push(PageRoutes.INGESTION_CREATE, { backUrl: `${location.pathname}${location.search}` });
+    }, [history, location.pathname, location.search]);
 
     const handleCreateSecret = () => {
         setShowCreateSecretModal(true);
@@ -224,19 +249,11 @@ export const ManageIngestionPage = () => {
             <OnboardingTour stepIds={[INGESTION_CREATE_SOURCE_ID, INGESTION_REFRESH_SOURCES_ID]} />
             <PageHeaderContainer>
                 <TitleContainer>
-                    <PageTitle
-                        title="Manage Data Sources"
-                        subTitle="Configure and schedule syncs to import data from your data sources"
-                    />
+                    <PageTitle title={t('page.title')} subTitle={t('page.subtitle')} />
                 </TitleContainer>
                 <HeaderActionsContainer>
                     {selectedTab === TabType.Sources && showIngestionTab && (
-                        <Tooltip
-                            title={
-                                !canManageIngestion &&
-                                `You don't have permission to perform this action. Please contact your DataHub admin for more info.`
-                            }
-                        >
+                        <Tooltip title={!canManageIngestion && t('page.noPermissionTooltip')}>
                             <div>
                                 <Button
                                     variant="filled"
@@ -246,7 +263,7 @@ export const ManageIngestionPage = () => {
                                     icon={{ icon: Plus }}
                                     disabled={!canManageIngestion}
                                 >
-                                    Create Source
+                                    {t('source.createButton')}
                                 </Button>
                             </div>
                         </Tooltip>
@@ -259,7 +276,7 @@ export const ManageIngestionPage = () => {
                             data-testid="create-secret-button"
                             icon={{ icon: Plus }}
                         >
-                            Create secret
+                            {t('secret.createButton')}
                         </Button>
                     )}
                 </HeaderActionsContainer>

@@ -1,11 +1,11 @@
-import Icon from '@ant-design/icons/lib/components/Icon';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import StatChart, { ChartCard } from '@app/entityV2/shared/tabs/Dataset/Stats/historical/charts/StatChart';
 import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import { computeChartTickInterval, extractChartValuesFromFieldProfiles } from '@app/entityV2/shared/utils';
-import { getFixedLookbackWindow } from '@app/shared/time/timeUtils';
+import { getFixedLookbackWindow } from '@app/sharedV2/time/timeUtils';
 
 import { DatasetFieldProfile, SchemaField } from '@types';
 
@@ -51,8 +51,9 @@ const Section = styled.div`
     line-height: 24px;
 `;
 
-const StyledIcon = styled(Icon)`
-    font-size: 80px;
+const NoStatsIcon = styled(NoStatsAvailble)`
+    width: 80px;
+    height: 80px;
     margin-bottom: 6px;
     color: ${(props) => props.theme.colors.bg};
 `;
@@ -71,6 +72,7 @@ const getLookbackWindowSize = (window: LookbackWindow) => {
 };
 
 export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     const theme = useTheme();
     const defaultLineColor = theme.colors.chartsBrandBase;
     const { fieldProfile, profiles } = properties;
@@ -110,8 +112,8 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
     if (!fieldProfile) {
         return (
             <NoDataContainer>
-                <StyledIcon component={NoStatsAvailble} />
-                <Section>No column statistics found</Section>
+                <NoStatsIcon />
+                <Section>{t('statsSidebar.noColumnStatsFound')}</Section>
             </NoDataContainer>
         );
     }
@@ -123,7 +125,7 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
                     lineColor={defaultLineColor}
-                    title="Null Count Over Time"
+                    title={t('statsSidebar.nullCountOverTime')}
                     tickInterval={graphTickInterval}
                     dateRange={graphDateRange}
                     values={nullCountChartValues}
@@ -132,7 +134,7 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
                     lineColor={defaultLineColor}
-                    title="Null Percentage Over Time"
+                    title={t('statsSidebar.nullPercentageOverTime')}
                     tickInterval={graphTickInterval}
                     dateRange={graphDateRange}
                     values={nullPercentageChartValues}
@@ -141,7 +143,7 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
                     lineColor={defaultLineColor}
-                    title="Distinct Count Over Time"
+                    title={t('statsSidebar.distinctCountOverTime')}
                     tickInterval={graphTickInterval}
                     dateRange={graphDateRange}
                     values={distinctCountChartValues}
@@ -150,7 +152,7 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
                     lineColor={defaultLineColor}
-                    title="Distinct Percentage Over Time"
+                    title={t('statsSidebar.distinctPercentageOverTime')}
                     tickInterval={graphTickInterval}
                     dateRange={graphDateRange}
                     values={distinctPercentageChartValues}

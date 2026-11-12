@@ -1,18 +1,18 @@
-import Icon from '@ant-design/icons/lib/components/Icon';
+import { TrendDown } from '@phosphor-icons/react/dist/csr/TrendDown';
+import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { decimalToPercentStr } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/statsUtil';
 import SampleValueTag from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/SampleValueTag';
 import { extractChartValuesFromFieldProfiles } from '@app/entityV2/shared/utils';
-import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 
 import { DatasetFieldProfile, SchemaField } from '@types';
 
 import NoStatsAvailble from '@images/no-stats-available.svg?react';
-import TrendingDownIcon from '@images/trending-down-icon.svg?react';
-import TrendingUpIcon from '@images/trending-up-icon.svg?react';
 
 const maxLabelWidth = 150;
 
@@ -76,10 +76,19 @@ const Section = styled.div`
     line-height: 24px;
 `;
 
-const StyledIcon = styled(Icon)`
-    font-size: 80px;
+const NoStatsIcon = styled(NoStatsAvailble)`
+    width: 80px;
+    height: 80px;
     margin-bottom: 6px;
     color: ${(props) => props.theme.colors.bg};
+`;
+
+const StyledTrendUp = styled(TrendUp).attrs({ size: 14 })`
+    color: ${(props) => props.theme.colors.iconSuccess};
+`;
+
+const StyledTrendDown = styled(TrendDown).attrs({ size: 14 })`
+    color: ${(props) => props.theme.colors.iconError};
 `;
 interface Props {
     properties: {
@@ -90,6 +99,7 @@ interface Props {
 }
 
 export function StatsSidebarContent({ properties }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     const { expandedField, fieldProfile, profiles } = properties;
 
     const getFieldStatTrendComponent = (statName: string) => {
@@ -104,9 +114,9 @@ export function StatsSidebarContent({ properties }: Props) {
         if (currentValue === null || currentValue === undefined || lastValue === null || lastValue === undefined)
             return null;
         if (currentValue > lastValue) {
-            trendLine = <TrendingUpIcon />;
+            trendLine = <StyledTrendUp />;
         } else if (currentValue < lastValue) {
-            trendLine = <TrendingDownIcon />;
+            trendLine = <StyledTrendDown />;
         }
         const isDecreasing = currentValue < lastValue;
 
@@ -116,8 +126,8 @@ export function StatsSidebarContent({ properties }: Props) {
     if (!fieldProfile) {
         return (
             <NoDataContainer>
-                <StyledIcon component={NoStatsAvailble} />
-                <Section>No column statistics found</Section>
+                <NoStatsIcon />
+                <Section>{t('statsSidebar.noColumnStatsFound')}</Section>
             </NoDataContainer>
         );
     }
@@ -125,47 +135,47 @@ export function StatsSidebarContent({ properties }: Props) {
     const statsData = {
         stats: [
             {
-                name: 'Null Count',
+                name: t('statsSummary.nullCount'),
                 value: fieldProfile.nullCount ? formatNumberWithoutAbbreviation(fieldProfile.nullCount) : null,
                 trend: getFieldStatTrendComponent('nullCount'),
             },
             {
-                name: 'Null %',
+                name: t('statsSummary.nullPercent'),
                 value: decimalToPercentStr(fieldProfile.nullProportion, 2),
                 trend: getFieldStatTrendComponent('nullProportion'),
             },
             {
-                name: 'Distinct Count',
+                name: t('statsSummary.distinctCount'),
                 value: fieldProfile.uniqueCount ? formatNumberWithoutAbbreviation(fieldProfile.uniqueCount) : null,
                 trend: getFieldStatTrendComponent('uniqueCount'),
             },
             {
-                name: 'Distinct %',
+                name: t('statsSummary.distinctPercent'),
                 value: decimalToPercentStr(fieldProfile.uniqueProportion, 2),
                 trend: getFieldStatTrendComponent('uniqueProportion'),
             },
             {
-                name: 'Min',
+                name: t('statsSummary.min'),
                 value: fieldProfile.min ? formatNumberWithoutAbbreviation(fieldProfile.min) : null,
                 trend: getFieldStatTrendComponent('min'),
             },
             {
-                name: 'Max',
+                name: t('statsSummary.max'),
                 value: fieldProfile.max ? formatNumberWithoutAbbreviation(fieldProfile.max) : null,
                 trend: getFieldStatTrendComponent('max'),
             },
             {
-                name: 'Median',
+                name: t('statsSummary.median'),
                 value: fieldProfile.median ? formatNumberWithoutAbbreviation(fieldProfile.median) : null,
                 trend: getFieldStatTrendComponent('median'),
             },
             {
-                name: 'Std Dev',
+                name: t('statsSummary.stdDev'),
                 value: fieldProfile.stdev ? formatNumberWithoutAbbreviation(fieldProfile.stdev) : null,
                 trend: getFieldStatTrendComponent('stdev'),
             },
             {
-                name: 'Sample Values',
+                name: t('statsSummary.sampleValues'),
                 value: fieldProfile.sampleValues
                     ?.filter((value) => value !== undefined)
                     .slice(0, 3)

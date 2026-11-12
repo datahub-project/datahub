@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.UrnValidationUtil;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
@@ -16,15 +17,26 @@ import java.net.URISyntaxException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@RequiredArgsConstructor
 public class EntityHydrator {
 
-  private final OperationContext systemOperationContext;
+  /** Auth/service principals that are not bootstrapped corpuser entities. */
+  private static final Set<String> NON_HYDRATABLE_ACTOR_URNS =
+      Set.of(SYSTEM_ACTOR, ANONYMOUS_ACTOR, UNKNOWN_ACTOR);
+
+  private final EntityRegistry entityRegistry;
   private final SystemEntityClient entityClient;
+
+  public EntityHydrator(
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final SystemEntityClient entityClient) {
+    this.entityRegistry = entityRegistry;
+    this.entityClient = entityClient;
+  }
+
   private final ChartHydrator _chartHydrator = new ChartHydrator();
   private final CorpUserHydrator _corpUserHydrator = new CorpUserHydrator();
   private final DashboardHydrator _dashboardHydrator = new DashboardHydrator();
@@ -32,26 +44,27 @@ public class EntityHydrator {
   private final DataJobHydrator _dataJobHydrator = new DataJobHydrator();
   private final DatasetHydrator _datasetHydrator = new DatasetHydrator();
 
-  public Optional<ObjectNode> getHydratedEntity(String urn) {
+  public Optional<ObjectNode> getHydratedEntity(
+      @Nonnull final OperationContext opContext, String urn) {
     final ObjectNode document = JsonNodeFactory.instance.objectNode();
     // Hydrate fields from urn
     Urn urnObj;
     try {
       urnObj = Urn.createFromString(urn);
-      UrnValidationUtil.validateUrn(systemOperationContext.getEntityRegistry(), urnObj, true);
+      UrnValidationUtil.validateUrn(entityRegistry, urnObj, true);
     } catch (URISyntaxException | IllegalArgumentException e) {
       log.info("Invalid URN: {}", urn);
+      return Optional.empty();
+    }
+    if (NON_HYDRATABLE_ACTOR_URNS.contains(urn)) {
+      log.debug("Skipping hydration for synthetic actor urn {}", urn);
       return Optional.empty();
     }
     // Hydrate fields from snapshot
     EntityResponse entityResponse;
     try {
       Set<String> aspectNames =
-          Optional.ofNullable(
-                  systemOperationContext
-                      .getEntityRegistry()
-                      .getEntitySpecs()
-                      .get(urnObj.getEntityType()))
+          Optional.ofNullable(entityRegistry.getEntitySpecs().get(urnObj.getEntityType()))
               .map(
                   spec ->
                       spec.getAspectSpecs().stream()
@@ -59,14 +72,14 @@ public class EntityHydrator {
                           .filter(aspectName -> !EXCLUDED_ASPECTS.contains(aspectName))
                           .collect(Collectors.toSet()))
               .orElse(Set.of());
-      entityResponse = entityClient.getV2(systemOperationContext, urnObj, aspectNames);
+      entityResponse = entityClient.getV2(opContext, urnObj, aspectNames);
     } catch (RemoteInvocationException | URISyntaxException e) {
       log.error("Error while calling GMS to hydrate entity for urn {}", urn);
       return Optional.empty();
     }
 
     if (entityResponse == null) {
-      log.error("Could not find entity for urn {}", urn);
+      log.debug("Could not find entity for urn {}", urn);
       return Optional.empty();
     }
 

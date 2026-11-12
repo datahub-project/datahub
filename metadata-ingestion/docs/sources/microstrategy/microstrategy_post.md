@@ -1,0 +1,174 @@
+### Capabilities
+
+#### Lineage Behavior
+
+By default, the connector emits lineage from MicroStrategy datasets to visualizations by setting `ChartInfo.inputs` and `ChartInfo.inputEdges`. When visualization metadata exposes metric and attribute references, it also emits chart `InputFields` pointing at the MicroStrategy dataset fields used by each visualization. It does not emit direct dataset-to-dashboard edges because those edges can make DataHub lineage views noisy for large BI dashboards.
+
+Set `emit_dashboard_dataset_edges: true` if you want every dossier dataset to appear directly upstream of the dossier as fallback lineage.
+
+Report Services documents are the exception. The document definition API returns a document's layouts as chapters without pages and no visualizations anywhere in the response, so a document is emitted as a dashboard with no charts and nothing to carry its dataset lineage. The connector therefore records a document's datasets directly as `DashboardInfo.datasetEdges` (`emit_document_dataset_edges`, enabled by default): the document page lists its datasets and lineage reads dataset -> document, continuing to warehouse tables when `extract_document_dataset_sql_lineage` is on. This is governed by `emit_document_dataset_edges` alone -- `emit_dashboard_dataset_edges` keeps governing dossiers, so a recipe that leaves the dossier fallback off still links its documents. The layout names are recorded on the document as the `microstrategyLayouts` (in definition order, separated by `; `) and `microstrategyLayoutCount` custom properties, and the ingestion report counts the edges in `document_dataset_edges`.
+
+The definition APIs do not expose a visualization's dataset binding directly, so the connector resolves it in tiers. First it reads the modeling document API: derived metrics and attributes are scoped to a single dataset, so a visualization grid referencing them identifies its source dataset with certainty. For compound-grid visualizations, the connector then binds each column group (`columnSets`) to its backing dataset using the page name, group-name tokens, the group's member object IDs, and — when the page's datasets correspond one-to-one with the groups — elimination for the leftover pair; a partially bound grid keeps its resolved groups and counts the rest in the `column_sets_unbound` report counter. When neither applies, the connector falls back to inferring the binding from shared object references and name tokens. If that inference cannot exclude any dataset (for example, dashboards built from one cube per time period where all cubes share one object catalog), the visualization is treated as unresolved and gets no dataset inputs rather than an all-to-all fan-out; use `emit_dashboard_dataset_edges: true` to keep such dashboards connected to their datasets.
+
+When `extract_visualization_details: true`, the connector creates a dashboard instance and calls the v2 visualization definition endpoint to resolve dataset-to-visualization lineage when the static dashboard definition does not include dataset IDs. Use `dashboard_pattern` to scope live validation runs, for example:
+
+```yaml
+dashboard_pattern:
+  allow:
+    - "^Quarterly Business Review$"
+```
+
+#### Reports
+
+Set `extract_reports: true` to ingest MicroStrategy reports as DataHub chart entities with the `Report` subtype. Report extraction is disabled by default because report libraries can be much larger than curated dossiers. Use `report_pattern` (by name) or `folder_path_pattern` (by folder path) to scope report extraction.
+
+When dashboards are also extracted, only reports referenced by an ingested dashboard are ingested by default, so scoping dashboards with `dashboard_pattern` scopes reports too. Linked reports are fetched directly by id rather than by enumerating the project's report library, so large report libraries do not slow down scoped runs. Set `extract_independent_reports: true` to also ingest reports not used by any dashboard (every report matching `report_pattern`); this enumerates the full report library. This scoping relies on `extract_dashboard_dependencies` for the dashboard-to-report linkage; without it, or without dashboard extraction, all matching reports are ingested.
+
+When report definitions expose source and `availableObjects` metadata, the connector emits a report-scoped MicroStrategy source dataset containing the report metrics, attributes, and attribute forms. Report lineage uses `ChartInfo.inputs`, `ChartInfo.inputEdges`, and chart `InputFields` from that report source dataset to the report chart.
+
+If `extract_dashboard_dependencies: true` and `extract_reports: true`, dashboards that expose report dependencies link to the matching report chart entities. Reports are a separate lineage path from dossier visualizations:
+
+```text
+Dashboard/Dossier -> Visualization -> MicroStrategy Dataset
+Dashboard/Dossier -> Report -> MicroStrategy Report Source Dataset
+```
+
+Set `extract_report_sql_lineage: true` only when you also want optional coarse report source dataset -> warehouse table lineage from the report SQL-view API. This setting is disabled by default and does not emit direct warehouse edges to reports or dashboards.
+
+#### Source Warehouses
+
+When `extract_source_warehouses: true`, the connector calls MicroStrategy datasource management APIs for each project and records a source warehouse summary on the project container. The summary includes the datasource count, source database types, datasource types, and DBMS names exposed by MicroStrategy.
+
+If a dashboard dataset payload includes a direct source warehouse reference, the connector also records datasource ID, datasource name, source type, database version, DBMS name, connection ID/name, and available database/schema context as dataset custom properties.
+
+When `extract_warehouse_lineage: true`, the connector executes the dashboard/dossier SQL-view API and emits coarse upstream lineage from each MicroStrategy dataset to the physical warehouse datasets parsed from SQL. When field-level model lineage resolves for a dataset, its table-level upstreams are restricted to the tables evidenced by field lineage — tables the SQL only joins for filtering (dimension lookups, calendar subqueries) are not emitted as upstreams. Datasets without field-level lineage keep the full SQL-derived table set. It does not store raw SQL or connection strings. This setting is disabled by default because SQL-view lineage is table-level and does not prove field-level metric, attribute, or fact lineage. The connector uses dataset-level source warehouse metadata when MicroStrategy provides it. It only falls back to project-level datasource metadata when the project resolves to one unambiguous warehouse context, so multi-source projects do not get broad dataset-to-table edges from an arbitrary datasource. The resulting lineage shape is:
+
+```text
+Dashboard/Dossier -> Visualization -> MicroStrategy Dataset -> Warehouse Dataset
+```
+
+Report Services documents (as opposed to dossiers) get no warehouse lineage from that path: the dossier SQL-view API answers a document instance with dataset views that carry no SQL, so the connector does not call it for documents. A document's datasets are grid reports, so set `extract_document_dataset_sql_lineage: true` (together with `extract_warehouse_lineage`) to read each report-backed dataset's SQL through a report instance instead -- `POST /api/v2/reports/{id}/instances`, `GET /api/v2/reports/{id}/instances/{instance}/sqlView`, then `DELETE` of the instance, the same sequence `extract_report_sql_lineage` uses -- and attach the parsed upstreams to the document-scoped dataset. Creating a report instance may execute the report against the warehouse, one execution per distinct report per run: a grid report shared by several documents is read once and its lineage attached to every document-scoped dataset that embeds it, and a failed read is not retried for the next document. `warehouse_lineage_sql_timeout_seconds` and `max_consecutive_execution_timeouts` apply. Cube datasets have no report SQL view and are skipped. The ingestion report counts `document_dataset_sql_views_scanned`, `document_dataset_sql_views_parsed`, `document_dataset_sql_views_reused`, `document_dataset_sql_view_failures` and `document_datasets_skipped_not_grid_report`. Disabled by default, so documents keep their previous behaviour.
+
+The connector intentionally keeps direct `DashboardInfo.datasetEdges` disabled by default for dossiers so they do not draw edges directly to every dataset in DataHub lineage views; documents, which have no charts, get them by default (see Lineage Behavior).
+
+#### Dependency and Model Lineage Enrichment
+
+When `extract_dashboard_dependencies: true`, the connector uses MicroStrategy metadata search lineage APIs to record direct dashboard component dependency summaries, including dependency counts by MicroStrategy object type.
+
+When `extract_metric_expressions: true`, the connector fetches accessible metric model definitions and stores expression token summaries in metric field `jsonProps`.
+
+When `extract_model_lineage: true`, the connector probes modeling table APIs needed for logical table and physical source warehouse lineage. Missing privileges are reported as warnings and counters; the connector continues with dashboard, dataset, metric, and source warehouse metadata.
+
+#### Semantic Model
+
+Set `emit_semantic_model_entities: true` to additionally emit each project's schema as a first-class `semanticModel` entity, separate from the dashboard/report datasets described above. Attributes and Facts are project-wide MicroStrategy schema objects reusable across every report and cube in a project, so the project — not any one report — is the unit of a semantic model:
+
+- One `semanticModel` entity per project.
+- One logical dataset (subtype `Semantic Model Dataset`) per MicroStrategy logical table, with attributes emitted as `Dimension`-annotated fields and facts as `Measure`-annotated fields. Each logical dataset carries coarse upstream lineage to its physical warehouse table when a warehouse context is resolved for the project.
+- One `metric` entity per project metric (Base, Derived/Compound, and Consolidated), with lineage resolved from the metric's own expression: a Base metric's `metricUpstreams` point at the logical dataset(s) backing the facts/attributes it reads; a Derived/Compound metric's `metricRelationships.derivedFrom` points at the `metric` entities it is computed from; a Consolidated metric resolves its consolidation's attribute references (one extra API call per distinct consolidation, cached across metrics that share one) and sets `metricUpstreams` from those.
+- Relationships between logical datasets, derived from MicroStrategy's attribute hierarchy API: an attribute shared across more than one logical table triggers a lookup of that attribute's parent/child relationships, and a `semanticModelRelationship` is emitted when the two ends resolve to different tables (a hierarchy encoded entirely within one lookup table's columns has nothing to join, so no relationship is emitted for that case).
+
+This is additive: it does not change the dashboard/report/dataset emission described elsewhere on this page, and is disabled by default. It requires `extract_model_lineage` access to the MicroStrategy modeling APIs (the same access `extract_model_lineage` already needs) and a DataHub server that registers `semanticModel`/`metric` (Cloud >= 2.1.0, or OSS with `METRICS_ENABLED=true`).
+
+#### Subtypes
+
+Entity subtypes follow MicroStrategy's own vocabulary, so a business user can filter DataHub by the kind of object they know. Dashboards are `Dossier` for a dossier (what Strategy now calls a dashboard) and `Document` for a Report Services document (object subtype 14081). Datasets are `Cube` for intelligent and super cubes (object subtypes 776 and 779) and `MicroStrategy Dataset` for a report used as a dataset; the distinction comes from the dataset's own object info lookup described under Folder Navigation, so a dataset whose lookup failed keeps `MicroStrategy Dataset`. Visualizations are `Visualization` and reports are `Report`.
+
+#### Folder Navigation
+
+The connector builds its browse hierarchy by walking each object's MicroStrategy folder ancestry, which reflects the metadata layer's internal folder names rather than the curated grouping Strategy Web's Library shows (favorites, "My Reports" vs. "Shared Reports", hidden system folders). With `use_predefined_folder_names: true` (the default), the connector resolves well-known folders via `GET /api/folders/preDefined` and reshapes the hierarchy to match Strategy Web: the folder Strategy Web calls "Shared Reports" (internally named "Reports") gets its MicroStrategy-assigned label everywhere — container identity (URN), `folder_pattern` matching, and display — and two system containers Strategy Web never shows are omitted entirely, with their children re-parented to the nearest kept ancestor: the project root folder (named after the project, which would render as a duplicate project level) and "Public Objects". If the predefined-folder lookup fails, the project's dashboards and reports are skipped and the run reports a failure, rather than filing them under raw-name containers with different URNs. Set `use_predefined_folder_names: false` to keep the raw metadata hierarchy (for example if you already ingested these folders and want to avoid the resulting container URN changes; see `docs/how/breaking-changes.md`).
+
+Datasets embedded in a dossier (and report source datasets) are catalog objects in their own right -- reports or cubes with their own folder, which is frequently not the dossier's folder. The connector looks each dataset object up once per project (`GET /api/objects/{id}?type=3`) and places the dataset under its own folder ancestry, relabelled and pruned exactly like the dossier's path, so the breadcrumb matches where Strategy Web files the object. The dataset's "View in MicroStrategy" link opens the dataset object itself in Library when Library can render it (reports); intelligent and super cubes have no Library viewer, so they keep linking to the dossier or report that embeds them. If the object lookup fails, the dataset falls back to the dossier's folder and URL, keeps the `MicroStrategy Dataset` subtype, and the `dataset_object_lookup_failures` report counter is incremented.
+
+Personal folders -- each user's profile folder tree under the project's "Profiles" system folder, holding that user's "My Reports", "My Objects" and similar folders -- are excluded by default (`include_personal_folders: false`). Dashboards, documents and reports filed there are skipped before any definition is fetched, so they cost no further API calls; the skips are counted in `personal_folder_objects_skipped` (with names sampled in `personal_folder_objects_skipped_samples`) and no folder container under the Profiles tree is emitted. A dataset that lives in a personal folder but is embedded by a public dossier or report is still ingested (it is part of that dossier's lineage) and is parented under the embedding dossier's folder rather than the personal one. With stateful ingestion, personal content ingested by an earlier run is soft-deleted on the next run like any other object that disappeared. Set `include_personal_folders: true` to ingest personal folders.
+
+Personal content is identified by folder id where possible. `GET /api/folders/preDefined` with EnumDSSXMLFolderNames types 19 (the logged-in principal's profile folder) and 20 (its "My Reports") returns the principal's own folders; the profile folder's immediate parent -- read from `GET /api/objects/{id}?type=8` -- is the project's Profiles system folder, and any object whose ancestor chain passes through that folder is personal, whichever user owns it. This is one extra predefined-folder call and one object lookup per project (`personal_folder_roots_resolved` counts the projects where it succeeded). When that resolution fails (an older server or insufficient privilege) the connector reports a warning, and when the Profiles folder cannot be identified without an error (the principal has no profile folder, or its parent is a hidden system folder) it reports an info entry; either way it falls back to ancestor folder names: an ancestor named "Profiles" or "My Reports" (case-insensitive, plus the type-20 folder's label when it was returned) marks an object as personal. The fallback is exact on default-language installations but cannot recognise renamed or localized folders, and would also match a public folder that happens to carry one of those names.
+
+Note that `folder_pattern` cannot exclude content: a denied folder re-parents its children to the nearest allowed ancestor, so a `deny: ["^My Reports$"]` rule removes the folder container but still ingests everything in it under the user's folder. To scope ingestion by location, use `folder_path_pattern` instead.
+
+#### Scoping by Folder Path
+
+Business users navigate Strategy Web by folder, and `folder_path_pattern` scopes ingestion the same way: each dashboard, document and report is matched against its folder path, which is the project name, then each folder from the project root down to the object's own folder, joined with `/`. The folder names are exactly the ones the browse path shows, built from the same ancestry and the same predefined-folder resolution: with `use_predefined_folder_names: true` the project root folder and "Public Objects" are omitted and "Shared Reports" carries its MicroStrategy-assigned label; with it `false`, the raw hierarchy is the path. `folder_pattern` plays no part in the path. For a dossier in project `Sales_Project` filed under `Shared Reports/Finance/Monthly Close`, the path is `Sales_Project/Shared Reports/Finance/Monthly Close`, so
+
+```yaml
+folder_path_pattern:
+  allow:
+    - "^Sales_Project/Shared Reports/Finance/Monthly Close(/|$)"
+```
+
+ingests that folder and everything beneath it, and nothing else. Patterns match from the start of the path, so the trailing `(/|$)` is what stops a sibling such as `Monthly Close Archive` from matching too; `deny` wins over `allow`.
+
+Unlike `folder_pattern`, a denied path excludes the object. It is skipped right after the name patterns (`dashboard_pattern`, `report_pattern`), before any definition is fetched or instance executed, so it costs no further API calls, and its visualizations and datasets are not emitted. Reports are filtered on their own path, whether enumerated via `extract_independent_reports` or fetched because an ingested dashboard links to them; the dashboard's chart edge to a linked report is not affected by the report's folder, so a dashboard in an allowed folder can still reference a report chart that was not ingested. Skips are counted in `dashboards_filtered_by_folder_path` and `reports_filtered_by_folder_path`, with the object name and path sampled in `folder_path_filtered_samples`.
+
+An object whose search result carries no folder ancestry has no path to match and is counted in `folder_paths_unresolved`. Under the default allow-all pattern it is ingested and a `Folder path unresolved` warning is recorded, so the catalog never silently shrinks; once a pattern is configured it is skipped and counted with the other skips, so the scope never silently widens.
+
+#### Metric and Attribute Tags
+
+MicroStrategy metrics and attributes are emitted as schema fields on the dashboard dataset/cube. Fields are listed the way Strategy's own Datasets panel lists them -- the attributes first, then the metrics, each run sorted by the name the report displays, with report-derived metrics sorted in among the catalog ones -- so a dataset reads the same way in both products; set `dataset_field_order: alphabetical` to sort every field by name in a single run instead (the DataHub schema tab re-sorts alphabetically on a column-header click either way). An attribute contributes one field per form, and the form name is appended (`District Number.DESC`) only where the attribute contributes more than one; a single-form attribute keeps its bare name. The connector attaches canonical DataHub tags to the fields:
+
+- `urn:li:tag:Measure` for metrics.
+- `urn:li:tag:Dimension` for attributes and attribute forms.
+- `urn:li:tag:Temporal` for date/time attribute forms.
+- `urn:li:tag:Derived` for visualization-local derived metrics (see below).
+
+These tags are written to source-managed `SchemaMetadata` field metadata, not editable schema metadata.
+
+#### Derived Metrics and Column Groups
+
+Compound-grid dossier visualizations show **derived metrics** as grid columns marked `derived: true` (for example an inline percent-to-plan calculation). With `extract_derived_metrics: true` (the default), the connector surfaces each one as a schema field on the dataset backing its column group, tagged `Measure` + `Derived`. Derived metrics whose column group cannot be attributed to a dataset are counted in the `derived_metrics_unattached` report counter rather than silently dropped. The grid input comes from the runtime grids already fetched for lineage, so this requires `extract_lineage` and `extract_visualization_details`.
+
+Where the derived metric is defined decides what the field carries. A derived metric is frequently a **report-level** object: the dossier dataset is a report, and the metric is one of that report's objects with a formula (what Strategy Web's Metric Editor shows on the report). For every report-backed dossier dataset the connector fetches the report definition -- `GET /api/model/reports/{id}` (Modeling service, 2021 Update 7 or later), falling back to `GET /api/v2/reports/{id}` -- and emits every derived metric the report defines, named as the report names it (a dossier grid may alias it differently; the chart field then shows the alias with the report name in `microstrategyObjectName`), with the formula in the field description and in the `microstrategyMetricExpressionText` / `microstrategyMetricExpressionTokens` jsonProps, and `microstrategyDerivedMetricSource: report`. A grid-derived metric the report also defines is upgraded in place (matched by object id, then by normalized name), never duplicated. Cubes cannot define derived metrics and are not consulted. With `extract_metric_formula_lineage: true`, `{Name}` and `[Name]` references in these formulas produce the same field-to-field lineage as catalog metric formulas. Only a derived metric that no report or document definition exposes is treated as visualization-local, with a description naming the column group and source visualization and `microstrategyDerivedMetricSource: visualization`. The `report_derived_metrics_extracted` and `report_definition_failures` counters track this; a report whose definition cannot be fetched keeps grid-level provenance for its derived metrics. The Modeling report definition marks report-level derived metrics with `isEmbedded` but carries no formula for them; with `extract_metric_expressions: true` the connector asks `GET /api/model/metrics/{id}` for each such metric (cached per metric, refusals aggregated under the metric-model warning and `failed_metric_model_ids`) and counts successes in `report_derived_metric_models_resolved`. When the v2 endpoint supplies the names, the derived metrics keep their report names but no formula, and the field description says the v2 definition supplies names only. That happens in two ways, counted separately: the Modeling call failed (`report_model_definition_failures` counts each report with the HTTP status in `report_model_definition_failure_samples`, and one warning per project names the first affected report), or the Modeling call answered but listed no derived metric definition the connector recognises (`report_model_definitions_empty`; with debug logging enabled the payload's key skeleton is logged once per project). When the Modeling endpoint answers but no derived metric carries an expression the connector can read, `report_definitions_without_expressions` is incremented and the field description says "Formula not present in the Modeling API report definition"; with debug logging enabled, lines prefixed `[mstr-derived-debug]` record the payload's key skeleton (keys, list lengths and value types only -- no names or values) so the actual response shape can be read from the execution log. This does not depend on `extract_reports`. It adds one or two API calls per distinct report-backed dataset per project.
+
+Compound grids also organize their columns into named **column groups** (`columnSets`, e.g. one group per business domain), often repeating the same metric names per group with different logic behind each — the grouping is what tells a reader what they are looking at. The connector surfaces this two ways: the chart's `microstrategyColumnGroups` custom property records each group's member metrics and backing dataset, and grouped schema fields carry a `microstrategyColumnGroup` entry in their field `jsonProps`.
+
+#### Chart Field Names and Order
+
+When a runtime grid definition is available (`extract_visualization_details: true`), a visualization's chart fields are named and ordered the way the grid header reads. Row, column and page-by attributes come first, unqualified: a single displayed form is shown as just the attribute name (`Region Number`, not `Region Number.NUMBER`), and only the forms the grid displays become chart fields. Each column group's metrics follow as `GROUP.header`, in group order, where the header is the grid's own text -- when a dossier renames a metric, the alias is the field name and the catalog object name is retained in the field description and in the `microstrategyObjectName` jsonProps entry. Each header cell is attributed to one dataset: the column group's bound dataset or, for ungrouped attributes, the first input dataset in group order that carries the object. The chart field's `schemaFieldUrn` always keeps the dataset's real field path, so dataset schemas and column-level lineage are unaffected by the renaming. Objects a visualization references outside any grid header (and every object when no runtime grid was fetched) keep the previous behaviour: emitted from every input dataset and prefixed with the group or dataset name when more than one dataset feeds the chart.
+
+#### Dossier Chapters and Pages
+
+Every visualization chart records where it sits in its dossier as custom properties: `microstrategyChapter` and `microstrategyPage` (the chapter and page names), `microstrategyChapterKey` and `microstrategyPageKey` (their definition keys), and `microstrategyChapterIndex` and `microstrategyPageIndex` (1-based positions, so charts can be listed in reading order). Custom properties are indexed by DataHub search, so a business user can find every visualization on a given page by typing the page name as free text, or by searching the exact `microstrategyPage=<name>` term (likewise `microstrategyChapter=<name>`) to match only that property. The properties are omitted for a visualization the dossier definition does not place on a page.
+
+Set `emit_chapter_page_structured_properties: true` to also record the placement as structured properties, which search can filter on (custom properties only match as text) and which the chart's Properties tab shows beside its other structured properties: `io.acryl.microstrategy.chapter` (MicroStrategy Chapter) and `io.acryl.microstrategy.page` (MicroStrategy Page), both text, and `io.acryl.microstrategy.pagePosition` (MicroStrategy Page Position), a number holding the page's 1-based position within its chapter -- the same value as `microstrategyPageIndex`. The three definitions apply to charts and are created in DataHub on the first run with the flag on, in that order so the chart lists its chapter above its page; later runs re-emit them unchanged. The ingestion report counts them in `chapter_page_structured_property_definitions_emitted` and the charts given values in `charts_with_chapter_page_structured_properties`. Each run replaces a chart's structured property values with these; a visualization the dossier does not place on a page gets none, and the custom properties above are emitted either way. Disabled by default.
+
+#### Metric Formula Lineage
+
+Set `extract_metric_formula_lineage: true` to parse `{Metric Name}` references out of catalog metric expressions (fetched via `extract_metric_expressions`) and emit field-to-field lineage from each metric to the sibling fields it references on the same dataset. This is best effort: references to objects that are not fields of the dataset (for example, a catalog metric not exposed on the cube) are counted in the `metric_formula_refs_unresolved` report counter and skipped. Disabled by default.
+
+#### Usage Statistics
+
+Set `extract_usage_statistics: true` to emit daily view counts, unique-user counts, and per-user usage for ingested dashboards and reports. MicroStrategy has no per-object usage REST endpoint; the connector queries the Platform Analytics telemetry cube (the `Platform Analytics (Agg)` cube in the `Platform Analytics` project) through the standard cube instance APIs and joins the telemetry rows to ingested entities by object GUID.
+
+Requirements and behavior:
+
+- Platform Analytics must be enabled on the environment (standard on MicroStrategy Cloud) and the ingestion principal needs read access to the Platform Analytics project. When the project or cube is missing, the connector records one warning and continues without usage.
+- The cube's attributes and metrics are resolved by name (`Date`, `Project`, `Object`, `User`, and `Num Executions` or `Count Actions`), so renamed or heavily customized telemetry cubes are skipped with a warning explaining what was missing. Use `usage_cube_name` to point at a custom cube that exposes the same objects.
+- `usage_lookback_days` bounds the request window (default 14 days — the shipped aggregate cube typically retains a 14-day rolling window). Usage freshness depends on the environment's Platform Analytics cube refresh schedule.
+- Usage rows for objects outside the ingested scope are counted in the `usage_objects_unmatched` report counter and skipped.
+
+### Limitations
+
+- Warehouse lineage from the SQL-view APIs is coarse table-level lineage and is disabled by default (`extract_warehouse_lineage` and `extract_report_sql_lineage`). Field-level metric, attribute, or fact lineage to warehouse tables is not available yet.
+- Report extraction is disabled by default (`extract_reports`) because report libraries can be much larger than curated dossiers.
+- Direct dossier-to-dataset edges are disabled by default; enable `emit_dashboard_dataset_edges` only if you want dashboard-level fallback lineage, which can make lineage views noisy for large dossiers. Report Services documents, which expose no visualizations, are linked to their datasets by default (`emit_document_dataset_edges`).
+- Modeling APIs (logical tables, metric expressions) may return 403 when the principal lacks modeling privileges. The connector degrades gracefully — missing privileges are reported as warnings and counters, and ingestion continues with dashboard, dataset, metric, and source warehouse metadata.
+- Multi-source projects only receive dataset-to-warehouse edges when MicroStrategy exposes dataset-level source warehouse metadata; the connector does not guess a datasource when the project-level warehouse context is ambiguous.
+- Dataset `upstreamLineage` is replaced wholesale while any upstream tables remain, but a dataset whose warehouse lineage disappears entirely keeps the previous run's aspect (stale-entity removal deletes entities, not aspects). Remove leftovers with `datahub delete --urn <urn> --aspect upstreamLineage` or a rollback of the earlier run. Avoid pipeline-level incremental-lineage transformers with this source: their patch-add semantics prevent edge reductions from propagating.
+
+### Troubleshooting
+
+#### Missing dataset-to-visualization lineage
+
+If charts do not show upstream datasets, the static dashboard definition may not include dataset IDs. Set `extract_visualization_details: true` so the connector creates a dashboard instance and resolves bindings from the v2 visualization definition endpoint. This requires the principal to have instance-creation privileges; use `dashboard_pattern` to scope the run while validating.
+
+#### 403 errors on modeling or SQL-view APIs
+
+The connector does not fail ingestion on modeling API 403s — it records warnings and counters in the ingestion report and continues. Check the report counters to see which APIs were inaccessible, and grant the principal instance-creation and SQL-view access (for warehouse lineage) or modeling privileges (for `extract_metric_expressions` / `extract_model_lineage`) as needed.
+
+#### Session invalidation mid-run
+
+MicroStrategy can invalidate the session token at any time (idle or absolute timeouts, concurrent-session limits, administrator action). The connector re-authenticates automatically and replays the failed request; the `sessions_reauthenticated` counter in the ingestion report shows when this happened. If re-login itself fails — or the server rejects a request immediately after a successful re-login — the run aborts with a single `MicroStrategy Authentication Lost` failure instead of failing every remaining project. Avoid signing in elsewhere with the ingestion service account while a run is in progress if your tenant enforces concurrent-session limits.
+
+#### Empty or incomplete results
+
+If little or no metadata is ingested, verify that the principal has Library API access and project-scoped metadata search, and check that `project_pattern` (and `dashboard_pattern` / `report_pattern` / `folder_path_pattern`, if set) are not filtering out the content you expect; `folder_path_filtered_samples` in the report shows the paths that were denied. Guest authentication works for public demo exploration but does not expose all modeling APIs.

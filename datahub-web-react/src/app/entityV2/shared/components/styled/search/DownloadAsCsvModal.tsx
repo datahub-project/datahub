@@ -1,20 +1,22 @@
-import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
 import { Modal, Text } from '@components';
-import { Input, Spin, notification } from 'antd';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import { Input, notification } from 'antd';
 import React, { useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import {
     getSearchCsvDownloadHeader,
     transformResultsToCsvRow,
 } from '@app/entityV2/shared/components/styled/search/downloadAsCsvUtil';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
 import { downloadRowsAsCsv } from '@app/search/utils/csvUtils';
-import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 
 import { AndFilterInput, LineageSearchPath } from '@types';
 
@@ -48,6 +50,7 @@ type Props = {
 
 const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 100;
 const DOWNLOAD_NOTIFICATION_KEY = 'download-csv-notification';
+const FILENAME_PLACEHOLDER = 'datahub.csv';
 const formatTime = (seconds: number) => {
     if (seconds < 60) return `${Math.round(seconds)}s`;
     const minutes = Math.floor(seconds / 60);
@@ -65,6 +68,8 @@ export default function DownloadAsCsvModal({
     showDownloadAsCsvModal,
     setShowDownloadAsCsvModal,
 }: Props) {
+    const { t } = useTranslation('entity.shared.components');
+    const { t: tc } = useTranslation('common.actions');
     const { lineageSearchPath } = useContext(LineageTabContext);
     const theme = useTheme();
     const { entityData: entitySearchIsEmbeddedWithin } = useEntityData();
@@ -77,24 +82,25 @@ export default function DownloadAsCsvModal({
     const openNotification = (currentCount = 0, estimatedTimeRemaining?: number) => {
         // Scroll Across Entities gives max 10k as total but results can go further than that
         const hasMoreThanLimit = totalResults === 10000;
+        const total = hasMoreThanLimit ? '10,000+' : totalResults;
         let description = totalResults
-            ? `Downloading ${currentCount} of ${hasMoreThanLimit ? '10,000+' : totalResults} entities...`
-            : 'Creating CSV to download';
+            ? t('download.progress', { count: currentCount, total })
+            : t('download.creating');
 
         if (estimatedTimeRemaining !== undefined) {
             // Show estimate only if the count is less than 10k entities
             if (!hasMoreThanLimit) {
-                description += `\nEstimated time remaining: ${formatTime(estimatedTimeRemaining)}`;
+                description += t('download.timeRemaining', { time: formatTime(estimatedTimeRemaining) });
             }
         }
 
         notification.info({
             key: DOWNLOAD_NOTIFICATION_KEY,
-            message: 'Preparing Download',
+            message: t('download.preparing'),
             description,
             placement: 'bottomRight',
             duration: null,
-            icon: <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />,
+            icon: <StyledSpinner $height={24} />,
         });
     };
 
@@ -107,8 +113,8 @@ export default function DownloadAsCsvModal({
     const showFailedDownloadNotification = () => {
         notification.destroy();
         notification.error({
-            message: 'Download Failed',
-            description: 'The CSV file could not be downloaded',
+            message: t('download.failed'),
+            description: t('download.failedDescription'),
             placement: 'bottomRight',
             duration: 3,
         });
@@ -194,16 +200,16 @@ export default function DownloadAsCsvModal({
         <Modal
             centered
             onCancel={() => setShowDownloadAsCsvModal(false)}
-            title="Download as..."
+            title={t('download.title')}
             open={showDownloadAsCsvModal}
             buttons={[
                 {
-                    text: 'Close',
+                    text: tc('close'),
                     variant: 'text',
                     onClick: () => setShowDownloadAsCsvModal(false),
                 },
                 {
-                    text: 'Download',
+                    text: tc('download'),
                     onClick: () => {
                         setShowDownloadAsCsvModal(false);
                         triggerCsvDownload(saveAsTitle);
@@ -216,21 +222,18 @@ export default function DownloadAsCsvModal({
         >
             {lineageSearchPath === LineageSearchPath.Lightning && (
                 <ImpactAnalysisWarning data-testid="lightning-cache-warning">
-                    <ExclamationCircleFilled style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
+                    <Warning weight="fill" style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
                     <div>
                         <Text weight="bold" style={{ lineHeight: 'normal' }}>
-                            Results may vary
+                            {t('download.resultsMayVaryTitle')}
                         </Text>
-                        <SubText>
-                            Search results include referenced assets even if they don&apos;t exist. We&apos;ll only
-                            download the assets that exist in DataHub.
-                        </SubText>
+                        <SubText>{t('download.resultsMayVaryText')}</SubText>
                     </div>
                 </ImpactAnalysisWarning>
             )}
             <Input
                 data-testid="download-as-csv-input"
-                placeholder="datahub.csv"
+                placeholder={FILENAME_PLACEHOLDER}
                 value={saveAsTitle}
                 onChange={(e) => {
                     setSaveAsTitle(e.target.value);

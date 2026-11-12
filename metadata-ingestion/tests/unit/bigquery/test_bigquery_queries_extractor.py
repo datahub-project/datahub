@@ -23,13 +23,51 @@ Security Tests:
 
 import re
 from datetime import datetime, timezone
+from typing import Dict, Iterator, List, Optional, Set, Tuple
+from unittest.mock import MagicMock, create_autospec, patch
 
+import pytest
+from pydantic import ValidationError
+
+from datahub.emitter.mce_builder import make_dataset_urn
+from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    BigQueryFilterConfig,
+    BigQueryIdentifierConfig,
+)
+from datahub.ingestion.source.bigquery_v2.bigquery_report import (
+    BigQueryQueriesExtractorReport,
+    BigQueryV2Report,
+)
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    BigqueryProject,
+    BigQuerySchemaApi,
+)
+from datahub.ingestion.source.bigquery_v2.common import (
+    BigQueryFilter,
+    BigQueryIdentifierBuilder,
+)
 from datahub.ingestion.source.bigquery_v2.queries_extractor import (
+    BigQueryJob,
+    BigQueryJobLabel,
+    BigQueryQueriesExtractor,
+    BigQueryQueriesExtractorConfig,
+    _all_scanned_regions_empty,
     _build_enriched_query_log_query,
     _build_user_filter,
     _escape_for_sql_like,
+    _extract_query_text,
     _is_allow_all_pattern,
+    _normalize_location_to_region_qualifier,
+    _resolve_region_qualifiers,
 )
+from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery, PreparsedQuery
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.sql_parsing.tool_meta_extractor import (
+    ToolMetaExtractor,
+    ToolMetaExtractorReport,
+)
+from datahub.utilities.file_backed_collections import FileBackedList
 
 
 class TestBuildUserFilter:
@@ -448,6 +486,7 @@ class TestFetchRegionQueryLogWithPushdown:
 
         # Create a mock config with pushdown patterns
         config = MagicMock(spec=BigQueryQueriesExtractorConfig)
+        config.capture_job_labels_as_query_properties = False
         config.pushdown_deny_usernames = ["bot_%"]
         config.pushdown_allow_usernames = ["analyst_%@example.com"]
         config.window = MagicMock()
@@ -506,6 +545,7 @@ class TestFetchRegionQueryLogWithPushdown:
 
         # Create a mock config with NO pushdown patterns
         config = MagicMock(spec=BigQueryQueriesExtractorConfig)
+        config.capture_job_labels_as_query_properties = False
         config.pushdown_deny_usernames = []
         config.pushdown_allow_usernames = []
 
@@ -548,6 +588,7 @@ class TestFetchRegionQueryLogWithPushdown:
 
         # Create a mock config with ONLY deny patterns
         config = MagicMock(spec=BigQueryQueriesExtractorConfig)
+        config.capture_job_labels_as_query_properties = False
         config.pushdown_deny_usernames = ["bot_%", "service_%"]
         config.pushdown_allow_usernames = []
 
@@ -585,6 +626,7 @@ class TestFetchRegionQueryLogWithPushdown:
 
         # Create a mock config with ONLY allow patterns
         config = MagicMock(spec=BigQueryQueriesExtractorConfig)
+        config.capture_job_labels_as_query_properties = False
         config.pushdown_deny_usernames = []
         config.pushdown_allow_usernames = ["analyst_%@company.com"]
 
@@ -612,6 +654,521 @@ class TestFetchRegionQueryLogWithPushdown:
                 "LOWER(user_email) LIKE 'analyst_%@company.com'" in executed_query_sql
             )
             assert "NOT LIKE" not in executed_query_sql
+
+
+class TestNormalizeLocationToRegionQualifier:
+    """Tests for _normalize_location_to_region_qualifier."""
+
+    def test_multi_region(self):
+        assert _normalize_location_to_region_qualifier("US") == "region-us"
+
+    def test_single_region(self):
+        assert (
+            _normalize_location_to_region_qualifier("europe-west1")
+            == "region-europe-west1"
+        )
+
+    def test_already_prefixed_is_idempotent(self):
+        assert _normalize_location_to_region_qualifier("region-us") == "region-us"
+
+    def test_empty_returns_none(self):
+        assert _normalize_location_to_region_qualifier("") is None
+
+    def test_malformed_rejected(self):
+        # Garbage that would otherwise produce an invalid SQL identifier.
+        assert _normalize_location_to_region_qualifier("US/foo") is None
+        assert _normalize_location_to_region_qualifier("us_central1") is None
+        assert _normalize_location_to_region_qualifier("region-") is None
+
+    def test_biglake_locations_rejected(self):
+        assert _normalize_location_to_region_qualifier("aws-us-east-1") is None
+        assert _normalize_location_to_region_qualifier("azure-eastus") is None
+        assert _normalize_location_to_region_qualifier("region-aws-us-east-1") is None
+        assert _normalize_location_to_region_qualifier("region-azure-eastus") is None
+
+
+class TestResolveRegionQualifiers:
+    """Tests for _resolve_region_qualifiers."""
+
+    def _empty_structured_report(self) -> MagicMock:
+        return MagicMock()
+
+    def test_only_configured_is_passthrough(self):
+        report = BigQueryQueriesExtractorReport()
+        result = _resolve_region_qualifiers(
+            configured=["region-us", "region-eu"],
+            region_qualifiers_auto_discovery=True,
+            discovered_locations=None,
+            report=report,
+            structured_report=self._empty_structured_report(),
+        )
+        assert result == ["region-us", "region-eu"]
+        assert report.region_qualifiers_auto_discovered == []
+        assert report.region_qualifiers_used == ["region-us", "region-eu"]
+
+    def test_configured_raw_locations_are_normalized(self):
+        # Users pasting raw values from the BigQuery console (e.g. "US",
+        # "europe-west1") into region_qualifiers must still produce valid
+        # INFORMATION_SCHEMA qualifiers.
+        report = BigQueryQueriesExtractorReport()
+        result = _resolve_region_qualifiers(
+            configured=["US", "europe-west1"],
+            region_qualifiers_auto_discovery=True,
+            discovered_locations=None,
+            report=report,
+            structured_report=self._empty_structured_report(),
+        )
+        assert result == ["region-us", "region-europe-west1"]
+        assert report.region_qualifiers_configured == [
+            "region-us",
+            "region-europe-west1",
+        ]
+
+    def test_discovered_extends_configured(self):
+        # Discovered regions are sorted before merging — input order doesn't
+        # influence the effective list, so reports are stable across runs.
+        report = BigQueryQueriesExtractorReport()
+        result = _resolve_region_qualifiers(
+            configured=["region-us", "region-eu"],
+            region_qualifiers_auto_discovery=True,
+            discovered_locations=["europe-west1", "asia-northeast1"],
+            report=report,
+            structured_report=self._empty_structured_report(),
+        )
+        assert result == [
+            "region-us",
+            "region-eu",
+            "region-asia-northeast1",
+            "region-europe-west1",
+        ]
+        assert report.region_qualifiers_auto_discovered == [
+            "region-asia-northeast1",
+            "region-europe-west1",
+        ]
+
+    def test_discovered_overlap_is_deduplicated(self):
+        # Dataset location "US" should dedupe with the configured "region-us".
+        report = BigQueryQueriesExtractorReport()
+        result = _resolve_region_qualifiers(
+            configured=["region-us", "region-eu"],
+            region_qualifiers_auto_discovery=True,
+            discovered_locations=["US", "europe-west1"],
+            report=report,
+            structured_report=self._empty_structured_report(),
+        )
+        assert result == ["region-us", "region-eu", "region-europe-west1"]
+        assert report.region_qualifiers_auto_discovered == ["region-europe-west1"]
+
+    def test_configured_order_preserved(self):
+        report = BigQueryQueriesExtractorReport()
+        result = _resolve_region_qualifiers(
+            configured=["region-eu", "region-us"],
+            region_qualifiers_auto_discovery=True,
+            discovered_locations=["asia-northeast1"],
+            report=report,
+            structured_report=self._empty_structured_report(),
+        )
+        assert result == ["region-eu", "region-us", "region-asia-northeast1"]
+
+    def test_pinned_list_not_auto_extended(self):
+        # REGRESSION PROTECTION: region_qualifiers_auto_discovery=False pins the list
+        # exactly — no discovered region is ever added, regardless of what
+        # region_qualifiers contains.
+        report = BigQueryQueriesExtractorReport()
+        mock_structured = MagicMock()
+        result = _resolve_region_qualifiers(
+            configured=["region-us", "region-eu", "region-asia-northeast1"],
+            region_qualifiers_auto_discovery=False,
+            discovered_locations=["europe-west1"],
+            report=report,
+            structured_report=mock_structured,
+        )
+        assert result == ["region-us", "region-eu", "region-asia-northeast1"]
+        assert report.region_qualifiers_auto_discovered == []
+
+    def test_pinned_list_surfaces_uncovered_regions(self):
+        # REGRESSION PROTECTION: customers who pinned their list must still see
+        # which discovered regions are outside their scan.
+        report = BigQueryQueriesExtractorReport()
+        mock_structured = MagicMock()
+        result = _resolve_region_qualifiers(
+            configured=["region-us"],
+            region_qualifiers_auto_discovery=False,
+            discovered_locations=["US", "europe-west1", "asia-northeast1"],
+            report=report,
+            structured_report=mock_structured,
+        )
+        assert result == ["region-us"]
+        assert report.region_qualifiers_auto_discovered == []
+        mock_structured.info.assert_called_once()
+        ctx = mock_structured.info.call_args.kwargs["context"]
+        assert "region-europe-west1" in ctx
+        assert "region-asia-northeast1" in ctx
+        assert "region-us" not in ctx  # already covered, must not be flagged
+
+    def test_pinned_list_no_info_when_fully_covered(self):
+        report = BigQueryQueriesExtractorReport()
+        mock_structured = MagicMock()
+        _resolve_region_qualifiers(
+            configured=["region-us"],
+            region_qualifiers_auto_discovery=False,
+            discovered_locations=["US"],
+            report=report,
+            structured_report=mock_structured,
+        )
+        mock_structured.info.assert_not_called()
+
+    def test_rejected_configured_qualifier_emits_failure(self):
+        # Visibility: previously an unparseable qualifier would fail at
+        # SQL-build time and surface via report_exc at ERROR level. We keep
+        # ERROR-level visibility by using `failure` (not `warning`) so
+        # customers alerting on failures still see typos.
+        report = BigQueryQueriesExtractorReport()
+        mock_structured = MagicMock()
+        _resolve_region_qualifiers(
+            configured=["region-us", "region us"],  # space in the second one
+            region_qualifiers_auto_discovery=True,
+            discovered_locations=None,
+            report=report,
+            structured_report=mock_structured,
+        )
+        mock_structured.failure.assert_called_once()
+        call = mock_structured.failure.call_args.kwargs
+        assert "region us" in call["context"]
+
+    def test_rejection_does_not_block_auto_extension(self):
+        # With region_qualifiers_auto_discovery=True, a rejected entry emits a failure
+        # but does not block discovered regions from being added.
+        report = BigQueryQueriesExtractorReport()
+        mock_structured = MagicMock()
+        result = _resolve_region_qualifiers(
+            configured=["region-us", "region-eu", "europe/bad"],
+            region_qualifiers_auto_discovery=True,
+            discovered_locations=["europe-west1"],
+            report=report,
+            structured_report=mock_structured,
+        )
+        assert "region-europe-west1" in result
+        assert "region-europe-west1" in report.region_qualifiers_auto_discovered
+        mock_structured.failure.assert_called_once()
+
+    def test_effective_empty_list_emits_failure(self):
+        # All configured qualifiers unparseable -> nothing in effective list ->
+        # extractor would silently scan nothing. Must surface a failure.
+        report = BigQueryQueriesExtractorReport()
+        mock_structured = MagicMock()
+        result = _resolve_region_qualifiers(
+            configured=["nonsense/value", ""],
+            region_qualifiers_auto_discovery=True,
+            discovered_locations=None,
+            report=report,
+            structured_report=mock_structured,
+        )
+        assert result == []
+        # Two failures expected: one for the rejected entries, one for the
+        # empty effective list. Both are real, distinct problems.
+        assert mock_structured.failure.call_count >= 1
+        failure_titles = [
+            c.kwargs["title"] for c in mock_structured.failure.call_args_list
+        ]
+        assert any("empty list" in t for t in failure_titles)
+
+    def test_empty_list_message_branches_by_cause(self):
+        # Empty configured input: message should reflect that, not pretend
+        # entries were rejected.
+        report = BigQueryQueriesExtractorReport()
+        mock_structured = MagicMock()
+        _resolve_region_qualifiers(
+            configured=[],
+            region_qualifiers_auto_discovery=True,
+            discovered_locations=None,
+            report=report,
+            structured_report=mock_structured,
+        )
+        empty_failure = next(
+            c
+            for c in mock_structured.failure.call_args_list
+            if "empty list" in c.kwargs["title"]
+        )
+        assert "is empty" in empty_failure.kwargs["message"]
+
+    def test_all_unparseable_discovered_emits_skipped_info(self):
+        # Gate is on `discovered_normalized`, not the raw arg — otherwise a
+        # truthy-but-all-garbage discovered list suppresses the breadcrumb.
+        report = BigQueryQueriesExtractorReport()
+        mock_structured = MagicMock()
+        _resolve_region_qualifiers(
+            configured=["region-us", "region-eu"],
+            region_qualifiers_auto_discovery=True,
+            discovered_locations=["bad/value", "also bad"],
+            report=report,
+            structured_report=mock_structured,
+        )
+        mock_structured.info.assert_called_once()
+        assert (
+            "auto-detection skipped"
+            in mock_structured.info.call_args.kwargs["title"].lower()
+        )
+        assert list(report.discovered_locations_unparseable) == [
+            "bad/value",
+            "also bad",
+        ]
+
+    def test_unparseable_discovered_recorded_on_report(self):
+        # Unparseable discovered values are tracked so operators know schema
+        # discovery emitted something we couldn't handle.
+        report = BigQueryQueriesExtractorReport()
+        mock_structured = MagicMock()
+        _resolve_region_qualifiers(
+            configured=["region-asia-northeast1"],
+            region_qualifiers_auto_discovery=False,
+            discovered_locations=["bad/value"],
+            report=report,
+            structured_report=mock_structured,
+        )
+        assert list(report.discovered_locations_unparseable) == ["bad/value"]
+
+    def test_whitespace_only_discovered_location_is_ignored(self):
+        # Match the normalizer's strip-then-check semantics: a whitespace-only
+        # value is neither a usable qualifier nor a meaningful unparseable.
+        report = BigQueryQueriesExtractorReport()
+        _resolve_region_qualifiers(
+            configured=["region-us", "region-eu"],
+            region_qualifiers_auto_discovery=True,
+            discovered_locations=["  "],
+            report=report,
+            structured_report=MagicMock(),
+        )
+        assert list(report.discovered_locations_unparseable) == []
+
+    def test_discovered_none_does_not_emit_auto_detect_skipped_info(self):
+        # REGRESSION PROTECTION: BigQueryQueriesSource constructs the extractor
+        # without discovered_locations. None must mean "discovery not attempted"
+        # and suppress the auto-detect-skipped breadcrumb that would otherwise
+        # fire on every run of the standalone source.
+        report = BigQueryQueriesExtractorReport()
+        mock_structured = MagicMock()
+        _resolve_region_qualifiers(
+            configured=["region-us", "region-eu"],
+            region_qualifiers_auto_discovery=True,
+            discovered_locations=None,
+            report=report,
+            structured_report=mock_structured,
+        )
+        mock_structured.info.assert_not_called()
+
+    def test_uncovered_info_fires_alongside_rejection(self):
+        # REGRESSION PROTECTION: rejection failure and uncovered-info signal
+        # distinct problems (typo vs unscanned region). Both must fire so the
+        # operator sees both — suppressing one to "fix the typo first" hides
+        # real customer data behind a separate concern.
+        report = BigQueryQueriesExtractorReport()
+        mock_structured = MagicMock()
+        _resolve_region_qualifiers(
+            configured=["region-us", "bad/value"],
+            region_qualifiers_auto_discovery=False,
+            discovered_locations=["europe-west1"],
+            report=report,
+            structured_report=mock_structured,
+        )
+        mock_structured.failure.assert_called_once()
+        mock_structured.info.assert_called_once()
+        assert "region-europe-west1" in mock_structured.info.call_args.kwargs["context"]
+
+    def test_info_emitted_when_auto_detect_inert(self):
+        # Schema discovery WAS attempted but yielded nothing usable — the
+        # scenario where the original silent failure bites non-US/EU
+        # customers, so the breadcrumb must fire. Distinct from the
+        # None case (discovery not attempted) tested separately.
+        report = BigQueryQueriesExtractorReport()
+        mock_structured = MagicMock()
+        _resolve_region_qualifiers(
+            configured=["region-us", "region-eu"],
+            region_qualifiers_auto_discovery=True,
+            discovered_locations=[],
+            report=report,
+            structured_report=mock_structured,
+        )
+        mock_structured.info.assert_called_once()
+
+    def test_no_info_when_pinned_with_no_discovery(self):
+        report = BigQueryQueriesExtractorReport()
+        mock_structured = MagicMock()
+        _resolve_region_qualifiers(
+            configured=["region-asia-northeast1"],
+            region_qualifiers_auto_discovery=False,
+            discovered_locations=None,
+            report=report,
+            structured_report=mock_structured,
+        )
+        mock_structured.info.assert_not_called()
+
+    def test_no_info_when_auto_detect_added_regions(self):
+        report = BigQueryQueriesExtractorReport()
+        mock_structured = MagicMock()
+        _resolve_region_qualifiers(
+            configured=["region-us", "region-eu"],
+            region_qualifiers_auto_discovery=True,
+            discovered_locations=["europe-west1"],
+            report=report,
+            structured_report=mock_structured,
+        )
+        mock_structured.info.assert_not_called()
+
+
+class TestFetchQueryLogPerRegionIsolation:
+    """Tests that per-region exceptions don't cross-contaminate other regions.
+
+    These tests bypass __init__ via __new__ + manual attribute injection so
+    the generator method can be exercised without standing up the full
+    extractor (aggregator, schema_api, etc.). The bypass means a refactor
+    that introduces a new __init__ invariant `fetch_query_log` relies on
+    would pass these tests but fail in production — verify integration
+    coverage if those invariants ever land.
+    """
+
+    def test_one_region_throws_others_still_scanned(self):
+        from unittest.mock import patch
+
+        from datahub.ingestion.source.bigquery_v2.queries_extractor import (
+            BigQueryQueriesExtractor,
+            BigQueryQueriesExtractorConfig,
+        )
+
+        config = MagicMock(spec=BigQueryQueriesExtractorConfig)
+        mock_structured = MagicMock()
+
+        def fake_fetch_region(_project, region):
+            if region == "region-eu":
+                raise RuntimeError("permission denied on region-eu")
+            if region == "region-us":
+                yield MagicMock()
+                yield MagicMock()
+
+        with (
+            patch.object(
+                BigQueryQueriesExtractor, "__init__", lambda self, **kwargs: None
+            ),
+            patch.object(
+                BigQueryQueriesExtractor,
+                "fetch_region_query_log",
+                side_effect=fake_fetch_region,
+            ),
+        ):
+            extractor = BigQueryQueriesExtractor.__new__(BigQueryQueriesExtractor)
+            extractor.config = config
+            extractor.effective_region_qualifiers = ["region-us", "region-eu"]
+            extractor.report = BigQueryQueriesExtractorReport()
+            extractor.structured_report = mock_structured
+
+            mock_project = MagicMock()
+            mock_project.id = "test-project"
+
+            results = list(extractor.fetch_query_log(mock_project))
+
+            assert len(results) == 2
+            mock_structured.failure.assert_called_once()
+            ctx = mock_structured.failure.call_args.kwargs["context"]
+            assert "test-project" in ctx
+            assert "region-eu" in ctx
+            mock_structured.warning.assert_not_called()
+            assert extractor.report.num_queries_by_region["region-us"] == 2
+            assert extractor.report.num_queries_by_region["region-eu"] == 0
+
+    def test_single_region_throws_does_not_fire_empty_warning(self):
+        # Pins the `errored_regions` exclusion contract: if a refactor forgets
+        # to record the throw in errored_regions, this scenario looks like
+        # "one configured region, zero rows" and would mis-fire the warning.
+        from unittest.mock import patch
+
+        from datahub.ingestion.source.bigquery_v2.queries_extractor import (
+            BigQueryQueriesExtractor,
+            BigQueryQueriesExtractorConfig,
+        )
+
+        config = MagicMock(spec=BigQueryQueriesExtractorConfig)
+        mock_structured = MagicMock()
+
+        def fake_fetch_region(_project, _region):
+            raise RuntimeError("transient BQ error")
+            yield  # unreachable; makes this a generator
+
+        with (
+            patch.object(
+                BigQueryQueriesExtractor, "__init__", lambda self, **kwargs: None
+            ),
+            patch.object(
+                BigQueryQueriesExtractor,
+                "fetch_region_query_log",
+                side_effect=fake_fetch_region,
+            ),
+        ):
+            extractor = BigQueryQueriesExtractor.__new__(BigQueryQueriesExtractor)
+            extractor.config = config
+            extractor.effective_region_qualifiers = ["region-us"]
+            extractor.report = BigQueryQueriesExtractorReport()
+            extractor.structured_report = mock_structured
+
+            mock_project = MagicMock()
+            mock_project.id = "test-project"
+
+            list(extractor.fetch_query_log(mock_project))
+
+            mock_structured.failure.assert_called_once()
+            mock_structured.warning.assert_not_called()
+
+
+class TestAllScannedRegionsEmpty:
+    """Tests for _all_scanned_regions_empty."""
+
+    def test_all_zero_no_errors_warns(self):
+        assert (
+            _all_scanned_regions_empty(
+                rows_per_region={"region-us": 0, "region-eu": 0},
+                errored_regions=set(),
+            )
+            is True
+        )
+
+    def test_any_rows_does_not_warn(self):
+        assert (
+            _all_scanned_regions_empty(
+                rows_per_region={"region-us": 0, "region-eu": 7},
+                errored_regions=set(),
+            )
+            is False
+        )
+
+    def test_all_errored_does_not_warn(self):
+        # Real failure is already captured as report.failures; firing the
+        # "set region_qualifiers" warning here would mislead the user.
+        assert (
+            _all_scanned_regions_empty(
+                rows_per_region={"region-us": 0, "region-eu": 0},
+                errored_regions={"region-us", "region-eu"},
+            )
+            is False
+        )
+
+    def test_partial_errors_still_warns_when_remaining_empty(self):
+        # region-us errored, region-eu completed with zero rows — the empty
+        # region-eu is still real evidence that the region set may be wrong.
+        assert (
+            _all_scanned_regions_empty(
+                rows_per_region={"region-us": 0, "region-eu": 0},
+                errored_regions={"region-us"},
+            )
+            is True
+        )
+
+    def test_partial_errors_does_not_warn_when_remaining_has_rows(self):
+        assert (
+            _all_scanned_regions_empty(
+                rows_per_region={"region-us": 0, "region-eu": 5},
+                errored_regions={"region-us"},
+            )
+            is False
+        )
 
 
 class TestBigQueryConfigValidator:
@@ -702,3 +1259,596 @@ class TestBigQueryConfigValidator:
                 pushdown_allow_usernames=["analyst_%", "   "],
             )
         assert "Empty pattern" in str(exc_info.value)
+
+    def test_region_qualifiers_auto_discovery_defaults_to_false(self):
+        # REGRESSION PROTECTION: default must stay False to avoid unexpected
+        # BigQuery query cost increases for users who haven't opted in.
+        from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+            BigQueryV2Config,
+        )
+        from datahub.ingestion.source.bigquery_v2.queries_extractor import (
+            BigQueryQueriesExtractorConfig,
+        )
+
+        assert BigQueryV2Config().region_qualifiers_auto_discovery is False
+        assert (
+            BigQueryQueriesExtractorConfig().region_qualifiers_auto_discovery is False
+        )
+
+
+class TestQueriesExtractorUsageConfigWiring:
+    """Tests for usage.format_sql_queries / include_top_n_queries / queries_character_limit
+    being forwarded from BigQueryQueriesExtractorConfig into the SqlParsingAggregator."""
+
+    def _build_extractor(self, config):
+        filters = BigQueryFilter(BigQueryFilterConfig(), MagicMock())
+        identifiers = BigQueryIdentifierBuilder(BigQueryIdentifierConfig(), MagicMock())
+        return BigQueryQueriesExtractor(
+            connection=MagicMock(),
+            schema_api=MagicMock(),
+            config=config,
+            structured_report=MagicMock(),
+            filters=filters,
+            identifiers=identifiers,
+        )
+
+    def test_top_n_queries_too_big_for_character_limit_rejected_at_parse_time(self):
+        # The standalone bigquery-queries source uses BigQueryQueriesExtractorConfig
+        # directly (not via BigQueryUsageConfig, which already validates this combo),
+        # so this class needs its own copy of the check - otherwise an inconsistent
+        # combo only blows up later inside BaseUsageConfig(...) mid-ingestion.
+        with pytest.raises(ValidationError) as excinfo:
+            BigQueryQueriesExtractorConfig(top_n_queries=2, queries_character_limit=20)
+        assert "top_n_queries is set to 2 but it can be maximum 1" in str(excinfo.value)
+
+    @pytest.mark.parametrize("value", [True, False])
+    def test_format_sql_queries_forwarded_to_aggregator(self, value):
+        # format_sql_queries is dual-target: it drives both the aggregator's own
+        # format_queries kwarg and usage_config.format_sql_queries.
+        with patch(
+            "datahub.ingestion.source.bigquery_v2.queries_extractor.SqlParsingAggregator"
+        ) as mock_aggregator_cls:
+            self._build_extractor(
+                BigQueryQueriesExtractorConfig(format_sql_queries=value)
+            )
+            _, kwargs = mock_aggregator_cls.call_args
+            assert kwargs["format_queries"] is value
+            assert kwargs["usage_config"].format_sql_queries is value
+
+    @pytest.mark.parametrize(
+        "field,value",
+        [("include_top_n_queries", False), ("queries_character_limit", 1000)],
+    )
+    def test_usage_config_field_forwarded_to_aggregator(self, field, value):
+        with patch(
+            "datahub.ingestion.source.bigquery_v2.queries_extractor.SqlParsingAggregator"
+        ) as mock_aggregator_cls:
+            self._build_extractor(BigQueryQueriesExtractorConfig(**{field: value}))
+            _, kwargs = mock_aggregator_cls.call_args
+            assert getattr(kwargs["usage_config"], field) == value
+
+
+_SOURCE = "my-project.my_dataset.source_table"
+_DESTINATION = "my-project.my_dataset.derived_table"
+_TEMP_FUNCTION = "CREATE TEMP FUNCTION add_one(x INT64) AS (x + 1);\n"
+_MAIN_SELECT = f"SELECT add_one(a) AS a FROM `{_SOURCE}`"
+
+
+def _job(
+    query: str,
+    statement_type: str = "SELECT",
+    table_id: str = "derived_table",
+    dataset_id: str = "my_dataset",
+) -> BigQueryJob:
+    return {
+        "job_id": "job-1",
+        "project_id": "my-project",
+        "creation_time": datetime(2026, 9, 1, tzinfo=timezone.utc),
+        "user_email": "etl@example.com",
+        "query": query,
+        "session_id": None,
+        "query_hash": None,
+        "statement_type": statement_type,
+        "destination_table": {
+            "project_id": "my-project",
+            "dataset_id": dataset_id,
+            "table_id": table_id,
+        },
+        "referenced_tables": [],
+    }
+
+
+def _wrapped(query: str) -> str:
+    return f"""CREATE TABLE `{_DESTINATION}` AS
+                (
+                    {query}
+                )"""
+
+
+def _table_lineage(row: BigQueryJob) -> Tuple[Set[str], Set[str]]:
+    result = create_lineage_sql_parsed_result(
+        _extract_query_text(row),
+        default_db="my-project",
+        platform="bigquery",
+        platform_instance=None,
+        env="PROD",
+        schema_aware=False,
+    )
+    assert result.debug_info.table_error is None
+    return set(result.in_tables), set(result.out_tables)
+
+
+_EXPECTED_LINEAGE = (
+    {make_dataset_urn("bigquery", _SOURCE)},
+    {make_dataset_urn("bigquery", _DESTINATION)},
+)
+
+
+class TestExtractQueryText:
+    """Job text rewriting before parsing: temp-function preambles and trailing semicolons."""
+
+    @pytest.mark.parametrize("ending", [";", ";;"], ids=["single", "double"])
+    def test_select_with_destination_trailing_semicolons(self, ending):
+        assert _table_lineage(_job(_MAIN_SELECT + ending)) == _EXPECTED_LINEAGE
+
+    def test_select_with_destination_semicolon_then_comment(self):
+        row = _job(_MAIN_SELECT + "; -- note\n")
+        assert _extract_query_text(row) == _wrapped(_MAIN_SELECT + " -- note\n")
+        assert _table_lineage(row) == _EXPECTED_LINEAGE
+
+    @pytest.mark.parametrize("ending", ["", ";"], ids=["plain", "trailing-semicolon"])
+    def test_select_with_destination_temp_function_preamble(self, ending):
+        row = _job(_TEMP_FUNCTION + _MAIN_SELECT + ending)
+        assert _table_lineage(row) == _EXPECTED_LINEAGE
+
+    def test_temp_function_preamble_with_offset_not_split(self):
+        main = (
+            f"SELECT e.x FROM `{_SOURCE}` AS t CROSS JOIN UNNEST(t.events) AS e\n"
+            "  WITH OFFSET AS o"
+        )
+        row = _job(_TEMP_FUNCTION + main)
+        assert _extract_query_text(row) == _wrapped("\n" + main)
+        assert _table_lineage(row) == _EXPECTED_LINEAGE
+
+    def test_js_temp_function_body_semicolon(self):
+        js_function = (
+            "CREATE TEMP FUNCTION add_suffix(x STRING)\n"
+            "RETURNS STRING\n"
+            "LANGUAGE js\n"
+            'AS r"""\n'
+            '  return x + ";";\n'
+            '""";\n'
+        )
+        query = js_function + f"SELECT add_suffix(a) AS a FROM `{_SOURCE}`"
+        assert _table_lineage(_job(query)) == _EXPECTED_LINEAGE
+
+    @pytest.mark.parametrize(
+        "statement_type,main_statement",
+        [
+            (
+                "INSERT",
+                f"INSERT INTO `{_DESTINATION}` SELECT add_one(a) AS a FROM `{_SOURCE}`",
+            ),
+            (
+                "MERGE",
+                f"MERGE `{_DESTINATION}` AS t USING (SELECT add_one(a) AS a FROM `{_SOURCE}`) AS s "
+                "ON t.a = s.a WHEN NOT MATCHED THEN INSERT (a) VALUES (s.a)",
+            ),
+            (
+                "CREATE_TABLE_AS_SELECT",
+                f"CREATE OR REPLACE TABLE `{_DESTINATION}` AS SELECT add_one(a) AS a FROM `{_SOURCE}`",
+            ),
+        ],
+        ids=["insert", "merge", "ctas"],
+    )
+    def test_dml_temp_function_preamble(self, statement_type, main_statement):
+        row = _job(_TEMP_FUNCTION + main_statement, statement_type=statement_type)
+        assert _table_lineage(row) == _EXPECTED_LINEAGE
+
+    def test_lowercase_preamble_on_unwrapped_job(self):
+        query = (
+            "create temp aggregate function total(x INT64) as (sum(x));\n"
+            f"insert into `{_DESTINATION}` select total(a) as a from `{_SOURCE}`"
+        )
+        assert _table_lineage(_job(query, "INSERT")) == _EXPECTED_LINEAGE
+
+    @pytest.mark.parametrize(
+        "preamble",
+        [
+            "CREATE OR REPLACE TEMP FUNCTION add_one(x INT64) AS (x + 1);\n",
+            "CREATE TEMPORARY FUNCTION add_one(x INT64) AS (x + 1);\n",
+            "CREATE TEMP AGGREGATE FUNCTION total(x INT64) RETURNS INT64 AS (SUM(x));\n",
+            "CREATE OR REPLACE TEMP AGGREGATE FUNCTION total(x INT64) AS (SUM(x));\n",
+        ],
+        ids=["or-replace", "temporary", "aggregate", "or-replace-aggregate"],
+    )
+    def test_temp_function_variants(self, preamble):
+        assert _table_lineage(_job(preamble + _MAIN_SELECT)) == _EXPECTED_LINEAGE
+
+    @pytest.mark.parametrize(
+        "row,expected",
+        [
+            (_job(_MAIN_SELECT), _wrapped(_MAIN_SELECT)),
+            (
+                _job(f"-- note\nSELECT 'a;b' AS x FROM `{_SOURCE}`"),
+                _wrapped(f"-- note\nSELECT 'a;b' AS x FROM `{_SOURCE}`"),
+            ),
+            (
+                _job(
+                    f"INSERT INTO `{_DESTINATION}` SELECT a FROM `{_SOURCE}`", "INSERT"
+                ),
+                f"INSERT INTO `{_DESTINATION}` SELECT a FROM `{_SOURCE}`",
+            ),
+        ],
+        ids=["select", "semicolon-in-string", "insert"],
+    )
+    def test_plain_query_text_unchanged(self, row, expected):
+        assert _extract_query_text(row) == expected
+
+    def test_only_temp_functions_unchanged(self):
+        query = _TEMP_FUNCTION + "CREATE TEMP FUNCTION two() AS (2);"
+        assert _extract_query_text(_job(query)) == _wrapped(query)
+
+    def test_tokenizer_error_falls_back(self):
+        query = f"SELECT 'unterminated FROM `{_SOURCE}`;"
+        assert _extract_query_text(_job(query)) == _wrapped(query)
+
+    def test_anon_destination_preamble_not_wrapped(self):
+        row = _job(_TEMP_FUNCTION + _MAIN_SELECT, table_id="anon1a2b3c")
+        assert _extract_query_text(row) == "\n" + _MAIN_SELECT
+
+    @pytest.mark.parametrize(
+        "row",
+        [
+            _job(f"SELECT a FROM `{_SOURCE}`;\n-- run by analyst\n", table_id="anon1"),
+            _job(
+                f"INSERT INTO `{_DESTINATION}` SELECT a FROM `{_SOURCE}`; -- nightly",
+                "INSERT",
+            ),
+        ],
+        ids=["anonymous-select", "insert"],
+    )
+    def test_unwrapped_single_statement_unchanged(self, row):
+        assert _extract_query_text(row) == row["query"]
+
+    def test_preamble_removal_keeps_other_text(self):
+        query = (
+            "-- header\n"
+            + _TEMP_FUNCTION
+            + "-- between\n"
+            + "CREATE TEMP FUNCTION two() AS (2); -- after two\n"
+            + _MAIN_SELECT
+            + "\n-- footer"
+        )
+        assert _extract_query_text(_job(query, table_id="anon1")) == (
+            "-- header\n\n-- between\n -- after two\n" + _MAIN_SELECT + "\n-- footer"
+        )
+
+    def test_several_statements_unchanged(self):
+        query = (
+            _TEMP_FUNCTION + f"DELETE FROM `{_DESTINATION}` WHERE TRUE;\n"
+            f"INSERT INTO `{_DESTINATION}` SELECT a FROM `{_SOURCE}`;"
+        )
+        assert _extract_query_text(_job(query, "INSERT")) == query
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            f"CREATE TEMP TABLE function AS SELECT a FROM `{_SOURCE}`;\n"
+            "SELECT a FROM function",
+            "CREATE FUNCTION my_dataset.add_one(x INT64) AS (x + 1);\n"
+            f"SELECT a FROM `{_SOURCE}`",
+        ],
+        ids=["temp-table-named-function", "persistent-function"],
+    )
+    def test_non_temp_function_statement_not_stripped(self, query):
+        assert _extract_query_text(_job(query, table_id="anon1")) == query
+
+    @pytest.mark.parametrize(
+        "query,origin",
+        [
+            (
+                _TEMP_FUNCTION + f"SELECT a FROM `{_SOURCE}`;\n"
+                '-- {"user":"@analyst","email":"analyst@example.com",'
+                '"url":"https://modeanalytics.com/example/reports/1/runs/2"}',
+                "urn:li:dataPlatform:mode",
+            ),
+            (
+                '-- Hex query metadata: {"project_id": "p1"}\n'
+                + _TEMP_FUNCTION
+                + _MAIN_SELECT,
+                "urn:li:dataPlatform:hex",
+            ),
+        ],
+        ids=["mode-preamble", "hex-preamble"],
+    )
+    def test_bi_attribution_kept(self, query, origin):
+        entry = PreparsedQuery(
+            query_id=None,
+            query_text=_extract_query_text(_job(query, table_id="anon1")),
+            upstreams=[],
+        )
+        assert ToolMetaExtractor(ToolMetaExtractorReport()).extract_bi_metadata(entry)
+        assert entry.origin is not None and entry.origin.urn() == origin
+
+
+_ETL_SQL = """-- generated
+CREATE TEMP FUNCTION pairs_to_json(input ARRAY<STRUCT<key STRING, value STRING>>)
+RETURNS JSON AS (
+  (SELECT JSON_OBJECT(ARRAY_AGG(key), ARRAY_AGG(value)) FROM UNNEST(input))
+);
+
+CREATE TEMP FUNCTION clean_json(payload JSON)
+RETURNS JSON AS (
+  JSON_STRIP_NULLS(payload, remove_empty => TRUE)
+);
+
+WITH base AS (
+  SELECT
+    *,
+    meta.user_id AS user_id,
+  FROM
+    `my-project.{app}.events`
+  WHERE
+    DATE(event_timestamp) = @run_date
+)
+--
+SELECT
+  base.* EXCEPT (events),
+  event.category AS event_category,
+  pairs_to_json(event.attributes) AS event_attributes,
+  (event_offset + 1) AS event_number,
+FROM
+  base
+CROSS JOIN
+  UNNEST(events) AS event
+  WITH OFFSET AS event_offset
+"""
+
+
+class TestExtractQueryTextEndToEnd:
+    """ETL-generated jobs with temp-function preambles produce lineage through the aggregator."""
+
+    def _etl_job(self, app: str) -> BigQueryJob:
+        return _job(
+            _ETL_SQL.format(app=app),
+            table_id="event_log$20260915",
+            dataset_id=f"{app}_reports",
+        )
+
+    def test_etl_job_with_temp_functions_lineage(self, tmp_path):
+        rows = [self._etl_job("app_a"), self._etl_job("app_b")]
+        extractor = BigQueryQueriesExtractor(
+            connection=MagicMock(),
+            schema_api=MagicMock(),
+            config=BigQueryQueriesExtractorConfig(local_temp_path=tmp_path),
+            structured_report=MagicMock(),
+            filters=BigQueryFilter(BigQueryFilterConfig(), MagicMock()),
+            identifiers=BigQueryIdentifierBuilder(
+                BigQueryIdentifierConfig(), MagicMock()
+            ),
+        )
+
+        def fake_fetch(project: BigqueryProject) -> Iterator[ObservedQuery]:
+            for row in rows:
+                yield extractor._parse_audit_log_row(row)
+
+        lineage: Dict[str, Set[str]] = {}
+        try:
+            with (
+                patch(
+                    "datahub.ingestion.source.bigquery_v2.queries_extractor.get_projects",
+                    return_value=[BigqueryProject(id="my-project", name="my-project")],
+                ),
+                patch.object(extractor, "fetch_query_log", side_effect=fake_fetch),
+            ):
+                for wu in extractor.get_workunits_internal():
+                    aspect = wu.get_aspect_of_type(UpstreamLineageClass)
+                    if aspect:
+                        lineage[wu.get_urn()] = {u.dataset for u in aspect.upstreams}
+        finally:
+            extractor.close()
+
+        for app in ("app_a", "app_b"):
+            downstream = make_dataset_urn(
+                "bigquery", f"my-project.{app}_reports.event_log"
+            )
+            assert lineage[downstream] == {
+                make_dataset_urn("bigquery", f"my-project.{app}.events")
+            }
+
+
+class TestJobLabelsAsQueryProperties:
+    def _build_extractor(self, enabled: bool) -> BigQueryQueriesExtractor:
+        extractor = BigQueryQueriesExtractor.__new__(BigQueryQueriesExtractor)
+        extractor.config = BigQueryQueriesExtractorConfig(
+            capture_job_labels_as_query_properties=enabled
+        )
+        extractor.identifiers = BigQueryIdentifierBuilder(
+            BigQueryIdentifierConfig(), MagicMock()
+        )
+        return extractor
+
+    def _row(self, labels: List[BigQueryJobLabel]) -> BigQueryJob:
+        return BigQueryJob(
+            job_id="job_1",
+            project_id="my-project",
+            creation_time=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            user_email="user@example.com",
+            query="insert into `my_dataset`.`b` select * from `my_dataset`.`a`",
+            session_id=None,
+            query_hash=None,
+            statement_type="INSERT",
+            destination_table=None,
+            referenced_tables=[],
+            labels=labels,
+        )
+
+    @pytest.mark.parametrize("enabled", [True, False])
+    def test_labels_column_selected_only_when_enabled(self, enabled: bool) -> None:
+        query = _build_enriched_query_log_query(
+            project_id="test-project",
+            region="region-us",
+            start_time=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            end_time=datetime(2024, 1, 2, tzinfo=timezone.utc),
+            include_labels=enabled,
+        )
+        assert bool(re.search(r"referenced_tables,\s+labels\s+FROM", query)) is enabled
+
+    def test_disabled_by_default(self) -> None:
+        assert (
+            BigQueryQueriesExtractorConfig().capture_job_labels_as_query_properties
+            is False
+        )
+
+    def test_labels_become_custom_properties(self) -> None:
+        row = self._row(
+            [
+                {"key": "airflow-dag", "value": "my_dag"},
+                {"key": "airflow-task", "value": "my_task"},
+            ]
+        )
+        entry = self._build_extractor(enabled=True)._parse_audit_log_row(row)
+        assert entry.custom_properties == {
+            "airflow-dag": "my_dag",
+            "airflow-task": "my_task",
+        }
+
+    def test_no_labels_gives_none(self) -> None:
+        entry = self._build_extractor(enabled=True)._parse_audit_log_row(self._row([]))
+        assert entry.custom_properties is None
+
+    def test_labels_ignored_when_disabled(self) -> None:
+        row = self._row([{"key": "airflow-dag", "value": "my_dag"}])
+        entry = self._build_extractor(enabled=False)._parse_audit_log_row(row)
+        assert entry.custom_properties is None
+
+    @pytest.mark.parametrize(
+        "observations,expected_labels,expected_ts",
+        [
+            pytest.param(
+                [(1, {"airflow-task": "task_1"}), (2, {"airflow-task": "task_2"})],
+                {"airflow-task": "task_2"},
+                2,
+                id="newer_labels_replace",
+            ),
+            pytest.param(
+                [(1, {"airflow-task": "task_1"}), (2, None)],
+                None,
+                2,
+                id="newer_unlabeled_clears",
+            ),
+            # Projects and regions are fetched one after another, so an older job can
+            # be read after a newer one.
+            pytest.param(
+                [(2, {"airflow-task": "task_2"}), (1, {"airflow-task": "task_1"})],
+                {"airflow-task": "task_2"},
+                2,
+                id="older_job_read_later_ignored",
+            ),
+        ],
+    )
+    def test_deduplicate_keeps_newest_labels_in_bucket(
+        self,
+        observations: List[Tuple[int, Optional[Dict[str, str]]]],
+        expected_labels: Optional[Dict[str, str]],
+        expected_ts: int,
+    ) -> None:
+        extractor = self._build_extractor(enabled=True)
+        queries: FileBackedList[ObservedQuery] = FileBackedList()
+        for hour, labels in observations:
+            queries.append(
+                ObservedQuery(
+                    query="select * from `my_dataset`.`a`",
+                    timestamp=datetime(2024, 1, 1, hour, tzinfo=timezone.utc),
+                    custom_properties=labels,
+                    extra_info={"job_id": f"job_{hour}"},
+                )
+            )
+
+        deduped = extractor.deduplicate_queries(queries)
+
+        [buckets] = deduped.values()
+        [query] = buckets.values()
+        assert query.usage_multiplier == len(observations)
+        assert query.custom_properties == expected_labels
+        assert query.timestamp == datetime(2024, 1, 1, expected_ts, tzinfo=timezone.utc)
+        assert query.extra_info == {"job_id": f"job_{expected_ts}"}
+
+
+class TestTableClassification:
+    """is_temp_table / is_allowed_table decide which parsed references the
+    aggregator keeps, using the set of tables discovered during schema extraction."""
+
+    def _extractor(
+        self, discovered: Optional[Set[str]] = None
+    ) -> BigQueryQueriesExtractor:
+        report = BigQueryV2Report()
+        return BigQueryQueriesExtractor(
+            connection=MagicMock(),
+            schema_api=create_autospec(BigQuerySchemaApi, instance=True),
+            config=BigQueryQueriesExtractorConfig(temp_table_dataset_prefix="_"),
+            structured_report=report,
+            filters=BigQueryFilter(
+                BigQueryFilterConfig(dataset_pattern={"deny": [".*denied.*"]}),
+                report,
+            ),
+            identifiers=BigQueryIdentifierBuilder(BigQueryIdentifierConfig(), report),
+            discovered_tables=discovered,
+        )
+
+    def test_temp_dataset_prefix_marks_table_as_temporary(self) -> None:
+        extractor = self._extractor()
+        assert extractor.is_temp_table("my-project._scratch.t")
+        assert not extractor.is_temp_table("my-project.sales.t")
+
+    def test_undiscovered_but_allowed_table_is_inferred_temporary(self) -> None:
+        extractor = self._extractor(
+            discovered={"projects/my-project/datasets/sales/tables/known"}
+        )
+
+        assert extractor.is_temp_table("my-project.sales.unknown")
+        assert "my-project.sales.unknown" in extractor.report.inferred_temp_tables
+        assert not extractor.is_temp_table("my-project.sales.known")
+        # Denied by pattern: not an inferred temp table, just filtered.
+        assert not extractor.is_temp_table("my-project.denied.unknown")
+
+    def test_allowed_table_requires_discovery_and_pattern_match(self) -> None:
+        extractor = self._extractor(
+            discovered={"projects/my-project/datasets/sales/tables/known"}
+        )
+
+        assert extractor.is_allowed_table("my-project.sales.known")
+        assert not extractor.is_allowed_table("my-project.sales.unknown")
+        assert not extractor.is_allowed_table("my-project.denied.known")
+
+    def test_unparseable_names_are_neither_temporary_nor_allowed(self) -> None:
+        extractor = self._extractor()
+        assert not extractor.is_temp_table("not-a-table-name")
+        assert not extractor.is_allowed_table("not-a-table-name")
+
+
+def test_unparseable_query_log_rows_are_reported_and_skipped() -> None:
+    """One malformed JOBS row must not lose the rest of the region's query log."""
+    report = BigQueryV2Report()
+    connection = MagicMock()
+    extractor = BigQueryQueriesExtractor(
+        connection=connection,
+        schema_api=create_autospec(BigQuerySchemaApi, instance=True),
+        config=BigQueryQueriesExtractorConfig(),
+        structured_report=report,
+        filters=BigQueryFilter(BigQueryFilterConfig(), report),
+        identifiers=BigQueryIdentifierBuilder(BigQueryIdentifierConfig(), report),
+    )
+    good = _job("select * from `my_dataset`.`a`")
+    connection.query.return_value = [good, object(), good]
+    extractor.start_time, extractor.end_time = extractor._get_time_window()
+
+    entries = list(
+        extractor.fetch_region_query_log(
+            BigqueryProject(id="my-project", name="my-project"), "region-us"
+        )
+    )
+
+    assert len(entries) == 2
+    assert "Error parsing query log row" in {w.message for w in report.warnings}

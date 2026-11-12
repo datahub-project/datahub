@@ -62,14 +62,15 @@ source:
 **For complete details**, see:
 
 - [Hive Metastore Connector Documentation](../hive-metastore)
-  :::
+
+:::
 
 #### Related Documentation
 
 - [Presto Configuration Examples](presto_recipe.yml)
 - [Hive Metastore Connector](../hive-metastore) - For Presto-on-Hive with storage lineage
 - [Trino Connector](../trino) - Similar connector for Trino (Presto's successor)
-- [PyHive Documentation](https://github.com/dropbox/PyHive) - Underlying connection library
+- [presto-python-client Documentation](https://github.com/prestodb/presto-python-client) - Underlying connection library
 
 ### Prerequisites
 
@@ -77,7 +78,7 @@ source:
 
 2. **User Account**: Presto user with permissions to query metadata
 
-3. **Dependencies**: Install PyHive connectivity:
+3. **Dependencies**: Install the Presto plugin:
    ```bash
    pip install 'acryl-datahub[presto]'
    ```
@@ -158,4 +159,4 @@ source:
 **Requirements**:
 
 - Valid Kerberos ticket (use `kinit` before running ingestion)
-- PyKerberos package installed
+- The `requests-kerberos` Python package installed (`pip install requests-kerberos`)

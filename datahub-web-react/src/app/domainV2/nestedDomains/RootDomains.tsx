@@ -1,12 +1,13 @@
-import { ReadOutlined } from '@ant-design/icons';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import EmptyDomainDescription from '@app/domainV2/EmptyDomainDescription';
 import EmptyDomainsSection from '@app/domainV2/EmptyDomainsSection';
 import useScrollDomains from '@app/domainV2/useScrollDomains';
-import Loading from '@app/shared/Loading';
-import { Message } from '@app/shared/Message';
+import Loading from '@app/sharedV2/Loading';
+import { Message } from '@app/sharedV2/Message';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
@@ -37,16 +38,17 @@ interface Props {
     setIsCreatingDomain: React.Dispatch<React.SetStateAction<boolean>>;
 }
 export default function RootDomains({ setIsCreatingDomain }: Props) {
+    const { t } = useTranslation('governance.domain');
     const entityRegistry = useEntityRegistry();
     const { domains, hasInitialized, loading, error, scrollRef } = useScrollDomains({});
 
     return (
         <>
-            {error && <Message type="error" content="Failed to load domains. An unexpected error occurred." />}
+            {error && <Message type="error" content={t('list.loadError')} />}
             {hasInitialized && domains.length === 0 && (
                 <EmptyDomainsSection
-                    icon={<ReadOutlined />}
-                    title="Organize your data"
+                    icon={<BookOpen />}
+                    title={t('empty.organizeTitle')}
                     description={<EmptyDomainDescription />}
                     setIsCreatingDomain={setIsCreatingDomain}
                 />

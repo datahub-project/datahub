@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AssertionName } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AssertionName';
@@ -30,8 +31,9 @@ interface DetailsColumnProps {
 }
 
 export function DetailsColumn({ assertion, contract, lastEvaluation, onViewAssertionDetails }: DetailsColumnProps) {
+    const { t } = useTranslation('entity.profile.validations');
     if (!assertion.info) {
-        return <>No details found</>;
+        return <>{t('assertionList.noDetailsFound')}</>;
     }
 
     return (

@@ -35,6 +35,7 @@ import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import jakarta.inject.Named;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
@@ -43,7 +44,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.inject.Named;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -52,13 +52,11 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-@ActiveProfiles("test")
+@ActiveProfiles({"upgrade", "test"})
 @SpringBootTest(
     classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class},
     properties = {
       "BOOTSTRAP_SYSTEM_UPDATE_DATA_JOB_NODE_CLL_ENABLED=true",
-      "kafka.schemaRegistry.type=INTERNAL",
-      "DATAHUB_UPGRADE_HISTORY_TOPIC_NAME=" + Topics.DATAHUB_UPGRADE_HISTORY_TOPIC_NAME,
       "METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=" + Topics.METADATA_CHANGE_LOG_VERSIONED,
     },
     args = {"-u", "SystemUpdateNonBlocking"})
@@ -111,7 +109,13 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
     AspectDao mockAspectDao = mock(AspectDao.class);
     PartitionedStream<EbeanAspectV2> mockStream = mock(PartitionedStream.class);
     when(mockStream.partition(anyInt())).thenReturn(Stream.empty());
-    when(mockAspectDao.streamAspectBatches(any(RestoreIndicesArgs.class))).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(
+            any(OperationContext.class), any(RestoreIndicesArgs.class), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(mockStream));
 
     ReindexDataJobViaNodesCLL cllUpgrade =
         new ReindexDataJobViaNodesCLL(opContext, mockService, mockAspectDao, true, 10, 0, 0);
@@ -124,6 +128,7 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
         List.of());
     verify(mockAspectDao, times(1))
         .streamAspectBatches(
+            any(OperationContext.class),
             eq(
                 new RestoreIndicesArgs()
                     .batchSize(10)
@@ -131,7 +136,8 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
                     .aspectName("dataJobInputOutput")
                     .urnBasedPagination(false)
                     .lastUrn(null)
-                    .urnLike("urn:li:dataJob:%")));
+                    .urnLike("urn:li:dataJob:%")),
+            any());
   }
 
   @Test
@@ -156,16 +162,22 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
     when(resumeStream.partition(anyInt())).thenReturn(Stream.of(resumeBatch.stream()));
 
     // Setup the AspectDao using Answer to handle null safely
-    when(mockAspectDao.streamAspectBatches(any(RestoreIndicesArgs.class)))
+    when(mockAspectDao.streamAspectBatches(
+            any(OperationContext.class), any(RestoreIndicesArgs.class), any()))
         .thenAnswer(
             invocation -> {
-              RestoreIndicesArgs args = invocation.getArgument(0);
+              RestoreIndicesArgs args = invocation.getArgument(1);
+              PartitionedStream<EbeanAspectV2> selected;
               if (args.lastUrn() == null) {
-                return initialStream;
+                selected = initialStream;
               } else if ("urn:li:dataJob:job2".equals(args.lastUrn())) {
-                return resumeStream;
+                selected = resumeStream;
+              } else {
+                selected = mock(PartitionedStream.class);
               }
-              return mock(PartitionedStream.class);
+              return ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                      invocation.getArgument(2))
+                  .apply(selected);
             });
 
     // Mock successful MCL production
@@ -186,7 +198,8 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
     // Use ArgumentCaptor to verify the calls
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
-    verify(mockAspectDao, times(2)).streamAspectBatches(argsCaptor.capture());
+    verify(mockAspectDao, times(2))
+        .streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
 
     List<RestoreIndicesArgs> capturedArgs = argsCaptor.getAllValues();
 

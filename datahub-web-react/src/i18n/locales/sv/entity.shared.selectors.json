@@ -1,0 +1,21 @@
+{
+    "actorsSearch.placeholder": "Sök efter användare eller grupper",
+    "domainSelector.label": "Domäner",
+    "domainSelector.placeholder": "Välj domäner",
+    "domainSelector.singleLabel": "Domän",
+    "domainSelector.singlePlaceholder": "Välj domän",
+    "domainSelector.searchPlaceholder": "Sök alla domäner...",
+    "entitySearch.noEntitiesFound": "Inga entiteter hittades",
+    "entitySearch.placeholder": "Sök efter entiteter...",
+    "customOwnershipType": "Anpassad ägarskapstyp",
+    "ingestionSource": "Ingestion-källa",
+    "groupBy.displayValue": "Gruppera {{label}}",
+    "groupBy.group": "Gruppera",
+    "selectItems.addMoreSection": "Lägg till fler",
+    "selectItems.entitiesLabel": "entiteter",
+    "selectItems.itemsLabel": "objekt",
+    "selectItems.noEntityFound": "Ingen {{entityName}} hittades",
+    "selectItems.removeAll": "Ta bort alla",
+    "selectItems.searchForEntity": "Sök efter {{entityName}}...",
+    "selectItems.selectedSection": "Valda"
+}

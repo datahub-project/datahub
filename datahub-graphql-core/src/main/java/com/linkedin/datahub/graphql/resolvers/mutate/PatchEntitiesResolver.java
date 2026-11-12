@@ -78,7 +78,7 @@ public class PatchEntitiesResolver
     log.info("Processing batch patch for {} entities", inputs.size());
 
     // Check authorization for all entities using common utility method
-    PatchResolverUtils.checkBatchAuthorization(inputs, context);
+    PatchResolverUtils.checkBatchAuthorization(inputs, context, entityService);
 
     // Create batch of MetadataChangeProposals using common utility method
     final List<MetadataChangeProposal> mcps =

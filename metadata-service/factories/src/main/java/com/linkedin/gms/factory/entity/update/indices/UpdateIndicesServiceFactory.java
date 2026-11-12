@@ -4,12 +4,11 @@ import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.service.TimeseriesWriteThrottleCache;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
-import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -81,10 +80,8 @@ public class UpdateIndicesServiceFactory {
   public UpdateIndicesService searchIndicesServiceNonGMS(
       GraphService graphService,
       ElasticSearchService entitySearchService,
-      TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
-      SearchDocumentTransformer searchDocumentTransformer,
-      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
+      TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
       @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
           final List<String> fineGrainedLineageNotAllowedForPlatforms,
       @Qualifier("updateIndicesV2Strategy") @Nullable UpdateIndicesStrategy v2Strategy,
@@ -103,6 +100,7 @@ public class UpdateIndicesServiceFactory {
         entitySearchService,
         systemMetadataService,
         strategies,
+        timeseriesWriteThrottleCache,
         searchDiffMode,
         structuredPropertiesHookEnabled,
         structuredPropertiesWriteEnabled);
@@ -113,11 +111,9 @@ public class UpdateIndicesServiceFactory {
   public UpdateIndicesService searchIndicesServiceGMS(
       final GraphService graphService,
       final ElasticSearchService entitySearchService,
-      final TimeseriesAspectService timeseriesAspectService,
       final SystemMetadataService systemMetadataService,
-      final SearchDocumentTransformer searchDocumentTransformer,
       final EntityService<?> entityService,
-      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
+      final TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
       @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
           final List<String> fineGrainedLineageNotAllowedForPlatforms,
       @Qualifier("updateIndicesV2Strategy") @Nullable UpdateIndicesStrategy v2Strategy,
@@ -137,6 +133,7 @@ public class UpdateIndicesServiceFactory {
             entitySearchService,
             systemMetadataService,
             strategies,
+            timeseriesWriteThrottleCache,
             searchDiffMode,
             structuredPropertiesHookEnabled,
             structuredPropertiesWriteEnabled);

@@ -6,12 +6,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.group.GroupService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -37,8 +35,10 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -53,7 +53,6 @@ public class RelatedDocumentsResolverTest {
 
   private DocumentService mockService;
   private EntityClient mockEntityClient;
-  private GroupService mockGroupService;
   private RelatedDocumentsResolver resolver;
   private DataFetchingEnvironment mockEnv;
   private RelatedDocumentsInput input;
@@ -63,7 +62,6 @@ public class RelatedDocumentsResolverTest {
   public void setupTest() throws Exception {
     mockService = mock(DocumentService.class);
     mockEntityClient = mock(EntityClient.class);
-    mockGroupService = mock(GroupService.class);
     mockEnv = mock(DataFetchingEnvironment.class);
 
     // Setup mock parent entity
@@ -105,11 +103,8 @@ public class RelatedDocumentsResolverTest {
     when(mockEntityClient.batchGetV2(any(OperationContext.class), any(String.class), any(), any()))
         .thenReturn(entityResponseMap);
 
-    // Mock GroupService to return empty groups by default
-    when(mockGroupService.getGroupsForUser(any(OperationContext.class), any(Urn.class)))
-        .thenReturn(Collections.emptyList());
-
-    resolver = new RelatedDocumentsResolver(mockService, mockEntityClient, mockGroupService);
+    // Session group membership is stubbed via TestUtils.withSessionGroupMembership when needed
+    resolver = new RelatedDocumentsResolver(mockService, mockEntityClient);
   }
 
   private EntityResponse createPublishedDocumentResponse(String documentUrn, String ownerUrn) {
@@ -225,7 +220,9 @@ public class RelatedDocumentsResolverTest {
     Filter capturedFilter = filterCaptor.getValue();
     assertNotNull(capturedFilter);
     assertNotNull(capturedFilter.getOr());
-    assertEquals(capturedFilter.getOr().size(), 2); // PUBLISHED OR UNPUBLISHED owned
+    // 4 clauses: lifecycle published, lifecycle non-published owned, legacy published, legacy
+    // unpublished owned
+    assertEquals(capturedFilter.getOr().size(), 4);
 
     // Check that relatedAssets filter is in both clauses
     boolean foundRelatedAssetsFilter = false;
@@ -260,9 +257,29 @@ public class RelatedDocumentsResolverTest {
 
     assertNotNull(result);
 
-    // Verify service was called
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
     verify(mockService, times(1))
-        .searchDocuments(any(OperationContext.class), eq("*"), any(), any(), eq(0), eq(10));
+        .searchDocuments(
+            any(OperationContext.class), eq("*"), filterCaptor.capture(), any(), eq(0), eq(10));
+
+    final List<Criterion> criteria = flattenCriteria(filterCaptor.getValue());
+    assertTrue(
+        criteria.stream().noneMatch(c -> "subTypes".equals(c.getField())),
+        "must filter on the ES field typeNames, not the aspect name subTypes");
+    assertTrue(
+        criteria.stream()
+            .anyMatch(
+                c ->
+                    "typeNames".equals(c.getField())
+                        && c.getValues().containsAll(ImmutableList.of("tutorial", "guide"))),
+        "typeNames filter should carry the requested subtypes");
+  }
+
+  private static List<Criterion> flattenCriteria(Filter filter) {
+    return filter.getOr().stream()
+        .filter(conj -> conj.getAnd() != null)
+        .flatMap(conj -> conj.getAnd().stream())
+        .collect(Collectors.toList());
   }
 
   @Test
@@ -389,14 +406,10 @@ public class RelatedDocumentsResolverTest {
 
   @Test
   public void testContextDocumentsWithGroupOwnership() throws Exception {
-    QueryContext mockContext = getMockAllowContext();
-    when(mockContext.getActorUrn()).thenReturn(TEST_USER_URN);
+    QueryContext mockContext =
+        getMockAllowContext(TEST_USER_URN, ImmutableList.of(UrnUtils.getUrn(TEST_GROUP_URN)));
     when(mockEnv.getContext()).thenReturn(mockContext);
     when(mockEnv.getArgument(eq("input"))).thenReturn(input);
-
-    // Mock user belongs to a group
-    when(mockGroupService.getGroupsForUser(any(OperationContext.class), any(Urn.class)))
-        .thenReturn(ImmutableList.of(UrnUtils.getUrn(TEST_GROUP_URN)));
 
     // Create unpublished document owned by user's group
     Map<com.linkedin.common.urn.Urn, EntityResponse> entityResponseMap = new HashMap<>();

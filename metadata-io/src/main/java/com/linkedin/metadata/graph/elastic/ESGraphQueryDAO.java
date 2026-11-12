@@ -4,12 +4,14 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
+import com.linkedin.metadata.graph.LineageCountResult;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -37,12 +39,9 @@ public class ESGraphQueryDAO implements GraphQueryDAO, DisposableBean {
     this.config = config;
 
     switch (client.getEngineType()) {
-      case ELASTICSEARCH_7:
-        this.delegate =
-            new GraphQueryElasticsearch7DAO(client, graphServiceConfig, config, metricUtils);
-        break;
       case ELASTICSEARCH_8:
       case OPENSEARCH_2:
+      case OPENSEARCH_3:
       case ELASTICSEARCH_9:
         this.delegate = new GraphQueryPITDAO(client, graphServiceConfig, config, metricUtils);
         break;
@@ -64,6 +63,15 @@ public class ESGraphQueryDAO implements GraphQueryDAO, DisposableBean {
       @Nullable Integer count,
       int maxHops) {
     return delegate.getLineage(opContext, entityUrn, lineageGraphFilters, offset, count, maxHops);
+  }
+
+  @Override
+  public LineageCountResult getLineageCount(
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> entityUrns,
+      @Nonnull LineageGraphFilters lineageGraphFilters,
+      int sampleSize) {
+    return delegate.getLineageCount(opContext, entityUrns, lineageGraphFilters, sampleSize);
   }
 
   @Override
@@ -95,13 +103,14 @@ public class ESGraphQueryDAO implements GraphQueryDAO, DisposableBean {
     return delegate.getSearchResponse(opContext, filters, sortCriteria, scrollId, keepAlive, count);
   }
 
-  SearchResponse executeSearch(@Nonnull SearchRequest searchRequest) {
-    return delegate.executeSearch(searchRequest);
+  SearchResponse executeSearch(
+      @Nonnull OperationContext opContext, @Nonnull SearchRequest searchRequest) {
+    return delegate.executeSearch(opContext, searchRequest);
   }
 
   @Override
-  public void cleanupPointInTime(String pitId) {
-    delegate.cleanupPointInTime(pitId);
+  public void cleanupPointInTime(@Nonnull OperationContext opContext, String pitId) {
+    delegate.cleanupPointInTime(opContext, pitId);
   }
 
   @Override

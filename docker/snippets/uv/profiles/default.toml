@@ -1,0 +1,7 @@
+# Empty file since the default is public PyPi
+# Add entries like below to a new .toml file for custom indexes
+# Refer https://github.com/datahub-project/datahub/blob/e06666d64a90705edaedd30ac4ecdba8494d16dc/docs/developers.md#L403 for more details
+# [[index]]
+# name = "pypi"
+# url = "https://pypi.org/simple/"
+# default = true

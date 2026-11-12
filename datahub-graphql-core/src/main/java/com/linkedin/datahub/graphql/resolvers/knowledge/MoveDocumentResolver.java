@@ -8,8 +8,12 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.MoveDocumentInput;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.SearchIndexMode;
+import com.linkedin.metadata.service.ServiceAuthorizationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -54,9 +58,15 @@ public class MoveDocumentResolver implements DataFetcher<CompletableFuture<Boole
                 context.getOperationContext(),
                 documentUrn,
                 newParentUrn,
-                UrnUtils.getUrn(context.getActorUrn()));
+                UrnUtils.getUrn(context.getActorUrn()),
+                SearchIndexMode.SYNC);
 
             return true;
+          } catch (ServiceAuthorizationException e) {
+            throw new AuthorizationException(e.getMessage(), e);
+          } catch (IllegalArgumentException e) {
+            throw new DataHubGraphQLException(
+                e.getMessage(), DataHubGraphQLErrorCode.BAD_REQUEST, e);
           } catch (Exception e) {
             log.error("Failed to move Document with URN {}: {}", input.getUrn(), e.getMessage());
             throw new RuntimeException(

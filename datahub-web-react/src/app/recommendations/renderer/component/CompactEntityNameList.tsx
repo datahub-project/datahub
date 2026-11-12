@@ -1,4 +1,4 @@
-import { TooltipPlacement } from 'antd/es/tooltip';
+import { TooltipPlacement } from '@components';
 import React from 'react';
 
 import { CompactEntityNameComponent } from '@app/recommendations/renderer/component/CompactEntityNameComponent';

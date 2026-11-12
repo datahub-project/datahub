@@ -1,0 +1,590 @@
+from typing import Annotated, Dict, Literal, Optional, Union
+
+from pydantic import Field, SecretStr, field_validator, model_validator
+
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
+from datahub.ingestion.source.microstrategy.constants import MICROSTRATEGY_PLATFORM
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+)
+from datahub.utilities import config_clean
+
+
+class MicroStrategyGuestAuth(ConfigModel):
+    type: Literal["guest"] = "guest"
+
+
+class MicroStrategyPasswordAuth(ConfigModel):
+    type: Literal["password"] = "password"
+    username: str = Field(description="MicroStrategy username.")
+    password: SecretStr = Field(description="MicroStrategy password.")
+
+    @field_validator("username", mode="after")
+    @classmethod
+    def username_not_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("username must not be empty")
+        return value
+
+
+MicroStrategyAuthConfig = Annotated[
+    Union[MicroStrategyGuestAuth, MicroStrategyPasswordAuth],
+    Field(discriminator="type"),
+]
+
+
+class ConnectionPlatformConfig(ConfigModel):
+    platform: Optional[str] = Field(
+        default=None,
+        description="DataHub platform name (for example `snowflake`) to override the "
+        "one auto-detected from the datasource's database type. Set this when the "
+        "warehouse is custom or its database type is not recognized.",
+    )
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="The platform instance the warehouse was ingested under.",
+    )
+    env: Optional[str] = Field(
+        default=None,
+        description="The environment the warehouse was ingested under. Defaults to "
+        "this connector's `env` when unset.",
+    )
+    convert_urns_to_lowercase: bool = Field(
+        default=True,
+        description="Lowercase the upstream warehouse dataset and column URNs. Set to "
+        "false when this warehouse was ingested with case preserved so lineage URNs match.",
+    )
+
+
+class MicroStrategyConfig(
+    StatefulIngestionConfigBase,
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
+):
+    platform: HiddenFromDocs[str] = Field(default=MICROSTRATEGY_PLATFORM)
+
+    base_url: str = Field(
+        description=(
+            "MicroStrategy Library base URL, for example "
+            "`https://your-company.example.com/MicroStrategyLibrary`."
+        )
+    )
+    auth: MicroStrategyAuthConfig = Field(
+        default_factory=MicroStrategyGuestAuth,
+        description=(
+            "Authentication mode. Use `type: guest` for public demo-style access "
+            "or `type: password` with username/password for authenticated tenants."
+        ),
+    )
+    verify_ssl: bool = Field(
+        default=True,
+        description="Whether to verify SSL certificates for MicroStrategy API calls.",
+    )
+    timeout_seconds: int = Field(
+        default=30,
+        gt=0,
+        description="HTTP request timeout in seconds.",
+    )
+    max_retries: int = Field(
+        default=3,
+        ge=0,
+        description="Maximum retry attempts for transient API failures.",
+    )
+    page_size: int = Field(
+        default=100,
+        gt=0,
+        description="Number of objects requested per paginated metadata search call.",
+    )
+
+    project_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description="Regex patterns to filter MicroStrategy projects by name.",
+    )
+    dashboard_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description="Regex patterns to filter MicroStrategy dossiers/dashboards by name.",
+    )
+    report_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description="Regex patterns to filter MicroStrategy reports by name.",
+    )
+    folder_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description=(
+            "Regex patterns to filter folder containers by name. When an "
+            "intermediate folder is denied, its children re-parent to the "
+            "nearest allowed ancestor rather than being dropped, so this "
+            "cannot exclude content; personal folders are excluded by "
+            "`include_personal_folders` instead. To scope by location use "
+            "`folder_path_pattern`."
+        ),
+    )
+    folder_path_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description=(
+            "Regex patterns to filter dashboards, documents and reports by the "
+            "folder path they are filed under. The path is the project name, "
+            "then each folder from the project root down to the object's own "
+            "folder, joined with `/`, for example "
+            "`Sales_Project/Shared Reports/Finance/Monthly Close`. "
+            "Folder names are the ones the browse path shows: with "
+            "`use_predefined_folder_names` the project root folder and 'Public "
+            "Objects' are omitted and 'Shared Reports' carries its "
+            "MicroStrategy-assigned label; `folder_pattern` plays no part. "
+            "Patterns match from the start of the path, so anchor with `$` or "
+            "`(/|$)` to stop a folder matching its similarly named siblings. "
+            "Unlike `folder_pattern`, a denied path excludes the object: it is "
+            "skipped before any definition is fetched or instance executed, so "
+            "its visualizations and datasets are not emitted either, and the "
+            "skip is counted in `dashboards_filtered_by_folder_path` / "
+            "`reports_filtered_by_folder_path`. Dashboard-linked reports are "
+            "filtered on their own path. An object whose folder ancestry the "
+            "search result does not carry cannot be matched (counted in "
+            "`folder_paths_unresolved`): it is ingested with a warning under "
+            "the default allow-all pattern and skipped once a pattern is set."
+        ),
+    )
+    include_personal_folders: bool = Field(
+        default=False,
+        description=(
+            "Whether to ingest personal folders: each user's profile folder "
+            "tree under the project's 'Profiles' system folder, holding that "
+            "user's 'My Reports', 'My Objects' and similar folders. Excluded by "
+            "default: dashboards, documents and reports filed there are skipped "
+            "before any definition is fetched (counted in "
+            "`personal_folder_objects_skipped`) and their folder containers are "
+            "not emitted. The Profiles root is resolved by id via "
+            "GET /api/folders/preDefined (EnumDSSXMLFolderNames 19/20) plus the "
+            "profile folder's own ancestors; when that fails, an ancestor folder "
+            "named 'Profiles' or 'My Reports' (case-insensitive) identifies "
+            "personal content instead. Set true to ingest them."
+        ),
+    )
+    use_predefined_folder_names: bool = Field(
+        default=True,
+        description=(
+            "Resolve MicroStrategy's predefined folders via GET "
+            "/api/folders/preDefined and shape the folder hierarchy as Strategy "
+            "Web shows it: the 'Reports' folder (EnumDSSXMLFolderNames type 7) "
+            "takes its label 'Shared Reports', and the project root folder and "
+            "'Public Objects' are omitted, with their children moved up a "
+            "level. This drives browse-path matching, container identity and "
+            "display. Adds one cached API call per project. If the lookup "
+            "fails, the project's dashboards and reports are skipped and the "
+            "run reports a failure. Disable this to keep the raw hierarchy and "
+            "prior container URNs, or on servers without this endpoint; see "
+            "docs/how/breaking-changes.md."
+        ),
+    )
+
+    include_hidden: bool = Field(
+        default=False,
+        description="Whether to include hidden MicroStrategy objects when APIs support it.",
+    )
+    extract_dashboards: bool = Field(
+        default=True,
+        description="Whether to extract dossiers/documents as DataHub dashboards.",
+    )
+    extract_charts: bool = Field(
+        default=True,
+        description="Whether to extract visualizations as DataHub charts.",
+    )
+    extract_reports: bool = Field(
+        default=False,
+        description=(
+            "Whether to extract MicroStrategy reports as DataHub charts. Disabled "
+            "by default because reports can be numerous and are independent from "
+            "dossier visualization extraction."
+        ),
+    )
+    extract_report_definitions: bool = Field(
+        default=True,
+        description=(
+            "Whether to fetch report definitions for source dataset, metric, and "
+            "attribute details when `extract_reports` is enabled."
+        ),
+    )
+    extract_independent_reports: bool = Field(
+        default=False,
+        description=(
+            "Whether to extract reports not referenced by any ingested "
+            "dashboard. By default only dashboard-linked reports are ingested "
+            "(`report_pattern` still applies), so scoping dashboards also "
+            "scopes reports. The linkage comes from "
+            "`extract_dashboard_dependencies`; when dashboards or dependencies "
+            "are not extracted, all matching reports are ingested."
+        ),
+    )
+    extract_cubes: bool = Field(
+        default=True,
+        description="Whether to extract embedded dashboard datasets as DataHub datasets.",
+    )
+    extract_lineage: bool = Field(
+        default=True,
+        description="Whether to emit dataset-to-chart lineage when resolved from definitions.",
+    )
+    extract_visualization_details: bool = Field(
+        default=True,
+        description=(
+            "Whether to execute dashboards and fetch per-visualization runtime "
+            "definitions to resolve dataset-to-visualization lineage when the "
+            "static dashboard definition does not include dataset IDs."
+        ),
+    )
+    extract_source_warehouses: bool = Field(
+        default=True,
+        description=(
+            "Whether to call the MicroStrategy datasource management APIs to "
+            "discover project source warehouse names, source types, database "
+            "versions, DBMS names, and connection metadata."
+        ),
+    )
+    extract_dashboard_dependencies: bool = Field(
+        default=True,
+        description=(
+            "Whether to call metadata search lineage APIs for direct dashboard "
+            "components such as metrics, attributes, filters, and functions."
+        ),
+    )
+    extract_metric_expressions: bool = Field(
+        default=True,
+        description=(
+            "Whether to fetch metric model definitions with expression tokens "
+            "and attach expression metadata to metric schema fields when the "
+            "MicroStrategy principal has access."
+        ),
+    )
+    extract_derived_metrics: bool = Field(
+        default=True,
+        description=(
+            "Whether to surface derived metrics (grid columns marked "
+            "`derived: true`) as schema fields on the dataset backing their "
+            "column group, tagged `Derived`. When the dataset is a report, its "
+            "definition is fetched (GET /api/model/reports/{id}, falling back "
+            "to GET /api/v2/reports/{id}) so report-level derived metrics carry "
+            "the report's object name and formula; every derived metric the "
+            "report defines is emitted, not only those a grid displays. "
+            "Derived metrics no definition exposes are visualization-local and "
+            "carry provenance but no expression. Adds one or two API calls per "
+            "distinct report-backed dataset per project. Grid input requires "
+            "`extract_lineage` and `extract_visualization_details`."
+        ),
+    )
+    extract_metric_formula_lineage: bool = Field(
+        default=False,
+        description=(
+            "Whether to parse `{Metric Name}` references out of catalog metric "
+            "expressions (fetched via `extract_metric_expressions`) and emit "
+            "field-to-field lineage from a metric to the sibling fields it "
+            "references on the same dataset. Best effort: references to "
+            "objects that are not fields of the dataset are counted in the "
+            "report and skipped. Disabled by default."
+        ),
+    )
+    extract_model_lineage: bool = Field(
+        default=True,
+        description=(
+            "Whether to attempt modeling/table API access needed for logical "
+            "table and source warehouse lineage. If privileges are missing, "
+            "the connector reports the failure and continues."
+        ),
+    )
+    extract_warehouse_lineage: bool = Field(
+        default=False,
+        description=(
+            "Whether to execute dashboard/dossier SQL-view APIs and emit upstream "
+            "coarse table-level lineage from MicroStrategy datasets to source "
+            "warehouse datasets parsed from SQL. Disabled by default because this "
+            "is not field-level metric, attribute, or fact lineage. The connector "
+            "discovers the warehouse platform from MicroStrategy datasource metadata "
+            "and does not store raw SQL."
+        ),
+    )
+    extract_report_sql_lineage: bool = Field(
+        default=False,
+        description=(
+            "Whether to execute report SQL-view APIs and emit coarse table-level "
+            "lineage from report source datasets to source warehouse datasets. "
+            "Disabled by default for the same reason as `extract_warehouse_lineage`. "
+            "Field-level model lineage for report source datasets also requires "
+            "this flag, because model lineage only attaches to datasets with "
+            "known warehouse upstreams."
+        ),
+    )
+    extract_document_dataset_sql_lineage: bool = Field(
+        default=False,
+        description=(
+            "Whether to emit dataset-to-warehouse lineage for the datasets of "
+            "Report Services documents. A document's datasets are grid reports, "
+            "and the dossier SQL-view API answers a document instance with views "
+            "that carry no SQL, so each report-backed dataset's SQL is read "
+            "through a report instance instead (`POST "
+            "/api/v2/reports/{id}/instances`, `GET "
+            "/api/v2/reports/{id}/instances/{instance}/sqlView`, then `DELETE` "
+            "of the instance) and parsed like a dossier SQL view. Creating a "
+            "report instance may execute the report against the warehouse: one "
+            "execution per distinct report per run (a report shared by several "
+            "documents is read once), subject to "
+            "`warehouse_lineage_sql_timeout_seconds` and "
+            "`max_consecutive_execution_timeouts`. Cube datasets have no report "
+            "SQL view and are skipped. Requires `extract_warehouse_lineage`. "
+            "Off by default, so documents keep their previous behaviour: "
+            "datasets emitted without warehouse lineage."
+        ),
+    )
+    resolve_report_metrics_via_instance: bool = Field(
+        default=False,
+        description=(
+            "Whether to read report Modeling definitions through a "
+            "Modeling-service report instance (`POST "
+            "/api/model/reports/{id}/instances`, passed in the "
+            "`X-MSTR-MS-Instance` header), so derived metrics can be resolved; "
+            "without it the definition is read statically and on some tenants "
+            "carries no metric expressions. It also enables reading "
+            "document-level derived metrics (defined in a dossier or document "
+            "on top of a dataset) from the Modeling document definition, which "
+            "is otherwise never consulted for them; that endpoint is not in "
+            "Strategy's published API specification and has no instance "
+            "route, so it is read statically. Off by default because it adds "
+            "instance create and delete calls for every report-backed dataset."
+        ),
+    )
+    warehouse_lineage_sql_timeout_seconds: int = Field(
+        default=180,
+        gt=0,
+        description=(
+            "HTTP timeout in seconds for SQL-view APIs. These calls can be slower "
+            "than metadata definition APIs because MicroStrategy must create and "
+            "resolve a dashboard instance."
+        ),
+    )
+    dashboard_instance_resolve_only: bool = Field(
+        default=False,
+        description=(
+            "Whether to create dossier and document instances with "
+            "`resolveOnly: true`, which Strategy documents as resolving the "
+            "dashboard without executing it. Instances back visualization "
+            "runtime details and SQL-view warehouse lineage; executing them runs "
+            "the dashboard's queries against the warehouse and can take minutes "
+            "per dashboard. Off by default until verified to return the same "
+            "runtime grid and SQL view as an executed instance."
+        ),
+    )
+    max_consecutive_execution_timeouts: int = Field(
+        default=3,
+        ge=0,
+        description=(
+            "Stop executing dashboards and reports in a project after this many "
+            "consecutive instance creations time out "
+            "(`warehouse_lineage_sql_timeout_seconds`). The remaining content in "
+            "that project is still ingested, without visualization runtime "
+            "details or SQL-view lineage. Bounds a run against a project of "
+            "heavy content that never finishes executing. 0 disables the limit."
+        ),
+    )
+    emit_dashboard_dataset_edges: bool = Field(
+        default=False,
+        description=(
+            "Emit DashboardInfo.datasetEdges as a fallback. Disabled by default "
+            "because BI dashboards with many datasets make lineage views noisy. "
+            "Governs dossiers only; see `emit_document_dataset_edges` for "
+            "Report Services documents."
+        ),
+    )
+    emit_document_dataset_edges: bool = Field(
+        default=True,
+        description=(
+            "Whether to record a Report Services document's datasets as "
+            "DashboardInfo.datasetEdges, so the document lists its datasets "
+            "and lineage reads dataset -> document. The REST API exposes no "
+            "visualizations for a document (its definition lists layouts as "
+            "chapters without pages), so unlike a dossier it has no charts to "
+            "carry dataset lineage; without these edges the document is an "
+            "empty page. Independent of `emit_dashboard_dataset_edges`, which "
+            "keeps governing dossiers."
+        ),
+    )
+    emit_chapter_page_structured_properties: bool = Field(
+        default=False,
+        description=(
+            "Also record each dossier visualization chart's chapter and page "
+            "as DataHub structured properties, so charts can be filtered by "
+            "chapter and page in search and the placement is read by AI "
+            "tools: `io.acryl.microstrategy.chapter` (MicroStrategy Chapter, "
+            "text), `io.acryl.microstrategy.page` (MicroStrategy Page, text) "
+            "and `io.acryl.microstrategy.pagePosition` (MicroStrategy Page "
+            "Position, a number: the page's 1-based position within its "
+            "chapter, the same value as the `microstrategyPageIndex` custom "
+            "property). The `microstrategyChapter` and `microstrategyPage` "
+            "custom properties are emitted regardless. The three property "
+            "definitions (applicable to charts) are created in DataHub on "
+            "the first run with this flag on and re-emitted unchanged after "
+            "that; each run replaces the chart's structured property values "
+            "with these. A visualization the dossier does not place on a "
+            "page gets no values. Default is false."
+        ),
+    )
+    extract_usage_statistics: bool = Field(
+        default=False,
+        description=(
+            "Whether to extract dashboard and report usage statistics (view "
+            "counts, unique users, per-user counts) by querying the MicroStrategy "
+            "Platform Analytics telemetry cube. Requires the Platform Analytics "
+            "project to be enabled on the environment (standard on MicroStrategy "
+            "Cloud) and readable by the ingestion principal. Disabled by default."
+        ),
+    )
+    usage_lookback_days: int = Field(
+        default=14,
+        gt=0,
+        le=365,
+        description=(
+            "How many days of usage history to request from the Platform "
+            "Analytics cube. The shipped aggregate cube typically retains a "
+            "14-day rolling window, so larger values only help when the "
+            "environment retains more history."
+        ),
+    )
+    platform_analytics_project_name: str = Field(
+        default="Platform Analytics",
+        description=(
+            "Name of the MicroStrategy project that hosts Platform Analytics "
+            "telemetry. Only change this if the environment renamed the "
+            "standard project."
+        ),
+    )
+    usage_cube_name: str = Field(
+        default="Platform Analytics (Agg)",
+        description=(
+            "Name of the Platform Analytics cube to query for usage. The "
+            "default is the aggregate telemetry cube shipped with Platform "
+            "Analytics; a custom cube works as long as it exposes Date, "
+            "Project, Object, and User attributes and an executions metric."
+        ),
+    )
+    usage_query_timeout_seconds: int = Field(
+        default=180,
+        gt=0,
+        description=(
+            "HTTP timeout in seconds for Platform Analytics cube query calls. "
+            "Cube execution is server-side work and can be slower than "
+            "metadata definition APIs."
+        ),
+    )
+    emit_semantic_model_entities: bool = Field(
+        default=False,
+        description=(
+            "If true, additionally emit one `semanticModel` entity per project "
+            "(logical datasets with subtype `Semantic Model Dataset`, one per "
+            "MicroStrategy logical table, plus a `metric` entity per project-wide "
+            "Base/Derived/Consolidated metric with lineage resolved from its "
+            "expression). This is additive: existing report/dashboard/dataset "
+            "emission is unaffected. Default is false. Requires a DataHub server "
+            "that registers semanticModel/metric (Cloud >= 2.1.0, or OSS with "
+            "`METRICS_ENABLED=true`) and `extract_model_lineage` access to the "
+            "MicroStrategy modeling APIs."
+        ),
+    )
+    tag_measures_and_dimensions: bool = Field(
+        default=True,
+        description=(
+            "Tag metric fields as Measure, attribute fields as Dimension, and "
+            "date/time attribute forms as Temporal."
+        ),
+    )
+    ingest_owner: bool = Field(
+        default=True,
+        description="Whether to map API owner fields to DataHub ownership aspects.",
+    )
+    dataset_field_order: Literal["report", "alphabetical"] = Field(
+        default="report",
+        description=(
+            "Order of the schema fields emitted for each dataset. `report` "
+            "(the default) mirrors Strategy's own Datasets panel: the "
+            "attributes first, then the metrics, each run sorted by the name "
+            "the report displays, with report-derived metrics sorted in among "
+            "the catalog ones. `alphabetical` sorts every field by name in a "
+            "single run, the behaviour of earlier releases. Either way the "
+            "DataHub schema tab re-sorts the fields alphabetically when the "
+            "column header is clicked."
+        ),
+    )
+    datasource_platform_mapping: Dict[str, ConnectionPlatformConfig] = Field(
+        default_factory=dict,
+        description=(
+            "Optional mapping from MicroStrategy datasource or connection name to the "
+            "platform, platform instance, environment, and URN casing that warehouse "
+            "was ingested under. MicroStrategy can hold several connections to the same "
+            "warehouse platform (for example a prod and a dev Snowflake account), so "
+            "keying by connection name lets each resolve to the right instance. Entries "
+            "are matched against the datasource's connection name first, then its "
+            "datasource name. Datasources with no entry auto-detect their platform and "
+            "use this connector's `env`, no platform instance, and lowercase URNs."
+        ),
+    )
+
+    metric_glossary_term_mapping: Dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Optional explicit mapping from MicroStrategy metric ID or name to "
+            "DataHub glossary term URN."
+        ),
+    )
+    attribute_glossary_term_mapping: Dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Optional explicit mapping from MicroStrategy attribute/form ID or name "
+            "to DataHub glossary term URN."
+        ),
+    )
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None,
+        description="Stateful ingestion config with stale entity removal support.",
+    )
+
+    @model_validator(mode="after")
+    def _formula_lineage_requires_metric_expressions(self) -> "MicroStrategyConfig":
+        # Opt-in flag whose entire input supply is another flag's output: a
+        # recipe combining them this way would silently emit nothing.
+        if self.extract_metric_formula_lineage and not self.extract_metric_expressions:
+            raise ValueError(
+                "extract_metric_formula_lineage requires "
+                "extract_metric_expressions: metric formulas are the only "
+                "source of formula references."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _document_dataset_sql_requires_warehouse_lineage(
+        self,
+    ) -> "MicroStrategyConfig":
+        # The document path branches off the dashboard SQL-view path, and the
+        # mapper only emits coarse dataset lineage under
+        # extract_warehouse_lineage: without it the reports would be executed
+        # and their SQL parsed for lineage that is never emitted.
+        if (
+            self.extract_document_dataset_sql_lineage
+            and not self.extract_warehouse_lineage
+        ):
+            raise ValueError(
+                "extract_document_dataset_sql_lineage requires "
+                "extract_warehouse_lineage: document dataset SQL lineage is "
+                "emitted through the dashboard warehouse lineage path."
+            )
+        return self
+
+    @field_validator("base_url", mode="after")
+    @classmethod
+    def normalize_base_url(cls, value: str) -> str:
+        value = config_clean.remove_trailing_slashes(value)
+        if value.endswith("/api"):
+            value = value[: -len("/api")]
+        return value

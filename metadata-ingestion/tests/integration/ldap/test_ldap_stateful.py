@@ -3,7 +3,7 @@ import time
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -34,7 +34,8 @@ def ldap_ingest_common(
     ) as docker_services:
         # The openldap container loads the sample data after exposing the port publicly. As such,
         # we must wait a little bit extra to ensure that the sample data is loaded.
-        wait_for_port(docker_services, "openldap", 389)
+        wait_for_port(docker_services, "test-openldap", 389)
+        ldap_port = docker_services.port_for("openldap", 389)
         # without this ldap server can provide empty results
         time.sleep(5)
 
@@ -51,7 +52,7 @@ def ldap_ingest_common(
                     "source": {
                         "type": "ldap",
                         "config": {
-                            "ldap_server": "ldap://localhost",
+                            "ldap_server": f"ldap://localhost:{ldap_port}",
                             "ldap_user": "cn=admin,dc=example,dc=org",
                             "ldap_password": "admin",
                             "base_dn": "dc=example,dc=org",
@@ -84,26 +85,27 @@ def ldap_ingest_common(
                 output_path=tmp_path / output_file_name,
                 golden_path=test_resources_dir / golden_file_name,
                 ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+                fail_on_output_mces=True,
             )
             return pipeline
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_ldap_stateful(
     docker_compose_runner, pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):
-    golden_file_name: str = "ldap_mces_golden_stateful.json"
-    output_file_name: str = "ldap_mces_stateful.json"
+    golden_file_name: str = "ldap_golden_stateful.json"
+    output_file_name: str = "ldap_stateful.json"
 
-    golden_file_deleted_name: str = "ldap_mces_golden_deleted_stateful.json"
-    output_file_deleted_name: str = "ldap_mces_deleted_stateful.json"
+    golden_file_deleted_name: str = "ldap_golden_deleted_stateful.json"
+    output_file_deleted_name: str = "ldap_deleted_stateful.json"
 
-    golden_file_group: str = "ldap_mces_golden_group_stateful.json"
-    output_file_group: str = "ldap_mces_group_stateful.json"
+    golden_file_group: str = "ldap_golden_group_stateful.json"
+    output_file_group: str = "ldap_group_stateful.json"
 
-    golden_file_delete_group: str = "ldap_mces_golden_deleted_group_stateful.json"
-    output_file_delete_group: str = "ldap_mces_deleted_group_stateful.json"
+    golden_file_delete_group: str = "ldap_golden_deleted_group_stateful.json"
+    output_file_delete_group: str = "ldap_deleted_group_stateful.json"
 
     filter1: str = "(|(cn=Bart Simpson)(cn=Homer Simpson))"
     filter2: str = "(|(cn=Bart Simpson))"

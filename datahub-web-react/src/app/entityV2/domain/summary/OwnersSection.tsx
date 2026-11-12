@@ -1,10 +1,11 @@
-import { UserOutlined } from '@ant-design/icons';
+import { User } from '@phosphor-icons/react/dist/csr/User';
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import OwnerDetail from '@app/entityV2/domain/summary/OwnerDetail';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { getOwnershipTypeName } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
 import { SummaryTabHeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
 
@@ -44,6 +45,7 @@ const Details = styled.div`
 `;
 
 const OwnersSection = () => {
+    const { t: tl } = useTranslation('common.labels');
     const { entityData } = useEntityData();
     const ownersEmpty = !entityData?.ownership?.owners?.length;
     const ownershipTypesMap: Map<string, OwnershipTypeEntity> = new Map();
@@ -67,7 +69,7 @@ const OwnersSection = () => {
 
     return (
         <SectionContainer>
-            <SummaryTabHeaderTitle title="Owners" icon={<UserOutlined />} />
+            <SummaryTabHeaderTitle title={tl('owners')} icon={<User />} />
             <Details>
                 {ownershipTypeNames.map((ownershipTypeName) => {
                     const owners = ownersByTypeMap.get(ownershipTypeName) as Owner[];

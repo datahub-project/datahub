@@ -1,5 +1,6 @@
 import capitalize from 'lodash/capitalize';
 import React, { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
@@ -20,6 +21,9 @@ interface FilterSelectProps {
     onFilterChange: (selectedFilters: FilterOption[]) => void;
     excludedCategories?: string[];
     initialSelectedOptions?: NestedSelectOption[];
+    placeholder?: string;
+    width?: number | 'fit-content' | 'full';
+    shouldDisplayConfirmationFooter?: boolean;
 }
 
 export const FilterSelect = ({
@@ -27,7 +31,11 @@ export const FilterSelect = ({
     onFilterChange,
     excludedCategories,
     initialSelectedOptions,
+    placeholder,
+    width,
+    shouldDisplayConfirmationFooter,
 }: FilterSelectProps) => {
+    const { t: tc } = useTranslation('common.actions');
     const handleFilterChange = useCallback(
         (selectedValues: NestedSelectOption[]) => {
             const updatedFilters = selectedValues.map((option: NestedSelectOption) => {
@@ -68,17 +76,18 @@ export const FilterSelect = ({
 
     return (
         <NestedSelect
-            placeholder="Filter"
+            placeholder={placeholder || tc('filter')}
             options={options}
             initialValues={initialSelectedOptions}
             onUpdate={handleFilterChange}
             isMultiSelect
             areParentsSelectable={false}
-            width={100}
-            selectLabelProps={{ variant: 'labeled', label: 'Filter' }}
+            width={width || 100}
+            selectLabelProps={{ variant: 'labeled', label: placeholder || tc('filter') }}
             dataTestId="filter"
             shouldAlwaysSyncParentValues
             hideParentCheckbox
+            shouldDisplayConfirmationFooter={shouldDisplayConfirmationFooter}
         />
     );
 };

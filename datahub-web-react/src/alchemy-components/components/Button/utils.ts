@@ -6,7 +6,7 @@ import { CSSObject } from 'styled-components';
 
 import { ButtonStyleProps, ButtonVariant } from '@components/components/Button/types';
 import { radius, shadows, spacing, typography } from '@components/theme';
-import { ColorOptions, SizeOptions } from '@components/theme/config';
+import { ColorOptions, FontColorLevelOptions, SizeOptions } from '@components/theme/config';
 import { getColor, getFontSize } from '@components/theme/utils';
 
 import { Theme } from '@conf/theme/types';
@@ -23,21 +23,122 @@ interface ColorStyles {
     disabledTextColor: string;
 }
 
+/**
+ * Foreground color for text / outline / link / secondary buttons.
+ * Uses semantic theme tokens (same ones Alert titles use) so status colors
+ * stay readable on tinted surfaces — foundation shade 500 is often too light
+ * (e.g. green[500] #77B750 vs textSuccess #0D7543).
+ */
+const getSemanticForegroundColor = (color: ColorOptions, theme?: Theme): string | undefined => {
+    const themeColors = theme?.colors;
+    if (!themeColors) return undefined;
+
+    switch (color) {
+        case 'green':
+            return themeColors.textSuccess;
+        case 'red':
+            return themeColors.textError;
+        case 'blue':
+            return themeColors.textInformation;
+        case 'yellow':
+            return themeColors.textWarning;
+        case 'primary':
+        case 'violet':
+            return themeColors.textBrand ?? themeColors.buttonFillBrand;
+        case 'gray':
+            return themeColors.textSecondary;
+        default:
+            return undefined;
+    }
+};
+
+/**
+ * Soft surface backgrounds for secondary buttons, matched to the button color
+ * (same semantic surfaces Alert banners use). Brand/primary keep the violet
+ * brand surfaces; other colors previously incorrectly inherited those too.
+ */
+const getSecondarySurfaceColors = (
+    color: ColorOptions,
+    theme?: Theme,
+): Pick<ColorStyles, 'bgColor' | 'hoverBgColor' | 'activeBgColor'> => {
+    const themeColors = theme?.colors;
+
+    switch (color) {
+        case 'green':
+            return {
+                bgColor: themeColors?.bgSurfaceSuccess ?? getColor('green', 0, theme),
+                hoverBgColor: themeColors?.bgSurfaceSuccessHover ?? getColor('green', 100, theme),
+                activeBgColor: themeColors?.bgSurfaceSuccessHover ?? getColor('green', 100, theme),
+            };
+        case 'red':
+            return {
+                bgColor: themeColors?.bgSurfaceError ?? getColor('red', 0, theme),
+                hoverBgColor: themeColors?.bgSurfaceErrorHover ?? getColor('red', 100, theme),
+                activeBgColor: themeColors?.bgSurfaceErrorHover ?? getColor('red', 100, theme),
+            };
+        case 'blue':
+            return {
+                bgColor: themeColors?.bgSurfaceInfo ?? getColor('blue', 0, theme),
+                hoverBgColor: themeColors?.bgSurfaceInformationHover ?? getColor('blue', 100, theme),
+                activeBgColor: themeColors?.bgSurfaceInformationHover ?? getColor('blue', 100, theme),
+            };
+        case 'yellow':
+            return {
+                bgColor: themeColors?.bgSurfaceWarning ?? getColor('yellow', 0, theme),
+                hoverBgColor: themeColors?.bgSurfaceWarningHover ?? getColor('yellow', 100, theme),
+                activeBgColor: themeColors?.bgSurfaceWarningHover ?? getColor('yellow', 100, theme),
+            };
+        case 'gray':
+            return {
+                bgColor: themeColors?.bgSurface ?? getColor('gray', 100, theme),
+                hoverBgColor: themeColors?.bgHover ?? getColor('gray', 100, theme),
+                activeBgColor: themeColors?.bgActive ?? getColor('gray', 200, theme),
+            };
+        case 'primary':
+        case 'violet':
+        default:
+            return {
+                bgColor: themeColors?.bgSurfaceBrand ?? getColor('violet', 0, theme),
+                hoverBgColor:
+                    themeColors?.buttonSurfaceSecondaryHover ??
+                    themeColors?.bgSurfaceBrandHover ??
+                    getColor('violet', 100, theme),
+                activeBgColor: themeColors?.buttonSurfaceBrandFocus ?? getColor('violet', 200, theme),
+            };
+    }
+};
+
 // Utility function to get color styles for button - does not generate CSS
-const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme: Theme): ColorStyles => {
-    const color500 = getColor(color, 500, theme); // value of 500 shade
+const getButtonColorStyles = (
+    variant: ButtonVariant,
+    color: ColorOptions,
+    colorLevel?: FontColorLevelOptions,
+    theme?: Theme,
+): ColorStyles => {
     const isViolet = color === 'violet';
+    const isPrimary = isViolet || color === 'primary';
+    // Brand (primary/violet) filled buttons must follow the configurable CI brand color rather
+    // than the static foundation ramp. buttonFillBrand pairs with brandGradient.
+    // Respect colorLevel when set; only fall back to buttonFillBrand for the default shade.
+    const useBrandFill = isPrimary && colorLevel == null && !!theme?.colors?.buttonFillBrand;
+    const colorByLevel = useBrandFill ? theme.colors.buttonFillBrand : getColor(color, colorLevel ?? 500, theme); // value of 500 shade
+    // Readable on-surface color for non-filled variants (matches Alert / banner text).
+    const foregroundColor = getSemanticForegroundColor(color, theme) ?? colorByLevel;
 
     const base = {
         // Backgrounds
-        bgColor: color500,
-        hoverBgColor: color500,
-        activeBgColor: getColor(color, 700, theme),
+        bgColor: colorByLevel,
+        hoverBgColor: colorByLevel,
+        activeBgColor: useBrandFill
+            ? (theme.colors.buttonSurfaceBrandHover ?? colorByLevel)
+            : getColor(color, 700, theme),
         disabledBgColor: theme?.colors?.bgDisabled ?? getColor('gray', 100, theme),
 
         // Borders
-        borderColor: color500,
-        activeBorderColor: getColor(color, 300, theme),
+        borderColor: colorByLevel,
+        activeBorderColor: useBrandFill
+            ? (theme.colors.borderBrandFocused ?? colorByLevel)
+            : getColor(color, 300, theme),
         disabledBorderColor: theme?.colors?.borderDisabled ?? getColor('gray', 200, theme),
 
         // Text
@@ -60,15 +161,24 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
 
     // Override styles for outline variant
     if (variant === 'outline') {
+        let outlineHoverBg = getColor(color, 100, theme);
+        if (isPrimary) {
+            outlineHoverBg =
+                theme?.colors?.buttonSurfaceSecondaryHover ?? theme?.colors?.bgSurfaceBrandHover ?? outlineHoverBg;
+        }
+
+        let outlineActiveBg = isViolet ? getColor(color, 100, theme) : getColor(color, 200, theme);
+        if (isPrimary) {
+            outlineActiveBg = theme?.colors?.buttonSurfaceBrandFocus ?? getColor(color, 100, theme);
+        }
+
         return {
             ...base,
             bgColor: 'transparent',
-            borderColor: color500,
-            textColor: color500,
-
-            hoverBgColor: getColor(color, 100, theme),
-            activeBgColor: isViolet ? getColor(color, 100, theme) : getColor(color, 200, theme),
-
+            borderColor: foregroundColor,
+            textColor: foregroundColor,
+            hoverBgColor: outlineHoverBg,
+            activeBgColor: outlineActiveBg,
             disabledBgColor: 'transparent',
         };
     }
@@ -77,7 +187,7 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
     if (variant === 'text') {
         return {
             ...base,
-            textColor: color500,
+            textColor: foregroundColor,
 
             bgColor: 'transparent',
             borderColor: 'transparent',
@@ -90,12 +200,13 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
 
     // Override styles for secondary variant
     if (variant === 'secondary') {
+        const secondarySurfaces = getSecondarySurfaceColors(color, theme);
         return {
             ...base,
-            bgColor: theme?.colors?.bgSurfaceBrand ?? getColor('violet', 0, theme),
-            hoverBgColor: theme?.colors?.bgSurfaceBrandHover ?? getColor('violet', 100, theme),
-            activeBgColor: theme?.colors?.buttonSurfaceBrandFocus ?? getColor('violet', 200, theme),
-            textColor: color500,
+            bgColor: secondarySurfaces.bgColor,
+            hoverBgColor: secondarySurfaces.hoverBgColor,
+            activeBgColor: secondarySurfaces.activeBgColor,
+            textColor: foregroundColor,
             borderColor: 'transparent',
             disabledBgColor: 'transparent',
             disabledBorderColor: 'transparent',
@@ -106,7 +217,7 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
     if (variant === 'link') {
         return {
             ...base,
-            textColor: color500,
+            textColor: foregroundColor,
             bgColor: 'transparent',
             borderColor: 'transparent',
             activeBgColor: 'transparent',
@@ -274,10 +385,10 @@ const getButtonLoadingStyles = (): CSSObject => ({
  * Main function to generate styles for button
  */
 export const getButtonStyle = (props: ButtonStyleProps & ButtonHTMLAttributes<HTMLButtonElement>): CSSObject => {
-    const { variant, color, size, isCircle, isActive, isLoading, disabled, hasChildren, theme } = props;
+    const { variant, color, colorLevel, size, isCircle, isActive, isLoading, disabled, hasChildren, theme } = props;
 
     // Get map of colors
-    const colorStyles = getButtonColorStyles(variant, color, theme);
+    const colorStyles = getButtonColorStyles(variant, color, colorLevel, theme);
 
     // Define styles for button
     const variantStyles = getButtonVariantStyles(variant, colorStyles, color, theme);

@@ -17,10 +17,17 @@ public enum LoginSource {
     this.source = source;
   }
 
+  /**
+   * Resolve a login source from either the camelCase wire value (e.g. {@code passwordLogin}) or the
+   * enum constant name (e.g. {@code PASSWORD_LOGIN}). Matching is case-insensitive.
+   */
   @Nullable
-  public static LoginSource getSource(String name) {
+  public static LoginSource getSource(@Nullable final String name) {
+    if (name == null || name.isBlank()) {
+      return null;
+    }
     for (LoginSource loginSource : LoginSource.values()) {
-      if (loginSource.source.equalsIgnoreCase(name)) {
+      if (loginSource.source.equalsIgnoreCase(name) || loginSource.name().equalsIgnoreCase(name)) {
         return loginSource;
       }
     }

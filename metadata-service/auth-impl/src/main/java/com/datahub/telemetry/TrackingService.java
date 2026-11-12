@@ -18,11 +18,10 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.kafka.TopicsConfiguration;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.event.GenericProducer;
+import com.linkedin.metadata.event.UsageEventPublisher;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.telemetry.TelemetryClientId;
 import com.mixpanel.mixpanelapi.MessageBuilder;
-import com.mixpanel.mixpanelapi.MixpanelAPI;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.HashSet;
@@ -33,7 +32,6 @@ import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -61,6 +59,8 @@ public class TrackingService {
   private static final String SOURCE_TYPE_FIELD = "sourceType";
   private static final String INTERVAL_FIELD = "interval";
   private static final String VIEW_TYPE_FIELD = "viewType";
+  private static final String LANGUAGE_FIELD = "language";
+  private static final String APP_LANGUAGE_FIELD = "appLanguage";
 
   private static final Set<String> ALLOWED_EVENT_FIELDS =
       new HashSet<>(
@@ -84,7 +84,9 @@ public class TrackingService {
               POLICY_URN_FIELD,
               SOURCE_TYPE_FIELD,
               INTERVAL_FIELD,
-              VIEW_TYPE_FIELD));
+              VIEW_TYPE_FIELD,
+              LANGUAGE_FIELD,
+              APP_LANGUAGE_FIELD));
 
   private static final String ACTOR_URN_FIELD = "actorUrn";
   private static final String ORIGIN_FIELD = "origin";
@@ -114,40 +116,39 @@ public class TrackingService {
   private final TopicsConfiguration topicsConfiguration;
   private final SecretService secretService;
   private final MessageBuilder messageBuilder;
-  private final MixpanelAPI mixpanelAPI;
+  @Nullable private final MixpanelEventSender mixpanelSender;
   private final EntityService _entityService;
   private final GitVersion _gitVersion;
   private final ObjectMapper _objectMapper = new ObjectMapper();
   private final ObjectWriter _objectWriter = _objectMapper.writerWithDefaultPrettyPrinter();
   private String _clientId;
-  private final GenericProducer<String> dataHubUsageProducer;
+  private final UsageEventPublisher usageEventPublisher;
 
   public TrackingService(
       final TopicsConfiguration topicsConfiguration,
       final SecretService secretService,
       final MessageBuilder messageBuilder,
-      final MixpanelAPI mixpanelAPI,
+      @Nullable final MixpanelEventSender mixpanelSender,
       @Nonnull EntityService<?> entityService,
       @Nonnull GitVersion gitVersion,
-      @Nullable GenericProducer<String> dataHubUsageProducer) {
+      @Nullable UsageEventPublisher usageEventPublisher) {
     this.topicsConfiguration = topicsConfiguration;
     this.secretService = secretService;
     this.messageBuilder = messageBuilder;
-    this.mixpanelAPI = mixpanelAPI;
+    this.mixpanelSender = mixpanelSender;
     this._entityService = entityService;
     this._gitVersion = gitVersion;
-    this.dataHubUsageProducer = dataHubUsageProducer;
+    this.usageEventPublisher = usageEventPublisher;
 
     // Log Mixpanel configuration
-    if (mixpanelAPI != null && messageBuilder != null) {
-      log.info("TrackingService initialized with Mixpanel client and message builder");
-      log.info("Mixpanel client is configured and ready to send events");
+    if (mixpanelSender != null && messageBuilder != null) {
+      log.info("TrackingService initialized with Mixpanel sender and message builder");
     } else {
       log.info("TrackingService initialized without Mixpanel client or message builder");
     }
 
     // Log Kafka configuration
-    if (dataHubUsageProducer != null) {
+    if (usageEventPublisher != null) {
       log.info("TrackingService initialized with Kafka producer for DataHubUsageEvent");
     } else {
       log.info("TrackingService initialized without Kafka producer for DataHubUsageEvent");
@@ -269,7 +270,7 @@ public class TrackingService {
 
     // Send to Mixpanel if requested and available
     if (destinations.contains(TrackingDestination.MIXPANEL)
-        && mixpanelAPI != null
+        && mixpanelSender != null
         && messageBuilder != null) {
       try {
         log.debug("Mixpanel - Raw event data: {}", eventData.toPrettyString());
@@ -298,7 +299,7 @@ public class TrackingService {
 
         // Add the event type to the properties
         properties.put(EVENT_TYPE_FIELD, eventName);
-        log.debug("Added standard properties: {}", properties.toString());
+        log.debug("Added standard properties: {}", properties);
 
         // Add all fields from the event data to the properties
         Iterator<Map.Entry<String, JsonNode>> fields = eventData.fields();
@@ -334,10 +335,11 @@ public class TrackingService {
           JSONObject message = messageBuilder.event(actorId, eventName, sanitizedProperties);
           log.debug("Final message to be sent: {}", message);
 
-          // Send the message to Mixpanel
-          mixpanelAPI.sendMessage(message);
-          log.debug("Successfully sent event {} to Mixpanel with additional properties", eventName);
-          numDestinationsSent += 1;
+          // Hand off to the background sender; never wait on Mixpanel from a request thread.
+          if (mixpanelSender.submit(message)) {
+            log.debug("Queued event {} for Mixpanel", eventName);
+            numDestinationsSent += 1;
+          }
         } else {
           log.warn("Sanitization returned null properties, skipping Mixpanel event");
         }
@@ -350,7 +352,7 @@ public class TrackingService {
     }
 
     // Send to Kafka if requested and available
-    if (destinations.contains(TrackingDestination.KAFKA) && dataHubUsageProducer != null) {
+    if (destinations.contains(TrackingDestination.KAFKA) && usageEventPublisher != null) {
       try {
         log.debug("Sending event to Kafka: {}", eventName);
 
@@ -381,24 +383,8 @@ public class TrackingService {
         }
 
         String eventJson = _objectWriter.writeValueAsString(kafkaEventData);
-        dataHubUsageProducer.send(
-            new ProducerRecord<>(topicsConfiguration.getDataHubUsage(), actorId, eventJson),
-            (metadata, exception) -> {
-              if (exception != null) {
-                log.error(
-                    "Failed to send event to Kafka: {} - Error: {}",
-                    eventName,
-                    exception.getMessage(),
-                    exception);
-              } else {
-                log.debug(
-                    "Successfully sent event to Kafka: {} - Topic: {}, Partition: {}, Offset: {}",
-                    eventName,
-                    metadata.topic(),
-                    metadata.partition(),
-                    metadata.offset());
-              }
-            });
+        usageEventPublisher.publish(
+            opContext, topicsConfiguration.getDataHubUsage(), actorId, eventJson);
         numDestinationsSent += 1;
       } catch (Exception e) {
         log.error("Failed to send event to Kafka: {} - Error: {}", eventName, e.getMessage(), e);

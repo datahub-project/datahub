@@ -1,12 +1,13 @@
 import { Button, Icon } from '@components';
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { SearchBarV2 } from '@app/searchV2/searchBarV2/SearchBarV2';
 import useGoToSearchPage from '@app/searchV2/useGoToSearchPage';
 import useSearchViewAll from '@app/searchV2/useSearchViewAll';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const Container = styled.div`
     display: flex;
@@ -23,7 +24,8 @@ const StyledButton = styled(Button)`
 `;
 
 export default function SearchBar() {
-    const entityRegistry = useEntityRegistryV2();
+    const { t } = useTranslation(['home.v3', 'search']);
+    const entityRegistry = useEntityRegistry();
     const searchViewAll = useSearchViewAll();
     const search = useGoToSearchPage(null);
     const themeConfig = useTheme();
@@ -31,7 +33,10 @@ export default function SearchBar() {
     return (
         <Container>
             <SearchBarV2
-                placeholderText={themeConfig.content.search.searchbarMessage}
+                placeholderText={t('searchBar.placeholder', {
+                    ns: 'search',
+                    defaultValue: themeConfig.content.search.searchbarMessage,
+                })}
                 onSearch={search}
                 entityRegistry={entityRegistry}
                 width="100%"
@@ -45,7 +50,7 @@ export default function SearchBar() {
             />
             <ViewAllContainer>
                 <StyledButton variant="text" color="gray" size="sm" onClick={searchViewAll}>
-                    Discover <Icon icon={ArrowRight} size="sm" />
+                    {t('header.discoverLabel')} <Icon icon={ArrowRight} size="sm" />
                 </StyledButton>
             </ViewAllContainer>
         </Container>

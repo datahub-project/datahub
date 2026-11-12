@@ -1,8 +1,8 @@
 """
 Shared SQL parsing logic for DataHub's Airflow plugin.
 
-This module provides the core SQL parsing functions used by all SQL parsing
-code paths (Airflow 3 patch, Airflow 2 patch, and Airflow 2 extractors).
+Used by the Airflow 3 SQLParser patch and the per-operator OpenLineage patches
+(Athena, BigQuery, Teradata) to invoke DataHub's enhanced SQL parser.
 """
 
 import logging

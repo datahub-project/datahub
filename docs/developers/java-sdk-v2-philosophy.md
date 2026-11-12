@@ -1,3 +1,7 @@
+---
+description: "Design philosophy behind the DataHub Java SDK V2, exploring the API ergonomics question and the principles that shaped the SDK."
+---
+
 # Why We Hand-Crafted the Java SDK V2 (Instead of Generating It)
 
 ## The Question

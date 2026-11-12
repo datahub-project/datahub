@@ -6,6 +6,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,8 +14,11 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.kafka.pause.ConsumerPauseSupport;
 import com.linkedin.metadata.kafka.util.KafkaListenerUtil;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -22,8 +26,8 @@ import java.util.Optional;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
-import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -35,17 +39,27 @@ public class CDCProcessorTest {
   private OperationContext mockOperationContext;
   private EntityService mockEntityService;
   private ThrottleSensor mockKafkaThrottle;
-  private KafkaListenerEndpointRegistry mockRegistry;
+  private ConsumerPauseSupport mockConsumerPauseSupport;
   private ConfigurationProvider mockProvider;
   private ObjectMapper mockObjectMapper;
   private EntityRegistry mockEntityRegistry;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
+  }
 
   @BeforeMethod
   public void setup() {
     mockOperationContext = mock(OperationContext.class);
     mockEntityService = mock(EntityService.class);
     mockKafkaThrottle = mock(ThrottleSensor.class);
-    mockRegistry = mock(KafkaListenerEndpointRegistry.class);
+    mockConsumerPauseSupport = mock(ConsumerPauseSupport.class);
     mockProvider = mock(ConfigurationProvider.class);
     mockObjectMapper = mock(ObjectMapper.class);
     mockEntityRegistry = mock(EntityRegistry.class);
@@ -56,7 +70,11 @@ public class CDCProcessorTest {
 
     cdcProcessor =
         new CDCProcessor(
-            mockOperationContext, mockEntityService, mockKafkaThrottle, mockRegistry, mockProvider);
+            mockOperationContext,
+            mockEntityService,
+            mockKafkaThrottle,
+            mockProvider,
+            mockConsumerPauseSupport);
   }
 
   @Test
@@ -67,8 +85,8 @@ public class CDCProcessorTest {
               mockOperationContext,
               mockEntityService,
               mockKafkaThrottle,
-              mockRegistry,
-              mockProvider);
+              mockProvider,
+              mockConsumerPauseSupport);
 
       cdcProcessor.cdcMclProcessingEnabled = true;
       cdcProcessor.cdcConsumerGroupId = "cdc-consumer-job-client";
@@ -78,7 +96,10 @@ public class CDCProcessorTest {
       mockedUtil.verify(
           () ->
               KafkaListenerUtil.registerThrottle(
-                  mockKafkaThrottle, mockProvider, mockRegistry, "cdc-consumer-job-client"));
+                  mockKafkaThrottle,
+                  mockProvider,
+                  mockConsumerPauseSupport,
+                  "cdc-consumer-job-client"));
     }
   }
 
@@ -91,8 +112,8 @@ public class CDCProcessorTest {
               mockOperationContext,
               mockEntityService,
               mockKafkaThrottle,
-              mockRegistry,
-              mockProvider);
+              mockProvider,
+              mockConsumerPauseSupport);
 
       // Execute
       cdcProcessor.registerConsumerThrottle();
@@ -119,7 +140,7 @@ public class CDCProcessorTest {
     when(mockObjectMapper.readTree("test-record")).thenReturn(mockCdcRecord);
 
     // Execute
-    cdcProcessor.consume(mockRecord);
+    cdcProcessor.consumeKafka(mockRecord);
 
     // Verify
     verify(mockObjectMapper).readTree("test-record");
@@ -140,7 +161,7 @@ public class CDCProcessorTest {
     cdcProcessor.cdcMclProcessingEnabled = true;
 
     // Execute
-    cdcProcessor.consume(mockRecord);
+    cdcProcessor.consumeKafka(mockRecord);
 
     // Verify that no processing occurs when record is null
     verify(mockObjectMapper, never()).readTree(any(String.class));
@@ -368,7 +389,7 @@ public class CDCProcessorTest {
         .thenThrow(new RuntimeException("Test exception"));
 
     // Execute - should not throw exception
-    cdcProcessor.consume(mockRecord);
+    cdcProcessor.consumeKafka(mockRecord);
 
     // Verify that exception is handled gracefully
     verify(mockObjectMapper).readTree("test-record");
@@ -608,5 +629,48 @@ public class CDCProcessorTest {
       // Exception expected due to mock limitations
       Assert.assertTrue(e.getMessage().contains("urn") || e.getMessage().contains("entity"));
     }
+  }
+
+  @Test
+  public void testRecordOfAspectUnknownToRegistryIsSkipped() throws Exception {
+    // A row a newer version wrote (read after a rollback) is skipped without an error.
+    JsonNode record =
+        OBJECT_MAPPER.readTree(
+            "{\"after\": {\"urn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)\","
+                + " \"aspect\": \"aspectFromNewerBuild\", \"version\": 0, \"metadata\": \"{}\","
+                + " \"createdon\": 1700000000000, \"createdby\": \"urn:li:corpuser:x\"}}");
+    // dataset is known; only the aspect is not.
+    when(mockEntityRegistry.getEntitySpec("dataset"))
+        .thenReturn(mock(com.linkedin.metadata.models.EntitySpec.class));
+    when(mockEntityRegistry.findAspectSpec(any(), any())).thenCallRealMethod();
+    when(mockEntityRegistry.findEntitySpec(any())).thenCallRealMethod();
+
+    assertTrue(cdcProcessor.mclFromCDCRecord(record).isEmpty());
+  }
+
+  @Test
+  public void testRecordWhoseUrnKeyReferencesAnUnknownTypeIsSkippedBeforeDeserializing()
+      throws Exception {
+    // A schema field of an entity type only a newer version has: the outer type and aspect are
+    // known, but the urn key isn't. It is skipped before its (invalid) metadata is parsed.
+    JsonNode record =
+        OBJECT_MAPPER.readTree(
+            "{\"after\": {\"urn\": \"urn:li:schemaField:(urn:li:entityFromNewerBuild:x,col)\","
+                + " \"aspect\": \"status\", \"version\": 0, \"metadata\": \"{not json\","
+                + " \"createdon\": 1700000000000, \"createdby\": \"urn:li:corpuser:x\"}}");
+    com.linkedin.metadata.models.EntitySpec schemaField =
+        mock(com.linkedin.metadata.models.EntitySpec.class);
+    when(schemaField.getAspectSpec("status"))
+        .thenReturn(mock(com.linkedin.metadata.models.AspectSpec.class));
+    com.linkedin.metadata.models.AspectSpec schemaFieldKey =
+        mock(com.linkedin.metadata.models.AspectSpec.class);
+    when(schemaFieldKey.getPegasusSchema())
+        .thenReturn(new com.linkedin.metadata.key.SchemaFieldKey().schema());
+    when(schemaField.getKeyAspectSpec()).thenReturn(schemaFieldKey);
+    when(mockEntityRegistry.findEntitySpec(any())).thenReturn(java.util.Optional.empty());
+    when(mockEntityRegistry.findEntitySpec("schemaField"))
+        .thenReturn(java.util.Optional.of(schemaField));
+
+    assertTrue(cdcProcessor.mclFromCDCRecord(record).isEmpty());
   }
 }

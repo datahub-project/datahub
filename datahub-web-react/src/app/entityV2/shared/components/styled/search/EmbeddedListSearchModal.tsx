@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { EmbeddedListSearch } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearch';
@@ -38,6 +39,8 @@ type Props = {
     sort?: SortCriterion;
     entityTypes?: EntityType[];
     searchFlags?: SearchFlags;
+    isViewAllMode?: boolean;
+    handleViewAllClickWarning?: () => void;
 };
 
 export const EmbeddedListSearchModal = ({
@@ -58,7 +61,10 @@ export const EmbeddedListSearchModal = ({
     sort,
     entityTypes,
     searchFlags,
+    isViewAllMode,
+    handleViewAllClickWarning,
 }: Props) => {
+    const { t: tc } = useTranslation('common.actions');
     // Component state
     const [query, setQuery] = useState<string>('');
     const [page, setPage] = useState(1);
@@ -86,7 +92,7 @@ export const EmbeddedListSearchModal = ({
             title={title}
             open
             onCancel={onClose || (() => {})}
-            buttons={[{ text: 'Close', variant: 'text', onClick: onClose || (() => {}) }]}
+            buttons={[{ text: tc('close'), variant: 'text', onClick: onClose || (() => {}) }]}
         >
             <SearchContainer height={height}>
                 <EmbeddedListSearch
@@ -112,6 +118,8 @@ export const EmbeddedListSearchModal = ({
                     sort={sort}
                     entityTypes={entityTypes}
                     searchFlags={searchFlags}
+                    isViewAllMode={isViewAllMode}
+                    handleViewAllClickWarning={handleViewAllClickWarning}
                 />
             </SearchContainer>
         </Modal>

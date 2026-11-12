@@ -3,6 +3,7 @@ from contextlib import AbstractContextManager, nullcontext
 from datetime import datetime, timezone
 from typing import Callable, Dict, Iterable, List, Optional, Union
 
+from google.api_core.exceptions import GoogleAPICallError, NotFound
 from google.cloud.aiplatform import ExperimentRun, initializer as vertex_initializer
 from google.cloud.aiplatform.metadata import (
     constants as metadata_constants,
@@ -20,6 +21,9 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalSourceReport,
+)
 from datahub.ingestion.source.vertexai.vertexai_builder import (
     VertexAIExternalURLBuilder,
     VertexAINameFormatter,
@@ -86,6 +90,7 @@ class VertexAIExperimentExtractor:
         yield_common_aspects_fn: YieldCommonAspectsProtocol,
         model_usage_tracker: ModelUsageTracker,
         platform: str,
+        report: StaleEntityRemovalSourceReport,
         state_handler: VertexAIStateHandler,
         rate_limiter: Union[RateLimiter, AbstractContextManager[None]] = nullcontext(),
     ):
@@ -98,6 +103,7 @@ class VertexAIExperimentExtractor:
         self._yield_common_aspects = yield_common_aspects_fn
         self.model_usage_tracker = model_usage_tracker
         self.platform = platform
+        self.report = report
         self.state_handler = state_handler
         self.rate_limiter = rate_limiter
 
@@ -116,12 +122,28 @@ class VertexAIExperimentExtractor:
         filter_str = metadata_utils._make_filter_string(
             schema_title=metadata_constants.SYSTEM_EXPERIMENT
         )
-        contexts = rate_limited_gapic_list(
-            MetadataContext,
-            self.rate_limiter,
-            parent=self._metadata_store_parent(),
-            filter_str=filter_str,
-        )
+        try:
+            contexts = rate_limited_gapic_list(
+                MetadataContext,
+                self.rate_limiter,
+                parent=self._metadata_store_parent(),
+                filter_str=filter_str,
+            )
+        except NotFound:
+            # Vertex AI creates the default Metadata Store lazily on first use of
+            # ML Metadata, so a 404 here means the project simply has no experiments
+            # to ingest — not an error. Skip and continue with the rest of the project.
+            self.report.warning(
+                title="Vertex AI Metadata Store not found",
+                message=(
+                    "Skipping experiment extraction because the project has no "
+                    "default Vertex AI ML Metadata Store. This is expected for "
+                    "projects that have never logged an Experiment or run a "
+                    "Vertex AI Pipeline."
+                ),
+                context=f"project={self._get_project_id()}",
+            )
+            return []
         experiments = []
         for ctx in contexts:
             if (
@@ -235,8 +257,9 @@ class VertexAIExperimentExtractor:
                 for e in filtered_experiments
             ]
             experiment_metadata.sort(
-                key=lambda e: e.update_time
-                or datetime.min.replace(tzinfo=timezone.utc),
+                key=lambda e: (
+                    e.update_time or datetime.min.replace(tzinfo=timezone.utc)
+                ),
                 reverse=True,
             )
             self.experiments = experiment_metadata
@@ -322,6 +345,24 @@ class VertexAIExperimentExtractor:
             MLMetricClass(name=k, value=str(v)) for k, v in run.get_metrics().items()
         ]
 
+    def _get_logged_training_job_urns(self, run: ExperimentRun) -> List[str]:
+        """Return DataProcessInstance URNs for any CustomJobs logged to this run."""
+        urns: List[str] = []
+        try:
+            with self.rate_limiter:
+                custom_jobs = run.get_logged_custom_jobs()
+            for job in custom_jobs:
+                job_id = self.name_formatter.format_job_name(entity_id=job.name)
+                urns.append(builder.make_data_process_instance_urn(job_id))
+        except NotFound:
+            logger.debug(f"No logged custom jobs found for run {run.name}")
+        except GoogleAPICallError as e:
+            logger.warning(
+                f"API error fetching logged custom jobs for run {run.name}: {e}",
+                exc_info=True,
+            )
+        return urns
+
     def _get_run_timestamps(self, run: ExperimentRun) -> RunTimestamps:
         executions = run.get_executions()
         if len(executions) == 1:
@@ -350,7 +391,7 @@ class VertexAIExperimentExtractor:
 
     def _make_custom_properties_for_run(
         self, experiment: Experiment, run: ExperimentRun
-    ) -> dict:
+    ) -> Dict[str, str]:
         properties: Dict[str, str] = dict()
         properties["externalUrl"] = self.url_builder.make_experiment_run_url(
             experiment, run
@@ -361,8 +402,10 @@ class VertexAIExperimentExtractor:
             properties[f"update time ({exec_name})"] = str(exec.update_time)
         return properties
 
-    def _make_custom_properties_for_execution(self, execution: Execution) -> dict:
-        properties: Dict[str, Optional[str]] = dict()
+    def _make_custom_properties_for_execution(
+        self, execution: Execution
+    ) -> Dict[str, str]:
+        properties: Dict[str, str] = dict()
         for input in execution.get_input_artifacts():
             input_name = getattr(input, "name", "")
             properties[f"input artifact ({input_name})"] = getattr(input, "uri", "")
@@ -494,6 +537,16 @@ class VertexAIExperimentExtractor:
             yield from self._gen_run_execution(
                 execution=execution, exp=experiment, run=run
             )
+
+        training_job_urns = self._get_logged_training_job_urns(run)
+        if training_job_urns:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=run_urn,
+                aspect=DataProcessInstanceRelationshipsClass(
+                    upstreamInstances=training_job_urns,
+                    parentInstance=experiment_key.as_urn(),
+                ),
+            ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
             entityUrn=run_urn,

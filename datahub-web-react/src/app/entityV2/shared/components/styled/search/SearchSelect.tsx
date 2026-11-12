@@ -1,18 +1,20 @@
-import { FilterOutlined } from '@ant-design/icons';
-import { Button, Typography, message } from 'antd';
-import { debounce } from 'lodash';
-import React, { useState } from 'react';
+import { Button, Text, toast } from '@components';
+import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
+import debounce from 'lodash/debounce';
+import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
-import { EntityAndType } from '@app/entity/shared/types';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { EmbeddedListSearchResults } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchResults';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { isListSubset } from '@app/entityV2/shared/utils';
 import { SearchBar } from '@app/search/SearchBar';
 import { ENTITY_FILTER_NAME, UnionType } from '@app/search/utils/constants';
-import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
+import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
+import { DEBOUNCE_SEARCH_MS } from '@app/sharedV2/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
 import useSortInput from '@src/app/searchV2/sorting/useSortInput';
@@ -32,7 +34,7 @@ const SearchBarContainer = styled.div`
     justify-content: space-between;
     align-items: center;
     padding: 12px;
-    border-bottom: 1px solid ${(props) => props.theme.colors.bgSurface};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const SEARCH_BAR_STYLE = {
@@ -67,6 +69,7 @@ export const SearchSelect = ({
     setSelectedEntities,
     limit,
 }: Props) => {
+    const { t } = useTranslation('entity.shared.components');
     const entityRegistry = useEntityRegistry();
 
     // Component state
@@ -89,31 +92,39 @@ export const SearchSelect = ({
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
         .flatMap((filter) => filter.values?.map((value) => value.toUpperCase() as EntityType) || []);
-    const finalEntityTypes = [...entityFilters, ...(fixedEntityTypes || [])];
 
-    const finalEntityFilter = finalEntityTypes.length
+    const selectedEntityTypes = entityFilters?.length ? [...entityFilters] : [];
+    const entityFilter = selectedEntityTypes.length
         ? {
               field: ENTITY_FILTER_NAME,
               condition: FilterOperator.Equal,
-              values: finalEntityTypes,
+              values: selectedEntityTypes,
               negated: false,
           }
         : undefined;
-    const finalFilters = finalEntityFilter ? [...filtersWithoutEntities, finalEntityFilter] : filtersWithoutEntities;
+    const finalFilters = entityFilter ? [...filtersWithoutEntities, entityFilter] : filtersWithoutEntities;
 
     // Execute search
     const { data, loading, error, refetch } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
-                types: finalEntityTypes.length ? finalEntityTypes : undefined,
+                types: fixedEntityTypes ?? [],
                 query: searchQuery,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
-                filters: finalFilters,
+                orFilters: generateOrFilters(UnionType.AND, finalFilters),
                 sortInput,
             },
         },
     });
+
+    useEffect(() => {
+        if (error) {
+            toast.error(t('embeddedSearch.searchError', { message: error?.message }), {
+                key: 'search-select-error',
+            });
+        }
+    }, [error, t]);
 
     const searchAcrossEntities = data?.searchAcrossEntities;
     const searchResultEntities =
@@ -164,15 +175,19 @@ export const SearchSelect = ({
 
     return (
         <Container>
-            {error && message.error(`Failed to complete search: ${error && error.message}`)}
             <SearchBarContainer>
-                <Button type="text" onClick={onToggleFilters}>
-                    <FilterOutlined />
-                    <Typography.Text>Filters</Typography.Text>
+                <Button
+                    variant="text"
+                    color="gray"
+                    onClick={onToggleFilters}
+                    data-testid="toggle-filters-button"
+                    icon={{ icon: Funnel }}
+                >
+                    <Text type="span">{t('embeddedSearch.filters')}</Text>
                 </Button>
                 <SearchBar
                     initialQuery=""
-                    placeholderText={placeholderText || 'Search entities...'}
+                    placeholderText={placeholderText || t('embeddedSearch.searchEntitiesPlaceholder')}
                     suggestions={[]}
                     style={SEARCH_BAR_STYLE}
                     inputStyle={SEARCH_INPUT_STYLE}

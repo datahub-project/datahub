@@ -24,6 +24,7 @@ interface Props {
     className?: string;
     aggregationsEntityTypes?: Array<EntityType>;
     isRenderedInSubMenu?: boolean;
+    showDefaultOptions?: boolean;
 }
 
 export default function EntityTypeMenu({
@@ -36,6 +37,7 @@ export default function EntityTypeMenu({
     className,
     aggregationsEntityTypes,
     isRenderedInSubMenu,
+    showDefaultOptions = true,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const { displayName } = field;
@@ -44,7 +46,7 @@ export default function EntityTypeMenu({
 
     const { options: aggOptions, loading: aggLoading } = useLoadAggregationOptions({
         field,
-        visible: true,
+        visible: showDefaultOptions,
         includeCounts: includeCount,
         aggregationsEntityTypes,
     });

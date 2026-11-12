@@ -1,4 +1,8 @@
-import { pathMatchesExact, pathMatchesInsensitiveToV2 } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
+import { isRemovedAssociation } from '@app/sharedV2/tags/tags.utils';
+import { normalizeFieldPathKey } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
+import useEditableSchemaFieldInfoMaps, {
+    EditableFieldInfoMaps,
+} from '@src/app/entityV2/shared/tabs/Dataset/Schema/utils/useEditableSchemaFieldInfoMaps';
 import { EditableSchemaMetadata, GlobalTags, SchemaField } from '@src/types.generated';
 
 type ReturnValue = {
@@ -11,10 +15,16 @@ type ReturnType = (record: SchemaField, defaultUneditableTags?: GlobalTags | nul
 
 export default function useExtractFieldTagsInfo(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
+    fieldInfoMaps?: EditableFieldInfoMaps,
 ): ReturnType {
+    const fallbackMaps = useEditableSchemaFieldInfoMaps(fieldInfoMaps ? undefined : editableSchemaMetadata);
+    const { exactMap, v2NormalizedMap } = fieldInfoMaps ?? fallbackMaps;
+
     return (record: SchemaField, defaultUneditableTags: GlobalTags | null = null) => {
         // Three tag locations: schema field entity, EditableSchemaMetadata, SchemaMetadata (uneditable)
-        const schemaFieldTags = record?.schemaFieldEntity?.tags?.tags || [];
+        const schemaFieldTags = (record?.schemaFieldEntity?.tags?.tags || []).filter(
+            (tag) => !isRemovedAssociation(tag),
+        );
         const schemaFieldTagUrns = new Set(schemaFieldTags.map((t) => t.tag.urn));
 
         // Extract business attribute tags
@@ -23,11 +33,11 @@ export default function useExtractFieldTagsInfo(
                 ?.tags || [];
 
         // Editable tags: from EditableSchemaMetadata and not on schema field entity itself
-        const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidate) =>
-            pathMatchesExact(candidate.fieldPath, record.fieldPath),
-        );
+        const editableFieldInfo = exactMap.get(record.fieldPath);
         const baseEditableTags = editableFieldInfo?.globalTags?.tags || [];
-        const editableTags = baseEditableTags.filter((tag) => !schemaFieldTagUrns.has(tag.tag.urn));
+        const editableTags = baseEditableTags.filter(
+            (tag) => !schemaFieldTagUrns.has(tag.tag.urn) && !isRemovedAssociation(tag),
+        );
         const editableTagUrns = new Set(editableTags.map((t) => t.tag.urn));
 
         // Uneditable tags: from SchemaMetadata and not in EditableSchemaMetadata or on schema field entity
@@ -37,19 +47,19 @@ export default function useExtractFieldTagsInfo(
         const baseUneditableTags = defaultUneditableTags?.tags || record?.globalTags?.tags || [];
         const baseUneditableTagUrns = new Set(baseUneditableTags.map((t) => t.tag.urn));
 
-        // Collect extra uneditable tags from path-insensitive matches
-        const extraUneditableTags =
-            editableSchemaMetadata?.editableSchemaFieldInfo
-                .filter((candidate) => pathMatchesInsensitiveToV2(candidate.fieldPath, record.fieldPath))
-                .flatMap((info) => info.globalTags?.tags || [])
-                .filter((tag) => !baseUneditableTagUrns.has(tag.tag.urn)) || [];
+        // Collect extra uneditable tags from path-insensitive matches (O(1) map lookup)
+        const normalizedRecordPath = normalizeFieldPathKey(record.fieldPath);
+        const extraUneditableTags = (normalizedRecordPath ? (v2NormalizedMap.get(normalizedRecordPath) ?? []) : [])
+            .flatMap((info) => info.globalTags?.tags || [])
+            .filter((tag) => !baseUneditableTagUrns.has(tag.tag.urn));
 
         // Combine all uneditable tags including business attribute tags and remove duplicates
         const allUneditableTags = [...baseUneditableTags, ...extraUneditableTags, ...businessAttributeTags];
 
         // Final deduped uneditable tags excluding any in editableTags
         const uneditableTags = allUneditableTags.filter(
-            (tag) => !schemaFieldTagUrns.has(tag.tag.urn) && !editableTagUrns.has(tag.tag.urn),
+            (tag) =>
+                !schemaFieldTagUrns.has(tag.tag.urn) && !editableTagUrns.has(tag.tag.urn) && !isRemovedAssociation(tag),
         );
 
         return {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import TimelineSkeleton from '@app/entityV2/shared/TimelineSkeleton';
 import IncidentActivityAvatar from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentActivityAvatar';
@@ -13,13 +14,14 @@ import { Timeline } from '@src/alchemy-components';
 
 type IncidentActivitySectionProps = {
     loading: boolean;
-    renderActivities: any[];
+    renderActivities: TimelineContentDetails[];
 };
 
 export const IncidentActivitySection = ({ loading, renderActivities }: IncidentActivitySectionProps) => {
+    const { t } = useTranslation('entity.profile.incident');
     return (
         <ActivitySection>
-            <ActivityLabelSection>Activity</ActivityLabelSection>
+            <ActivityLabelSection>{t('activity.title')}</ActivityLabelSection>
             {loading ? (
                 <TimelineSkeleton />
             ) : (
@@ -27,9 +29,7 @@ export const IncidentActivitySection = ({ loading, renderActivities }: IncidentA
                     <Timeline
                         items={renderActivities}
                         renderDot={(item) => <IncidentActivityAvatar user={item?.actor} />}
-                        renderContent={(item: TimelineContentDetails) => (
-                            <IncidentActivityContent incidentActivities={item} />
-                        )}
+                        renderContent={(item) => <IncidentActivityContent incidentActivities={item} />}
                     />
                 </TimelineWrapper>
             )}

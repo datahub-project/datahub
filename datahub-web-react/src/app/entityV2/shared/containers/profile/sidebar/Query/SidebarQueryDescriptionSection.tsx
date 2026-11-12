@@ -1,7 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 
 import { QueryEntity } from '@types';
@@ -12,6 +13,7 @@ const ContentWrapper = styled.div`
 `;
 
 export default function SidebarQueryDescriptionSection() {
+    const { t } = useTranslation('entity.shared.containers');
     const baseEntity = useBaseEntity<{ entity: QueryEntity }>();
 
     if (!baseEntity?.entity?.properties?.description) {
@@ -20,7 +22,7 @@ export default function SidebarQueryDescriptionSection() {
 
     return (
         <SidebarSection
-            title="Description"
+            title={t('sidebar.query.descriptionTitle')}
             content={
                 <>
                     <ContentWrapper>{baseEntity?.entity?.properties?.description}</ContentWrapper>

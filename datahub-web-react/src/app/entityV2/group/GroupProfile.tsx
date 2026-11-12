@@ -1,16 +1,17 @@
 import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import { Col } from 'antd';
 import React, { useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components/macro';
 
-import { EntityContext } from '@app/entity/shared/EntityContext';
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { GroupAssets } from '@app/entityV2/group/GroupAssets';
 import GroupMembers from '@app/entityV2/group/GroupMembers';
 import GroupSidebar from '@app/entityV2/group/GroupSidebar';
 import { TabType } from '@app/entityV2/group/types';
+import { EntityContext } from '@app/entityV2/shared/EntityContext';
+import { EntitySidebarTabKey } from '@app/entityV2/shared/constants';
 import {
     StyledEntitySidebarContainer,
     StyledSidebar,
@@ -19,12 +20,13 @@ import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/si
 import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarTabs';
 import SidebarCollapsibleHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarCollapsibleHeader';
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
-import CompactContext from '@app/shared/CompactContext';
-import { EntityHead } from '@app/shared/EntityHead';
-import { Message } from '@app/shared/Message';
-import { RoutedTabs } from '@app/shared/RoutedTabs';
-import { ErrorSection } from '@app/shared/error/ErrorSection';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
+import CompactContext from '@app/sharedV2/CompactContext';
+import { EntityHead } from '@app/sharedV2/EntityHead';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import { Message } from '@app/sharedV2/Message';
+import { RoutedTabs } from '@app/sharedV2/RoutedTabs';
+import { ErrorSection } from '@app/sharedV2/error/ErrorSection';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
 
@@ -75,6 +77,8 @@ type Props = {
  * TODO: Add use of apollo cache to improve fetching performance.
  */
 export default function GroupProfile({ urn }: Props) {
+    const { t } = useTranslation('entity.types');
+    const { t: tf } = useTranslation('common.feedback');
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
@@ -84,12 +88,13 @@ export default function GroupProfile({ urn }: Props) {
 
     const groupMemberRelationships = data?.corpGroup?.relationships as EntityRelationshipsResult;
     const isExternalGroup: boolean = data?.corpGroup?.origin?.type === OriginType.External;
-    const externalGroupType: string = data?.corpGroup?.origin?.externalType || 'outside DataHub';
+    const externalGroupType: string = data?.corpGroup?.origin?.externalType || t('group.outsideDataHubFallback');
     const groupName = data?.corpGroup ? entityRegistry.getDisplayName(EntityType.CorpGroup, data.corpGroup) : undefined;
 
     const finalTabs = [
         {
-            name: 'About',
+            key: EntitySidebarTabKey.ABOUT,
+            name: t('tab.about'),
             icon: BookOpen,
             component: EntitySidebarSectionsTab,
             display: {
@@ -106,7 +111,7 @@ export default function GroupProfile({ urn }: Props) {
     const getTabs = () => {
         return [
             {
-                name: TabType.Assets,
+                name: t('group.tab.assets'),
                 path: TabType.Assets.toLocaleLowerCase(),
                 content: <GroupAssets urn={urn} />,
                 display: {
@@ -114,13 +119,14 @@ export default function GroupProfile({ urn }: Props) {
                 },
             },
             {
-                name: TabType.Members,
+                name: t('group.tab.members'),
                 path: TabType.Members.toLocaleLowerCase(), // do not remove toLocaleLowerCase as we link to this tab elsewhere
                 content: (
                     <GroupMembers
                         urn={urn}
                         pageSize={MEMBER_PAGE_SIZE}
                         isExternalGroup={isExternalGroup}
+                        externalGroupType={externalGroupType}
                         onChangeMembers={() => {
                             setTimeout(() => refetch(), 3000);
                         }}
@@ -130,7 +136,7 @@ export default function GroupProfile({ urn }: Props) {
                     enabled: () => true,
                 },
             },
-        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+        ].filter((tab) => ENABLED_TAB_TYPES.some((tabType) => tabType.toLocaleLowerCase() === tab.path));
     };
 
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
@@ -197,7 +203,7 @@ export default function GroupProfile({ urn }: Props) {
         >
             <EntityHead />
             {error && <ErrorSection />}
-            {loading && <Message type="loading" content="Loading..." style={messageStyle} />}
+            {loading && <Message type="loading" content={tf('loading')} style={messageStyle} />}
             {data && data?.corpGroup && (
                 <GroupProfileWrapper>
                     <Col xl={7} lg={7} md={7} sm={24} xs={24} style={{ height: '100%', overflow: 'auto' }}>

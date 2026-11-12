@@ -1,5 +1,6 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { GroupProfileInfoCard, SidebarData } from '@app/entityV2/group/GroupProfileInfoCard';
@@ -26,7 +27,16 @@ export const MemberCount = styled.div`
  * Responsible for reading & writing users.
  */
 export default function GroupSidebar({ sidebarData, refetch }: Props) {
-    const { aboutText, groupMemberRelationships, urn, groupOwnership: ownership } = sidebarData;
+    const { t } = useTranslation('entity.types');
+    const { t: tf } = useTranslation('common.feedback');
+    const {
+        aboutText,
+        groupMemberRelationships,
+        urn,
+        groupOwnership: ownership,
+        isExternalGroup,
+        externalGroupType,
+    } = sidebarData;
     const [updateCorpGroupPropertiesMutation] = useUpdateCorpGroupPropertiesMutation();
 
     // About Text save
@@ -40,15 +50,12 @@ export default function GroupSidebar({ sidebarData, refetch }: Props) {
             },
         })
             .then(() => {
-                message.success({
-                    content: `Changes saved.`,
-                    duration: 3,
-                });
+                toast.success(tf('changesSaved'), { duration: 3 });
                 refetch();
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
+                toast.destroy();
+                toast.error(t('shared.saveChangesError', { error: e.message || '' }), { duration: 3 });
             });
     };
 
@@ -62,6 +69,8 @@ export default function GroupSidebar({ sidebarData, refetch }: Props) {
                     groupMemberRelationships={groupMemberRelationships}
                     urn={urn}
                     refetch={refetch}
+                    isExternalGroup={isExternalGroup}
+                    externalGroupType={externalGroupType}
                 />
             </Content>
         </SideBar>

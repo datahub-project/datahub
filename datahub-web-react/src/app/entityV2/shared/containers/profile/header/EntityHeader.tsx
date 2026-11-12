@@ -2,18 +2,20 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
-import { EntitySubHeaderSection, GenericEntityProperties } from '@app/entity/shared/types';
+import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { DefaultEntityHeader } from '@app/entityV2/shared/containers/profile/header/DefaultEntityHeader';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
+import { withLogicalModelHeaderItems } from '@app/entityV2/shared/logicalModels/logicalModels.utils';
+import { EntitySubHeaderSection, GenericEntityProperties } from '@app/entityV2/shared/types';
+import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DisplayProperties, EntityType, PlatformPrivileges } from '@types';
 
 const Container = styled.div``;
 
-export function getCanEditName(
+export function getCanEditEntityProperties(
     entityType: EntityType,
     entityData: GenericEntityProperties | null,
     privileges?: PlatformPrivileges,
@@ -54,10 +56,17 @@ export const EntityHeader = ({
     const refetch = useRefetch();
     const me = useUserContext();
     const entityRegistry = useEntityRegistry();
+    const { config } = useAppConfig();
 
     const entityUrl = entityRegistry.getEntityUrl(entityType, urn);
-    const showEditName =
-        isNameEditable && getCanEditName(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);
+    const canEdit = getCanEditEntityProperties(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);
+    // Logical models (logical-platform datasets) get a Delete action; regular datasets are unaffected.
+    const effectiveDropdownItems = withLogicalModelHeaderItems(
+        entityType,
+        entityData,
+        headerDropdownItems,
+        config.featureFlags.logicalModelsEnabled,
+    );
 
     return (
         <Container data-testid="entity-header-test-id">
@@ -68,12 +77,12 @@ export const EntityHeader = ({
                 loading={loading}
                 entityData={entityData}
                 refetch={refetch}
-                showEditName={showEditName}
-                isColorEditable={isColorEditable}
-                isIconEditable={isIconEditable}
+                showEditName={isNameEditable && canEdit}
+                isColorEditable={isColorEditable && canEdit}
+                isIconEditable={isIconEditable && canEdit}
                 displayProperties={displayProperties}
                 headerActionItems={headerActionItems}
-                headerDropdownItems={headerDropdownItems}
+                headerDropdownItems={effectiveDropdownItems}
                 subHeader={subHeader}
             />
         </Container>

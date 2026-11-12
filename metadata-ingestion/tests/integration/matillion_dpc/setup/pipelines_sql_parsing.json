@@ -1,0 +1,25 @@
+{
+  "results": [
+    {
+      "id": "customer-agg-pipe",
+      "name": "Customer Aggregation",
+      "projectId": "analytics-proj",
+      "type": "transformation",
+      "description": "Aggregate customer orders from Postgres to Snowflake",
+      "version": "1.0.0",
+      "publishedTime": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "daily-summary-pipe",
+      "name": "Daily Summary",
+      "projectId": "analytics-proj",
+      "type": "transformation",
+      "description": "Create daily summaries in Snowflake",
+      "version": "1.0.0",
+      "publishedTime": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "total": 2,
+  "page": 0,
+  "size": 25
+}

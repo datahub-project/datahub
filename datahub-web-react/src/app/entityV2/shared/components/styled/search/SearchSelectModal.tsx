@@ -1,9 +1,10 @@
 import { Modal } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
-import { EntityAndType } from '@app/entity/shared/types';
 import { SearchSelect } from '@app/entityV2/shared/components/styled/search/SearchSelect';
-import ClickOutside from '@app/shared/ClickOutside';
+import { EntityAndType } from '@app/entityV2/shared/types';
+import ClickOutside from '@app/sharedV2/ClickOutside';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { EntityType } from '@types';
@@ -39,6 +40,8 @@ export const SearchSelectModal = ({
     onCancel,
     limit,
 }: SearchSelectModalProps) => {
+    const { t } = useTranslation('entity.shared.components');
+    const { t: tc } = useTranslation('common.actions');
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
     const [showExitConfirmation, setShowExitConfirmation] = useState(false);
 
@@ -55,20 +58,21 @@ export const SearchSelectModal = ({
             <Modal
                 wrapClassName="search-select-modal"
                 bodyStyle={MODAL_BODY_STYLE}
-                title={titleText || 'Select entities'}
+                title={titleText || t('embeddedSearch.selectEntitiesTitle')}
                 width={MODAL_WIDTH_PX}
                 zIndex={UI_Z_INDEX}
                 open
                 onCancel={onCancelSelect}
                 buttons={[
                     {
-                        text: 'Cancel',
+                        text: tc('cancel'),
                         variant: 'text',
                         onClick: onCancel || (() => {}),
                     },
                     {
-                        text: continueText || 'Done',
+                        text: continueText || tc('done'),
                         id: 'continueButton',
+                        buttonDataTestId: 'search-select-modal-continue-button',
                         onClick: () => onContinue(selectedEntities.map((entity) => entity.urn)),
                         variant: 'filled',
                         disabled: selectedEntities.length === 0,
@@ -88,8 +92,8 @@ export const SearchSelectModal = ({
                 isOpen={showExitConfirmation}
                 handleClose={() => setShowExitConfirmation(false)}
                 handleConfirm={() => onCancel?.()}
-                modalTitle="Exit Selection"
-                modalText={`Are you sure you want to exit? ${selectedEntities.length} selection(s) will be cleared.`}
+                modalTitle={t('embeddedSearch.exitSelectionTitle')}
+                modalText={t('embeddedSearch.exitSelectionText', { count: selectedEntities.length })}
             />
         </ClickOutside>
     );

@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { vi } from 'vitest';
 
 import {
@@ -19,15 +19,21 @@ import {
     validatePosition,
     validateStructuredProperty,
 } from '@app/homeV3/context/hooks/utils/validationUtils';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { StructuredPropertyFieldsFragment } from '@graphql/fragments.generated';
 import { PageTemplateFragment } from '@graphql/template.generated';
 import { EntityType, PageTemplateScope, PageTemplateSurfaceType, SummaryElementType } from '@types';
 
-// Mock antd message
-vi.mock('antd', () => ({
-    message: {
-        error: vi.fn(() => ({ key: 'test-message' })),
+// Mock alchemy toast
+vi.mock('@components', () => ({
+    toast: {
+        success: vi.fn(),
+        error: vi.fn(() => undefined),
+        warning: vi.fn(),
+        info: vi.fn(),
+        loading: vi.fn(),
+        destroy: vi.fn(),
     },
 }));
 
@@ -181,7 +187,10 @@ describe('useAssetSummaryOperations', () => {
             expect(validateElementType).toHaveBeenCalledWith(SummaryElementType.Tags);
             expect(validateStructuredProperty).toHaveBeenCalledWith(SummaryElementType.Tags, undefined);
             expect(getTemplateToUpdate).toHaveBeenCalled();
-            expect(validateTemplateAvailability).toHaveBeenCalledWith(mockPersonalTemplate);
+            expect(validateTemplateAvailability).toHaveBeenCalledWith(
+                mockPersonalTemplate,
+                'No template available to update',
+            );
             expect(updateTemplateStateOptimistically).toHaveBeenCalled();
             expect(persistTemplateChanges).toHaveBeenCalledWith(
                 expect.any(Object),
@@ -197,7 +206,7 @@ describe('useAssetSummaryOperations', () => {
                     }),
                 }),
                 true,
-                'add summary element',
+                'addSummaryElement',
             );
         });
 
@@ -242,7 +251,7 @@ describe('useAssetSummaryOperations', () => {
                     }),
                 }),
                 true,
-                'add summary element',
+                'addSummaryElement',
             );
         });
 
@@ -272,12 +281,15 @@ describe('useAssetSummaryOperations', () => {
             });
 
             expect(getTemplateToUpdate).toHaveBeenCalled();
-            expect(validateTemplateAvailability).toHaveBeenCalledWith(mockGlobalTemplate);
+            expect(validateTemplateAvailability).toHaveBeenCalledWith(
+                mockGlobalTemplate,
+                'No template available to update',
+            );
             expect(persistTemplateChanges).toHaveBeenCalledWith(
                 expect.any(Object),
                 expect.any(Object),
                 false, // isPersonal = false
-                'add summary element',
+                'addSummaryElement',
             );
         });
 
@@ -371,7 +383,7 @@ describe('useAssetSummaryOperations', () => {
                     }),
                 }),
                 true,
-                'remove summary element',
+                'removeSummaryElement',
             );
         });
 
@@ -406,7 +418,7 @@ describe('useAssetSummaryOperations', () => {
                     }),
                 }),
                 true,
-                'remove summary element',
+                'removeSummaryElement',
             );
         });
 
@@ -502,7 +514,7 @@ describe('useAssetSummaryOperations', () => {
                     }),
                 }),
                 true,
-                'replace summary element',
+                'replaceSummaryElement',
             );
         });
 
@@ -551,7 +563,7 @@ describe('useAssetSummaryOperations', () => {
                     }),
                 }),
                 true,
-                'replace summary element',
+                'replaceSummaryElement',
             );
         });
 
@@ -668,7 +680,7 @@ describe('useAssetSummaryOperations', () => {
                     }),
                 }),
                 true,
-                'add summary element',
+                'addSummaryElement',
             );
         });
 
@@ -719,7 +731,7 @@ describe('useAssetSummaryOperations', () => {
                     }),
                 }),
                 true,
-                'add summary element',
+                'addSummaryElement',
             );
         });
     });

@@ -5,9 +5,8 @@ import com.linkedin.metadata.EventSchemaData;
 import com.linkedin.metadata.registry.SchemaRegistryService;
 import com.linkedin.metadata.registry.SchemaRegistryServiceImpl;
 import com.linkedin.mxe.TopicConvention;
-import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ObjectMapperContext;
 import javax.annotation.Nonnull;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
@@ -17,9 +16,8 @@ public class SchemaRegistryServiceFactory {
 
   @Bean(name = "eventSchemaData")
   @Nonnull
-  protected EventSchemaData eventSchemaData(
-      @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
-    return new EventSchemaData(systemOpContext.getYamlMapper());
+  protected EventSchemaData eventSchemaData() {
+    return new EventSchemaData(ObjectMapperContext.DEFAULT.getYamlMapper());
   }
 
   @Bean(name = "schemaRegistryService")

@@ -1,20 +1,24 @@
+import { toast } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
-import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
 import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
 import { AdvancedButton, AdvancedContent, FormSection } from '@app/identity/group/CreateGroupModal.components';
-import { validateCustomUrnId } from '@app/shared/textUtil';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { validateCustomUrnId } from '@app/sharedV2/textUtil';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { Input, Modal, TextArea } from '@src/alchemy-components';
 
 import { useAddGroupMembersMutation, useCreateGroupMutation } from '@graphql/group.generated';
 import { useAddOwnerMutation } from '@graphql/mutations.generated';
 import { CorpGroup, EntityType, OwnerEntityType } from '@types';
+
+// Must match groupName maxLength in li-utils/.../CorpGroupUrn.pdl
+const MAX_GROUP_NAME_LENGTH = 250;
 
 type Props = {
     onClose: () => void;
@@ -22,6 +26,8 @@ type Props = {
 };
 
 export default function CreateGroupModal({ onClose, onCreate }: Props) {
+    const { t } = useTranslation('entity.identity');
+    const { t: tc } = useTranslation('common.actions');
     const { urn: currentUserUrn } = useUserContext();
 
     const [stagedName, setStagedName] = useState('');
@@ -37,11 +43,11 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
 
     const validateName = (value: string) => {
         if (!value || !value.trim()) {
-            setNameError('Enter a Group name.');
+            setNameError(t('groups.createModal.name.validationError.empty'));
             return false;
         }
-        if (value.length > 50) {
-            setNameError('Name must be 50 characters or less.');
+        if (value.length > MAX_GROUP_NAME_LENGTH) {
+            setNameError(t('groups.createModal.name.validationError.tooLong'));
             return false;
         }
         setNameError('');
@@ -50,7 +56,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
 
     const validateId = (value: string | undefined) => {
         if (value && !validateCustomUrnId(value)) {
-            setIdError('Please enter a valid Group ID.');
+            setIdError(t('groups.createModal.groupId.validationError'));
             return false;
         }
         setIdError('');
@@ -77,10 +83,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     analytics.event({
                         type: EventType.CreateGroupEvent,
                     });
-                    message.success({
-                        content: `Created group!`,
-                        duration: 3,
-                    });
+                    toast.success(t('groups.createSuccess'), { duration: 3 });
                     onCreate({
                         urn: data?.createGroup || '',
                         type: EntityType.CorpGroup,
@@ -102,10 +105,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                         },
                     }).catch((e) => {
                         console.error(e);
-                        message.error({
-                            content: `Failed to automatically add you as an owner of the group. Please add yourself as an owner manually.`,
-                            duration: 5,
-                        });
+                        toast.error(t('groups.createOwnerError'), { duration: 5 });
                     });
 
                     const allMemberUrns = [currentUserUrn, ...stagedMemberUrns.filter((u) => u !== currentUserUrn)];
@@ -116,16 +116,13 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                         },
                     }).catch((e) => {
                         console.error(e);
-                        message.error({
-                            content: `Failed to add members to the group. Please add them manually.`,
-                            duration: 5,
-                        });
+                        toast.error(t('groups.addMembersError'), { duration: 5 });
                     });
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to create group!: \n ${e.message || ''}`, duration: 3 });
+                toast.destroy();
+                toast.error(t('groups.createError', { error: e.message || '' }), { duration: 3 });
             })
             .finally(() => {
                 setStagedName('');
@@ -141,17 +138,18 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
     return (
         <Modal
             width={780}
-            title="Create new group"
+            title={t('groups.createModal.title')}
             open
             onCancel={onClose}
+            dataTestId="create-group-modal"
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: onClose,
                 },
                 {
-                    text: 'Create',
+                    text: tc('create'),
                     variant: 'filled',
                     disabled: isCreateDisabled,
                     onClick: onCreateGroup,
@@ -163,23 +161,25 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
             <FormSection>
                 <Input
                     id="name"
-                    label="Name"
+                    inputTestId="group-name-input"
+                    label={t('groups.createModal.name.label')}
                     isRequired
-                    placeholder="A name for your group"
+                    placeholder={t('groups.createModal.name.placeholder')}
                     value={stagedName}
                     setValue={(val) => {
                         setStagedName(val);
                         validateName(val);
                     }}
                     error={nameError}
-                    maxLength={50}
+                    maxLength={MAX_GROUP_NAME_LENGTH}
                 />
             </FormSection>
             <FormSection>
                 <TextArea
                     id="description"
-                    label="Description"
-                    placeholder="A description for your group"
+                    data-testid="group-description-input"
+                    label={t('groups.createModal.description.label')}
+                    placeholder={t('groups.createModal.description.placeholder')}
                     value={stagedDescription}
                     onChange={(e) => setStagedDescription(e.target.value)}
                     rows={3}
@@ -187,10 +187,10 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
             </FormSection>
             <FormSection>
                 <ActorsSearchSelect
-                    label="Members"
+                    label={t('groups.createModal.members.label')}
                     selectedActorUrns={stagedMemberUrns}
                     onUpdate={(actors: ActorEntity[]) => setStagedMemberUrns(actors.map((a) => a.urn))}
-                    placeholder="Search for users to add as members..."
+                    placeholder={t('groups.createModal.members.placeholder')}
                     entityTypes={[EntityType.CorpUser]}
                 />
             </FormSection>
@@ -203,23 +203,25 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     color: 'gray',
                 }}
                 iconPosition="right"
+                data-testid="create-group-advanced-button"
             >
-                Advanced
+                {t('groups.createModal.advanced')}
             </AdvancedButton>
             {showAdvanced && (
                 <AdvancedContent>
                     <FormSection>
                         <Input
                             id="groupId"
-                            label="Group Id"
-                            placeholder="product_engineering"
+                            inputTestId="group-id-input"
+                            label={t('groups.createModal.groupId.label')}
+                            placeholder={t('groups.createModal.groupId.placeholder')}
                             value={stagedId || ''}
                             setValue={(val) => {
                                 setStagedId(val);
                                 validateId(val);
                             }}
                             error={idError}
-                            helperText="By default, a random UUID will be generated. Provide a custom id to more easily track this group. You cannot change the group id after creation."
+                            helperText={t('groups.createModal.groupId.helperText')}
                         />
                     </FormSection>
                 </AdvancedContent>

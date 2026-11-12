@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 
-import { SchemaContextType } from '@app/entity/shared/types';
+import { SchemaContextType } from '@app/entityV2/shared/types';
 
 const SchemaContext = React.createContext<SchemaContextType>({
     refetch: () => Promise.resolve({}),

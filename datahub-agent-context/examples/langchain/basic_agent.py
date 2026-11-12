@@ -23,9 +23,11 @@ import asyncio
 import os
 import sys
 
-from langchain.agents import create_agent
-from langchain_aws import ChatBedrockConverse
-from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain.agents import create_agent  # type: ignore[import-not-found]
+from langchain_aws import ChatBedrockConverse  # type: ignore[import-not-found]
+from langchain_mcp_adapters.client import (  # type: ignore[import-not-found]
+    MultiServerMCPClient,
+)
 
 # ANSI color codes
 RESET = "\033[0m"
@@ -68,7 +70,7 @@ async def get_mcp_tools() -> list:
         connection_config["headers"] = {"Authorization": f"Bearer {mcp_token}"}
 
     print(f"{DIM}Connecting to DataHub MCP server at {mcp_url}...{RESET}")
-    client = MultiServerMCPClient({"datahub": connection_config})
+    client = MultiServerMCPClient({"datahub": connection_config})  # type: ignore[dict-item]
     return await client.get_tools()
 
 
@@ -96,7 +98,7 @@ def _register_tool_calls(msg, pending_tool_calls: dict) -> None:
 
 
 def _handle_ai_message_chunk(
-    msg, content: str | list, streaming: bool, pending_tool_calls: dict
+    msg, content: str | list | None, streaming: bool, pending_tool_calls: dict
 ) -> bool:
     _register_tool_calls(msg, pending_tool_calls)
     text = _extract_text(content) if content else ""
@@ -109,7 +111,7 @@ def _handle_ai_message_chunk(
 
 
 def _handle_ai_message(
-    msg, content: str | list, streaming: bool, pending_tool_calls: dict
+    msg, content: str | list | None, streaming: bool, pending_tool_calls: dict
 ) -> bool:
     additional_kwargs = getattr(msg, "additional_kwargs", {}) or {}
     response_metadata = getattr(msg, "response_metadata", {}) or {}
@@ -132,7 +134,7 @@ def _handle_ai_message(
 
 
 def _handle_tool_message(
-    msg, content: str | list, streaming: bool, pending_tool_calls: dict
+    msg, content: str | list | None, streaming: bool, pending_tool_calls: dict
 ) -> bool:
     if streaming:
         print()
@@ -187,10 +189,9 @@ async def main() -> None:
     print(f"{DIM}Connecting to AWS Bedrock ({aws_region})...{RESET}")
 
     model = ChatBedrockConverse(
-        model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        model="us.anthropic.claude-haiku-5-5",
         region_name=aws_region,
         max_tokens=4096,
-        temperature=0,
     )
 
     system_prompt = """You are a helpful data discovery assistant with access to DataHub.

@@ -1,7 +1,7 @@
+import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
-import { pluralize } from '@app/shared/textUtil';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { AggregationMetadata, EntityType, FacetMetadata, SearchAcrossLineageResults } from '@types';
@@ -18,7 +18,7 @@ type LineageDirectionTypeSummary = {
     isEntityType: boolean; // If false, this represents a sub-type.
 };
 
-type LineageDirectionSummary = {
+export type LineageDirectionSummary = {
     total: number;
     types: LineageDirectionTypeSummary[];
 };
@@ -98,6 +98,14 @@ export const getDirectDownstreamSummary = (results: SearchAcrossLineageResults):
     };
 };
 
+function getEntityTypeLabel(entityRegistry: EntityRegistry, type: LineageDirectionTypeSummary): string | undefined {
+    if (!type.isEntityType) {
+        return type.type;
+    }
+    const entityType = type.type as EntityType;
+    return type.count === 1 ? entityRegistry.getEntityName(entityType) : entityRegistry.getCollectionName(entityType);
+}
+
 export const getRelatedEntitySummary = (
     summary: LineageDirectionSummary,
     entityRegistry: EntityRegistry,
@@ -106,14 +114,12 @@ export const getRelatedEntitySummary = (
         <>
             {summary.types.map((type, idx) => {
                 return (
-                    <SummaryText>
-                        {type.count}{' '}
-                        {pluralize(
-                            type.count,
-                            type.isEntityType
-                                ? (entityRegistry.getEntityName(type.type as EntityType) ?? '')
-                                : type.type,
-                        ).toLocaleLowerCase()}
+                    <SummaryText key={type.type}>
+                        {i18next.t('entity.shared.containers:sidebar.entityTypeCount', {
+                            count: type.count,
+                            type: getEntityTypeLabel(entityRegistry, type)?.toLocaleLowerCase(),
+                        })}
+                        {/* eslint-disable-next-line i18next/no-literal-string -- list separator punctuation, not translatable UI text */}
                         {idx < summary.types.length - 1 && <>, </>}
                     </SummaryText>
                 );

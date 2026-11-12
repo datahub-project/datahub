@@ -4,11 +4,16 @@ import { IconProps } from '@components/components/Icon/types';
 
 export type EmptyStateSize = 'sm' | 'default' | 'lg';
 
-export interface EmptyStateAction {
+interface EmptyStateAction {
     label: string;
     onClick: () => void;
     icon?: IconProps;
+    iconPosition?: 'left' | 'right';
     variant?: 'filled' | 'secondary' | 'text';
+    disabled?: boolean;
+    /** Shown on hover. Required for disabled actions, which do not receive pointer events. */
+    tooltip?: string;
+    dataTestId?: string;
 }
 
 export interface EmptyStateProps {

@@ -52,7 +52,7 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
   }
 
   private Client createPac4jClient() {
-    final OidcConfiguration oidcConfiguration = new OidcConfiguration();
+    final OidcConfiguration oidcConfiguration = new DiscoveryTimingOidcConfiguration();
     oidcConfiguration.setClientId(oidcConfigs.getClientId());
     oidcConfiguration.setSecret(oidcConfigs.getClientSecret());
     oidcConfiguration.setDiscoveryURI(oidcConfigs.getDiscoveryUri());
@@ -86,6 +86,10 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
               log.info("Setting preferredJwsAlgorithm: " + preferred);
               oidcConfiguration.setPreferredJwsAlgorithm(JWSAlgorithm.parse(preferred));
             });
+
+    if (oidcConfigs.isDisablePkce()) {
+      oidcConfiguration.setDisablePkce(true);
+    }
 
     // Enable state parameter validation
     oidcConfiguration.setWithState(true);

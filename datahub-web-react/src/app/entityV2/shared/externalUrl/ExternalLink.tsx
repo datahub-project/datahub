@@ -1,9 +1,10 @@
-import LaunchIcon from '@mui/icons-material/Launch';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import React from 'react';
 import styled from 'styled-components';
 
 import { Popover } from '@src/alchemy-components';
-import useMeasureIfTrancated from '@src/app/shared/useMeasureIfTruncated';
+import useMeasureIfTrancated from '@src/app/sharedV2/useMeasureIfTruncated';
+import { safeUrl } from '@utils/urlUtils';
 
 const Link = styled.a<{ $isEntityPageHeader?: boolean }>`
     display: flex;
@@ -13,8 +14,14 @@ const Link = styled.a<{ $isEntityPageHeader?: boolean }>`
     border-radius: 4px;
     padding: ${(props) => (props.$isEntityPageHeader ? '6px' : '4px 6px')};
 
-    background: ${(props) => props.theme.colors.bgSurfaceBrand};
+    background: ${(props) => props.theme.colors.bgSelectedSubtle};
     color: ${(props) => props.theme.colors.textBrand};
+
+    &:hover,
+    &:focus {
+        background: ${(props) => props.theme.colors.bgSelected};
+        color: ${(props) => props.theme.colors.textBrand};
+    }
 
     max-width: 215px;
     width: fit-content;
@@ -51,14 +58,14 @@ export default function ExternalLink({ href, label, onClick, className, isEntity
     return (
         <Popover content={isHorizontallyTruncated ? <PopoverWrapper>{label}</PopoverWrapper> : undefined}>
             <Link
-                href={href}
+                href={safeUrl(href)}
                 target="_blank"
                 onClick={onClick}
                 className={className}
                 $isEntityPageHeader={isEntityPageHeader}
             >
                 <IconWrapper>
-                    <LaunchIcon fontSize="inherit" />
+                    <ArrowSquareOut size="1em" />
                 </IconWrapper>
                 <LabelWrapper ref={measuredRef}>{label}</LabelWrapper>
             </Link>

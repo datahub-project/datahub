@@ -2,18 +2,20 @@ import { Button, Tooltip } from '@components';
 import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { useModalContext } from '@components/components/Modal/ModalContext';
+
 import { DocumentTreeNode } from '@app/document/DocumentTreeContext';
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import { DocumentChangeHistoryDrawer } from '@app/entityV2/document/changeHistory/DocumentChangeHistoryDrawer';
 import { EditableContent } from '@app/entityV2/document/summary/EditableContent';
 import { EditableTitle } from '@app/entityV2/document/summary/EditableTitle';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import PropertiesHeader from '@app/entityV2/summary/properties/PropertiesHeader';
 import { DocumentActionsMenu } from '@app/homeV2/layout/sidebar/documents/DocumentActionsMenu';
-import { useModalContext } from '@app/sharedV2/modals/ModalContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Document, EntityType } from '@types';
@@ -115,6 +117,7 @@ interface DocumentSummaryTabProps {
 }
 
 export const DocumentSummaryTab: React.FC<DocumentSummaryTabProps> = ({ onDelete, onMove }) => {
+    const { t } = useTranslation('entity.types');
     const { urn, entityData } = useEntityData();
     const document = entityData as Document;
     const history = useHistory();
@@ -150,10 +153,14 @@ export const DocumentSummaryTab: React.FC<DocumentSummaryTabProps> = ({ onDelete
                             <Breadcrumb>
                                 {[...parentDocuments].reverse().map((parent, index) => (
                                     <React.Fragment key={parent.urn}>
-                                        <BreadcrumbLink onClick={() => handleParentClick(parent.urn)}>
-                                            {parent.info?.title || 'Untitled'}
+                                        <BreadcrumbLink
+                                            data-testid="parent-breadcrumb-link"
+                                            onClick={() => handleParentClick(parent.urn)}
+                                        >
+                                            {parent.info?.title || t('document.untitledFallback')}
                                         </BreadcrumbLink>
                                         {index < parentDocuments.length - 1 && (
+                                            // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) decorative breadcrumb separator
                                             <BreadcrumbSeparator>/</BreadcrumbSeparator>
                                         )}
                                     </React.Fragment>
@@ -167,16 +174,16 @@ export const DocumentSummaryTab: React.FC<DocumentSummaryTabProps> = ({ onDelete
 
                     {/* Top right buttons - History and Expand (when in modal) */}
                     <TopRightButtonsContainer>
-                        <Tooltip title="View change history">
+                        <Tooltip title={t('document.viewChangeHistory')}>
                             <TopRightButton
                                 variant="text"
                                 onClick={() => setIsHistoryDrawerOpen(true)}
-                                aria-label="View change history"
+                                aria-label={t('document.viewChangeHistory')}
                                 icon={{ icon: Clock, size: '2xl' }}
                             />
                         </Tooltip>
                         {isInsideModal && (
-                            <Tooltip title="Go to document profile">
+                            <Tooltip title={t('document.goToDocumentProfile')}>
                                 <TopRightButton
                                     variant="text"
                                     onClick={handleGoToDocument}

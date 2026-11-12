@@ -16,13 +16,18 @@ import com.linkedin.datahub.graphql.generated.ListGlobalViewsInput;
 import com.linkedin.datahub.graphql.generated.ListViewsResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -30,6 +35,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /** Resolver used for listing global DataHub Views. */
@@ -38,16 +44,22 @@ public class ListGlobalViewsResolver implements DataFetcher<CompletableFuture<Li
 
   private static final String CREATED_AT_FIELD = "createdAt";
   private static final String VIEW_TYPE_FIELD = "type";
-  private static final SortCriterion DEFAULT_SORT_CRITERION =
-      new SortCriterion().setField(CREATED_AT_FIELD).setOrder(SortOrder.DESCENDING);
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
   private static final String DEFAULT_QUERY = "";
 
   private final EntityClient _entityClient;
+  @Nullable private final EntityIndexConfiguration _entityIndexConfiguration;
 
   public ListGlobalViewsResolver(@Nonnull final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public ListGlobalViewsResolver(
+      @Nonnull final EntityClient entityClient,
+      @Nullable final EntityIndexConfiguration entityIndexConfiguration) {
     _entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null");
+    _entityIndexConfiguration = entityIndexConfiguration;
   }
 
   @Override
@@ -72,7 +84,7 @@ public class ListGlobalViewsResolver implements DataFetcher<CompletableFuture<Li
                     Constants.DATAHUB_VIEW_ENTITY_NAME,
                     query,
                     buildFilters(),
-                    Collections.singletonList(DEFAULT_SORT_CRITERION),
+                    Collections.singletonList(sortCriterion(context.getOperationContext())),
                     start,
                     count);
 
@@ -107,13 +119,24 @@ public class ListGlobalViewsResolver implements DataFetcher<CompletableFuture<Li
     return results;
   }
 
+  private SortCriterion sortCriterion(@Nonnull final OperationContext opContext) {
+    return new SortCriterion()
+        .setField(
+            EntitySearchIndexResolver.indexedField(
+                _entityIndexConfiguration,
+                opContext,
+                CREATED_AT_FIELD,
+                MappingConstants.SYSTEM_CREATED_TIME_FIELD,
+                Intent.SORT))
+        .setOrder(SortOrder.DESCENDING);
+  }
+
   private Filter buildFilters() {
     final AndFilterInput globalCriteria = new AndFilterInput();
     List<FacetFilterInput> andConditions = new ArrayList<>();
     andConditions.add(
         new FacetFilterInput(
             VIEW_TYPE_FIELD,
-            null,
             ImmutableList.of(DataHubViewType.GLOBAL.name()),
             false,
             FilterOperator.EQUAL));

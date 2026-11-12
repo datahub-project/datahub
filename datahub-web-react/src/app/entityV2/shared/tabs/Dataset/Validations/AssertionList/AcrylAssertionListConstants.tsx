@@ -1,4 +1,8 @@
-import { CheckOutlined, CloseOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
+import { X } from '@phosphor-icons/react/dist/csr/X';
+import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -19,25 +23,51 @@ const StyledCardTitle = styled.div<{ background: string; color: string }>`
 `;
 
 export const ASSERTION_TYPE_TO_HEADER_SUBTITLE: Record<AssertionType, string> = {
-    [AssertionType.Freshness]: 'Verifies when this dataset should be updated.',
-    [AssertionType.Volume]: 'Verifies the row count of this dataset.',
-    [AssertionType.Field]: 'Verifies the validity of a column.',
-    [AssertionType.DataSchema]: 'Verifies the schema of this dataset.',
-    [AssertionType.Custom]: 'A custom externally reported assertion.',
-    [AssertionType.Sql]: 'Verifies using custom SQL rules.',
-    [AssertionType.Dataset]: 'An external assertion.',
+    get [AssertionType.Freshness]() {
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.freshness');
+    },
+    get [AssertionType.Volume]() {
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.volume');
+    },
+    get [AssertionType.Field]() {
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.field');
+    },
+    get [AssertionType.DataSchema]() {
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.dataSchema');
+    },
+    get [AssertionType.Custom]() {
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.custom');
+    },
+    get [AssertionType.Sql]() {
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.sql');
+    },
+    get [AssertionType.Dataset]() {
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.dataset');
+    },
 };
 
 export const getAssertionSummaryCardHeaderByStatus = (colors: ColorTheme) => ({
+    initializing: {
+        color: colors.textInformation,
+        backgroundColor: colors.bgSurfaceInfo,
+        resultType: AssertionResultType.Init,
+        icon: <Clock />,
+        text: i18next.t('entity.profile.validations:status.initializing'),
+        headerComponent: (
+            <StyledCardTitle background={colors.bgSurfaceInfo} color={colors.textInformation}>
+                <Clock /> {i18next.t('entity.profile.validations:status.initializing')}
+            </StyledCardTitle>
+        ),
+    },
     passing: {
         color: colors.textSuccess,
         backgroundColor: colors.bgSurfaceSuccess,
         resultType: AssertionResultType.Success,
-        icon: <CheckOutlined />,
-        text: 'Passing',
+        icon: <Check />,
+        text: i18next.t('entity.profile.validations:status.passing'),
         headerComponent: (
             <StyledCardTitle background={colors.bgSurfaceSuccess} color={colors.textSuccess}>
-                <CheckOutlined /> Passing
+                <Check /> {i18next.t('entity.profile.validations:status.passing')}
             </StyledCardTitle>
         ),
     },
@@ -45,11 +75,11 @@ export const getAssertionSummaryCardHeaderByStatus = (colors: ColorTheme) => ({
         color: colors.textError,
         backgroundColor: colors.bgSurfaceError,
         resultType: AssertionResultType.Failure,
-        icon: <CloseOutlined />,
-        text: 'Failing',
+        icon: <X />,
+        text: i18next.t('entity.profile.validations:status.failing'),
         headerComponent: (
             <StyledCardTitle background={colors.bgSurfaceError} color={colors.textError}>
-                <CloseOutlined /> Failing
+                <X /> {i18next.t('entity.profile.validations:status.failing')}
             </StyledCardTitle>
         ),
     },
@@ -57,11 +87,11 @@ export const getAssertionSummaryCardHeaderByStatus = (colors: ColorTheme) => ({
         color: colors.textWarning,
         backgroundColor: colors.bgSurfaceWarning,
         resultType: AssertionResultType.Error,
-        icon: <InfoCircleOutlined />,
-        text: 'Errors',
+        icon: <Info />,
+        text: i18next.t('entity.profile.validations:status.errors'),
         headerComponent: (
             <StyledCardTitle background={colors.bgSurfaceWarning} color={colors.textWarning}>
-                <InfoCircleOutlined /> Error
+                <Info /> {i18next.t('entity.profile.validations:status.error')}
             </StyledCardTitle>
         ),
     },
@@ -69,11 +99,11 @@ export const getAssertionSummaryCardHeaderByStatus = (colors: ColorTheme) => ({
         color: colors.textTertiary,
         backgroundColor: colors.bgSurface,
         resultType: null,
-        icon: <InfoCircleOutlined />,
-        text: '0 Running',
+        icon: <Info />,
+        text: i18next.t('entity.profile.validations:status.zeroRunning'),
         headerComponent: (
             <StyledCardTitle background={colors.bgSurface} color={colors.textTertiary}>
-                <InfoCircleOutlined /> No runs
+                <Info /> {i18next.t('entity.profile.validations:status.noRuns')}
             </StyledCardTitle>
         ),
     },

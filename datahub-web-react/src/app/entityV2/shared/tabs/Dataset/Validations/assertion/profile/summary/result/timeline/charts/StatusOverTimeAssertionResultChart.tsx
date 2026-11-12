@@ -19,7 +19,7 @@ import {
     getFillColor,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/utils';
 import { getTimeRangeDisplay } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
-import { LinkWrapper } from '@app/shared/LinkWrapper';
+import { LinkWrapper } from '@app/sharedV2/LinkWrapper';
 
 type Props = {
     data: AssertionResultChartData;
@@ -31,6 +31,7 @@ type Props = {
     renderHeader?: (title?: string) => JSX.Element;
 };
 
+const STROKE_DASHARRAY = '1 4';
 const CHART_HORIZ_MARGIN = 36;
 const CHART_AXIS_BOTTOM_HEIGHT = 40;
 
@@ -84,7 +85,7 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                             stroke: theme.colors.border,
                             strokeLinecap: 'round',
                             strokeWidth: 1,
-                            strokeDasharray: '1 4',
+                            strokeDasharray: STROKE_DASHARRAY,
                         }}
                     />
 

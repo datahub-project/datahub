@@ -1,12 +1,12 @@
-import { Tooltip } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import GlossaryListCard from '@app/glossaryV2/GlossaryListCard';
 import GlossaryNodeCard from '@app/glossaryV2/GlossaryNodeCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Tooltip } from '@src/alchemy-components';
 
 import { GlossaryNodeFragment, RootGlossaryNodeWithFourLayersFragment } from '@graphql/fragments.generated';
 import { DisplayProperties, EntityType, GlossaryNode } from '@types';
@@ -19,6 +19,10 @@ interface Props {
     displayProperties?: Maybe<DisplayProperties>;
     showAsCard?: boolean; // Currently only supported for Nodes!
     node?: GlossaryNode | GlossaryNodeFragment | RootGlossaryNodeWithFourLayersFragment;
+    versionProperties?: { version?: { versionTag?: string | null } | null; isLatest?: boolean | null } | null;
+    termStatus?: {
+        lifecycleStage?: { urn: string; name: string; description?: string | null } | null;
+    } | null;
 }
 
 // iterates through the layers of descendents and counts the max number of layers
@@ -62,38 +66,51 @@ function countTermsAndNodes(initialNode?: RootGlossaryNodeWithFourLayersFragment
 }
 
 function GlossaryEntityItem(props: Props) {
-    const { name, description, urn, type, displayProperties, node } = props;
+    const { name, description, urn, type, displayProperties, node, versionProperties, termStatus } = props;
     const entityRegistry = useEntityRegistry();
-    const entityData = useEntityData();
+    const { entityData } = useEntityData();
 
     const { termCount, nodeCount } = countTermsAndNodes(node as RootGlossaryNodeWithFourLayersFragment);
     const maxDepth = countMaxDepth(node as RootGlossaryNodeWithFourLayersFragment);
 
+    const showAsCard = type === EntityType.GlossaryNode && props.showAsCard;
+
+    const inner = (
+        <Link to={`${entityRegistry.getEntityUrl(type, urn)}`} data-testid={`glossary-entity-item-${urn}`}>
+            {showAsCard ? (
+                <GlossaryNodeCard
+                    name={name}
+                    description={description}
+                    displayProperties={displayProperties}
+                    urn={urn}
+                    termCount={termCount}
+                    nodeCount={nodeCount}
+                    maxDepth={maxDepth}
+                />
+            ) : (
+                <GlossaryListCard
+                    name={name}
+                    description={description}
+                    type={type}
+                    urn={urn}
+                    entityData={entityData}
+                    displayProperties={displayProperties}
+                    termCount={termCount}
+                    nodeCount={nodeCount}
+                    versionProperties={versionProperties}
+                    termStatus={termStatus}
+                />
+            )}
+        </Link>
+    );
+
+    if (showAsCard) {
+        return inner;
+    }
+
     return (
         <Tooltip title={name} showArrow={false} placement="top">
-            <Link to={`${entityRegistry.getEntityUrl(type, urn)}`}>
-                {type === EntityType.GlossaryNode && props.showAsCard ? (
-                    <GlossaryNodeCard
-                        name={name}
-                        description={description}
-                        displayProperties={displayProperties}
-                        urn={urn}
-                        termCount={termCount}
-                        nodeCount={nodeCount}
-                        maxDepth={maxDepth}
-                    />
-                ) : (
-                    <GlossaryListCard
-                        name={name}
-                        description={description}
-                        type={type}
-                        urn={urn}
-                        entityData={entityData}
-                        termCount={termCount}
-                        nodeCount={nodeCount}
-                    />
-                )}
-            </Link>
+            {inner}
         </Tooltip>
     );
 }

@@ -1,10 +1,11 @@
-import { act, renderHook } from '@testing-library/react-hooks';
-import { message } from 'antd';
+import { toast } from '@components';
+import { act } from '@testing-library/react';
 import { vi } from 'vitest';
 
 import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
 import { DEFAULT_MODULE_URNS } from '@app/homeV3/modules/constants';
 import { ModulePositionInput } from '@app/homeV3/template/types';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import {
     PageModuleFragment,
@@ -17,11 +18,15 @@ import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, 
 // Mock GraphQL hooks
 vi.mock('@graphql/template.generated');
 
-// Mock antd message
-vi.mock('antd', () => ({
-    message: {
-        error: vi.fn(() => ({ key: 'test-message' })),
-        warning: vi.fn(() => ({ key: 'test-message' })),
+// Mock alchemy toast
+vi.mock('@components', () => ({
+    toast: {
+        success: vi.fn(),
+        error: vi.fn(() => undefined),
+        warning: vi.fn(() => undefined),
+        info: vi.fn(),
+        loading: vi.fn(),
+        destroy: vi.fn(),
     },
 }));
 
@@ -319,7 +324,7 @@ describe('useModuleOperations', () => {
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(mockPersonalTemplate); // Revert call
-            expect(consoleSpy).toHaveBeenCalledWith('Failed to add module:', error);
+            expect(consoleSpy).toHaveBeenCalledWith('Failed to addModule:', error);
 
             consoleSpy.mockRestore();
         });
@@ -565,6 +570,36 @@ describe('useModuleOperations', () => {
                 expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, templateWithLargeModule);
             });
         });
+
+        it('should show translated error when no template is available', () => {
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+            const { result } = renderHook(() =>
+                useModuleOperations(
+                    false,
+                    null, // personalTemplate
+                    null, // globalTemplate
+                    mockSetPersonalTemplate,
+                    mockSetGlobalTemplate,
+                    mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
+                    mockUpsertTemplate,
+                    false,
+                    null,
+                    PageTemplateSurfaceType.HomePage,
+                ),
+            );
+
+            act(() => {
+                result.current.addModule({ module: mockModule, position: { rowIndex: 0, rowSide: 'left' } });
+            });
+
+            expect(consoleSpy).toHaveBeenCalledWith('No template provided to update');
+            expect(toast.error).toHaveBeenCalledWith('No template available to update');
+            expect(mockUpdateTemplateWithModule).not.toHaveBeenCalled();
+
+            consoleSpy.mockRestore();
+        });
     });
 
     describe('removeModule', () => {
@@ -790,7 +825,7 @@ describe('useModuleOperations', () => {
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(mockPersonalTemplate); // Revert call
-            expect(consoleSpy).toHaveBeenCalledWith('Failed to remove module:', error);
+            expect(consoleSpy).toHaveBeenCalledWith('Failed to removeModule:', error);
             // Should still attempt to delete module even if template upsert fails
             expect(mockDeletePageModuleMutation).toHaveBeenCalledWith({
                 variables: { input: { urn: 'urn:li:pageModule:1' } },
@@ -801,7 +836,6 @@ describe('useModuleOperations', () => {
 
         it('should validate input and show error for missing module URN', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -838,17 +872,15 @@ describe('useModuleOperations', () => {
                 'Invalid removeModule input:',
                 'Module URN is required for removal',
             );
-            expect(messageSpy).toHaveBeenCalledWith('Module URN is required for removal');
+            expect(toast.error).toHaveBeenCalledWith('Module URN is required for removal');
             expect(mockRemoveModuleFromTemplate).not.toHaveBeenCalled();
             expect(mockUpsertTemplate).not.toHaveBeenCalled();
 
             consoleSpy.mockRestore();
-            messageSpy.mockRestore();
         });
 
         it('should validate input and show error for missing position', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -879,17 +911,15 @@ describe('useModuleOperations', () => {
                 'Invalid removeModule input:',
                 'Module position is required for removal',
             );
-            expect(messageSpy).toHaveBeenCalledWith('Module position is required for removal');
+            expect(toast.error).toHaveBeenCalledWith('Module position is required for removal');
             expect(mockRemoveModuleFromTemplate).not.toHaveBeenCalled();
             expect(mockUpsertTemplate).not.toHaveBeenCalled();
 
             consoleSpy.mockRestore();
-            messageSpy.mockRestore();
         });
 
         it('should validate input and show error for invalid rowIndex', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -926,17 +956,15 @@ describe('useModuleOperations', () => {
                 'Invalid removeModule input:',
                 'Valid row index is required for removal',
             );
-            expect(messageSpy).toHaveBeenCalledWith('Valid row index is required for removal');
+            expect(toast.error).toHaveBeenCalledWith('Valid row index is required for removal');
             expect(mockRemoveModuleFromTemplate).not.toHaveBeenCalled();
             expect(mockUpsertTemplate).not.toHaveBeenCalled();
 
             consoleSpy.mockRestore();
-            messageSpy.mockRestore();
         });
 
         it('should handle case when no template is available', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -970,12 +998,11 @@ describe('useModuleOperations', () => {
             });
 
             expect(consoleSpy).toHaveBeenCalledWith('No template provided to update');
-            expect(messageSpy).toHaveBeenCalledWith('No template available to update');
+            expect(toast.error).toHaveBeenCalledWith('No template available to update');
             expect(mockRemoveModuleFromTemplate).not.toHaveBeenCalled();
             expect(mockUpsertTemplate).not.toHaveBeenCalled();
 
             consoleSpy.mockRestore();
-            messageSpy.mockRestore();
         });
 
         describe('module deletion logic', () => {
@@ -2103,6 +2130,123 @@ describe('useModuleOperations', () => {
         });
     });
 
+    describe('moveModule translated error messages', () => {
+        it('should show translated error when no template is available', () => {
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+            const { result } = renderHook(() =>
+                useModuleOperations(
+                    false,
+                    null,
+                    null,
+                    mockSetPersonalTemplate,
+                    mockSetGlobalTemplate,
+                    mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
+                    mockUpsertTemplate,
+                    false,
+                    null,
+                    PageTemplateSurfaceType.HomePage,
+                ),
+            );
+
+            act(() => {
+                result.current.moveModule({
+                    module: mockModule,
+                    fromPosition: { rowIndex: 0, moduleIndex: 0 },
+                    toPosition: { rowIndex: 1, moduleIndex: 0 },
+                });
+            });
+
+            expect(consoleSpy).toHaveBeenCalledWith('No template provided to update');
+            expect(toast.error).toHaveBeenCalledWith('No template available to update');
+            expect(mockUpsertTemplate).not.toHaveBeenCalled();
+
+            consoleSpy.mockRestore();
+        });
+    });
+
+    describe('upsertModule translated error messages', () => {
+        it('should show translated error when mutation resolves but returns no URN (create mode)', async () => {
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+            const { result } = renderHook(() =>
+                useModuleOperations(
+                    false,
+                    mockPersonalTemplate,
+                    mockGlobalTemplate,
+                    mockSetPersonalTemplate,
+                    mockSetGlobalTemplate,
+                    mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
+                    mockUpsertTemplate,
+                    false, // isEditingModule = false → create mode
+                    null,
+                    PageTemplateSurfaceType.HomePage,
+                ),
+            );
+
+            mockUpsertPageModuleMutation.mockResolvedValue({ data: { upsertPageModule: { urn: null } } });
+
+            await act(async () => {
+                result.current.upsertModule({
+                    name: 'Test Module',
+                    type: DataHubPageModuleType.Link,
+                    position: { rowIndex: 0, rowSide: 'left' },
+                });
+            });
+            // Flush the remaining microtask (the .then() callback) after act completes
+            await Promise.resolve();
+
+            expect(consoleSpy).toHaveBeenCalledWith('Failed to create module - no URN returned');
+            expect(toast.error).toHaveBeenCalledWith('Failed to create module');
+            expect(mockSetPersonalTemplate).not.toHaveBeenCalled();
+
+            consoleSpy.mockRestore();
+        });
+
+        it('should show translated error when mutation resolves but returns no URN (edit mode)', async () => {
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+            const existingModule = mockPersonalTemplate.properties!.rows![0].modules![0];
+
+            const { result } = renderHook(() =>
+                useModuleOperations(
+                    false,
+                    mockPersonalTemplate,
+                    mockGlobalTemplate,
+                    mockSetPersonalTemplate,
+                    mockSetGlobalTemplate,
+                    mockUpdateTemplateWithModule,
+                    mockRemoveModuleFromTemplate,
+                    mockUpsertTemplate,
+                    true, // isEditingModule = true → update mode
+                    existingModule,
+                    PageTemplateSurfaceType.HomePage,
+                ),
+            );
+
+            mockUpsertPageModuleMutation.mockResolvedValue({ data: { upsertPageModule: { urn: null } } });
+
+            await act(async () => {
+                result.current.upsertModule({
+                    name: 'Updated Module',
+                    type: DataHubPageModuleType.Link,
+                    urn: existingModule.urn,
+                    position: { rowIndex: 0, moduleIndex: 0 },
+                });
+            });
+            // Flush the remaining microtask (the .then() callback) after act completes
+            await Promise.resolve();
+
+            expect(consoleSpy).toHaveBeenCalledWith('Failed to update module - no URN returned');
+            expect(toast.error).toHaveBeenCalledWith('Failed to update module');
+            expect(mockSetPersonalTemplate).not.toHaveBeenCalled();
+
+            consoleSpy.mockRestore();
+        });
+    });
+
     describe('hook dependencies', () => {
         it('should update addModule when dependencies change', () => {
             const { result, rerender } = renderHook(
@@ -2351,6 +2495,7 @@ describe('useModuleOperations', () => {
                 const mockGlobalModuleToEdit: PageModuleFragment = {
                     urn: 'urn:li:pageModule:global-to-edit',
                     type: 'DATAHUB_PAGE_MODULE' as any,
+                    exists: true,
                     properties: {
                         name: 'Global Module To Edit',
                         type: DataHubPageModuleType.OwnedAssets, // Large module
@@ -2371,6 +2516,7 @@ describe('useModuleOperations', () => {
                                     {
                                         urn: 'urn:li:pageModule:small1',
                                         type: 'DATAHUB_PAGE_MODULE' as any,
+                                        exists: true,
                                         properties: {
                                             name: 'Small Module',
                                             type: DataHubPageModuleType.Link,

@@ -1,13 +1,16 @@
-import { SearchOutlined } from '@ant-design/icons';
 import { Button } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Input, InputRef } from 'antd';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import { Panel } from 'reactflow';
 import styled from 'styled-components';
+
+import { inputContainerStyles } from '@components/components/Input/components';
 
 import LineageVisualizationContext from '@app/lineageV3/LineageVisualizationContext';
 import { LineageDisplayContext, LineageNodesContext } from '@app/lineageV3/common';
@@ -17,6 +20,7 @@ const StyledPanel = styled(Panel)`
 `;
 
 const StyledInput = styled(Input)<{ width: number }>`
+    ${inputContainerStyles};
     min-width: 50px;
     min-height: 50px;
     width: ${({ width }) => width}px;
@@ -31,14 +35,12 @@ const StyledInput = styled(Input)<{ width: number }>`
     box-shadow: none !important;
 `;
 
-const ClosedSearchIcon = styled(SearchOutlined)`
-    margin-left: 5px;
+const ClosedSearchIcon = styled(MagnifyingGlass)`
+    margin-left: 8px;
     font-size: 16px;
 `;
 
-const OpenSearchIcon = styled(SearchOutlined)`
-    color: ${(props) => props.theme.colors.textPlaceholder};
-`;
+const OpenSearchIcon = styled(MagnifyingGlass)``;
 
 const VerticalDivider = styled.hr<{ margin: number }>`
     align-self: stretch;
@@ -49,6 +51,7 @@ const VerticalDivider = styled.hr<{ margin: number }>`
 `;
 
 export default function SearchControl() {
+    const { t } = useTranslation('lineage');
     const { searchQuery, setSearchQuery, setSearchedEntity } = useContext(LineageVisualizationContext);
     const [isFocused, setIsFocused] = useState(false);
 
@@ -75,6 +78,12 @@ export default function SearchControl() {
     }, [setSearchQuery]);
     useCaptureEscape(isOpen, close);
 
+    const [isOpenDelayed, setIsOpenDelayed] = useState(isOpen);
+    useEffect(() => {
+        const timeout = setTimeout(() => setIsOpenDelayed(isOpen), 200);
+        return () => clearTimeout(timeout);
+    }, [isOpen]);
+
     return (
         <StyledPanel position="top-left">
             <StyledInput
@@ -85,16 +94,18 @@ export default function SearchControl() {
                     if (e.shiftKey) prev();
                     else next();
                 }}
-                placeholder={isOpen ? 'Search Graph' : undefined}
-                width={isOpen ? 330 : 40}
+                placeholder={isOpen ? t('controls.search.placeholder') : undefined}
+                width={isOpen || isOpenDelayed ? 250 : 40}
                 prefix={isOpen ? <OpenSearchIcon /> : <ClosedSearchIcon />}
                 suffix={
                     isOpen &&
                     searchQuery && (
                         <>
+                            {/* eslint-disable i18next/no-literal-string -- (untranslated-text) numeric match-position separator (e.g. "3 / 10"), not translatable */}
                             <span>
                                 {matchedNodes.length ? searchIndex + 1 : 0} / {matchedNodes.length}
                             </span>
+                            {/* eslint-enable i18next/no-literal-string */}
                             <VerticalDivider margin={8} />
                             <Button icon={{ icon: CaretUp }} variant="outline" size="sm" onClick={prev} />
                             <Button icon={{ icon: CaretDown }} variant="outline" size="sm" onClick={next} />

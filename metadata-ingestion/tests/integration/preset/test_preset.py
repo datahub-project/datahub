@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional
 from unittest.mock import patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -332,7 +332,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_preset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/preset"
@@ -369,10 +369,11 @@ def test_preset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
         pytestconfig,
         output_path=tmp_path / "preset_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
+        fail_on_output_mces=True,
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_preset_stateful_ingest(
     pytestconfig, tmp_path, mock_time, requests_mock, mock_datahub_graph
@@ -468,7 +469,7 @@ def test_preset_stateful_ingest(
             request_mock=requests_mock, override_data=dashboard_endpoint_override
         )
 
-        # Capture MCEs of second run to validate Status(removed=true)
+        # Capture the second run's output to validate Status(removed=true)
         deleted_mces_path = f"{tmp_path}/preset_deleted_mces.json"
         pipeline_config_dict["sink"]["type"] = "file"
         pipeline_config_dict["sink"]["config"] = {"filename": deleted_mces_path}
@@ -507,4 +508,5 @@ def test_preset_stateful_ingest(
             pytestconfig,
             output_path=deleted_mces_path,
             golden_path=test_resources_dir / "golden_test_stateful_ingest.json",
+            fail_on_output_mces=True,
         )

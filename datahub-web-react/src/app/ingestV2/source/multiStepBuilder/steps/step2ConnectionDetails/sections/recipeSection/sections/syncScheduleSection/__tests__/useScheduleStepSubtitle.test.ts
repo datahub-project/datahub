@@ -1,7 +1,7 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useScheduleStepSubtitle } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/useScheduleStepSubtitle';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 vi.mock('@app/ingestV2/source/builder/useIngestionSources');
 vi.mock('@app/ingestV2/source/utils');
@@ -98,7 +98,7 @@ describe('useScheduleStepSubtitle', () => {
 
         const { result } = renderHook(() => useScheduleStepSubtitle());
 
-        expect(result.current).toBe('Configure how often DataHub syncs metadata from undefined.');
+        expect(result.current).toBe('Configure how often DataHub syncs metadata from this source.');
     });
 
     it('handles null sourceDisplayName gracefully', async () => {
@@ -120,6 +120,6 @@ describe('useScheduleStepSubtitle', () => {
 
         const { result } = renderHook(() => useScheduleStepSubtitle());
 
-        expect(result.current).toBe('Configure how often DataHub syncs metadata from null.');
+        expect(result.current).toBe('Configure how often DataHub syncs metadata from this source.');
     });
 });

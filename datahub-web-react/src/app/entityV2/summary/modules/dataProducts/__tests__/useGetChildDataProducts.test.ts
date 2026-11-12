@@ -1,22 +1,23 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { useGetChildDataProducts } from '@app/entityV2/summary/modules/dataProducts/useGetChildDataProducts';
 import { DOMAINS_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { EntityType } from '@types';
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: vi.fn(),
 }));
 vi.mock('@graphql/search.generated', () => ({
     useGetSearchResultsForMultipleQuery: vi.fn(),
 }));
 vi.mock('@app/useEntityRegistry', () => ({
-    useEntityRegistryV2: vi.fn(),
+    useEntityRegistry: vi.fn(),
 }));
 
 describe('useGetChildDataProducts', () => {
@@ -32,7 +33,7 @@ describe('useGetChildDataProducts', () => {
 
     beforeEach(() => {
         (useEntityData as unknown as any).mockReturnValue({ urn });
-        (useEntityRegistryV2 as unknown as any).mockReturnValue(mockRegistry);
+        (useEntityRegistry as unknown as any).mockReturnValue(mockRegistry);
         (useGetSearchResultsForMultipleQuery as unknown as any).mockReturnValue({
             loading: false,
             data: {
@@ -93,7 +94,6 @@ describe('useGetChildDataProducts', () => {
                             filters: [
                                 {
                                     field: DOMAINS_FILTER_NAME,
-                                    value: urn,
                                     values: [urn],
                                 },
                             ],
@@ -119,7 +119,6 @@ describe('useGetChildDataProducts', () => {
                             filters: [
                                 {
                                     field: DOMAINS_FILTER_NAME,
-                                    value: urn,
                                     values: [urn],
                                 },
                             ],
@@ -288,7 +287,6 @@ describe('useGetChildDataProducts', () => {
                     filters: [
                         {
                             field: DOMAINS_FILTER_NAME,
-                            value: urn,
                             values: [urn],
                         },
                     ],
@@ -347,7 +345,6 @@ describe('useGetChildDataProducts', () => {
                             filters: [
                                 {
                                     field: DOMAINS_FILTER_NAME,
-                                    value: urn,
                                     values: [urn],
                                 },
                             ],
@@ -381,7 +378,6 @@ describe('useGetChildDataProducts', () => {
                 (filter) => filter.field === DOMAINS_FILTER_NAME,
             );
             expect(domainFilter).toBeDefined();
-            expect(domainFilter.value).toBe(urn);
             expect(domainFilter.values).toEqual([urn]);
         });
 
@@ -405,7 +401,7 @@ describe('useGetChildDataProducts', () => {
             expect(useGetSearchResultsForMultipleQuery).toHaveBeenCalledTimes(2);
 
             const secondCallArgs = (useGetSearchResultsForMultipleQuery as any).mock.calls[1][0];
-            expect(secondCallArgs.variables.input.filters[0].value).toBe('urn:li:domain:newDomain');
+            expect(secondCallArgs.variables.input.filters[0].values).toEqual(['urn:li:domain:newDomain']);
         });
     });
 });

@@ -49,6 +49,8 @@ class TestEventSpecProcessorIsEnabled:
         """Create mock dependencies."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_event_specifications = True
         deps.bdp_client = Mock()
         deps.report = Mock()
@@ -92,6 +94,8 @@ class TestEventSpecProcessorExtract:
         """Create mock dependencies."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_event_specifications = True
         deps.config.bdp_connection = Mock()
         deps.config.bdp_connection.organization_id = "test-org"
@@ -102,7 +106,9 @@ class TestEventSpecProcessorExtract:
         deps.cache = Mock()
         deps.urn_factory = Mock()
         deps.urn_factory.make_event_spec_dataset_urn = Mock(
-            side_effect=lambda id: f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
+            side_effect=lambda id: (
+                f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
+            )
         )
         deps.error_handler = Mock()
         return deps
@@ -198,6 +204,8 @@ class TestEventSpecProcessorProcessing:
         """Create mock dependencies with full configuration."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_event_specifications = True
         deps.config.bdp_connection = Mock()
         deps.config.bdp_connection.organization_id = "test-org"
@@ -208,7 +216,9 @@ class TestEventSpecProcessorProcessing:
         deps.cache = Mock()
         deps.urn_factory = Mock()
         deps.urn_factory.make_event_spec_dataset_urn = Mock(
-            side_effect=lambda id: f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
+            side_effect=lambda id: (
+                f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
+            )
         )
         deps.error_handler = Mock()
         deps.ownership_builder = Mock()
@@ -305,6 +315,8 @@ class TestCollectUpstreamUrns:
     def mock_deps(self):
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_event_specifications = True
         deps.bdp_client = Mock()
         deps.report = Mock()
@@ -429,6 +441,8 @@ class TestEmitEventSpecSchemaMetadata:
     def mock_deps(self):
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_event_specifications = True
         deps.config.bdp_connection = Mock()
         deps.config.bdp_connection.organization_id = "test-org"
@@ -437,7 +451,9 @@ class TestEmitEventSpecSchemaMetadata:
         deps.cache = Mock()
         deps.urn_factory = Mock()
         deps.urn_factory.make_event_spec_dataset_urn = Mock(
-            side_effect=lambda id: f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
+            side_effect=lambda id: (
+                f"urn:li:dataset:(urn:li:dataPlatform:snowplow,{id},PROD)"
+            )
         )
         deps.error_handler = Mock()
         deps.platform = "snowplow"

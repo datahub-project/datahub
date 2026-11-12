@@ -1,13 +1,14 @@
 import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
-import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import {
@@ -79,6 +80,7 @@ export const Preview = ({
     parentContainers?: ParentContainersResult | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('entity.types');
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.DataJob, urn)}
@@ -105,7 +107,7 @@ export const Preview = ({
                 (lastRunTimeMs && [
                     <StatText>
                         <Clock size={14} color="currentColor" style={{ paddingRight: 8 }} />
-                        Last run {toRelativeTimeString(lastRunTimeMs)}
+                        {t('dataJob.lastRun', { time: toRelativeTimeString(lastRunTimeMs) })}
                     </StatText>,
                 ]) ||
                 undefined

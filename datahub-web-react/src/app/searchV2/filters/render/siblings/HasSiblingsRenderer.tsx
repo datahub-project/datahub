@@ -1,18 +1,20 @@
 import { GitFork } from '@phosphor-icons/react/dist/csr/GitFork';
+import i18next from 'i18next';
 import React from 'react';
 
 import { FilterRenderer } from '@app/searchV2/filters/render/FilterRenderer';
 import { HasSiblingsFilter } from '@app/searchV2/filters/render/siblings/HasSiblingsFilter';
 import { FilterRenderProps } from '@app/searchV2/filters/render/types';
-
-import { AppConfig } from '@types';
+import { AppConfigWithoutPolicyPrivileges } from '@src/appConfigContext';
 
 export class HasSiblingsRenderer implements FilterRenderer {
     field = 'hasSiblings';
 
-    name = 'Siblings';
+    get name() {
+        return i18next.t('search:filters.siblings.title');
+    }
 
-    canBeRendered = (config?: AppConfig) => {
+    canBeRendered = (config?: AppConfigWithoutPolicyPrivileges) => {
         return !!config?.featureFlags?.showHasSiblingsFilter;
     };
 
@@ -27,8 +29,8 @@ export class HasSiblingsRenderer implements FilterRenderer {
 
     valueLabel = (value: string) => {
         if (value === 'true') {
-            return <>Has Siblings</>;
+            return <>{i18next.t('search:filters.siblings.hasSiblingsLabel')}</>;
         }
-        return <>Has No Siblings</>;
+        return <>{i18next.t('search:filters.siblings.hasNoSiblingsLabel')}</>;
     };
 }

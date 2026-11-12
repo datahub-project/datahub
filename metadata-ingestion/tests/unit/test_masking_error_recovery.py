@@ -71,7 +71,7 @@ class TestCircuitBreakerBehavior:
         registry.register_secret("SECRET", "test_value")
 
         # Build pattern first
-        masking_filter._check_and_rebuild_pattern()
+        registry.get_pattern_and_replacements()
 
         # Verify pattern exists and masking works
         result = masking_filter.mask_text("Message with test_value")
@@ -199,23 +199,6 @@ class TestStreamWrapperErrorHandling:
 
     def teardown_method(self):
         SecretRegistry.reset_instance()
-
-    def test_wrapper_write_with_masking_failure(self):
-        """Test that wrapper handles masking failures gracefully."""
-        registry = SecretRegistry.get_instance()
-        masking_filter = SecretMaskingFilter(registry)
-
-        output = StringIO()
-        wrapper = StreamMaskingWrapper(output, masking_filter)
-
-        # Mock mask_text to raise an error (but not TypeError)
-        with mock.patch.object(
-            masking_filter, "mask_text", side_effect=RuntimeError("Simulated error")
-        ):
-            # Should fall back to writing unmasked text
-            chars_written = wrapper.write("test message")
-            assert chars_written == len("test message")
-            assert output.getvalue() == "test message"
 
     def test_wrapper_write_with_stream_error(self):
         """Test that wrapper handles stream write errors."""
@@ -381,7 +364,7 @@ class TestBootstrapErrorHandling:
         registry = SecretRegistry.get_instance()
 
         # Install exception hook
-        _install_exception_hook(registry)
+        _install_exception_hook(SecretMaskingFilter(registry))
 
         # Mock traceback.format_exception to test error path
         def mock_format_fail(*args, **kwargs):
@@ -559,32 +542,30 @@ class TestPatternRebuildStress:
     def test_check_and_rebuild_pattern_with_large_secret_count_warnings(self):
         """Test that warnings are logged for large secret counts."""
         registry = SecretRegistry.get_instance()
-        masking_filter = SecretMaskingFilter(registry)
 
         # Register 101 secrets (triggers warning at 100)
         for i in range(101):
             registry.register_secret(f"SECRET_{i}", f"value_{i}_xxx")
 
         # Trigger pattern rebuild
-        masking_filter._check_and_rebuild_pattern()
+        pattern, _ = registry.get_pattern_and_replacements()
 
         # Pattern should be built
-        assert masking_filter._pattern is not None
+        assert pattern is not None
 
     def test_check_and_rebuild_pattern_with_very_large_secret_count(self):
         """Test warning for very large secret count (>500)."""
         registry = SecretRegistry.get_instance()
-        masking_filter = SecretMaskingFilter(registry)
 
         # Register 501 secrets
         for i in range(501):
             registry.register_secret(f"SECRET_{i}", f"value_{i}_xxx")
 
         # Trigger pattern rebuild
-        masking_filter._check_and_rebuild_pattern()
+        pattern, _ = registry.get_pattern_and_replacements()
 
         # Pattern should be built
-        assert masking_filter._pattern is not None
+        assert pattern is not None
 
 
 class TestLogRecordAttributes:

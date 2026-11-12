@@ -2,6 +2,7 @@ package io.datahubproject.openapi.test;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.DEFAULT_EVENT_CONSUMER_NAME;
+import static io.datahubproject.test.metadata.context.TestOperationContexts.systemContextNoSearchAuthorization;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
@@ -11,13 +12,16 @@ import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
+import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -28,6 +32,13 @@ import com.linkedin.mxe.Topics;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.channels.ServerSocketChannel;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
@@ -47,8 +58,13 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.eclipse.jetty.server.Connector;
+import org.eclipse.jetty.server.ServerConnector;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.jetty.JettyServerCustomizer;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.test.context.ActiveProfiles;
@@ -56,9 +72,11 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
-import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.kafka.ConfluentKafkaContainer;
 import org.testcontainers.utility.DockerImageName;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 @Slf4j
@@ -69,26 +87,94 @@ import org.testng.annotations.Test;
     classes = {
       OpenAPISpringTestServer.class,
       OpenAPISpringTestServerConfiguration.class,
-      SchemaRegistryControllerTestConfiguration.class
+      SchemaRegistryControllerTestConfiguration.class,
+      SchemaRegistryControllerTest.ReservedPortJettyConfiguration.class
     })
 @EnableKafka
 @TestPropertySource(properties = {"kafka.consumer.stopOnDeserializationError=false"})
 public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTests {
-  private static final String CONFLUENT_PLATFORM_VERSION = "7.4.10";
+  @MockitoBean KafkaHealthChecker kafkaHealthChecker;
+  @MockitoBean EntityRegistry entityRegistry;
+  @MockitoBean MetricUtils metricUtils;
 
-  static KafkaContainer kafka =
-      new KafkaContainer(
+  private static final String CONFLUENT_PLATFORM_VERSION = "8.2.2";
+
+  // The port must be known before the context starts (kafka.schemaRegistry.url is read when the
+  // serializer beans are created), but Jetty only binds once the context has refreshed, after
+  // the Kafka container has started. Bind the socket now and hand the bound channel to Jetty's
+  // connector, so nothing else can take the port in between.
+  private static final AtomicReference<ServerSocketChannel> RESERVED_CHANNEL =
+      new AtomicReference<>(reservePort());
+  private static final int SERVER_PORT = RESERVED_CHANNEL.get().socket().getLocalPort();
+
+  // ConfluentKafkaContainer is KRaft-aware; the deprecated containers.KafkaContainer wait
+  // still looks for classic [KafkaServer id=…] logs and fails on cp-kafka 8.x.
+  static ConfluentKafkaContainer kafka =
+      new ConfluentKafkaContainer(
               DockerImageName.parse("confluentinc/cp-kafka:" + CONFLUENT_PLATFORM_VERSION))
           .withReuse(true)
           .withStartupAttempts(5)
-          .withStartupTimeout(Duration.of(30, ChronoUnit.SECONDS));
+          .withStartupTimeout(Duration.of(60, ChronoUnit.SECONDS));
 
   @DynamicPropertySource
   static void kafkaProperties(DynamicPropertyRegistry registry) {
     kafka.start();
+    registry.add("server.port", () -> SERVER_PORT);
+    registry.add("local.server.port", () -> SERVER_PORT);
     registry.add("kafka.bootstrapServers", kafka::getBootstrapServers);
     registry.add("kafka.schemaRegistry.type", () -> "INTERNAL");
-    registry.add("kafka.schemaRegistry.url", () -> "http://localhost:53222/schema-registry/api/");
+    registry.add(
+        "kafka.schemaRegistry.url",
+        () -> "http://localhost:" + SERVER_PORT + "/schema-registry/api/");
+  }
+
+  private static ServerSocketChannel reservePort() {
+    try {
+      ServerSocketChannel channel = ServerSocketChannel.open();
+      channel.bind(new InetSocketAddress(0));
+      return channel;
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to reserve a port for schema registry test", e);
+    }
+  }
+
+  /** Releases the port if the context failed before Jetty took the channel over. */
+  @AfterClass(alwaysRun = true)
+  public void releaseUnclaimedPort() throws IOException {
+    ServerSocketChannel channel = RESERVED_CHANNEL.getAndSet(null);
+    if (channel != null) {
+      channel.close();
+    }
+  }
+
+  /** Makes Jetty serve on the channel bound by {@link #reservePort()} instead of binding anew. */
+  @TestConfiguration
+  static class ReservedPortJettyConfiguration {
+    @Bean
+    JettyServerCustomizer reservedPortCustomizer() {
+      return server -> {
+        // Clear the reference only once Jetty owns the channel, so releaseUnclaimedPort() still
+        // closes it if the handoff fails.
+        ServerSocketChannel channel = RESERVED_CHANNEL.get();
+        if (channel == null) {
+          throw new IllegalStateException(
+              "Reserved port " + SERVER_PORT + " was already handed to a previous Jetty server");
+        }
+        for (Connector connector : server.getConnectors()) {
+          if (connector instanceof ServerConnector serverConnector
+              && serverConnector.getPort() == SERVER_PORT) {
+            try {
+              serverConnector.open(channel);
+            } catch (IOException e) {
+              throw new UncheckedIOException(e);
+            }
+            RESERVED_CHANNEL.compareAndSet(channel, null);
+            return;
+          }
+        }
+        throw new IllegalStateException("No Jetty connector configured for port " + SERVER_PORT);
+      };
+    }
   }
 
   @Autowired EventProducer _producer;
@@ -105,6 +191,25 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
   private <T> AtomicReference<T> getReference(String messageKey) {
     return (AtomicReference<T>)
         references.computeIfAbsent(messageKey, k -> new AtomicReference<>());
+  }
+
+  @Test
+  public void testAssociationsByResourceNameReturnsEmptyListNot404()
+      throws IOException, InterruptedException {
+    HttpClient client = HttpClient.newHttpClient();
+    HttpRequest request =
+        HttpRequest.newBuilder()
+            .uri(
+                URI.create(
+                    "http://localhost:"
+                        + SERVER_PORT
+                        + "/schema-registry/api/associations/resources/-/MetadataChangeLog_Versioned_v1"))
+            .header("Accept", "application/json")
+            .GET()
+            .build();
+    HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+    assertEquals(response.statusCode(), 200);
+    assertEquals(response.body().trim(), "[]");
   }
 
   @Test
@@ -129,7 +234,9 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     genericAspect.setContentType("application/json");
     gmce.setAspect(genericAspect);
 
-    _producer.produceMetadataChangeProposal(entityUrn, gmce).get(10, TimeUnit.SECONDS);
+    _producer
+        .produceMetadataChangeProposal(systemContextNoSearchAuthorization(), entityUrn, gmce)
+        .get(10, TimeUnit.SECONDS);
     // Wait for message to be consumed and deserialized
     final boolean messageConsumed = getLatch(entityUrn.toString()).await(10, TimeUnit.SECONDS);
     assertTrue(messageConsumed);
@@ -177,7 +284,8 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
         entitySpec.createAspectSpec(datasetProperties, DATASET_PROPERTIES_ASPECT_NAME);
 
     _producer
-        .produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog)
+        .produceMetadataChangeLog(
+            systemContextNoSearchAuthorization(), entityUrn, aspectSpec, metadataChangeLog)
         .get(10, TimeUnit.SECONDS);
     final boolean messageConsumed = getLatch(entityUrn.toString()).await(10, TimeUnit.SECONDS);
     assertTrue(messageConsumed);
@@ -208,7 +316,11 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     platformEvent.setPayload(GenericRecordUtils.serializePayload(changeEvent));
 
     _producer
-        .producePlatformEvent(CHANGE_EVENT_PLATFORM_EVENT_NAME, "testPEConsumption", platformEvent)
+        .producePlatformEvent(
+            systemContextNoSearchAuthorization(),
+            CHANGE_EVENT_PLATFORM_EVENT_NAME,
+            "testPEConsumption",
+            platformEvent)
         .get(10, TimeUnit.SECONDS);
 
     final boolean messageConsumed = getLatch("testPEConsumption").await(10, TimeUnit.SECONDS);
@@ -528,34 +640,6 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     } catch (IOException e) {
       log.error(
           "Failed to deserialize PE message with key: {}, error: {}",
-          consumerRecord.key(),
-          e.getMessage(),
-          e);
-      // Continue processing other messages instead of stopping the consumer
-    }
-  }
-
-  @KafkaListener(
-      id = "test-duhe-consumer",
-      topics = Topics.DATAHUB_UPGRADE_HISTORY_TOPIC_NAME,
-      containerFactory = DEFAULT_EVENT_CONSUMER_NAME,
-      properties = {
-        "auto.offset.reset:earliest",
-        "spring.kafka.listener.ack-mode:manual",
-        "spring.kafka.listener.ack-on-error:false",
-        "spring.kafka.listener.retry-after-error:false",
-        "spring.kafka.listener.fail-fast:false"
-      })
-  public void receiveDUHE(ConsumerRecord<String, GenericRecord> consumerRecord) {
-
-    final GenericRecord value = consumerRecord.value();
-    try {
-      String messageKey = consumerRecord.key();
-      getReference(messageKey).set(EventUtils.avroToPegasusDUHE(value));
-      getLatch(messageKey).countDown();
-    } catch (IOException e) {
-      log.error(
-          "Failed to deserialize DUHE message with key: {}, error: {}",
           consumerRecord.key(),
           e.getMessage(),
           e);

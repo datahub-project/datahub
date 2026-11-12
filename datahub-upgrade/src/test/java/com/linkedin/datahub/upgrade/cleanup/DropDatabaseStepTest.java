@@ -6,8 +6,8 @@ import static org.testng.Assert.assertNotNull;
 
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
-import com.linkedin.datahub.upgrade.sqlsetup.DatabaseType;
 import com.linkedin.datahub.upgrade.sqlsetup.SqlSetupArgs;
+import com.linkedin.metadata.config.postgres.DatabaseType;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
 import java.sql.Connection;
@@ -50,6 +50,7 @@ public class DropDatabaseStepTest {
     return new SqlSetupArgs(
         true,
         true,
+        true, // createSchema
         createUser,
         false,
         dbType,
@@ -61,7 +62,9 @@ public class DropDatabaseStepTest {
         "localhost",
         dbType == DatabaseType.POSTGRES ? 5432 : 3306,
         dbName,
-        false);
+        dbType == DatabaseType.POSTGRES ? dbName : null,
+        false,
+        null);
   }
 
   @Test

@@ -1,8 +1,10 @@
 import { Table, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { CompactFieldIconWithTooltip } from '@app/sharedV2/icons/CompactFieldIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -39,13 +41,15 @@ interface Props {
 }
 
 export default function ChartFieldsTable({ urn, rows }: Props) {
+    const { t } = useTranslation('entity.types');
+    const { t: tl } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistry();
     const hasSeeMore = rows.length > MAX_ROWS;
 
     const nameColumn = {
         ellipsis: true,
         width: '45%',
-        title: 'Name',
+        title: tl('name'),
         dataIndex: 'fieldPath',
         key: 'fieldPath',
         filtered: true,
@@ -55,7 +59,7 @@ export default function ChartFieldsTable({ urn, rows }: Props) {
     const descriptionColumn = {
         ellipsis: true,
         width: '45%',
-        title: 'Description',
+        title: tl('description'),
         dataIndex: 'description',
         key: 'description',
         render: descriptionRender,
@@ -79,8 +83,11 @@ export default function ChartFieldsTable({ urn, rows }: Props) {
                 })}
             />
             {hasSeeMore && (
-                <SeeMoreLink type="text" to={`${entityRegistry.getEntityUrl(EntityType.Chart, urn)}/Fields`}>
-                    View {rows.length - MAX_ROWS} More
+                <SeeMoreLink
+                    type="text"
+                    to={`${entityRegistry.getEntityUrl(EntityType.Chart, urn)}/${EntityTabPath.FIELDS}`}
+                >
+                    {t('chart.viewCountMore', { count: rows.length - MAX_ROWS })}
                 </SeeMoreLink>
             )}
         </TableContainer>

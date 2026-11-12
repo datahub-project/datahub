@@ -1,17 +1,30 @@
+import json
 import logging
 import subprocess
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, Set, cast
 from unittest import mock
 
+# jpype.imports must precede the kafka_connect modules: transform_plugins
+# imports java.util.regex at import time, which only resolves once it is loaded.
 import jpype
 import jpype.imports
 import pytest
 import requests
-from freezegun import freeze_time
+import time_machine
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.agent.filter_check import check_filters
+from datahub.ingestion.agent.models import ProbeRunEnvelope
+from datahub.ingestion.agent.probe_methods import run_probe_method
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.kafka_connect.kafka_connect import SinkTopicFilter
+from datahub.ingestion.source.kafka_connect.common import KafkaConnectSourceConfig
+from datahub.ingestion.source.kafka_connect.kafka_connect import (
+    KafkaConnectSource,
+    SinkTopicFilter,
+)
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.metadata.schema_classes import DataFlowInfoClass
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.state_helpers import (
@@ -518,7 +531,7 @@ def loaded_kafka_connect(kafka_connect_runner):
     print("Kafka Connect connectors are ready!")
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_kafka_connect_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -535,7 +548,7 @@ def test_kafka_connect_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_kafka_connect_mongosourceconnect_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -552,7 +565,7 @@ def test_kafka_connect_mongosourceconnect_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_kafka_connect_s3sink_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -569,7 +582,7 @@ def test_kafka_connect_s3sink_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_kafka_connect_ingest_stateful(
     loaded_kafka_connect, pytestconfig, tmp_path, mock_datahub_graph, test_resources_dir
 ):
@@ -724,7 +737,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
             "method": "GET",
             "status_code": 200,
             "json": {
-                "version": "7.4.0-ccs",
+                "version": "7.9.10-ccs",
                 "commit": "30969fa33c185e880b9e02044761dfaac013151d",
                 "kafka_cluster_id": "MDgRZlZhSZ-4fXhwRR79bw",
             },
@@ -742,7 +755,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_kafka_connect_snowflake_sink_ingest(
     pytestconfig, tmp_path, mock_time, requests_mock
 ):
@@ -820,7 +833,322 @@ def test_kafka_connect_snowflake_sink_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
+def test_kafka_connect_snowflake_sink_column_lineage(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Integration test: Snowflake sink connector with column-level lineage enabled.
+
+    Verifies that when use_schema_resolver + schema_resolver_finegrained_lineage are enabled
+    the emitted dataJobInputOutput includes fineGrainedLineages mapping individual
+    Kafka topic fields to Snowflake table columns.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka_connect"
+
+    # Reuse the same Kafka Connect API mock data as the basic snowflake sink test
+    override_data = {
+        "http://localhost:28083/connectors": {
+            "method": "GET",
+            "status_code": 200,
+            "json": ["snowflake_sink1"],
+        },
+        "http://localhost:28083/connectors/snowflake_sink1": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "name": "snowflake_sink1",
+                "config": {
+                    "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+                    "snowflake.database.name": "kafka_db",
+                    "snowflake.schema.name": "kafka_schema",
+                    "snowflake.topic2table.map": "topic1:table1",
+                    "tasks.max": "1",
+                    "topics": "topic1,_topic+2",
+                    "snowflake.user.name": "kafka_connector_user_1",
+                    "snowflake.private.key": "rrSnqU=",
+                    "name": "snowflake_sink1",
+                    "snowflake.url.name": "bcaurux-lc62744.snowflakecomputing.com:443",
+                },
+                "tasks": [{"connector": "snowflake_sink1", "task": 0}],
+                "type": "sink",
+            },
+        },
+        "http://localhost:28083/connectors/snowflake_sink1/topics": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "snowflake_sink1": {"topics": ["topic1", "_topic+2", "extra_old_topic"]}
+            },
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    # Minimal inline schema mocks: Kafka topic → DB column schema
+    # topic1 maps to table1 (via snowflake.topic2table.map); Snowflake columns are uppercase
+    class _KafkaField:
+        def __init__(self, path: str) -> None:
+            self.fieldPath = path
+
+    class _KafkaSchema:
+        def __init__(self, fields: List[str]) -> None:
+            self.fields = [_KafkaField(f) for f in fields]
+
+    _kafka_schemas: Dict[str, Any] = {
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,topic1,PROD)": _KafkaSchema(
+            ["ORDER_ID", "CUSTOMER_NAME", "AMOUNT"]
+        ),
+    }
+
+    _db_schemas: Dict[str, Optional[Dict[str, str]]] = {
+        "kafka_db.kafka_schema.table1": {
+            "ORDER_ID": "NUMBER",
+            "CUSTOMER_NAME": "VARCHAR",
+            "AMOUNT": "FLOAT",
+        },
+    }
+
+    class _MockGraph:
+        def get_aspect(self, urn: str, aspect_type: Any) -> Any:
+            return _kafka_schemas.get(urn)
+
+    class _MockSchemaResolver:
+        platform = "snowflake"
+        env = "PROD"
+        graph = _MockGraph()
+
+        def get_urns(self) -> set:
+            return set()
+
+        def includes_temp_tables(self) -> bool:
+            return False
+
+        def resolve_table(self, table: Any) -> tuple:
+            tname: str = table.table
+            urn = f"urn:li:dataset:(urn:li:dataPlatform:snowflake,{tname},PROD)"
+            return urn, _db_schemas.get(tname)
+
+    with mock.patch(
+        "datahub.ingestion.source.kafka_connect.connector_registry.ConnectorRegistry.create_schema_resolver",
+        return_value=_MockSchemaResolver(),
+    ):
+        pipeline = Pipeline.create(
+            {
+                "run_id": "kafka-connect-test",
+                "source": {
+                    "type": "kafka-connect",
+                    "config": {
+                        "platform_instance": "connect-instance-1",
+                        "connect_uri": KAFKA_CONNECT_SERVER,
+                        "use_schema_resolver": True,
+                        "schema_resolver_finegrained_lineage": True,
+                        "schema_resolver_expand_patterns": False,
+                        "connector_patterns": {"allow": ["snowflake_sink1"]},
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/kafka_connect_snowflake_sink_col_lineage_mces.json",
+                    },
+                },
+            }
+        )
+
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_connect_snowflake_sink_col_lineage_mces.json",
+        golden_path=test_resources_dir
+        / "kafka_connect_snowflake_sink_col_lineage_mces_golden.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME)
+def test_kafka_connect_column_lineage_source_and_sink(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Integration test: column-level lineage in BOTH directions through a shared topic.
+
+    A Debezium Postgres source publishes ``debezium.public.orders`` and a Snowflake sink
+    consumes it.  With schema resolver enabled, the emitted metadata should contain:
+
+    - Source job (Debezium):  Postgres columns  → Kafka topic fields
+    - Sink job   (Snowflake): Kafka topic fields → Snowflake columns  (case-insensitive)
+
+    The shared Kafka field URNs connect the two lineage entries end-to-end.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka_connect"
+    ORDERS_TOPIC = "debezium.public.orders"
+
+    override_data = {
+        "http://localhost:28083/connectors": {
+            "method": "GET",
+            "status_code": 200,
+            "json": ["debezium_orders_source", "snowflake_sink_orders"],
+        },
+        # ── Debezium Postgres source ──────────────────────────────────────
+        "http://localhost:28083/connectors/debezium_orders_source": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "name": "debezium_orders_source",
+                "config": {
+                    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                    "database.hostname": "test_postgres",
+                    "database.port": "5432",
+                    "database.user": "postgres",
+                    "database.password": "datahub",
+                    "database.dbname": "testdb",
+                    # topic.prefix used as server_name → topic = debezium.public.orders
+                    "topic.prefix": "debezium",
+                    "table.include.list": "public.orders",
+                    "plugin.name": "pgoutput",
+                    "slot.name": "debezium_slot",
+                },
+                "tasks": [],
+                "type": "source",
+            },
+        },
+        "http://localhost:28083/connectors/debezium_orders_source/topics": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"debezium_orders_source": {"topics": [ORDERS_TOPIC]}},
+        },
+        "http://localhost:28083/connectors/debezium_orders_source/tasks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": [],
+        },
+        # ── Snowflake sink ────────────────────────────────────────────────
+        "http://localhost:28083/connectors/snowflake_sink_orders": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "name": "snowflake_sink_orders",
+                "config": {
+                    "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+                    "snowflake.database.name": "analytics_db",
+                    "snowflake.schema.name": "public",
+                    # Explicit topic→table map so the Snowflake table name is "orders"
+                    "snowflake.topic2table.map": f"{ORDERS_TOPIC}:orders",
+                    "topics": ORDERS_TOPIC,
+                    "snowflake.url.name": "account.snowflakecomputing.com:443",
+                    "snowflake.user.name": "kafka_user",
+                    "name": "snowflake_sink_orders",
+                },
+                "tasks": [{"connector": "snowflake_sink_orders", "task": 0}],
+                "type": "sink",
+            },
+        },
+        "http://localhost:28083/connectors/snowflake_sink_orders/topics": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"snowflake_sink_orders": {"topics": [ORDERS_TOPIC]}},
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    # ── Inline schema mocks ───────────────────────────────────────────────
+    # Postgres / Kafka: lowercase column names; Snowflake: uppercase
+    _COLUMNS_LOWER = ["id", "customer_name", "amount"]
+
+    class _KafkaField:
+        def __init__(self, path: str) -> None:
+            self.fieldPath = path
+
+    class _KafkaSchema:
+        def __init__(self, fields: List[str]) -> None:
+            self.fields = [_KafkaField(f) for f in fields]
+
+    _KAFKA_TOPIC_URN = f"urn:li:dataset:(urn:li:dataPlatform:kafka,{ORDERS_TOPIC},PROD)"
+
+    _kafka_schemas: Dict[str, Any] = {
+        _KAFKA_TOPIC_URN: _KafkaSchema(_COLUMNS_LOWER),
+    }
+
+    _db_schemas: Dict[str, Optional[Dict[str, str]]] = {
+        # Source side: Postgres table (lowercase columns)
+        "testdb.public.orders": {
+            "id": "INTEGER",
+            "customer_name": "VARCHAR",
+            "amount": "NUMERIC",
+        },
+        # Sink side: Snowflake table (uppercase columns — case-insensitive match)
+        "analytics_db.public.orders": {
+            "ID": "NUMBER",
+            "CUSTOMER_NAME": "VARCHAR",
+            "AMOUNT": "FLOAT",
+        },
+    }
+
+    class _MockGraph:
+        def get_aspect(self, urn: str, aspect_type: Any) -> Any:
+            return _kafka_schemas.get(urn)
+
+    class _MockSchemaResolver:
+        env = "PROD"
+        graph = _MockGraph()
+
+        def get_urns(self) -> set:
+            return set()
+
+        def includes_temp_tables(self) -> bool:
+            return False
+
+        def resolve_table(self, table: Any) -> tuple:
+            tname: str = table.table
+            platform = "snowflake" if tname.startswith("analytics_db") else "postgres"
+            urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{tname},PROD)"
+            return urn, _db_schemas.get(tname)
+
+    with mock.patch(
+        "datahub.ingestion.source.kafka_connect.connector_registry.ConnectorRegistry.create_schema_resolver",
+        return_value=_MockSchemaResolver(),
+    ):
+        pipeline = Pipeline.create(
+            {
+                "run_id": "kafka-connect-test",
+                "source": {
+                    "type": "kafka-connect",
+                    "config": {
+                        "platform_instance": "connect-instance-1",
+                        "connect_uri": KAFKA_CONNECT_SERVER,
+                        "use_schema_resolver": True,
+                        "schema_resolver_finegrained_lineage": True,
+                        "schema_resolver_expand_patterns": False,
+                        "connector_patterns": {
+                            "allow": [
+                                "debezium_orders_source",
+                                "snowflake_sink_orders",
+                            ]
+                        },
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/kafka_connect_col_lineage_e2e_mces.json",
+                    },
+                },
+            }
+        )
+
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_connect_col_lineage_e2e_mces.json",
+        golden_path=test_resources_dir
+        / "kafka_connect_col_lineage_e2e_mces_golden.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_kafka_connect_bigquery_sink_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -839,7 +1167,7 @@ def test_kafka_connect_bigquery_sink_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_kafka_connect_debezium_postgres(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -859,7 +1187,7 @@ def test_kafka_connect_debezium_postgres(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_kafka_connect_debezium_sqlserver(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -879,7 +1207,7 @@ def test_kafka_connect_debezium_sqlserver(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_kafka_connect_bigquery_sink_topic2tablemap_ingest(
     pytestconfig, tmp_path, mock_time, requests_mock
 ):
@@ -961,7 +1289,7 @@ def test_kafka_connect_bigquery_sink_topic2tablemap_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_kafka_connect_bigquery_sink_topic2tablemap_partial_mapping(
     pytestconfig, tmp_path, mock_time, requests_mock
 ):
@@ -1101,3 +1429,223 @@ def test_filter_stale_topics_no_topics_config():
 
     # Assert the result matches the expected filtered topics
     assert result == processed_topics
+
+
+# `datahub recipe probe` against the same live cluster, sharing this module's
+# stack: a separate module would bring the whole stack up a second time.
+# Supported connectors of each shape (JDBC source with and without a router,
+# Postgres JDBC source, JDBC sink, a generic_connectors source) plus enough
+# denied ones that a verdict mismatch in either direction shows up.
+PROBE_ALLOWED = [
+    "^mysql_source1$",
+    "^mysql_source2$",
+    "^postgres_source$",
+    "^mysql_sink$",
+    "^generic_source$",
+]
+
+PROBE_RECIPE: Dict[str, object] = {
+    "connect_uri": KAFKA_CONNECT_SERVER,
+    "connector_patterns": {"allow": PROBE_ALLOWED},
+    # The same substitutions kafka_connect_to_file.yml makes, so lineage
+    # resolves the way the golden-file test sees it.
+    "provided_configs": [
+        {"provider": "env", "path_key": "MYSQL_PORT", "value": "3306"},
+        {"provider": "env", "path_key": "MYSQL_DB", "value": "librarydb"},
+        {
+            "provider": "env",
+            "path_key": "MYSQL_CONNECTION_URL",
+            "value": "jdbc:mysql://test_mysql:3306/librarydb",
+        },
+        {
+            "provider": "env",
+            "path_key": "POSTGRES_CONNECTION_URL",
+            "value": "jdbc:postgresql://test_postgres:5432/postgres",
+        },
+    ],
+    "generic_connectors": [
+        {
+            "connector_name": "generic_source",
+            "source_dataset": "generic-dataset",
+            "source_platform": "generic-platform",
+        }
+    ],
+}
+
+PROBE_SEEDED = {
+    "mysql_source1",
+    "mysql_source2",
+    "mysql_source3",
+    "mysql_source4",
+    "mysql_source5",
+    "mysql_sink",
+    "debezium-mysql-connector",
+    "postgres_source",
+    "debezium-postgres-connector",
+    "debezium-sqlserver-connector",
+    "generic_source",
+    "source_mongodb_connector",
+    "confluent_s3_sink_connector",
+    "bigquery-sink-connector",
+}
+
+# Key fragments whose values the probe must never return: credentials, and
+# values that carry them (connection URLs/URIs) or carry row values (query).
+_PROBE_WITHHELD_KEY_FRAGMENTS = (
+    "password",
+    "secret",
+    ".url",
+    ".uri",
+    "query",
+    "key.id",
+)
+
+
+def _probe_withheld_values(provided: List[Dict[str, str]]) -> Set[str]:
+    """Every credential-bearing value in the seeded connector configs, read off
+    the cluster rather than restated here, plus what provided_configs
+    substitutes into them."""
+    values: Set[str] = set()
+    for name in sorted(PROBE_SEEDED):
+        response = requests.get(f"{KAFKA_CONNECT_SERVER}/connectors/{name}/config")
+        response.raise_for_status()
+        for key, value in response.json().items():
+            if any(f in key.lower() for f in _PROBE_WITHHELD_KEY_FRAGMENTS):
+                # Too short to search for without matching unrelated text
+                # (the S3 sink's dummy AWS keys are "x").
+                if len(str(value)) >= 4:
+                    values.add(str(value))
+    values |= {p["value"] for p in provided if "URL" in p["path_key"]}
+    return values
+
+
+def _probe_run(command: str, **kwargs: object) -> ProbeRunEnvelope:
+    result = run_probe_method(
+        "kafka-connect", dict(PROBE_RECIPE), command, dict(kwargs)
+    )
+    assert result.failures == [], f"{command} {kwargs}: {result.failures}"
+    return result.to_dict()
+
+
+def _probe_ingested_flows(**overrides: object) -> Set[str]:
+    """The DataFlow names a real ingestion run with PROBE_RECIPE emits."""
+    config = KafkaConnectSourceConfig.model_validate({**PROBE_RECIPE, **overrides})
+    source = KafkaConnectSource(config, PipelineContext(run_id="probe-parity"))
+    names: Set[str] = set()
+    try:
+        for wu in source.get_workunits_internal():
+            mcp = wu.metadata
+            if isinstance(mcp, MetadataChangeProposalWrapper) and isinstance(
+                mcp.aspect, DataFlowInfoClass
+            ):
+                names.add(mcp.aspect.name)
+    finally:
+        source.close()
+    return names
+
+
+@pytest.mark.usefixtures("loaded_kafka_connect")
+def test_probe_commands_answer_from_the_live_cluster_without_disclosing_secrets(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    provided = PROBE_RECIPE["provided_configs"]
+    assert isinstance(provided, list)
+    withheld = _probe_withheld_values(provided)
+    assert withheld, (
+        "fixture seeds no credential-bearing config, so this proves nothing"
+    )
+
+    outputs: List[ProbeRunEnvelope] = []
+
+    listing = _probe_run("connectors")
+    outputs.append(listing)
+    names = listing["result"]
+    assert isinstance(names, list)
+    assert set(names) >= PROBE_SEEDED
+
+    detail = _probe_run("connector", connector="mysql_source1")
+    outputs.append(detail)
+    record = detail["result"]
+    assert isinstance(record, dict)
+    assert record["name"] == "mysql_source1"
+    assert record["type"] == "source"
+    assert record["emitted"] is True
+    config_keys = record["config_keys"]
+    assert isinstance(config_keys, list) and "connection.url" in config_keys
+    lineage_config = record["lineage_config"]
+    assert isinstance(lineage_config, dict)
+    assert lineage_config["topic.prefix"] == "test-mysql-jdbc-"
+    assert "connection.url" not in lineage_config
+
+    # Credential-heavy configs: the Debezium connectors carry database.password,
+    # mysql_source4 a password in its URL and a query.
+    for name in (
+        "debezium-mysql-connector",
+        "debezium-postgres-connector",
+        "debezium-sqlserver-connector",
+        "mysql_source4",
+        "source_mongodb_connector",
+        "confluent_s3_sink_connector",
+    ):
+        outputs.append(_probe_run("connector", connector=name))
+
+    topics = _probe_run("connector_topics", connector="mysql_source1")
+    outputs.append(topics)
+    topic_names = topics["result"]
+    assert isinstance(topic_names, list)
+    assert topic_names and all(t.startswith("test-mysql-jdbc-") for t in topic_names)
+
+    lineage = _probe_run("connector_lineage", connector="mysql_source1")
+    outputs.append(lineage)
+    edges = lineage["result"]
+    assert isinstance(edges, list) and edges
+    for edge in edges:
+        assert isinstance(edge, dict)
+        edge_outputs = edge["outputs"]
+        assert isinstance(edge_outputs, list)
+        assert all("urn:li:dataPlatform:kafka" in urn for urn in edge_outputs)
+
+    for name in ("mysql_source4", "debezium-mysql-connector", "mysql_sink"):
+        outputs.append(_probe_run("connector_lineage", connector=name))
+
+    rendered = "\n".join(repr(o) for o in outputs) + json.dumps(outputs, default=str)
+    # Messages, not caplog.text: the formatted text carries logger names, and
+    # the Postgres fixture's password is the product's own lowercase name, which
+    # every "datahub.*" logger name contains.
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    for value in withheld:
+        assert value not in rendered, f"probe result disclosed {value!r}"
+        if value != "datahub":
+            assert value not in logged, f"probe logged {value!r}"
+
+
+@pytest.mark.usefixtures("loaded_kafka_connect")
+def test_probe_filter_verdicts_match_the_dataflows_ingestion_emits() -> None:
+    listed = _probe_run("connectors")["result"]
+    assert isinstance(listed, list)
+
+    verdicts = check_filters(
+        "kafka-connect",
+        dict(PROBE_RECIPE),
+        kind="Connector",
+        parent_path=[],
+        names=listed,
+    )
+    included = {r.name for r in verdicts.results if r.included}
+    emitted = _probe_ingested_flows()
+
+    # Every allowed connector here is one ingestion supports, so pattern
+    # verdicts and emitted DataFlows must agree exactly.
+    assert included == emitted
+    assert included, "the allow list matched nothing, so parity proves nothing"
+    assert set(listed) - included, "nothing was denied, so parity proves nothing"
+
+    # And `connector` says so per connector: the `emitted` flag is the half of
+    # the answer a pattern cannot give, so it must hold for denied connectors
+    # too -- checked against an allow-all run of real ingestion.
+    supported = _probe_ingested_flows(connector_patterns={"allow": [".*"]})
+    for name in sorted(listed):
+        record = _probe_run("connector", connector=name)["result"]
+        assert isinstance(record, dict)
+        assert record["emitted"] is (name in supported), name

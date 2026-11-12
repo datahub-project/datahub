@@ -1,5 +1,6 @@
 import { Table, Text } from '@components';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
@@ -16,7 +17,8 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/columnStats/ColumnStatsTable.utils';
 import { useGetColumnStatsColumns } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/columnStats/useGetColumnStatsColumns';
 import { isPresent } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
-import { downgradeV2FieldPath, groupByFieldPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
+import { groupByFieldPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 
 // Local type definitions since generated types aren't available
 interface DatasetFieldProfile {
@@ -49,6 +51,7 @@ interface Props {
 }
 
 function ColumnStatsTable({ columnStats, searchQuery }: Props) {
+    const { t } = useTranslation('entity.profile.stats');
     const { entityWithSchema } = useGetEntityWithSchema();
     const rawFields = entityWithSchema?.schemaMetadata?.fields;
 
@@ -128,7 +131,7 @@ function ColumnStatsTable({ columnStats, searchQuery }: Props) {
     if (filteredData.length === 0) {
         return (
             <EmptyContainer>
-                <Text weight="bold">No search results!</Text>
+                <Text weight="bold">{t('columnStatsTable.noSearchResults')}</Text>
             </EmptyContainer>
         );
     }
@@ -159,11 +162,13 @@ function ColumnStatsTable({ columnStats, searchQuery }: Props) {
             {fields.length > 0 && (
                 <SchemaFieldDrawer
                     schemaFields={fields as any}
+                    schemaPrimaryKeys={entityWithSchema?.schemaMetadata?.primaryKeys}
+                    editedPrimaryKeys={entityWithSchema?.editablePrimaryKeys?.primaryKeys}
                     expandedDrawerFieldPath={expandedDrawerFieldPath}
                     editableSchemaMetadata={entityWithSchema?.editableSchemaMetadata as any}
                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                     displayedRows={rows}
-                    defaultSelectedTabName="Statistics"
+                    defaultSelectedTabKey="Statistics"
                     selectPreviousField={selectPreviousField}
                     selectNextField={selectNextField}
                 />

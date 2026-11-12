@@ -76,13 +76,19 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
       int limit) {
     this.opContext = opContext;
     this.entityRegistry = opContext.getEntityRegistry();
-    this.elasticsearchClient = elasticSearchComponents.getSearchClient();
     this.entityService = entityService;
     this.batchSize = batchSize;
     this.batchDelayMs = batchDelayMs;
     this.limit = limit;
     this.indexName =
-        elasticSearchComponents.getIndexConvention().getEntityIndexName(SCHEMA_FIELD_ENTITY_NAME);
+        elasticSearchComponents
+            .getIndexConvention()
+            .getEntityIndexName(opContext, SCHEMA_FIELD_ENTITY_NAME);
+    this.elasticsearchClient =
+        opContext
+            .getSearchContext()
+            .requireSearchClusterAccess()
+            .clientForIndex(elasticSearchComponents.getIndexConvention(), indexName);
     // FIXME: This is a legacy job that was doing bad things with the bulk processor, moved to the
     // standard, but
     //        ideally this should pull from config
@@ -192,11 +198,11 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
     final SearchResponse searchResponse;
 
     if (scrollId == null) {
-      searchResponse = elasticsearchClient.search(searchRequest, RequestOptions.DEFAULT);
+      searchResponse = elasticsearchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
     } else {
       SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
       scrollRequest.scroll(scroll);
-      searchResponse = elasticsearchClient.scroll(scrollRequest, RequestOptions.DEFAULT);
+      searchResponse = elasticsearchClient.scroll(opContext, scrollRequest, RequestOptions.DEFAULT);
     }
 
     final SearchHit[] searchHits = searchResponse.getHits().getHits();
@@ -268,6 +274,8 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
   }
 
   private void deleteDocumentIds(Set<String> documentIds) {
-    documentIds.forEach(docId -> elasticsearchClient.addBulk(new DeleteRequest(indexName, docId)));
+    documentIds.forEach(
+        docId ->
+            elasticsearchClient.addBulk(opContext, docId, new DeleteRequest(indexName, docId)));
   }
 }

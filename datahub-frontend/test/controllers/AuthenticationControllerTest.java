@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import auth.AuthUtils;
+import auth.pac4j.DatahubPlayCookieSessionStore;
 import auth.sso.SsoManager;
 import auth.sso.SsoProvider;
 import client.AuthServiceClient;
@@ -30,7 +31,6 @@ import org.pac4j.core.exception.http.FoundAction;
 import org.pac4j.core.exception.http.RedirectionAction;
 import org.pac4j.play.PlayWebContext;
 import org.pac4j.play.store.DataEncrypter;
-import org.pac4j.play.store.PlayCookieSessionStore;
 import play.libs.Json;
 import play.mvc.Http;
 import play.mvc.Result;
@@ -41,7 +41,7 @@ public class AuthenticationControllerTest {
   private AuthenticationController controller;
   private Config mockConfig;
   private org.pac4j.core.config.Config ssoConfig;
-  private PlayCookieSessionStore playCookieSessionStore;
+  private DatahubPlayCookieSessionStore playCookieSessionStore;
   private SsoManager ssoManager;
   private AuthServiceClient authClient;
 
@@ -82,7 +82,7 @@ public class AuthenticationControllerTest {
     ssoConfig = new org.pac4j.core.config.Config();
 
     // Mock session store with custom serializer
-    playCookieSessionStore = new PlayCookieSessionStore(mock(DataEncrypter.class));
+    playCookieSessionStore = new DatahubPlayCookieSessionStore(mock(DataEncrypter.class));
     playCookieSessionStore.setSerializer(new MockSerializer());
 
     // Mock SSO manager

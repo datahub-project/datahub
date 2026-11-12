@@ -1,27 +1,26 @@
 import { Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import AddRelatedTermsModal from '@app/entityV2/glossaryTerm/profile/AddRelatedTermsModal';
 import RelatedTerm from '@app/entityV2/glossaryTerm/profile/RelatedTerm';
+import { RelatedTermTypes, getRelatedTermTypeLabel } from '@app/entityV2/glossaryTerm/profile/RelatedTermTypes';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
-import { Message } from '@app/shared/Message';
+import { Message } from '@app/sharedV2/Message';
 import { CustomIcon } from '@app/sharedV2/icons/customIcons/CustomIcon';
 import addTerm from '@app/sharedV2/icons/customIcons/add-term.svg';
 import { Button } from '@src/alchemy-components';
 
 import { TermRelationshipType } from '@types';
 
-export enum RelatedTermTypes {
-    hasRelatedTerms = 'Contains',
-    isRelatedTerms = 'Inherits',
-    containedBy = 'Contained by',
-    isAChildren = 'Inherited by',
-}
+type RelatedTermListItem = {
+    entity?: { urn?: string | null } | null;
+} | null;
 
 type Props = {
     glossaryRelatedTermType: string;
-    glossaryRelatedTermResult: Array<any>;
+    glossaryRelatedTermResult: ReadonlyArray<RelatedTermListItem>;
 };
 
 const ListWrapper = styled.div`
@@ -48,10 +47,12 @@ const TitleContainer = styled.div`
 const messageStyle = { marginTop: '10%' };
 
 export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, glossaryRelatedTermResult }: Props) {
+    const { t } = useTranslation('entity.types');
+    const { t: tf } = useTranslation('common.feedback');
     const [isShowingAddModal, setIsShowingAddModal] = useState(false);
-    const glossaryRelatedTermUrns: Array<string> = [];
-    glossaryRelatedTermResult.forEach((item: any) => {
-        glossaryRelatedTermUrns.push(item?.entity?.urn);
+    const glossaryRelatedTermUrns = glossaryRelatedTermResult.flatMap((item) => {
+        const itemUrn = item?.entity?.urn;
+        return itemUrn ? [itemUrn] : [];
     });
     const contentLoading = false;
     const relationshipType =
@@ -66,12 +67,12 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
     return (
         <>
             {contentLoading ? (
-                <Message type="loading" content="Loading..." style={messageStyle} />
+                <Message type="loading" content={tf('loading')} style={messageStyle} />
             ) : (
                 <ListWrapper>
                     <TitleContainer>
                         <Typography.Title style={{ margin: '0' }} level={3}>
-                            {glossaryRelatedTermType}
+                            {getRelatedTermTypeLabel(glossaryRelatedTermType)}
                         </Typography.Title>
                         {canEditRelatedTerms && (
                             <Button
@@ -79,7 +80,7 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
                                 onClick={() => setIsShowingAddModal(true)}
                                 data-testid="add-related-term-button"
                             >
-                                <CustomIcon iconSvg={addTerm} /> Add Terms
+                                <CustomIcon iconSvg={addTerm} /> {t('glossaryTerm.addTerms')}
                             </Button>
                         )}
                     </TitleContainer>

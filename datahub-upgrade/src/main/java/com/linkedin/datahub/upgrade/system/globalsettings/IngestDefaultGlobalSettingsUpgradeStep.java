@@ -1,0 +1,214 @@
+package com.linkedin.datahub.upgrade.system.globalsettings;
+
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
+import com.datahub.util.RecordUtils;
+import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
+import com.linkedin.data.schema.validation.CoercionMode;
+import com.linkedin.data.schema.validation.RequiredMode;
+import com.linkedin.data.schema.validation.UnrecognizedFieldMode;
+import com.linkedin.data.schema.validation.ValidateDataAgainstSchema;
+import com.linkedin.data.schema.validation.ValidationOptions;
+import com.linkedin.data.schema.validation.ValidationResult;
+import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.upgrade.UpgradeContext;
+import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.settings.global.GlobalSettingsInfo;
+import com.linkedin.upgrade.DataHubUpgradeState;
+import io.datahubproject.metadata.context.OperationContext;
+import java.util.function.Function;
+import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
+
+/**
+ * System-update blocking step that ingests default global settings on every deploy, merging with
+ * any existing settings so new defaults are automatically picked up.
+ */
+@Slf4j
+public class IngestDefaultGlobalSettingsUpgradeStep implements UpgradeStep {
+
+  private static final String STEP_ID = "ingest-default-global-settings";
+  private static final String DEFAULT_SETTINGS_RESOURCE_PATH = "./boot/global_settings.json";
+
+  private final EntityService<?> _entityService;
+  private final boolean _enabled;
+  private final String _resourcePath;
+
+  public IngestDefaultGlobalSettingsUpgradeStep(
+      @Nonnull final EntityService<?> entityService, final boolean enabled) {
+    this(entityService, enabled, DEFAULT_SETTINGS_RESOURCE_PATH);
+  }
+
+  // Package-private: used in tests
+  IngestDefaultGlobalSettingsUpgradeStep(
+      @Nonnull final EntityService<?> entityService,
+      final boolean enabled,
+      @Nonnull final String resourcePath) {
+    _entityService = entityService;
+    _enabled = enabled;
+    _resourcePath = resourcePath;
+  }
+
+  @Override
+  public String id() {
+    return STEP_ID;
+  }
+
+  @Override
+  public boolean isOptional() {
+    return false;
+  }
+
+  @Override
+  public boolean skip(final UpgradeContext context) {
+    if (!_enabled) {
+      log.info("Ingest default global settings step is disabled; skipping.");
+      return true;
+    }
+    return false;
+  }
+
+  @Override
+  public Function<UpgradeContext, UpgradeStepResult> executable() {
+    return context -> {
+      try {
+        execute(context.opContext());
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+      } catch (Exception e) {
+        log.error("Failed to ingest default global settings", e);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+      }
+    };
+  }
+
+  private void execute(@Nonnull final OperationContext systemOperationContext) throws Exception {
+    final ObjectMapper mapper = new ObjectMapper();
+    int maxSize =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    mapper
+        .getFactory()
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+
+    log.info("Ingesting default global settings...");
+
+    JsonNode defaultSettingsObj;
+    try {
+      defaultSettingsObj = mapper.readTree(new ClassPathResource(_resourcePath).getInputStream());
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format(
+              "Failed to parse global settings file. Could not parse valid json at resource path %s",
+              _resourcePath),
+          e);
+    }
+
+    if (!defaultSettingsObj.isObject()) {
+      throw new RuntimeException(
+          String.format(
+              "Found malformed global settings info file, expected an Object but found %s",
+              defaultSettingsObj.getNodeType()));
+    }
+
+    GlobalSettingsInfo defaultSettings =
+        RecordUtils.toRecordTemplate(GlobalSettingsInfo.class, defaultSettingsObj.toString());
+    ValidationResult result =
+        ValidateDataAgainstSchema.validate(
+            defaultSettings,
+            new ValidationOptions(
+                RequiredMode.CAN_BE_ABSENT_IF_HAS_DEFAULT,
+                CoercionMode.NORMAL,
+                UnrecognizedFieldMode.DISALLOW));
+
+    if (!result.isValid()) {
+      throw new RuntimeException(
+          String.format(
+              "Failed to parse global settings file. Provided JSON does not match GlobalSettingsInfo.pdl model. %s",
+              result.getMessages()));
+    }
+
+    final RecordTemplate storedSettings =
+        _entityService.getAspect(
+            systemOperationContext, GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME, 0);
+    final GlobalSettingsInfo existingSettings =
+        storedSettings != null ? (GlobalSettingsInfo) storedSettings : new GlobalSettingsInfo();
+
+    // Existing values win the merge, so if every default key is already set there is nothing to
+    // write. Re-ingesting would only re-validate stored values, which can fail after a rollback
+    // (e.g. a reference or enum value only a newer version knows) and block system-update.
+    if (handling().toleratesUnknownData()
+        && storedSettings != null
+        && existingSettings.data().keySet().containsAll(defaultSettings.data().keySet())) {
+      log.info("Global settings already contain every default; nothing to ingest.");
+      return;
+    }
+
+    final GlobalSettingsInfo newSettings =
+        new GlobalSettingsInfo(mergeDataMaps(defaultSettings.data(), existingSettings.data()));
+
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(GLOBAL_SETTINGS_URN);
+    proposal.setEntityType(GLOBAL_SETTINGS_ENTITY_NAME);
+    proposal.setAspectName(GLOBAL_SETTINGS_INFO_ASPECT_NAME);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(newSettings));
+    proposal.setChangeType(ChangeType.UPSERT);
+
+    try {
+      _entityService.ingestProposal(
+          systemOperationContext,
+          proposal,
+          new AuditStamp()
+              .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+              .setTime(System.currentTimeMillis()),
+          false);
+    } catch (ValidationException e) {
+      // Stored settings written by a newer version (read after a rollback) can hold values this
+      // version can't validate; leave them as they are rather than failing a blocking upgrade step.
+      // Any other validation failure fails the step as before.
+      if (!handling().toleratesUnknownData() || !isFromNewerVersion(systemOperationContext)) {
+        throw e;
+      }
+      log.warn(
+          "Stored global settings from a newer version failed validation; leaving them unchanged"
+              + " and skipping the new defaults.",
+          e);
+      return;
+    }
+
+    log.info("Successfully ingested default global settings.");
+  }
+
+  /** Whether the stored settings were written by a newer version, decided before the read strip. */
+  private boolean isFromNewerVersion(@Nonnull final OperationContext systemOperationContext) {
+    return _entityService
+        .getLatestSystemAspect(
+            systemOperationContext, GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME)
+        .map(SystemAspect::isFromNewerVersion)
+        .orElse(false);
+  }
+
+  private DataMap mergeDataMaps(final DataMap map1, final DataMap map2) {
+    final DataMap result = new DataMap();
+    // TODO: Replace with a nested merge. This only copies top level keys.
+    result.putAll(map1);
+    result.putAll(map2);
+    return result;
+  }
+}

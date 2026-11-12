@@ -2,8 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -22,7 +22,7 @@ const Container = styled.div`
     gap: 12px;
 
     :hover {
-        border: 1.5px solid ${(props) => props.theme.colors.hyperlinks};
+        border: 1.5px solid ${(props) => props.theme.colors.borderBrand};
     }
 `;
 
@@ -44,7 +44,7 @@ const Context = styled.div`
 
 const SubHeader = styled.div`
     font-size: 14px;
-    color: ${(props) => props.theme.colors.border};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-top: 4px;
     overflow: hidden;
     text-overflow: ellipsis;

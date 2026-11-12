@@ -1,13 +1,17 @@
+import json
 import pathlib
 import re
+import time
 from typing import cast
 from unittest import mock
 
+import google.auth.exceptions
 import pytest
 from pydantic import ValidationError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_GCS
 from datahub.ingestion.source.gcs.gcs_source import (
     _GCS_OAUTH_S3_OPERATIONS,
@@ -15,6 +19,8 @@ from datahub.ingestion.source.gcs.gcs_source import (
     GCSSource,
     GCSSourceConfig,
     _register_gcs_oauth_before_send,
+    build_gcs_aws_connection_config,
+    equivalent_s3_path_specs,
 )
 
 
@@ -209,6 +215,30 @@ def test_gcs_path_spec_pattern_matching():
     assert pathlib.PurePath(normalized_uri).match(glob_pattern)
 
 
+def test_gcs_propagates_compression_path_spec_fields():
+    """GCS→S3 path-spec translation must carry compression settings, including the
+    zip-bomb guard, so a .zip recipe behaves the same on GCS as on S3."""
+    ctx = PipelineContext(run_id="test-gcs")
+    # enable_compression defaults to True, so set it to a non-default value to
+    # prove the field is actually copied during translation (not just defaulted).
+    source = {
+        "path_specs": [
+            {
+                "include": "gs://test-bucket/data/{table}/*.csv.zip",
+                "enable_compression": False,
+                "max_zip_entry_size": 1234,
+            }
+        ],
+        "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
+    }
+
+    gcs_source = GCSSource.create(source, ctx)
+    s3_path_spec = gcs_source.s3_source.source_config.path_specs[0]
+
+    assert s3_path_spec.enable_compression is False
+    assert s3_path_spec.max_zip_entry_size == 1234
+
+
 def test_gcs_source_preserves_gs_uris():
     """Test that GCS source preserves gs:// URIs in the final output."""
     graph = mock.MagicMock(spec=DataHubGraph)
@@ -239,8 +269,6 @@ def test_gcs_source_preserves_gs_uris():
     # Container subtype is derived from platform at S3Source init time; internal config
     # uses s3:// path_specs so it is inferred as "s3". Until GCSSource passes
     # platform=PLATFORM_GCS into DataLakeSourceConfig, container_creator remains S3_BUCKET.
-    from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
-
     container_creator = gcs_source.s3_source.container_WU_creator
     assert container_creator.get_sub_types() in (
         DatasetContainerSubTypes.GCS_BUCKET,
@@ -271,8 +299,6 @@ def test_gcs_container_subtypes():
     # Container subtype comes from platform at S3Source init; internal config infers "s3"
     # from s3:// path_specs. So get_sub_types() may be S3_BUCKET until GCSSource passes
     # platform=PLATFORM_GCS into DataLakeSourceConfig.
-    from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
-
     container_creator = gcs_source.s3_source.container_WU_creator
     sub_types = container_creator.get_sub_types()
     assert sub_types in (
@@ -340,7 +366,7 @@ def test_wif_config_rejects_invalid_json_string():
 
 
 def test_wif_config_rejects_invalid_json_in_dict_option():
-    """gcp_wif_configuration_json when string must be valid JSON."""
+    """gcp_wif_configuration_json only accepts a dict; strings must use gcp_wif_configuration_json_string."""
     source = {
         "path_specs": _BASE_WIF_PATH_SPECS,
         "auth_type": "workload_identity_federation",
@@ -376,24 +402,18 @@ def test_wif_config_accepts_json_dict():
 
 def test_wif_config_accepts_json_string():
     """Valid config with gcp_wif_configuration_json_string."""
-    import json as json_module
-
     source = {
         "path_specs": _BASE_WIF_PATH_SPECS,
         "auth_type": "workload_identity_federation",
-        "gcp_wif_configuration_json_string": json_module.dumps(_VALID_WIF_JSON),
+        "gcp_wif_configuration_json_string": json.dumps(_VALID_WIF_JSON),
     }
     config = GCSSourceConfig.model_validate(source)
-    assert config.gcp_wif_configuration_json_string == json_module.dumps(
-        _VALID_WIF_JSON
-    )
+    assert config.gcp_wif_configuration_json_string == json.dumps(_VALID_WIF_JSON)
 
 
 @mock.patch("datahub.ingestion.source.common.gcp_wif_config.load_credentials_from_dict")
 def test_wif_source_creation_from_file_path(mock_load_creds):
     """GCSSource with WIF from file path reads the file and loads credentials from the dict."""
-    import json as json_module
-
     mock_creds = mock.MagicMock()
     mock_creds.with_scopes.return_value = mock_creds
     mock_load_creds.return_value = (mock_creds, "my-project")
@@ -406,7 +426,7 @@ def test_wif_source_creation_from_file_path(mock_load_creds):
         "gcp_wif_configuration": "/etc/gcp/wif.json",
     }
     with mock.patch(
-        "builtins.open", mock.mock_open(read_data=json_module.dumps(_VALID_WIF_JSON))
+        "builtins.open", mock.mock_open(read_data=json.dumps(_VALID_WIF_JSON))
     ):
         gcs_source = GCSSource.create(source, ctx)
 
@@ -462,8 +482,6 @@ def test_wif_source_creation_from_json_dict(mock_load_creds):
 @mock.patch("datahub.ingestion.source.common.gcp_wif_config.load_credentials_from_dict")
 def test_wif_source_creation_from_json_string(mock_load_creds):
     """GCSSource with gcp_wif_configuration_json_string parses JSON and loads creds from dict."""
-    import json as json_module
-
     mock_creds = mock.MagicMock()
     mock_creds.with_scopes.return_value = mock_creds
     mock_load_creds.return_value = (mock_creds, None)
@@ -473,7 +491,7 @@ def test_wif_source_creation_from_json_string(mock_load_creds):
     source = {
         "path_specs": _BASE_WIF_PATH_SPECS,
         "auth_type": "workload_identity_federation",
-        "gcp_wif_configuration_json_string": json_module.dumps(_VALID_WIF_JSON),
+        "gcp_wif_configuration_json_string": json.dumps(_VALID_WIF_JSON),
     }
     gcs_source = GCSSource.create(source, ctx)
 
@@ -535,8 +553,6 @@ def test_register_gcs_oauth_before_send_refreshes_when_no_token():
 
 def test_register_gcs_oauth_before_send_refreshes_when_expired():
     """When credentials are expired, inject_bearer calls refresh then sets header."""
-    import time
-
     client = mock.MagicMock()
     client.meta.events = mock.MagicMock()
 
@@ -544,8 +560,11 @@ def test_register_gcs_oauth_before_send_refreshes_when_expired():
     credentials.token = "old-token"
     credentials.expiry = mock.MagicMock()
     credentials.expiry.timestamp.return_value = time.time() - 60
-    credentials.refresh = mock.MagicMock()
-    credentials.token = "new-token"
+
+    def set_token_on_refresh(*args: object, **kwargs: object) -> None:
+        credentials.token = "refreshed-token"
+
+    credentials.refresh = mock.MagicMock(side_effect=set_token_on_refresh)
 
     _register_gcs_oauth_before_send(client, credentials, "proj")
 
@@ -555,7 +574,7 @@ def test_register_gcs_oauth_before_send_refreshes_when_expired():
     inject_bearer(request)
 
     credentials.refresh.assert_called_once()
-    assert request.headers["Authorization"] == "Bearer new-token"
+    assert request.headers["Authorization"] == "Bearer refreshed-token"
 
 
 def test_gcs_oauth_aws_config_registers_hooks_on_get_s3_client():
@@ -606,8 +625,139 @@ def test_gcs_oauth_aws_config_registers_hooks_on_get_s3_resource():
         )
 
 
-def test_gcs_oauth_aws_config_no_hooks_without_creds():
-    """GCSOAuthAwsConnectionConfig.get_s3_client does not register hooks when no creds."""
+# --- GKE Workload Identity (ADC) tests ---
+
+_VALID_ADC_CONFIG = {
+    "path_specs": _BASE_WIF_PATH_SPECS,
+    "auth_type": "workload_identity",
+}
+
+
+def test_workload_identity_config_valid_without_credentials_or_wif():
+    """workload_identity is valid with no credential or WIF fields — must not raise."""
+    config = GCSSourceConfig.model_validate(_VALID_ADC_CONFIG)
+    assert config.auth_type == "workload_identity"
+
+
+@pytest.mark.parametrize(
+    "wif_field,wif_value",
+    [
+        ("gcp_wif_configuration", "/path/to/wif.json"),
+        ("gcp_wif_configuration_json", {"type": "external_account"}),
+        ("gcp_wif_configuration_json_string", '{"type": "external_account"}'),
+    ],
+)
+def test_workload_identity_config_rejects_wif_options(
+    wif_field: str, wif_value: object
+) -> None:
+    """workload_identity must not have any WIF config option set (all three fields)."""
+    source = {
+        "path_specs": _BASE_WIF_PATH_SPECS,
+        "auth_type": "workload_identity",
+        wif_field: wif_value,
+    }
+    with pytest.raises(
+        ValidationError, match="gcp_wif_configuration options must not be set"
+    ):
+        GCSSourceConfig.model_validate(source)
+
+
+@pytest.mark.parametrize(
+    "auth_type",
+    ["workload_identity", "workload_identity_federation"],
+)
+def test_credential_rejected_for_non_hmac_auth_type(auth_type: str) -> None:
+    """HMAC credential must be rejected (not silently ignored) for non-hmac auth types."""
+    source = {
+        "path_specs": _BASE_WIF_PATH_SPECS,
+        "auth_type": auth_type,
+        "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
+    }
+    if auth_type == "workload_identity_federation":
+        source["gcp_wif_configuration_json"] = _VALID_WIF_JSON
+    with pytest.raises(ValidationError, match="credential .* must not be set"):
+        GCSSourceConfig.model_validate(source)
+
+
+@mock.patch("google.auth.default")
+def test_workload_identity_source_creation(mock_google_auth_default):
+    """GCSSource with workload_identity calls google.auth.default and wires Bearer-token injection."""
+    mock_creds = mock.MagicMock()
+    mock_google_auth_default.return_value = (mock_creds, "gke-project")
+
+    graph = mock.MagicMock(spec=DataHubGraph)
+    ctx = PipelineContext(
+        run_id="test-gcs-adc", graph=graph, pipeline_name="test-gcs-adc"
+    )
+
+    gcs_source = GCSSource.create(_VALID_ADC_CONFIG, ctx)
+
+    mock_google_auth_default.assert_called_once_with(
+        scopes=["https://www.googleapis.com/auth/cloud-platform"]
+    )
+    aws_config = gcs_source.s3_source.source_config.aws_config
+    assert getattr(aws_config, "_gcs_oauth_credentials", None) is mock_creds
+    assert getattr(aws_config, "_gcs_oauth_project_id", None) == "gke-project"
+    gcs_source.close()
+
+
+@mock.patch("google.auth.default")
+def test_workload_identity_source_creation_no_project(mock_google_auth_default):
+    """GCSSource with workload_identity works when google.auth.default returns no project_id."""
+    mock_creds = mock.MagicMock()
+    mock_google_auth_default.return_value = (mock_creds, None)
+
+    graph = mock.MagicMock(spec=DataHubGraph)
+    ctx = PipelineContext(
+        run_id="test-gcs-adc", graph=graph, pipeline_name="test-gcs-adc"
+    )
+
+    gcs_source = GCSSource.create(_VALID_ADC_CONFIG, ctx)
+
+    aws_config = gcs_source.s3_source.source_config.aws_config
+    assert getattr(aws_config, "_gcs_oauth_credentials", None) is mock_creds
+    assert getattr(aws_config, "_gcs_oauth_project_id", None) is None
+    gcs_source.close()
+
+
+@mock.patch("google.auth.default")
+def test_workload_identity_source_creation_fails_without_adc(mock_google_auth_default):
+    """GCSSource raises a clear ValueError when Application Default Credentials are unavailable."""
+    mock_google_auth_default.side_effect = (
+        google.auth.exceptions.DefaultCredentialsError(
+            "Could not automatically determine credentials."
+        )
+    )
+
+    graph = mock.MagicMock(spec=DataHubGraph)
+    ctx = PipelineContext(
+        run_id="test-gcs-adc", graph=graph, pipeline_name="test-gcs-adc"
+    )
+
+    with pytest.raises(ValueError, match="Application Default Credentials"):
+        GCSSource.create(_VALID_ADC_CONFIG, ctx)
+
+
+@mock.patch("google.auth.default")
+def test_workload_identity_source_creation_fails_on_google_auth_error(
+    mock_google_auth_default,
+):
+    """GCSSource raises a clear ValueError for any GoogleAuthError during ADC loading."""
+    mock_google_auth_default.side_effect = google.auth.exceptions.GoogleAuthError(
+        "Unexpected auth error."
+    )
+
+    graph = mock.MagicMock(spec=DataHubGraph)
+    ctx = PipelineContext(
+        run_id="test-gcs-adc", graph=graph, pipeline_name="test-gcs-adc"
+    )
+
+    with pytest.raises(ValueError, match="Unexpected Google Auth error"):
+        GCSSource.create(_VALID_ADC_CONFIG, ctx)
+
+
+def test_gcs_oauth_aws_config_raises_without_creds():
+    """GCSOAuthAwsConnectionConfig.get_s3_client raises RuntimeError when creds not set."""
     with mock.patch.object(
         GCSOAuthAwsConnectionConfig.__bases__[0],
         "get_s3_client",
@@ -621,6 +771,70 @@ def test_gcs_oauth_aws_config_no_hooks_without_creds():
         )
         assert config._gcs_oauth_credentials is None
 
-        client = cast(mock.MagicMock, config.get_s3_client())
+        with pytest.raises(RuntimeError, match="_gcs_oauth_credentials must be set"):
+            config.get_s3_client()
 
-        client.meta.events.register.assert_not_called()
+
+def test_client_config_is_built_from_the_config_alone() -> None:
+    config = GCSSourceConfig.model_validate(
+        {
+            "path_specs": [{"include": "gs://my-bucket/data/{table}/*.parquet"}],
+            "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
+        }
+    )
+    aws_config = build_gcs_aws_connection_config(config)
+    assert aws_config.aws_endpoint_url == "https://storage.googleapis.com"
+    assert aws_config.aws_access_key_id == "id"
+
+
+@mock.patch("google.auth.default")
+def test_adc_client_config_carries_the_oauth_credentials(
+    mock_default: mock.MagicMock,
+) -> None:
+    creds = mock.MagicMock()
+    mock_default.return_value = (creds, "my-project")
+    aws_config = build_gcs_aws_connection_config(
+        GCSSourceConfig.model_validate(_VALID_ADC_CONFIG)
+    )
+    assert getattr(aws_config, "_gcs_oauth_credentials", None) is creds
+    assert getattr(aws_config, "_gcs_oauth_project_id", None) == "my-project"
+
+
+def test_equivalent_specs_match_what_the_source_ingests_with() -> None:
+    ctx = PipelineContext(run_id="test-gcs")
+    source = GCSSource.create(
+        {
+            "path_specs": [{"include": "gs://my-bucket/data/{table}"}],
+            "credential": {"hmac_access_id": "id", "hmac_access_secret": "s"},
+        },
+        ctx,
+    )
+    probe_specs = equivalent_s3_path_specs(source.config.path_specs)
+    assert [s.include for s in probe_specs] == [
+        s.include for s in source.s3_source.source_config.path_specs
+    ]
+    source.close()
+
+
+def test_gcs_enable_schema_inference_defaults_to_true():
+    config = GCSSourceConfig.model_validate(
+        {
+            "path_specs": [{"include": "gs://bucket/{table}/*.parquet"}],
+            "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
+        }
+    )
+    assert config.enable_schema_inference is True
+
+
+def test_gcs_enable_schema_inference_forwarded_to_s3_config():
+    """enable_schema_inference=False must be forwarded to the underlying S3 config."""
+    graph = mock.MagicMock(spec=DataHubGraph)
+    ctx = PipelineContext(run_id="test-gcs", graph=graph, pipeline_name="test-gcs")
+
+    source = {
+        "path_specs": [{"include": "gs://bucket/{table}/*.parquet"}],
+        "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
+        "enable_schema_inference": False,
+    }
+    gcs_source = GCSSource.create(source, ctx)
+    assert gcs_source.s3_source.source_config.enable_schema_inference is False

@@ -1,3 +1,7 @@
+---
+description: "Add a new metadata ingestion source to DataHub by extending the Python ingestion framework with a custom connector."
+---
+
 # Adding a Metadata Ingestion Source
 
 :::tip Build Connectors Faster with DataHub Skills
@@ -113,7 +117,7 @@ from datahub.ingestion.api.decorators import (
 )
 
 @platform_name("File")
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @config_class(FileSourceConfig)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
@@ -254,7 +258,7 @@ We are currently transitioning to a more dynamic approach to display available s
 
 #### 10.1 Add to sources.json
 
-Add new source to the list in [sources.json](https://github.com/datahub-project/datahub/blob/master/datahub-web-react/src/app/ingest/source/builder/sources.json) including a default quickstart recipe. This will render your source in the list of options when creating a new recipe in the UI.
+Add new source to the list in [sources.json](https://github.com/datahub-project/datahub/blob/master/datahub-web-react/src/app/ingestV2/source/builder/sources.json) including a default quickstart recipe. This will render your source in the list of options when creating a new recipe in the UI.
 
 #### 10.2 Add logo to the React app
 
@@ -262,4 +266,4 @@ Add your source logo to the React [images folder](https://github.com/datahub-pro
 
 #### 10.3 Update constants.ts
 
-Create new constants in [constants.ts](https://github.com/datahub-project/datahub/blob/master/datahub-web-react/src/app/ingest/source/builder/constants.ts) for the source urn and source name. Update PLATFORM_URN_TO_LOGO to map your source urn to the newly added logo in the images folder.
+Create new constants in [constants.ts](https://github.com/datahub-project/datahub/blob/master/datahub-web-react/src/app/ingestV2/source/builder/constants.ts) for the source urn and source name. Update PLATFORM_URN_TO_LOGO to map your source urn to the newly added logo in the images folder.

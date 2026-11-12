@@ -2,13 +2,16 @@ import { Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import BaseProperty from '@app/entityV2/summary/properties/property/properties/BaseProperty';
 import { PropertyComponentProps } from '@app/entityV2/summary/properties/types';
 import { formatTimestamp } from '@app/sharedV2/time/utils';
 import { Popover } from '@src/alchemy-components';
 
 import { Document, EntityType } from '@types';
+
+const DATE_TIME_FORMAT = 'll LTS';
+const DATE_FORMAT = 'll';
 
 const DateWithTooltip = styled.span`
     cursor: help;
@@ -36,9 +39,9 @@ export default function LastUpdatedProperty(props: PropertyComponentProps) {
 
     const renderLastModified = (timestamp: number) => {
         return (
-            <Popover content={formatTimestamp(timestamp, 'll LTS')} placement="top">
+            <Popover content={formatTimestamp(timestamp, DATE_TIME_FORMAT)} placement="top">
                 <DateWithTooltip>
-                    <Text>{formatTimestamp(timestamp, 'll')}</Text>
+                    <Text>{formatTimestamp(timestamp, DATE_FORMAT)}</Text>
                 </DateWithTooltip>
             </Popover>
         );

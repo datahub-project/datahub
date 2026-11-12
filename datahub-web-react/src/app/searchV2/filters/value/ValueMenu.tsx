@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import React, { useEffect, useRef, useState } from 'react';
 
 import { useIsVisible } from '@components/components/Select/private/hooks/useIsVisible';
@@ -13,7 +13,7 @@ import EntityValueMenu from '@app/searchV2/filters/value/EntityValueMenu';
 import EnumValueMenu from '@app/searchV2/filters/value/EnumValueMenu';
 import TextValueMenu from '@app/searchV2/filters/value/TextValueMenu';
 import TimeBucketMenu from '@app/searchV2/filters/value/TimeBucketMenu';
-import usePrevious from '@app/shared/usePrevious';
+import usePrevious from '@app/sharedV2/usePrevious';
 import { EntityType, FacetFilterInput } from '@src/types.generated';
 
 interface Props {
@@ -26,6 +26,7 @@ interface Props {
     manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
     aggregationsEntityTypes?: Array<EntityType>;
     isRenderedInSubMenu?: boolean;
+    showDefaultOptions?: boolean;
 }
 
 export default function ValueMenu({
@@ -38,6 +39,7 @@ export default function ValueMenu({
     manuallyUpdateFilters,
     aggregationsEntityTypes,
     isRenderedInSubMenu = false,
+    showDefaultOptions,
 }: Props) {
     const [stagedSelectedValues, setStagedSelectedValues] = useState<FilterValue[]>(values || []);
     const isDateRangeFilter = getIsDateRangeFilter(field);
@@ -114,6 +116,7 @@ export default function ValueMenu({
                         className={className}
                         onChangeValues={setStagedSelectedValues}
                         isRenderedInSubMenu={isRenderedInSubMenu}
+                        showDefaultOptions={showDefaultOptions}
                     />
                 );
             case FieldType.ENTITY_TYPE:
@@ -127,6 +130,7 @@ export default function ValueMenu({
                         onChangeValues={setStagedSelectedValues}
                         aggregationsEntityTypes={aggregationsEntityTypes}
                         isRenderedInSubMenu={isRenderedInSubMenu}
+                        showDefaultOptions={showDefaultOptions}
                     />
                 );
             case FieldType.ENUM:
@@ -140,6 +144,7 @@ export default function ValueMenu({
                         onChangeValues={setStagedSelectedValues}
                         aggregationsEntityTypes={aggregationsEntityTypes}
                         isRenderedInSubMenu={isRenderedInSubMenu}
+                        showDefaultOptions={showDefaultOptions}
                     />
                 );
             case FieldType.BUCKETED_TIMESTAMP:

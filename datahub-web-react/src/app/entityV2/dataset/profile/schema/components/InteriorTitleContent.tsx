@@ -1,4 +1,5 @@
-import { Tooltip, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
@@ -56,6 +57,7 @@ type InteriorTitleProps = {
     fieldPath: string;
     record: ExtendedSchemaFields;
     isCompact?: boolean;
+    isPrimaryKey: boolean;
 };
 
 export const InteriorTitleContent = ({
@@ -65,6 +67,7 @@ export const InteriorTitleContent = ({
     fieldPath,
     record,
     isCompact,
+    isPrimaryKey,
 }: InteriorTitleProps) => {
     const fieldPathWithoutAnnotations = translateFieldPath(fieldPath);
     const parentPathWithoutAnnotations = translateFieldPath(record.parent?.fieldPath || '');
@@ -112,7 +115,7 @@ export const InteriorTitleContent = ({
             </FieldPathContainer>
             {!isCompact && (
                 <>
-                    {(schemaMetadata?.primaryKeys?.includes(fieldPath) || record.isPartOfKey) && <PrimaryKeyLabel />}
+                    {isPrimaryKey && <PrimaryKeyLabel />}
                     {record.isPartitioningKey && <PartitioningKeyLabel />}
                     {record.nullable && <NullableLabel />}
                     {/* {record.nullable && <NullableLabel />} */}

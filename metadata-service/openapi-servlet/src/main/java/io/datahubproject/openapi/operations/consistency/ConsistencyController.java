@@ -18,6 +18,7 @@ import com.linkedin.metadata.config.ConsistencyChecksConfiguration;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.operations.consistency.models.ConsistencyCheckInfo;
 import io.datahubproject.openapi.operations.consistency.models.ConsistencyCheckRequest;
@@ -313,18 +314,24 @@ public class ConsistencyController {
           buildFilterWithGracePeriod(
               checkRequest.getFilter(), checkRequest.getGracePeriodSeconds());
 
-      CheckResult result =
-          consistencyService.checkBatch(
-              opContext,
-              CheckBatchRequest.builder()
-                  .entityType(checkRequest.getEntityType())
-                  .checkIds(checkRequest.getCheckIds())
-                  .batchSize(checkRequest.getBatchSize())
-                  .scrollId(checkRequest.getScrollId())
-                  .filter(filterConfig)
-                  .build());
+      CheckBatchRequest batchRequest =
+          CheckBatchRequest.builder()
+              .entityType(checkRequest.getEntityType())
+              .checkIds(checkRequest.getCheckIds())
+              .batchSize(checkRequest.getBatchSize())
+              .scrollId(checkRequest.getScrollId())
+              .filter(filterConfig)
+              .build();
 
-      return ResponseEntity.ok(ConsistencyCheckResult.from(result));
+      Long totalEstimate = null;
+      if (checkRequest.getScrollId() == null) {
+        Optional<Long> counted = consistencyService.countMatching(opContext, batchRequest);
+        totalEstimate = counted != null ? counted.orElse(null) : null;
+      }
+
+      CheckResult result = consistencyService.checkBatch(opContext, batchRequest);
+
+      return ResponseEntity.ok(ConsistencyCheckResult.from(result, totalEstimate));
     } catch (IllegalArgumentException e) {
       log.warn("Invalid check request: {}", e.getMessage());
       return ResponseEntity.badRequest().build();
@@ -474,17 +481,23 @@ public class ConsistencyController {
       SystemMetadataFilter filterConfig =
           buildFilterWithGracePeriod(fixRequest.getFilter(), fixRequest.getGracePeriodSeconds());
 
+      CheckBatchRequest batchRequest =
+          CheckBatchRequest.builder()
+              .entityType(fixRequest.getEntityType())
+              .checkIds(fixRequest.getCheckIds())
+              .batchSize(fixRequest.getBatchSize())
+              .scrollId(fixRequest.getScrollId())
+              .filter(filterConfig)
+              .build();
+
+      Long totalEstimate = null;
+      if (fixRequest.getScrollId() == null) {
+        Optional<Long> counted = consistencyService.countMatching(opContext, batchRequest);
+        totalEstimate = counted != null ? counted.orElse(null) : null;
+      }
+
       // Run checks
-      CheckResult checkResult =
-          consistencyService.checkBatch(
-              opContext,
-              CheckBatchRequest.builder()
-                  .entityType(fixRequest.getEntityType())
-                  .checkIds(fixRequest.getCheckIds())
-                  .batchSize(fixRequest.getBatchSize())
-                  .scrollId(fixRequest.getScrollId())
-                  .filter(filterConfig)
-                  .build());
+      CheckResult checkResult = consistencyService.checkBatch(opContext, batchRequest);
 
       // Fix any issues found
       ConsistencyFixResult fixResult =
@@ -492,7 +505,7 @@ public class ConsistencyController {
 
       return ResponseEntity.ok(
           io.datahubproject.openapi.operations.consistency.models.ConsistencyFixResult.from(
-              checkResult, fixResult));
+              checkResult, fixResult, totalEstimate));
     } catch (IllegalArgumentException e) {
       log.warn("Invalid fix request: {}", e.getMessage());
       return ResponseEntity.badRequest().build();
@@ -550,7 +563,9 @@ public class ConsistencyController {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi(actorUrnStr, request, operationName, List.of()),
+            RequestContext.builder()
+                .buildOpenapi(actorUrnStr, request, operationName, List.of())
+                .withUsageOperation(UsageOperation.OTHER_OPERATIONS),
             authorizerChain,
             authentication,
             true);
@@ -609,6 +624,8 @@ public class ConsistencyController {
           .lePitEpochMs(lePitEpochMs)
           .aspectFilters(requestFilter.getAspectFilters())
           .includeSoftDeleted(requestFilter.isIncludeSoftDeleted())
+          .keyAspectOnly(requestFilter.isKeyAspectOnly())
+          .entityTypes(requestFilter.getEntityTypes())
           .build();
     } else {
       // Create new filter with just the grace period

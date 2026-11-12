@@ -2,7 +2,7 @@
 
 Microsoft Entra ID is an identity and access management platform. Learn more in the [official Microsoft Entra ID documentation](https://learn.microsoft.com/entra/identity/).
 
-The DataHub integration for Microsoft Entra ID covers identity entities such as users, groups, and memberships. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Microsoft Entra ID covers identity entities such as users, groups, and memberships. It also captures stateful deletion detection.
 
 ## Concept Mapping
 

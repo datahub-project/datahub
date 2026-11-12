@@ -1,5 +1,6 @@
 import { Menu } from '@components';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { ItemType } from '@components/components/Menu/types';
 import useClickOutside from '@components/components/Utils/ClickOutside/useClickOutside';
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export default function MoreFilters({ filters, filterPredicates, activeFilters, onChangeFilters }: Props) {
+    const { t } = useTranslation('search');
     const { trackShowMoreEvent } = useSearchFilterAnalytics();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const numActiveFilters = getNumActiveFiltersForGroupOfFilters(activeFilters, filters);
@@ -64,9 +66,10 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
         () =>
             filtersToRender.map((filter) => ({
                 key: filter.field,
-                title: filterRendererRegistry.hasRenderer(filter.field)
-                    ? filterRendererRegistry.getName(filter.field)
-                    : getFilterDisplayName(filter),
+                title:
+                    (filterRendererRegistry.hasRenderer(filter.field) &&
+                        filterRendererRegistry.getName(filter.field)) ||
+                    getFilterDisplayName(filter),
                 type: 'item',
                 children: [
                     {
@@ -113,7 +116,7 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
                 isOpen={isMenuOpen}
                 onClick={toggleMenu}
             >
-                More {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                {t('filters.moreCount', { count: numActiveFilters })}
             </SearchFilterBase>
         </Menu>
     );

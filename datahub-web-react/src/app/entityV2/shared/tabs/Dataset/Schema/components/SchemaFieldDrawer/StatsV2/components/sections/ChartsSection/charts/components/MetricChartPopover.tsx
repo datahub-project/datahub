@@ -9,11 +9,13 @@ interface MetricChartPopoverProps {
     renderDatumMetric: (datum: Datum) => React.ReactNode;
 }
 
+const DATE_FORMAT = 'dddd, MMM, D ‘YY';
+
 export default function MetricChartPopover({ datum, renderDatumMetric }: MetricChartPopoverProps) {
     return (
         <>
             <Text size="sm" color="gray">
-                {dayjs(datum.x).format('dddd, MMM, D ‘YY')}
+                {dayjs(datum.x).format(DATE_FORMAT)}
             </Text>
             <Text weight="semiBold" size="sm" color="gray">
                 {renderDatumMetric(datum)}

@@ -1,8 +1,9 @@
-import { Dropdown, Text } from '@components';
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
 
+import { Dropdown } from '@components/components/Dropdown';
 import {
     ActionButtonsContainer,
     Container,
@@ -12,6 +13,7 @@ import {
     OptionContainer,
     OptionLabel,
     OptionList,
+    Required,
     SelectBase,
     SelectLabel,
     SelectLabelContainer,
@@ -26,9 +28,10 @@ import SelectLabelRenderer from '@components/components/Select/private/SelectLab
 import useSelectDropdown from '@components/components/Select/private/hooks/useSelectDropdown';
 import { SelectOption, SelectProps } from '@components/components/Select/types';
 import { getFooterButtonSize } from '@components/components/Select/utils';
+import { Text } from '@components/components/Text';
 
 // Updated main component
-export const selectDefaults: SelectProps = {
+const selectDefaults: SelectProps = {
     options: [],
     label: '',
     size: 'md',
@@ -38,9 +41,7 @@ export const selectDefaults: SelectProps = {
     isRequired: false,
     isMultiSelect: false,
     showClear: false,
-    placeholder: 'Select an option',
     showSelectAll: false,
-    selectAllLabel: 'Select All',
     showDescriptions: false,
 };
 
@@ -58,14 +59,17 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     showClear = selectDefaults.showClear,
     size = selectDefaults.size,
     isMultiSelect = selectDefaults.isMultiSelect,
-    placeholder = selectDefaults.placeholder,
+    placeholder,
     disabledValues = [],
     showSelectAll = selectDefaults.showSelectAll,
-    selectAllLabel = selectDefaults.selectAllLabel,
+    selectAllLabel,
     showDescriptions = selectDefaults.showDescriptions,
+    optionDataTestId,
+    updateLabel,
     icon,
     renderCustomOptionText,
     selectLabelProps,
+    filterResultsByQuery = true,
     onSearchChange,
     emptyState,
     descriptionMaxWidth,
@@ -74,6 +78,9 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     ...props
 }: SelectProps<OptionType>) => {
     const theme = useTheme();
+    const { t } = useTranslation('alchemy');
+    const { t: tc } = useTranslation('common.actions');
+    const resolvedSelectAllLabel = selectAllLabel ?? tc('selectAll');
     const [searchQuery, setSearchQuery] = useState('');
     const selectRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -106,7 +113,9 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const filteredOptions = useMemo(() => {
-        const filtered = options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase()));
+        const filtered = filterResultsByQuery
+            ? options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase()))
+            : options;
 
         if (!isMultiSelect || openSelectedValues.length === 0) return filtered;
 
@@ -116,7 +125,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
             const bSelected = selectedSet.has(b.value) ? 0 : 1;
             return aSelected - bSelected;
         });
-    }, [options, searchQuery, isMultiSelect, openSelectedValues]);
+    }, [options, searchQuery, filterResultsByQuery, isMultiSelect, openSelectedValues]);
 
     const handleSelectClick = useCallback(() => {
         if (!isDisabled && !isReadOnly) {
@@ -195,7 +204,11 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
 
     return (
         <Container ref={selectRef} size={size || 'md'} width={props.width} $minWidth={props.minWidth}>
-            {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
+            {label && (
+                <SelectLabel onClick={handleSelectClick}>
+                    {label} {isRequired && <Required>*</Required>}
+                </SelectLabel>
+            )}
             {isVisible && (
                 <Dropdown
                     open={isOpen}
@@ -208,7 +221,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                         >
                             {showSearch && (
                                 <DropdownSearchBar
-                                    placeholder="Search…"
+                                    placeholder={t('search.placeholder')}
                                     value={searchQuery}
                                     onChange={(value) => handleSearchChange(value)}
                                     size={size}
@@ -217,7 +230,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                             <OptionList>
                                 {showSelectAll && isMultiSelect && (
                                     <DropdownSelectAllOption
-                                        label={selectAllLabel}
+                                        label={resolvedSelectAllLabel}
                                         selected={areAllSelected}
                                         disabled={disabledValues.length === options.length}
                                         onClick={() => !(disabledValues.length === options.length) && handleSelectAll()}
@@ -227,6 +240,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                 {filteredOptions.map((option) => (
                                     <OptionLabel
                                         key={option.value}
+                                        data-testid={optionDataTestId?.(option) ?? `option-${option.value}`}
                                         onClick={() => !isMultiSelect && handleOptionChange(option)}
                                         isSelected={tempValues.includes(option.value)}
                                         isMultiSelect={isMultiSelect}
@@ -278,6 +292,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                 onCancel={handleCancelClick}
                                 onUpdate={handleUpdateClick}
                                 size={getFooterButtonSize(size)}
+                                updateLabel={updateLabel}
                             />
                         </DropdownContainer>
                     )}
@@ -297,7 +312,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                             <SelectLabelRenderer
                                 selectedValues={selectedValues}
                                 options={options}
-                                placeholder={placeholder || 'Select an option'}
+                                placeholder={placeholder || t('select.placeholder')}
                                 isMultiSelect={isMultiSelect}
                                 removeOption={removeOption}
                                 disabledValues={disabledValues}
@@ -320,5 +335,3 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
         </Container>
     );
 };
-
-export default BasicSelect;

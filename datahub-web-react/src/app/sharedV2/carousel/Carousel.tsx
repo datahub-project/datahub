@@ -1,5 +1,5 @@
-import NavigateBeforeOutlinedIcon from '@mui/icons-material/NavigateBeforeOutlined';
-import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
+import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -42,19 +42,12 @@ const ButtonContainer = styled.div<{ left?: boolean; right?: boolean }>`
     background-color: ${(props) => props.theme.colors.bg};
 
     :hover {
-        color: ${(props) => props.theme.colors.bg};
+        color: ${(props) => props.theme.colors.textBrandOnBgFill};
         background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
 
     ${({ left }) => left && 'left: -10px;'}
     ${({ right }) => right && 'right: -10px;'}
-`;
-
-const NavigateBeforeOutlinedIconStyle = styled(NavigateBeforeOutlinedIcon)`
-    font-size: 14px !important;
-`;
-const NavigateNextOutlinedIconStyle = styled(NavigateNextOutlinedIcon)`
-    font-size: 14px !important;
 `;
 
 type Props = {
@@ -138,12 +131,12 @@ export function Carousel({ children, className }: Props) {
         <Wrapper>
             {showPrevButton && (
                 <ButtonContainer className="scroll-btn" left onClick={prev}>
-                    <NavigateBeforeOutlinedIconStyle />
+                    <CaretLeft size={14} />
                 </ButtonContainer>
             )}
             {showNextButton && (
                 <ButtonContainer className="scroll-btn" right onClick={next}>
-                    <NavigateNextOutlinedIconStyle />
+                    <CaretRight size={14} />
                 </ButtonContainer>
             )}
             <CarouselHorizontalList ref={scrollRef} hideMask={!showNextButton} className={className}>

@@ -49,7 +49,7 @@ public class SearchUsersResolver implements DataFetcher<CompletableFuture<Search
   @Override
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment)
       throws Exception {
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
 
     if (!AuthorizationUtils.canManageUsersAndGroups(context)) {
       throw new AuthorizationException("Unauthorized to list users and groups.");
@@ -83,7 +83,6 @@ public class SearchUsersResolver implements DataFetcher<CompletableFuture<Search
               ImmutableList.of(
                   new FacetFilterInput(
                       SUB_TYPES_FIELD,
-                      null,
                       ImmutableList.of(SERVICE_ACCOUNT_SUB_TYPE),
                       true, // negated = true to exclude service accounts
                       FilterOperator.EQUAL));

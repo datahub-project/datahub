@@ -15,6 +15,7 @@ import java.lang.reflect.Field;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.mockito.Mock;
@@ -469,6 +470,40 @@ public class MicrometerMetricsRegistryTest {
   }
 
   @Test
+  public void testMonitorExecutorRecordsTaskTimers() throws Exception {
+    ExecutorService monitored =
+        MicrometerMetricsRegistry.monitorExecutor(
+            "monitoredExecutor", realExecutorService, meterRegistry);
+
+    assertNotSame(monitored, realExecutorService);
+    monitored.submit(() -> {}).get(5, TimeUnit.SECONDS);
+
+    assertEquals(
+        meterRegistry.get("executor").tag("name", "monitoredExecutor").timer().count(), 1L);
+    assertEquals(
+        meterRegistry.get("executor.idle").tag("name", "monitoredExecutor").timer().count(), 1L);
+    assertNotNull(meterRegistry.find("executor.queued").tag("name", "monitoredExecutor").gauge());
+  }
+
+  @Test
+  public void testMonitorExecutorReturnsOriginalWhenAlreadyRegistered() {
+    MicrometerMetricsRegistry.monitorExecutor(
+        "monitoredExecutor", realExecutorService, meterRegistry);
+
+    assertSame(
+        MicrometerMetricsRegistry.monitorExecutor(
+            "monitoredExecutor", realExecutorService, meterRegistry),
+        realExecutorService);
+  }
+
+  @Test
+  public void testMonitorExecutorReturnsOriginalWithNullMeterRegistry() {
+    assertSame(
+        MicrometerMetricsRegistry.monitorExecutor("monitoredExecutor", realExecutorService, null),
+        realExecutorService);
+  }
+
+  @Test
   public void testRegisterExecutorWithNullMeterRegistry() {
     // Given
     String executorName = "testExecutor";
@@ -721,6 +756,42 @@ public class MicrometerMetricsRegistryTest {
                           && executorName.equals(meter.getId().getTag("name"))));
     } finally {
       threadPoolExecutor.shutdown();
+    }
+  }
+
+  @Test
+  public void testForkJoinPoolSpecificMetrics() {
+    // A ForkJoinPool (e.g. ForkJoinPool.commonPool(), used by GraphQL when no separate thread pool
+    // is configured) is an ExecutorService, so it must be instrumentable. Micrometer emits a
+    // different metric set for it than for ThreadPoolExecutor: executor.queued (not
+    // executor.queued.tasks), executor.steals/active/running/pool.size, and executor.parallelism.
+    String executorName = "forkJoinPool";
+    ForkJoinPool forkJoinPool = new ForkJoinPool(2);
+
+    try {
+      boolean result =
+          MicrometerMetricsRegistry.registerExecutorMetrics(
+              executorName, forkJoinPool, meterRegistry);
+
+      assertTrue(result);
+
+      // ForkJoinPool uses executor.queued (not executor.queued.tasks used by ThreadPoolExecutor)
+      assertTrue(
+          meterRegistry.getMeters().stream()
+              .anyMatch(
+                  meter ->
+                      meter.getId().getName().contains("executor.queued")
+                          && executorName.equals(meter.getId().getTag("name"))));
+
+      // executor.steals is unique to ForkJoinPool instrumentation
+      assertTrue(
+          meterRegistry.getMeters().stream()
+              .anyMatch(
+                  meter ->
+                      meter.getId().getName().contains("executor.steals")
+                          && executorName.equals(meter.getId().getTag("name"))));
+    } finally {
+      forkJoinPool.shutdown();
     }
   }
 

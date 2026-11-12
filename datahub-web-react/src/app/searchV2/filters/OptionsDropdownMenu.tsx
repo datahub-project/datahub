@@ -1,5 +1,6 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
@@ -63,6 +64,8 @@ export default function OptionsDropdownMenu({
     className,
     isRenderedInSubMenu,
 }: Props) {
+    const { t: tc } = useTranslation('common.actions');
+
     return (
         <DropdownCard
             data-testid="filter-dropdown"
@@ -72,7 +75,7 @@ export default function OptionsDropdownMenu({
             {showSearchBar && (
                 <SearchBarWrapper $shouldAddWrapperStyles={!isRenderedInSubMenu}>
                     <DropdownSearchBar
-                        placeholder={searchPlaceholder || 'Search...'}
+                        placeholder={searchPlaceholder || tc('search')}
                         value={searchQuery}
                         onChange={updateSearchQuery}
                     />
@@ -82,7 +85,7 @@ export default function OptionsDropdownMenu({
                 {menu}
                 {isLoading && (
                     <LoadingWrapper>
-                        <LoadingOutlined />
+                        <Loader size="xs" />
                     </LoadingWrapper>
                 )}
             </ScrollableContent>

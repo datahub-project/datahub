@@ -19,7 +19,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -43,7 +43,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -67,7 +67,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -117,7 +117,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -161,7 +161,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -178,14 +178,14 @@
                 "organization_id": "test-org-uuid",
                 "connection_mode": "bdp"
             },
-            "name": "Snowplow Organization (test-org-uuid)",
+            "name": "Snowplow Organization (Acrylic Datahub)",
             "description": "Snowplow BDP organization containing event and entity schemas",
             "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -201,7 +201,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -217,7 +217,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -235,7 +235,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -251,7 +251,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -935,7 +935,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -960,7 +960,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -976,7 +976,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -994,7 +994,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1010,7 +1010,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1031,7 +1031,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1047,7 +1047,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1070,7 +1070,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1086,7 +1086,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1102,7 +1102,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1120,7 +1120,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1141,7 +1141,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1157,7 +1157,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1180,7 +1180,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1196,7 +1196,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1212,7 +1212,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1230,7 +1230,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1255,7 +1255,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1271,7 +1271,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1291,7 +1291,23 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1420,7 +1436,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1436,7 +1452,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1464,23 +1480,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1498,7 +1498,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1536,7 +1536,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1565,7 +1565,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1622,7 +1622,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1679,7 +1679,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1736,7 +1736,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1793,7 +1793,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1850,7 +1850,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1907,7 +1907,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1964,7 +1964,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1980,7 +1980,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2000,7 +2000,23 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2086,7 +2102,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2102,7 +2118,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2130,23 +2146,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2164,7 +2164,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2194,7 +2194,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2223,7 +2223,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2280,7 +2280,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2337,7 +2337,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2394,7 +2394,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2451,7 +2451,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2467,7 +2467,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2487,7 +2487,23 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2560,7 +2576,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2576,7 +2592,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2603,23 +2619,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2637,7 +2637,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2667,7 +2667,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2696,7 +2696,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2753,7 +2753,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2810,7 +2810,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2867,7 +2867,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2893,7 +2893,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2911,7 +2911,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2927,7 +2927,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2943,7 +2943,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3008,7 +3008,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3029,7 +3029,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3055,7 +3055,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3073,7 +3073,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3089,7 +3089,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3105,7 +3105,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3154,7 +3154,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3175,7 +3175,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3980,7 +3980,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4037,7 +4037,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4094,7 +4094,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4151,7 +4151,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4208,7 +4208,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4265,7 +4265,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4322,7 +4322,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4379,7 +4379,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4436,7 +4436,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4493,7 +4493,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4550,7 +4550,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4607,7 +4607,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4664,7 +4664,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4721,7 +4721,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4778,7 +4778,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4835,7 +4835,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4892,7 +4892,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4949,7 +4949,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5006,7 +5006,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5810,7 +5810,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -6559,7 +6559,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -6616,7 +6616,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -6673,7 +6673,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -6730,7 +6730,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -6787,7 +6787,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -6844,7 +6844,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -6901,7 +6901,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -6958,7 +6958,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -7015,7 +7015,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -7072,7 +7072,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -7129,7 +7129,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -7186,7 +7186,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -7243,7 +7243,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -7965,7 +7965,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -7991,7 +7991,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8007,7 +8007,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8023,7 +8023,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8044,30 +8044,29 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD),07409eac-4a92-4b33-bc91-86029e5c4bb5)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD),campaign-attribution)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
         "json": {
             "customProperties": {
-                "enrichmentId": "07409eac-4a92-4b33-bc91-86029e5c4bb5",
-                "filename": "campaign_attribution.json",
+                "enrichmentId": "campaign-attribution",
+                "filename": "campaign-attribution",
                 "enabled": "True",
-                "lastUpdate": "2025-12-04T12:23:30Z",
                 "pipelineId": "a44e4bc8-6948-4844-91c4-96bfb1f7f3dc",
                 "pipelineName": "Default",
                 "vendor": "com.snowplowanalytics.snowplow",
                 "schema": "iglu:com.snowplowanalytics.snowplow/campaign_attribution/jsonschema/1-0-0",
-                "parameters": "{'fields': {'mktCampaign': ['utm_campaign'], 'mktContent': ['utm_content'], 'mktMedium': ['utm_medium'], 'mktSource': ['utm_source'], 'mktTerm': ['utm_term']}, 'mapping': 'static'}"
+                "parameters": "{'mapping': 'static', 'fields': {'mktCampaign': ['utm_campaign'], 'mktContent': ['utm_content'], 'mktMedium': ['utm_medium'], 'mktSource': ['utm_source'], 'mktTerm': ['utm_term']}}"
             },
-            "name": "campaign_attribution",
-            "description": "## campaign_attribution enrichment\n\n*Extracts marketing campaign parameters from URL query string*\n\n**Adds fields:**\n- `mkt_campaign`\n- `mkt_clickid`\n- `mkt_content`\n- `mkt_medium`\n- `mkt_network`\n- `mkt_source`\n- `mkt_term`\n\n**From source fields:**\n- `page_urlquery`",
+            "name": "campaign-attribution",
+            "description": "## campaign-attribution enrichment\n\n*Extracts marketing campaign parameters from URL query string*\n\n**Adds fields:**\n- `mkt_campaign`\n- `mkt_clickid`\n- `mkt_content`\n- `mkt_medium`\n- `mkt_network`\n- `mkt_source`\n- `mkt_term`\n\n**From source fields:**\n- `page_urlquery`",
             "type": {
                 "string": "ENRICHMENT"
             }
@@ -8075,13 +8074,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD),07409eac-4a92-4b33-bc91-86029e5c4bb5)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD),campaign-attribution)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8091,50 +8090,49 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD),07409eac-4a92-4b33-bc91-86029e5c4bb5)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD),campaign-attribution)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-checkout,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-product-interaction,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-product-interaction,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-checkout,PROD)"
             ],
             "outputDatasets": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD),5c4c8c1b-92cd-4b69-9b13-817facd47a83)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD),event-fingerprint)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
         "json": {
             "customProperties": {
-                "enrichmentId": "5c4c8c1b-92cd-4b69-9b13-817facd47a83",
-                "filename": "event_fingerprint_config.json",
+                "enrichmentId": "event-fingerprint",
+                "filename": "event-fingerprint",
                 "enabled": "True",
-                "lastUpdate": "2025-12-04T12:23:30Z",
                 "pipelineId": "a44e4bc8-6948-4844-91c4-96bfb1f7f3dc",
                 "pipelineName": "Default",
                 "vendor": "com.snowplowanalytics.snowplow",
                 "schema": "iglu:com.snowplowanalytics.snowplow/event_fingerprint_config/jsonschema/1-0-1",
                 "parameters": "{'excludeParameters': ['cv', 'eid', 'nuid', 'stm'], 'hashAlgorithm': 'MD5'}"
             },
-            "name": "event_fingerprint_config",
-            "description": "## event_fingerprint_config enrichment\n\n*Generates hash fingerprint for event deduplication*\n\n**Adds fields:**\n- `event_fingerprint`\n\n**From source fields:**\n- `app_id`\n- `collector_tstamp`\n- `domain_sessionid`\n- `domain_userid`\n- `dvce_created_tstamp`\n- `event`\n- `event_id`\n- `event_name`\n- `network_userid`\n- `platform`\n- `user_id`\n- `user_ipaddress`",
+            "name": "event-fingerprint",
+            "description": "## event-fingerprint enrichment\n\n*Generates hash fingerprint for event deduplication*\n\n**Adds fields:**\n- `event_fingerprint`\n\n**From source fields:**\n- `app_id`\n- `collector_tstamp`\n- `domain_sessionid`\n- `domain_userid`\n- `dvce_created_tstamp`\n- `event`\n- `event_id`\n- `event_name`\n- `network_userid`\n- `platform`\n- `user_id`\n- `user_ipaddress`",
             "type": {
                 "string": "ENRICHMENT"
             }
@@ -8142,13 +8140,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD),5c4c8c1b-92cd-4b69-9b13-817facd47a83)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD),event-fingerprint)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8158,27 +8156,27 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD),5c4c8c1b-92cd-4b69-9b13-817facd47a83)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD),event-fingerprint)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-checkout,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-product-interaction,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-product-interaction,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-checkout,PROD)"
             ],
             "outputDatasets": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8205,7 +8203,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8218,14 +8216,14 @@
         "json": {
             "inputDatasets": [],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-checkout,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-product-interaction,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-product-interaction,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-checkout,PROD)"
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8241,7 +8239,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8257,7 +8255,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8273,7 +8271,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8289,7 +8287,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8305,7 +8303,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8321,7 +8319,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8337,7 +8335,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8353,7 +8351,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8369,7 +8367,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8385,7 +8383,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8401,7 +8399,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8417,7 +8415,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8433,7 +8431,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8449,7 +8447,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8465,7 +8463,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8481,7 +8479,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8497,7 +8495,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8513,7 +8511,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8529,7 +8527,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8545,7 +8543,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8561,7 +8559,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8577,7 +8575,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8593,7 +8591,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8609,7 +8607,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8625,7 +8623,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8641,7 +8639,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8657,7 +8655,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8673,7 +8671,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8689,7 +8687,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8705,7 +8703,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8721,7 +8719,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8737,7 +8735,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8753,7 +8751,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8769,7 +8767,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8785,7 +8783,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8801,7 +8799,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8817,7 +8815,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8833,7 +8831,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8849,7 +8847,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-ymeans",
+        "runId": "snowplow-2024_01_01-00_00_00-aefugh",
         "lastRunId": "no-run-id-provided"
     }
 }

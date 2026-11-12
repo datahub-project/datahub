@@ -50,9 +50,34 @@ The following table contains a brief description of what each data dictionary vi
 
 #### Required Permissions
 
-The following permissions are required based on features used:
+The following permissions are required based on features used.
 
-**Basic Metadata (Tables & Views)**
+**Object Access**
+
+The ingestion user must have SELECT privileges on the tables and views in each schema you want to catalog. Without these grants, `ALL_*` views will not return metadata for those objects.
+
+```sql
+-- Option 1: Grant access to all tables (simplest)
+GRANT SELECT ANY TABLE TO datahub_user;
+
+-- Option 2: Grant access per schema
+BEGIN
+  FOR t IN (SELECT table_name FROM dba_tables WHERE owner = '<SCHEMA_NAME>') LOOP
+    EXECUTE IMMEDIATE 'GRANT SELECT ON <SCHEMA_NAME>.' || t.table_name || ' TO datahub_user';
+  END LOOP;
+END;
+/
+```
+
+If using `data_dictionary_mode: DBA`, object-level grants are not required. Instead, grant one of the following:
+
+```sql
+GRANT SELECT_CATALOG_ROLE TO datahub_user;
+-- OR
+GRANT SELECT ANY DICTIONARY TO datahub_user;
+```
+
+**Data Dictionary Views (Tables & Views)**
 
 ```sql
 -- Using data_dictionary_mode: ALL (default)
@@ -115,3 +140,58 @@ GRANT SELECT_CATALOG_ROLE TO datahub_user;
 ```sql
 GRANT SELECT ON V_$DATABASE TO datahub_user;
 ```
+
+#### Multitenant (CDB/PDB) Environments
+
+In Oracle multitenant architectures (including Exadata), user data lives inside Pluggable Databases (PDBs). The Container Database root (CDB$ROOT) only contains system schemas (SYS, SYSTEM, XDB).
+
+To ingest from a PDB, use `service_name` in your recipe config to connect directly to the PDB rather than the CDB:
+
+```yaml
+source:
+  type: oracle
+  config:
+    host_port: "oracle-host:1521"
+    service_name: "<PDB_SERVICE_NAME>"
+```
+
+Grants must be applied inside each PDB, not at the CDB level:
+
+```sql
+ALTER SESSION SET CONTAINER = <PDB_NAME>;
+GRANT SELECT ANY TABLE TO datahub_user;
+-- (plus dictionary view grants listed above)
+```
+
+If you need to ingest from multiple PDBs, create a separate ingestion source for each PDB service name.
+
+#### High-Availability and TNS Connections
+
+By default the source connects to the single address in `host_port`. If you connect through a TNS connect descriptor instead, for example one that lists several listener addresses for failover, pass it as `dsn` under `options.connect_args`. Everything in `connect_args` goes straight to python-oracledb, and `dsn` takes precedence over `host_port` and `service_name`. `host_port` is still required, but its value is not used when `dsn` is set.
+
+```yaml
+source:
+  type: oracle
+  config:
+    host_port: "unused:1521" # required, but ignored when connect_args.dsn is set
+    username: datahub_user
+    password: "${ORACLE_PASSWORD}"
+    options:
+      connect_args:
+        dsn: "(DESCRIPTION=(FAILOVER=on)(TRANSPORT_CONNECT_TIMEOUT=5)(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=db-a)(PORT=1521))(ADDRESS=(PROTOCOL=TCP)(HOST=db-b)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=<SERVICE_NAME>)))"
+```
+
+`TRANSPORT_CONNECT_TIMEOUT` keeps failover quick when a host is down rather than refusing connections. See the python-oracledb [connect descriptor documentation](https://python-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html#conndescriptor) for the full syntax.
+
+To reuse an existing `tnsnames.ora`, set `dsn` to the alias and `config_dir` to the directory containing the file on the machine that runs ingestion:
+
+```yaml
+options:
+  connect_args:
+    dsn: MY_ALIAS
+    config_dir: /path/to/tns_admin
+```
+
+`config_dir` applies to the default thin mode. Set it explicitly rather than relying on the `TNS_ADMIN` environment variable, which **Test Connection** does not use. With `enable_thick_mode: true`, `config_dir` is ignored and aliases resolve through `TNS_ADMIN`; Test Connection may then fail even though ingestion succeeds, so prefer an inline descriptor in thick mode.
+
+If your cluster exposes a single SCAN address, you don't need any of this: set `host_port` to the SCAN host and port.

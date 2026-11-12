@@ -74,7 +74,7 @@ def test_search_with_filters(mock_client, mock_search_response):
         result = search(query="*", filter="entity_type = dataset")
 
     assert result is not None
-    # Note: execute_graphql is called twice - once for fetch_global_default_view, once for search
+    # Note: execute_graphql is called for resolve_default_view (user + global) then search
     assert mock_client._graph.execute_graphql.called
 
 
@@ -140,7 +140,7 @@ def test_search_with_complex_filters(mock_client, mock_search_response):
         )
 
     assert result is not None
-    # Note: execute_graphql is called twice - once for fetch_global_default_view, once for search
+    # Note: execute_graphql is called for resolve_default_view (user + global) then search
     assert mock_client._graph.execute_graphql.called
 
 
@@ -152,7 +152,7 @@ def test_search_with_string_filters(mock_client, mock_search_response):
         result = search(query="*", filter="entity_type = dataset")
 
     assert result is not None
-    # Note: execute_graphql is called twice - once for fetch_global_default_view, once for search
+    # Note: execute_graphql is called for resolve_default_view (user + global) then search
     assert mock_client._graph.execute_graphql.called
 
 

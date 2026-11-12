@@ -1,7 +1,7 @@
 from typing import Any, Dict
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -36,7 +36,7 @@ def get_default_recipe(
         (True, "glossary_events_auto_id_golden.json"),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_glossary_ingest(
     mock_datahub_graph_instance,
@@ -67,10 +67,11 @@ def test_glossary_ingest(
         pytestconfig,
         output_path=output_mces_path,
         golden_path=golden_mces_path,
+        fail_on_output_mces=True,
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_single_owner_types(
     mock_datahub_graph_instance,
@@ -98,10 +99,11 @@ def test_single_owner_types(
         pytestconfig,
         output_path=output_mces_path,
         golden_path=golden_mces_path,
+        fail_on_output_mces=True,
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_multiple_owners_same_type(
     mock_datahub_graph_instance,
@@ -131,10 +133,11 @@ def test_multiple_owners_same_type(
         pytestconfig,
         output_path=output_mces_path,
         golden_path=golden_mces_path,
+        fail_on_output_mces=True,
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_multiple_owners_different_types(
     mock_datahub_graph_instance,
@@ -164,10 +167,11 @@ def test_multiple_owners_different_types(
         pytestconfig,
         output_path=output_mces_path,
         golden_path=golden_mces_path,
+        fail_on_output_mces=True,
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_custom_ownership_urns(
     mock_datahub_graph_instance,
@@ -195,10 +199,11 @@ def test_custom_ownership_urns(
         pytestconfig,
         output_path=output_mces_path,
         golden_path=golden_mces_path,
+        fail_on_output_mces=True,
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_url_cleaning(
     mock_datahub_graph_instance,
@@ -226,4 +231,5 @@ def test_url_cleaning(
         pytestconfig,
         output_path=output_mces_path,
         golden_path=golden_mces_path,
+        fail_on_output_mces=True,
     )

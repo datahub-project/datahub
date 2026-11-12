@@ -1,0 +1,43 @@
+from dataclasses import dataclass, field
+
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalSourceReport,
+)
+from datahub.utilities.lossy_collections import LossyList
+
+
+@dataclass
+class KafkaSourceReport(StaleEntityRemovalSourceReport):
+    topics_scanned: int = 0
+    filtered: LossyList[str] = field(default_factory=LossyList)
+
+    # Surface profiling/sampling/schema-resolution skips in the report, not just logs.
+    profiling_topics_profiled: int = 0
+    profiling_topics_dropped: int = 0
+    profiling_samples_skipped: int = 0
+    profiling_avro_decode_failures: int = 0
+    schema_inference_sampling_failures: int = 0
+    schema_inference_message_decode_failures: int = 0
+    schema_inference_no_fields: int = 0
+    schema_registry_connectivity_failures: int = 0
+
+    catalog_topics_indexed: int = 0
+    catalog_tagged_topics: int = 0
+    catalog_topics_with_business_metadata: int = 0
+    catalog_mirror_lineage_edges: int = 0
+    catalog_mirror_lineage_skipped: LossyList[str] = field(default_factory=LossyList)
+
+    # Confluent Cloud Flink SQL statement lineage.
+    flink_statements_listed: int = 0
+    flink_jobs_emitted: int = 0
+    flink_topic_lineage_edges: int = 0
+    flink_column_lineage_edges: int = 0
+    flink_statements_not_running: LossyList[str] = field(default_factory=LossyList)
+    flink_statements_skipped: LossyList[str] = field(default_factory=LossyList)
+    flink_statements_other_cluster: LossyList[str] = field(default_factory=LossyList)
+
+    def report_topic_scanned(self) -> None:
+        self.topics_scanned += 1
+
+    def report_dropped(self, topic: str) -> None:
+        self.filtered.append(topic)

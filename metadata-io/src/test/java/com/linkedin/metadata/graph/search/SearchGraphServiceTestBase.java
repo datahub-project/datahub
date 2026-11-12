@@ -6,6 +6,7 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_C
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
@@ -20,7 +21,9 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
+import com.linkedin.metadata.graph.LineageCountResult;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
@@ -41,7 +44,6 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
@@ -79,15 +81,16 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
 
   private final IndexConvention _indexConvention =
       IndexConventionImpl.noPrefix("MD5", SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
-  private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
+  private final String _indexName =
+      _indexConvention.getIndexName(OperationFingerprint.EMPTY, INDEX_NAME);
   private ElasticSearchGraphService _client;
-  private OperationContext operationContext;
 
   private static final String TAG_RELATIONSHIP = "SchemaFieldTaggedWith";
 
   @BeforeClass
   public void setup() {
-    operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    operationContext =
+        TestOperationContexts.withFixedSearchClient(operationContext, getSearchClient());
     _client = buildService(getElasticSearchConfiguration(), TEST_GRAPH_SERVICE_CONFIG);
     _client.reindexAll(operationContext, Collections.emptySet());
   }
@@ -95,8 +98,106 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @BeforeMethod
   public void wipe() throws Exception {
     syncAfterWrite();
-    _client.clear();
+    _client.clear(operationContext);
     syncAfterWrite();
+  }
+
+  @Test
+  public void testLineageCountCountsAViaThatIsAlsoADirectNeighbourOnce() throws Exception {
+    // The usual job-mediated shape: dataJobOne consumes dataset1 and produces dataset2, and the
+    // DownstreamOf edge between the datasets carries dataJobOne as its via. Downstream of
+    // dataset1 the walk reports dataset2 and dataJobOne once each.
+    for (Edge edge :
+        List.of(
+            new Edge(dataJobOneUrn, dataset1Urn, consumes, null, null, null, null, null),
+            new Edge(dataJobOneUrn, dataset2Urn, produces, null, null, null, null, null),
+            new Edge(
+                dataset2Urn,
+                dataset1Urn,
+                downstreamOf,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                dataJobOneUrn))) {
+      _client.addEdge(operationContext, edge);
+    }
+    syncAfterWrite();
+    LineageGraphFilters downstream =
+        LineageGraphFilters.forEntityType(
+            _client.getLineageRegistry(), dataset1Urn.getEntityType(), LineageDirection.DOWNSTREAM);
+
+    LineageCountResult counted =
+        _client.getLineageCount(operationContext, Set.of(dataset1Urn), downstream, 10);
+    EntityLineageResult walked =
+        _client.getLineage(operationContext, dataset1Urn, downstream, 0, 10, 1);
+
+    assertEquals(walked.getTotal().intValue(), 2);
+    assertEquals(counted.getTotal(), 2);
+    assertEquals(new HashSet<>(counted.getSample()), Set.of(dataset2Urn, dataJobOneUrn));
+  }
+
+  @Test
+  public void testLineageCountExcludesGroupMembersUsedAsVia() throws Exception {
+    // dataset2 is downstream of dataset1 via dataset3, and dataset3 is in the counted group: the
+    // walk drops a group member wherever it appears, so it must not be counted as via either.
+    _client.addEdge(
+        operationContext,
+        new Edge(
+            dataset2Urn,
+            dataset1Urn,
+            downstreamOf,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            dataset3Urn));
+    syncAfterWrite();
+    LineageGraphFilters downstream =
+        LineageGraphFilters.forEntityType(
+            _client.getLineageRegistry(), dataset1Urn.getEntityType(), LineageDirection.DOWNSTREAM);
+
+    LineageCountResult counted =
+        _client.getLineageCount(operationContext, Set.of(dataset1Urn, dataset3Urn), downstream, 10);
+
+    assertEquals(counted.getTotal(), 1);
+    assertEquals(counted.getSample(), List.of(dataset2Urn));
+  }
+
+  @Test
+  public void testLineageCountSamplesViaEntities() throws Exception {
+    // dataset2 is downstream of dataset1 through dataJobOne. The walk reports both dataset2 and
+    // the via entity; the count must sample the via entity too, or a deleted or collapsed via
+    // node would be counted without ever being filtered.
+    _client.addEdge(
+        operationContext,
+        new Edge(
+            dataset2Urn,
+            dataset1Urn,
+            downstreamOf,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            dataJobOneUrn));
+    syncAfterWrite();
+    LineageGraphFilters downstream =
+        LineageGraphFilters.forEntityType(
+            _client.getLineageRegistry(), dataset1Urn.getEntityType(), LineageDirection.DOWNSTREAM);
+
+    LineageCountResult counted =
+        _client.getLineageCount(operationContext, Set.of(dataset1Urn), downstream, 10);
+    EntityLineageResult walked =
+        _client.getLineage(operationContext, dataset1Urn, downstream, 0, 10, 1);
+
+    assertEquals(counted.getTotal(), walked.getTotal().intValue());
+    assertEquals(new HashSet<>(counted.getSample()), Set.of(dataset2Urn, dataJobOneUrn));
   }
 
   @Nonnull
@@ -336,7 +437,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
         new DatasetUrn(new DataPlatformUrn("snowflake"), "test", FabricType.TEST);
     TagUrn tagUrn = new TagUrn("newTag");
     Edge edge = new Edge(datasetUrn, tagUrn, TAG_RELATIONSHIP, null, null, null, null, null);
-    getGraphService().addEdge(edge);
+    getGraphService().addEdge(operationContext, edge);
     syncAfterWrite();
     RelatedEntitiesResult result =
         getGraphService()
@@ -351,7 +452,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
                 0,
                 100);
     assertEquals(result.getTotal(), 1);
-    getGraphService().removeEdge(edge);
+    getGraphService().removeEdge(operationContext, edge);
     syncAfterWrite();
     result =
         getGraphService()
@@ -397,7 +498,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
             // One with null values, should always be returned
             new Edge(dataset5Urn, dataset2Urn, downstreamOf, null, null, null, null, null));
 
-    edges.forEach(getGraphService()::addEdge);
+    edges.forEach(edge -> getGraphService().addEdge(operationContext, edge));
     syncAfterWrite();
 
     // Without timestamps
@@ -440,7 +541,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
                 null,
                 null));
 
-    edges.forEach(getGraphService()::addEdge);
+    edges.forEach(edge -> getGraphService().addEdge(operationContext, edge));
     syncAfterWrite();
 
     // Without timestamps
@@ -475,7 +576,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
             // One with null values, should always be returned
             new Edge(dataset5Urn, dataset2Urn, downstreamOf, null, null, null, null, null));
 
-    edges.forEach(getGraphService()::addEdge);
+    edges.forEach(edge -> getGraphService().addEdge(operationContext, edge));
     syncAfterWrite();
 
     EntityLineageResult result = getUpstreamLineage(dataset2Urn, null, null, 10);

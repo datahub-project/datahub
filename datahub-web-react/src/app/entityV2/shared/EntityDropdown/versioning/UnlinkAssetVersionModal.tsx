@@ -1,6 +1,6 @@
-import { Modal } from '@components';
-import { message } from 'antd';
+import { Modal, toast } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -17,6 +17,8 @@ interface Props {
 }
 
 export default function UnlinkAssetVersionModal({ urn, entityType, closeModal, versionSetUrn, refetch }: Props) {
+    const { t } = useTranslation('entity.shared.entityDropdown');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const [unlink] = useUnlinkAssetVersionMutation();
 
@@ -30,32 +32,31 @@ export default function UnlinkAssetVersionModal({ urn, entityType, closeModal, v
                     versionSetUrn,
                     entityType,
                 });
-                message.loading({
-                    content: 'Unlinking...',
-                    duration: 2,
-                });
+                toast.loading(t('unlinkVersion.loading'), { duration: 2 });
 
                 setTimeout(() => {
                     refetch?.();
-                    message.success({
-                        content: `Unlinked ${entityRegistry.getEntityName(entityType)}!`,
-                        duration: 2,
-                    });
+                    toast.success(
+                        t('unlinkVersion.success', {
+                            entityName: entityRegistry.getEntityName(entityType),
+                        }),
+                        { duration: 2 },
+                    );
                 }, 2000);
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to unlink: \n ${e.message || ''}`, duration: 3 });
+                toast.destroy();
+                toast.error(t('unlinkVersion.error', { errorMessage: e.message || '' }), { duration: 3 });
             });
     }
 
     return (
         <Modal
-            title="Are you sure?"
-            subtitle="Would you like to unlink this version?"
+            title={t('unlinkVersion.confirmTitle')}
+            subtitle={t('unlinkVersion.confirmContent')}
             buttons={[
-                { text: 'No', variant: 'text', onClick: closeModal, key: 'no' },
-                { text: 'Yes', variant: 'filled', onClick: handleUnlink, key: 'yes' },
+                { text: tc('no'), variant: 'text', onClick: closeModal, key: 'no' },
+                { text: tc('yes'), variant: 'filled', onClick: handleUnlink, key: 'yes' },
             ]}
             onCancel={closeModal}
         />

@@ -1,16 +1,16 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Bulk Creating Smart Assertions with Python SDK
+# Bulk Creating Assertions with Anomaly Detection via the Python SDK
 
 <FeatureAvailability saasOnly />
 
-This guide specifically covers how to use the [DataHub Cloud Python SDK](https://pypi.org/project/acryl-datahub-cloud/) for **bulk creating smart assertions**, including:
+This guide specifically covers how to use the [DataHub Cloud Python SDK](https://pypi.org/project/acryl-datahub-cloud/) for **bulk creating assertions with [Anomaly Detection](/docs/managed-datahub/observe/anomaly-detection.md) enabled** (formerly referred to as "Smart Assertions"), including:
 
-- Smart Freshness Assertions
-- Smart Volume Assertions
-- Smart Column Metric Assertions
-- Smart SQL Assertions
+- Freshness Assertions with Anomaly Detection (GA)
+- Volume Assertions with Anomaly Detection (GA)
+- Column Metric Assertions with Anomaly Detection (Public Beta)
+- Custom SQL Assertions with Anomaly Detection (Public Beta)
 
 This is particularly useful for applying data quality checks across many tables and columns at scale.
 
@@ -39,7 +39,7 @@ If you attempt to create assertions for entities that do not exist, GMS will con
 
 ### Goal Of This Guide
 
-This guide will show you how to programmatically create large numbers of smart assertions using the DataHub Cloud Python SDK.
+This guide will show you how to programmatically create large numbers of assertions with Anomaly Detection enabled using the DataHub Cloud Python SDK.
 
 ## Overview
 
@@ -145,7 +145,7 @@ critical_datasets = find_tables_by_tag(client, "critical")
 
 ## Step 2: Create Table-Level Assertions
 
-### Smart Freshness Assertions
+### Freshness Assertions with Anomaly Detection
 
 ```python
 # Storage for assertion URNs (for later updates)
@@ -157,17 +157,16 @@ assertion_registry = {
 }
 
 def create_freshness_assertions(datasets, client, registry):
-    """Create smart freshness assertions for multiple datasets."""
+    """Create Freshness assertions with Anomaly Detection for multiple datasets."""
 
     for dataset_urn in datasets:
         try:
-            # Create smart freshness assertion
             freshness_assertion = client.assertions.sync_smart_freshness_assertion(
                 dataset_urn=dataset_urn,
                 display_name=f"Freshness Anomaly Monitor",
                 # Detection mechanism - information_schema is recommended
                 detection_mechanism="information_schema",
-                # Smart sensitivity setting
+                # AI sensitivity setting
                 sensitivity="medium",  # options: "low", "medium", "high"
                 # Tags for grouping (supports urns or plain tag names!)
                 tags=["automated", "freshness", "data_quality"],
@@ -187,21 +186,20 @@ def create_freshness_assertions(datasets, client, registry):
 create_freshness_assertions(datasets, client, assertion_registry)
 ```
 
-### Smart Volume Assertions
+### Volume Assertions with Anomaly Detection
 
 ```python
 def create_volume_assertions(datasets, client, registry):
-    """Create smart volume assertions for multiple datasets."""
+    """Create Volume assertions with Anomaly Detection for multiple datasets."""
 
     for dataset_urn in datasets:
         try:
-            # Create smart volume assertion
             volume_assertion = client.assertions.sync_smart_volume_assertion(
                 dataset_urn=dataset_urn,
-                display_name=f"Smart Volume Check",
+                display_name=f"Volume Anomaly Monitor",
                 # Detection mechanism options
                 detection_mechanism="information_schema",
-                # Smart sensitivity setting
+                # AI sensitivity setting
                 sensitivity="medium",
                 # Tags for grouping
                 tags=["automated", "volume", "data_quality"],
@@ -223,11 +221,11 @@ def create_volume_assertions(datasets, client, registry):
 create_volume_assertions(datasets, client, assertion_registry)
 ```
 
-### Smart SQL Assertions
+### Custom SQL Assertions with Anomaly Detection (Public Beta)
 
 ```python
 def create_smart_sql_assertions(datasets, client, registry):
-    """Create smart SQL assertions for multiple datasets."""
+    """Create Custom SQL assertions with Anomaly Detection for multiple datasets."""
 
     # Define SQL queries to run on each table
     sql_queries = {
@@ -241,34 +239,31 @@ def create_smart_sql_assertions(datasets, client, registry):
 
         for query_name, query_template in sql_queries.items():
             try:
-                # Build the query with the table name
                 table_name = dataset_urn.name
                 statement = query_template.format(table_name=table_name)
 
-                # Create smart SQL assertion
                 sql_assertion = client.assertions.sync_smart_sql_assertion(
                     dataset_urn=dataset_urn,
-                    display_name=f"Smart SQL - {query_name}",
+                    display_name=f"SQL Anomaly Monitor - {query_name}",
                     statement=statement,
                     # AI-powered sensitivity setting
                     sensitivity="medium",  # options: "low", "medium", "high"
                     # Tags for grouping
-                    tags=["automated", "smart_sql", query_name],
+                    tags=["automated", "anomaly_detection", query_name],
                     # Schedule
                     schedule="0 */6 * * *",  # Every 6 hours
                     # Enable the assertion
                     enabled=True
                 )
 
-                # Store the assertion URN
                 registry["smart_sql"][str(dataset_urn)][query_name] = str(sql_assertion.urn)
 
-                print(f"✅ Created smart SQL assertion '{query_name}' for {dataset_urn.name}: {sql_assertion.urn}")
+                print(f"✅ Created Custom SQL anomaly monitor '{query_name}' for {dataset_urn.name}: {sql_assertion.urn}")
 
             except Exception as e:
-                print(f"❌ Failed to create smart SQL assertion '{query_name}' for {dataset_urn.name}: {e}")
+                print(f"❌ Failed to create Custom SQL anomaly monitor '{query_name}' for {dataset_urn.name}: {e}")
 
-# Create smart SQL assertions for all datasets
+# Create Custom SQL anomaly monitors for all datasets
 create_smart_sql_assertions(datasets, client, assertion_registry)
 ```
 
@@ -304,11 +299,11 @@ for dataset_urn in datasets:
 
 ## Step 4: Create Column-Level Assertions
 
-### Smart Column Metric Assertions
+### Column Metric Assertions with Anomaly Detection (Public Beta)
 
 ```python
 def create_column_assertions(datasets, columns_dict, client, registry):
-    """Create smart column metric assertions for multiple datasets and columns."""
+    """Create Column Metric assertions with Anomaly Detection for multiple datasets and columns."""
 
     # Define rules for which columns should get which assertions
     assertion_rules = {
@@ -602,7 +597,7 @@ Our backend is designed to handle large scale operations. However, since writes 
 ```python
 #!/usr/bin/env python3
 """
-Complete example script for bulk creating smart assertions.
+Complete example script for bulk creating assertions with Anomaly Detection enabled.
 """
 
 import json
@@ -679,4 +674,4 @@ if __name__ == "__main__":
     main()
 ```
 
-This guide provides a comprehensive approach to bulk creating smart assertions using the DataHub Cloud Python SDK. The new tag name auto-conversion feature makes it easier to organize and manage your assertions with simple, readable tag names that are automatically converted to proper URN format.
+This guide provides a comprehensive approach to bulk creating assertions (with [Anomaly Detection](/docs/managed-datahub/observe/anomaly-detection.md) enabled where supported) using the DataHub Cloud Python SDK. The new tag name auto-conversion feature makes it easier to organize and manage your assertions with simple, readable tag names that are automatically converted to proper URN format.

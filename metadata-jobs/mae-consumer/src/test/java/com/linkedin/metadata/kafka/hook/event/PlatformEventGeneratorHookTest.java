@@ -60,6 +60,8 @@ import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.eventgenerator.*;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
@@ -78,6 +80,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.Map;
 import org.mockito.Mockito;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -87,6 +90,7 @@ import org.testng.annotations.Test;
  * <p>TODO: Include more Schema Field Tests for tags, terms and schema-changes.
  */
 public class PlatformEventGeneratorHookTest {
+
   private static final long EVENT_TIME = 123L;
 
   private static final String TEST_DATASET_URN =
@@ -105,6 +109,17 @@ public class PlatformEventGeneratorHookTest {
   private EventProducer mockProducer;
   private SystemEntityClient mockProcessInstanceEntityClient;
   private PlatformEventGeneratorHook _entityChangeEventHook;
+  private OperationContext opContext;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
+  }
 
   @BeforeMethod
   public void setupTest() throws URISyntaxException {
@@ -113,9 +128,9 @@ public class PlatformEventGeneratorHookTest {
     mockProcessInstanceEntityClient = Mockito.mock(SystemEntityClient.class);
     EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry =
         createEntityChangeEventGeneratorRegistry(mockProcessInstanceEntityClient);
+    opContext = createMockOperationContext();
     _entityChangeEventHook =
-        new PlatformEventGeneratorHook(
-            createMockOperationContext(), entityChangeEventGeneratorRegistry, mockProducer, true);
+        new PlatformEventGeneratorHook(entityChangeEventGeneratorRegistry, mockProducer, true);
   }
 
   @Test
@@ -134,7 +149,7 @@ public class PlatformEventGeneratorHookTest {
     event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
 
     // No previous tags aspect.
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     // Create Platform Event
     PlatformEvent platformEvent =
@@ -144,10 +159,35 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.TAG,
             ChangeOperation.ADD,
             newTagUrn.toString(),
-            ImmutableMap.of("tagUrn", newTagUrn.toString(), "context", "{}"),
+            ImmutableMap.of("tagUrn", newTagUrn.toString(), "context", "{}", "sourceDetails", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);
+  }
+
+  @Test
+  public void testAllowlistedAspectMissingFromKnownEntityTypeIsSkipped() throws Exception {
+    // After a version rollback a newer build may have attached an allowlisted aspect (globalTags)
+    // to an existing entity type that does not have it in this build. No change events, no NPE.
+    final String entityType = "entityWithoutGlobalTags";
+    Mockito.when(opContext.getEntityRegistry().getEntitySpec(entityType))
+        .thenReturn(Mockito.mock(EntitySpec.class));
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(entityType);
+    event.setAspectName(GLOBAL_TAGS_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setAspect(
+        GenericRecordUtils.serializeAspect(
+            new GlobalTags()
+                .setTags(
+                    new TagAssociationArray(
+                        ImmutableList.of(new TagAssociation().setTag(new TagUrn("Test")))))));
+    event.setEntityUrn(Urn.createFromString("urn:li:" + entityType + ":abc"));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    _entityChangeEventHook.invoke(opContext, event);
+
+    Mockito.verifyNoInteractions(mockProducer);
   }
 
   @Test
@@ -166,7 +206,7 @@ public class PlatformEventGeneratorHookTest {
     event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
 
     // No previous tags aspect.
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     // Create Platform Event
     PlatformEvent platformEvent =
@@ -176,7 +216,149 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.TAG,
             ChangeOperation.REMOVE,
             newTagUrn.toString(),
-            ImmutableMap.of("tagUrn", newTagUrn.toString(), "context", "{}"),
+            ImmutableMap.of("tagUrn", newTagUrn.toString(), "context", "{}", "sourceDetails", "{}"),
+            actorUrn);
+
+    verifyProducePlatformEvent(mockProducer, platformEvent);
+  }
+
+  @Test
+  public void testInvokeStampsSyncIngestMarkerWhenEnabled() throws Exception {
+    // Hook with sync-ingest stamping enabled (mirrors entityService.syncIngestStamping=true).
+    PlatformEventGeneratorHook hook =
+        new PlatformEventGeneratorHook(
+            createEntityChangeEventGeneratorRegistry(mockProcessInstanceEntityClient),
+            mockProducer,
+            true,
+            "",
+            ImmutableList.of(),
+            ImmutableList.of(),
+            true);
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(GLOBAL_TAGS_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    final GlobalTags newTags = new GlobalTags();
+    final TagUrn newTagUrn = new TagUrn("Test");
+    newTags.setTags(
+        new TagAssociationArray(ImmutableList.of(new TagAssociation().setTag(newTagUrn))));
+    event.setAspect(GenericRecordUtils.serializeAspect(newTags));
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+    // MCL carries the emitModeMarker=sync marker (stamped upstream by GMS for a
+    // sync-origin write; the same marker already published by acryl-datahub's REST
+    // emitter, see Constants.EMIT_MODE_MARKER_KEY).
+    event.setSystemMetadata(
+        new com.linkedin.mxe.SystemMetadata()
+            .setProperties(
+                new com.linkedin.data.template.StringMap(
+                    ImmutableMap.of(EMIT_MODE_MARKER_KEY, EMIT_MODE_MARKER_SYNC))));
+
+    hook.invoke(createMockOperationContext(), event);
+
+    // The marker is carried forward onto the emitted change event's parameters.
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            DATASET_ENTITY_NAME,
+            Urn.createFromString(TEST_DATASET_URN),
+            ChangeCategory.TAG,
+            ChangeOperation.ADD,
+            newTagUrn.toString(),
+            ImmutableMap.of(
+                "tagUrn",
+                newTagUrn.toString(),
+                "context",
+                "{}",
+                "sourceDetails",
+                "{}",
+                EMIT_MODE_MARKER_KEY,
+                EMIT_MODE_MARKER_SYNC),
+            actorUrn);
+
+    verifyProducePlatformEvent(mockProducer, platformEvent);
+  }
+
+  @Test
+  public void testInvokeDoesNotStampSyncIngestMarkerWhenDisabled() throws Exception {
+    // The default hook has stamping disabled; even when the MCL carries the
+    // emitModeMarker=sync marker it must not propagate to the platform event (the
+    // flag gates it).
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(GLOBAL_TAGS_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    final GlobalTags newTags = new GlobalTags();
+    final TagUrn newTagUrn = new TagUrn("Test");
+    newTags.setTags(
+        new TagAssociationArray(ImmutableList.of(new TagAssociation().setTag(newTagUrn))));
+    event.setAspect(GenericRecordUtils.serializeAspect(newTags));
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+    event.setSystemMetadata(
+        new com.linkedin.mxe.SystemMetadata()
+            .setProperties(
+                new com.linkedin.data.template.StringMap(
+                    ImmutableMap.of(EMIT_MODE_MARKER_KEY, EMIT_MODE_MARKER_SYNC))));
+
+    _entityChangeEventHook.invoke(opContext, event);
+
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            DATASET_ENTITY_NAME,
+            Urn.createFromString(TEST_DATASET_URN),
+            ChangeCategory.TAG,
+            ChangeOperation.ADD,
+            newTagUrn.toString(),
+            ImmutableMap.of("tagUrn", newTagUrn.toString(), "context", "{}", "sourceDetails", "{}"),
+            actorUrn);
+
+    verifyProducePlatformEvent(mockProducer, platformEvent);
+  }
+
+  @Test
+  public void testInvokeStampingEnabledButSourceMetadataLacksMarker() throws Exception {
+    // Stamping enabled, but the MCL's system metadata carries no emitModeMarker: the
+    // marker-presence half of hasSyncIngestFlag must leave the emitted event unmarked
+    // (an async-origin write must not be relabeled sync just because the flag is on).
+    PlatformEventGeneratorHook hook =
+        new PlatformEventGeneratorHook(
+            createEntityChangeEventGeneratorRegistry(mockProcessInstanceEntityClient),
+            mockProducer,
+            true,
+            "",
+            ImmutableList.of(),
+            ImmutableList.of(),
+            true);
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(GLOBAL_TAGS_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    final GlobalTags newTags = new GlobalTags();
+    final TagUrn newTagUrn = new TagUrn("Test");
+    newTags.setTags(
+        new TagAssociationArray(ImmutableList.of(new TagAssociation().setTag(newTagUrn))));
+    event.setAspect(GenericRecordUtils.serializeAspect(newTags));
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+    // System metadata present but WITHOUT the marker key.
+    event.setSystemMetadata(
+        new com.linkedin.mxe.SystemMetadata()
+            .setProperties(
+                new com.linkedin.data.template.StringMap(
+                    ImmutableMap.of("registryName", "unusedRegistry"))));
+
+    hook.invoke(createMockOperationContext(), event);
+
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            DATASET_ENTITY_NAME,
+            Urn.createFromString(TEST_DATASET_URN),
+            ChangeCategory.TAG,
+            ChangeOperation.ADD,
+            newTagUrn.toString(),
+            ImmutableMap.of("tagUrn", newTagUrn.toString(), "context", "{}", "sourceDetails", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);
@@ -202,7 +384,7 @@ public class PlatformEventGeneratorHookTest {
     event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
 
     // No previous tags aspect.
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     // Create Platform Event
     PlatformEvent platformEvent =
@@ -212,7 +394,8 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.GLOSSARY_TERM,
             ChangeOperation.ADD,
             glossaryTermUrn.toString(),
-            ImmutableMap.of("termUrn", glossaryTermUrn.toString(), "context", "{}"),
+            ImmutableMap.of(
+                "termUrn", glossaryTermUrn.toString(), "context", "{}", "sourceDetails", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);
@@ -238,7 +421,7 @@ public class PlatformEventGeneratorHookTest {
     event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
 
     // No previous tags aspect.
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     // Create Platform Event
     PlatformEvent platformEvent =
@@ -248,7 +431,8 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.GLOSSARY_TERM,
             ChangeOperation.REMOVE,
             glossaryTermUrn.toString(),
-            ImmutableMap.of("termUrn", glossaryTermUrn.toString(), "context", "{}"),
+            ImmutableMap.of(
+                "termUrn", glossaryTermUrn.toString(), "context", "{}", "sourceDetails", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);
@@ -269,7 +453,7 @@ public class PlatformEventGeneratorHookTest {
     event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
 
     // No previous tags aspect.
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     // Create Platform Event
     PlatformEvent platformEvent =
@@ -279,7 +463,8 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.DOMAIN,
             ChangeOperation.ADD,
             domainUrn.toString(),
-            ImmutableMap.of("domainUrn", domainUrn.toString()),
+            ImmutableMap.of(
+                "domainUrn", domainUrn.toString(), "context", "{}", "sourceDetails", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);
@@ -300,7 +485,7 @@ public class PlatformEventGeneratorHookTest {
     event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
 
     // No previous tags aspect.
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     // Create Platform Event
     PlatformEvent platformEvent =
@@ -310,7 +495,8 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.DOMAIN,
             ChangeOperation.REMOVE,
             domainUrn.toString(),
-            ImmutableMap.of("domainUrn", domainUrn.toString()),
+            ImmutableMap.of(
+                "domainUrn", domainUrn.toString(), "context", "{}", "sourceDetails", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);
@@ -344,7 +530,7 @@ public class PlatformEventGeneratorHookTest {
     event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
 
     // No previous tags aspect.
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     // Create Platform Event
     PlatformEvent platformEvent1 =
@@ -358,7 +544,9 @@ public class PlatformEventGeneratorHookTest {
                 "ownerUrn",
                 ownerUrn1.toString(),
                 "ownerType",
-                OwnershipType.TECHNICAL_OWNER.toString()),
+                OwnershipType.TECHNICAL_OWNER.toString(),
+                "sourceDetails",
+                "{}"),
             actorUrn);
     verifyProducePlatformEvent(mockProducer, platformEvent1, false);
 
@@ -373,7 +561,9 @@ public class PlatformEventGeneratorHookTest {
                 "ownerUrn",
                 ownerUrn2.toString(),
                 "ownerType",
-                OwnershipType.BUSINESS_OWNER.toString()),
+                OwnershipType.BUSINESS_OWNER.toString(),
+                "sourceDetails",
+                "{}"),
             actorUrn);
     verifyProducePlatformEvent(mockProducer, platformEvent2, false);
 
@@ -390,7 +580,9 @@ public class PlatformEventGeneratorHookTest {
                 "ownerType",
                 OwnershipType.CUSTOM.toString(),
                 "ownerTypeUrn",
-                "urn:li:ownershipType:my_custom_type"),
+                "urn:li:ownershipType:my_custom_type",
+                "sourceDetails",
+                "{}"),
             actorUrn);
     verifyProducePlatformEvent(mockProducer, platformEvent3, true);
   }
@@ -414,7 +606,7 @@ public class PlatformEventGeneratorHookTest {
     event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
 
     // No previous tags aspect.
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     // Create Platform Event
     PlatformEvent platformEvent =
@@ -454,7 +646,7 @@ public class PlatformEventGeneratorHookTest {
     event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
 
     // No previous tags aspect.
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     // Create Platform Event
     PlatformEvent platformEvent =
@@ -488,7 +680,7 @@ public class PlatformEventGeneratorHookTest {
     event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
 
     // No previous tags aspect.
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     // Create Platform Event
     PlatformEvent platformEvent =
@@ -520,7 +712,7 @@ public class PlatformEventGeneratorHookTest {
     event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
 
     // No previous tags aspect.
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     // Create Platform Event
     PlatformEvent platformEvent =
@@ -557,7 +749,7 @@ public class PlatformEventGeneratorHookTest {
     event.setEntityType(ASSERTION_ENTITY_NAME);
     event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     Map<String, Object> paramsMap =
         ImmutableMap.of(
@@ -610,7 +802,7 @@ public class PlatformEventGeneratorHookTest {
                 any(OperationContext.class), eq(dataProcessInstanceUrn), any()))
         .thenReturn(entityResponse);
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     Map<String, Object> parameters =
         ImmutableMap.of(
@@ -667,7 +859,7 @@ public class PlatformEventGeneratorHookTest {
                 any(OperationContext.class), eq(dataProcessInstanceUrn), any()))
         .thenReturn(entityResponse);
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     Map<String, Object> parameters =
         ImmutableMap.of(
@@ -710,7 +902,7 @@ public class PlatformEventGeneratorHookTest {
     event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
 
     // No previous tags aspect.
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
     // Verify 0 interactions
     Mockito.verifyNoMoreInteractions(mockProducer);
   }
@@ -727,7 +919,7 @@ public class PlatformEventGeneratorHookTest {
 
     event.setAspect(
         GenericRecordUtils.serializeAspect(new DatasetProperties().setDescription(newDescription)));
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     PlatformEvent platformEvent =
         createChangeEvent(
@@ -755,7 +947,7 @@ public class PlatformEventGeneratorHookTest {
         GenericRecordUtils.serializeAspect(new DatasetProperties().setDescription(newDescription)));
     event.setPreviousAspectValue(GenericRecordUtils.serializeAspect(new DatasetProperties()));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     PlatformEvent platformEvent =
         createChangeEvent(
@@ -784,7 +976,7 @@ public class PlatformEventGeneratorHookTest {
     event.setPreviousAspectValue(
         GenericRecordUtils.serializeAspect(new DatasetProperties().setDescription("Old desc")));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     PlatformEvent platformEvent =
         createChangeEvent(
@@ -793,7 +985,7 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.MODIFY,
             null,
-            ImmutableMap.of("description", newDescription),
+            ImmutableMap.of("description", newDescription, "previousDescription", "Old desc"),
             actorUrn);
     verifyProducePlatformEvent(mockProducer, platformEvent);
   }
@@ -812,7 +1004,7 @@ public class PlatformEventGeneratorHookTest {
     event.setPreviousAspectValue(
         GenericRecordUtils.serializeAspect(new DatasetProperties().setDescription(oldDescription)));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     PlatformEvent platformEvent =
         createChangeEvent(
@@ -839,7 +1031,7 @@ public class PlatformEventGeneratorHookTest {
     event.setAspect(
         GenericRecordUtils.serializeAspect(
             new EditableDatasetProperties().setDescription(newDescription)));
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     PlatformEvent platformEvent =
         createChangeEvent(
@@ -869,7 +1061,7 @@ public class PlatformEventGeneratorHookTest {
     event.setPreviousAspectValue(
         GenericRecordUtils.serializeAspect(new EditableDatasetProperties()));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     PlatformEvent platformEvent =
         createChangeEvent(
@@ -900,7 +1092,7 @@ public class PlatformEventGeneratorHookTest {
         GenericRecordUtils.serializeAspect(
             new EditableDatasetProperties().setDescription("Old desc")));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     PlatformEvent platformEvent =
         createChangeEvent(
@@ -909,7 +1101,7 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.MODIFY,
             null,
-            ImmutableMap.of("description", newDescription),
+            ImmutableMap.of("description", newDescription, "previousDescription", "Old desc"),
             actorUrn);
     verifyProducePlatformEvent(mockProducer, platformEvent);
   }
@@ -929,7 +1121,7 @@ public class PlatformEventGeneratorHookTest {
         GenericRecordUtils.serializeAspect(
             new EditableDatasetProperties().setDescription(oldDescription)));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     PlatformEvent platformEvent =
         createChangeEvent(
@@ -976,7 +1168,7 @@ public class PlatformEventGeneratorHookTest {
         GenericRecordUtils.serializeAspect(new SchemaMetadata().setFields(oldFields)));
     event.setAspect(GenericRecordUtils.serializeAspect(new SchemaMetadata().setFields(newFields)));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     verifyProducePlatformEvent(
         mockProducer,
@@ -1000,7 +1192,14 @@ public class PlatformEventGeneratorHookTest {
             ChangeOperation.MODIFY,
             null,
             ImmutableMap.of(
-                "description", "newC2Desc", "fieldPath", "c2", "parentUrn", TEST_DATASET_URN),
+                "description",
+                "newC2Desc",
+                "previousDescription",
+                "oldC2Desc",
+                "fieldPath",
+                "c2",
+                "parentUrn",
+                TEST_DATASET_URN),
             actorUrn),
         false);
 
@@ -1054,7 +1253,7 @@ public class PlatformEventGeneratorHookTest {
         GenericRecordUtils.serializeAspect(
             new EditableSchemaMetadata().setEditableSchemaFieldInfo(newFields)));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     verifyProducePlatformEvent(
         mockProducer,
@@ -1078,7 +1277,14 @@ public class PlatformEventGeneratorHookTest {
             ChangeOperation.MODIFY,
             null,
             ImmutableMap.of(
-                "description", "newC2Desc", "fieldPath", "c2", "parentUrn", TEST_DATASET_URN),
+                "description",
+                "newC2Desc",
+                "previousDescription",
+                "oldC2Desc",
+                "fieldPath",
+                "c2",
+                "parentUrn",
+                TEST_DATASET_URN),
             actorUrn),
         false);
 
@@ -1146,7 +1352,7 @@ public class PlatformEventGeneratorHookTest {
         GenericRecordUtils.serializeAspect(new SchemaMetadata().setFields(oldFields)));
     event.setAspect(GenericRecordUtils.serializeAspect(new SchemaMetadata().setFields(newFields)));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     verifyProducePlatformEvent(
         mockProducer,
@@ -1290,7 +1496,7 @@ public class PlatformEventGeneratorHookTest {
         GenericRecordUtils.serializeAspect(
             new EditableSchemaMetadata().setEditableSchemaFieldInfo(newFields)));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     verifyProducePlatformEvent(
         mockProducer,
@@ -1427,7 +1633,7 @@ public class PlatformEventGeneratorHookTest {
         GenericRecordUtils.serializeAspect(new SchemaMetadata().setFields(oldFields)));
     event.setAspect(GenericRecordUtils.serializeAspect(new SchemaMetadata().setFields(newFields)));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     verifyProducePlatformEvent(
         mockProducer,
@@ -1576,7 +1782,7 @@ public class PlatformEventGeneratorHookTest {
         GenericRecordUtils.serializeAspect(
             new EditableSchemaMetadata().setEditableSchemaFieldInfo(newFields)));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     verifyProducePlatformEvent(
         mockProducer,
@@ -1687,7 +1893,7 @@ public class PlatformEventGeneratorHookTest {
 
     event.setAspect(GenericRecordUtils.serializeAspect(upstreamLineage));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     verifyProduceRelationshipPlatformEvent(
         mockProducer,
@@ -1732,7 +1938,7 @@ public class PlatformEventGeneratorHookTest {
 
     event.setAspect(GenericRecordUtils.serializeAspect(upstreamLineage));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     verifyProduceRelationshipPlatformEvent(
         mockProducer,
@@ -1774,7 +1980,7 @@ public class PlatformEventGeneratorHookTest {
     event.setPreviousAspectValue(GenericRecordUtils.serializeAspect(upstreamLineage));
     event.setAspect(GenericRecordUtils.serializeAspect(new UpstreamLineage()));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     verifyProduceRelationshipPlatformEvent(
         mockProducer,
@@ -1814,7 +2020,7 @@ public class PlatformEventGeneratorHookTest {
 
     event.setPreviousAspectValue(GenericRecordUtils.serializeAspect(upstreamLineage));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     verifyProduceRelationshipPlatformEvent(
         mockProducer,
@@ -1854,7 +2060,7 @@ public class PlatformEventGeneratorHookTest {
 
     event.setAspect(GenericRecordUtils.serializeAspect(dataJobInputOutput));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     verifyProduceRelationshipPlatformEvent(
         mockProducer,
@@ -1886,7 +2092,7 @@ public class PlatformEventGeneratorHookTest {
     newProperties.setProperties(new StructuredPropertyValueAssignmentArray(assignment));
     event.setAspect(GenericRecordUtils.serializeAspect(newProperties));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     PlatformEvent platformEvent =
         createChangeEvent(
@@ -1896,7 +2102,12 @@ public class PlatformEventGeneratorHookTest {
             ChangeOperation.ADD,
             propertyUrn.toString(),
             ImmutableMap.of(
-                "propertyUrn", propertyUrn.toString(), "propertyValues", "[\"testValue\"]"),
+                "propertyUrn",
+                propertyUrn.toString(),
+                "propertyValues",
+                "[\"testValue\"]",
+                "sourceDetails",
+                "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);
@@ -1925,7 +2136,7 @@ public class PlatformEventGeneratorHookTest {
     newProperties.setProperties(new StructuredPropertyValueAssignmentArray());
     event.setAspect(GenericRecordUtils.serializeAspect(newProperties));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     PlatformEvent platformEvent =
         createChangeEvent(
@@ -1935,7 +2146,12 @@ public class PlatformEventGeneratorHookTest {
             ChangeOperation.REMOVE,
             propertyUrn.toString(),
             ImmutableMap.of(
-                "propertyUrn", propertyUrn.toString(), "propertyValues", "[\"testValue\"]"),
+                "propertyUrn",
+                propertyUrn.toString(),
+                "propertyValues",
+                "[\"testValue\"]",
+                "sourceDetails",
+                "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);
@@ -1974,7 +2190,7 @@ public class PlatformEventGeneratorHookTest {
     newProperties.setProperties(new StructuredPropertyValueAssignmentArray(newAssignment));
     event.setAspect(GenericRecordUtils.serializeAspect(newProperties));
 
-    _entityChangeEventHook.invoke(event);
+    _entityChangeEventHook.invoke(opContext, event);
 
     PlatformEvent platformEvent =
         createChangeEvent(
@@ -1984,7 +2200,12 @@ public class PlatformEventGeneratorHookTest {
             ChangeOperation.MODIFY,
             propertyUrn.toString(),
             ImmutableMap.of(
-                "propertyUrn", propertyUrn.toString(), "propertyValues", "[\"newValue\"]"),
+                "propertyUrn",
+                propertyUrn.toString(),
+                "propertyValues",
+                "[\"newValue\"]",
+                "sourceDetails",
+                "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);
@@ -2171,6 +2392,10 @@ public class PlatformEventGeneratorHookTest {
 
     Mockito.when(registry.getEntitySpec(eq(DATASET_ENTITY_NAME))).thenReturn(datasetSpec);
 
+    // Safe lookups are interface default methods; let them delegate to the stubbed getEntitySpec.
+    Mockito.when(registry.findEntitySpec(Mockito.anyString())).thenCallRealMethod();
+    Mockito.when(registry.findAspectSpec(Mockito.anyString(), Mockito.anyString()))
+        .thenCallRealMethod();
     return TestOperationContexts.systemContextNoSearchAuthorization(registry);
   }
 
@@ -2202,7 +2427,10 @@ public class PlatformEventGeneratorHookTest {
     // Verify event has been emitted.
     verify(eventProducer, Mockito.times(1))
         .producePlatformEvent(
-            eq(name), Mockito.anyString(), argThat(new PlatformEventMatcher(platformEvent)));
+            any(OperationContext.class),
+            eq(name),
+            Mockito.anyString(),
+            argThat(new PlatformEventMatcher(platformEvent)));
 
     if (noMoreInteractions) {
       Mockito.verifyNoMoreInteractions(mockProducer);

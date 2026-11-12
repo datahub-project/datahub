@@ -1,5 +1,6 @@
 import { Modal, Skeleton } from 'antd';
 import React, { useContext } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
@@ -14,7 +15,7 @@ const PathWrapper = styled.div`
     display: inline-block;
     margin: 15px 0 15px -4px;
     padding: 20px;
-    border: 1px solid ${(props) => props.theme.colors.bgSurface};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 8px;
     box-shadow: ${(props) => props.theme.colors.shadowSm};
     width: 100%;
@@ -38,6 +39,7 @@ interface Props {
 }
 
 export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: Props) {
+    const { t } = useTranslation('entity.preview');
     const { lineageDirection } = useContext(LineageTabContext);
     const displayedColumns = getDisplayedColumns(paths, resultEntityUrn);
 
@@ -56,7 +58,7 @@ export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: 
     const fetchedEntities = result?.entities;
 
     const loadedState = error ? (
-        <ErrorContainer>Encountered an error while trying to fetch paths. Please try again later.</ErrorContainer>
+        <ErrorContainer>{t('columnPaths.error')}</ErrorContainer>
     ) : (
         paths.map((path, i) => {
             const entities: Entity[] = (
@@ -82,8 +84,14 @@ export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: 
             data-testid="entity-paths-modal"
             title={
                 <Header>
-                    Column path{paths.length > 1 && 's'} from{' '}
-                    <ColumnsRelationshipText displayedColumns={displayedColumns} />
+                    <Trans
+                        t={t}
+                        i18nKey="columnPaths.modalTitle"
+                        count={paths.length}
+                        components={{
+                            relationship: <ColumnsRelationshipText displayedColumns={displayedColumns} />,
+                        }}
+                    />
                 </Header>
             }
             width="75vw"

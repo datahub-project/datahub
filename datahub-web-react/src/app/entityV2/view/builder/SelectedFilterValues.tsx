@@ -1,12 +1,13 @@
 import { Icon, Text } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { buildEntityMap } from '@app/entityV2/view/builder/utils';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import { useGetEntities } from '@app/sharedV2/useGetEntities';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataHubPageModuleType, Entity } from '@types';
 
@@ -14,12 +15,14 @@ const Container = styled.div`
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-height: 0;
 `;
 
 const ResultsContainer = styled.div`
     overflow-y: auto;
     scrollbar-gutter: stable;
     max-height: 300px;
+    min-height: 0;
 `;
 
 const EmptyContainer = styled.div`
@@ -48,10 +51,18 @@ type Props = {
  * Displays selected assets grouped by entity type, with remove buttons.
  */
 export function SelectedFilterValues({ selectedUrns, onRemoveUrn }: Props) {
-    const entityRegistry = useEntityRegistryV2();
-    const { entities } = useGetEntities(selectedUrns);
+    const { t } = useTranslation('entity.views');
+    const entityRegistry = useEntityRegistry();
+    // Cache resolved entities and fetch only new URNs, so the list doesn't empty (flicker) on each change
+    const [entitiesMap, setEntitiesMap] = useState<Record<string, Entity>>({});
+    const unresolvedUrns = useMemo(() => selectedUrns.filter((urn) => !entitiesMap[urn]), [selectedUrns, entitiesMap]);
+    const { entities } = useGetEntities(unresolvedUrns);
 
-    const entitiesMap = useMemo(() => buildEntityMap(entities), [entities]);
+    useEffect(() => {
+        if (entities.length) {
+            setEntitiesMap((prev) => ({ ...prev, ...buildEntityMap(entities) }));
+        }
+    }, [entities]);
 
     // Group resolved entities by their entity type for display
     const groupedByType = useMemo(() => {
@@ -89,10 +100,10 @@ export function SelectedFilterValues({ selectedUrns, onRemoveUrn }: Props) {
         return (
             <Container>
                 <Text color="gray" weight="bold">
-                    Selected Assets
+                    {t('selectAssets.selectedAssetsTitle')}
                 </Text>
                 <EmptyContainer>
-                    <Text color="gray">No assets selected.</Text>
+                    <Text color="gray">{t('selectAssets.noAssetsSelected')}</Text>
                 </EmptyContainer>
             </Container>
         );
@@ -101,7 +112,7 @@ export function SelectedFilterValues({ selectedUrns, onRemoveUrn }: Props) {
     return (
         <Container>
             <Text color="gray" weight="bold">
-                Selected Assets
+                {t('selectAssets.selectedAssetsTitle')}
             </Text>
             <ResultsContainer data-testid="selected-filter-values-list">
                 {Object.entries(groupedByType).map(([typeLabel, typeEntities]) => (

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 import {
@@ -7,9 +8,13 @@ import {
     __federation_method_unwrapDefault as unwrapModule,
 } from 'virtual:__federation__';
 
+import analytics, { EventType, MfeLoadOutcome } from '@app/analytics';
 import { ErrorComponent } from '@app/mfeframework/ErrorComponent';
 import { MFEConfig } from '@app/mfeframework/mfeConfigLoader';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+
+// Used when the MFE config yaml specifies no loadTimeoutMs.
+export const DEFAULT_LOAD_TIMEOUT_MS = 10000;
 
 const MFEConfigurableContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => props.theme.colors.bg};
@@ -18,7 +23,6 @@ const MFEConfigurableContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>
         props.$isShowNavBarRedesign &&
         `
         height: 100%;
-        margin: 5px;
         overflow: auto;
         box-shadow: ${props.theme.colors.shadowSm};
     `}
@@ -39,6 +43,7 @@ interface MountMFEParams {
     containerElement: HTMLDivElement | null;
     onError: () => void;
     aliveRef: { current: boolean };
+    loadTimeoutMs: number;
 }
 
 async function mountMFE({
@@ -46,9 +51,23 @@ async function mountMFE({
     containerElement,
     onError,
     aliveRef,
+    loadTimeoutMs,
 }: MountMFEParams): Promise<(() => void) | undefined> {
     const { module, remoteEntry } = config;
     const mountStart = performance.now();
+    let timedOut = false;
+
+    // Reports how the load ended. Called exactly once per mountMFE call, on every return path.
+    const trackLoad = (outcome: MfeLoadOutcome) => {
+        analytics.event({
+            type: EventType.MfeLoadEvent,
+            mfeId: config.id,
+            mfeLabel: config.label,
+            outcome,
+            durationMs: Math.round(performance.now() - mountStart),
+            loadTimeoutMs,
+        });
+    };
 
     if (import.meta.env.DEV) {
         console.log('MFE id: ', config.id, ' Mounting start ');
@@ -76,12 +95,13 @@ async function mountMFE({
         };
         setRemote(remoteName, remoteConfig);
 
-        // Create a timeout promise that rejects in a few seconds
+        // Create a timeout promise that rejects once the configured load timeout elapses
+        let timeoutHandle: number | undefined;
         const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(
-                () => reject(new Error(`Timeout loading from remote ${remoteName}, module: ${modulePathWithDot}`)),
-                5000,
-            );
+            timeoutHandle = window.setTimeout(() => {
+                timedOut = true;
+                reject(new Error(`Timeout loading from remote ${remoteName}, module: ${modulePathWithDot}`));
+            }, loadTimeoutMs);
         });
 
         // Race between getRemote and timeout
@@ -89,7 +109,10 @@ async function mountMFE({
         if (import.meta.env.DEV) {
             console.log('[HOST] Attempting to load remote module with config:', remoteConfig);
         }
-        const remoteModule = await Promise.race([getRemote(remoteName, modulePathWithDot), timeoutPromise]);
+        // Clear the timer once the race settles so it doesn't outlive a successful load or an unmount.
+        const remoteModule = await Promise.race([getRemote(remoteName, modulePathWithDot), timeoutPromise]).finally(
+            () => window.clearTimeout(timeoutHandle),
+        );
         const fetchEnd = performance.now();
         if (import.meta.env.DEV) {
             console.log(`latency for remote module fetch: ${config.id}`, fetchEnd - fetchStart, 'ms');
@@ -112,17 +135,20 @@ async function mountMFE({
 
         if (!aliveRef.current) {
             console.error('[HOST] import/mount has failed due to timeout.');
+            trackLoad('abandoned');
             return undefined;
         }
         if (!config.flags.enabled) {
             console.warn(
                 '[HOST] skipping remote module loading for<config.id> because planning not to show it, enabled=false',
             );
+            trackLoad('disabled');
             return undefined;
         }
 
         if (!containerElement) {
             console.warn('[HOST] ref is null (container div not in DOM');
+            trackLoad('container_missing');
             return undefined;
         }
 
@@ -131,6 +157,7 @@ async function mountMFE({
                 console.warn('MFE id: ', config.id, ' Mounting failed');
                 console.warn('[HOST] mount is not a function; got: ', maybeFn);
             }
+            trackLoad('invalid_mount');
             return undefined;
         }
         const mountFnStart = performance.now();
@@ -145,20 +172,34 @@ async function mountMFE({
         if (import.meta.env.DEV) {
             console.log(`latency for successful MFE id: ${config.id}`, latency, 'ms');
         }
+        trackLoad('success');
         return cleanup;
     } catch (e) {
         if (import.meta.env.DEV) {
             console.log(`latency for unsuccessful MFE id: ${config.id}`, performance.now() - mountStart, 'ms');
             console.error('[HOST] import/mount failed:', e);
         }
-        if (aliveRef.current) {
+        if (!aliveRef.current) {
+            trackLoad('abandoned');
+        } else {
+            trackLoad(timedOut ? 'timeout' : 'load_error');
             onError();
         }
         return undefined;
     }
 }
 
-export const MFEBaseConfigurablePage = ({ config }: { config: MFEConfig }) => {
+interface MFEBaseConfigurablePageProps {
+    config: MFEConfig;
+    // Already resolved from the yaml by useDynamicRoutes (the yaml's loadTimeoutMs, else the default).
+    loadTimeoutMs?: number;
+}
+
+export const MFEBaseConfigurablePage = ({
+    config,
+    loadTimeoutMs = DEFAULT_LOAD_TIMEOUT_MS,
+}: MFEBaseConfigurablePageProps) => {
+    const { t } = useTranslation('misc');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const box = useRef<HTMLDivElement>(null);
     const history = useHistory();
@@ -169,11 +210,19 @@ export const MFEBaseConfigurablePage = ({ config }: { config: MFEConfig }) => {
         aliveRef.current = true;
         let cleanup: (() => void) | undefined;
 
+        analytics.event({
+            type: EventType.MfePageViewEvent,
+            mfeId: config.id,
+            mfeLabel: config.label,
+            mfePath: config.path,
+        });
+
         mountMFE({
             config,
             containerElement: box.current,
             onError: () => setHasError(true),
             aliveRef,
+            loadTimeoutMs,
         }).then((cleanupFn) => {
             cleanup = cleanupFn;
         });
@@ -192,13 +241,13 @@ export const MFEBaseConfigurablePage = ({ config }: { config: MFEConfig }) => {
                 }
             }
         };
-    }, [config, history]);
+    }, [config, history, loadTimeoutMs]);
 
     if (hasError) {
-        return <ErrorComponent message={`${config.label} is not available at this time`} />;
+        return <ErrorComponent message={t('mfeframework.notAvailableError', { label: config.label })} />;
     }
     if (!config.flags.enabled) {
-        return <ErrorComponent message={`${config.label} is disabled.`} />;
+        return <ErrorComponent message={t('mfeframework.disabledError', { label: config.label })} />;
     }
 
     return (

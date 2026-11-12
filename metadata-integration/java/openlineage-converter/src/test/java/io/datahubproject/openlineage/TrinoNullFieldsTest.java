@@ -315,6 +315,59 @@ public class TrinoNullFieldsTest {
     }
   }
 
+  /** Test that SchemaDatasetFacet fields can omit "type" without failing conversion. */
+  @Test
+  public void testSchemaFacetWithFieldsMissingType() throws Exception {
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .orchestrator("trino")
+            .materializeDataset(true)
+            .captureColumnLevelLineage(false)
+            .build();
+
+    OpenLineage openLineage = new OpenLineage(TRINO_PRODUCER_URI);
+
+    OpenLineage.SchemaDatasetFacetFields fieldA =
+        openLineage.newSchemaDatasetFacetFieldsBuilder().name("col_a").build();
+    OpenLineage.SchemaDatasetFacetFields fieldB =
+        openLineage.newSchemaDatasetFacetFieldsBuilder().name("col_b").build();
+
+    OpenLineage.SchemaDatasetFacet schemaFacet =
+        openLineage.newSchemaDatasetFacetBuilder().fields(Arrays.asList(fieldA, fieldB)).build();
+
+    OpenLineage.DatasetFacets datasetFacets =
+        openLineage.newDatasetFacetsBuilder().schema(schemaFacet).build();
+
+    OpenLineage.InputDataset inputDataset =
+        openLineage
+            .newInputDatasetBuilder()
+            .namespace("trino://example-host:443")
+            .name("schema.table.source")
+            .facets(datasetFacets)
+            .build();
+
+    OpenLineage.RunEvent runEvent =
+        openLineage
+            .newRunEventBuilder()
+            .eventTime(ZonedDateTime.now())
+            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
+            .run(openLineage.newRunBuilder().runId(UUID.randomUUID()).build())
+            .job(
+                openLineage
+                    .newJobBuilder()
+                    .namespace("trino-ci")
+                    .name("repro-missing-type")
+                    .facets(openLineage.newJobFacetsBuilder().build())
+                    .build())
+            .inputs(Arrays.asList(inputDataset))
+            .outputs(Collections.emptyList())
+            .build();
+
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, config);
+    assertNotNull(datahubJob, "Should handle SchemaDatasetFacet fields without a type gracefully");
+  }
+
   /**
    * Test handling of SchemaDatasetFacet with empty fields list.
    *

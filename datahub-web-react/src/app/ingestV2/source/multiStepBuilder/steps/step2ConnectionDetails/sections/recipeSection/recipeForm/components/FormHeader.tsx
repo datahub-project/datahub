@@ -1,5 +1,6 @@
 import { Text } from '@components';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
@@ -15,6 +16,7 @@ const Wrapper = styled.div`
 const INGESTION_SECURITY_URL = 'https://docs.datahub.com/docs/metadata-ingestion-security';
 
 export function FormHeader() {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const { state } = useMultiStepContext<MultiStepSourceBuilderState, IngestionSourceFormStep>();
     const { type } = state;
     const { ingestionSources } = useIngestionSources();
@@ -24,15 +26,22 @@ export function FormHeader() {
     return (
         <Wrapper>
             <Text weight="semiBold" size="lg">
-                {sourceDisplayName} Connection Details
+                {t('multiStep.recipeForm.connectionDetailsTitle', { sourceDisplayName })}
             </Text>
             <Text type="span">
-                Configure how DataHub connects to {sourceDisplayName}.{' '}
-                <Text type="span" size="sm">
-                    <a href={INGESTION_SECURITY_URL} target="_blank" rel="noreferrer">
-                        Learn more about keeping credentials in your environment.
-                    </a>
-                </Text>
+                <Trans
+                    t={t}
+                    i18nKey="multiStep.recipeForm.connectionDetailsDescription"
+                    values={{ sourceDisplayName }}
+                    components={{
+                        securityText: <Text type="span" size="sm" />,
+                        securityLink: (
+                            <a href={INGESTION_SECURITY_URL} target="_blank" rel="noreferrer">
+                                {null}
+                            </a>
+                        ),
+                    }}
+                />
             </Text>
         </Wrapper>
     );

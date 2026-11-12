@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
+import time_machine
 from botocore.stub import Stubber
-from freezegun import freeze_time
 
 import datahub.ingestion.source.aws.sagemaker_processors.models
 from datahub.ingestion.api.common import PipelineContext
@@ -52,7 +52,7 @@ def sagemaker_source() -> SagemakerSource:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_sagemaker_ingest(tmp_path, pytestconfig):
     sagemaker_source_instance = sagemaker_source()
 
@@ -230,18 +230,19 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             "get_client",
             return_value=sagemaker_source_instance.sagemaker_client,
         ):
-            # Run the test and generate the MCEs
+            # Run the test and generate the work units
             mce_objects = [
                 wu.metadata for wu in sagemaker_source_instance.get_workunits()
             ]
-            write_metadata_file(tmp_path / "sagemaker_mces.json", mce_objects)
+            write_metadata_file(tmp_path / "sagemaker.json", mce_objects)
 
     # Verify the output.
     test_resources_dir = pytestconfig.rootpath / "tests/unit/sagemaker"
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "sagemaker_mces.json",
-        golden_path=test_resources_dir / "sagemaker_mces_golden.json",
+        output_path=tmp_path / "sagemaker.json",
+        golden_path=test_resources_dir / "sagemaker_golden.json",
+        fail_on_output_mces=True,
     )
 
 

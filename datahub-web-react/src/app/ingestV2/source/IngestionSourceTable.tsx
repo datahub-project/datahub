@@ -2,6 +2,7 @@ import { Column, Table } from '@components';
 import { SorterResult } from 'antd/lib/table/interface';
 import * as QueryString from 'query-string';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
@@ -21,7 +22,7 @@ import { IngestionSourceTableData } from '@app/ingestV2/source/types';
 import { getSourceStatus } from '@app/ingestV2/source/utils';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { IngestionSource } from '@types';
 
@@ -62,8 +63,10 @@ function IngestionSourceTable({
     executedUrns,
     setSelectedTab,
 }: Props) {
+    const { t } = useTranslation('ingestion');
+    const { t: tl } = useTranslation('common.labels');
     const history = useHistory();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const tableData: IngestionSourceTableData[] = sources.map((source) => ({
         urn: source.urn,
@@ -101,7 +104,7 @@ function IngestionSourceTable({
 
     const tableColumns: Column<IngestionSourceTableData>[] = [
         {
-            title: 'Name',
+            title: tl('name'),
             key: 'name',
             render: (record) => {
                 return <NameColumn type={record.type} record={record} onNameClick={() => onEdit(record.urn)} />;
@@ -111,20 +114,20 @@ function IngestionSourceTable({
             onCellClick: (record) => onEdit(record.urn),
         },
         {
-            title: 'Schedule',
+            title: t('source.colSchedule'),
             key: 'schedule',
             render: (record) => <ScheduleColumn schedule={record.schedule || ''} timezone={record.timezone || ''} />,
             width: '20%',
         },
         {
-            title: 'Owner',
+            title: tl('owner'),
             key: 'owner',
             render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
             width: '20%',
             cellWrapper: wrapOwnerColumnWithHover,
         },
         {
-            title: 'Last Run',
+            title: t('source.colLastRun'),
             key: 'lastRun',
             render: (record) => <DateTimeColumn time={record.lastExecTime} showRelative />,
             width: '20%',
@@ -132,7 +135,7 @@ function IngestionSourceTable({
             cellWrapper: (content, record) => wrapDateTimeColumnWithHover(content, record.lastExecTime),
         },
         {
-            title: 'Status',
+            title: tl('status'),
             key: 'status',
             render: (record) => (
                 <StatusColumn
@@ -181,10 +184,7 @@ function IngestionSourceTable({
             isLoading={isLoading}
             footer={
                 isLastPage ? (
-                    <TableFooter
-                        hiddenItemsMessage="Some ingestion sources may be hidden"
-                        colSpan={tableColumns.length}
-                    />
+                    <TableFooter hiddenItemsMessage={t('source.someHidden')} colSpan={tableColumns.length} />
                 ) : null
             }
             rowDataTestId={(row) => `row-${row.name}`}

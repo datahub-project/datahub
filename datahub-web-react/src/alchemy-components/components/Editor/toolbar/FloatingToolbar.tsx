@@ -1,13 +1,10 @@
-import {
-    BoldOutlined,
-    DisconnectOutlined,
-    EditOutlined,
-    ItalicOutlined,
-    LinkOutlined,
-    UnderlineOutlined,
-} from '@ant-design/icons';
+import { Link as LinkIcon } from '@phosphor-icons/react/dist/csr/Link';
+import { LinkBreak } from '@phosphor-icons/react/dist/csr/LinkBreak';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { TextB } from '@phosphor-icons/react/dist/csr/TextB';
+import { TextItalic } from '@phosphor-icons/react/dist/csr/TextItalic';
+import { TextUnderline } from '@phosphor-icons/react/dist/csr/TextUnderline';
 import { FloatingWrapper, useActive, useAttrs, useCommands } from '@remirror/react';
-import { Typography } from 'antd';
 import React, { useMemo, useState } from 'react';
 import { createMarkPositioner } from 'remirror/extensions';
 import styled from 'styled-components';
@@ -15,8 +12,7 @@ import styled from 'styled-components';
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
 import { CodeIcon } from '@components/components/Editor/toolbar/Icons';
 import { LinkModal } from '@components/components/Editor/toolbar/LinkModal';
-
-const { Text } = Typography;
+import { Text } from '@components/components/Text';
 
 export const ToolbarContainer = styled.span`
     display: flex;
@@ -53,11 +49,13 @@ export const FloatingToolbar = () => {
 
     const linkCommmands = (
         <ToolbarContainer>
-            <LinkText type="secondary">{href}</LinkText>
-            <CommandButton size="small" icon={<EditOutlined />} commandName="editLink" onClick={handleEditLink} />
+            <LinkText type="span" color="textSecondary">
+                {href}
+            </LinkText>
+            <CommandButton size="small" icon={<PencilSimple />} commandName="editLink" onClick={handleEditLink} />
             <CommandButton
                 size="small"
-                icon={<DisconnectOutlined />}
+                icon={<LinkBreak />}
                 commandName="toggleLink"
                 onClick={() => commands.removeLink()}
             />
@@ -76,28 +74,28 @@ export const FloatingToolbar = () => {
                     <ToolbarContainer>
                         <CommandButton
                             size="small"
-                            icon={<BoldOutlined />}
+                            icon={<TextB />}
                             commandName="toggleBold"
                             active={active.bold()}
                             onClick={() => commands.toggleBold()}
                         />
                         <CommandButton
                             size="small"
-                            icon={<ItalicOutlined />}
+                            icon={<TextItalic />}
                             commandName="toggleItalic"
                             active={active.italic()}
                             onClick={() => commands.toggleItalic()}
                         />
                         <CommandButton
                             size="small"
-                            icon={<UnderlineOutlined />}
+                            icon={<TextUnderline />}
                             commandName="toggleUnderline"
                             active={active.underline()}
                             onClick={() => commands.toggleUnderline()}
                         />
                         <CommandButton
                             size="small"
-                            icon={<LinkOutlined />}
+                            icon={<LinkIcon />}
                             commandName="updateLink"
                             onClick={handleEditLink}
                         />

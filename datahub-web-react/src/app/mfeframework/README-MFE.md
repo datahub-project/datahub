@@ -18,6 +18,7 @@ Most examples include both a "host app" and a "remote app." For DataHub, you onl
 Edit [`mfe.config.local.yaml`](/datahub-frontend/conf/mfe.config.local.yaml) to resemble the following:
 
 ```yaml
+topLevelMenuTitle: My Apps
 subNavigationMode: false
 microFrontends:
     - id: HelloWorld
@@ -51,6 +52,37 @@ To ensure compatibility between the DataHub MFE configuration above and your act
   ]
 ```
 
+### Tuning the Remote Load Timeout
+
+DataHub waits a fixed amount of time for an MFE's remote module to load before giving up and
+rendering the "not available at this time" error state. The default is **10000 ms**, which can be
+too short for a large bundle or a slow network.
+
+Set `loadTimeoutMs` (in milliseconds) at the top level to change it for every MFE:
+
+```yaml
+topLevelMenuTitle: My Apps
+subNavigationMode: false
+loadTimeoutMs: 30000 # applies to every MFE below
+microFrontends:
+    - id: HelloWorld
+      label: HelloWorld DEV
+      path: /helloworld-mfe
+      remoteEntry: http://localhost:3002/remoteEntry.js
+      module: helloWorldMFE/mount
+      flags:
+          enabled: true
+          showInNav: true
+      navIcon: HandWaving
+```
+
+When `loadTimeoutMs` is not set, 10000 ms is used, so existing configs keep working unchanged. A
+value that is not a positive number, or is above 2147483647 (the browser timer limit), is logged and
+ignored — it falls back to 10000 ms rather than taking the MFE offline.
+
+Note that `datahub-frontend` reads the config file once at startup and serves it with a 5-minute
+browser cache, so a change here needs a `datahub-frontend` restart to take effect.
+
 ### Build the `datahub-frontend` Binary
 
 ```shell
@@ -83,6 +115,35 @@ As described in the [DataHub Quickstart Guide](https://docs.datahub.com/docs/qui
 
 Navigate to [http://localhost:9002](http://localhost:9002).  
 You should see a waving hand menu item in the left navigation bar.
+
+## Telemetry
+
+DataHub records product analytics events for MFEs through the same pipeline as every other UI
+event (see [`src/app/analytics/README.md`](../analytics/README.md)). Events are sent to GMS and
+indexed in the `datahub_usage_event` index, and to any configured third-party provider (Mixpanel,
+Amplitude, Google Analytics). Every event carries the standard base fields, including `actorUrn`,
+`timestamp`, and `browserId`, so you can answer "who uses this MFE" and "how often" by filtering on
+the fields below.
+
+| Event              | When it fires                                                                    | MFE-specific fields                                                         |
+| ------------------ | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `MfePageViewEvent` | An `/mfe/<path>` route renders, whether reached from the nav bar or a direct URL | `mfeId`, `mfeLabel`, `mfePath`                                              |
+| `MfeLoadEvent`     | The remote module load settles, successfully or not                              | `mfeId`, `mfeLabel`, `outcome`, `durationMs`, `loadTimeoutMs`               |
+| `NavBarItemClick`  | The MFE's nav bar entry is clicked                                               | `label` (the MFE label, or the menu title with `subLabel` in dropdown mode) |
+| `PageViewEvent`    | Any route change, including `/mfe/<path>`                                        | none (filter on the page path)                                              |
+
+`outcome` on `MfeLoadEvent` is one of:
+
+- `success`: the remote's `mount` function was called.
+- `timeout`: the remote did not load within `loadTimeoutMs`.
+- `load_error`: fetching or unwrapping the remote module failed (for example, `remoteEntry.js` returned an error).
+- `invalid_mount`: the remote loaded but exposed no `mount` function.
+- `container_missing`: the host container element was not in the DOM.
+- `disabled`: the MFE has `flags.enabled: false`, so it was not mounted.
+- `abandoned`: the user left the page before the remote finished loading.
+
+A visit that produces an `MfePageViewEvent` with no matching `MfeLoadEvent` means the user navigated
+away before the load settled and the page unmounted before the remote responded.
 
 ## Deploying to Kubernetes
 

@@ -18,9 +18,12 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchSuite;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import lombok.extern.slf4j.Slf4j;
@@ -71,9 +74,10 @@ public class ParallelReindexOrchestratorIT extends AbstractTestNGSpringContextTe
             .redRecoverySeconds(10)
             .build();
     CircuitBreakerState circuitBreakerState = new CircuitBreakerState(buildIndicesConfiguration);
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     orchestrator =
         new ParallelReindexOrchestrator(
-            esIndexBuilder, buildIndicesConfiguration, circuitBreakerState);
+            opContext, esIndexBuilder, buildIndicesConfiguration, circuitBreakerState);
   }
 
   /** Test orchestrator initialization and basic configuration */
@@ -98,24 +102,26 @@ public class ParallelReindexOrchestratorIT extends AbstractTestNGSpringContextTe
       settings.put("number_of_replicas", 0);
       createRequest.settings(settings);
 
-      searchClient.createIndex(createRequest, RequestOptions.DEFAULT);
+      searchClient.createIndex(OperationFingerprint.EMPTY, createRequest, RequestOptions.DEFAULT);
       log.info("Created test index: {}", testIndexName);
 
       // Verify index exists
       assertTrue(
           searchClient.indexExists(
+              OperationFingerprint.EMPTY,
               new org.opensearch.client.indices.GetIndexRequest(testIndexName),
               RequestOptions.DEFAULT),
           "Index should exist after creation");
 
       // Delete index
       DeleteIndexRequest deleteRequest = new DeleteIndexRequest(testIndexName);
-      searchClient.deleteIndex(deleteRequest, RequestOptions.DEFAULT);
+      searchClient.deleteIndex(OperationFingerprint.EMPTY, deleteRequest, RequestOptions.DEFAULT);
       log.info("Deleted test index: {}", testIndexName);
 
       // Verify index is deleted
       assertFalse(
           searchClient.indexExists(
+              OperationFingerprint.EMPTY,
               new org.opensearch.client.indices.GetIndexRequest(testIndexName),
               RequestOptions.DEFAULT),
           "Index should not exist after deletion");
@@ -125,7 +131,8 @@ public class ParallelReindexOrchestratorIT extends AbstractTestNGSpringContextTe
       // Cleanup on failure
       try {
         DeleteIndexRequest cleanupRequest = new DeleteIndexRequest(testIndexName);
-        searchClient.deleteIndex(cleanupRequest, RequestOptions.DEFAULT);
+        searchClient.deleteIndex(
+            OperationFingerprint.EMPTY, cleanupRequest, RequestOptions.DEFAULT);
       } catch (Exception cleanupEx) {
         log.warn("Cleanup failed for index: {}", testIndexName, cleanupEx);
       }

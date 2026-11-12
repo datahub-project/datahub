@@ -5,6 +5,7 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.AuthorizerContext;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.authorization.SessionActorIdentity;
 import com.datahub.plugins.Plugin;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.Constants;
@@ -15,6 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * An Authorizer is responsible for determining whether an actor should be granted a specific
@@ -75,6 +77,29 @@ public interface Authorizer extends Plugin {
    */
   default Set<DataHubPolicyInfo> getActorPolicies(@Nonnull Urn actorUrn) {
     return Collections.emptySet();
+  }
+
+  /**
+   * Given the actor's urn retrieve the policies, using preloaded group membership when provided to
+   * avoid redundant storage reads.
+   */
+  default Set<DataHubPolicyInfo> getActorPolicies(
+      @Nonnull Urn actorUrn, @Nullable Collection<Urn> preloadedGroups) {
+    return getActorPolicies(actorUrn, preloadedGroups, null);
+  }
+
+  default Set<DataHubPolicyInfo> getActorPolicies(
+      @Nonnull Urn actorUrn,
+      @Nullable Collection<Urn> preloadedGroups,
+      @Nullable Set<Urn> preloadedDirectRoles) {
+    return getActorPolicies(actorUrn);
+  }
+
+  /**
+   * Resolves corp + native group membership and direct roles for a corp user in one storage read.
+   */
+  default Optional<SessionActorIdentity> resolveSessionActorIdentity(@Nonnull Urn actorUrn) {
+    return Optional.empty();
   }
 
   /** Given the actor's urn retrieve the actor's groups */

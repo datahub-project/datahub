@@ -3,7 +3,6 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import (
-    TYPE_CHECKING,
     Any,
     Collection,
     Iterable,
@@ -54,9 +53,6 @@ from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.time import ts_millis_to_datetime
 
-if TYPE_CHECKING:
-    from pydantic.deprecated.class_validators import V1Validator
-
 logger: logging.Logger = logging.getLogger(__name__)
 
 EXTERNAL_LINEAGE = "external_lineage"
@@ -64,7 +60,7 @@ TABLE_LINEAGE = "table_lineage"
 VIEW_LINEAGE = "view_lineage"
 
 
-def pydantic_parse_json(field: str) -> "V1Validator":
+def pydantic_parse_json(field: str) -> Any:
     def _parse_from_json(cls: Type, v: Any) -> dict:
         if isinstance(v, str):
             return json.loads(v)
@@ -525,7 +521,8 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             return None
         column_lineage = ColumnLineageInfo(
             downstream=DownstreamColumnRef(
-                table=dataset_urn, column=self.identifiers.snowflake_identifier(col)
+                table=dataset_urn,
+                column=self.identifiers.snowflake_column_identifier(col),
             ),
             upstreams=sorted(column_upstreams),
         )
@@ -556,7 +553,7 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                 column_upstreams.append(
                     ColumnRef(
                         table=self.identifiers.gen_dataset_urn(upstream_dataset_name),
-                        column=self.identifiers.snowflake_identifier(
+                        column=self.identifiers.snowflake_column_identifier(
                             upstream_col.column_name
                         ),
                     )
@@ -590,9 +587,10 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             )
         ):
             # Skip this run
-            self.report.report_warning(
-                "lineage-extraction",
-                "Skip this run as there was already a run for current ingestion window.",
+            self.report.warning(
+                message="Skip this run as there was already a run for current ingestion window.",
+                context="lineage-extraction",
+                log=False,
             )
             return False
         return True

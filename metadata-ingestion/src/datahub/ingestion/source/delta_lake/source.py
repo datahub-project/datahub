@@ -22,7 +22,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags
 from datahub.ingestion.source.aws.s3_util import (
@@ -46,15 +47,10 @@ from datahub.ingestion.source.delta_lake.delta_lake_utils import (
     read_delta_table,
 )
 from datahub.ingestion.source.delta_lake.report import DeltaLakeSourceReport
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaMetadata,
@@ -65,6 +61,7 @@ from datahub.metadata.schema_classes import (
     OperationTypeClass,
     OtherSchemaClass,
     SchemaFieldClass,
+    _Aspect,
 )
 from datahub.telemetry import telemetry
 from datahub.utilities.delta import delta_type_to_hive_type
@@ -93,8 +90,12 @@ OPERATION_STATEMENT_TYPES = {
 
 @platform_name("Delta Lake", id="delta-lake")
 @config_class(DeltaLakeSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default from Delta table history",
+)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
@@ -248,10 +249,7 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
             self.source_config.platform_instance,
             self.source_config.env,
         )
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[Status(removed=False)],
-        )
+        aspects: List[_Aspect] = [Status(removed=False)]
 
         customProperties = {
             "partition_columns": str(delta_table.metadata().partition_columns),
@@ -268,7 +266,7 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
             name=table_name,
             customProperties=customProperties,
         )
-        dataset_snapshot.aspects.append(dataset_properties)
+        aspects.append(dataset_properties)
 
         fields = self.get_fields(delta_table)
         schema_metadata = SchemaMetadata(
@@ -279,7 +277,7 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
             fields=fields,
             platformSchema=OtherSchemaClass(rawSchema=""),
         )
-        dataset_snapshot.aspects.append(schema_metadata)
+        aspects.append(schema_metadata)
 
         if (
             self.source_config.is_s3
@@ -301,9 +299,12 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
                 self.source_config.s3.use_s3_object_tags,
             )
             if s3_tags is not None:
-                dataset_snapshot.aspects.append(s3_tags)
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        yield MetadataWorkUnit(id=str(delta_table.metadata().id), mce=mce)
+                aspects.append(s3_tags)
+        yield from auto_workunit(
+            MetadataChangeProposalWrapper.construct_many(
+                entityUrn=dataset_urn, aspects=aspects
+            )
+        )
 
         yield from self.container_WU_creator.create_container_hierarchy(
             browse_path, dataset_urn
@@ -439,14 +440,6 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
         )
         for folder in list_folders(path_parts.container_name, prefix, azure_config):
             yield azure_config.get_abfss_url(folder)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.container_WU_creator = ContainerWUCreator(

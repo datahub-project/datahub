@@ -38,8 +38,16 @@ Known limitations:
       expressible in SQL syntax; use JSON format if needed.
     - Custom (unrecognized) field names preserve the user's original casing;
       built-in fields are normalized case-insensitively.
-    - Values containing special characters (spaces, ``=``, parentheses,
-      commas) must be quoted: ``tag = "urn:li:tag:my tag"``.
+    - Unquoted values may contain spaces: a run of bare words is joined into a
+      single value, so ``subtype = Fact Sheet`` parses.  Quote a value only when
+      it contains a ``,`` or ``)`` of its own — dataset URNs carry both, so they
+      need quotes inside an ``IN`` list — or, outside an ``IN`` list, when it
+      literally contains AND/OR/NOT.  The trade-off is that a missing comma
+      inside an ``IN`` list reads as one long value instead of raising; it fails
+      closed, matching nothing, rather than returning wrong rows.
+    - Over-escaped quoting (``\\"value\\"``, from a caller that escaped the
+      quotes a second time while building a JSON string) is read as ordinary
+      quoting.  Escapes inside a normally-quoted string keep their meaning.
     - Comparison operators (``>``, ``>=``, ``<``, ``<=``) bypass the typed
       filter classes and emit raw ``_CustomCondition`` rules.  No validation
       is performed on whether the operator makes sense for the field; using
@@ -48,7 +56,7 @@ Known limitations:
 """
 
 from enum import Enum
-from typing import List, Sequence, Union
+from typing import List, Sequence, Tuple, Union
 
 from datahub.ingestion.graph.filters import RemovedStatusFilter
 from datahub.sdk.search_filters import Filter, FilterDsl as F, _EnvFilter
@@ -104,14 +112,14 @@ FILTER SYNTAX (SQL-like WHERE clause):
     - status: NOT_SOFT_DELETED, ALL, ONLY_SOFT_DELETED
     - deprecated: true or false (whether the entity is marked as deprecated)
     - hasActiveIncidents: true or false (whether the entity has active incidents)
-    - hasFailingAssertions: true or false (whether the entity has failing assertions)
     - columnCount: number of columns (from dataset profiling)
 
     IMPORTANT: Domain, container, tag, glossary_term, and owner filters require
     full URN format (urn:li:...). Search with entity_type = domain first to find
     valid domain URNs, then use the exact URN from the results.
 
-    Values containing special characters (spaces, =, parentheses) must be quoted:
+    Values containing =, parentheses, or commas must be quoted. Quoting is
+    optional for values containing spaces, but clearer:
       tag = "urn:li:tag:my tag"
       customProperties = "key=value"\
 """
@@ -201,6 +209,57 @@ def _unescape(s: str) -> str:
     return "".join(result)
 
 
+def _scan_quoted_value(s: str, i: int) -> Tuple[str, int]:
+    """Scan a quoted literal starting at the opening quote at ``i``.
+
+    Returns the unescaped value and the index just past the closing quote.
+    Backslash escapes inside the literal are honoured, so ``"a\\"b"`` is a single
+    value containing a quote character.
+    """
+    quote = s[i]
+    start = i
+    i += 1
+    while i < len(s) and s[i] != quote:
+        if s[i] == "\\" and i + 1 < len(s):
+            i += 2
+        else:
+            i += 1
+    if i >= len(s):
+        raise ValueError(f"Unterminated string starting at position {start}")
+    return _unescape(s[start + 1 : i]), i + 1
+
+
+def _scan_escaped_quoted_value(s: str, i: int) -> Tuple[str, int]:
+    """Scan an over-escaped quoted literal such as ``\\"Vendor Q&A\\"``.
+
+    ``i`` points at the leading backslash.  Returns the unescaped value and the
+    index just past the closing delimiter.
+
+    Callers that assemble the filter inside a JSON string sometimes escape the
+    quotes a second time, so the backslashes survive JSON decoding and arrive
+    here literally.  A backslash directly before a quote has never been valid
+    outside a string — it used to scan as a bare ``\\`` word, after which the
+    following quote opened a string whose every ``\\"`` was eaten as an escape,
+    running to end-of-input and raising "Unterminated string".  Reading the pair
+    as a plain delimiter therefore costs nothing and rescues callers who were
+    trying to quote correctly.
+
+    Only a literal that *opens* with a backslash is read this way, so escapes
+    inside a normally-quoted string keep their meaning and ``platform = "a\\"b"``
+    is unaffected.
+    """
+    quote = s[i + 1]
+    closing = s.find("\\" + quote, i + 2)
+    if closing != -1:
+        return _unescape(s[i + 2 : closing]), closing + 2
+    # Tolerate a bare closing quote (``\\"value"``) rather than failing on a
+    # shape whose intent is unambiguous.
+    closing = s.find(quote, i + 2)
+    if closing == -1:
+        raise ValueError(f"Unterminated string starting at position {i}")
+    return _unescape(s[i + 2 : closing]), closing + 1
+
+
 def _tokenize(s: str) -> List[_Token]:
     """Scan ``s`` left-to-right into a flat list of tokens.
 
@@ -247,20 +306,14 @@ def _tokenize(s: str) -> List[_Token]:
         elif s[i] == "=":
             tokens.append(_Token(_TokenType.EQ, "=", i))
             i += 1
-        elif s[i] in ('"', "'"):
-            quote = s[i]
+        elif s[i] == "\\" and i + 1 < len(s) and s[i + 1] in ('"', "'"):
             start = i
-            i += 1
-            while i < len(s) and s[i] != quote:
-                if s[i] == "\\" and i + 1 < len(s):
-                    i += 2
-                else:
-                    i += 1
-            if i >= len(s):
-                raise ValueError(f"Unterminated string starting at position {start}")
-            raw_value = s[start + 1 : i]
-            tokens.append(_Token(_TokenType.STRING, _unescape(raw_value), start))
-            i += 1  # skip closing quote
+            value, i = _scan_escaped_quoted_value(s, i)
+            tokens.append(_Token(_TokenType.STRING, value, start))
+        elif s[i] in ('"', "'"):
+            start = i
+            value, i = _scan_quoted_value(s, i)
+            tokens.append(_Token(_TokenType.STRING, value, start))
         else:
             start = i
             while i < len(s) and s[i] not in " \t\n\r()=!<>,'\"":
@@ -327,6 +380,41 @@ class _Parser:
             f"got {token.type.value} ({token.value!r})"
         )
 
+    def _expect_condition_value(self, *, in_list: bool = False) -> _Token:
+        """Expect a condition value: the whole run of unquoted words, not one token.
+
+        The tokenizer breaks unquoted values on whitespace, so ``subtype = Fact
+        Sheet`` arrives as two adjacent STRING tokens. Requiring quotes there is a
+        rule callers reliably forget — LLM agents most of all, which send bare
+        multi-word subtypes constantly — and it used to fail with a parse error
+        pointing at the second word rather than at the missing quotes.
+
+        A run can only ever have been a single value, so join it rather than
+        rejecting it. What terminates the run differs by position:
+
+        * Inside ``IN (...)`` the only terminators are ``,`` and ``)``. There is no
+          boolean logic between the parens, so AND/OR/NOT are ordinary words there
+          and are absorbed: ``IN (Terms AND Conditions, FAQ)`` is two values.
+        * Elsewhere ``=`` and the comparison operators take exactly one value, and
+          AND/OR/NOT are clause boundaries, so only STRING tokens join and
+          ``subtype = Runbook AND platform = notion`` keeps its conjunction.
+
+        Words are joined on a single space, which also collapses runs of
+        whitespace. Anything else that follows the run (a stray ``=`` from a
+        missing conjunction, an unbalanced paren) still fails in ``parse``.
+
+        Quote a value only when it contains a ``,`` or ``)`` of its own — dataset
+        URNs carry both, so they need quotes inside an ``IN`` list.
+        """
+        first = self._expect_value()
+        words = [first.value]
+        terminators = _VALUE_TOKEN_TYPES if in_list else {_TokenType.STRING}
+        while self._peek().type in terminators:
+            words.append(self._advance().value)
+        if len(words) == 1:
+            return first
+        return _Token(_TokenType.STRING, " ".join(words), first.pos)
+
     def parse(self) -> Filter:
         result = self._parse_expr()
         if self._peek().type != _TokenType.EOF:
@@ -384,23 +472,23 @@ class _Parser:
 
         if self._peek().type == _TokenType.EQ:
             self._advance()  # consume =
-            value = self._expect_value().value
+            value = self._expect_condition_value().value
             return _make_filter(field, [value])
         elif self._peek().type == _TokenType.NEQ:
             self._advance()  # consume !=
-            value = self._expect_value().value
+            value = self._expect_condition_value().value
             return _make_negated_filter(field, [value])
         elif self._peek().type in self._COMPARISON_OPS:
             op_token = self._advance()
-            value = self._expect_value().value
+            value = self._expect_condition_value().value
             return F.custom_filter(field, self._COMPARISON_OPS[op_token.type], [value])
         elif self._peek().type == _TokenType.IN:
             self._advance()  # consume IN
             self._expect(_TokenType.LPAREN)
-            values = [self._expect_value().value]
+            values = [self._expect_condition_value(in_list=True).value]
             while self._peek().type == _TokenType.COMMA:
                 self._advance()  # consume comma
-                values.append(self._expect_value().value)
+                values.append(self._expect_condition_value(in_list=True).value)
             self._expect(_TokenType.RPAREN)
             return _make_filter(field, values)
         elif (

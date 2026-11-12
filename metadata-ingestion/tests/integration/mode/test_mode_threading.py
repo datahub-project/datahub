@@ -13,14 +13,23 @@ import time
 from typing import Any, Dict, List, Optional, Union
 from unittest.mock import patch
 
-from freezegun import freeze_time
+import pytest
+import time_machine
 
+from datahub.configuration.env_vars import is_ci
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2021-12-07 07:00:00"
 
 test_resources_dir = pathlib.Path(__file__).parent
+
+# This workload's achievable speedup ceiling is only ~1.7-1.9x: only the
+# per-report query fetches parallelize, while the verify/spaces/reports/
+# datasets calls stay serial (see #19242). Keep the gate well below the
+# ceiling, and relax it further on shared CI runners, following
+# tests/performance/sql_parsing/test_sql_aggregator.py.
+SPEEDUP_THRESHOLD = 1.2 if is_ci() else 1.5
 
 JSON_RESPONSE_MAP = {
     "https://app.mode.com/api/verify": "verify.json",
@@ -144,9 +153,9 @@ def make_thread_safe_session(*args: Any, **kwargs: Any) -> ThreadSafeMockSession
 # ──────────────────────────────────────────────────────────────────────
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_mode_threaded_produces_same_output(pytestconfig, tmp_path):
-    """Threaded execution (max_threads=2) produces the same MCEs as sequential."""
+    """Threaded execution (max_threads=2) produces the same work units as sequential."""
     with patch(
         "datahub.ingestion.source.mode.requests.Session",
         side_effect=make_thread_safe_session,
@@ -167,7 +176,7 @@ def test_mode_threaded_produces_same_output(pytestconfig, tmp_path):
                 "sink": {
                     "type": "file",
                     "config": {
-                        "filename": f"{tmp_path}/mode_mces_threaded.json",
+                        "filename": f"{tmp_path}/mode_threaded.json",
                     },
                 },
             }
@@ -177,13 +186,14 @@ def test_mode_threaded_produces_same_output(pytestconfig, tmp_path):
 
         mce_helpers.check_golden_file(
             pytestconfig,
-            output_path=f"{tmp_path}/mode_mces_threaded.json",
-            golden_path=test_resources_dir / "mode_mces_golden.json",
+            output_path=f"{tmp_path}/mode_threaded.json",
+            golden_path=test_resources_dir / "mode_golden.json",
             ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+            fail_on_output_mces=True,
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_mode_threaded_higher_thread_count(pytestconfig, tmp_path):
     """Verify correctness even with more threads than reports."""
     with patch(
@@ -206,7 +216,7 @@ def test_mode_threaded_higher_thread_count(pytestconfig, tmp_path):
                 "sink": {
                     "type": "file",
                     "config": {
-                        "filename": f"{tmp_path}/mode_mces_threaded_high.json",
+                        "filename": f"{tmp_path}/mode_threaded_high.json",
                     },
                 },
             }
@@ -216,9 +226,10 @@ def test_mode_threaded_higher_thread_count(pytestconfig, tmp_path):
 
         mce_helpers.check_golden_file(
             pytestconfig,
-            output_path=f"{tmp_path}/mode_mces_threaded_high.json",
-            golden_path=test_resources_dir / "mode_mces_golden.json",
+            output_path=f"{tmp_path}/mode_threaded_high.json",
+            golden_path=test_resources_dir / "mode_golden.json",
             ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+            fail_on_output_mces=True,
         )
 
 
@@ -275,7 +286,7 @@ def test_max_threads_rejects_zero_and_negative():
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_pool_size_scales_with_max_threads():
     """HTTPAdapter pool_connections/pool_maxsize = max_threads + 10."""
     from unittest.mock import MagicMock
@@ -424,14 +435,17 @@ def _build_perf_response_map(
     return responses
 
 
+@pytest.mark.perf
+@pytest.mark.flaky(reruns=5)
 def test_threading_speedup(tmp_path):
     """Verify that max_threads > 1 provides wall-clock speedup with simulated latency.
 
     Uses 10 reports with 2 queries each. Each HTTP call sleeps 50ms.
-    With 4 threads, expect ~2-4x wall-clock speedup.
+    With 4 threads only the per-report query fetches parallelize; the serial
+    setup calls cap the achievable speedup at roughly 1.7-1.9x (see #19242).
 
-    Note: No @freeze_time here -- freezegun patches time.monotonic() which
-    would make our wall-clock measurements return 0.
+    Note: No @time_machine.travel here -- time_machine patches time.monotonic()
+    which would make our wall-clock measurements return 0.
     """
     num_reports = 10
     num_queries_per_report = 2
@@ -506,10 +520,10 @@ def test_threading_speedup(tmp_path):
         f"parallel={parallel_time:.2f}s, speedup={speedup:.1f}x"
     )
 
-    # With 4 threads and 50ms latency, we should see at least 1.5x speedup.
-    # Using a conservative threshold to avoid flaky CI.
-    assert speedup > 1.5, (
-        f"Expected >1.5x speedup but got {speedup:.2f}x "
+    # The gate must sit well below the ~1.7-1.9x ceiling; 1.2x on CI still
+    # catches "threading did nothing" while clearing the noise floor.
+    assert speedup > SPEEDUP_THRESHOLD, (
+        f"Expected >{SPEEDUP_THRESHOLD}x speedup but got {speedup:.2f}x "
         f"(seq={sequential_time:.2f}s, par={parallel_time:.2f}s)"
     )
 
@@ -560,14 +574,6 @@ def test_threading_produces_same_entities_as_sequential(tmp_path):
         for item in data:
             if "entityUrn" in item:
                 urns.add(item["entityUrn"])
-            elif "proposedSnapshot" in item:
-                snapshot = item["proposedSnapshot"]
-                if isinstance(snapshot, dict):
-                    urn = snapshot.get("urn") or snapshot.get(
-                        list(snapshot.keys())[0], {}
-                    ).get("urn")
-                    if urn:
-                        urns.add(urn)
         return urns
 
     seq_urns = extract_urns(seq_path)
@@ -621,12 +627,18 @@ def _build_multi_space_perf_response_map() -> Dict[str, dict]:
         ("space_c", "Space C", 4),
     ]
 
+    # Deterministic, guaranteed-unique integer IDs. `hash(token) % 10000` was
+    # used previously but Python's hash is salted per-process (PEP 456), so
+    # IDs were non-deterministic and the 0..9999 range gave a ~0.45% birthday-
+    # collision risk across 10 reports, occasionally collapsing two dashboard
+    # URNs into one and failing the `== 10` assertion.
     space_objects: List[dict] = []
+    next_id = iter(range(10_000, 10_000 + 1_000_000))
     for space_token, space_name, num_reports in spaces_config:
         space_objects.append(
             {
                 "token": space_token,
-                "id": hash(space_token) % 10000,
+                "id": next(next_id),
                 "name": space_name,
                 "restricted": False,
                 "default_access_level": "view",
@@ -642,7 +654,7 @@ def _build_multi_space_perf_response_map() -> Dict[str, dict]:
             reports.append(
                 {
                     "token": report_token,
-                    "id": hash(report_token) % 10000,
+                    "id": next(next_id),
                     "name": f"{space_name} Report {i}",
                     "description": f"Report {i} in {space_name}",
                     "created_at": PERF_TIMESTAMP,
@@ -663,7 +675,7 @@ def _build_multi_space_perf_response_map() -> Dict[str, dict]:
                 "_embedded": {
                     "queries": [
                         {
-                            "id": hash(query_token) % 10000,
+                            "id": next(next_id),
                             "token": query_token,
                             "raw_query": f"SELECT * FROM {space_token}_table_{i}",
                             "name": f"Query {i}",
@@ -754,15 +766,7 @@ def test_cross_space_parallelization_speedup(tmp_path):
 
     dashboard_urns = set()
     for item in data:
-        urn: Optional[str] = None
-        if "entityUrn" in item:
-            urn = item["entityUrn"]
-        elif "proposedSnapshot" in item:
-            snapshot = item["proposedSnapshot"]
-            if isinstance(snapshot, dict):
-                urn = snapshot.get("urn") or snapshot.get(
-                    list(snapshot.keys())[0], {}
-                ).get("urn")
+        urn: Optional[str] = item.get("entityUrn")
         if urn and urn.startswith("urn:li:dashboard:"):
             dashboard_urns.add(urn)
 

@@ -1,15 +1,16 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
 import SummaryQuerySection from '@app/entityV2/chart/summary/SummaryQuerySection';
 import { MainSection, StyledTitle, SummaryHeader, VerticalDivider } from '@app/entityV2/chart/summary/styledComponents';
+import { useBaseEntity, useEntityData } from '@app/entityV2/shared/EntityContext';
 import { SubType } from '@app/entityV2/shared/components/subtypes';
 import { HorizontalList, SummaryColumns } from '@app/entityV2/shared/summary/ListComponents';
 import SummaryCreatedBySection from '@app/entityV2/shared/summary/SummaryCreatedBySection';
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 import SummaryEntityCard from '@app/sharedV2/cards/SummaryEntityCard';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GetChartQuery } from '@graphql/chart.generated';
 import { Entity, EntityType } from '@types';
@@ -35,9 +36,10 @@ const SectionContainer = styled.div`
 `;
 
 export default function ChartSummaryOverview() {
+    const { t } = useTranslation('entity.types');
     const { loading } = useEntityData();
     const chart = useBaseEntity<GetChartQuery>()?.chart;
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     // TODO: Fix casting
     // TODO: Check workbook + data source platform actually matches this entity's platform
@@ -63,7 +65,7 @@ export default function ChartSummaryOverview() {
     return (
         <SummaryColumns>
             <MainSection>
-                <SummaryHeader>General Info</SummaryHeader>
+                <SummaryHeader>{t('shared.generalInfo')}</SummaryHeader>
                 <FirstRow>
                     {!!owner && <SummaryCreatedBySection owner={owner} />}
 
@@ -73,7 +75,7 @@ export default function ChartSummaryOverview() {
 
                             <MainSection>
                                 <StyledTitle>
-                                    Data Sources
+                                    {t('shared.dataSources')}
                                     <Count>{dataSources.length} </Count>
                                 </StyledTitle>
                                 <HorizontalList>
@@ -89,7 +91,7 @@ export default function ChartSummaryOverview() {
                             <VerticalDivider />
 
                             <SectionContainer>
-                                <StyledTitle>Query</StyledTitle>
+                                <StyledTitle>{t('query.name')}</StyledTitle>
                                 <SummaryQuerySection query={query} />
                             </SectionContainer>
                         </>

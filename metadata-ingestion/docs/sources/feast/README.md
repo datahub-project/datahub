@@ -2,7 +2,7 @@
 
 Feast is a machine learning platform. Learn more in the [official Feast documentation](https://feast.dev/).
 
-The DataHub integration for Feast covers ML entities such as models, features, and related lineage metadata. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Feast covers ML entities such as models, features, and related lineage metadata. It also captures table-level lineage and stateful deletion detection.
 
 ## Concept Mapping
 

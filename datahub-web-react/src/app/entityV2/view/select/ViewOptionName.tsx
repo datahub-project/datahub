@@ -1,12 +1,14 @@
 import { Icon, Tooltip } from '@components';
-import FilterCenterFocusOutlinedIcon from '@mui/icons-material/FilterCenterFocusOutlined';
+import { Crosshair } from '@phosphor-icons/react/dist/csr/Crosshair';
 import { GlobeHemisphereEast } from '@phosphor-icons/react/dist/csr/GlobeHemisphereEast';
 import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ViewDropdownMenu } from '@app/entityV2/view/menu/ViewDropdownMenu';
 import { ViewOptionTooltipTitle } from '@app/entityV2/view/select/ViewOptionTooltipTitle';
+import { useViewsSelectContext } from '@app/entityV2/view/select/ViewSelectContext';
 import {
     CardViewLabel,
     ViewContainer,
@@ -64,9 +66,7 @@ const ViewDropdownMenuContainer = styled.div`
     align-items: center;
 `;
 
-const FilterCenterFocusOutlinedIconStyle = styled(FilterCenterFocusOutlinedIcon)`
-    font-size: 18px !important;
-`;
+const FilterCenterFocusOutlinedIconStyle = styled(Crosshair).attrs({ size: 18 })``;
 
 type Props = {
     name: string;
@@ -105,7 +105,9 @@ export const ViewOptionName = ({
     onClickPreview,
     selectView,
 }: Props) => {
+    const { t } = useTranslation('entity.views');
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const { updateOpenState } = useViewsSelectContext();
     const { theme } = useCustomTheme();
 
     const renderViewIcon = () => {
@@ -120,7 +122,7 @@ export const ViewOptionName = ({
                                     $isShowNavBarRedesign={isShowNavBarRedesign}
                                 >
                                     <GlobalDefaultViewIcon
-                                        title="Your organization's default View."
+                                        title={t('orgDefaultTooltip')}
                                         color={theme?.colors?.icon}
                                         size={5}
                                     />
@@ -132,7 +134,7 @@ export const ViewOptionName = ({
                                     $isShowNavBarRedesign={isShowNavBarRedesign}
                                 >
                                     <UserDefaultViewIcon
-                                        title="Your default View."
+                                        title={t('userDefaultTooltip')}
                                         color={theme?.colors?.iconBrand}
                                         size={5}
                                     />
@@ -140,7 +142,11 @@ export const ViewOptionName = ({
                             )}
                         </IconPlaceholder>
                     )}
-                    <Tooltip placement="bottom" showArrow title={type === 'GLOBAL' ? 'Public' : 'Private'}>
+                    <Tooltip
+                        placement="bottom"
+                        showArrow
+                        title={type === 'GLOBAL' ? t('typePublic') : t('typePrivate')}
+                    >
                         <ViewIconNavBarRedesign $selected={selected}>
                             {type === 'GLOBAL' && <GlobeHemisphereEast size={22} />}
                             {type === 'PERSONAL' && <Lock size={22} />}
@@ -157,13 +163,13 @@ export const ViewOptionName = ({
                     <IconPlaceholder>
                         {isGlobalDefault && (
                             <DefaultViewIconContainer selected={selected}>
-                                <GlobalDefaultViewIcon title="Your organization's default View." size={10} />
+                                <GlobalDefaultViewIcon title={t('orgDefaultTooltip')} size={10} />
                             </DefaultViewIconContainer>
                         )}
                         {isUserDefault && (
                             <DefaultViewIconContainer selected={selected}>
                                 <UserDefaultViewIcon
-                                    title="Your default View."
+                                    title={t('userDefaultTooltip')}
                                     color={theme?.colors?.textSuccess}
                                     size={10}
                                 />
@@ -171,7 +177,7 @@ export const ViewOptionName = ({
                         )}
                     </IconPlaceholder>
                 )}
-                <Tooltip placement="bottom" showArrow title={type === 'GLOBAL' ? 'Public' : 'Private'}>
+                <Tooltip placement="bottom" showArrow title={type === 'GLOBAL' ? t('typePublic') : t('typePrivate')}>
                     <ViewType>
                         {type === 'GLOBAL' && <Icon icon={GlobeHemisphereEast} size="lg" />}
                         {type === 'PERSONAL' && <Icon icon={Lock} size="lg" />}
@@ -199,7 +205,8 @@ export const ViewOptionName = ({
                     <ViewDescription $isShowNavBarRedesign={isShowNavBarRedesign}>{description}</ViewDescription>
                 </ViewContent>
             </Tooltip>
-            <ViewDropdownMenuContainer>
+            {/* Menu actions (and the modals they open) must not bubble up to the row and select the view. */}
+            <ViewDropdownMenuContainer onClick={(e) => e.stopPropagation()}>
                 <ViewDropdownMenu
                     view={view}
                     isOwnedByUser={isOwnedByUser}
@@ -207,6 +214,7 @@ export const ViewOptionName = ({
                     onClickEdit={onClickEdit}
                     onClickPreview={onClickPreview}
                     selectView={selectView}
+                    onActionComplete={() => updateOpenState(false)}
                 />
             </ViewDropdownMenuContainer>
         </ViewContainer>

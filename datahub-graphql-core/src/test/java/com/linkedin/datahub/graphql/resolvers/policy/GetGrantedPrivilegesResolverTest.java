@@ -22,6 +22,7 @@ import com.linkedin.datahub.graphql.generated.Privileges;
 import com.linkedin.datahub.graphql.generated.ResourceSpec;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +40,7 @@ public class GetGrantedPrivilegesResolverTest {
   private QueryContext context;
   private AuthorizerChain authorizerChain;
   private DataHubAuthorizer dataHubAuthorizer;
+  private OperationContext operationContext;
   private MockedStatic<ResolverUtils> resolverUtils;
   private MockedStatic<PolicyAuthUtils> policyAuthUtils;
   private MockedStatic<GraphQLConcurrencyUtils> concurrencyUtils;
@@ -52,12 +54,14 @@ public class GetGrantedPrivilegesResolverTest {
     context = mock(QueryContext.class);
     authorizerChain = mock(AuthorizerChain.class);
     dataHubAuthorizer = mock(DataHubAuthorizer.class);
+    operationContext = mock(OperationContext.class);
     resolverUtils = mockStatic(ResolverUtils.class);
     policyAuthUtils = mockStatic(PolicyAuthUtils.class);
     concurrencyUtils = mockStatic(GraphQLConcurrencyUtils.class);
 
     when(environment.getContext()).thenReturn(context);
     when(context.getAuthorizer()).thenReturn(authorizerChain);
+    when(context.getOperationContext()).thenReturn(operationContext);
     when(authorizerChain.getDefaultAuthorizer()).thenReturn(dataHubAuthorizer);
   }
 
@@ -88,7 +92,8 @@ public class GetGrantedPrivilegesResolverTest {
         mock(PolicyEngine.PolicyGrantedPrivileges.class);
     when(mockResult.getPrivileges()).thenReturn(privileges);
     when(mockResult.getReasonOfDeny()).thenReturn(denyReasons);
-    when(dataHubAuthorizer.getGrantedPrivileges(any(), any())).thenReturn(mockResult);
+    when(dataHubAuthorizer.getGrantedPrivileges(any(), any(), eq(operationContext)))
+        .thenReturn(mockResult);
 
     Privileges expectedPrivileges =
         Privileges.builder().setPrivileges(privileges).setEvaluationDetails(null).build();
@@ -131,7 +136,8 @@ public class GetGrantedPrivilegesResolverTest {
         mock(PolicyEngine.PolicyGrantedPrivileges.class);
     when(mockResult.getPrivileges()).thenReturn(privileges);
     when(mockResult.getReasonOfDeny()).thenReturn(denyReasons);
-    when(dataHubAuthorizer.getGrantedPrivileges(any(), any())).thenReturn(mockResult);
+    when(dataHubAuthorizer.getGrantedPrivileges(any(), any(), eq(operationContext)))
+        .thenReturn(mockResult);
 
     Privileges expectedPrivileges =
         Privileges.builder().setPrivileges(privileges).setEvaluationDetails(null).build();
@@ -169,7 +175,8 @@ public class GetGrantedPrivilegesResolverTest {
         mock(PolicyEngine.PolicyGrantedPrivileges.class);
     when(mockResult.getPrivileges()).thenReturn(privileges);
     when(mockResult.getReasonOfDeny()).thenReturn(denyReasons);
-    when(dataHubAuthorizer.getGrantedPrivileges(any(), any())).thenReturn(mockResult);
+    when(dataHubAuthorizer.getGrantedPrivileges(any(), any(), eq(operationContext)))
+        .thenReturn(mockResult);
 
     List<PolicyEvaluationDetail> evaluationDetails = new ArrayList<>();
     evaluationDetails.add(new PolicyEvaluationDetail("policy1", "Access denied by policy1"));

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.hooks;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.lifecycle.LifecycleStageTransitionPolicy;
@@ -9,11 +10,11 @@ import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
+import com.linkedin.metadata.service.LifecycleStages;
 import com.linkedin.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -53,26 +54,23 @@ import lombok.extern.slf4j.Slf4j;
 @Accessors(chain = true)
 public class LifecycleStageTransitionHook extends MutationHook {
 
-  /** Aspect name for lifecycle stage type info. */
-  private static final String LIFECYCLE_STAGE_TYPE_INFO_ASPECT = "lifecycleStageTypeInfo";
-
   /**
    * Data-map key for the lifecycleStage field in the Status aspect. Used to remove the field when
    * reverting to the null/active state.
    */
   private static final String LIFECYCLE_STAGE_FIELD = "lifecycleStage";
 
-  /** Sentinel URN representing "no lifecycle stage" (default active state). */
-  private static final String NO_STAGE_SENTINEL = "urn:li:lifecycleStageType:__NONE__";
-
   @Nonnull private AspectPluginConfig config;
 
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
-      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPS,
+      @Nonnull RetrieverContext retrieverContext) {
     List<Pair<ChangeMCP, Boolean>> results = new ArrayList<>();
     for (ChangeMCP item : changeMCPS) {
-      results.add(Pair.of(item, revertIfInvalidTransition(item, retrieverContext)));
+      results.add(
+          Pair.of(item, revertIfInvalidTransition(item, operationContext, retrieverContext)));
     }
     return results.stream();
   }
@@ -82,7 +80,8 @@ public class LifecycleStageTransitionHook extends MutationHook {
    * lifecycleStage} field in the proposed Status aspect to its previous value (in-place mutation),
    * logs a WARN, and returns {@code true} to indicate a mutation occurred.
    */
-  private boolean revertIfInvalidTransition(ChangeMCP item, RetrieverContext retrieverContext) {
+  private boolean revertIfInvalidTransition(
+      ChangeMCP item, OperationFingerprint operationContext, RetrieverContext retrieverContext) {
     if (!Constants.STATUS_ASPECT_NAME.equals(item.getAspectName())) {
       return false;
     }
@@ -102,32 +101,23 @@ public class LifecycleStageTransitionHook extends MutationHook {
             ? previousStatus.getLifecycleStage()
             : null;
 
-    // Same stage → no-op, allow.
+    // Same stage → no-op, allow (checked before the policy lookup to skip the read).
     if (proposedStageUrn.equals(currentStageUrn)) {
       return false;
     }
 
     // Look up the PROPOSED (destination) stage's entry policy via RetrieverContext.
-    LifecycleStageTransitionPolicy policy = getTransitionPolicy(proposedStageUrn, retrieverContext);
-    if (policy == null || !policy.hasAllowedPreviousStages()) {
-      // No policy on destination stage → open entry, allow.
-      return false;
-    }
+    LifecycleStageTransitionPolicy policy =
+        getTransitionPolicy(proposedStageUrn, operationContext, retrieverContext);
 
-    Set<String> allowed =
-        Set.copyOf(policy.getAllowedPreviousStages().stream().map(Urn::toString).toList());
-
-    String currentStageKey =
-        currentStageUrn == null ? NO_STAGE_SENTINEL : currentStageUrn.toString();
-
-    if (!allowed.contains(currentStageKey)) {
+    if (!LifecycleStages.isTransitionAllowed(currentStageUrn, proposedStageUrn, policy)) {
       log.warn(
           "Lifecycle stage transition to {} from {} on {} is not allowed. "
               + "Allowed previous stages: {}. Reverting to previous stage.",
           proposedStageUrn,
           currentStageUrn == null ? "(none/active)" : currentStageUrn,
           item.getUrn(),
-          allowed);
+          policy.getAllowedPreviousStages());
 
       // Revert: restore the previous lifecycleStage in the proposed Status aspect.
       if (currentStageUrn != null) {
@@ -150,12 +140,13 @@ public class LifecycleStageTransitionHook extends MutationHook {
    */
   @Nullable
   private LifecycleStageTransitionPolicy getTransitionPolicy(
-      Urn stageUrn, RetrieverContext retrieverContext) {
+      Urn stageUrn, OperationFingerprint operationContext, RetrieverContext retrieverContext) {
     try {
       var stageAspect =
           retrieverContext
               .getAspectRetriever()
-              .getLatestAspectObject(stageUrn, LIFECYCLE_STAGE_TYPE_INFO_ASPECT);
+              .getLatestAspectObject(
+                  operationContext, stageUrn, LifecycleStages.STAGE_INFO_ASPECT_NAME);
       if (stageAspect == null) {
         log.warn("Lifecycle stage {} not found in aspect store, allowing transition", stageUrn);
         return null;

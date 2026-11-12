@@ -1,10 +1,11 @@
 import { Input } from '@components';
-import { Form, FormInstance } from 'antd';
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { SignupFormValues } from '@app/auth/shared/types';
+import { AuthForm } from '@app/auth/shared/useAuthForm';
 import { FieldLabel } from '@app/sharedV2/forms/FieldLabel';
 
 const FormContainer = styled.div`
@@ -21,14 +22,12 @@ const ItemContainer = styled.div`
 `;
 
 interface Props {
-    form: FormInstance;
-    handleSubmit: (values: SignupFormValues) => void;
-    onFormChange: () => void;
-    isSubmitDisabled: boolean;
+    form: AuthForm<SignupFormValues>;
 }
 
-export default function SignupForm({ form, handleSubmit, onFormChange, isSubmitDisabled }: Props) {
+export default function SignupForm({ form }: Props) {
     const location = useLocation();
+    const { t } = useTranslation('auth');
 
     const searchParams = new URLSearchParams(location.search);
 
@@ -37,80 +36,75 @@ export default function SignupForm({ form, handleSubmit, onFormChange, isSubmitD
     const lastNameFromQuery = searchParams.get('last_name');
 
     const isEmailFromQuery = Boolean(emailFromQuery);
+    const { setFieldValues } = form;
 
     useEffect(() => {
-        form.setFieldsValue({
-            email: emailFromQuery || undefined,
-            fullName:
-                firstNameFromQuery || lastNameFromQuery
-                    ? `${firstNameFromQuery ?? ''} ${lastNameFromQuery ?? ''}`.trim()
-                    : undefined,
-        });
-    }, [emailFromQuery, firstNameFromQuery, lastNameFromQuery, form]);
+        const prefilled: Partial<SignupFormValues> = {};
+        if (emailFromQuery) {
+            prefilled.email = emailFromQuery;
+        }
+        if (firstNameFromQuery || lastNameFromQuery) {
+            prefilled.fullName = `${firstNameFromQuery ?? ''} ${lastNameFromQuery ?? ''}`.trim();
+        }
+        if (Object.keys(prefilled).length > 0) {
+            setFieldValues(prefilled);
+        }
+    }, [emailFromQuery, firstNameFromQuery, lastNameFromQuery, setFieldValues]);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !isSubmitDisabled) {
+        if (e.key === 'Enter') {
             form.submit();
         }
     };
 
     return (
-        <FormContainer>
-            <Form form={form} onFinish={handleSubmit} onFieldsChange={onFormChange} onKeyDown={handleKeyDown}>
-                <ItemContainer>
-                    <FieldLabel label="Email" required />
-                    <Form.Item rules={[{ required: true, message: 'Please fill in your email' }]} name="email">
-                        <Input placeholder="name@company.com" isDisabled={isEmailFromQuery} inputTestId="email" />
-                    </Form.Item>
-                </ItemContainer>
+        <FormContainer onKeyDown={handleKeyDown}>
+            <ItemContainer>
+                <FieldLabel label={t('emailLabel')} required />
+                <Input
+                    value={form.values.email}
+                    setValue={(value) => form.setFieldValue('email', value)}
+                    error={form.errors.email}
+                    placeholder={t('emailPlaceholder')}
+                    isDisabled={isEmailFromQuery}
+                    inputTestId="email"
+                />
+            </ItemContainer>
 
-                <ItemContainer>
-                    <FieldLabel label="Full Name" required />
-                    <Form.Item rules={[{ required: true, message: 'Please fill in your name' }]} name="fullName">
-                        <Input placeholder="First name Last name" inputTestId="name" />
-                    </Form.Item>
-                </ItemContainer>
+            <ItemContainer>
+                <FieldLabel label={t('fullNameLabel')} required />
+                <Input
+                    value={form.values.fullName}
+                    setValue={(value) => form.setFieldValue('fullName', value)}
+                    error={form.errors.fullName}
+                    placeholder={t('fullNamePlaceholder')}
+                    inputTestId="name"
+                />
+            </ItemContainer>
 
-                <ItemContainer>
-                    <FieldLabel label="Password" required />
-                    <Form.Item
-                        rules={[
-                            { required: true, message: 'Please fill in your password' },
-                            ({ getFieldValue }) => ({
-                                validator() {
-                                    if (getFieldValue('password').length < 8) {
-                                        return Promise.reject(new Error('Must be 8 characters long; case sensitive'));
-                                    }
-                                    return Promise.resolve();
-                                },
-                            }),
-                        ]}
-                        name="password"
-                    >
-                        <Input placeholder="********" type="password" inputTestId="password" />
-                    </Form.Item>
-                </ItemContainer>
+            <ItemContainer>
+                <FieldLabel label={t('passwordLabel')} required />
+                <Input
+                    value={form.values.password}
+                    setValue={(value) => form.setFieldValue('password', value)}
+                    error={form.errors.password}
+                    placeholder="********"
+                    type="password"
+                    inputTestId="password"
+                />
+            </ItemContainer>
 
-                <ItemContainer>
-                    <FieldLabel label="Confirm Password" required />
-                    <Form.Item
-                        rules={[
-                            { required: true, message: 'Please confirm your password' },
-                            ({ getFieldValue }) => ({
-                                validator() {
-                                    if (getFieldValue('confirmPassword') !== getFieldValue('password')) {
-                                        return Promise.reject(new Error('Your passwords do not match'));
-                                    }
-                                    return Promise.resolve();
-                                },
-                            }),
-                        ]}
-                        name="confirmPassword"
-                    >
-                        <Input placeholder="********" type="password" inputTestId="confirmPassword" />
-                    </Form.Item>
-                </ItemContainer>
-            </Form>
+            <ItemContainer>
+                <FieldLabel label={t('confirmPasswordLabel')} required />
+                <Input
+                    value={form.values.confirmPassword}
+                    setValue={(value) => form.setFieldValue('confirmPassword', value)}
+                    error={form.errors.confirmPassword}
+                    placeholder="********"
+                    type="password"
+                    inputTestId="confirmPassword"
+                />
+            </ItemContainer>
         </FormContainer>
     );
 }

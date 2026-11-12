@@ -1,22 +1,32 @@
 package io.datahubproject.openapi.v1.registry;
 
+import static com.linkedin.metadata.Constants.ANONYMOUS_ACTOR_ID;
 import static io.datahubproject.test.metadata.context.TestOperationContexts.TEST_USER_AUTH;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.AuthorizationConfiguration;
 import com.datahub.authorization.AuthorizerChain;
+import com.datahub.authorization.RegistryApiConfiguration;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
-import jakarta.servlet.ServletException;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.springframework.http.MediaType;
@@ -24,10 +34,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class EntityRegistryControllerTest {
   private MockMvc mockMvc;
+  private RegistryApiConfiguration registryApiConfiguration;
   private EntityRegistryController controller;
   private AuthorizerChain mockAuthorizerChain;
   private OperationContext operationContext;
@@ -51,10 +63,20 @@ public class EntityRegistryControllerTest {
     authContextMock.when(AuthenticationContext::getAuthentication).thenReturn(TEST_USER_AUTH);
 
     // Create controller
-    controller = new EntityRegistryController(mockAuthorizerChain, operationContext);
+    ConfigurationProvider configurationProvider = new ConfigurationProvider();
+    configurationProvider.setAuthorization(new AuthorizationConfiguration());
+    registryApiConfiguration = configurationProvider.getAuthorization().getRegistryApi();
+    controller =
+        new EntityRegistryController(
+            new RegistryApiAuthorization(
+                mockAuthorizerChain, operationContext, configurationProvider),
+            operationContext);
 
     // Setup MockMvc
-    mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+    mockMvc =
+        MockMvcBuilders.standaloneSetup(controller)
+            .setControllerAdvice(new GlobalControllerExceptionHandler())
+            .build();
 
     // Mock AuthUtil static methods
     authUtilMock = Mockito.mockStatic(AuthUtil.class);
@@ -127,7 +149,7 @@ public class EntityRegistryControllerTest {
         .perform(
             get("/openapi/v1/registry/models/entity/specifications")
                 .param("start", "0")
-                .param("count", "100")
+                .param("count", "1000")
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.start", is(0)))
@@ -138,6 +160,7 @@ public class EntityRegistryControllerTest {
 
   @Test
   public void testGetEntitySpecsUnauthorized() throws Exception {
+    registryApiConfiguration.setAuthenticatedReadEnabled(false);
     // Setup authorization to return false
     authUtilMock
         .when(
@@ -195,6 +218,7 @@ public class EntityRegistryControllerTest {
 
   @Test
   public void testGetEntitySpecByNameUnauthorized() throws Exception {
+    registryApiConfiguration.setAuthenticatedReadEnabled(false);
     // Setup authorization to return false
     authUtilMock
         .when(
@@ -254,6 +278,7 @@ public class EntityRegistryControllerTest {
 
   @Test
   public void testGetEntityAspectSpecsUnauthorized() throws Exception {
+    registryApiConfiguration.setAuthenticatedReadEnabled(false);
     // Setup authorization to return false
     authUtilMock
         .when(
@@ -320,6 +345,7 @@ public class EntityRegistryControllerTest {
 
   @Test
   public void testGetAspectSpecsUnauthorized() throws Exception {
+    registryApiConfiguration.setAuthenticatedReadEnabled(false);
     // Setup authorization to return false
     authUtilMock
         .when(
@@ -352,7 +378,47 @@ public class EntityRegistryControllerTest {
             get("/openapi/v1/registry/models/aspect/specifications/{aspectName}", TEST_ASPECT_NAME)
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.aspectAnnotation.name", is(TEST_ASPECT_NAME)));
+        .andExpect(jsonPath("$.aspectAnnotation.name", is(TEST_ASPECT_NAME)))
+        .andExpect(jsonPath("$.aspectAnnotation.schemaVersion", is(1)));
+  }
+
+  @Test
+  public void testGetAspectSpecByNameExposesSchemaVersion() throws Exception {
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIOperationsAuthorized(
+                    any(OperationContext.class), any(PoliciesConfig.Privilege.class)))
+        .thenReturn(true);
+
+    mockMvc
+        .perform(
+            get("/openapi/v1/registry/models/aspect/specifications/{aspectName}", "domains")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.aspectAnnotation.name", is("domains")))
+        .andExpect(jsonPath("$.aspectAnnotation.schemaVersion", is(2)));
+  }
+
+  @Test
+  public void testGetEntitySpecsExposesUnsetSearchGroup() throws Exception {
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIOperationsAuthorized(
+                    any(OperationContext.class), any(PoliciesConfig.Privilege.class)))
+        .thenReturn(true);
+
+    mockMvc
+        .perform(
+            get("/openapi/v1/registry/models/entity/specifications")
+                .param("count", "1000")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(
+            jsonPath(
+                "$.elements[?(@.name=='dataset')].entityAnnotation.searchGroup",
+                hasItem(nullValue())));
   }
 
   @Test
@@ -377,6 +443,7 @@ public class EntityRegistryControllerTest {
 
   @Test
   public void testGetAspectSpecByNameUnauthorized() throws Exception {
+    registryApiConfiguration.setAuthenticatedReadEnabled(false);
     // Setup authorization to return false
     authUtilMock
         .when(
@@ -445,6 +512,7 @@ public class EntityRegistryControllerTest {
 
   @Test
   public void testGetEventSpecsUnauthorized() throws Exception {
+    registryApiConfiguration.setAuthenticatedReadEnabled(false);
     // Setup authorization to return false
     authUtilMock
         .when(
@@ -461,10 +529,7 @@ public class EntityRegistryControllerTest {
         .andExpect(status().isForbidden());
   }
 
-  @Test(
-      expectedExceptions = ServletException.class,
-      expectedExceptionsMessageRegExp =
-          "Request processing failed: java.lang.IllegalArgumentException: Start offset 1000000000 exceeds total .*")
+  @Test
   public void testPaginationWithStartBeyondTotal() throws Exception {
     // Setup authorization to return true
     authUtilMock
@@ -506,5 +571,67 @@ public class EntityRegistryControllerTest {
         .andExpect(jsonPath("$.count", is(0)))
         .andExpect(jsonPath("$.total", greaterThanOrEqualTo(200)))
         .andExpect(jsonPath("$.elements", hasSize(0)));
+  }
+
+  @DataProvider(name = "registryRoutes")
+  public Object[][] registryRoutes() {
+    return new Object[][] {
+      {"/openapi/v1/registry/models/entity/specifications"},
+      {"/openapi/v1/registry/models/entity/specifications/dataset"},
+      {"/openapi/v1/registry/models/entity/specifications/dataset/aspects"},
+      {"/openapi/v1/registry/models/aspect/specifications"},
+      {"/openapi/v1/registry/models/aspect/specifications/datasetProperties"},
+      {"/openapi/v1/registry/models/event/specifications"}
+    };
+  }
+
+  @Test(dataProvider = "registryRoutes")
+  public void testNonAdminReadAccess(String route) throws Exception {
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIOperationsAuthorized(
+                    any(OperationContext.class),
+                    eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
+        .thenReturn(false);
+
+    mockMvc.perform(get(route).accept(MediaType.APPLICATION_JSON)).andExpect(status().isOk());
+
+    registryApiConfiguration.setAuthenticatedReadEnabled(false);
+    mockMvc
+        .perform(get(route).accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test(dataProvider = "registryRoutes")
+  public void testAdminReadAccess(String route) throws Exception {
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIOperationsAuthorized(
+                    any(OperationContext.class),
+                    eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
+        .thenReturn(true);
+
+    for (boolean enabled : new boolean[] {true, false}) {
+      registryApiConfiguration.setAuthenticatedReadEnabled(enabled);
+      mockMvc.perform(get(route).accept(MediaType.APPLICATION_JSON)).andExpect(status().isOk());
+    }
+  }
+
+  @Test(dataProvider = "registryRoutes")
+  public void testUnauthenticatedReadRejected(String route) throws Exception {
+    Authentication anonymous =
+        new Authentication(new Actor(ActorType.USER, ANONYMOUS_ACTOR_ID), "");
+    for (boolean enabled : new boolean[] {true, false}) {
+      registryApiConfiguration.setAuthenticatedReadEnabled(enabled);
+      for (Authentication authentication :
+          new Authentication[] {null, anonymous, mock(Authentication.class)}) {
+        authContextMock.when(AuthenticationContext::getAuthentication).thenReturn(authentication);
+        mockMvc
+            .perform(get(route).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isUnauthorized());
+      }
+    }
   }
 }

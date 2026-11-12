@@ -1,6 +1,7 @@
-import { RedoOutlined } from '@ant-design/icons';
-import { Button, Modal, Typography, message } from 'antd';
+import { Button, Modal, Text, toast } from '@components';
+import { ArrowClockwise } from '@phosphor-icons/react/dist/csr/ArrowClockwise';
 import React, { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -15,7 +16,7 @@ const ModalSection = styled.div`
     padding-bottom: 12px;
 `;
 
-const ModalSectionHeader = styled(Typography.Text)`
+const ModalSectionHeader = styled(Text)`
     &&&& {
         padding: 0px;
         margin: 0px;
@@ -23,7 +24,7 @@ const ModalSectionHeader = styled(Typography.Text)`
     }
 `;
 
-const ModalSectionParagraph = styled(Typography.Paragraph)`
+const ModalSectionParagraph = styled(Text)`
     &&&& {
         padding: 0px;
         margin: 0px;
@@ -31,9 +32,15 @@ const ModalSectionParagraph = styled(Typography.Paragraph)`
 `;
 
 const CreateResetTokenButton = styled(Button)`
-    display: inline-block;
-    width: 20px;
+    display: inline-flex;
+    width: auto;
     margin-left: -6px;
+`;
+
+const InviteLinkRow = styled.div`
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
 `;
 
 type Props = {
@@ -44,6 +51,9 @@ type Props = {
 };
 
 export default function ViewResetTokenModal({ open, userUrn, username, onClose }: Props) {
+    const { t } = useTranslation('entity.identity');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
     const baseUrl = window.location.origin;
     const [hasGeneratedResetToken, setHasGeneratedResetToken] = useState(false);
 
@@ -65,15 +75,12 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
                         userUrn,
                     });
                     setHasGeneratedResetToken(true);
-                    message.success('Generated new link to reset credentials');
+                    toast.success(t('resetToken.generateSuccess'));
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: `Failed to create new link to reset credentials : \n ${e.message || ''}`,
-                    duration: 3,
-                });
+                toast.destroy();
+                toast.error(t('resetToken.generateError', { error: e.message || '' }), { duration: 3 });
             });
     };
 
@@ -82,49 +89,50 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
     const inviteLink = `${baseUrl}${resolveRuntimePath(`${PageRoutes.RESET_CREDENTIALS}?reset_token=${resetToken}`)}`;
 
     return (
-        <Modal
-            width={700}
-            footer={null}
-            title={
-                <Typography.Text>
-                    <b>Reset User Password</b>
-                </Typography.Text>
-            }
-            open={open}
-            onCancel={onClose}
-        >
+        <Modal width={700} buttons={[]} title={t('resetToken.modalTitle')} open={open} onCancel={onClose}>
             {hasGeneratedResetToken ? (
                 <ModalSection>
-                    <ModalSectionHeader strong>Share reset link</ModalSectionHeader>
+                    <ModalSectionHeader weight="semiBold">{t('resetToken.shareLink.header')}</ModalSectionHeader>
                     <ModalSectionParagraph>
-                        Share this reset link to reset the credentials for {username}.
-                        <b>This link will expire in 24 hours.</b>
+                        <Trans
+                            t={t}
+                            i18nKey="resetToken.shareLink.description"
+                            values={{ username }}
+                            components={{ bold: <b /> }}
+                        />
                     </ModalSectionParagraph>
-                    <Typography.Paragraph copyable={{ text: inviteLink }}>
-                        <pre>{inviteLink}</pre>
-                    </Typography.Paragraph>
+                    <InviteLinkRow>
+                        <Text type="pre">{inviteLink}</Text>
+                        <Button
+                            variant="text"
+                            size="sm"
+                            onClick={() => {
+                                navigator.clipboard.writeText(inviteLink);
+                                toast.success(tf('copiedSuccess'));
+                            }}
+                        >
+                            {tc('copy')}
+                        </Button>
+                    </InviteLinkRow>
                 </ModalSection>
             ) : (
                 <ModalSection>
-                    <ModalSectionHeader strong>A new link must be generated</ModalSectionHeader>
-                    <ModalSectionParagraph>
-                        You cannot view any old reset links. Please generate a new one below.
-                    </ModalSectionParagraph>
+                    <ModalSectionHeader weight="semiBold">{t('resetToken.newLinkRequired.header')}</ModalSectionHeader>
+                    <ModalSectionParagraph>{t('resetToken.newLinkRequired.description')}</ModalSectionParagraph>
                 </ModalSection>
             )}
             <ModalSection>
-                <ModalSectionHeader strong>Generate a new link</ModalSectionHeader>
+                <ModalSectionHeader weight="semiBold">{t('resetToken.generateLink.header')}</ModalSectionHeader>
                 <ModalSectionParagraph>
-                    Generate a new reset link! Note, any old links will <b>cease to be active</b>.
+                    <Trans t={t} i18nKey="resetToken.generateLink.description" components={{ bold: <b /> }} />
                 </ModalSectionParagraph>
                 <CreateResetTokenButton
                     onClick={createNativeUserResetToken}
-                    size="small"
-                    type="text"
+                    size="sm"
+                    variant="text"
                     data-testid="refreshButton"
-                >
-                    <RedoOutlined style={{}} />
-                </CreateResetTokenButton>
+                    icon={{ icon: ArrowClockwise }}
+                />
             </ModalSection>
         </Modal>
     );

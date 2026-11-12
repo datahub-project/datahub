@@ -1,13 +1,14 @@
 import { Affix } from 'antd';
 import * as QueryString from 'query-string';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Redirect, useHistory, useLocation, useParams } from 'react-router';
 
 import { BrowseResults } from '@app/browse/BrowseResults';
 import { LegacyBrowsePath } from '@app/browse/LegacyBrowsePath';
-import { Message } from '@app/shared/Message';
-import { ErrorSection } from '@app/shared/error/ErrorSection';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { Message } from '@app/sharedV2/Message';
+import { ErrorSection } from '@app/sharedV2/error/ErrorSection';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
 import { BrowseCfg } from '@src/conf';
@@ -22,6 +23,7 @@ export const BrowseResultsPage = () => {
     const location = useLocation();
     const history = useHistory();
     const { type } = useParams<BrowseResultsPageParams>();
+    const { t: tf } = useTranslation('common.feedback');
 
     const entityRegistry = useEntityRegistry();
 
@@ -62,7 +64,7 @@ export const BrowseResultsPage = () => {
                 <LegacyBrowsePath type={entityType} path={path} isBrowsable />
             </Affix>
             {error && <ErrorSection />}
-            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
+            {loading && <Message type="loading" content={tf('loading')} style={{ marginTop: '10%' }} />}
             {data && data.browse && !loading && (
                 <BrowseResults
                     type={entityType}

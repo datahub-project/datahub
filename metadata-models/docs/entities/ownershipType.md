@@ -103,7 +103,7 @@ Built-in ownership types can only be soft-deleted (status.removed = true), while
 Retrieve a specific ownership type:
 
 ```bash
-curl 'http://localhost:8080/entities/urn%3Ali%3AownershipType%3A__system__technical_owner'
+curl 'http://localhost:8080/entitiesV2/urn%3Ali%3AownershipType%3A__system__technical_owner'
 ```
 
 Response includes the `ownershipTypeInfo` and `status` aspects:

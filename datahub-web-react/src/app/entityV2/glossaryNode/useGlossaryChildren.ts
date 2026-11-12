@@ -1,79 +1,99 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { useDebounce } from 'react-use';
 
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
-import { ENTITY_INDEX_FILTER_NAME } from '@src/app/search/utils/constants';
-import { ENTITY_NAME_FIELD } from '@src/app/searchV2/context/constants';
+import { useGlossarySidebarFilters } from '@app/glossaryV2/glossarySidebarFilters/GlossarySidebarFiltersContext';
+import { getGlossaryScrollInput } from '@app/glossaryV2/glossarySidebarFilters/getGlossaryScrollInput';
+import {
+    DEFAULT_GLOSSARY_SIDEBAR_SORT,
+    GlossarySidebarSortValue,
+} from '@app/glossaryV2/glossarySidebarFilters/glossarySidebarSort';
+import { DEFAULT_GLOSSARY_CHILDREN_COUNT } from '@app/glossaryV2/utils';
+import { mergeUrnEntities } from '@app/sharedV2/utils/mergeUrnEntities';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useGetGlossaryNodeCanManageChildrenQuery } from '@src/graphql/lifecycle.generated';
 import { useGetAutoCompleteMultipleResultsQuery, useScrollAcrossEntitiesQuery } from '@src/graphql/search.generated';
-import { Entity, EntityType, SortOrder } from '@src/types.generated';
+import { Entity, EntityType } from '@src/types.generated';
 
-const GLOSSARY_CHILDREN_COUNT = 50;
-
-function getGlossaryChildrenScrollInput(urn: string, scrollId: string | null) {
-    return {
-        input: {
-            scrollId,
-            query: '*',
-            types: [EntityType.GlossaryNode, EntityType.GlossaryTerm],
-            orFilters: [{ and: [{ field: 'parentNode', values: [urn || ''] }] }],
-            count: GLOSSARY_CHILDREN_COUNT,
-            sortInput: {
-                sortCriteria: [
-                    { field: ENTITY_INDEX_FILTER_NAME, sortOrder: SortOrder.Ascending },
-                    { field: ENTITY_NAME_FIELD, sortOrder: SortOrder.Ascending },
-                ],
-            },
-            searchFlags: { skipCache: true },
-        },
-    };
-}
+const GLOSSARY_CHILDREN_COUNT = DEFAULT_GLOSSARY_CHILDREN_COUNT;
 
 interface Props {
     entityUrn?: string;
     skip?: boolean;
+    /** Override sort when not using sidebar context (tests / pickers). */
+    sort?: GlossarySidebarSortValue;
 }
 
-export default function useGlossaryChildren({ entityUrn, skip }: Props) {
-    const entityRegistry = useEntityRegistryV2();
-    const { nodeToNewEntity, setNodeToNewEntity, setNodeToDeletedUrn, nodeToDeletedUrn } = useGlossaryEntityData();
+export default function useGlossaryChildren({ entityUrn, skip, sort: sortOverride }: Props) {
+    const entityRegistry = useEntityRegistry();
+    const { sortSelection } = useGlossarySidebarFilters();
+    const sort = sortOverride ?? sortSelection ?? DEFAULT_GLOSSARY_SIDEBAR_SORT;
+    const {
+        nodeToNewEntity,
+        setNodeToNewEntity,
+        setNodeToDeletedUrn,
+        nodeToDeletedUrn,
+        urnsToUpdate,
+        setUrnsToUpdate,
+    } = useGlossaryEntityData();
     const [searchQuery, setSearchQuery] = useState<string>('');
-    const [query, setQuery] = useState<string>(''); // query to use in auto-complete. gets debounced
+    const [query, setQuery] = useState<string>('');
     const [scrollId, setScrollId] = useState<string | null>(null);
     const [searchData, setSearchData] = useState<Entity[]>([]);
     const [dataUrnsSet, setDataUrnsSet] = useState<Set<string>>(new Set());
     const [data, setData] = useState<Entity[]>([]);
+
+    // Users who can manage this node also see its terms in hidden lifecycle stages (e.g. drafts).
+    const { data: nodePrivileges, loading: privilegesLoading } = useGetGlossaryNodeCanManageChildrenQuery({
+        variables: { urn: entityUrn ?? '' },
+        skip: !entityUrn || skip,
+    });
+    const includeDrafts = !!nodePrivileges?.glossaryNode?.privileges?.canManageChildren;
+
+    const scrollVariables = useMemo(
+        () =>
+            getGlossaryScrollInput({
+                parentNode: entityUrn || null,
+                scrollId,
+                sort,
+                sortTypeBeforeName: true,
+                includeHiddenLifecycleStages: includeDrafts,
+            }),
+        [entityUrn, scrollId, sort, includeDrafts],
+    );
+
+    useEffect(() => {
+        setData([]);
+        setDataUrnsSet(new Set());
+        setScrollId(null);
+    }, [entityUrn, sort, includeDrafts]);
+
     const {
         data: scrollData,
         loading,
         refetch,
     } = useScrollAcrossEntitiesQuery({
-        variables: {
-            ...getGlossaryChildrenScrollInput(entityUrn || '', scrollId),
-        },
-        skip: !entityUrn || skip,
+        variables: scrollVariables,
+        // Wait for the privileges so the list is not loaded twice (without, then with drafts).
+        skip: !entityUrn || skip || privilegesLoading,
         notifyOnNetworkStatusChange: true,
     });
     const shouldDoAutoComplete = data.length >= GLOSSARY_CHILDREN_COUNT;
 
-    // Handle initial data and updates from scroll
     useEffect(() => {
         if (scrollData?.scrollAcrossEntities?.searchResults) {
-            const newResults = scrollData.scrollAcrossEntities.searchResults
-                .filter((r) => !dataUrnsSet.has(r.entity.urn))
-                .map((r) => r.entity);
+            const fresh = scrollData.scrollAcrossEntities.searchResults.map((r) => r.entity);
 
-            if (newResults.length > 0) {
-                setData((currData) => [...currData, ...newResults]);
-                setDataUrnsSet((currSet) => {
-                    const newSet = new Set(currSet);
-                    newResults.forEach((r) => newSet.add(r.urn));
-                    return newSet;
-                });
-            }
+            setData((currData) => mergeUrnEntities(currData, fresh, currData.length === 0));
+            setDataUrnsSet((currSet) => {
+                if (fresh.every((e) => currSet.has(e.urn))) return currSet;
+                const next = new Set(currSet);
+                fresh.forEach((e) => next.add(e.urn));
+                return next;
+            });
         }
-    }, [scrollData, dataUrnsSet]);
+    }, [scrollData, entityUrn]);
 
     const nextScrollId = scrollData?.scrollAcrossEntities?.nextScrollId;
 
@@ -97,7 +117,13 @@ export default function useGlossaryChildren({ entityUrn, skip }: Props) {
         },
     });
 
-    // update when new entity is added
+    useEffect(() => {
+        if (entityUrn && urnsToUpdate.includes(entityUrn)) {
+            refetch(scrollVariables);
+            setUrnsToUpdate((prev) => prev.filter((urn) => urn !== entityUrn));
+        }
+    }, [entityUrn, urnsToUpdate, setUrnsToUpdate, refetch, scrollVariables]);
+
     useEffect(() => {
         if (entityUrn && nodeToNewEntity[entityUrn] && !dataUrnsSet.has(nodeToNewEntity[entityUrn].urn)) {
             const newEntity = nodeToNewEntity[entityUrn];
@@ -111,7 +137,6 @@ export default function useGlossaryChildren({ entityUrn, skip }: Props) {
         }
     }, [entityUrn, nodeToNewEntity, setNodeToNewEntity, dataUrnsSet]);
 
-    // update when entity is removed
     useEffect(() => {
         if (entityUrn && nodeToDeletedUrn[entityUrn]) {
             const deletedUrn = nodeToDeletedUrn[entityUrn];
@@ -144,6 +169,6 @@ export default function useGlossaryChildren({ entityUrn, skip }: Props) {
         loading: loading || (shouldDoAutoComplete && autoCompleteLoading),
         searchQuery,
         setSearchQuery,
-        refetch,
+        refetch: () => refetch(scrollVariables),
     };
 }

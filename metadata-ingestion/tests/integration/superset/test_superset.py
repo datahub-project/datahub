@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 from unittest.mock import patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -44,6 +44,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         },
                         "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
                         "dashboard_title": "test_dashboard_title_1",
+                        "description": "test dashboard description 1",
                         "url": "/dashboard/test_dashboard_url_1",
                         "position_json": '{"CHART-test-1": {"meta": { "chartId": "10" }}, "CHART-test-2": {"meta": { "chartId": "11" }}}',
                         "status": "published",
@@ -147,6 +148,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         },
                         "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
                         "slice_name": "test_chart_title_1",
+                        "description": "test chart description 1",
                         "viz_type": "box_plot",
                         "url": "/explore/test_chart_url_10",
                         "datasource_id": 1,
@@ -791,7 +793,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_superset_ingest(
     pytestconfig: pytest.Config, tmp_path: Path, mock_time: None, requests_mock: Any
@@ -829,10 +831,11 @@ def test_superset_ingest(
         pytestconfig,
         output_path=tmp_path / "superset_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
+        fail_on_output_mces=True,
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_superset_stateful_ingest(
     pytestconfig: pytest.Config,
@@ -1111,7 +1114,7 @@ def test_superset_stateful_ingest(
         # Remove one dashboard, chart, dataset from the superset config.
         register_mock_api(request_mock=requests_mock, override_data=asset_override)
 
-        # Capture MCEs of second run to validate Status(removed=true)
+        # Capture the second run's output to validate Status(removed=true)
         deleted_mces_path = f"{tmp_path}/superset_deleted_mces.json"
         pipeline_config_dict["sink"]["type"] = "file"
         pipeline_config_dict["sink"]["config"] = {"filename": deleted_mces_path}
@@ -1164,10 +1167,11 @@ def test_superset_stateful_ingest(
             pytestconfig,
             output_path=deleted_mces_path,
             golden_path=test_resources_dir / "golden_test_stateful_ingest.json",
+            fail_on_output_mces=True,
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_superset_aggregate_chart(
     pytestconfig: pytest.Config, tmp_path: Path, mock_time: None, requests_mock: Any
@@ -1409,4 +1413,5 @@ def test_superset_aggregate_chart(
         pytestconfig,
         output_path=tmp_path / "superset_aggregate_mces.json",
         golden_path=test_resources_dir / "golden_test_aggregate_ingest.json",
+        fail_on_output_mces=True,
     )

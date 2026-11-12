@@ -28,22 +28,26 @@ public class DataHubAppConfigurationTest extends AbstractTestNGSpringContextTest
   }
 
   @Test
-  public void testMCPBatchDefaults() {
+  public void testEntityGraphCacheDefaultsOnWithoutProcessProfile() {
+    assertTrue(
+        testApplication
+            .getDataHubAppConfig()
+            .getDatahub()
+            .getGms()
+            .getEntityGraphCache()
+            .isEnabled(),
+        "shared application.yaml defaults entityGraphCache.enabled to true");
+  }
+
+  @Test
+  public void testPreProcessHooksDefaults() {
+    PreProcessHooks hooks =
+        testApplication.getDataHubAppConfig().getFeatureFlags().getPreProcessHooks();
+    assertNotNull(hooks);
+    assertTrue(hooks.isUiEnabled(), "PRE_PROCESS_HOOKS_UI_ENABLED defaults to true");
     assertFalse(
-        testApplication
-            .getDataHubAppConfig()
-            .getMetadataChangeProposal()
-            .getConsumer()
-            .getBatch()
-            .isEnabled());
-    assertEquals(
-        testApplication
-            .getDataHubAppConfig()
-            .getMetadataChangeProposal()
-            .getConsumer()
-            .getBatch()
-            .getSize(),
-        15744000);
+        hooks.isReprocessEnabled(),
+        "PRE_PROCESS_HOOKS_REPROCESS_ENABLED defaults to false when unset");
   }
 
   @Test

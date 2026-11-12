@@ -22,7 +22,9 @@ export default function SelectActionButtons({
     );
 
     return (
-        <ActionButtonsContainer>
+        // flexShrink: 0 keeps the clear/chevron controls fixed-size when a truncating
+        // label (see SelectValue) shrinks to fit a capped SelectBase `maxWidth`.
+        <ActionButtonsContainer style={{ flexShrink: 0 }}>
             {showClear && hasSelectedValues && !isDisabled && !isReadOnly && (
                 <ClearButton size={fontSize} onClick={onClearClickHandler} data-testid="button-clear" />
             )}

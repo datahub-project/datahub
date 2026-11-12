@@ -1,8 +1,10 @@
 import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import React, { useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { matchPath, useLocation } from 'react-router';
 import styled from 'styled-components';
 
+import { EntitySidebarTabKey } from '@app/entityV2/shared/constants';
 import {
     StyledEntitySidebarContainer,
     StyledSidebar,
@@ -11,8 +13,9 @@ import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/si
 import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarTabs';
 import { defaultTabDisplayConfig } from '@app/entityV2/shared/containers/profile/utils';
 import { EntitySidebarTab } from '@app/entityV2/shared/types';
-import TagStyleEntity from '@app/shared/TagStyleEntity';
+import TagActionsDropdown from '@app/entityV2/tag/TagActionsDropdown';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import TagStyleEntity from '@app/sharedV2/TagStyleEntity';
 import { PageRoutes } from '@conf/Global';
 
 const CompactEntityWrapper = styled.div<{ $isClosed: boolean }>`
@@ -32,13 +35,15 @@ interface Props {
  * Responsible for displaying metadata about a tag
  */
 export default function CompactTagProfile({ urn }: Props) {
+    const { t } = useTranslation('entity.types');
     const location = useLocation();
     const isInSearch = matchPath(location.pathname, PageRoutes.SEARCH_RESULTS) !== null;
     const { isClosed, width } = useContext(EntitySidebarContext);
 
     const tabs: EntitySidebarTab[] = [
         {
-            name: 'About',
+            key: EntitySidebarTabKey.ABOUT,
+            name: t('tab.about'),
             icon: BookOpen,
             component: EntitySidebarSectionsTab,
             display: defaultTabDisplayConfig,
@@ -57,7 +62,10 @@ export default function CompactTagProfile({ urn }: Props) {
         >
             <StyledSidebar isCard={isInSearch} isFocused={isInSearch}>
                 <CompactEntityWrapper $isClosed={isClosed}>
-                    <TagStyleEntity urn={urn} />
+                    <TagStyleEntity
+                        urn={urn}
+                        renderActions={(tagData) => <TagActionsDropdown urn={urn} tagData={tagData} />}
+                    />
                 </CompactEntityWrapper>
                 <TabsContainer>
                     <EntitySidebarTabs

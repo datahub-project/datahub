@@ -1,0 +1,12 @@
+// buildSrc is a separate standalone Gradle build with its own Gradle instance — it does not
+// share gradle.ext with the main build. Initialize it here (settings runs before buildSrc's
+// build.gradle) by reading the root gradle.properties directly so any user overrides are picked up.
+// Legacy single-word properties (passed via -P or env vars) take precedence for backward compatibility.
+def rootGradleProps = new Properties()
+new File(settingsDir.parent, 'gradle.properties').withInputStream { rootGradleProps.load(it) }
+
+gradle.ext['datahub.dependencies.maven.central']            = hasProperty('apacheMavenRepositoryUrl')       ? getProperty('apacheMavenRepositoryUrl')       :
+                                                              hasProperty('mavenCentralRepositoryUrl')        ? getProperty('mavenCentralRepositoryUrl')        :
+                                                              rootGradleProps.getProperty('datahub.dependencies.maven.central')
+gradle.ext['datahub.dependencies.maven.confluent']           = hasProperty('confluentMavenRepositoryUrl')     ? getProperty('confluentMavenRepositoryUrl')     : rootGradleProps.getProperty('datahub.dependencies.maven.confluent')
+gradle.ext['datahub.dependencies.maven.linkedinOpenSource']  = hasProperty('linkedinOpenSourceRepositoryUrl') ? getProperty('linkedinOpenSourceRepositoryUrl') : rootGradleProps.getProperty('datahub.dependencies.maven.linkedinOpenSource')

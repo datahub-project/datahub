@@ -29,9 +29,12 @@ AWS_ROOT_PATH = "/warehouse"
 
 
 def is_minio_up(container_name: str) -> bool:
-    """A cheap way to figure out if postgres is responsive on a container"""
+    """True once MinIO or Silo has logged that the API is online."""
 
-    cmd = f"docker logs {container_name} 2>&1 | grep '1 Online'"
+    cmd = (
+        f"docker logs {container_name} 2>&1 | "
+        "grep -E '1 Online|Silo Object Storage Server'"
+    )
     ret = subprocess.run(
         cmd,
         shell=True,
@@ -489,9 +492,9 @@ def test_dremio_ingest(
         output_path=output_path,
         golden_path=test_resources_dir / "dremio_mces_golden.json",
         ignore_paths=[
-            # Dremio service timestamps can't be frozen
-            r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['auditStamp'\]\['time'\]",
-            r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['created'\]\['time'\]",
+            # Dremio service timestamps can't be frozen (PATCH format: aspect is a list of ops)
+            r"root\[\d+\]\['aspect'\]\[\d+\]\['value'\]\['auditStamp'\]\['time'\]",
+            r"root\[\d+\]\['aspect'\]\[\d+\]\['value'\]\['created'\]\['time'\]",
         ],
     )
 
@@ -574,9 +577,9 @@ def test_dremio_platform_instance_urns(
         output_path=output_path,
         golden_path=test_resources_dir / "dremio_platform_instance_mces_golden.json",
         ignore_paths=[
-            # Dremio service timestamps can't be frozen
-            r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['auditStamp'\]\['time'\]",
-            r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['created'\]\['time'\]",
+            # Dremio service timestamps can't be frozen (PATCH format: aspect is a list of ops)
+            r"root\[\d+\]\['aspect'\]\[\d+\]\['value'\]\['auditStamp'\]\['time'\]",
+            r"root\[\d+\]\['aspect'\]\[\d+\]\['value'\]\['created'\]\['time'\]",
         ],
     )
 
@@ -600,8 +603,8 @@ def test_dremio_schema_filter(
         output_path=output_path,
         golden_path=test_resources_dir / "dremio_schema_filter_mces_golden.json",
         ignore_paths=[
-            # Dremio service timestamps can't be frozen
-            r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['auditStamp'\]\['time'\]",
-            r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['created'\]\['time'\]",
+            # Dremio service timestamps can't be frozen (PATCH format: aspect is a list of ops)
+            r"root\[\d+\]\['aspect'\]\[\d+\]\['value'\]\['auditStamp'\]\['time'\]",
+            r"root\[\d+\]\['aspect'\]\[\d+\]\['value'\]\['created'\]\['time'\]",
         ],
     )

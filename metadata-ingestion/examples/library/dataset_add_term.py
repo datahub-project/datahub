@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Union
 
 from datahub.sdk import DataHubClient, DatasetUrn, GlossaryTermUrn
 
@@ -28,14 +28,11 @@ def add_terms_to_dataset(
     client.entities.update(dataset)
 
 
-def main(client: Optional[DataHubClient] = None) -> None:
+def main() -> None:
     """
     Main function to add terms to dataset example.
-
-    Args:
-        client: Optional DataHub client (for testing). If not provided, creates one from env.
     """
-    client = client or DataHubClient.from_env()
+    client = DataHubClient.from_env()
 
     dataset_urn = DatasetUrn(platform="hive", name="realestate_db.sales", env="PROD")
 

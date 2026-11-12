@@ -1,6 +1,10 @@
 import os
 import pathlib
+import socket
+import threading
+import time
 
+import git
 import pytest
 from pydantic import SecretStr
 
@@ -60,7 +64,6 @@ def test_base_url_guessing() -> None:
     )
     assert config.repo_ssh_locator == "https://gitea.com/gitea/tea.git"
 
-    # Deprecated: base_url.
     with pytest.warns(ConfigurationWarning, match="base_url is deprecated"):
         config = GitInfo.model_validate(
             dict(
@@ -110,6 +113,63 @@ def test_url_subdir() -> None:
     )
 
 
+def test_clone_timeout_integration(tmp_path: pathlib.Path) -> None:
+    """Verify the clone timeout is actually enforced end-to-end.
+
+    Spins up a TCP server that accepts connections but never speaks SSH,
+    simulating a hung or firewalled port. The SSH ConnectTimeout should
+    cause the clone to fail within the configured timeout.
+    """
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+    port = server.getsockname()[1]
+
+    def accept_and_hang() -> None:
+        try:
+            conn, _ = server.accept()
+            time.sleep(30)
+        except Exception:
+            pass
+        finally:
+            server.close()
+
+    threading.Thread(target=accept_and_hang, daemon=True).start()
+
+    git_clone = GitClone(str(tmp_path))
+    start = time.monotonic()
+    with pytest.raises((RuntimeError, git.GitCommandError)):
+        git_clone.clone(
+            ssh_key=None,
+            repo_url=f"ssh://git@127.0.0.1:{port}/org/repo.git",
+            timeout=3,
+        )
+    elapsed = time.monotonic() - start
+    assert elapsed < 10, f"Clone took {elapsed:.1f}s — timeout was not enforced"
+
+
+def test_clone_error_messages() -> None:
+    def make_error(stderr: str) -> git.GitCommandError:
+        return git.GitCommandError("git clone", 128, stderr)
+
+    assert "deploy key" in GitClone._clone_error_message(
+        make_error("Permission denied (publickey).")
+    )
+    assert "port 22" in GitClone._clone_error_message(
+        make_error("ssh: connect to host github.com port 22: Connection refused")
+    )
+    assert "hostname" in GitClone._clone_error_message(
+        make_error("Could not resolve hostname github.com")
+    )
+    assert (
+        "not found"
+        in GitClone._clone_error_message(
+            make_error("ERROR: Repository not found.")
+        ).lower()
+    )
+
+
 def test_sanitize_repo_url() -> None:
     assert_doctest(datahub.ingestion.source.git.git_import)
 
@@ -131,7 +191,7 @@ def test_git_clone_public(tmp_path: pathlib.Path) -> None:
 
 
 @pytest.mark.skipif(
-    LOOKML_TEST_SSH_KEY is None,
+    not LOOKML_TEST_SSH_KEY,
     reason="DATAHUB_LOOKML_GIT_TEST_SSH_KEY env variable is not configured",
 )
 def test_git_clone_private(tmp_path: pathlib.Path) -> None:

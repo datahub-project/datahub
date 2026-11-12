@@ -15,6 +15,7 @@ from urllib3.util.retry import Retry
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     SupportStatus,
@@ -24,13 +25,11 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     support_status,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -41,11 +40,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-    ChartSnapshot,
-    DashboardSnapshot,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ChartTypeClass,
@@ -322,7 +316,7 @@ class RedashSourceReport(StaleEntityRemovalSourceReport):
 
 @platform_name("Redash")
 @config_class(RedashConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class RedashSource(StatefulIngestionSourceBase):
     """
@@ -378,11 +372,11 @@ class RedashSource(StatefulIngestionSourceBase):
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
         # TODO: Remove this method.
-        self.report.failure(key, reason)
+        self.report.failure(message=reason, context=key)
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         # TODO: Remove this method.
-        self.report.warning(key, reason)
+        self.report.warning(message=reason, context=key)
 
     def validate_connection(self) -> None:
         test_response = self.client._get(f"{self.config.connect_uri}/api")
@@ -510,14 +504,9 @@ class RedashSource(StatefulIngestionSourceBase):
 
         return chart_urns
 
-    def _get_dashboard_snapshot(self, dashboard_data, redash_version):
-        dashboard_id = dashboard_data["id"]
-        dashboard_urn = f"urn:li:dashboard:({self.platform},{dashboard_id})"
-        dashboard_snapshot = DashboardSnapshot(
-            urn=dashboard_urn,
-            aspects=[],
-        )
-
+    def _build_dashboard_info(
+        self, dashboard_data: Dict, redash_version: str
+    ) -> DashboardInfoClass:
         modified_actor = f"urn:li:corpuser:{dashboard_data.get('changed_by', {}).get('username', 'unknown')}"
         modified_ts = int(
             dp.parse(dashboard_data.get("updated_at", "now")).timestamp() * 1000
@@ -542,7 +531,7 @@ class RedashSource(StatefulIngestionSourceBase):
         description = self._get_dashboard_description_from_widgets(widgets)
         chart_urns = self._get_dashboard_chart_urns_from_widgets(widgets)
 
-        dashboard_info = DashboardInfoClass(
+        return DashboardInfoClass(
             description=description,
             title=title,
             charts=chart_urns,
@@ -550,9 +539,6 @@ class RedashSource(StatefulIngestionSourceBase):
             dashboardUrl=dashboard_url,
             customProperties={},
         )
-        dashboard_snapshot.aspects.append(dashboard_info)
-
-        return dashboard_snapshot
 
     def _process_dashboard_response(
         self, current_page: int
@@ -573,7 +559,6 @@ class RedashSource(StatefulIngestionSourceBase):
                 ):
                     self.report.report_dropped(dashboard_name)
                     continue
-                # Continue producing MCE
                 try:
                     # This is undocumented but checking the Redash source
                     # the API is id based not slug based
@@ -593,17 +578,16 @@ class RedashSource(StatefulIngestionSourceBase):
                     redash_version = REDASH_VERSION_V9
 
                 logger.debug(dashboard_data)
-                dashboard_snapshot = self._get_dashboard_snapshot(
-                    dashboard_data, redash_version
-                )
-                mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-                yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=f"urn:li:dashboard:({self.platform},{dashboard_data['id']})",
+                    aspect=self._build_dashboard_info(dashboard_data, redash_version),
+                ).as_workunit()
 
             self.report.timing[f"dashboard-{current_page}"] = int(
                 timer.elapsed_seconds()
             )
 
-    def _emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
+    def _gen_dashboard_workunits(self) -> Iterable[MetadataWorkUnit]:
         # Get total number of dashboards to calculate maximum page number
         dashboards_response = self.client.dashboards(1, self.config.page_size)
         total_dashboards = dashboards_response["count"]
@@ -637,25 +621,21 @@ class RedashSource(StatefulIngestionSourceBase):
             if chart_type is None:
                 chart_type = DEFAULT_VISUALIZATION_TYPE
                 message = f"ChartTypeClass for Redash Visualization Type={viz_type} with options.globalSeriesType={globalSeriesType} is missing. Setting to {DEFAULT_VISUALIZATION_TYPE}"
-                self.report.report_warning(title=report_type, message=message)
+                self.report.warning(title=report_type, message=message, log=False)
                 logger.warning(message)
         else:
             chart_type = VISUALIZATION_TYPE_MAP.get(viz_type)
             if chart_type is None:
                 chart_type = DEFAULT_VISUALIZATION_TYPE
                 message = f"ChartTypeClass for Redash Visualization Type={viz_type} is missing. Setting to {DEFAULT_VISUALIZATION_TYPE}"
-                self.report.report_warning(title=report_type, message=message)
+                self.report.warning(title=report_type, message=message, log=False)
                 logger.warning(message)
 
         return chart_type
 
-    def _get_chart_snapshot(self, query_data: Dict, viz_data: Dict) -> ChartSnapshot:
+    def _build_chart_info(self, query_data: Dict, viz_data: Dict) -> ChartInfoClass:
         viz_id = viz_data["id"]
         chart_urn = f"urn:li:chart:({self.platform},{viz_id})"
-        chart_snapshot = ChartSnapshot(
-            urn=chart_urn,
-            aspects=[],
-        )
 
         modified_actor = f"urn:li:corpuser:{viz_data.get('changed_by', {}).get('username', 'unknown')}"
         modified_ts = int(
@@ -682,12 +662,14 @@ class RedashSource(StatefulIngestionSourceBase):
         if datasource_urns is None:
             self.report.charts_no_input.add(chart_urn)
             self.report.queries_no_dataset.add(str(query_id))
-            self.report.report_warning(
-                title="redash-chart-input-missing",
-                message=f"For viz-id-{viz_id}-query-{query_id}-datasource-{data_source_id} data_source_type={data_source_type} no datasources found. Setting inputs to None",
+            self.report.warning(
+                title="Redash chart input missing",
+                message="No datasources found for chart, setting inputs to None",
+                context=f"viz_id={viz_id}, query_id={query_id}, data_source_id={data_source_id}, data_source_type={data_source_type}",
+                log=False,
             )
 
-        chart_info = ChartInfoClass(
+        return ChartInfoClass(
             type=chart_type,
             description=description,
             title=title,
@@ -695,9 +677,6 @@ class RedashSource(StatefulIngestionSourceBase):
             chartUrl=chart_url,
             inputs=datasource_urns or None,
         )
-        chart_snapshot.aspects.append(chart_info)
-
-        return chart_snapshot
 
     def _process_query_response(self, current_page: int) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Starting processing query for page {current_page}")
@@ -722,14 +701,15 @@ class RedashSource(StatefulIngestionSourceBase):
 
                 # In Redash, chart is called visualization
                 for visualization in query_data.get("visualizations", []):
-                    chart_snapshot = self._get_chart_snapshot(query_data, visualization)
-                    mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-                    yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=f"urn:li:chart:({self.platform},{visualization['id']})",
+                        aspect=self._build_chart_info(query_data, visualization),
+                    ).as_workunit()
 
             self.report.timing[f"query-{current_page}"] = int(timer.elapsed_seconds())
             logger.info(f"Ending processing query for {current_page}")
 
-    def _emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
+    def _gen_chart_workunits(self) -> Iterable[MetadataWorkUnit]:
         # Get total number of queries to calculate maximum page number
         queries_response = self.client.queries(1, self.config.page_size)
         total_queries = queries_response["count"]
@@ -747,22 +727,14 @@ class RedashSource(StatefulIngestionSourceBase):
     def add_config_to_report(self) -> None:
         self.report.api_page_limit = self.config.api_page_limit
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.validate_connection()
         self.add_config_to_report()
         with PerfTimer() as timer:
-            yield from self._emit_chart_mces()
+            yield from self._gen_chart_workunits()
             self.report.timing["time-all-charts"] = int(timer.elapsed_seconds())
         with PerfTimer() as timer:
-            yield from self._emit_dashboard_mces()
+            yield from self._gen_dashboard_workunits()
             self.report.timing["time-all-dashboards"] = int(timer.elapsed_seconds())
 
     def get_report(self) -> SourceReport:

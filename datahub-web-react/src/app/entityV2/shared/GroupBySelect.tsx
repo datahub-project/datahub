@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { SimpleSelect } from '@src/alchemy-components';
 
@@ -15,9 +16,12 @@ type GroupBySelectProps = {
 };
 
 export function GroupBySelect({ options, selectedValue, onSelect, width = 50 }: GroupBySelectProps) {
+    const { t } = useTranslation('entity.shared.selectors');
     const selectedOption = options.find((option) => option.value === selectedValue) || { label: undefined };
 
-    const displayValue = selectedOption.label ? `Group ${selectedOption.label}` : 'Group';
+    const displayValue = selectedOption.label
+        ? t('groupBy.displayValue', { label: selectedOption.label })
+        : t('groupBy.group');
 
     return (
         <SimpleSelect
@@ -31,10 +35,10 @@ export function GroupBySelect({ options, selectedValue, onSelect, width = 50 }: 
                 }
             }}
             placeholder={displayValue}
-            size="md"
+            size="sm"
             showClear={false}
             width={width}
-            selectLabelProps={{ label: 'Group', variant: 'labeled' }}
+            selectLabelProps={{ label: t('groupBy.group'), variant: 'labeled' }}
             optionListTestId="group-by-option-list"
             data-testid="group-by-select-input"
         />

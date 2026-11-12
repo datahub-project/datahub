@@ -1,5 +1,4 @@
 # metadata-ingestion/examples/library/query_create.py
-import logging
 import os
 import time
 
@@ -15,9 +14,6 @@ from datahub.metadata.schema_classes import (
     QuerySubjectsClass,
 )
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn, QueryUrn
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 query_id = "my-unique-query-id"
 query_urn = QueryUrn(query_id)
@@ -62,4 +58,4 @@ mcpw_subjects = MetadataChangeProposalWrapper(
 )
 rest_emitter.emit(mcpw_subjects)
 
-log.info(f"Created query {query_urn}")
+print(f"Created query {query_urn}")

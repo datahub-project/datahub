@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import FilterOption from '@app/searchV2/filters/FilterOption';
 import BooleanMoreFilter from '@app/searchV2/filters/render/shared/BooleanMoreFilter';
@@ -8,8 +9,6 @@ import { FilterScenarioType } from '@app/searchV2/filters/render/types';
 
 import { FacetFilter, FacetFilterInput, FacetMetadata } from '@types';
 
-const TITLE = 'Incidents';
-const OPTION = 'Has active incidents';
 const FIELD = 'hasActiveIncidents';
 
 interface Props {
@@ -20,6 +19,9 @@ interface Props {
 }
 
 export function HasActiveIncidentsFilter({ scenario, filter, activeFilters, onChangeFilters }: Props) {
+    const { t } = useTranslation('search');
+    const title = t('filters.incidents.title');
+    const option = t('filters.incidents.hasActive');
     const isSelected = activeFilters?.find((f) => f.field === FIELD)?.values?.includes('true');
 
     const toggleFilter = () => {
@@ -38,14 +40,14 @@ export function HasActiveIncidentsFilter({ scenario, filter, activeFilters, onCh
         return null;
     }
 
-    const filterOption = { field: FIELD, value: OPTION, count: aggregateCount };
+    const filterOption = { field: FIELD, value: option, count: aggregateCount };
 
     return (
         <>
             {scenario === FilterScenarioType.SEARCH_V1 && (
                 <BooleanSimpleSearchFilter
-                    title={TITLE}
-                    option={OPTION}
+                    title={title}
+                    option={option}
                     isSelected={isSelected || false}
                     onSelect={toggleFilter}
                     defaultDisplayFilters
@@ -54,8 +56,8 @@ export function HasActiveIncidentsFilter({ scenario, filter, activeFilters, onCh
             )}
             {scenario === FilterScenarioType.SEARCH_V2_PRIMARY && (
                 <BooleanSearchFilter
-                    title={TITLE}
-                    option={OPTION}
+                    title={title}
+                    option={option}
                     initialSelected={isSelected || false}
                     onUpdate={toggleFilter}
                     count={aggregateCount}
@@ -63,8 +65,8 @@ export function HasActiveIncidentsFilter({ scenario, filter, activeFilters, onCh
             )}
             {scenario === FilterScenarioType.SEARCH_V2_SECONDARY && (
                 <BooleanMoreFilter
-                    title={TITLE}
-                    option={OPTION}
+                    title={title}
+                    option={option}
                     initialSelected={isSelected || false}
                     onUpdate={toggleFilter}
                     count={aggregateCount}

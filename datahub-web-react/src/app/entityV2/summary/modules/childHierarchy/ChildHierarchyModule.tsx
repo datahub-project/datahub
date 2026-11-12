@@ -1,7 +1,8 @@
 import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { getChildHierarchyModule } from '@app/entityV2/summary/modules/childHierarchy/utils';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
@@ -13,6 +14,7 @@ import { useGetDomainChildrenCountQuery } from '@graphql/domain.generated';
 import { EntityType } from '@types';
 
 export default function ChildHierarchyModule(props: ModuleProps) {
+    const { t } = useTranslation('modules');
     const { urn, entityType } = useEntityData();
     const module = getChildHierarchyModule(props.module, urn, entityType);
     const { isReloading } = useModuleContext();
@@ -30,8 +32,8 @@ export default function ChildHierarchyModule(props: ModuleProps) {
             <LargeModule {...props} module={module} dataTestId="hierarchy-module">
                 <EmptyContent
                     icon={Stack}
-                    title="No Domains"
-                    description="This domain has no children domains. Add domains to see them in this module."
+                    title={t('childHierarchy.emptyTitle')}
+                    description={t('childHierarchy.emptyDescription')}
                 />
             </LargeModule>
         );

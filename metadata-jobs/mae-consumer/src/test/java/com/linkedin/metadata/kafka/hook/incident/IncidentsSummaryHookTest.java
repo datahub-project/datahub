@@ -30,7 +30,9 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -61,7 +63,7 @@ public class IncidentsSummaryHookTest {
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.UPSERT, incidentInfo);
-    hook.invoke(event);
+    hook.invoke(opContext, event);
     Mockito.verify(service, Mockito.times(0)).getIncidentInfo(any(OperationContext.class), any());
   }
 
@@ -77,14 +79,14 @@ public class IncidentsSummaryHookTest {
     MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_KEY_ASPECT_NAME, ChangeType.UPSERT, new IncidentInfo());
-    hook.invoke(event);
+    hook.invoke(opContext, event);
     Mockito.verify(service, Mockito.times(0)).getIncidentInfo(any(OperationContext.class), any());
 
     // Case 2: Run Event But Delete
     event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.DELETE, info);
-    hook.invoke(event);
+    hook.invoke(opContext, event);
     Mockito.verify(service, Mockito.times(0)).getIncidentInfo(any(OperationContext.class), any());
   }
 
@@ -149,7 +151,7 @@ public class IncidentsSummaryHookTest {
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.UPSERT, info);
-    hook.invoke(event);
+    hook.invoke(opContext, event);
     Mockito.verify(service, Mockito.times(1))
         .getIncidentInfo(any(OperationContext.class), eq(TEST_INCIDENT_URN));
     Mockito.verify(service, Mockito.times(1))
@@ -194,7 +196,7 @@ public class IncidentsSummaryHookTest {
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.UPSERT, info);
-    hook.invoke(event);
+    hook.invoke(opContext, event);
     Mockito.verify(service, Mockito.times(1))
         .getIncidentInfo(any(OperationContext.class), eq(TEST_INCIDENT_URN));
     Mockito.verify(service, Mockito.times(1))
@@ -246,7 +248,7 @@ public class IncidentsSummaryHookTest {
             ChangeType.UPSERT,
             info,
             prevIncidentInfo);
-    hook.invoke(event);
+    hook.invoke(opContext, event);
     if (summary == null) {
       summary = new IncidentsSummary();
     }
@@ -308,7 +310,7 @@ public class IncidentsSummaryHookTest {
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, STATUS_ASPECT_NAME, ChangeType.UPSERT, mockIncidentSoftDeleted());
-    hook.invoke(event);
+    hook.invoke(opContext, event);
 
     Mockito.verify(service, Mockito.times(1))
         .getIncidentInfo(any(OperationContext.class), eq(TEST_INCIDENT_URN));
@@ -339,6 +341,42 @@ public class IncidentsSummaryHookTest {
     Mockito.verify(service, Mockito.times(1))
         .updateIncidentsSummary(
             any(OperationContext.class), eq(TEST_DATASET_2_URN), eq(expectedSummary));
+  }
+
+  @Test
+  public void testIncidentInfoCustomTypeMapping() throws Exception {
+    // Create IncidentInfo with CUSTOM type
+    IncidentInfo info = new IncidentInfo();
+    info.setType(IncidentType.CUSTOM);
+    info.setEntities(new UrnArray(ImmutableList.of(TEST_DATASET_URN)));
+    info.setSource(new IncidentSource().setType(IncidentSourceType.MANUAL));
+    info.setStatus(
+        new IncidentStatus()
+            .setState(IncidentState.ACTIVE)
+            .setLastUpdated(
+                new AuditStamp().setTime(1L).setActor(UrnUtils.getUrn("urn:li:corpuser:test"))));
+    info.setCreated(new AuditStamp().setTime(0L).setActor(UrnUtils.getUrn("urn:li:corpuser:test")));
+
+    // Mock the service
+    IncidentService service = mockIncidentService(new IncidentsSummary(), info);
+    IncidentsSummaryHook hook = new IncidentsSummaryHook(service, true, 100).init(opContext);
+
+    // Create and invoke the event
+    final MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.UPSERT, info);
+    hook.invoke(opContext, event);
+
+    // Verify that the summary was updated with type "CUSTOM"
+    ArgumentCaptor<IncidentsSummary> summaryCaptor =
+        ArgumentCaptor.forClass(IncidentsSummary.class);
+    Mockito.verify(service)
+        .updateIncidentsSummary(
+            any(OperationContext.class), eq(TEST_DATASET_URN), summaryCaptor.capture());
+
+    IncidentsSummary capturedSummary = summaryCaptor.getValue();
+    Assert.assertEquals(
+        capturedSummary.getActiveIncidentDetails().get(0).getType(), IncidentType.CUSTOM.name());
   }
 
   private IncidentInfo mockIncidentInfo(final List<Urn> entityUrns, final IncidentState state) {
@@ -383,7 +421,9 @@ public class IncidentsSummaryHookTest {
     incidentSummaryDetails.setUrn(incidentUrn);
     incidentSummaryDetails.setCreatedAt(info.getCreated().getTime());
     if (IncidentType.CUSTOM.equals(info.getType())) {
-      incidentSummaryDetails.setType(info.getCustomType());
+      String type =
+          info.getCustomType() != null ? info.getCustomType() : IncidentType.CUSTOM.name();
+      incidentSummaryDetails.setType(type);
     } else {
       incidentSummaryDetails.setType(info.getType().toString());
     }

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.hook.event;
 
 import static com.linkedin.metadata.graph.GraphIndexUtils.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
@@ -9,6 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
@@ -22,6 +24,7 @@ import com.linkedin.metadata.timeline.eventgenerator.ChangeEventGeneratorUtils;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
@@ -34,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -54,6 +58,8 @@ import org.springframework.stereotype.Component;
 @Component
 @Import({EntityRegistryFactory.class})
 public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(PlatformEventGeneratorHook.class, "change events for MCL");
 
   /** The list of aspects that are supported for generating semantic change events. */
   private static final Set<String> ENTITY_CHANGE_SUPPORTED_ASPECT_NAMES =
@@ -69,6 +75,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
           Constants.DEPRECATION_ASPECT_NAME,
           Constants.DATASET_PROPERTIES_ASPECT_NAME,
           Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
+          Constants.DOCUMENTATION_ASPECT_NAME,
           Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
           Constants.DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
           Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
@@ -97,16 +104,15 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
       ImmutableSet.of("CREATE", "UPSERT", "DELETE");
 
   private final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry;
-  private final OperationContext systemOperationContext;
   private final EventProducer eventProducer;
   private final Boolean isEnabled;
   @Getter private final String consumerGroupSuffix;
   private final List<String> entityExclusions;
   private final List<String> fineGrainedLineageNotAllowedForPlatforms;
+  private final boolean syncIngestStampingEnabled;
 
   @Autowired
   public PlatformEventGeneratorHook(
-      @Nonnull OperationContext systemOperationContext,
       @Nonnull @Qualifier("entityChangeEventGeneratorRegistry")
           final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
       @Nonnull final EventProducer eventProducer,
@@ -115,8 +121,8 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
       @Nonnull @Value("#{'${entityChangeEvents.entityExclusions}'.split(',')}")
           List<String> entityExclusions,
       @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
-          final List<String> fineGrainedLineageNotAllowedForPlatforms) {
-    this.systemOperationContext = systemOperationContext;
+          final List<String> fineGrainedLineageNotAllowedForPlatforms,
+      @Value("${entityService.syncIngestStamping:false}") final boolean syncIngestStampingEnabled) {
     this.entityChangeEventGeneratorRegistry =
         Objects.requireNonNull(entityChangeEventGeneratorRegistry);
     this.eventProducer = Objects.requireNonNull(eventProducer);
@@ -124,22 +130,22 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
     this.consumerGroupSuffix = consumerGroupSuffix;
     this.entityExclusions = entityExclusions;
     this.fineGrainedLineageNotAllowedForPlatforms = fineGrainedLineageNotAllowedForPlatforms;
+    this.syncIngestStampingEnabled = syncIngestStampingEnabled;
   }
 
   @VisibleForTesting
   public PlatformEventGeneratorHook(
-      @Nonnull OperationContext systemOperationContext,
       @Nonnull final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
       @Nonnull final EventProducer eventProducer,
       @Nonnull Boolean isEnabled) {
     this(
-        systemOperationContext,
         entityChangeEventGeneratorRegistry,
         eventProducer,
         isEnabled,
         "",
         Collections.emptyList(),
-        Collections.emptyList());
+        Collections.emptyList(),
+        false);
   }
 
   @Override
@@ -147,14 +153,36 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
     return isEnabled;
   }
 
-  private List<ChangeEvent> getChangeEvents(MetadataChangeLog logEvent) {
-    final AspectSpec aspectSpec =
-        systemOperationContext
-            .getEntityRegistry()
-            .getEntitySpec(logEvent.getEntityType())
-            .getAspectSpec(logEvent.getAspectName());
+  private List<ChangeEvent> getChangeEvents(
+      OperationContext operationContext, MetadataChangeLog logEvent) {
+    final AspectSpec aspectSpec;
+    if (handling().toleratesUnknownEntityAspect()) {
+      // The aspect-name allowlist does not check the entity type: after a version rollback an
+      // allowlisted aspect can arrive for an entity type that does not have it in this build.
+      final Optional<AspectSpec> maybeAspectSpec =
+          handling()
+              .aspectSpecForData(
+                  operationContext.getEntityRegistry(),
+                  logEvent.getEntityType(),
+                  logEvent.getAspectName());
+      if (maybeAspectSpec.isEmpty()) {
+        UNKNOWN_DATA.skipped(
+            operationContext.getMetricUtils(),
+            logEvent.getEntityType(),
+            logEvent.getAspectName(),
+            logEvent.getEntityUrn());
+        return Collections.emptyList();
+      }
+      aspectSpec = maybeAspectSpec.get();
+    } else {
+      aspectSpec =
+          handling()
+              .entitySpecForData(operationContext.getEntityRegistry(), logEvent.getEntityType())
+              .map(entitySpec -> entitySpec.getAspectSpec(logEvent.getAspectName()))
+              .orElse(null);
 
-    assert aspectSpec != null;
+      assert aspectSpec != null;
+    }
 
     final RecordTemplate fromAspect =
         logEvent.getPreviousAspectValue() != null
@@ -180,16 +208,24 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
         logEvent.getCreated());
   }
 
-  private void processChangeEvent(@Nonnull final MetadataChangeLog logEvent) throws Exception {
+  private void processChangeEvent(
+      @Nonnull OperationContext operationContext, @Nonnull final MetadataChangeLog logEvent)
+      throws Exception {
     // Steps:
     // 1. Parse the old and new aspect.
     // 2. Find and invoke a EntityChangeEventGenerator.
     // 3. Sink the output of the EntityChangeEventGenerator to a specific PDL change event.
-    final List<ChangeEvent> changeEvents = getChangeEvents(logEvent);
+    final List<ChangeEvent> changeEvents = getChangeEvents(operationContext, logEvent);
+    // Propagate the emitModeMarker=sync marker (Constants.EMIT_MODE_MARKER_KEY, the same
+    // marker already published by acryl-datahub's REST emitter) from the MCL system
+    // metadata onto the platform event so downstream consumers can preserve the
+    // originating write's sync QoS.
+    final boolean syncIngest = hasSyncIngestFlag(logEvent.getSystemMetadata());
     // Iterate through each transaction, emit change events as platform events.
     for (final ChangeEvent event : changeEvents) {
-      PlatformEvent platformEvent = buildPlatformEvent(event);
+      PlatformEvent platformEvent = buildPlatformEvent(event, syncIngest);
       emitPlatformEvent(
+          operationContext,
           platformEvent,
           String.format("%s-%s", Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME, event.getEntityUrn()));
       log.debug(
@@ -200,17 +236,28 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
     }
   }
 
-  private void processRelationshipChangeEvent(@Nonnull final MetadataChangeLog logEvent)
+  private void processRelationshipChangeEvent(
+      @Nonnull OperationContext operationContext, @Nonnull final MetadataChangeLog logEvent)
       throws Exception {
     // Steps:
     // 1. Parse the old and new aspect.
     // 2. Find and invoke a EntityChangeEventGenerator.
     // 3. Sink the output of the EntityChangeEventGenerator to a specific PDL change event.
     final List<RelationshipChangeEvent> relationshipChangeEvents =
-        buildRelationshipChangeEvents(logEvent);
+        buildRelationshipChangeEvents(operationContext, logEvent);
+    final boolean syncIngest = hasSyncIngestFlag(logEvent.getSystemMetadata());
     for (final RelationshipChangeEvent changeEvent : relationshipChangeEvents) {
+      if (syncIngest) {
+        if (!changeEvent.hasProperties() || changeEvent.getProperties() == null) {
+          changeEvent.setProperties(new StringMap());
+        }
+        changeEvent
+            .getProperties()
+            .put(Constants.EMIT_MODE_MARKER_KEY, Constants.EMIT_MODE_MARKER_SYNC);
+      }
       PlatformEvent platformEvent = buildRelationshipPlatformEvent(changeEvent);
       emitPlatformEvent(
+          operationContext,
           platformEvent,
           String.format(
               "%s-%s", Constants.RELATIONSHIP_PLATFORM_EVENT_NAME, logEvent.getEntityUrn()));
@@ -222,20 +269,22 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
   }
 
   @Override
-  public void invoke(@Nonnull final MetadataChangeLog logEvent) throws Exception {
+  public void invoke(
+      @Nonnull OperationContext operationContext, @Nonnull final MetadataChangeLog logEvent)
+      throws Exception {
     if (isEligibleForChangeEventProcessing(logEvent)) {
       // Steps:
       // 1. Parse the old and new aspect.
       // 2. Find and invoke a EntityChangeEventGenerator.
       // 3. Sink the output of the EntityChangeEventGenerator to a specific PDL change event.
-      processChangeEvent(logEvent);
+      processChangeEvent(operationContext, logEvent);
     }
 
     // Steps:
     // 1. Parse the old and new aspect.
     // 2. Find and invoke a EntityChangeEventGenerator.
     // 3. Sink the output of the EntityChangeEventGenerator to a specific PDL change event.
-    processRelationshipChangeEvent(logEvent);
+    processRelationshipChangeEvent(operationContext, logEvent);
   }
 
   private <T extends RecordTemplate> List<ChangeEvent> generateChangeEvents(
@@ -266,13 +315,17 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
   }
 
   private void emitPlatformEvent(
-      @Nonnull final PlatformEvent event, @Nonnull final String partitioningKey) throws Exception {
-    eventProducer.producePlatformEvent(event.getName(), partitioningKey, event);
+      @Nonnull OperationContext operationContext,
+      @Nonnull final PlatformEvent event,
+      @Nonnull final String partitioningKey)
+      throws Exception {
+    eventProducer.producePlatformEvent(operationContext, event.getName(), partitioningKey, event);
   }
 
-  private PlatformEvent buildPlatformEvent(final ChangeEvent rawChangeEvent) {
+  private PlatformEvent buildPlatformEvent(
+      final ChangeEvent rawChangeEvent, final boolean syncIngest) {
     // 1. Convert raw Change Event to a serialized change event.
-    RecordTemplate changeEvent = convertRawEventToChangeEvent(rawChangeEvent);
+    RecordTemplate changeEvent = convertRawEventToChangeEvent(rawChangeEvent, syncIngest);
     // 2. Build platform event
     PlatformEvent platformEvent = new PlatformEvent();
     platformEvent.setName(Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME);
@@ -293,10 +346,10 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
   }
 
   private List<RelationshipChangeEvent> buildRelationshipChangeEvents(
-      final MetadataChangeLog logEvent) {
+      @Nonnull OperationContext operationContext, final MetadataChangeLog logEvent) {
     final AspectSpec aspectSpec =
         Objects.requireNonNull(
-                systemOperationContext.getEntityRegistry().getEntitySpec(logEvent.getEntityType()))
+                operationContext.getEntityRegistry().getEntitySpec(logEvent.getEntityType()))
             .getAspectSpec(logEvent.getAspectName());
 
     if (aspectSpec == null) {
@@ -332,7 +385,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
             newAspect,
             logEvent,
             fineGrainedLineageNotAllowedForPlatforms,
-            systemOperationContext.getEntityRegistry());
+            operationContext.getEntityRegistry());
 
     List<RelationshipChangeEvent> relationshipChangeEvents = new ArrayList<>();
 
@@ -381,10 +434,25 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
    * Thin mapping from internal Timeline API {@link ChangeEvent} to Kafka Platform Event {@link
    * ChangeEvent}, which serves as a public API for outbound consumption.
    */
-  private RecordTemplate convertRawEventToChangeEvent(final ChangeEvent rawChangeEvent) {
+  private boolean hasSyncIngestFlag(@Nullable final SystemMetadata systemMetadata) {
+    return isSyncIngestPropagationEnabled()
+        && systemMetadata != null
+        && systemMetadata.getProperties() != null
+        && Constants.EMIT_MODE_MARKER_SYNC.equalsIgnoreCase(
+            systemMetadata.getProperties().get(Constants.EMIT_MODE_MARKER_KEY));
+  }
+
+  // Same flag that gates origin stamping in GMS (entityService.syncIngestStamping).
+  // When MCL hooks run in a standalone MAE consumer, set it on that deployment too.
+  private boolean isSyncIngestPropagationEnabled() {
+    return syncIngestStampingEnabled;
+  }
+
+  private RecordTemplate convertRawEventToChangeEvent(
+      final ChangeEvent rawChangeEvent, final boolean syncIngest) {
     com.linkedin.platform.event.v1.EntityChangeEvent changeEvent =
         new com.linkedin.platform.event.v1.EntityChangeEvent();
-    log.debug(String.format("Attempting to convert %s", rawChangeEvent));
+    log.debug("Attempting to convert {}", rawChangeEvent);
     try {
       Urn entityUrn = Urn.createFromString(rawChangeEvent.getEntityUrn());
       changeEvent.setEntityType(entityUrn.getEntityType());
@@ -394,10 +462,19 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
       changeEvent.setModifier(rawChangeEvent.getModifier(), SetMode.IGNORE_NULL);
       changeEvent.setAuditStamp(rawChangeEvent.getAuditStamp());
       changeEvent.setVersion(0);
+      DataMap parameters = null;
       if (rawChangeEvent.getParameters() != null) {
+        parameters = new DataMap(rawChangeEvent.getParameters());
+      } else if (syncIngest) {
+        parameters = new DataMap();
+      }
+      if (syncIngest) {
+        parameters.put(Constants.EMIT_MODE_MARKER_KEY, Constants.EMIT_MODE_MARKER_SYNC);
+      }
+      if (parameters != null) {
         // This map should ideally contain only primitives at the leaves - integers, floats,
         // booleans, strings.
-        changeEvent.setParameters(new Parameters(new DataMap(rawChangeEvent.getParameters())));
+        changeEvent.setParameters(new Parameters(parameters));
       }
       return changeEvent;
     } catch (Exception e) {

@@ -1,7 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
+import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV3/utils/lineageUtils';
 import { FieldType, FilterField, FilterValue } from '@app/searchV2/filters/types';
 import { getStructuredPropFilterDisplayName } from '@app/searchV2/filters/utils';
 import { getEntityTypeFilterValueDisplayName } from '@app/searchV2/filters/value/utils';
@@ -12,6 +13,9 @@ import dayjs from '@utils/dayjs';
 const PathSeparator = styled.span`
     color: ${(props) => props.theme.colors.textSecondary};
 `;
+
+const PATH_SEPARATOR = ' / ';
+const DATE_FORMAT = 'YYYY-MM-DD';
 
 function getTextFieldName(field: FilterField, value: FilterValue) {
     let textFieldName = value.displayName || value.value;
@@ -27,6 +31,7 @@ interface Props {
 }
 
 export default function ValueName({ field, value }: Props) {
+    const { t: tc } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistry();
 
     switch (field.type) {
@@ -36,7 +41,11 @@ export default function ValueName({ field, value }: Props) {
             return <>{getTextFieldName(field, value)}</>;
         case FieldType.ENTITY:
             return (
-                <>{(value.entity && entityRegistry.getDisplayName(value.entity?.type, value.entity)) || undefined}</>
+                <>
+                    {(value.entity && entityRegistry.getDisplayName(value.entity.type, value.entity)) ||
+                        value.displayName ||
+                        value.value}
+                </>
             );
         case FieldType.ENTITY_TYPE:
         case FieldType.NESTED_ENTITY_TYPE:
@@ -48,7 +57,7 @@ export default function ValueName({ field, value }: Props) {
                     {pathParts.map((part, index) => (
                         <React.Fragment key={part}>
                             {part}
-                            {index < pathParts.length - 1 && <PathSeparator> / </PathSeparator>}
+                            {index < pathParts.length - 1 && <PathSeparator>{PATH_SEPARATOR}</PathSeparator>}
                         </React.Fragment>
                     ))}
                 </>
@@ -56,9 +65,9 @@ export default function ValueName({ field, value }: Props) {
         }
         case FieldType.BUCKETED_TIMESTAMP:
             // Note: Currently unused, as SelectedFilter.tsx renders DatePicker instead
-            return <>{dayjs(value.value).format('YYYY-MM-DD')}</>;
+            return <>{dayjs(value.value).format(DATE_FORMAT)}</>;
         default:
             console.error(`Unknown field type: ${field}`);
-            return <>n/a</>;
+            return <>{tc('na')}</>;
     }
 }

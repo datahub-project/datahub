@@ -51,6 +51,7 @@ ext {
 class DockerPluginExtension {
   Project project
   Property<File> dockerfile
+  Property<File> contextDirectory
   CopySpec copySpec
   MapProperty<String, String> buildArgs
   MapProperty<String, String> tags
@@ -65,11 +66,13 @@ class DockerPluginExtension {
   // For quickStart debug builds that use APP_ENV=dev like pattern. Not used in matrix builds.
   MapProperty<String, String> debugBuildArgs
 
-
+  // Optional: set by python-docker.gradle for Python image builds to inject netrc secret.
+  Property<String> netrcPath
 
   DockerPluginExtension(Project project) {
     this.project = project
     dockerfile = project.objects.property(File)
+    contextDirectory = project.objects.property(File)
     buildArgs = project.objects.mapProperty(String, String)
     copySpec = project.copySpec()
     tags = project.objects.mapProperty(String, String)
@@ -77,12 +80,12 @@ class DockerPluginExtension {
     dependencies = project.objects.listProperty(Object)
     target = project.objects.property(String)
     variants = project.objects.mapProperty(String, Map)
-    // quickstart builds does not require all variants to be built. So, if default variant is specified, and 
-    // projectProperty matrixBuild is not set to true, then only default variant is built to save time. 
+    // quickstart builds does not require all variants to be built. So, if default variant is specified, and
+    // projectProperty matrixBuild is not set to true, then only default variant is built to save time.
     // The defaultVariant does not use a suffix in the tag.
     defaultVariant = project.objects.property(String)
-    
     debugBuildArgs = project.objects.mapProperty(String, String)
+    netrcPath = project.objects.property(String)
   }
 
   def files(Object... files) {
@@ -95,6 +98,10 @@ class DockerPluginExtension {
 
   def dockerfile(File value) {
     dockerfile.set(value)
+  }
+
+  def contextDirectory(File value) {
+    contextDirectory.set(value)
   }
 
   def buildArgs(Map<String, String> values) {
@@ -125,7 +132,7 @@ class DockerPluginExtension {
 def extension = project.extensions.create("docker", DockerPluginExtension)
 
 project.afterEvaluate {
-  def buildContext = "${rootProject.projectDir}"
+  def buildContext = extension.contextDirectory.getOrElse(rootProject.projectDir).absolutePath
 
   tasks.register("dockerPrepare") {
     group "docker"
@@ -142,6 +149,14 @@ project.afterEvaluate {
     def marker = "${project.buildDir}/imageCreated-${name}.json"
 
     inputs.file(extension.dockerfile)
+    inputs.file(new File(buildContext, '.dockerignore')).optional()
+    inputs.files(project.fileTree(extension.dockerfile.get().parentFile) {
+      include "${extension.dockerfile.get().name}.dockerignore"
+    })
+    // A staged context holds only what the image copies, so track it to rebuild when those files change.
+    if (extension.contextDirectory.isPresent()) {
+      inputs.dir(buildContext)
+    }
     inputs.property("tags", extension.tags)
     inputs.property("buildArgs", extension.buildArgs)
     outputs.file(marker)
@@ -174,6 +189,10 @@ project.afterEvaluate {
     dockerCmd += ["--metadata-file", marker]
 
     extension.buildArgs.get().each { k, v -> dockerCmd += ["--build-arg", "${k}=${v}"]
+    }
+
+    if (extension.netrcPath.isPresent()) {
+      dockerCmd += ["--secret", "id=netrc,src=${extension.netrcPath.get()}"]
     }
 
     extension.tags.get().each { taskName, tag ->
@@ -236,7 +255,10 @@ project.afterEvaluate {
     doLast {
       def originalTaskInstance = tasks.named('docker').get()
       project.exec {
-        commandLine originalTaskInstance.commandLine
+        // No preparation graph runs here, so do not require a staged context.
+        commandLine originalTaskInstance.commandLine.collect { arg ->
+          arg == buildContext ? rootProject.projectDir.absolutePath : arg
+        }
         workingDir originalTaskInstance.workingDir
       }
     }
@@ -258,7 +280,7 @@ project.afterEvaluate {
         def matrixBuild = project.getProperties().getOrDefault("matrixBuild", false)
 
         def bake_spec_target = [
-          context: "${buildContext}",
+          context: buildContext,
           dockerfile: "${extension.dockerfile.get().toPath()}",
         ]
 
@@ -271,9 +293,13 @@ project.afterEvaluate {
           }).toList()
         }
         if (extension.buildArgs.get()) {
-          bake_spec_target.args = extension.buildArgs.get()
+          bake_spec_target.args = new HashMap(extension.buildArgs.get())
         } else {
           bake_spec_target.args = [:]
+        }
+
+        if (extension.netrcPath.isPresent()) {
+          bake_spec_target.secret = ["id=netrc,src=${extension.netrcPath.get()}"]
         }
 
         if (extension.debugBuildArgs.get() && bake_spec_target.tags.findAll { tag -> tag.contains("debug") }.size() > 0) {

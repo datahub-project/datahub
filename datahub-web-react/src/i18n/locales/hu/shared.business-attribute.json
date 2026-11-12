@@ -1,0 +1,13 @@
+{
+    "addAttribute": "Attribútum hozzáadása",
+    "addError": "Nem sikerült a hozzáadás: \n {{error}}",
+    "addSuccess": "Üzleti attribútum hozzáadva!",
+    "modal.addTitle": "{{entityName}} hozzáadása",
+    "modal.removeTitle": "{{entityName}} eltávolítása",
+    "removeAttributeError": "Nem sikerült eltávolítani az üzleti attribútumot: \n {{error}}",
+    "removeConfirm.content": "Biztosan eltávolítja a(z) {{attributeName}} attribútumot?",
+    "removeConfirm.title": "Eltávolítja a(z) {{attributeName}} attribútumot?",
+    "removeError": "Nem sikerült az eltávolítás: \n {{error}}",
+    "removeSuccess": "Üzleti attribútum eltávolítva!",
+    "searchPlaceholder": "{{entityName}} keresése..."
+}
