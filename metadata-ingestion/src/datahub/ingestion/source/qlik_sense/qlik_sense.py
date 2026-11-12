@@ -2406,8 +2406,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             ).as_workunit()
             # In Folder containers from the server and share (or drive) down,
             # as the data lake sources place files; without a container the
-            # browse path would be cut at the dots of the server name.
-            yield from containers.create_container_hierarchy(path.lstrip("/"), urn)
+            # browse path would be cut at the dots of the server name. A
+            # relative path has no known root to start the folders from.
+            if CANONICAL_ABSOLUTE_PATH_RE.match(path):
+                yield from containers.create_container_hierarchy(path.lstrip("/"), urn)
 
     def _gen_qvd_lineage(self) -> Iterable[MetadataWorkUnit]:
         """Schema and lineage of on-prem QVDs, from every app that writes or

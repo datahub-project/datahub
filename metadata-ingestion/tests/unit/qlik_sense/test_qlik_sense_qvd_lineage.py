@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -478,3 +478,40 @@ def test_every_app_emits_the_folders_of_its_qvds(mock_api_cls: MagicMock) -> Non
     # share it shares with the other app are emitted by both.
     assert len(first) == len(second) == 3
     assert first[:2] == second[:2]
+
+
+def _qvd_folders(config: Dict[str, Any], path: str) -> List[Tuple[str, str]]:
+    """(container URN, name) of the folders a QVD's entities emit, in order."""
+    with patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI"):
+        source = QlikSenseSource(
+            QlikSourceConfig.model_validate(config),
+            PipelineContext(run_id="test-qvd-lineage"),
+        )
+    return [
+        (wu.get_urn(), properties.name)
+        for wu in source._gen_qvd_entities(AppQvdLineage(paths={_urn(path): path}))
+        if (properties := wu.get_aspect_of_type(ContainerPropertiesClass))
+    ]
+
+
+@pytest.mark.parametrize(
+    "path, folders",
+    [
+        ("//nas/qvd/raw/orders.qvd", ["nas", "qvd", "raw"]),
+        ("d:/data/sales/orders.qvd", ["d:", "data", "sales"]),
+        # Relative to a Directory statement, so the root is unknown.
+        ("orders.qvd", []),
+        ("data/orders.qvd", []),
+    ],
+)
+def test_qvd_folders_start_at_a_share_or_drive(path: str, folders: List[str]) -> None:
+    assert [name for _, name in _qvd_folders(ONPREM_CONFIG, path)] == folders
+
+
+def test_qvd_folder_keys_include_the_platform_instance() -> None:
+    path = "//nas/qvd/raw/orders.qvd"
+    plain = _qvd_folders(ONPREM_CONFIG, path)
+    with_instance = _qvd_folders({**ONPREM_CONFIG, "platform_instance": "onprem"}, path)
+    # The same folders, under other keys, so two sites never share a folder.
+    assert [name for _, name in with_instance] == [name for _, name in plain]
+    assert not {urn for urn, _ in with_instance} & {urn for urn, _ in plain}
