@@ -874,12 +874,23 @@ def test_untyped_graph_table_takes_types_from_the_dataset_it_stores(
     source._untyped_tables = {
         curve: (
             "etl-app.curve",
-            [SchemaField(name="Day"), SchemaField(name="Year"), SchemaField(name="Id")],
+            [
+                SchemaField(name="Day"),
+                SchemaField(name="Year"),
+                SchemaField(name="Id"),
+                # A load script column whose case the SQL parser changed.
+                SchemaField(name="amount"),
+            ],
         )
     }
     stored, other = _urn("space-1.stored.qvd"), _urn("space-1.other.qvd")
     source._dataset_field_types = {
-        stored: {"Day": "TIMESTAMP", "Total": "DOUBLE", "Id": "INTEGER"},
+        stored: {
+            "Day": "TIMESTAMP",
+            "Total": "DOUBLE",
+            "Id": "INTEGER",
+            "Amount": "DOUBLE",
+        },
         other: {"Id": "STRING"},
     }
     source._dataset_store_field_sources = {
@@ -888,6 +899,7 @@ def test_untyped_graph_table_takes_types_from_the_dataset_it_stores(
             # Stored under a new name, so the type may not be the field's.
             "Total": [_field_qri(curve_table, "Year")],
             "Id": [_field_qri(curve_table, "Id")],
+            "Amount": [_field_qri(curve_table, "Amount")],
         },
         # Another dataset disagrees on Id's type.
         other: {"Id": [_field_qri(curve_table, "Id")]},
@@ -903,6 +915,7 @@ def test_untyped_graph_table_takes_types_from_the_dataset_it_stores(
         ("Day", "TIMESTAMP"),
         ("Year", ""),
         ("Id", ""),
+        ("amount", "DOUBLE"),
     ]
 
 
