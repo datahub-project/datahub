@@ -1,3 +1,4 @@
+import json
 from typing import Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
@@ -10,6 +11,7 @@ from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     LineageTable,
+    ListedDataset,
     UnreadItem,
 )
 from datahub.ingestion.source.qlik_sense.file_lineage import (
@@ -91,11 +93,62 @@ def _source(
 
 
 def test_script_lists_every_file_a_load_reads() -> None:
+    # Paths as the script's own variables expand them, and as written, for
+    # the app's variables from its last reload to expand.
     assert parse_script(SCRIPT).file_loads == [
         "lib://Sales Space:Lake//landing/orders.csv",
+        "$(vLake)/landing/orders.csv",
         "lib://Sales Space:Lake/ref/regions.xlsx",
         "lib://Lake/ref/targets.csv",
     ]
+
+
+def test_mapping_and_added_loads_list_their_files() -> None:
+    parsed = parse_script(
+        "Map: MAPPING LOAD a, b FROM [lib://Lake/map.csv] (txt);\n"
+        "Orders: LOAD * FROM [lib://Lake/orders.csv] (txt);\n"
+        "Concatenate (Orders) LOAD * FROM [lib://Lake/more.csv] (txt);\n"
+    )
+    assert parsed.file_loads == [
+        "lib://Lake/map.csv",
+        "lib://Lake/orders.csv",
+        "lib://Lake/more.csv",
+    ]
+    assert not parsed.has_includes
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_path_resolves_with_the_variables_of_the_last_reload(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source(
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        {},
+    )
+    # The script was edited after its last reload, which Qlik's graph reflects.
+    script = (
+        "SET vDir = 'lib://Sales Space:Lake/new';\nX: LOAD * FROM [$(vDir)/f.csv];\n"
+    )
+    app = App.model_validate(
+        {
+            "id": "app-4",
+            "qTitle": "Sales",
+            "description": "",
+            "createdDate": "2024-01-09T18:05:36.000Z",
+            "modifiedDate": "2024-01-09T18:05:36.000Z",
+            "spaceId": "space-1",
+            "variables": {"vDir": "lib://Sales Space:Lake/old"},
+        }
+    )
+    source._file_sources_by_app[app.id] = source._file_source_resolver(
+        app, parse_script(script)
+    )
+    source._app_space_ids[app.id] = app.spaceId
+
+    assert (
+        source._resolve_file_source("app-4", _file_qri("adls", "unknown", "old/f.csv"))
+        == "urn:li:dataset:(urn:li:dataPlatform:abs,lake/old/f.csv,PROD)"
+    )
 
 
 @pytest.mark.parametrize(
@@ -143,7 +196,14 @@ def test_file_storage_of_connection(
         ),
         ("s3://sales-bucket", FileStorage(platform="s3", location="sales-bucket")),
         ("gs://sales/raw", FileStorage(platform="gcs", location="sales/raw")),
+        (
+            "S3://sales-bucket/raw",
+            FileStorage(platform="s3", location="sales-bucket/raw"),
+        ),
         ("https://example.com/sales", None),
+        # An Azure URI with no container.
+        ("abfss://@account.dfs.core.windows.net/sales", None),
+        ("https://account.blob.core.windows.net/", None),
     ],
 )
 def test_file_storage_of_uri(uri: str, expected: Optional[FileStorage]) -> None:
@@ -357,17 +417,27 @@ def test_prod_file_is_not_linked_when_dev_reads_the_same_path(
     )
 
 
+RATES_QRI = "qri:qdf:space://AbC#Rates"
+RATES = make_dataset_urn("qlik-sense", "space-1.rates.qvd")
+
+
 def _graph_app_run(
     mock_api_cls: MagicMock,
     file_connection_to_storage: Dict,
     unread: List[UnreadItem],
     variables_read_failed: bool = False,
+    script: str = SCRIPT,
+    datasets_listed: bool = True,
 ) -> Dict[str, str]:
-    """How each table's UpstreamLineage is written by a whole app run: "whole"
-    or "patch"."""
+    """Each table's upstreams as a whole UpstreamLineage write lists them, or
+    "patch:" and those a patch adds."""
     api = mock_api_cls.return_value
     api.unread_items = unread
-    api.list_datasets.return_value = []
+    api.list_datasets.return_value = (
+        [ListedDataset(space_id="space-1", name="rates.qvd", secure_qri=RATES_QRI)]
+        if datasets_listed
+        else None
+    )
     api.get_user_name.return_value = None
     api.spaces = {"space-1": "Sales Space"}
     source = QlikSenseSource(
@@ -385,7 +455,7 @@ def _graph_app_run(
             "createdDate": "2024-01-09T18:05:36.000Z",
             "modifiedDate": "2024-01-09T18:05:36.000Z",
             "spaceId": "space-1",
-            "script": SCRIPT,
+            "script": script,
             "variables": {}
             if variables_read_failed
             else {"vLake": "lib://Sales Space:Lake/"},
@@ -396,6 +466,7 @@ def _graph_app_run(
                     label="Orders",
                     source_qris=[
                         _file_qri("adls", "unknown", "landing/orders.csv"),
+                        f"{RATES_QRI}#Rates",
                     ],
                 )
             ],
@@ -409,8 +480,13 @@ def _graph_app_run(
         elif (
             isinstance(wu.metadata, MetadataChangeProposalClass)
             and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+            and wu.metadata.aspect is not None
         ):
-            writes[wu.get_urn()] = "patch"
+            writes[wu.get_urn()] = "patch:" + ",".join(
+                op["value"]["dataset"]
+                for op in json.loads(wu.metadata.aspect.value)
+                if op["op"] == "add" and op["path"].startswith("/upstreams/")
+            )
     return writes
 
 
@@ -428,7 +504,7 @@ def test_graph_table_links_to_the_file_its_script_loads(
     )
 
     assert writes[ORDERS] == (
-        "urn:li:dataset:(urn:li:dataPlatform:abs,lake/landing/orders.csv,PROD)"
+        f"urn:li:dataset:(urn:li:dataPlatform:abs,lake/landing/orders.csv,PROD),{RATES}"
     )
 
 
@@ -455,8 +531,41 @@ def test_unresolved_file_keeps_lineage_when_its_inputs_were_not_read(
         variables_read_failed=variables_failed,
     )
 
-    assert (writes.get(ORDERS) == "") is written_whole
-    assert writes.get(ORDERS) != "patch" or not written_whole
+    # The table's resolved source is still added when its file is not.
+    assert writes[ORDERS] == (RATES if written_whole else f"patch:{RATES}")
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unresolved_file_of_an_app_with_includes_only_adds(
+    mock_api_cls: MagicMock,
+) -> None:
+    # The file may be loaded by the included script, which is not read.
+    writes = _graph_app_run(
+        mock_api_cls,
+        {},
+        [],
+        script="$(Must_Include=lib://Lake/common.qvs);\n" + SCRIPT,
+    )
+
+    assert writes[ORDERS] == f"patch:{RATES}"
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_resolves_when_datasets_could_not_be_listed(
+    mock_api_cls: MagicMock,
+) -> None:
+    # The file needs only the script and the mapping; the dataset, which
+    # needs the list, keeps the lineage patched.
+    writes = _graph_app_run(
+        mock_api_cls,
+        {CONNECTION: {"storage_uri": "abfss://lake@account.dfs.core.windows.net"}},
+        [],
+        datasets_listed=False,
+    )
+
+    assert writes[ORDERS] == (
+        "patch:urn:li:dataset:(urn:li:dataPlatform:abs,lake/landing/orders.csv,PROD)"
+    )
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")

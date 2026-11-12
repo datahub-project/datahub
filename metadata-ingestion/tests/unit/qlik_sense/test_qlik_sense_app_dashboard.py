@@ -11,7 +11,13 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
-from datahub.ingestion.source.qlik_sense.data_classes import App, Sheet
+from datahub.ingestion.source.qlik_sense.data_classes import (
+    App,
+    Chart,
+    ChartInputs,
+    Sheet,
+)
+from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -126,47 +132,102 @@ def test_app_is_a_dashboard_of_its_sheets_and_tables(
     assert container.container == make_container_urn(source._gen_space_key("space-1"))
 
 
+TWO_TABLE_SCRIPT = (
+    LOAD_SCRIPT + "Customers:\nSQL SELECT customer_id, region FROM dbo.customers;\n"
+)
+
+
+@pytest.mark.parametrize("include_sheets_and_charts", [True, False])
 @patch(
     "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
 def test_app_without_sheets_and_charts_links_to_all_its_tables(
-    mock_session_cls: MagicMock, mock_engine: MagicMock
+    mock_session_cls: MagicMock,
+    mock_engine: MagicMock,
+    include_sheets_and_charts: bool,
 ) -> None:
     session = mock_session_cls.return_value
     session.headers = {}
     session.get.side_effect = fake_qrs_get
     engine = MagicMock()
-    engine.websocket_send_request.return_value = {"qReturn": {"qHandle": 1}}
-    engine.get_script.return_value = LOAD_SCRIPT
+    # The app has a sheet, whose chart reads the orders table.
+    engine.websocket_send_request.side_effect = lambda method, **_: (
+        {"qList": [{"qInfo": {"qId": "sheet-1", "qType": "sheet"}}]}
+        if method == "GetObjects"
+        else {"qReturn": {"qHandle": 1}}
+    )
+    engine.get_script.return_value = TWO_TABLE_SCRIPT
     engine.get_variables.return_value = {}
     mock_engine.return_value = engine
+    sheet = _sheet("sheet-1")
+    chart = Chart.model_validate(
+        {
+            "qInfo": {"qId": "chart-1"},
+            "visualization": "barchart",
+            "qHyperCube": {"qDimensionInfo": [], "qMeasureInfo": []},
+        }
+    )
+    chart.field_expressions = ["Sum(amount)"]
+    sheet.charts = [chart]
     source = QlikSenseSource(
         QlikSourceConfig.model_validate(
-            {**ONPREM_CONFIG, "include_sheets_and_charts": False}
+            {**ONPREM_CONFIG, "include_sheets_and_charts": include_sheets_and_charts}
         ),
         PipelineContext(run_id="test-app-dashboard"),
     )
 
-    workunits = list(source.get_workunits_internal())
+    with patch.object(QlikOnPremAPI, "_get_sheet", return_value=sheet):
+        workunits = list(source.get_workunits_internal())
 
-    # The app has a sheet, but the Engine is never asked for it.
     methods = [
         call.kwargs["method"] for call in engine.websocket_send_request.mock_calls
     ]
-    assert "GetObjects" not in methods
-    dashboard_infos = [
-        (wu.get_urn(), info)
+    app_info = next(
+        info
         for wu in workunits
-        if (info := wu.get_aspect_of_type(DashboardInfoClass))
-    ]
-    # Written whole: the app's sheets are known, as there are none to read.
-    assert [urn for urn, _ in dashboard_infos] == [
-        make_dashboard_urn("qlik-sense", "app-1")
-    ]
-    (_, info) = dashboard_infos[0]
-    assert info.dashboards == []
-    assert [edge.destinationUrn for edge in info.datasetEdges or []] == [
-        make_dataset_urn("qlik-sense", "app-1.orders")
-    ]
-    assert not [wu for wu in workunits if wu.get_urn().startswith("urn:li:chart:")]
+        if wu.get_urn() == make_dashboard_urn("qlik-sense", "app-1")
+        and (info := wu.get_aspect_of_type(DashboardInfoClass))
+    )
+    charts = {
+        wu.get_urn() for wu in workunits if wu.get_urn().startswith("urn:li:chart:")
+    }
+    orders = make_dataset_urn("qlik-sense", "app-1.orders")
+    customers = make_dataset_urn("qlik-sense", "app-1.customers")
+    linked = [edge.destinationUrn for edge in app_info.datasetEdges or []]
+    if include_sheets_and_charts:
+        # Orders reaches the app through the chart and its sheet.
+        assert "GetObjects" in methods
+        assert charts and len(app_info.dashboards) == 1
+        assert linked == [customers]
+    else:
+        # The Engine is never asked for sheets, so the app links all its tables.
+        assert "GetObjects" not in methods
+        assert not charts and app_info.dashboards == []
+        assert linked == [orders, customers]
+
+
+def _chart(chart_id: str) -> Chart:
+    return Chart.model_validate(
+        {
+            "qInfo": {"qId": chart_id},
+            "visualization": "barchart",
+            "qHyperCube": {"qDimensionInfo": [], "qMeasureInfo": []},
+        }
+    )
+
+
+@pytest.mark.parametrize("charts_complete", [True, False])
+def test_app_links_tables_its_charts_cannot(charts_complete: bool) -> None:
+    sheet = _sheet("sheet-1")
+    sheet.charts = [_chart("chart-1")]
+    # Another chart of the sheet could not be read, so the sheet is not
+    # written with its charts and chart-1's table has no path to the app.
+    sheet.charts_complete = charts_complete
+    app = _app([])
+    app.sheets = [sheet]
+    inputs = {"chart-1": ChartInputs(fields=[], tables=[TABLES[0]])}
+
+    assert QlikSenseSource._tables_without_chart_path(app, inputs, TABLES) == (
+        TABLES[1:] if charts_complete else TABLES
+    )

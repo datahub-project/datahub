@@ -186,8 +186,10 @@ class FileStorageDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
         default=None,
         description="Where the connection's files are, as an `abfss://<container>@<account>"
         ".dfs.core.windows.net/<folder>`, `s3://<bucket>/<folder>` or "
-        "`gs://<bucket>/<folder>` URI. Read from the data connection when not set, "
-        "which needs the API key's user to see the connection.",
+        "`gs://<bucket>/<folder>` URI, or Azure HTTPS. An Azure URI must name the "
+        "container; `wasb://` and `wasbs://` are not accepted. Read from the data "
+        "connection when not set, which needs the API key's user to see the "
+        "connection.",
     )
 
     convert_urns_to_lowercase: bool = Field(
@@ -201,7 +203,8 @@ class FileStorageDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
     def storage_uri_is_supported(cls, value: Optional[str]) -> Optional[str]:
         if value is not None and file_storage_of_uri(value) is None:
             raise ValueError(
-                f"Unsupported storage_uri {value!r}: use an abfss://, s3:// or gs:// URI"
+                f"Unsupported storage_uri {value!r}: use an abfss:// or Azure HTTPS "
+                "URI that names the container, or an s3:// or gs:// URI"
             )
         return value
 

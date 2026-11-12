@@ -358,8 +358,12 @@ class ParsedScript(BaseModel):
     unresolved_qvd_paths: List[str] = []
     # QVDs loaded without a label, which Qlik names itself.
     unlabelled_qvd_loads: List[str] = []
-    # The path of every file a LOAD reads, in any format, as written.
+    # The path of every file a LOAD reads, in any format: as the script's own
+    # SET and LET variables expand it, and as written, for the app's variables
+    # from its last reload to expand instead.
     file_loads: List[str] = []
+    # The script includes other scripts, whose loads are not read.
+    has_includes: bool = False
 
 
 class ScriptTableLineage(BaseModel):
@@ -736,6 +740,9 @@ class _ScriptParser(BaseModel):
     unresolved_qvd_paths: List[str] = []
     unlabelled_qvd_loads: List[str] = []
     file_loads: List[str] = []
+    has_includes: bool = False
+    # The current statement before the script's variables are expanded.
+    raw_statement: str = ""
     flow: _ControlFlowTracker = Field(default_factory=_ControlFlowTracker)
     pending_label: Optional[str] = None
     pending_loads: List[PrecedingLoad] = []
@@ -807,8 +814,10 @@ class _ScriptParser(BaseModel):
         statement, includes = INCLUDE_RE.subn("", statement)
         if includes:
             # The included script is not read, so it could have set anything.
+            self.has_includes = True
             self._forget()
             statement = statement.strip()
+        self.raw_statement = statement
         statement = _expand_variables(statement, self.flow.state.variables)
         if not statement:
             return
@@ -900,6 +909,10 @@ class _ScriptParser(BaseModel):
             self.pending_loads.append(_parse_load_fields(statement))
         else:
             if LOAD_RE.match(statement):
+                # Every file a LOAD reads is in Qlik's lineage graph, mapping
+                # loads included.
+                self._record_file_load(statement)
+                self._record_file_load(self.raw_statement)
                 if not (skip or mapping or self.pending_skip or self.pending_mapping):
                     self._qvd_load(label or self.pending_label, statement)
                 # A preceding LOAD's label names the table a later Concatenate
@@ -936,6 +949,15 @@ class _ScriptParser(BaseModel):
         self.unresolved_qvd_paths.append(path)
         return None
 
+    def _record_file_load(self, statement: str) -> None:
+        masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), statement)
+        keyword = STORE_FROM_RE.search(masked)
+        source = FILE_SOURCE_RE.match(statement, keyword.start()) if keyword else None
+        if source is not None:
+            path = _unquote(source.group("path").strip()).strip()
+            if path not in self.file_loads:
+                self.file_loads.append(path)
+
     def _qvd_load(self, label: Optional[str], statement: str) -> None:
         # FROM is found with quoted text masked, so a quoted field or path
         # can't hold it; the path itself is then read from the statement.
@@ -944,7 +966,6 @@ class _ScriptParser(BaseModel):
         source = FILE_SOURCE_RE.match(statement, keyword.start()) if keyword else None
         if source is None:
             return
-        self.file_loads.append(_unquote(source.group("path").strip()).strip())
         file = self._qvd_file(source.group("path"), source.group("spec"), False)
         # Without a label the table is named by Qlik, which a STORE can't be
         # matched against reliably.
@@ -996,6 +1017,7 @@ def parse_script(script: str) -> ParsedScript:
         unresolved_qvd_paths=parser.unresolved_qvd_paths,
         unlabelled_qvd_loads=parser.unlabelled_qvd_loads,
         file_loads=parser.file_loads,
+        has_includes=parser.has_includes,
     )
 
 
