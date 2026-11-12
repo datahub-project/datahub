@@ -109,6 +109,14 @@ def test_app_is_a_dashboard_of_its_sheets_and_tables(
         assert sum(path.startswith("/datasetEdges/") for path in paths) == len(
             table_urns or []
         )
+        # The app's own fields are known even when some edges are not.
+        assert {
+            "/title",
+            "/description",
+            "/dashboardUrl",
+            "/lastModified",
+            "/customProperties/qri",
+        } <= set(paths)
     [subtypes] = [
         types for wu in workunits if (types := wu.get_aspect_of_type(SubTypesClass))
     ]
