@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import json
 from typing import Dict, Iterable, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
@@ -6,7 +8,7 @@ from urllib.parse import quote
 import pytest
 import requests_mock as requests_mock_module
 
-from datahub.emitter.mce_builder import make_dataset_urn
+from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.qlik_sense.app_state import AppCheckpoint
@@ -26,6 +28,7 @@ from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import ScriptTableLineage
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
+    FineGrainedLineageClass,
     MetadataChangeProposalClass,
     SchemaMetadataClass,
     SubTypesClass,
@@ -71,11 +74,33 @@ def test_table_lineage_graph_is_read(
             }
         },
     )
+    requests_mock.get(
+        f"{BASE_URL}/lineage-graphs/nodes/{quote(REPORT_APP, safe='')}/actions/expand"
+        f"?node={quote(f'{REPORT_APP}#Tbl', safe='')}&level=FIELD",
+        json={
+            "graph": {
+                "nodes": {
+                    f"{REPORT_APP}#Tbl#Fp": {"label": "Price"},
+                    f"{REPORT_APP}#Tbl#Fd": {"label": "Day"},
+                },
+                "edges": [
+                    {
+                        "source": f"{STORED_QVD}#Curve#Fp",
+                        "target": f"{REPORT_APP}#Tbl#Fp",
+                    }
+                ],
+            }
+        },
+    )
     requests_mock.get(_expand_url(ETL_APP), status_code=404)
 
     assert api.get_table_lineage(REPORT_APP) == [
         LineageTable(
-            qri=f"{REPORT_APP}#Tbl", label="Prices", source_qris=[f"{STORED_QVD}#Curve"]
+            qri=f"{REPORT_APP}#Tbl",
+            label="Prices",
+            source_qris=[f"{STORED_QVD}#Curve"],
+            fields=["Price", "Day"],
+            field_source_qris={"Price": [f"{STORED_QVD}#Curve#Fp"]},
         )
     ]
     assert api.get_table_lineage(ETL_APP) is None
@@ -663,3 +688,140 @@ def test_files_qlik_catalogued_on_a_connection_are_sources(
     # A database table Qlik did not catalogue is left to the load script parser.
     assert resolved.urns == [_urn("space-1.prices.qvd")]
     assert resolved.complete
+
+
+def _field_qri(table_qri: str, name: str) -> str:
+    digest = hashlib.sha256(name.encode()).digest()
+    return f"{table_qri}#{base64.urlsafe_b64encode(digest).decode().rstrip('=')}"
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_graph_field_level_gives_column_lineage_and_fields(
+    mock_api_cls: MagicMock,
+) -> None:
+    api = mock_api_cls.return_value
+    api.unread_items = []
+    api.list_datasets.return_value = DATASETS
+    api.get_user_name.return_value = None
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    source._allowed_space_ids = {"space-1"}
+    source._learn_field_names(["amount"])
+    qvd_table = f"{SOURCE_QVD}#Curve"
+    # The script drops the table after storing it, so the data model has no
+    # fields for it, and the graph is where its fields come from.
+    app = _app(
+        "etl-app",
+        [
+            LineageTable(
+                qri=f"{ETL_APP}#Curve",
+                label="Curve",
+                source_qris=[qvd_table],
+                fields=["Day", "Total", "Note"],
+                field_source_qris={
+                    "Day": [_field_qri(qvd_table, "Day")],
+                    # Renamed from a field name the run knows.
+                    "Total": [_field_qri(qvd_table, "amount")],
+                    # Renamed from a field no one has named: left out.
+                    "Note": [_field_qri(qvd_table, "comment")],
+                },
+            )
+        ],
+    )
+
+    workunits = list(source._gen_app_workunit(app))
+
+    curve = _urn("etl-app.curve")
+    [schema] = [
+        aspect
+        for wu in workunits
+        if wu.get_urn() == curve
+        and (aspect := wu.get_aspect_of_type(SchemaMetadataClass))
+    ]
+    assert [field.fieldPath for field in schema.fields] == ["Day", "Total", "Note"]
+    [lineage] = [
+        upstreams
+        for wu in workunits
+        if (upstreams := wu.get_aspect_of_type(UpstreamLineageClass))
+    ]
+    src = _urn("space-1.src.qvd")
+    assert {
+        (cll.downstreams or [""])[0]: cll.upstreams
+        for cll in lineage.fineGrainedLineages or []
+    } == {
+        make_schema_field_urn(curve, "Day"): [make_schema_field_urn(src, "Day")],
+        make_schema_field_urn(curve, "Total"): [make_schema_field_urn(src, "amount")],
+    }
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_script_app_tables_resolve_as_sources(mock_api_cls: MagicMock) -> None:
+    mock_api_cls.return_value.unread_items = []
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    script_app = "qri:app:dataprep://script-app"
+    app = _app("script-app", [LineageTable(qri=f"{script_app}#Out", label="Out")])
+    source._register_app_tables(app)
+
+    resolved = source._resolve_lineage_sources(
+        [f"{script_app}#Out"], _urn("space-1.out.qvd"), own_app_id=None
+    )
+
+    assert resolved.urns == [_urn("script-app.out")]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_dataset_store_column_lineage_replaces_only_app_table_edges(
+    mock_api_cls: MagicMock,
+) -> None:
+    stored, curve = _urn("space-1.stored.qvd"), _urn("etl-app.curve")
+    manual = FineGrainedLineageClass(
+        upstreamType="FIELD_SET",
+        upstreams=[make_schema_field_urn(ORACLE_PRICES, "price")],
+        downstreamType="FIELD",
+        downstreams=[make_schema_field_urn(stored, "Price")],
+    )
+    stale = FineGrainedLineageClass(
+        upstreamType="FIELD_SET",
+        upstreams=[make_schema_field_urn(_urn("old-app.curve"), "Price")],
+        downstreamType="FIELD",
+        downstreams=[make_schema_field_urn(stored, "Price")],
+    )
+    graph = MagicMock()
+    graph.get_aspect.return_value = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=_urn("old-app.curve"), type="COPY"),
+            UpstreamClass(dataset=ORACLE_PRICES, type="TRANSFORMED"),
+        ],
+        fineGrainedLineages=[manual, stale],
+    )
+    mock_api_cls.return_value.unread_items = []
+    mock_api_cls.return_value.list_datasets.return_value = DATASETS
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph", graph=graph),
+    )
+    source._allowed_space_ids = {"space-1"}
+    curve_table = f"{ETL_APP}#Curve"
+    source._register_app_tables(
+        _app("etl-app", [LineageTable(qri=curve_table, label="Curve")])
+    )
+    source._dataset_store_sources = {stored: [curve_table]}
+    source._dataset_store_field_sources = {
+        stored: {"Price": [_field_qri(curve_table, "Price")]}
+    }
+
+    [lineage] = [
+        aspect
+        for wu in source._gen_dataset_store_lineage()
+        if (aspect := wu.get_aspect_of_type(UpstreamLineageClass))
+    ]
+
+    assert [cll.upstreams for cll in lineage.fineGrainedLineages or []] == [
+        manual.upstreams,
+        [make_schema_field_urn(curve, "Price")],
+    ]
