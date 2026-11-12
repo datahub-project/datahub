@@ -24,6 +24,7 @@ type ImportDocumentsModalProps = {
 
 const SCHEDULED_SOURCES = new Set<ImportSourceType>([
     ImportSourceType.GITHUB,
+    ImportSourceType.GITLAB,
     ImportSourceType.NOTION,
     ImportSourceType.CONFLUENCE,
 ]);

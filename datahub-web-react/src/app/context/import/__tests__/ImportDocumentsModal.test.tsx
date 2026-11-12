@@ -86,6 +86,20 @@ describe('ImportDocumentsModal', () => {
         expect(onClose).toHaveBeenCalled();
     });
 
+    it('launches ingestion setup immediately when GitLab is selected', () => {
+        const onClose = vi.fn();
+        render(
+            <Wrapper>
+                <ImportDocumentsModal visible onClose={onClose} />
+            </Wrapper>,
+        );
+
+        fireEvent.click(screen.getByText('GitLab'));
+
+        expect(mockLaunchDocumentIngestion).toHaveBeenCalledWith({ source: 'GITLAB' });
+        expect(onClose).toHaveBeenCalled();
+    });
+
     it('shows Cancel button on source step', () => {
         render(
             <Wrapper>

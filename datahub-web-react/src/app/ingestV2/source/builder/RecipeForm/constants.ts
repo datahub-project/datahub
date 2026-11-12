@@ -131,6 +131,7 @@ import {
 import {
     CONFLUENCE_DOCUMENTS_IMPORT_MODE,
     GITHUB_DOCUMENTS_IMPORT_MODE,
+    GITLAB_DOCUMENTS_IMPORT_MODE,
     NOTION_DOCUMENTS_IMPORT_MODE,
 } from '@app/ingestV2/source/builder/RecipeForm/documentImportMode';
 import {
@@ -165,6 +166,12 @@ import {
     GITHUB_DOCUMENTS_REPOSITORY,
     GITHUB_DOCUMENTS_TOKEN,
 } from '@app/ingestV2/source/builder/RecipeForm/github-documents';
+import {
+    GITLAB_DOCUMENTS_BASE_URL,
+    GITLAB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT,
+    GITLAB_DOCUMENTS_REPOSITORY,
+    GITLAB_DOCUMENTS_TOKEN,
+} from '@app/ingestV2/source/builder/RecipeForm/gitlab-documents';
 import {
     GLUE,
     GLUE_AWS_ACCESS_KEY_ID,
@@ -533,6 +540,7 @@ import {
     DATABRICKS,
     DBT_CLOUD,
     GITHUB_DOCUMENTS,
+    GITLAB_DOCUMENTS,
     INFORMIX,
     MATILLION_DPC,
     MICROSTRATEGY,
@@ -1107,6 +1115,19 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterFields: [],
         advancedFields: [GITHUB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT],
+    },
+    [GITLAB_DOCUMENTS]: {
+        fields: [
+            GITLAB_DOCUMENTS_TOKEN,
+            GITLAB_DOCUMENTS_BASE_URL,
+            GITLAB_DOCUMENTS_REPOSITORY,
+            GITHUB_DOCUMENTS_BRANCH,
+            GITHUB_DOCUMENTS_PATH_PREFIX,
+            GITHUB_DOCUMENTS_FILE_EXTENSIONS,
+            GITLAB_DOCUMENTS_IMPORT_MODE,
+        ],
+        filterFields: [],
+        advancedFields: [GITLAB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT],
     },
     [CONFLUENCE]: {
         fields: [

@@ -6,6 +6,7 @@ export enum ImportUseCase {
 export enum ImportSourceType {
     FILE_UPLOAD = 'FILE_UPLOAD',
     GITHUB = 'GITHUB',
+    GITLAB = 'GITLAB',
     NOTION = 'NOTION',
     CONFLUENCE = 'CONFLUENCE',
 }

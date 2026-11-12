@@ -1,5 +1,3 @@
-"""Configuration for the gitlab-documents ingestion source."""
-
 from typing import Dict
 
 from pydantic import Field, SecretStr, field_validator, model_validator

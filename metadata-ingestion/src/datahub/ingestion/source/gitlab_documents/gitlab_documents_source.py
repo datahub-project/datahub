@@ -1,5 +1,3 @@
-"""Ingest documents from a GitLab project."""
-
 from urllib.parse import quote
 
 from datahub.ingestion.api.decorators import (
@@ -39,6 +37,7 @@ class GitLabDocumentsSource(RepositoryDocumentsSourceBase):
     """
 
     platform = "gitlab"
+    platform_display_name = "GitLab"
     config: GitLabDocumentsSourceConfig
 
     @classmethod

@@ -161,6 +161,8 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
     """
 
     platform: str
+    # Human-readable host name used in report messages.
+    platform_display_name: str
 
     def __init__(
         self, config: RepositoryDocumentsSourceConfigBase, ctx: PipelineContext
@@ -257,9 +259,9 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         if tree_truncated:
             self.report.tree_truncated = True
             self.report.warning(
-                title="github-tree-truncated",
+                title=f"{self.platform}-tree-truncated",
                 message=(
-                    "GitHub returned a truncated tree; "
+                    f"{self.platform_display_name} returned a truncated tree; "
                     "only a subset of files will be imported. "
                     "Narrow path_prefix or split across multiple ingestion sources."
                 ),
@@ -274,7 +276,7 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             files = files[: self.config.max_files]
             self.report.files_truncated_by_limit = True
             self.report.warning(
-                title="github-files-truncated",
+                title=f"{self.platform}-files-truncated",
                 message=(
                     "Found more matching files than max_files allows; "
                     "only the first batch will be imported."
@@ -1094,6 +1096,7 @@ class GitHubDocumentsSource(RepositoryDocumentsSourceBase):
     """
 
     platform = "github"
+    platform_display_name = "GitHub"
     config: GitHubDocumentsSourceConfig
     client: GitHubApiClient
 

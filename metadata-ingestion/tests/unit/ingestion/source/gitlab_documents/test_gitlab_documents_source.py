@@ -112,3 +112,39 @@ def test_emits_gitlab_documents_with_project_urls() -> None:
         if (browse := wu.get_aspect_of_type(BrowsePathsV2Class)) is not None
     ]
     assert ["acme/data", "docs", "guides"] in browse_ids
+
+
+def test_max_files_warning_names_gitlab() -> None:
+    source = GitLabDocumentsSource(
+        GitLabDocumentsSourceConfig.model_validate(
+            {
+                "gitlab_token": "glpat-test",
+                "base_url": BASE,
+                "repository": "acme/data/docs",
+                "max_files": 1,
+                "create_repo_root_document": False,
+            }
+        ),
+        PipelineContext(run_id="test-run"),
+    )
+    with requests_mock.Mocker() as m:
+        m.get(f"{API}/repository/branches/main", json={"commit": {"id": "abc123"}})
+        m.get(
+            f"{API}/repository/tree",
+            json=[
+                {"id": "blob1", "type": "blob", "path": "a.md"},
+                {"id": "blob2", "type": "blob", "path": "b.md"},
+            ],
+        )
+        m.get(
+            f"{API}/repository/files/a.md",
+            json={
+                "size": 3,
+                "encoding": "base64",
+                "content": base64.b64encode(b"# A").decode(),
+            },
+        )
+        list(source.get_workunits())
+
+    assert source.report.files_truncated_by_limit
+    assert {w.title for w in source.report.warnings} == {"gitlab-files-truncated"}

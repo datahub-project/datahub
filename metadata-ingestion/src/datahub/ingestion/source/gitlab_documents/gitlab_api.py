@@ -1,5 +1,3 @@
-"""GitLab REST API (v4) helpers for the gitlab-documents ingestion source."""
-
 from __future__ import annotations
 
 import base64

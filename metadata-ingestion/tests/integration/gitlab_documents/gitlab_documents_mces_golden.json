@@ -1,0 +1,1070 @@
+[
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics._repo-7e8106bd86faa189",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "import_source": "gitlab",
+                "gitlab_repo": "example-group/data/analytics",
+                "gitlab_branch": "main",
+                "is_repo_root_document": "true",
+                "import_source_id": "gitlab.example-group.data.analytics._repo"
+            },
+            "title": "analytics",
+            "source": {
+                "sourceType": "NATIVE",
+                "externalUrl": "https://gitlab.example.com/example-group/data/analytics",
+                "externalId": "example-group/data/analytics"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": ""
+            },
+            "created": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics._repo-7e8106bd86faa189",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gitlab",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gitlab,example-group/data/analytics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides._dir-02b9793d265e3221",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "import_source": "gitlab",
+                "gitlab_repo": "example-group/data/analytics",
+                "gitlab_branch": "main",
+                "gitlab_directory_path": "guides",
+                "is_folder_document": "true",
+                "import_source_id": "gitlab.example-group.data.analytics.guides._dir"
+            },
+            "title": "guides",
+            "source": {
+                "sourceType": "NATIVE",
+                "externalUrl": "https://gitlab.example.com/example-group/data/analytics/-/tree/main/guides",
+                "externalId": "guides"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": ""
+            },
+            "created": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:gitlab.example-group.data.analytics._repo-7e8106bd86faa189"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides._dir-02b9793d265e3221",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gitlab",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gitlab,example-group/data/analytics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides._dir-02b9793d265e3221",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides._dir-02b9793d265e3221",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "analytics",
+                    "urn": "urn:li:document:gitlab.example-group.data.analytics._repo-7e8106bd86faa189"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.broken-3a2c76364e53b0e1",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "import_source": "gitlab",
+                "gitlab_repo": "example-group/data/analytics",
+                "gitlab_branch": "main",
+                "gitlab_file_path": "guides/broken.md",
+                "gitlab_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "import_source_id": "gitlab.example-group.data.analytics.guides.broken",
+                "content_hash": "db536c4b7cc9f8c57987f6b3462e7304ab8d03ebac9d373f3f4f54376adb1d82",
+                "source_content_hash": "821efc44f3fe0a5abe04ef8f7d23a474ea8cddba856f5b8296e407253588a955",
+                "extraction_algo_version": "2",
+                "gitlab_blob_sha": "2379207268f21baec301446363a89396d7e96d4c"
+            },
+            "title": "broken.md",
+            "source": {
+                "sourceType": "NATIVE",
+                "externalUrl": "https://gitlab.example.com/example-group/data/analytics/-/blob/main/guides/broken.md",
+                "externalId": "guides/broken.md"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": "---\ntype: Guide\nowners: [alice@example.com\n---\n# Broken frontmatter\n\nMalformed YAML must not prevent this document from being imported.\n"
+            },
+            "created": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:gitlab.example-group.data.analytics.guides._dir-02b9793d265e3221"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.broken-3a2c76364e53b0e1",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gitlab",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gitlab,example-group/data/analytics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.broken-3a2c76364e53b0e1",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.broken-3a2c76364e53b0e1",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "analytics",
+                    "urn": "urn:li:document:gitlab.example-group.data.analytics._repo-7e8106bd86faa189"
+                },
+                {
+                    "id": "guides",
+                    "urn": "urn:li:document:gitlab.example-group.data.analytics.guides._dir-02b9793d265e3221"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.mau-8ddb40f0f830c1d3",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "import_source": "gitlab",
+                "gitlab_repo": "example-group/data/analytics",
+                "gitlab_branch": "main",
+                "gitlab_file_path": "guides/mau.md",
+                "gitlab_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "import_source_id": "gitlab.example-group.data.analytics.guides.mau",
+                "content_hash": "618b6ce523a5ca19616f00ba07bffe5916fc222e1cfb1266f95b63c66fffeb01",
+                "source_content_hash": "1d6fcdaa8c7161a2431ae1167a35e7dcbd9eb02c2d3992c971c3205d787cd0e5",
+                "extraction_algo_version": "2",
+                "gitlab_blob_sha": "ab354c614d205f21b831c77612fa615b2920f689"
+            },
+            "title": "Monthly active users",
+            "source": {
+                "sourceType": "NATIVE",
+                "externalUrl": "https://gitlab.example.com/example-group/data/analytics/-/blob/main/guides/mau.md",
+                "externalId": "guides/mau.md"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": "# Monthly active users\n\nCount distinct users with an event during the calendar month.\n"
+            },
+            "created": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:gitlab.example-group.data.analytics.guides._dir-02b9793d265e3221"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.mau-8ddb40f0f830c1d3",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gitlab",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gitlab,example-group/data/analytics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.mau-8ddb40f0f830c1d3",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.mau-8ddb40f0f830c1d3",
+    "changeType": "UPSERT",
+    "aspectName": "okfProperties",
+    "aspect": {
+        "json": {
+            "bundle": {
+                "location": "https://gitlab.example.com/example-group/data/analytics",
+                "rootPath": ".",
+                "okfVersion": "0.2"
+            },
+            "conceptId": "guides/mau",
+            "declaredId": "guide:mau",
+            "type": "Guide",
+            "description": "How MAU is defined and which table to use.",
+            "status": "stable",
+            "staleAfter": 1790121600000,
+            "generated": {
+                "by": "reference_agent/model",
+                "at": 1781995985000
+            },
+            "verified": [
+                {
+                    "by": "human:alice",
+                    "at": 1782378000000
+                }
+            ],
+            "raw": "---\nid: guide:mau\ntype: Guide\ntitle: Monthly active users\ndescription: How MAU is defined and which table to use.\nstatus: stable\nstale_after: 2026-09-23T00:00:00Z\ngenerated: {by: reference_agent/model, at: 2026-06-20T22:53:05Z}\nverified: {by: human:alice, at: 2026-06-25T09:00:00Z}\nowners: [alice@example.com, \"urn:li:corpGroup:data-platform\"]\ntags: [metrics]\nglossary_terms: [\"urn:li:glossaryTerm:active-user-id\"]\naudience: analysts\ndepends_on: [\"table:events\"]\n---\n",
+            "revision": {
+                "ref": "main",
+                "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "blobSha": "ab354c614d205f21b831c77612fa615b2920f689"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.mau-8ddb40f0f830c1d3",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Guide"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.mau-8ddb40f0f830c1d3",
+    "changeType": "PATCH",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "arrayPrimaryKeys": {
+                "owners": [
+                    "owner",
+                    "type",
+                    "typeUrn",
+                    "attribution\u241fsource"
+                ]
+            },
+            "patch": [
+                {
+                    "op": "add",
+                    "path": "/owners/urn:li:corpuser:alice@example.com/TECHNICAL_OWNER//urn:li:dataHubIngestionSource:cli-9d764f051c7a1d1c36b8f22188c5c808",
+                    "value": {
+                        "owner": "urn:li:corpuser:alice@example.com",
+                        "type": "TECHNICAL_OWNER",
+                        "attribution": {
+                            "time": 1767225600000,
+                            "actor": "urn:li:corpuser:__datahub_system",
+                            "source": "urn:li:dataHubIngestionSource:cli-9d764f051c7a1d1c36b8f22188c5c808",
+                            "sourceDetail": {
+                                "origin": "okf",
+                                "bundle": "https://gitlab.example.com/example-group/data/analytics",
+                                "rootPath": ".",
+                                "conceptId": "guides/mau",
+                                "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                                "key": "owners",
+                                "mappingVersion": "6"
+                            }
+                        }
+                    }
+                },
+                {
+                    "op": "add",
+                    "path": "/owners/urn:li:corpGroup:data-platform/TECHNICAL_OWNER//urn:li:dataHubIngestionSource:cli-9d764f051c7a1d1c36b8f22188c5c808",
+                    "value": {
+                        "owner": "urn:li:corpGroup:data-platform",
+                        "type": "TECHNICAL_OWNER",
+                        "attribution": {
+                            "time": 1767225600000,
+                            "actor": "urn:li:corpuser:__datahub_system",
+                            "source": "urn:li:dataHubIngestionSource:cli-9d764f051c7a1d1c36b8f22188c5c808",
+                            "sourceDetail": {
+                                "origin": "okf",
+                                "bundle": "https://gitlab.example.com/example-group/data/analytics",
+                                "rootPath": ".",
+                                "conceptId": "guides/mau",
+                                "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                                "key": "owners",
+                                "mappingVersion": "6"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.mau-8ddb40f0f830c1d3",
+    "changeType": "PATCH",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "arrayPrimaryKeys": {
+                "tags": [
+                    "attribution\u241fsource",
+                    "tag"
+                ]
+            },
+            "patch": [
+                {
+                    "op": "add",
+                    "path": "/tags/urn:li:dataHubIngestionSource:cli-9d764f051c7a1d1c36b8f22188c5c808/urn:li:tag:metrics",
+                    "value": {
+                        "tag": "urn:li:tag:metrics",
+                        "attribution": {
+                            "time": 1767225600000,
+                            "actor": "urn:li:corpuser:__datahub_system",
+                            "source": "urn:li:dataHubIngestionSource:cli-9d764f051c7a1d1c36b8f22188c5c808",
+                            "sourceDetail": {
+                                "origin": "okf",
+                                "bundle": "https://gitlab.example.com/example-group/data/analytics",
+                                "rootPath": ".",
+                                "conceptId": "guides/mau",
+                                "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                                "key": "tags",
+                                "mappingVersion": "6"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.mau-8ddb40f0f830c1d3",
+    "changeType": "PATCH",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+        "json": {
+            "arrayPrimaryKeys": {
+                "terms": [
+                    "urn",
+                    "attribution\u241fsource"
+                ]
+            },
+            "patch": [
+                {
+                    "op": "add",
+                    "path": "/terms/urn:li:glossaryTerm:active-user-id/urn:li:dataHubIngestionSource:cli-9d764f051c7a1d1c36b8f22188c5c808",
+                    "value": {
+                        "urn": "urn:li:glossaryTerm:active-user-id",
+                        "attribution": {
+                            "time": 1767225600000,
+                            "actor": "urn:li:corpuser:__datahub_system",
+                            "source": "urn:li:dataHubIngestionSource:cli-9d764f051c7a1d1c36b8f22188c5c808",
+                            "sourceDetail": {
+                                "origin": "okf",
+                                "bundle": "https://gitlab.example.com/example-group/data/analytics",
+                                "rootPath": ".",
+                                "conceptId": "guides/mau",
+                                "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                                "key": "glossary_terms",
+                                "mappingVersion": "6"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.mau-8ddb40f0f830c1d3",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "analytics",
+                    "urn": "urn:li:document:gitlab.example-group.data.analytics._repo-7e8106bd86faa189"
+                },
+                {
+                    "id": "guides",
+                    "urn": "urn:li:document:gitlab.example-group.data.analytics.guides._dir-02b9793d265e3221"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.no-type-0cfd3d638aac934e",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "import_source": "gitlab",
+                "gitlab_repo": "example-group/data/analytics",
+                "gitlab_branch": "main",
+                "gitlab_file_path": "guides/no-type.md",
+                "gitlab_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "import_source_id": "gitlab.example-group.data.analytics.guides.no-type",
+                "content_hash": "f6fc372a2f0454bccaa5d889a01835f59de10ee0b9fd6f289c56f73abe305dc0",
+                "source_content_hash": "b3aa06c133eb68077c8f7c8ac7a1eeaa7d3c326b30e2e047ca1a2d29f875ffd2",
+                "extraction_algo_version": "2",
+                "gitlab_blob_sha": "a489440ef2f01af8bd3993b3e488f184542f48d7"
+            },
+            "title": "no-type.md",
+            "source": {
+                "sourceType": "NATIVE",
+                "externalUrl": "https://gitlab.example.com/example-group/data/analytics/-/blob/main/guides/no-type.md",
+                "externalId": "guides/no-type.md"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": "---\ntitle: This title stays in the body\naudience: analysts\n---\n# Not an OKF concept\n\nFrontmatter without a type is imported verbatim.\n"
+            },
+            "created": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:gitlab.example-group.data.analytics.guides._dir-02b9793d265e3221"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.no-type-0cfd3d638aac934e",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gitlab",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gitlab,example-group/data/analytics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.no-type-0cfd3d638aac934e",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.no-type-0cfd3d638aac934e",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "analytics",
+                    "urn": "urn:li:document:gitlab.example-group.data.analytics._repo-7e8106bd86faa189"
+                },
+                {
+                    "id": "guides",
+                    "urn": "urn:li:document:gitlab.example-group.data.analytics.guides._dir-02b9793d265e3221"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.plain-3ca3c191093adbed",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "import_source": "gitlab",
+                "gitlab_repo": "example-group/data/analytics",
+                "gitlab_branch": "main",
+                "gitlab_file_path": "guides/plain.md",
+                "gitlab_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "import_source_id": "gitlab.example-group.data.analytics.guides.plain",
+                "content_hash": "15d93d955bfa541350a4fd53e30fe3e5da7b6918ef1c985ad5697e030f0063ed",
+                "source_content_hash": "6a32b5ebdb9d2ec8cf71055c5f595645e4d5a72617889394547afd286cc9310f",
+                "extraction_algo_version": "2",
+                "gitlab_blob_sha": "ce2c2b7a82b88acee2e9fdc65370d783af35a260"
+            },
+            "title": "plain.md",
+            "source": {
+                "sourceType": "NATIVE",
+                "externalUrl": "https://gitlab.example.com/example-group/data/analytics/-/blob/main/guides/plain.md",
+                "externalId": "guides/plain.md"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": "# Plain guide\n\nThis markdown document has no frontmatter.\n"
+            },
+            "created": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:gitlab.example-group.data.analytics.guides._dir-02b9793d265e3221"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.plain-3ca3c191093adbed",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gitlab",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gitlab,example-group/data/analytics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.plain-3ca3c191093adbed",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.guides.plain-3ca3c191093adbed",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "analytics",
+                    "urn": "urn:li:document:gitlab.example-group.data.analytics._repo-7e8106bd86faa189"
+                },
+                {
+                    "id": "guides",
+                    "urn": "urn:li:document:gitlab.example-group.data.analytics.guides._dir-02b9793d265e3221"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.index-046ac7013bda3817",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "import_source": "gitlab",
+                "gitlab_repo": "example-group/data/analytics",
+                "gitlab_branch": "main",
+                "gitlab_file_path": "index.md",
+                "gitlab_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "import_source_id": "gitlab.example-group.data.analytics.index",
+                "content_hash": "f508de285142d8aff109d44cd1c90b1520235e1c254f30a74561f1c1dd89ba4b",
+                "source_content_hash": "a088609cfb9a76190de426a31d2aa2d25b4ada2f36dc725611002db5b63c1188",
+                "extraction_algo_version": "2",
+                "gitlab_blob_sha": "f45872f0101a221b869987f6b2e63f9c3b89207b"
+            },
+            "title": "index.md",
+            "source": {
+                "sourceType": "NATIVE",
+                "externalUrl": "https://gitlab.example.com/example-group/data/analytics/-/blob/main/index.md",
+                "externalId": "index.md"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": "---\nokf_version: \"0.2\"\n---\n# Analytics knowledge bundle\n\n- [Monthly active users](guides/mau.md)\n"
+            },
+            "created": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:gitlab.example-group.data.analytics._repo-7e8106bd86faa189"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.index-046ac7013bda3817",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gitlab",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gitlab,example-group/data/analytics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.index-046ac7013bda3817",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.index-046ac7013bda3817",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "analytics",
+                    "urn": "urn:li:document:gitlab.example-group.data.analytics._repo-7e8106bd86faa189"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.log-1b85a54b6e45cca0",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "import_source": "gitlab",
+                "gitlab_repo": "example-group/data/analytics",
+                "gitlab_branch": "main",
+                "gitlab_file_path": "log.md",
+                "gitlab_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "import_source_id": "gitlab.example-group.data.analytics.log",
+                "content_hash": "560b9e4ebfa0f3c17386a5cb3a2b3cacf0a239a185e92aeb2e7d5827ed8b4d50",
+                "source_content_hash": "577e51986f0bced22218f80ab29e9485d0ca3a93dfa5d1bb476b055cf5f350ed",
+                "extraction_algo_version": "2",
+                "gitlab_blob_sha": "d273b32ed24d7d0b67937f688ac5b32e2b826197"
+            },
+            "title": "log.md",
+            "source": {
+                "sourceType": "NATIVE",
+                "externalUrl": "https://gitlab.example.com/example-group/data/analytics/-/blob/main/log.md",
+                "externalId": "log.md"
+            },
+            "status": {
+                "state": "PUBLISHED"
+            },
+            "contents": {
+                "text": "---\ntype: Listing\n---\n# Bundle history\n\n- Add the monthly active users guide.\n"
+            },
+            "created": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 1767225600000,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "parentDocument": {
+                "document": "urn:li:document:gitlab.example-group.data.analytics._repo-7e8106bd86faa189"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.log-1b85a54b6e45cca0",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gitlab",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gitlab,example-group/data/analytics)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.log-1b85a54b6e45cca0",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics.log-1b85a54b6e45cca0",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "analytics",
+                    "urn": "urn:li:document:gitlab.example-group.data.analytics._repo-7e8106bd86faa189"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+},
+{
+    "entityType": "document",
+    "entityUrn": "urn:li:document:gitlab.example-group.data.analytics._repo-7e8106bd86faa189",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767225600000,
+        "runId": "gitlab-documents-golden",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "gitlab-documents-golden"
+    }
+}
+]
