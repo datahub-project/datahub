@@ -168,10 +168,15 @@ def test_invalid_names_cannot_escape_profiles(name: str) -> None:
 def test_init_repoint_refusal_and_refresh() -> None:
     path = store("default")
     result = invoke(
-        "init", "--host", "https://acme-staging.example.com/gms", "--token", "new"
+        "init",
+        "--host",
+        "https://acme-staging.example.com/gms",
+        "--token",
+        "tok-should-not-leak",
     )
     assert result.exit_code != 0
     assert "--profile acme-staging" in result.output
+    assert "tok-should-not-leak" not in result.output
     assert yaml.safe_load(path.read_text())["gms"]["token"] == "secret"
     result = invoke("init", "--host", "https://acme.example.com/gms/", "--token", "new")
     assert result.exit_code == 0, result.output

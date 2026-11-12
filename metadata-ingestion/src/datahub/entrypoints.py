@@ -527,11 +527,13 @@ def init(
             )
             if suggested == "default" or suggested == resolved.name:
                 suggested = suggested[:59] + "-new"
+            # Secrets are replaced with placeholders: this message lands in agent
+            # transcripts and CI logs.
             auth_args = []
             for option, value in [
-                ("--token", token),
+                ("--token", "<token>" if token is not None else None),
                 ("--username", username),
-                ("--password", password),
+                ("--password", "<password>" if password is not None else None),
                 ("--token-duration", token_duration),
                 ("--ticket-id", ticket_id),
                 ("--description", description),
