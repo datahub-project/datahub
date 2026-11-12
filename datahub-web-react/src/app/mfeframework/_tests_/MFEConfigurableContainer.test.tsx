@@ -277,6 +277,20 @@ describe('MFEBaseConfigurablePage', () => {
         vi.useRealTimers();
     }, 10000);
 
+    // `path` is optional on an entry since slot placements have none; a page view never reports `undefined`.
+    it('tracks a page view with an empty path for an entry that has none', async () => {
+        const withoutPath = { ...validParsedYaml.microFrontends[0], path: undefined };
+        const mountFn = vi.fn(() => vi.fn());
+        getRemoteMock.mockResolvedValue({ mount: mountFn });
+        unwrapModuleMock.mockResolvedValue({ mount: mountFn });
+
+        await act(async () => {
+            renderPage(withoutPath, 5000);
+        });
+
+        expect(trackEventMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'MfePageViewEvent', mfePath: '' }));
+    });
+
     it('tracks a page view and a successful load', async () => {
         const yaml = validParsedYaml.microFrontends[0];
         const mountFn = vi.fn(() => vi.fn());
