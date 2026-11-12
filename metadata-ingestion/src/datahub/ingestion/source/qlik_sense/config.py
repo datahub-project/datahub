@@ -378,7 +378,9 @@ class QlikSourceConfig(
         description="Ingest each app's sheets as dashboards and their charts. When "
         "false, apps are read without their sheets, which is faster, and each app "
         "dashboard links only to its tables. With stale metadata removal, sheets "
-        "and charts ingested earlier are soft-deleted.",
+        "and charts ingested earlier are soft-deleted; raise "
+        "`stateful_ingestion.fail_safe_threshold` for that first run, as they are "
+        "usually most of the entities and their removal otherwise trips it.",
     )
     include_column_lineage: bool = Field(
         default=True,

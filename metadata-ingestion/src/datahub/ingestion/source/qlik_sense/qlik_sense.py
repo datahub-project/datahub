@@ -911,6 +911,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         dashboard_urn = self._gen_dashboard_urn(app.id)
         yield self._gen_entity_status_aspect(dashboard_urn)
         sheet_urns = [self._gen_dashboard_urn(sheet.id) for sheet in app.sheets]
+        last_modified = ChangeAuditStampsClass(
+            created=self._get_audit_stamp(app.createdAt, app.ownerId),
+            lastModified=self._get_audit_stamp(app.updatedAt, app.ownerId),
+        )
+        dashboard_url = f"https://{self.ui_host}/sense/app/{app.id}/overview"
         if app.sheets_complete and table_urns is not None:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dashboard_urn,
@@ -919,18 +924,24 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     description=app.description or "",
                     dashboards=[EdgeClass(destinationUrn=urn) for urn in sheet_urns],
                     datasetEdges=[EdgeClass(destinationUrn=urn) for urn in table_urns],
-                    lastModified=ChangeAuditStampsClass(
-                        created=self._get_audit_stamp(app.createdAt, app.ownerId),
-                        lastModified=self._get_audit_stamp(app.updatedAt, app.ownerId),
-                    ),
+                    lastModified=last_modified,
                     customProperties={Constant.QRI: app.qri},
-                    dashboardUrl=f"https://{self.ui_host}/sense/app/{app.id}/overview",
+                    dashboardUrl=dashboard_url,
                 ),
             ).as_workunit()
         else:
             # Sheets or tables that could not be read this run may still exist,
-            # so the edges read are added to the last full read's.
-            patch = DashboardPatchBuilder(dashboard_urn).set_title(app.qTitle)
+            # so the edges read are added to the last full read's, while the
+            # app's own fields are still set.
+            patch = (
+                DashboardPatchBuilder(dashboard_urn)
+                .set_title(app.qTitle)
+                .set_dashboard_url(dashboard_url)
+                .set_last_modified(last_modified)
+                .add_custom_property(Constant.QRI, app.qri)
+            )
+            if app.description:
+                patch.set_description(app.description)
             for urn in sheet_urns:
                 patch.add_dashboard(urn)
             for urn in table_urns or []:
