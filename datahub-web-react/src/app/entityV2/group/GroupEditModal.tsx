@@ -1,5 +1,5 @@
-import { Modal } from '@components';
-import { Form, Input, Typography, message } from 'antd';
+import { Modal, Text, toast } from '@components';
+import { Form, Input } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -64,10 +64,7 @@ export default function GroupEditModal({
             },
         })
             .then(() => {
-                message.success({
-                    content: tf('changesSaved'),
-                    duration: 3,
-                });
+                toast.success(tf('changesSaved'), { duration: 3 });
                 onSave(); // call the refetch function once save
                 // clear the values from edit profile form
                 setData({
@@ -78,8 +75,8 @@ export default function GroupEditModal({
                 });
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: t('shared.saveChangesError', { error: e.message || '' }), duration: 3 });
+                toast.destroy();
+                toast.error(t('shared.saveChangesError', { error: e.message || '' }), { duration: 3 });
             });
         handleTitleUpdate(data?.name || '');
         onClose();
@@ -123,7 +120,14 @@ export default function GroupEditModal({
                 }}
             >
                 {canEditGroupName && (
-                    <Form.Item name="name" label={<Typography.Text strong>{tl('name')}</Typography.Text>}>
+                    <Form.Item
+                        name="name"
+                        label={
+                            <Text type="span" weight="semiBold">
+                                {tl('name')}
+                            </Text>
+                        }
+                    >
                         <Input
                             data-testid="group-profile-name-input"
                             value={data.name}
@@ -133,7 +137,11 @@ export default function GroupEditModal({
                 )}
                 <Form.Item
                     name="email"
-                    label={<Typography.Text strong>{t('shared.emailLabel')}</Typography.Text>}
+                    label={
+                        <Text type="span" weight="semiBold">
+                            {t('shared.emailLabel')}
+                        </Text>
+                    }
                     rules={[
                         {
                             type: 'email',
@@ -154,7 +162,11 @@ export default function GroupEditModal({
                 </Form.Item>
                 <Form.Item
                     name="slack"
-                    label={<Typography.Text strong>{t('group.slackChannelLabel')}</Typography.Text>}
+                    label={
+                        <Text type="span" weight="semiBold">
+                            {t('group.slackChannelLabel')}
+                        </Text>
+                    }
                     rules={[{ whitespace: true }, { min: 2, max: 50 }]}
                     hasFeedback
                 >

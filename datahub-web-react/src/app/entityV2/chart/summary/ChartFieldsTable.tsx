@@ -1,4 +1,5 @@
-import { Table, Typography } from 'antd';
+import { Text } from '@components';
+import { Table } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -100,13 +101,13 @@ const TypeWrapper = styled.span`
     width: 11px;
 `;
 
-const FieldPathText = styled(Typography.Text)`
+const FieldPathText = styled(Text)`
     font-size: 12px;
     font-weight: 500;
     color: ${(props) => props.theme.colors.text};
 `;
 
-const Description = styled(Typography.Text)`
+const Description = styled(Text)`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -115,7 +116,7 @@ const Description = styled(Typography.Text)`
 
 function nameRender(fieldPath: string, row: SchemaField) {
     return (
-        <FieldPathText>
+        <FieldPathText type="span">
             <TypeWrapper>
                 <CompactFieldIconWithTooltip type={row.type} nativeDataType={row.nativeDataType} />
             </TypeWrapper>
@@ -125,5 +126,5 @@ function nameRender(fieldPath: string, row: SchemaField) {
 }
 
 function descriptionRender(description: string) {
-    return <Description>{description}</Description>;
+    return <Description type="span">{description}</Description>;
 }

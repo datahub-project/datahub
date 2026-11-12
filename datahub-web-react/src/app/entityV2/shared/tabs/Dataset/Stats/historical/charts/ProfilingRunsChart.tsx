@@ -1,5 +1,5 @@
-import { Modal } from '@components';
-import { Button, Table, Typography } from 'antd';
+import { Button, Modal, Text } from '@components';
+import { Table } from 'antd';
 import i18next from 'i18next';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,11 @@ import { DatasetProfile } from '@types';
 
 const ChartTable = styled(Table)`
     margin-top: 16px;
+`;
+
+const UnderlinedText = styled(Text)`
+    color: ${(props) => props.theme.colors.text};
+    text-decoration: underline;
 `;
 
 type Props = {
@@ -69,10 +74,10 @@ export default function ProfilingRunsChart({ profiles, areAllProfilesPartitioned
             dataIndex: 'timestamp',
             render: (title, record, index) => {
                 return (
-                    <Button type="text" onClick={() => showProfileModal(index)}>
-                        <Typography.Text underline>
+                    <Button variant="text" color="gray" onClick={() => showProfileModal(index)}>
+                        <UnderlinedText type="span">
                             {FULL_TABLE_PARTITION_KEYS.includes(record.partition) ? title : record.partition}
-                        </Typography.Text>
+                        </UnderlinedText>
                     </Button>
                 );
             },

@@ -1,4 +1,5 @@
-import { Row, Table, Tag, Typography } from 'antd';
+import { Pill, Text } from '@components';
+import { Table } from 'antd';
 import { ColumnType, ColumnsType } from 'antd/lib/table';
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +9,19 @@ import { Highlight } from '@app/analyticsDashboardV2/components/Highlight';
 import StatsSection from '@app/entityV2/dataset/profile/stats/StatsSection';
 
 import { DatasetProfile } from '@types';
+
+const HighlightsRow = styled.div`
+    display: flex;
+    flex-flow: row wrap;
+    align-items: flex-start;
+    justify-content: flex-start;
+`;
+
+const SampleValues = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+`;
 
 const ColumnStatsTable = styled(Table)`
     margin-top: 24px;
@@ -51,7 +65,11 @@ export default function DataProfileView({ profile }: Props) {
      * Returns a placeholder value to show in the column data table when data is null.
      */
     const unknownValue = () => {
-        return <Typography.Text style={{ color: theme.colors.textTertiary }}>{t('dataset.unknown')}</Typography.Text>;
+        return (
+            <Text type="span" style={{ color: theme.colors.textTertiary }}>
+                {t('dataset.unknown')}
+            </Text>
+        );
     };
 
     /**
@@ -123,10 +141,22 @@ export default function DataProfileView({ profile }: Props) {
                 dataIndex: 'sampleValues',
                 render: (sampleValues: Array<string>) => {
                     return (
-                        (sampleValues &&
-                            sampleValues
-                                .slice(0, sampleValues.length < 3 ? sampleValues?.length : 3)
-                                .map((value) => <Tag key={value}>{value}</Tag>)) ||
+                        (sampleValues && (
+                            <SampleValues>
+                                {sampleValues
+                                    .slice(0, sampleValues.length < 3 ? sampleValues?.length : 3)
+                                    .map((value) => (
+                                        <Pill
+                                            key={value}
+                                            label={value}
+                                            size="sm"
+                                            color="gray"
+                                            variant="outline"
+                                            clickable={false}
+                                        />
+                                    ))}
+                            </SampleValues>
+                        )) ||
                         unknownValue()
                     );
                 },
@@ -165,10 +195,10 @@ export default function DataProfileView({ profile }: Props) {
     return (
         <>
             <StatsSection title={t('dataset.tableStats')}>
-                <Row align="top" justify="start">
+                <HighlightsRow>
                     <Highlight highlight={{ value: rowCount, title: rowCountTitle, body: '' }} />
                     <Highlight highlight={{ value: columnCount, title: columnCountTitle, body: '' }} />
-                </Row>
+                </HighlightsRow>
             </StatsSection>
             <StatsSection title={t('dataset.columnStats')}>
                 <ColumnStatsTable

@@ -1,6 +1,6 @@
-import { Modal, Text, Tooltip } from '@components';
+import { Modal, Text, Tooltip, toast } from '@components';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
-import { Form, Input, Typography, message } from 'antd';
+import { Form, Input } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -83,10 +83,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
             },
         })
             .then(() => {
-                message.success({
-                    content: tf('changesSaved'),
-                    duration: 3,
-                });
+                toast.success(tf('changesSaved'), { duration: 3 });
                 onSave(); // call the refetch function once save
                 // clear the values from edit profile form
                 setData({
@@ -102,8 +99,8 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                 onClose();
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: t('shared.saveChangesError', { error: e.message || '' }), duration: 3 });
+                toast.destroy();
+                toast.error(t('shared.saveChangesError', { error: e.message || '' }), { duration: 3 });
                 // Reset form state to original values so the rejected input is discarded
                 setData({ ...editModalData });
                 form.setFieldsValue({ ...editModalData });
@@ -147,7 +144,11 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
             >
                 <Form.Item
                     name="name"
-                    label={<Typography.Text strong>{tl('name')}</Typography.Text>}
+                    label={
+                        <Text type="span" weight="semiBold">
+                            {tl('name')}
+                        </Text>
+                    }
                     rules={[
                         {
                             required: true,
@@ -172,7 +173,11 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                 </Form.Item>
                 <Form.Item
                     name="title"
-                    label={<Typography.Text strong>{t('user.titleRoleLabel')}</Typography.Text>}
+                    label={
+                        <Text type="span" weight="semiBold">
+                            {t('user.titleRoleLabel')}
+                        </Text>
+                    }
                     rules={[{ whitespace: true }, { min: 2, max: 50 }]}
                     hasFeedback
                 >
@@ -191,7 +196,11 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                 >
                     <Form.Item
                         name="image"
-                        label={<Typography.Text strong>{t('user.imageUrlLabel')}</Typography.Text>}
+                        label={
+                            <Text type="span" weight="semiBold">
+                                {t('user.imageUrlLabel')}
+                            </Text>
+                        }
                         rules={[{ whitespace: true }, { type: 'url', message: t('user.invalidUrlError') }]}
                         hasFeedback
                     >
@@ -206,7 +215,11 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                 </Tooltip>
                 <Form.Item
                     name="team"
-                    label={<Typography.Text strong>{t('user.teamLabel')}</Typography.Text>}
+                    label={
+                        <Text type="span" weight="semiBold">
+                            {t('user.teamLabel')}
+                        </Text>
+                    }
                     rules={[{ whitespace: true }, { min: 2, max: 50 }]}
                 >
                     <Input
@@ -219,7 +232,11 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                 </Form.Item>
                 <Form.Item
                     name="email"
-                    label={<Typography.Text strong>{t('shared.emailLabel')}</Typography.Text>}
+                    label={
+                        <Text type="span" weight="semiBold">
+                            {t('shared.emailLabel')}
+                        </Text>
+                    }
                     rules={[
                         {
                             required: true,
@@ -246,7 +263,9 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                     name="slack"
                     label={
                         <>
-                            <Typography.Text strong>{t('user.slackMemberIdLabel')}</Typography.Text>
+                            <Text type="span" weight="semiBold">
+                                {t('user.slackMemberIdLabel')}
+                            </Text>
                         </>
                     }
                     rules={[{ whitespace: true }, { min: 2, max: 50 }]}
@@ -278,7 +297,11 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                 </StyledText>
                 <Form.Item
                     name="phone"
-                    label={<Typography.Text strong>{t('shared.phoneLabel')}</Typography.Text>}
+                    label={
+                        <Text type="span" weight="semiBold">
+                            {t('shared.phoneLabel')}
+                        </Text>
+                    }
                     rules={[
                         {
                             pattern: PHONE_REGEX,

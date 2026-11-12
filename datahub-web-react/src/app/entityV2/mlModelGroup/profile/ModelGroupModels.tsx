@@ -1,4 +1,5 @@
-import { Table, Typography } from 'antd';
+import { Link as AlchemyLink, Heading, Text } from '@components';
+import { Table } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -168,12 +169,12 @@ export default function MLGroupModels() {
                 const isExpanded = expandedRows.has(record.urn);
                 const isLong = description.length > 150;
 
-                if (!isLong) return <Typography.Text>{description}</Typography.Text>;
+                if (!isLong) return <Text type="span">{description}</Text>;
 
                 return (
                     <>
                         <TruncatedDescription isExpanded={isExpanded}>{description}</TruncatedDescription>
-                        <Typography.Link
+                        <AlchemyLink
                             onClick={() => {
                                 const newExpanded = new Set(expandedRows);
                                 if (isExpanded) {
@@ -185,7 +186,7 @@ export default function MLGroupModels() {
                             }}
                         >
                             {isExpanded ? tc('showLess') : tc('readMore')}
-                        </Typography.Link>
+                        </AlchemyLink>
                     </>
                 );
             },
@@ -194,7 +195,9 @@ export default function MLGroupModels() {
 
     return (
         <ModelsContainer>
-            <Typography.Title level={3}>{t('mlModelGroup.modelGroupDetails')}</Typography.Title>
+            <Heading type="h3" size="4xl" weight="semiBold">
+                {t('mlModelGroup.modelGroupDetails')}
+            </Heading>
             <InfoItemContainer justifyContent="left">
                 <InfoItem title={tl('createdAt')}>
                     <TimestampPopover timestamp={modelGroup?.properties?.created?.time} title={tl('createdAt')} />
@@ -211,7 +214,9 @@ export default function MLGroupModels() {
                     </InfoItem>
                 )}
             </InfoItemContainer>
-            <Typography.Title level={3}>{t('mlModelGroup.modelsTab')}</Typography.Title>
+            <Heading type="h3" size="4xl" weight="semiBold">
+                {t('mlModelGroup.modelsTab')}
+            </Heading>
             <StyledTable
                 columns={columns}
                 dataSource={models}

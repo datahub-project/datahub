@@ -1,4 +1,5 @@
-import { Empty, Table } from 'antd';
+import { EmptyState } from '@components';
+import { Table } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -35,10 +36,6 @@ const StyledTable = styled(Table)`
         margin-bottom: 4px;
     }
 ` as typeof Table;
-
-const EmptyText = styled(Empty)`
-    font-size: 14px;
-`;
 
 interface Props {
     properties?: {
@@ -146,9 +143,7 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
                         columns={propertyTableColumns}
                         dataSource={dataSource}
                         locale={{
-                            emptyText: (
-                                <EmptyText description={t('properties.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                            ),
+                            emptyText: <EmptyState title={t('properties.empty')} size="sm" />,
                         }}
                         rowKey={PROPERTY_ROW_KEY}
                         expandable={{
