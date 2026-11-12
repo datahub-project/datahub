@@ -18,5 +18,15 @@
     "platform.ai.mcpServers.masterSwitchHelp": "When off, DataHub's MCP servers are turned off for all users.",
     "platform.ai.mcpServers.masterSwitchDisableTitle": "Disable MCP Servers",
     "platform.ai.mcpServers.masterSwitchDisableBody": "Are you sure you want to turn off DataHub's MCP servers, including the default MCP server?",
-    "platform.ai.mcpServers.masterSwitchDisableConfirm": "Disable"
+    "platform.ai.mcpServers.masterSwitchDisableConfirm": "Disable",
+    "platform.ai.toolSelector.tools": "Tools",
+    "platform.ai.toolSelector.agents": "Agents",
+    "platform.ai.toolSelector.includeAll": "Include all",
+    "platform.ai.toolSelector.excludeAll": "Exclude all",
+    "platform.ai.toolSelector.otherTools": "Other",
+    "platform.ai.toolSelector.loading": "Loading tools…",
+    "platform.ai.toolSelector.loadFailed": "Failed to load tools.",
+    "platform.ai.toolSelector.retry": "Retry",
+    "platform.ai.toolSelector.optInGroupNote": "Off unless enabled here, and not included by \"Include all\" above. Adds: {{tools}}.",
+    "platform.ai.toolSelector.agentNote": "An enabled agent runs with its own configured tools, regardless of this server's tool selection. It still acts as the calling user, so it cannot access data the user lacks permission to see."
 }
