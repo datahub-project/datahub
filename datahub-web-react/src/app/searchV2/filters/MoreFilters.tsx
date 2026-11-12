@@ -10,6 +10,7 @@ import { SearchFilterBase } from '@app/searchV2/filters/SearchFilterBase';
 import { FilterScenarioType } from '@app/searchV2/filters/render/types';
 import { useFilterRendererRegistry } from '@app/searchV2/filters/render/useFilterRenderer';
 import { FilterPredicate } from '@app/searchV2/filters/types';
+import { useFilterMenuOverlay } from '@app/searchV2/filters/useFilterMenuOverlay';
 import useSearchFilterAnalytics from '@app/searchV2/filters/useSearchFilterAnalytics';
 import { CloseFilterMenuProvider } from '@app/searchV2/filters/value/CloseFilterMenuContext';
 import { getNumActiveFiltersForGroupOfFilters, useGetFilterDisplayName } from '@app/searchV2/filters/utils';
@@ -28,6 +29,7 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
     const { t } = useTranslation('search');
     const { trackShowMoreEvent } = useSearchFilterAnalytics();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const { triggerRef, overlayClassName, overlayStyle } = useFilterMenuOverlay<HTMLDivElement>(isMenuOpen);
     const numActiveFilters = getNumActiveFiltersForGroupOfFilters(activeFilters, filters);
     const filterRendererRegistry = useFilterRendererRegistry();
     const { config } = useAppConfig();
@@ -118,8 +120,15 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
 
     return (
         <CloseFilterMenuProvider value={closeMenu}>
-            <Menu items={menuItems} open={isMenuOpen} onOpenChange={onOpenChange}>
+            <Menu
+                items={menuItems}
+                open={isMenuOpen}
+                onOpenChange={onOpenChange}
+                overlayClassName={overlayClassName}
+                overlayStyle={overlayStyle}
+            >
                 <SearchFilterBase
+                    ref={triggerRef}
                     data-testid="more-filters-dropdown"
                     isActive={!!numActiveFilters}
                     isOpen={isMenuOpen}
