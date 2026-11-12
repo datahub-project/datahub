@@ -977,6 +977,14 @@ type FeatureFlagsConfig {
   If enabled, shows the "Star us on GitHub" asks.
   """
   showGithubStarPrompt: Boolean!
+
+  """
+  If enabled, admins can create additional scoped MCP servers. When false, only
+  the default MCP server (defaultMcpServerOverrides) and servers that already exist
+  can be customized -- creating new scoped servers is rejected by the
+  MCP settings API. Controlled by CREATE_MCP_SERVERS_ENABLED.
+  """
+  createMcpServersEnabled: Boolean!
 }
 
 """

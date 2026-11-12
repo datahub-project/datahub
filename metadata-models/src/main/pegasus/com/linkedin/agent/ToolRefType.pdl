@@ -1,0 +1,35 @@
+namespace com.linkedin.agent
+
+/**
+ * The kind of capability an AIAgentToolRef points to.
+ */
+enum ToolRefType {
+  /**
+   * A single MCP tool, referenced by its registered tool name.
+   */
+  TOOL
+
+  /**
+   * A capability group / bundle, referenced by group id. Resolved to its member
+   * tools server-side at serve time, so tools newly registered into the group are
+   * automatically included for every ref that selects it.
+   */
+  GROUP
+
+  /**
+   * An AI agent exposed as a single callable MCP tool, referenced by its agent
+   * URN (urn:li:aiAgent:...). At serve time the agent is wrapped as a tool named
+   * ask_agent__<slug> that runs the agent loop. Only meaningful for scoped MCP server
+   * tool selection, not for an agent's own tool palette.
+   */
+  AGENT
+
+  /**
+   * An AI plugin (an external MCP server registered in GlobalSettings.aiPlugins),
+   * referenced by its plugin id. At serve time the plugin's tools are proxied
+   * through the scoped MCP server, named <plugin prefix>__<tool>, and called with
+   * the plugin's configured credentials (shared, or the calling user's own). Only
+   * meaningful for scoped MCP server tool selection, not for an agent's own palette.
+   */
+  PLUGIN
+}

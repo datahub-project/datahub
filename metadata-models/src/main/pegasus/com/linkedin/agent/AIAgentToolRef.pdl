@@ -1,0 +1,34 @@
+namespace com.linkedin.agent
+
+/**
+ * A reference to a specific tool in the MCP tool registry.
+ *
+ * When an agent's tools list is null/absent, all available tools are enabled.
+ * Use tool refs only to restrict an agent to a subset of tools.
+ *
+ * SHARED TYPE: this is reused by scoped MCP servers (McpServerConfig.tools) as
+ * well as AI Agents (DataHubAgentSettings.tools). Both features deliberately share
+ * one tool-selection model — changes here affect both.
+ */
+record AIAgentToolRef {
+  /**
+   * Whether this ref points to a single tool (default) or a capability group.
+   * GROUP refs resolve to their member tools server-side at serve time, so newly
+   * registered members are auto-included. Per-tool refs take precedence over
+   * group membership when both apply.
+   */
+  refType: ToolRefType = "TOOL"
+
+  /**
+   * Identifier of the referenced capability: a tool name in the MCP tool registry
+   * when refType is TOOL, a group id when refType is GROUP, an agent URN when
+   * refType is AGENT, or an AI plugin id when refType is PLUGIN.
+   */
+  toolId: string
+
+  /**
+   * Whether this ref is enabled. Defaults to true. A disabled GROUP ref excludes
+   * all of that group's member tools.
+   */
+  enabled: boolean = true
+}

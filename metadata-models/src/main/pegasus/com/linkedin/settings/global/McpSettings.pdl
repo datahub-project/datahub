@@ -1,0 +1,38 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Settings related to MCP (Model Context Protocol) server behaviour.
+ */
+record McpSettings {
+  /**
+   * Master on/off switch for all DataHub-hosted MCP servers. When false the
+   * default server and every scoped server are turned off (the dispatcher
+   * rejects requests), regardless of each server's individual enabled flag.
+   */
+  enabled: boolean = true
+
+  /**
+   * Whether telemetry emitted by MCP tools (e.g. note_metadata_observation) is enabled.
+   * When false the integrations service skips all Mixpanel / tracking calls for MCP-originated events.
+   */
+  observationTelemetryEnabled: boolean = true
+
+  /**
+   * Whether the note_metadata_observation MCP tool is enabled. When false the tool is
+   * hidden from MCP tool listings, calls to it record nothing, and chat agents drop the
+   * gap-reporting prompt instructions. The NOTE_METADATA_OBSERVATION_TOOL env var on the
+   * integrations service remains a deploy-level kill switch ANDed with this setting.
+   */
+  observationToolEnabled: boolean = true
+
+  /**
+   * List of configured scoped MCP servers exposed at /mcp/:slug.
+   */
+  servers: array[McpServerConfig] = []
+
+  /**
+   * Optional overrides applied to the default MCP server (exposed at /mcp with no slug).
+   * When absent, the default server exposes all tools with no custom instructions.
+   */
+  defaultMcpServerOverrides: optional McpServerConfig
+}
