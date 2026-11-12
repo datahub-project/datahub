@@ -271,6 +271,7 @@ source:
 - `platform`: the DataHub platform of the federated source.
 - `dsn` (optional): limits the entry to one DSN. DSN-scoped entries take precedence over global ones, so the same table name can map differently across Athena data sources.
 - `platform_instance` (optional): set this when the federated source is ingested under a platform instance, so the URN matches that source's entities. Athena's own platform instance is never carried over.
+- `env` (optional): the env the federated source is ingested under, such as `PROD`. Defaults to the Athena server's env.
 
 An entry that matches no Athena upstream during a run is reported as an `Athena table platform override never matched` warning.
 

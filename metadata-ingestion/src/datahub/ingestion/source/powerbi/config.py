@@ -500,11 +500,28 @@ class AthenaPlatformOverride(ConfigModel):
         "Athena deployment, not the source. Leave unset to target instance-less "
         "entities.",
     )
+    env: Optional[str] = pydantic.Field(
+        default=None,
+        description="Optional environment of the target platform's entities (e.g. "
+        "'PROD'). Set this when the federated source is ingested under a different "
+        "env than the Athena server. Leave unset to keep the Athena server's env.",
+    )
 
     @field_validator("platform_instance")
     @classmethod
     def _validate_platform_instance(cls, value: Optional[str]) -> Optional[str]:
         return _strip_and_reject_blank(value)
+
+    @field_validator("env")
+    @classmethod
+    def _validate_env(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        if value.upper() not in builder.ALL_ENV_TYPES:
+            raise ValueError(
+                f"env must be one of {builder.ALL_ENV_TYPES}, found {value}"
+            )
+        return value.upper()
 
 
 class BigQueryExternalQueryPlatformDetail(PlatformDetail):

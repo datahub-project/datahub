@@ -2642,7 +2642,7 @@ class OdbcLineage(AbstractLineage):
                 platform=target_platform,
                 name=table_name,
                 platform_instance=target_platform_instance,
-                env=parsed.env,
+                env=matched_override.env or parsed.env,
             )
             logger.debug(
                 f"Overriding platform for table {table_name}: {current_platform} -> {target_platform}"

@@ -309,6 +309,20 @@ class TestPowerBiConfig:
             "mysql_prod"
         )
 
+    def test_athena_override_env_is_validated(self) -> None:
+        def override_config(env: str) -> dict:
+            return {
+                **self.base_config,
+                "athena_table_platform_override": [
+                    {"database": "db", "table": "tbl", "platform": "mysql", "env": env}
+                ],
+            }
+
+        config = PowerBiDashboardSourceConfig.model_validate(override_config("prod"))
+        assert config.athena_table_platform_override[0].env == "PROD"
+        with pytest.raises(ValidationError):
+            PowerBiDashboardSourceConfig.model_validate(override_config("production"))
+
     def test_bigquery_external_query_unknown_platform_invalid(self):
         """Unknown external platform must be rejected at config validation."""
         config_dict = {

@@ -1825,6 +1825,52 @@ def test_odbc_athena_nav_applies_table_platform_override():
 
 
 @pytest.mark.parametrize(
+    "override_env, expected_env",
+    [
+        pytest.param(None, "DEV", id="unset-keeps-athena-env"),
+        pytest.param("PROD", "PROD", id="override-env-wins"),
+    ],
+)
+def test_odbc_athena_override_env(
+    override_env: Optional[str], expected_env: str
+) -> None:
+    """The federated source may be ingested under another env than the Athena
+    server; the override's env must then replace Athena's in the rewritten URN."""
+    instance = _build_odbc_lineage(
+        platform_detail=PlatformDetail(platform_instance="athena_inst", env="DEV"),
+        athena_table_platform_override=[
+            AthenaPlatformOverride(
+                database="my_schema",
+                table="my_table",
+                platform="mysql",
+                env=override_env,
+            )
+        ],
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "my_schema"),
+            ("Table", "my_table"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        f"urn:li:dataset:(urn:li:dataPlatform:mysql,my_schema.my_table,{expected_env})"
+    ]
+
+
+@pytest.mark.parametrize(
     "overrides, expected_platform, expected_unmatched",
     [
         # A DSN-scoped entry wins over a global one listed before it.
