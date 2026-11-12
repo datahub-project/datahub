@@ -559,6 +559,7 @@ task generateQuickstartComposeConfig {
         composeExecutor.parameters.environment.put("DATAHUB_TOKEN_SERVICE_SIGNING_KEY", '__SIGNING_KEY__')
         composeExecutor.parameters.environment.put("DATAHUB_TOKEN_SERVICE_SALT", '__SALT__')
         composeExecutor.parameters.environment.put("DATAHUB_SYSTEM_CLIENT_SECRET", '__SYSTEM_CLIENT_SECRET__')
+        composeExecutor.parameters.environment.put("ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED", '__SCHEMA_FIELD_HASH_ID__')
         // Set placeholder port values that should remain configurable at runtime
         // Use unique high port numbers as placeholders that will be replaced later
         composeExecutor.parameters.environment.put("DATAHUB_MAPPED_GMS_PORT", '58080')
@@ -574,6 +575,7 @@ task generateQuickstartComposeConfig {
         configOutput = configOutput.replace('__SIGNING_KEY__', '${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}')
         configOutput = configOutput.replace('__SALT__', '${DATAHUB_TOKEN_SERVICE_SALT}')
         configOutput = configOutput.replace('__SYSTEM_CLIENT_SECRET__', '${DATAHUB_SYSTEM_CLIENT_SECRET:-JohnSnowKnowsNothing}')
+        configOutput = configOutput.replace('__SCHEMA_FIELD_HASH_ID__', '${ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED:-true}')
         configOutput = configOutput.replace(System.getenv('HOME'), '${HOME}')
 
         // Parse configOutput as yaml and add UI_INGESTION_DEFAULT_CLI_VERSION as an env var under datahub-gms-quickstart.environment key
@@ -581,6 +583,20 @@ task generateQuickstartComposeConfig {
         def yaml = new Yaml()
         def config = yaml.load(configOutput)
         config['services']['datahub-gms-quickstart']['environment']['UI_INGESTION_DEFAULT_CLI_VERSION'] = '${UI_INGESTION_DEFAULT_CLI_VERSION}'
+        // Compose has already interpolated DATAHUB_SEARCH_TAG from the machine running Gradle.
+        // Put the shipped defaults back so a build host that has the variable set cannot bake 2.x in.
+        // The 3.7.0 fallback must stay equal to DATAHUB_SEARCH_TAG in
+        // docker/profiles/docker-compose.prerequisites.yml and
+        // docker/quickstart/docker-compose.quickstart-profile.yml.
+        def opensearch = config['services']['opensearch']
+        opensearch['image'] = 'opensearchproject/opensearch:${DATAHUB_SEARCH_TAG:-3.7.0}'
+        opensearch['volumes'].each { volume ->
+            if (volume instanceof Map && volume['target'] == '/usr/share/opensearch/data') {
+                volume['source'] = '${DATAHUB_SEARCH_VOLUME:-os3data}'
+            }
+        }
+        // DATAHUB_SEARCH_VOLUME=osdata must resolve to a declared volume.
+        config['volumes'].putIfAbsent('osdata', [name: 'datahub_osdata'])
 
         // Configure YAML dump options to match Docker Compose format
         def dumpOptions = new org.yaml.snakeyaml.DumperOptions()

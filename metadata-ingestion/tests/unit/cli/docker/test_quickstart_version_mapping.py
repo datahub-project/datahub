@@ -378,3 +378,25 @@ def test_quickstart_version_older_than_v1_2_0_uses_commit_hash():
         mysql_tag="8.2",
     )
     assert execution_plan == expected
+
+
+def test_fetch_quickstart_config_offline_fallback_is_v1_8_0() -> None:
+    with (
+        mock.patch(
+            "datahub.cli.quickstart_versioning.requests.get",
+            side_effect=OSError("offline"),
+        ),
+        mock.patch(
+            "datahub.cli.quickstart_versioning.LOCAL_QUICKSTART_MAPPING_FILE",
+            None,
+        ),
+        mock.patch(
+            "datahub.cli.quickstart_versioning.DEFAULT_LOCAL_CONFIG_PATH",
+            "/no/such/quickstart-mapping.yaml",
+        ),
+    ):
+        config = QuickstartVersionMappingConfig.fetch_quickstart_config()
+
+    plan = config.quickstart_version_map["default"]
+    assert plan.composefile_git_ref == "v1.8.0"
+    assert plan.docker_tag == "v1.8.0"

@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -23,6 +24,7 @@ import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexMigrationStamp;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
@@ -50,6 +52,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import org.apache.http.HttpEntity;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -60,6 +63,7 @@ import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
 import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse;
+import org.opensearch.action.admin.indices.alias.Alias;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
@@ -165,7 +169,8 @@ public class ESIndexBuilderTest {
             elasticSearchConfiguration,
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            gitVersion);
+            gitVersion,
+            searchClient);
   }
 
   @Test
@@ -200,7 +205,12 @@ public class ESIndexBuilderTest {
 
     ESIndexBuilder builderWithTimeout =
         new ESIndexBuilder(
-            searchClient, configWithTimeout, TEST_ES_STRUCT_PROPS_DISABLED, Map.of(), gitVersion);
+            searchClient,
+            configWithTimeout,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion,
+            searchClient);
 
     // Verify the configuration contains the expected max reindex hours
     assertEquals(configWithTimeout.getIndex().getMaxReindexHours(), maxReindexHours);
@@ -340,6 +350,202 @@ public class ESIndexBuilderTest {
             any(OperationFingerprint.class),
             any(CreateIndexRequest.class),
             any(RequestOptions.class));
+  }
+
+  @Test
+  void testBuildIndex_NewV3IndexWithRetiredV2IsMarkedIncomplete() throws IOException {
+    IndexConvention convention = opContext.getSearchContext().getIndexConvention();
+    String v3 = convention.getEntityIndexNameV3(opContext, "dataset");
+    String v2 = convention.getEntityIndexName(opContext, "dataset");
+    stubCreate(v3);
+    when(searchClient.indexExists(any(), any(GetIndexRequest.class), any()))
+        .thenAnswer(
+            invocation -> {
+              String name = ((GetIndexRequest) invocation.getArgument(1)).indices()[0];
+              return name.equals(v2) || name.equals(v3);
+            });
+    when(searchClient.getIndexMapping(any(), any(GetMappingsRequest.class), any()))
+        .thenAnswer(
+            invocation -> {
+              String name = ((GetMappingsRequest) invocation.getArgument(1)).indices()[0];
+              Map<String, Object> source =
+                  name.equals(v2) ? Map.of("_meta", Map.of("v3Cutover", "retired")) : Map.of();
+              return mappingResponse(name, source);
+            });
+
+    assertEquals(indexBuilder.buildIndex(opContext, newIndex(v3)), ReindexResult.CREATED_NEW);
+
+    ArgumentCaptor<CreateIndexRequest> captor = ArgumentCaptor.forClass(CreateIndexRequest.class);
+    verify(searchClient).createIndex(any(), captor.capture(), any());
+    assertEquals(createdMigrationStamp(captor.getValue()), "incomplete");
+    verify(searchClient, never()).putIndexMapping(any(), any(PutMappingRequest.class), any());
+  }
+
+  @Test
+  void testBuildIndex_NewV3IndexWithRetiredV2RetryCreatesStampedIndex() throws IOException {
+    when(buildIndicesConfig.isCreateIndexRetryEnabled()).thenReturn(true);
+    IndexConvention convention = opContext.getSearchContext().getIndexConvention();
+    String v3 = convention.getEntityIndexNameV3(opContext, "dataset");
+    String v2 = convention.getEntityIndexName(opContext, "dataset");
+    stubCreate(v3);
+    CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
+    when(searchClient.createIndex(any(), any(CreateIndexRequest.class), any()))
+        .thenThrow(new IOException("create timed out"))
+        .thenReturn(createResponse);
+    when(searchClient.indexExists(any(), any(GetIndexRequest.class), any()))
+        .thenAnswer(
+            invocation -> ((GetIndexRequest) invocation.getArgument(1)).indices()[0].equals(v2));
+    GetMappingsResponse retired =
+        mappingResponse(v2, Map.of("_meta", Map.of("v3Cutover", "retired")));
+    when(searchClient.getIndexMapping(any(), any(GetMappingsRequest.class), any()))
+        .thenReturn(retired);
+
+    assertEquals(indexBuilder.buildIndex(opContext, newIndex(v3)), ReindexResult.CREATED_NEW);
+
+    ArgumentCaptor<CreateIndexRequest> captor = ArgumentCaptor.forClass(CreateIndexRequest.class);
+    verify(searchClient, times(2)).createIndex(any(), captor.capture(), any());
+    for (CreateIndexRequest attempt : captor.getAllValues()) {
+      assertEquals(createdMigrationStamp(attempt), "incomplete");
+    }
+    verify(searchClient, never()).putIndexMapping(any(), any(PutMappingRequest.class), any());
+  }
+
+  @Test
+  void testBuildIndex_NewV3IndexWithoutRetiredV2IsLeftUnmarked() throws IOException {
+    IndexConvention convention = opContext.getSearchContext().getIndexConvention();
+    String v3 = convention.getEntityIndexNameV3(opContext, "dataset");
+    String v2 = convention.getEntityIndexName(opContext, "dataset");
+    stubCreate(v3);
+    when(searchClient.indexExists(any(), any(GetIndexRequest.class), any()))
+        .thenAnswer(
+            invocation -> ((GetIndexRequest) invocation.getArgument(1)).indices()[0].equals(v2));
+    GetMappingsResponse v2Mappings = mappingResponse(v2, Map.of());
+    when(searchClient.getIndexMapping(any(), any(GetMappingsRequest.class), any()))
+        .thenReturn(v2Mappings);
+
+    ArgumentCaptor<CreateIndexRequest> captor = ArgumentCaptor.forClass(CreateIndexRequest.class);
+    assertEquals(indexBuilder.buildIndex(opContext, newIndex(v3)), ReindexResult.CREATED_NEW);
+
+    verify(searchClient).createIndex(any(), captor.capture(), any());
+    assertNull(createdMigrationStamp(captor.getValue()));
+    verify(searchClient, never()).putIndexMapping(any(), any(PutMappingRequest.class), any());
+  }
+
+  @Test
+  void testBuildIndex_NewV3IndexWithRetiredV2OnAnotherClientIsMarkedIncomplete()
+      throws IOException {
+    IndexConvention convention = opContext.getSearchContext().getIndexConvention();
+    String v3 = convention.getEntityIndexNameV3(opContext, "dataset");
+    String v2 = convention.getEntityIndexName(opContext, "dataset");
+    stubCreate(v3);
+    SearchClientShim<?> v2Client = mock(SearchClientShim.class);
+    when(v2Client.indexExists(any(), any(GetIndexRequest.class), any()))
+        .thenAnswer(
+            invocation -> ((GetIndexRequest) invocation.getArgument(1)).indices()[0].equals(v2));
+    GetMappingsResponse retired =
+        mappingResponse(v2, Map.of("_meta", Map.of("v3Cutover", "retired")));
+    when(v2Client.getIndexMapping(any(), any(GetMappingsRequest.class), any())).thenReturn(retired);
+    ESIndexBuilder splitBuilder =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion,
+            v2Client);
+
+    assertEquals(splitBuilder.buildIndex(opContext, newIndex(v3)), ReindexResult.CREATED_NEW);
+
+    ArgumentCaptor<CreateIndexRequest> captor = ArgumentCaptor.forClass(CreateIndexRequest.class);
+    verify(searchClient).createIndex(any(), captor.capture(), any());
+    assertEquals(createdMigrationStamp(captor.getValue()), "incomplete");
+    verify(searchClient, never()).putIndexMapping(any(), any(PutMappingRequest.class), any());
+    verify(v2Client, never()).putIndexMapping(any(), any(PutMappingRequest.class), any());
+  }
+
+  @Test
+  void testBuildIndex_NewV3IndexIsMarkedIncompleteWhenV2CannotBeListed() throws IOException {
+    IndexConvention convention = opContext.getSearchContext().getIndexConvention();
+    String v3 = convention.getEntityIndexNameV3(opContext, "dataset");
+    String v2 = convention.getEntityIndexName(opContext, "dataset");
+    stubCreate(v3);
+    when(searchClient.indexExists(any(), any(GetIndexRequest.class), any()))
+        .thenAnswer(
+            invocation -> {
+              String name = ((GetIndexRequest) invocation.getArgument(1)).indices()[0];
+              if (name.equals(v2)) {
+                throw new IOException("cannot list");
+              }
+              return false;
+            });
+
+    assertEquals(indexBuilder.buildIndex(opContext, newIndex(v3)), ReindexResult.CREATED_NEW);
+
+    ArgumentCaptor<CreateIndexRequest> captor = ArgumentCaptor.forClass(CreateIndexRequest.class);
+    verify(searchClient).createIndex(any(), captor.capture(), any());
+    assertEquals(createdMigrationStamp(captor.getValue()), "incomplete");
+    verify(searchClient, never()).putIndexMapping(any(), any(PutMappingRequest.class), any());
+  }
+
+  @Test
+  void testCreateAliasedIndex_StampsIncompleteAndAttachesTheAlias() throws IOException {
+    String physical = TEST_INDEX_NAME + "_0_0_0-0_1";
+    String alias = TEST_INDEX_NAME;
+    stubCreate(physical);
+    ReindexConfig state = newIndex(alias);
+    Map<String, Object> mappings =
+        IndexMigrationStamp.stamped(createTestMappings(), IndexMigrationStamp.INCOMPLETE);
+
+    indexBuilder.createAliasedIndex(opContext, alias, physical, state, mappings);
+
+    ArgumentCaptor<CreateIndexRequest> captor = ArgumentCaptor.forClass(CreateIndexRequest.class);
+    verify(searchClient).createIndex(any(), captor.capture(), any());
+    assertEquals(captor.getValue().index(), physical);
+    assertEquals(createdMigrationStamp(captor.getValue()), "incomplete");
+    assertEquals(
+        captor.getValue().aliases().stream().map(Alias::name).collect(Collectors.toSet()),
+        Set.of(alias));
+    verify(searchClient, never()).updateIndexAliases(any(), any(), any());
+    verify(searchClient, never()).putIndexMapping(any(), any(PutMappingRequest.class), any());
+  }
+
+  /** The {@code _meta.migration} value in the mappings a create request carries, or null. */
+  private static String createdMigrationStamp(CreateIndexRequest request) throws IOException {
+    Map<String, Object> mappings =
+        ReindexConfig.OBJECT_MAPPER.readValue(request.mappings().utf8ToString(), Map.class);
+    if (!(mappings.get("_meta") instanceof Map<?, ?> meta)) {
+      return null;
+    }
+    Object migration = meta.get("migration");
+    return migration == null ? null : migration.toString();
+  }
+
+  private void stubCreate(String indexName) throws IOException {
+    CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
+    when(createResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.createIndex(any(), any(CreateIndexRequest.class), any()))
+        .thenReturn(createResponse);
+    AcknowledgedResponse putMappingResponse = mock(AcknowledgedResponse.class);
+    when(putMappingResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.putIndexMapping(any(), any(PutMappingRequest.class), any()))
+        .thenReturn(putMappingResponse);
+  }
+
+  private ReindexConfig newIndex(String indexName) {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(false);
+    when(indexState.name()).thenReturn(indexName);
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+    when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
+    return indexState;
+  }
+
+  private static GetMappingsResponse mappingResponse(String indexName, Map<String, Object> source) {
+    GetMappingsResponse response = mock(GetMappingsResponse.class);
+    MappingMetadata metadata = mock(MappingMetadata.class);
+    when(metadata.getSourceAsMap()).thenReturn(source);
+    when(response.mappings()).thenReturn(Map.of(indexName, metadata));
+    return response;
   }
 
   @Test
@@ -666,7 +872,12 @@ public class ESIndexBuilderTest {
 
     ESIndexBuilder builderWith6Shards =
         new ESIndexBuilder(
-            searchClient, configWith6Shards, TEST_ES_STRUCT_PROPS_DISABLED, Map.of(), gitVersion);
+            searchClient,
+            configWith6Shards,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion,
+            searchClient);
 
     ReindexConfig result =
         builderWith6Shards.buildReindexState(
@@ -2051,7 +2262,8 @@ public class ESIndexBuilderTest {
             elasticSearchConfiguration,
             TEST_ES_STRUCT_PROPS_DISABLED,
             indexOverrides,
-            gitVersion);
+            gitVersion,
+            searchClient);
 
     when(searchClient.indexExists(
             any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
@@ -2152,7 +2364,8 @@ public class ESIndexBuilderTest {
             elasticSearchConfiguration,
             TEST_ES_STRUCT_PROPS_DISABLED,
             indexOverrides,
-            gitVersion);
+            gitVersion,
+            searchClient);
     when(searchClient.indexExists(
             any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(false);
@@ -2236,7 +2449,8 @@ public class ESIndexBuilderTest {
         elasticSearchConfiguration,
         TEST_ES_STRUCT_PROPS_DISABLED,
         overrides,
-        gitVersion);
+        gitVersion,
+        searchClient);
   }
 
   /** Stored settings as the engine returns them after the override was applied once. */
@@ -2344,7 +2558,8 @@ public class ESIndexBuilderTest {
             elasticSearchConfiguration,
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            gitVersion);
+            gitVersion,
+            searchClient);
 
     // Setup index state that requires reindexing
     ReindexConfig indexState = mock(ReindexConfig.class);
@@ -2468,7 +2683,8 @@ public class ESIndexBuilderTest {
             elasticSearchConfiguration,
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            gitVersion);
+            gitVersion,
+            searchClient);
 
     ReindexConfig indexState = mock(ReindexConfig.class);
     when(indexState.exists()).thenReturn(true);
@@ -3115,7 +3331,8 @@ public class ESIndexBuilderTest {
         elasticSearchConfiguration,
         TEST_ES_STRUCT_PROPS_DISABLED,
         Map.of(),
-        gitVersion);
+        gitVersion,
+        searchClient);
   }
 
   private void stubReindexTaskCompleted(boolean completed) throws IOException {
@@ -3210,7 +3427,8 @@ public class ESIndexBuilderTest {
             elasticSearchConfiguration,
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            gitVersion) {
+            gitVersion,
+            searchClient) {
           @Override
           protected Pair<Long, Long> getDocumentCounts(
               OperationContext ctx, Callable<Long> expectedCountSupplier, String destinationIndex) {
@@ -3265,7 +3483,8 @@ public class ESIndexBuilderTest {
             elasticSearchConfiguration,
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            gitVersion) {
+            gitVersion,
+            searchClient) {
           @Override
           protected Pair<Long, Long> getDocumentCounts(
               OperationContext ctx, Callable<Long> expectedCountSupplier, String destinationIndex) {
@@ -3367,7 +3586,8 @@ public class ESIndexBuilderTest {
         elasticSearchConfiguration,
         TEST_ES_STRUCT_PROPS_DISABLED,
         Map.of(),
-        gitVersion);
+        gitVersion,
+        searchClient);
   }
 
   private void mockDestCount(long destCount) throws IOException {
@@ -3474,7 +3694,8 @@ public class ESIndexBuilderTest {
             elasticSearchConfiguration,
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            gitVersion);
+            gitVersion,
+            searchClient);
     mockDestCount(13_923_058L);
     stubReindexTaskCompleted(true);
 
@@ -3721,7 +3942,8 @@ public class ESIndexBuilderTest {
                 elasticSearchConfiguration,
                 TEST_ES_STRUCT_PROPS_DISABLED,
                 Map.of(),
-                gitVersion));
+                gitVersion,
+                searchClient));
     ArgumentCaptor<String> taskId = ArgumentCaptor.forClass(String.class);
     doReturn(pollResult)
         .when(builder)

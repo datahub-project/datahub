@@ -48,10 +48,26 @@ and their configuration please see the table at the end of each section.
 Quickstart profiles are primarily a way to test drive DataHub features before committing to a production ready deployment.
 A couple of these profiles are also used in our continuous integration (CI) tests.
 
-**Search engine names:** Unversioned profiles (`quickstart`, `debug`) always use the **current
-default** OpenSearch (today **2.x**). Versioned Gradle keys pin an engine across a future default
-change: `./gradlew quickstartOS2` / `quickstartOS2Debug` stay on 2.x; `quickstartOS3` /
-`quickstartOS3Debug` stay on 3.x. Do not treat `quickstart` as an alias of `quickstartOS3`.
+**Search engine names:** Unversioned profiles that use the default OpenSearch service
+(`quickstart*` and `debug*`, excluding `debug-elasticsearch` and the `-opensearch2` and
+`-opensearch3` variants) always use the **current
+default** OpenSearch (today **3.x**, `opensearchproject/opensearch:3.7.0`, volume `os3data`).
+Versioned Gradle keys pin an engine across a default change: `./gradlew quickstartOS2` /
+`quickstartOS2Debug` stay on 2.x; `quickstartOS3` / `quickstartOS3Debug` stay on 3.x. Do not treat
+`quickstart` as an alias of `quickstartOS3`.
+
+2.x Lucene indices are not readable on 3.x, so the default engine keeps its data in a different
+volume than 2.x (`osdata`). To keep an existing 2.x stack on an unversioned profile, set
+`DATAHUB_SEARCH_TAG=2.19.3`, `DATAHUB_SEARCH_VOLUME=osdata`, and
+`ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED=false`. `datahub docker quickstart` sets
+these automatically when a DataHub search container is still on an OpenSearch 2 image and
+`datahub_os3data` is not confirmed to contain a `nodes` directory, or when `datahub_osdata`
+contains a `nodes` directory and `datahub_os3data` is confirmed missing or has no `nodes`
+directory. A failed volume listing does not pin, unless a DataHub search container is already on an
+OpenSearch 2 image, in which case the pin stays. The pin is skipped when one of the three
+variables is already set. When that pin does not apply,
+an existing `osdata` volume is not migrated and the unversioned OpenSearch 3 index starts empty.
+Use `./gradlew quickstartOS2` or `quickstartOS2Debug` to keep that 2.x data.
 
 Note: Quickstart profiles use docker images with the coordinated `quickstart` tag (updated together after smoke tests on `master`). This can be overridden to use a stable release tag by prefixing commands with `DATAHUB_VERSION=v0.12.1`, or to pin a specific build with `DATAHUB_VERSION=sha-<short_sha>`.
 
@@ -70,9 +86,9 @@ Like `quickstart` with Postgres instead of MySQL. Uses pgQueue instead of Kafka 
 ### `quickstart-opensearch2`
 
 Same application set as image-based `quickstart` (MySQL, Kafka, frontend, GMS, actions) with
-**OpenSearch 2.x** explicitly pinned (`opensearchproject/opensearch:2.19.3`, volume `osdata`).
-Unversioned `quickstart` uses this engine today; use `./gradlew quickstartOS2` when you must stay
-on 2.x after the default flips to 3.x.
+**OpenSearch 2.x** explicitly pinned (`opensearchproject/opensearch:2.19.3`, volume `osdata`;
+override with `DATAHUB_OS2_SEARCH_IMAGE` / `DATAHUB_OS2_SEARCH_TAG`). Use
+`./gradlew quickstartOS2` to stay on 2.x now that unversioned `quickstart` runs 3.x.
 
 ```bash
 ./gradlew quickstartOS2
@@ -145,7 +161,7 @@ Runs everything except for the GMS. Useful for running just a local (non-docker)
 ### `debug-opensearch2`
 
 Same application set as `debug`, with OpenSearch **2.x** pinned. Use
-`./gradlew quickstartOS2Debug` to keep a bind-mount stack on 2.x after unversioned `debug` moves to
+`./gradlew quickstartOS2Debug` to keep a bind-mount stack on 2.x now that unversioned `debug` runs
 3.x.
 
 ```bash

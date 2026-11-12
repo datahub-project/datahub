@@ -153,7 +153,12 @@ public abstract class SearchLineageFixtureConfiguration {
 
     ESIndexBuilder indexBuilder =
         new ESIndexBuilder(
-            searchClient, testConfig, TEST_ES_STRUCT_PROPS_DISABLED, Map.of(), gitVersion);
+            searchClient,
+            testConfig,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion,
+            searchClient);
     IndexConfiguration indexConfiguration =
         IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention indexConvention = mock(IndexConvention.class);
@@ -242,7 +247,12 @@ public abstract class SearchLineageFixtureConfiguration {
                     .build())
             .build();
     return new ESIndexBuilder(
-        searchClient, testConfig, TEST_ES_STRUCT_PROPS_DISABLED, Map.of(), gitVersion);
+        searchClient,
+        testConfig,
+        TEST_ES_STRUCT_PROPS_DISABLED,
+        Map.of(),
+        gitVersion,
+        searchClient);
   }
 
   @Bean(name = "searchLineageGraphService")

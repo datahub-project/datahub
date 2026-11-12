@@ -22,6 +22,14 @@ public class EntityIndexVersionConfiguration {
    */
   private boolean keywordReadEnabled;
 
+  /**
+   * When true, an install that already reads V3 with V2 off records the cutover and does not move
+   * reads back to the V2 indices. Ignored unless every paired V3 index exists and has at least as
+   * many documents as its V2 index. The retired stamp written on that start is what later starts
+   * trust.
+   */
+  private boolean cutoverAcknowledged;
+
   @Builder.Default
   private SearchGroupIndexSettingsConfiguration defaultSettings =
       new SearchGroupIndexSettingsConfiguration();

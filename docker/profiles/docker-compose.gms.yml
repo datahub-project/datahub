@@ -41,6 +41,8 @@ x-search-datastore-opensearch-env: &search-datastore-env
   ELASTICSEARCH_PROTOCOL: http
   ELASTICSEARCH_USE_SSL: ${ELASTICSEARCH_USE_SSL:-false}
   ELASTICSEARCH_IMPLEMENTATION: opensearch
+  # OpenSearch 3.x (the unversioned default) enforces a 512-byte _id limit.
+  ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED: ${ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED:-true}
 
 x-kafka-env: &kafka-env
   KAFKA_BOOTSTRAP_SERVER: broker:29092
@@ -326,7 +328,6 @@ services:
       - quickstart-consumers
       - quickstart-frontend
       - quickstart-backend
-      - quickstart-opensearch2
     environment:
       <<: *datahub-system-update-env
       DATAHUB_SQL_SETUP_ENABLED: 'true'
@@ -334,6 +335,21 @@ services:
       mysql:
         condition: service_healthy
       opensearch:
+        condition: service_healthy
+      kafka-broker:
+        condition: service_healthy
+  system-update-quickstart-opensearch2:
+    <<: *datahub-system-update-service
+    profiles:
+      - quickstart-opensearch2
+    environment:
+      <<: *datahub-system-update-env
+      DATAHUB_SQL_SETUP_ENABLED: 'true'
+      ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED: 'false'
+    depends_on:
+      mysql:
+        condition: service_healthy
+      opensearch2:
         condition: service_healthy
       kafka-broker:
         condition: service_healthy
@@ -362,6 +378,11 @@ services:
       - quickstart-cassandra
     environment:
       <<: [*primary-datastore-cassandra-env, *graph-datastore-neo4j-env, *datahub-system-update-env]
+      # docker/datahub-upgrade/env/docker.env sets ZDU_STAGE_20=true for MySQL and Postgres. Cassandra
+      # does not stream aspects, so incremental reindex cannot fill Search V3 here. SqlSetup only
+      # supports MySQL and Postgres.
+      ZDU_STAGE_20: 'false'
+      DATAHUB_SQL_SETUP_ENABLED: 'false'
     depends_on:
       neo4j:
         condition: service_healthy
@@ -438,11 +459,22 @@ services:
       - debug-min
       - debug-backend
       - debug-backend-aws
-      - debug-opensearch2
     depends_on:
       mysql:
         condition: service_healthy
       opensearch:
+        condition: service_healthy
+  system-update-debug-opensearch2:
+    <<: *datahub-system-update-service-dev
+    profiles:
+      - debug-opensearch2
+    environment:
+      <<: *datahub-system-update-dev-env
+      ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED: 'false'
+    depends_on:
+      mysql:
+        condition: service_healthy
+      opensearch2:
         condition: service_healthy
   system-update-debug-aws: &system-update-debug-aws
     <<: *datahub-system-update-service-dev
@@ -486,6 +518,8 @@ services:
     environment:
       <<: *datahub-system-update-dev-env
       ELASTICSEARCH_IMPLEMENTATION: elasticsearch
+      # The shared search anchor hashes schema-field ids for OpenSearch 3. Elasticsearch keeps the Java default.
+      ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED: 'false'
     depends_on:
       mysql:
         condition: service_healthy
@@ -552,6 +586,11 @@ services:
       - debug-cassandra
     environment:
       <<: [*primary-datastore-cassandra-env, *datahub-system-update-dev-env]
+      # docker/datahub-upgrade/env/docker.env sets ZDU_STAGE_20=true. Cassandra does not stream
+      # aspects, so incremental reindex cannot fill Search V3 here. SqlSetup only supports MySQL
+      # and Postgres.
+      ZDU_STAGE_20: 'false'
+      DATAHUB_SQL_SETUP_ENABLED: 'false'
     depends_on:
       cassandra-setup:
         condition: service_completed_successfully
@@ -576,9 +615,18 @@ services:
     profiles:
       - quickstart
       - quickstart-backend
-      - quickstart-opensearch2
     depends_on:
       system-update-quickstart:
+        condition: service_completed_successfully
+  datahub-gms-quickstart-opensearch2:
+    <<: *datahub-gms-service
+    profiles:
+      - quickstart-opensearch2
+    environment:
+      <<: *datahub-gms-env
+      ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED: 'false'
+    depends_on:
+      system-update-quickstart-opensearch2:
         condition: service_completed_successfully
   datahub-gms-quickstart-opensearch3:
     <<: *datahub-gms-service
@@ -598,6 +646,7 @@ services:
       - quickstart-cassandra
     environment:
       <<: [*primary-datastore-cassandra-env, *graph-datastore-neo4j-env, *datahub-gms-env]
+      ZDU_STAGE_20: 'false'
     depends_on:
       system-update-quickstart-cassandra:
         condition: service_completed_successfully
@@ -674,9 +723,18 @@ services:
     profiles:
       - debug
       - debug-backend
-      - debug-opensearch2
     depends_on:
       system-update-debug:
+        condition: service_completed_successfully
+  datahub-gms-debug-opensearch2:
+    <<: *datahub-gms-service-dev
+    profiles:
+      - debug-opensearch2
+    environment:
+      <<: *datahub-gms-dev-env
+      ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED: 'false'
+    depends_on:
+      system-update-debug-opensearch2:
         condition: service_completed_successfully
   datahub-gms-debug-aws:
     <<: *datahub-gms-service-dev
@@ -743,6 +801,7 @@ services:
       - debug-cassandra
     environment:
       <<: [*primary-datastore-cassandra-env, *datahub-gms-dev-env]
+      ZDU_STAGE_20: 'false'
     depends_on:
       system-update-debug-cassandra:
         condition: service_completed_successfully
@@ -784,6 +843,8 @@ services:
     environment:
       <<: *datahub-gms-dev-env
       ELASTICSEARCH_IMPLEMENTATION: elasticsearch
+      # The shared search anchor hashes schema-field ids for OpenSearch 3. Elasticsearch keeps the Java default.
+      ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED: 'false'
     depends_on:
       system-update-debug-elasticsearch:
         condition: service_completed_successfully
