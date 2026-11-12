@@ -121,6 +121,7 @@ class _Qlik:
             else _app_engine_calls(app_id)
         )
         websocket.get_script.return_value = self.scripts.get(app_id, LOAD_SCRIPT)
+        websocket.get_variables.return_value = {}
         return websocket
 
 

@@ -584,3 +584,33 @@ def test_store_with_unknown_fields_keeps_its_column_edges() -> None:
     # wrote stays.
     assert not _removed_columns(aspects, CLEAN)
     assert not _upstreams(aspects, CLEAN, "remove")
+
+
+def test_qvd_paths_use_the_variables_of_the_last_reload() -> None:
+    # Set with LET, or in an included script, so only the Engine knows them.
+    parsed = parse_script(
+        "Orders: LOAD id FROM [lib://$(vPrefix)QVD Data/raw/orders.qvd] (qvd);\n"
+        "Lots: LOAD id FROM [$(vShare)/lots.qvd] (qvd);\n"
+        "Gone: LOAD id FROM [$(vMissing)/gone.qvd] (qvd);",
+        app_variables={
+            "vPrefix": "",
+            "vShare": "lib://$(vPrefix)QVD Data/staging",
+        },
+    )
+
+    assert [load.file for load in parsed.qvd_loads] == [
+        QvdReference(connection="QVD Data", path="raw/orders.qvd"),
+        QvdReference(connection="QVD Data", path="staging/lots.qvd"),
+    ]
+    assert parsed.unresolved_qvd_paths == ["$(vMissing)/gone.qvd"]
+
+
+def test_lib_path_may_separate_the_connection_with_a_backslash() -> None:
+    parsed = parse_script("Lots: LOAD id FROM [lib://QVD Data\\gold\\lots.qvd] (qvd);")
+
+    [load] = parsed.qvd_loads
+    assert load.file.connection == "QVD Data"
+    resolver = QvdPathResolver(
+        folders={"QVD Data": "//nas/qvd"}, ignored_connections=[], folder_aliases={}
+    )
+    assert resolver.resolve(load.file) == "//nas/qvd/gold/lots.qvd"
