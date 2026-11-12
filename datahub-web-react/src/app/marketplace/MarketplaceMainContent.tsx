@@ -117,8 +117,14 @@ export default function MarketplaceMainContent() {
     const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
 
-    const { setEntityData, refetchKey, openCreateModal, optimisticDataProducts, syncOptimisticWithIndexed } =
-        useMarketplaceEntityContext();
+    const {
+        setEntityData,
+        refetchKey,
+        openCreateModal,
+        canCreateDataProduct,
+        optimisticDataProducts,
+        syncOptimisticWithIndexed,
+    } = useMarketplaceEntityContext();
     useEffect(() => {
         setEntityData(null);
     }, [setEntityData]);
@@ -218,6 +224,8 @@ export default function MarketplaceMainContent() {
                     action={{
                         label: t('marketplace.homeEmptyAction'),
                         onClick: openCreateModal,
+                        disabled: !canCreateDataProduct,
+                        tooltip: canCreateDataProduct ? undefined : t('marketplace.createUnauthorized'),
                         dataTestId: 'marketplace-create-data-product-cta',
                     }}
                 />
@@ -302,6 +310,8 @@ export default function MarketplaceMainContent() {
                         label: te('dataProduct.createTitle'),
                         icon: { icon: Plus },
                         onClick: openCreateModal,
+                        disabled: !canCreateDataProduct,
+                        tooltip: canCreateDataProduct ? undefined : t('marketplace.createUnauthorized'),
                     }}
                 />
             </PageHeader>

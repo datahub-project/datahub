@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { matchPath, useHistory, useLocation } from 'react-router-dom';
 
+import { useUserContext } from '@app/context/useUserContext';
 import CreateMarketplaceDataProductModal from '@app/marketplace/CreateMarketplaceDataProductModal';
 import { DataProductEntity } from '@app/marketplace/marketplaceTypes';
 import {
@@ -42,6 +43,7 @@ type MarketplaceEntityContextType = {
     /** Drop optimistic rows once browse/search results include their URNs. */
     syncOptimisticWithIndexed: (indexedUrns: string[]) => void;
     openCreateModal: () => void;
+    canCreateDataProduct: boolean;
 };
 
 const MarketplaceEntityContext = createContext<MarketplaceEntityContextType | undefined>(undefined);
@@ -104,9 +106,12 @@ export function MarketplaceEntityContextProvider({ children }: Props) {
         setRefetchKey(refetchKeyRef.current);
     }, []);
 
+    // The domain is picked inside the modal, so only the platform-wide privilege can be checked up front.
+    const canCreateDataProduct = !!useUserContext().platformPrivileges?.manageAllDataProducts;
+
     const openCreateModal = useCallback(() => {
-        setIsCreateModalVisible(true);
-    }, []);
+        if (canCreateDataProduct) setIsCreateModalVisible(true);
+    }, [canCreateDataProduct]);
 
     const closeCreateModal = useCallback(() => {
         setIsCreateModalVisible(false);
@@ -169,6 +174,7 @@ export function MarketplaceEntityContextProvider({ children }: Props) {
             getOptimisticChildren,
             syncOptimisticWithIndexed,
             openCreateModal,
+            canCreateDataProduct,
         }),
         [
             expandedDataProductUrns,
@@ -182,6 +188,7 @@ export function MarketplaceEntityContextProvider({ children }: Props) {
             getOptimisticChildren,
             syncOptimisticWithIndexed,
             openCreateModal,
+            canCreateDataProduct,
         ],
     );
 
