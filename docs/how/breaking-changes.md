@@ -82,6 +82,8 @@ Requirements:
   - **MySQL, Teradata:** `database.table` instead of `database.schema.table` when the schema repeats the database; when they differ, the table is skipped with a warning. `Schema + Table` navigation, previously skipped, now emits `schema.table`.
   - **Other platforms:** URN shape unchanged.
 
+  ODBC lineage to MSSQL, Db2, Informix, Teradata, Sybase and other platforms with no `dataset_type_mapping` key of their own was never emitted before; it is now emitted while `dataset_type_mapping` includes `Odbc` (the default).
+
   `dsn_to_database_schema`, previously read only for ODBC SQL queries, now also fills levels that navigation leaves out, so navigation that was skipped for a missing level (for example Hive `Database + Table`) can now produce lineage.
 
   DSN names now match case-insensitively. Config validation now fails on keys that differ only in case but map to different values, and on `dsn_to_database_schema` values with an empty part (such as `""` or `project.`), which it accepted before. See [ODBC hierarchical navigation](https://docs.datahub.com/docs/generated/ingestion/sources/powerbi#odbc-hierarchical-navigation) for the full rules. With stateful ingestion, the old links may be removed as stale. **Action:** for each DSN named in a "Can not determine qualified table name" or "Cannot build two-tier ODBC table name" warning, add the missing level with `dsn_to_database_schema`, for example `dsn_to_database_schema: { my_dsn: analytics.public }`, and remove any empty `dsn_to_database_schema` values.

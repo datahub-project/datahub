@@ -388,7 +388,9 @@ class Mapper:
                 platform_name = (
                     upstream_dpt.data_platform_pair.powerbi_data_platform_name
                 )
-                if not self.__config.is_platform_in_dataset_type_mapping(platform_name):
+                if not self.__config.is_upstream_platform_in_dataset_type_mapping(
+                    platform_name
+                ):
                     logger.debug(
                         f"Skipping upstream table for {ds_urn}. The platform {platform_name} is not part of dataset_type_mapping",
                     )

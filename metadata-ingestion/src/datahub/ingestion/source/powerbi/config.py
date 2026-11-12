@@ -1189,6 +1189,20 @@ class PowerBiDashboardSourceConfig(
         """
         return self.get_from_dataset_type_mapping(platform_name) is not None
 
+    def is_upstream_platform_in_dataset_type_mapping(self, platform_name: str) -> bool:
+        if self.is_platform_in_dataset_type_mapping(platform_name):
+            return True
+        # ODBC upstreams carry the driver's platform name (e.g. "SQL Server",
+        # "IBM DB2", "Teradata"). Names with no SupportedDataPlatform member can
+        # never be added to dataset_type_mapping, so they follow the Odbc entry.
+        is_known_platform = (
+            platform_name in POWERBI_TYPE_TO_DATA_PLATFORM_PAIR
+            or platform_name.replace(" ", "") in POWERBI_TYPE_TO_DATA_PLATFORM_PAIR
+        )
+        return not is_known_platform and self.is_platform_in_dataset_type_mapping(
+            SupportedDataPlatform.ODBC.value.powerbi_data_platform_name
+        )
+
     @model_validator(mode="after")
     def validate_athena_table_platform_override(
         self,

@@ -99,6 +99,8 @@ When a table navigates an ODBC source (`Odbc.DataSource(..., [HierarchicalNaviga
 | MySQL, Teradata                                                           | `database.table`               |
 | Other platforms (Sybase, Firebird, ...)                                   | every level navigation exposes |
 
+MSSQL, Db2, Informix, Teradata and the other platforms in the last row have no `dataset_type_mapping` key for their ODBC driver, so their ODBC lineage is emitted while `dataset_type_mapping` includes `Odbc` (the default). The other platforms in the table follow their own key, for example `MySQL` or `Snowflake`.
+
 For MySQL and Teradata, navigation with a Schema but no Database level emits `schema.table`: the schema is the database. Navigation with both levels is skipped with a warning unless the two names match, since `database.table` cannot keep a second level without merging tables from different schemas.
 
 If navigation does not expose every level, for example a driver that reports no catalog so the navigation starts at the schema, supply the missing levels per DSN with `dsn_to_database_schema`. Navigation always wins: the mapping only fills levels that navigation did not supply, and only levels the platform's URN shape uses. Three-tier platforms use both parts. MySQL, Teradata and the other platforms in the last table row use only the database part. Hive uses a one-part value as the schema, Athena uses the second part (or a one-part value) as its database, and Oracle never uses a one-part value as the schema.
