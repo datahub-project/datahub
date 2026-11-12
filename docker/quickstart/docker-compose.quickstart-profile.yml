@@ -103,6 +103,7 @@ services:
       MCE_CONSUMER_ENABLED: 'true'
       MCL_CONSUMER_BATCH_ENABLED: 'true'
       MCP_CONSUMER_BATCH_ENABLED: 'true'
+      MCP_SERVER_ENABLED: ${MCP_SERVER_ENABLED:-false}
       METADATA_SERVICE_AUTH_ENABLED: 'false'
       NEO4J_HOST: http://neo4j:7474
       NEO4J_PASSWORD: datahub
@@ -173,6 +174,7 @@ services:
         condition: service_completed_successfully
         required: true
     environment:
+      DATAHUB_AI_SERVICE_URL: http://datahub-ai-service:9005
       DATAHUB_APP_VERSION: ${DATAHUB_VERSION}
       DATAHUB_BASE_PATH: /
       DATAHUB_GMS_BASE_PATH: /
