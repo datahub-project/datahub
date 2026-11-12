@@ -1,0 +1,77 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop.public.pet_orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Orders placed at the pet shop",
+              "customProperties": {},
+              "name": "pet_orders"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "petshop.public.pet_orders",
+              "platform": "urn:li:dataPlatform:postgres",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "modified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                  "rawSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "order_id",
+                  "nullable": false,
+                  "description": "Order identifier",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "pet_name",
+                  "nullable": false,
+                  "description": "Name of the pet ordered",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "quantity",
+                  "nullable": false,
+                  "description": "How many were ordered",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "integer",
+                  "recursive": false
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+]
