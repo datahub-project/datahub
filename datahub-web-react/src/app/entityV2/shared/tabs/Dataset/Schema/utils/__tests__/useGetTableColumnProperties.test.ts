@@ -1,7 +1,7 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { describe, expect, it, vi } from 'vitest';
 
 import { useGetTableColumnProperties } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useGetTableColumnProperties';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const searchResults = [
     { entity: { urn: 'urn:li:structuredProperty:retention', type: 'STRUCTURED_PROPERTY', definition: {} } },

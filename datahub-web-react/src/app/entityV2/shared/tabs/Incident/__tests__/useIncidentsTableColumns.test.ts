@@ -1,7 +1,7 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { describe, expect, it, vi } from 'vitest';
 
 import { useIncidentsTableColumns } from '@app/entityV2/shared/tabs/Incident/hooks';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // The table sorts ascending on the first header click; these columns put the most relevant
 // incidents first on that click (newest, most assets, most assignees, category A to Z).
