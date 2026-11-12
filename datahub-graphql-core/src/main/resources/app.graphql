@@ -29,6 +29,11 @@ extend type Query {
   globalHomePageSettings: GlobalHomePageSettings
 
   """
+  Fetch the global settings for DataHub-hosted MCP (Model Context Protocol) servers.
+  """
+  mcpSettings: McpSettings
+
+  """
   Fetch the latest product update information from configured JSON source.
   Returns null if the JSON source is unavailable or feature is disabled.
 
@@ -1038,6 +1043,7 @@ type DocPropagationSettings {
   """
   docColumnPropagation: Boolean
 }
+
 """
 Configurations related to DataHub Chrome extension
 """

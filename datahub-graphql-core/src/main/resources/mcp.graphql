@@ -1,0 +1,248 @@
+# MCP server settings types. They live in their own file so DataHub Cloud can add
+# Cloud-only fields and values with `extend` in its own schema files instead of
+# editing these definitions.
+
+"""
+Settings related to MCP (Model Context Protocol) server behaviour.
+"""
+type McpSettings {
+  """
+  Master on/off switch for all DataHub-hosted MCP servers. When false, the default
+  server and every scoped server are turned off regardless of their individual flags.
+  """
+  enabled: Boolean!
+
+  """
+  Whether telemetry emitted by MCP tools (e.g. note_metadata_observation) is enabled.
+  """
+  observationTelemetryEnabled: Boolean!
+
+  """
+  Whether the note_metadata_observation MCP tool is enabled. When false the tool is
+  hidden from MCP tool listings, calls to it record nothing, and chat agents drop
+  the gap-reporting prompt instructions.
+  """
+  observationToolEnabled: Boolean!
+
+  """
+  Scoped MCP server configurations (exposed at /mcp/:slug).
+  """
+  servers: [McpServerConfig!]!
+
+  """
+  Overrides for the default MCP server (exposed at /mcp with no slug).
+  """
+  defaultMcpServerOverrides: McpServerConfig
+}
+
+"""
+Input required to update MCP settings. Fields that are not provided are left unchanged.
+"""
+input UpdateMcpSettingsInput {
+  """
+  Master on/off switch for all DataHub-hosted MCP servers.
+  """
+  enabled: Boolean
+
+  """
+  Whether telemetry emitted by MCP tools is enabled.
+  """
+  observationTelemetryEnabled: Boolean
+
+  """
+  Whether the note_metadata_observation MCP tool is enabled.
+  """
+  observationToolEnabled: Boolean
+
+  """
+  Scoped MCP server configurations to upsert (by slug).
+  Servers not included will remain unchanged. Creating a server whose slug is not
+  stored yet requires the createMcpServersEnabled feature flag.
+  """
+  servers: [McpServerConfigInput!]
+
+  """
+  Overrides for the default MCP server (exposed at /mcp with no slug).
+  An override that changes nothing (no instructions, tools, View or description,
+  not disabled) removes the stored override.
+  """
+  defaultMcpServerOverrides: McpServerConfigInput
+}
+
+"""
+Selects the base instruction prompt an MCP server serves. customInstructions (if
+any) are appended to this base; NONE serves only the customInstructions.
+"""
+enum McpInstructionSize {
+  """
+  No base prompt: the server serves only its customInstructions (or nothing).
+  """
+  NONE
+
+  """
+  The routing instructions: what DataHub is and when to use it.
+  """
+  SMALL
+
+  """
+  The SMALL instructions plus examples of which tool fits which job.
+  """
+  LARGE
+}
+
+"""
+Configuration for a DataHub-hosted MCP server.
+Scoped servers are exposed at /mcp/:slug; the default server at /mcp uses this
+type for overrides (slug absent).
+"""
+type McpServerConfig {
+  """
+  URL-safe unique identifier used as the path segment in /mcp/:slug.
+  Absent only for the default server overrides.
+  """
+  slug: String
+
+  """
+  Human-readable display name for this server.
+  """
+  name: String!
+
+  """
+  Short description of the MCP server.
+  """
+  description: String
+
+  """
+  Whether this server is active and should be mounted by the dispatcher.
+  """
+  enabled: Boolean!
+
+  """
+  Optional custom system prompt / instructions for this server's scope.
+  """
+  customInstructions: String
+
+  """
+  Selects the base instruction prompt (NONE, SMALL, or LARGE). customInstructions are
+  appended to the SMALL/LARGE base, or served alone when NONE. Defaults to LARGE.
+  """
+  instructionSize: McpInstructionSize
+
+  """
+  Tools exposed by this scoped server. Reuses the AI Agents tool-selection model
+  (AgentToolRef). When null/empty, all available tools are enabled; use tool refs
+  only to restrict the server to a subset.
+  """
+  tools: [AgentToolRef!]
+
+  """
+  Optional DataHub View URN that scopes this server's search/lookup results.
+  """
+  viewUrn: String
+
+  """
+  The resolved DataHub View entity, if viewUrn is set.
+  """
+  view: DataHubView
+
+  """
+  Audit stamp for when this server was created.
+  """
+  created: AuditStamp!
+
+  """
+  Audit stamp for when this server was last modified.
+  """
+  lastModified: AuditStamp!
+}
+
+"""
+Input for creating or updating a DataHub-hosted MCP server configuration.
+"""
+input McpServerConfigInput {
+  """
+  URL-safe unique identifier used as the path segment in /mcp/:slug.
+  Required for scoped servers; omit when setting defaultMcpServerOverrides.
+  """
+  slug: String
+
+  """
+  Human-readable display name for this server.
+  """
+  name: String!
+
+  """
+  Short description of the MCP server.
+  """
+  description: String
+
+  """
+  Whether this server is active. Defaults to true when not provided.
+  """
+  enabled: Boolean
+
+  """
+  Optional custom system prompt / instructions for this server's scope.
+  """
+  customInstructions: String
+
+  """
+  Selects the base instruction prompt (NONE, SMALL, or LARGE). customInstructions are
+  appended to the SMALL/LARGE base, or served alone when NONE. Defaults to LARGE when
+  not provided.
+  """
+  instructionSize: McpInstructionSize
+
+  """
+  Tools exposed by this scoped server. Reuses the AI Agents tool-selection model
+  (AgentToolRefInput). When null/empty, all available tools are enabled; provide
+  tool refs only to restrict the server to a subset.
+  """
+  tools: [AgentToolRefInput!]
+
+  """
+  Optional DataHub View URN that scopes this server's search/lookup results.
+  """
+  viewUrn: String
+}
+
+"""
+The kind of capability an AgentToolRef points to.
+"""
+enum ToolRefType {
+  """
+  A single MCP tool, referenced by its registered tool name.
+  """
+  TOOL
+  """
+  A capability group, referenced by group id. Resolves to its member tools
+  server-side at serve time, so newly registered members are auto-included.
+  """
+  GROUP
+  """
+  An AI agent exposed as a single callable MCP tool, referenced by its agent URN.
+  Only meaningful for scoped MCP server tool selection, not an agent's own palette.
+  """
+  AGENT
+}
+
+"""
+A reference to a tool or capability group in the MCP tool registry
+"""
+type AgentToolRef {
+  """
+  Whether this ref points to a single tool (default) or a capability group.
+  """
+  refType: ToolRefType!
+  toolId: String!
+  enabled: Boolean!
+}
+
+input AgentToolRefInput {
+  """
+  Whether this ref points to a single tool or a capability group. Defaults to TOOL.
+  """
+  refType: ToolRefType
+  toolId: String!
+  enabled: Boolean!
+}

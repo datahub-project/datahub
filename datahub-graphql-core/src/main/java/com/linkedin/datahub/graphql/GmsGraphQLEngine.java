@@ -259,6 +259,7 @@ import com.linkedin.datahub.graphql.resolvers.settings.asset.UpdateAssetSettings
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.DocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.UpdateDocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.homePage.GlobalHomePageSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.mcp.McpSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserLocaleSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateUserHomePageSettingsResolver;
@@ -917,6 +918,7 @@ public class GmsGraphQLEngine {
     configureVersionSetResolvers(builder);
     configureGenericRelationshipsResolvers(builder);
     configureGlobalHomePageSettingsResolvers(builder);
+    configureMcpSettingsResolvers(builder);
     configurePageTemplateResolvers(builder);
     configureDataHubFileResolvers(builder);
     configureAssetSettingsResolver(builder);
@@ -987,6 +989,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(MODULE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(PATCH_SCHEMA_FILE))
         .addSchema(fileBasedSchema(SETTINGS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(MCP_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FILES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(DOCUMENTS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(METRICS_SCHEMA_FILE))
@@ -1409,6 +1412,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "globalHomePageSettings",
                     new GlobalHomePageSettingsResolver(this.settingsService))
+                .dataFetcher("mcpSettings", new McpSettingsResolver(this.settingsService))
                 .dataFetcher(
                     "getPresignedUploadUrl",
                     new GetPresignedUploadUrlResolver(
@@ -4552,6 +4556,19 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "versionsSearch",
                     new VersionsSearchResolver(this.entityClient, this.viewService)));
+  }
+
+  private void configureMcpSettingsResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "McpServerConfig",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "view",
+                new LoadableTypeResolver<>(
+                    dataHubViewType,
+                    (env) ->
+                        ((com.linkedin.datahub.graphql.generated.McpServerConfig) env.getSource())
+                            .getViewUrn())));
   }
 
   private void configureGlobalHomePageSettingsResolvers(final RuntimeWiring.Builder builder) {
