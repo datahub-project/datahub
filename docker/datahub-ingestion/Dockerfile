@@ -183,6 +183,8 @@ FROM add-code-full AS final-full
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
     UV_LINK_MODE=copy uv pip install \
         -e "/metadata-ingestion/[all]" \
+    && uv pip install pip \
+    && python -m spacy download en_core_web_sm \
     && datahub --version
 
 FROM add-code-locked AS final-locked
