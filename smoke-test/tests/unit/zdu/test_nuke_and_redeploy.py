@@ -84,6 +84,7 @@ class TestHappyPath:
         docker.down_and_wipe.assert_called_once()
         assert sorted(docker.down_and_wipe.call_args.kwargs["wipe_volumes"]) == [
             "mysqldata",
+            "os3data",
             "osdata",
         ]
         docker.up_stack.assert_called_once()

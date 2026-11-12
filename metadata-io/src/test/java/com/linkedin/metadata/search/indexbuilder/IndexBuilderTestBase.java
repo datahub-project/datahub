@@ -129,7 +129,12 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             .build();
     testDefaultBuilder =
         new ESIndexBuilder(
-            getSearchClient(), testDefaultConfig, structPropConfig, Map.of(), gitVersion);
+            getSearchClient(),
+            testDefaultConfig,
+            structPropConfig,
+            Map.of(),
+            gitVersion,
+            getSearchClient());
     // TODO getElasticSearchConfiguration(),
     ElasticSearchConfiguration testReplicasConfig =
         TEST_ES_SEARCH_CONFIG.toBuilder()
@@ -145,7 +150,12 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             .build();
     testReplicasBuilder =
         new ESIndexBuilder(
-            getSearchClient(), testReplicasConfig, structPropConfig, Map.of(), gitVersion);
+            getSearchClient(),
+            testReplicasConfig,
+            structPropConfig,
+            Map.of(),
+            gitVersion,
+            getSearchClient());
 
     // Setup real IndexConvention for both v2 and v3
     indexConvention =
@@ -349,7 +359,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            gitVersion);
+            gitVersion,
+            getSearchClient());
     // index one doc
     IndexRequest indexRequest =
         new IndexRequest(TEST_INDEX_NAME).id("1").source(new HashMap<>(), XContentType.JSON);
@@ -397,7 +408,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            gitVersion);
+            gitVersion,
+            getSearchClient());
     // reindex
     ReindexConfig reindexConfig2 =
         changedShardBuilder.buildReindexState(
@@ -438,7 +450,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            gitVersion);
+            gitVersion,
+            getSearchClient());
     ReindexConfig reindexConfig =
         nsecBuilder.buildReindexState(
             opContext, TEST_INDEX_NAME, Map.<String, Object>of(), Map.<String, Object>of());
@@ -474,7 +487,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            gitVersion);
+            gitVersion,
+            getSearchClient());
     // reindex
     ReindexConfig reindexConfig2 =
         changedShardBuilder.buildReindexState(
@@ -519,7 +533,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            gitVersion);
+            gitVersion,
+            getSearchClient());
 
     // No mappings
     ReindexConfig reindexConfig =
@@ -599,7 +614,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            gitVersion);
+            gitVersion,
+            getSearchClient());
 
     // add new replicas
     buildIndex(changedShardBuilder, TEST_INDEX_NAME, Map.of(), Map.of());
@@ -630,7 +646,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            gitVersion);
+            gitVersion,
+            getSearchClient());
 
     // add new shard setting
     buildIndex(changedShardBuilder, TEST_INDEX_NAME, Map.of(), Map.of());
@@ -677,7 +694,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                     .build(),
                 TEST_ES_STRUCT_PROPS_DISABLED,
                 Map.of(),
-                gitVersion),
+                gitVersion,
+                getSearchClient()),
             new ESIndexBuilder(
                 getSearchClient(),
                 noReindexConfig.toBuilder()
@@ -689,7 +707,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                     .build(),
                 TEST_ES_STRUCT_PROPS_DISABLED,
                 Map.of(),
-                gitVersion),
+                gitVersion,
+                getSearchClient()),
             new ESIndexBuilder(
                 getSearchClient(),
                 noReindexConfig.toBuilder()
@@ -700,7 +719,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                     .build(),
                 TEST_ES_STRUCT_PROPS_DISABLED,
                 Map.of(),
-                gitVersion),
+                gitVersion,
+                getSearchClient()),
             new ESIndexBuilder(
                 getSearchClient(),
                 noReindexConfig.toBuilder()
@@ -711,7 +731,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                     .build(),
                 TEST_ES_STRUCT_PROPS_DISABLED,
                 Map.of(),
-                gitVersion));
+                gitVersion,
+                getSearchClient()));
 
     for (ESIndexBuilder builder : noReindexBuilders) {
       // Set test defaults
@@ -760,7 +781,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            gitVersion);
+            gitVersion,
+            getSearchClient());
 
     ReindexConfig reindexConfigNoIndexBefore =
         enabledMappingReindex.buildReindexState(
@@ -1464,7 +1486,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 .systemUpdateEnabled(false)
                 .build(),
             Map.of(),
-            new GitVersion("0.0.0-test", "123456", Optional.empty()));
+            new GitVersion("0.0.0-test", "123456", Optional.empty()),
+            getSearchClient());
     // field1 and the structured property container take two of the three fields allowed.
     Map<String, Object> settings = Map.of("mapping", Map.of("total_fields", Map.of("limit", 3)));
     buildIndex(builder, TEST_INDEX_NAME, structuredPropertyTestMappings(false, Map.of()), settings);
@@ -1520,7 +1543,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 .systemUpdateEnabled(false)
                 .build(),
             Map.of(),
-            new GitVersion("0.0.0-test", "123456", Optional.empty()));
+            new GitVersion("0.0.0-test", "123456", Optional.empty()),
+            getSearchClient());
     // field1, the container and propLive fill the limit.
     Map<String, Object> settings = Map.of("mapping", Map.of("total_fields", Map.of("limit", 3)));
     Map<String, Object> keyword = Map.of(ESUtils.TYPE, ESUtils.KEYWORD);
@@ -1611,7 +1635,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            gitVersion);
+            gitVersion,
+            getSearchClient());
 
     ReindexConfig reindexConfig =
         changedShardBuilder.buildReindexState(
@@ -1717,7 +1742,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            gitVersion);
+            gitVersion,
+            getSearchClient());
 
     ReindexConfig reindexConfig =
         changedShardBuilder.buildReindexState(

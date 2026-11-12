@@ -280,7 +280,8 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
             config,
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            new GitVersion("0.0.0-test", "123456", Optional.empty()));
+            new GitVersion("0.0.0-test", "123456", Optional.empty()),
+            getSearchClient());
     SettingsBuilder settingsBuilder =
         createDelegatingSettingsBuilder(entityIndex, config.getIndex(), indexConvention);
     searchService =

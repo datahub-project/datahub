@@ -13,15 +13,20 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.CassandraSearchLimitations;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder.IncrementalReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexMigrationStamp;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.SearchV3CutoverStamp;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -117,6 +122,12 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
+      if (!entityIndexFillAvailable) {
+        // Warn even when this run plans no fill, so the limit shows before a fill is needed.
+        log.warn(
+            "Incremental reindex is on without an aspect loader. {}",
+            CassandraSearchLimitations.ALL);
+      }
       try {
         List<ReindexConfig> allConfigs =
             getAllReindexConfigs(context.opContext(), indexedServices, structuredProperties);
@@ -608,9 +619,10 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
     IN_PLACE,
     /**
      * The index exists with documents from another id scheme, holds no documents and differs from
-     * the target mappings or settings, or holds a partial corpus from a fill that a later deploy
-     * can no longer see: create a next physical index for the fill to write into; the alias moves
-     * to it once the fill completes.
+     * the target mappings or settings, holds a partial corpus from a fill that a later deploy can
+     * no longer see, or holds documents and no migration mark while a paired V2 index still exists:
+     * create a next physical index for the fill to write into; the alias moves to it once the fill
+     * completes.
      */
     REBUILD_INTO_NEXT
   }
@@ -674,6 +686,23 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
         log.warn(
             "Index {}: an earlier deploy left its migration unfinished; rebuilding into a fresh"
                 + " index",
+            config.name());
+        fills.put(config.name(), Fill.REBUILD_INTO_NEXT);
+      } else if (IndexMigrationStamp.read(config.currentMappings()).isEmpty()
+          && pairedV2IndexExists(config.name(), allConfigs)) {
+        // Created on the legacy path, before incremental reindex was on: the index has documents
+        // from live writes and no mark, so nothing else plans a fill and the read hold never
+        // lifts. A V3 index with no paired V2 index is a fresh install and is left alone.
+        if (ownedByThisDeploy(upgradeState, config.name())) {
+          log.info(
+              "Index {}: unmarked, with a V2 index still present, but this deploy already owns"
+                  + " the row",
+              config.name());
+          continue;
+        }
+        log.warn(
+            "Index {}: documents and no migration mark, while a paired V2 index still exists;"
+                + " rebuilding from primary storage",
             config.name());
         fills.put(config.name(), Fill.REBUILD_INTO_NEXT);
       }
@@ -740,6 +769,52 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             + " swap",
         config.name(),
         sample.size());
+    return false;
+  }
+
+  /**
+   * Whether any entity type stored in {@code v3IndexName} still has a V2 index that has not been
+   * stamped retired. That index is what shows the V3 index was created for an upgrade rather than a
+   * fresh install or a cutover that already happened. The config list only contains indices this
+   * run builds, so a V2 index left on the cluster while V2 is off is looked up on the V2 cluster. A
+   * listing or mapping-read failure does not count: an unreadable stamp must not rebuild the live
+   * corpus.
+   */
+  private boolean pairedV2IndexExists(String v3IndexName, List<ReindexConfig> allConfigs) {
+    IndexConvention convention = opContext.getSearchContext().getIndexConvention();
+    Optional<String> indexKey = convention.getEntityIndexKeyV3(opContext, v3IndexName);
+    if (indexKey.isEmpty()) {
+      return false;
+    }
+    Map<String, ReindexConfig> existing =
+        allConfigs.stream()
+            .filter(ReindexConfig::exists)
+            .collect(
+                Collectors.toMap(ReindexConfig::name, config -> config, (left, right) -> left));
+    ESIndexBuilder v3Builder = requireIndexBuilder(v3IndexName);
+    for (EntitySpec spec :
+        V3IndexKeys.entitySpecsForKey(opContext.getEntityRegistry(), indexKey.get())) {
+      String v2Index = convention.getEntityIndexName(opContext, spec.getName());
+      ReindexConfig v2Config = existing.get(v2Index);
+      if (v2Config != null) {
+        if (!SearchV3CutoverStamp.retired(v2Config.currentMappings())) {
+          return true;
+        }
+        continue;
+      }
+      try {
+        if (v3Builder.indexExistsOnV2Cluster(opContext, v2Index)
+            && !v3Builder.v2CutoverRetired(opContext, v2Index)) {
+          return true;
+        }
+      } catch (IOException e) {
+        log.warn(
+            "Index {}: cannot read paired V2 index {}; not treating it as an unfinished upgrade",
+            v3IndexName,
+            v2Index,
+            e);
+      }
+    }
     return false;
   }
 
