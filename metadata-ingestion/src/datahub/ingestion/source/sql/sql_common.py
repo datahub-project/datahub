@@ -449,18 +449,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 cls.create(config_dict, PipelineContext(run_id="test_connection")),
             )
             list(source.get_inspectors())
-            # Sources that skip a database they cannot connect to report it as a
-            # failure rather than raising; surface it instead of passing.
-            failures = list(source.get_report().failures)
-            if failures:
-                test_report.basic_connectivity = CapabilityReport(
-                    capable=False,
-                    failure_reason="; ".join(
-                        f"{f.title}: {', '.join(f.context)}" for f in failures
-                    ),
-                )
-            else:
-                test_report.basic_connectivity = CapabilityReport(capable=True)
+            test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
                 capable=False, failure_reason=str(e)

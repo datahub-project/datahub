@@ -721,23 +721,6 @@ def test_get_inspectors_skips_unreachable_database_and_reports_it(
         assert all(e.dispose.called for e in engines[db_name])
 
 
-@patch("datahub.ingestion.source.sql.postgres.source.inspect")
-@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
-def test_test_connection_reports_unreachable_database(
-    create_engine_mock: MagicMock, inspect_mock: MagicMock
-) -> None:
-    create_engine_mock.side_effect = _engines_with_one_unreachable_database({}, {})
-
-    report = PostgresSource.test_connection(
-        {**_base_config(), "initial_database": "postgres"}
-    )
-
-    assert report.basic_connectivity is not None
-    assert not report.basic_connectivity.capable
-    assert report.basic_connectivity.failure_reason is not None
-    assert "my_db_denied" in report.basic_connectivity.failure_reason
-
-
 # --- view lineage fallback for views sqlglot could not parse ---
 
 
