@@ -17,6 +17,7 @@ import {
     QLIK_ON_PREM_SERVER,
     QLIK_ON_PREM_SKIP_HOSTNAME_CHECK,
     QLIK_ON_PREM_SKIP_UNCHANGED_APPS,
+    QLIK_SCRIPT_VARIABLES,
     QLIK_SPACE_ALLOW,
     QLIK_SPACE_DENY,
     QLIK_TENANT_HOSTNAME,
@@ -250,6 +251,19 @@ describe('Qlik Sense recipe form', () => {
         expect(saved.source.config.file_connection_to_storage).toEqual({
             'Sales Space:Lake': { storage_uri: 's3://new', convert_urns_to_lowercase: true },
         });
+    });
+
+    it('round-trips script variables as a name to value mapping, keeping empty values', () => {
+        const recipe = QLIK_SCRIPT_VARIABLES.setValueOnRecipeOverride?.(baseRecipe(), [
+            { variable_name: 'vSchema', value: 'sales' },
+            { variable_name: 'vPrefix', value: '' },
+            { variable_name: '', value: 'ignored' },
+        ]);
+        expect(recipe.source.config.script_variables).toEqual({ vSchema: 'sales', vPrefix: '' });
+        expect(QLIK_SCRIPT_VARIABLES.getValueFromRecipeOverride?.(recipe)).toEqual([
+            { variable_name: 'vSchema', value: 'sales' },
+            { variable_name: 'vPrefix', value: '' },
+        ]);
     });
 
     it('accepts a bare tenant hostname and rejects a scheme or path', () => {

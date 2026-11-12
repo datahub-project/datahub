@@ -409,6 +409,15 @@ class QlikSourceConfig(
         "Use 'data_connection_name' as key. Set `platform`, `database` and `default_schema` when they "
         "cannot be inferred from the data connection.",
     )
+    script_variables: Dict[str, str] = Field(
+        default={},
+        description="Values for load script variables the connector can't read, "
+        "such as ones computed with LET, set in an included script, or deleted "
+        "after the reload, keyed by variable name without `$()`. Used in QVD and "
+        "file paths, connection names, SQL and chart expressions. An app's own "
+        "variables, as its last reload left them, and variables set in the "
+        "visible script take precedence.",
+    )
     file_connection_to_storage: Dict[str, FileStorageDetail] = Field(
         default={},
         description="Qlik Cloud only. Where the files of Azure Storage, Amazon S3 "

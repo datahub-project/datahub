@@ -577,3 +577,57 @@ export const QLIK_FILE_CONNECTION_MAP: RecipeField = {
         fileConnectionDetailFields,
     ),
 };
+
+const SCRIPT_VARIABLE_NAME: RecipeField = {
+    name: 'variable_name',
+    label: 'Variable Name',
+    helper: 'Load script variable, without $()',
+    tooltip: 'Name of a load script variable the connector cannot read, as the script writes it inside $().',
+    type: FieldType.TEXT,
+    fieldPath: 'variable_name',
+    placeholder: 'vSchema',
+    rules: [{ required: true, message: 'Variable Name is required' }],
+};
+
+const SCRIPT_VARIABLE_VALUE: RecipeField = {
+    name: 'value',
+    label: 'Value',
+    helper: 'The value to use',
+    tooltip: 'The value the variable has when the app reloads.',
+    type: FieldType.TEXT,
+    fieldPath: 'value',
+    placeholder: 'sales',
+    rules: null,
+};
+
+const scriptVariablesFieldPath = 'source.config.script_variables';
+export const QLIK_SCRIPT_VARIABLES: RecipeField = {
+    name: 'script_variables',
+    label: 'Script Variables',
+    helper: 'Values for variables the connector cannot read',
+    tooltip:
+        "Values for load script variables the connector can't read, such as ones computed with LET, set in an included script, or deleted after the reload. Used in QVD and file paths, connection names, SQL and chart expressions. An app's own variables, as its last reload left them, take precedence.",
+    type: FieldType.DICT,
+    buttonLabel: 'Add variable',
+    fieldPath: scriptVariablesFieldPath,
+    keyField: SCRIPT_VARIABLE_NAME,
+    fields: [SCRIPT_VARIABLE_VALUE],
+    rules: [uniqueKeysRule(SCRIPT_VARIABLE_NAME, 'Variable Name')],
+    getValueFromRecipeOverride: (recipe: any) => {
+        const value: Record<string, string> | undefined = get(recipe, scriptVariablesFieldPath);
+        if (!value) return undefined;
+        return Object.entries(value).map(([name, variableValue]) => ({
+            [SCRIPT_VARIABLE_NAME.name]: name,
+            [SCRIPT_VARIABLE_VALUE.name]: variableValue,
+        }));
+    },
+    setValueOnRecipeOverride: (recipe: any, rows: MappingRow[] | undefined) => {
+        const named = (rows ?? []).filter((row) => !!row?.[SCRIPT_VARIABLE_NAME.name]);
+        if (!named.length) return setFieldValueOnRecipe(recipe, null, scriptVariablesFieldPath);
+        // An empty value is kept: a variable can be set to nothing.
+        const variables = Object.fromEntries(
+            named.map((row) => [row[SCRIPT_VARIABLE_NAME.name] as string, row[SCRIPT_VARIABLE_VALUE.name] ?? '']),
+        );
+        return setFieldValueOnRecipe(recipe, variables, scriptVariablesFieldPath);
+    },
+};

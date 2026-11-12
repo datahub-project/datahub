@@ -828,7 +828,11 @@ class _ScriptParser(BaseModel):
             self._forget()
             statement = statement.strip()
         self.raw_statement = statement
-        statement = _expand_variables(statement, self.flow.state.variables)
+        # Variables the visible script sets take precedence from where it sets
+        # them; others come from the app's last reload or the recipe.
+        statement = _expand_variables(
+            statement, {**self.app_variables, **self.flow.state.variables}
+        )
         if not statement:
             return
         if EXIT_SCRIPT_RE.match(statement) and not self.flow.blocks:
@@ -1042,10 +1046,18 @@ class _ScriptParser(BaseModel):
 
 
 def parse_script(
-    script: str, app_variables: Optional[Dict[str, str]] = None
+    script: str,
+    app_variables: Optional[Dict[str, str]] = None,
+    script_variables: Optional[Dict[str, str]] = None,
 ) -> ParsedScript:
+    """`app_variables` are the app's variables from the Engine, as its last
+    reload left them; `script_variables` are recipe values for variables
+    neither the app nor its visible script has."""
     parsed = _script_pieces(script)
-    parser = _ScriptParser(subs=parsed.subs, app_variables=app_variables or {})
+    parser = _ScriptParser(
+        subs=parsed.subs,
+        app_variables={**(script_variables or {}), **(app_variables or {})},
+    )
     parser.run(parsed.pieces)
     return ParsedScript(
         tables=parser.tables,

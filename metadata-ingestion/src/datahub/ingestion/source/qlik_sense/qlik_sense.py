@@ -1429,9 +1429,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         for field, upstreams in (fields or {}).items():
             lineage.column_upstreams.setdefault(field, []).extend(upstreams)
 
-    @staticmethod
-    def _parsed_script(app: App) -> ParsedScript:
-        return parse_script(app.script, app.variables) if app.script else ParsedScript()
+    def _parsed_script(self, app: App) -> ParsedScript:
+        return (
+            parse_script(
+                app.script,
+                app.variables,
+                script_variables=self.config.script_variables,
+            )
+            if app.script
+            else ParsedScript()
+        )
 
     def _build_script_tables(
         self, app: App, parsed: Optional[ParsedScript] = None
@@ -1713,6 +1720,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             item.name == UNREAD_DATA_CONNECTIONS for item in self.qlik_api.unread_items
         )
 
+    def _app_variables(self, app: App) -> Dict[str, str]:
+        """The app's variables as its last reload left them, with the recipe's
+        values for any it doesn't have."""
+        return {**self.config.script_variables, **app.variables}
+
     def _file_source_resolver(
         self, app: App, parsed: ParsedScript
     ) -> FileSourceResolver:
@@ -1721,7 +1733,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # Paths are often built from variables the script sets with LET or
             # in an included script, which the app's variables hold.
             lib_path = LIB_PATH_RE.match(
-                expand_variables(file_path, app.variables).strip()
+                expand_variables(file_path, self._app_variables(app)).strip()
             )
             if lib_path and "$(" not in lib_path.group(0):
                 references.append(
@@ -2225,7 +2237,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if app.tables_read_failed
             else self._chart_inputs(
                 (chart for sheet in app.sheets for chart in sheet.charts),
-                app.variables,
+                self._app_variables(app),
                 app_fields,
                 input_tables_urns,
                 has_unknown_schema,
