@@ -17,7 +17,7 @@ from tabulate import tabulate
 
 from datahub._version import nice_version_name
 from datahub.cli import cli_utils
-from datahub.cli.config_utils import CONDENSED_DATAHUB_CONFIG_PATH, load_client_config
+from datahub.cli.config_utils import load_client_config, resolve_profile
 from datahub.configuration.common import GraphError
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.graph.client import get_default_graph
@@ -503,14 +503,14 @@ def parse_restli_response(response):
     response_json = response.json()
 
     if not isinstance(response_json, dict):
-        click.echo(f"Received error, please check your {CONDENSED_DATAHUB_CONFIG_PATH}")
+        click.echo(f"Received error, please check your {resolve_profile().path}")
         click.echo()
         click.echo(response_json)
         exit()
 
     rows = response_json.get("value")
     if not isinstance(rows, list):
-        click.echo(f"Received error, please check your {CONDENSED_DATAHUB_CONFIG_PATH}")
+        click.echo(f"Received error, please check your {resolve_profile().path}")
         click.echo()
         click.echo(response_json)
         exit()

@@ -3,12 +3,20 @@ import logging
 import multiprocessing
 import os
 import platform
+import re
+import shlex
 import sys
+from contextlib import ExitStack
 from typing import ContextManager, Optional
+from urllib.parse import urlparse
 
 import click
+import yaml
 
 import datahub._version as datahub_version
+from datahub.cli.agent_context import (
+    make_agent_aware_command as _make_agent_aware_command,
+)
 from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import (
     enable_auto_decorators,
@@ -17,7 +25,13 @@ from datahub.cli.cli_utils import (
     get_init_config_value,
     make_shim_command,
 )
-from datahub.cli.config_utils import DATAHUB_CONFIG_PATH, write_gms_config
+from datahub.cli.config_utils import (
+    DATAHUB_CONFIG_PATH as DATAHUB_CONFIG_PATH,
+    resolve_profile,
+    select_cli_profile,
+    stored_server,
+    write_gms_config,
+)
 from datahub.cli.container_cli import container
 from datahub.cli.datapack.datapack_cli import datapack
 from datahub.cli.delete_cli import delete
@@ -29,6 +43,7 @@ from datahub.cli.graphql_cli import graphql
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.lineage_cli import lineage
 from datahub.cli.migrate import migrate
+from datahub.cli.profile_cli import profile as profile_command
 from datahub.cli.put_cli import put
 from datahub.cli.recipe_cli import recipe
 from datahub.cli.recording_cli import recording
@@ -95,6 +110,9 @@ if sys.version_info >= (3, 14):
     metavar="KEY=VALUE",
     help="Additional context as key=value pairs (can be repeated).",
 )
+@click.option(
+    "--profile", type=str, help="Named connection profile for this invocation."
+)
 @click.version_option(
     version=datahub_version.nice_version_name(),
     prog_name=datahub_version.__package_name__,
@@ -105,11 +123,25 @@ def datahub(
     debug: bool,
     log_file: Optional[str],
     context_pairs: tuple,
+    profile: Optional[str] = None,
 ) -> None:
     debug = debug or get_boolean_env_variable("DATAHUB_DEBUG", False)
 
     # Parse --context key=value pairs and store on Click context for telemetry.
     ctx.ensure_object(dict)
+    ctx.obj["profile"] = profile
+    profile_stack = ExitStack()
+    ctx.call_on_close(profile_stack.close)
+    profile_stack.enter_context(select_cli_profile(profile))
+    if (
+        ctx.invoked_subcommand != "profile"
+        or profile is not None
+        or os.environ.get("DATAHUB_PROFILE") is not None
+    ):
+        resolve_profile(
+            allow_create=ctx.invoked_subcommand == "init",
+            for_init=ctx.invoked_subcommand == "init",
+        )
     ctx.obj["context"] = {}
     for pair in context_pairs:
         if "=" in pair:
@@ -150,26 +182,6 @@ def version(include_server: bool = False) -> None:
     if include_server:
         server_config = get_default_graph(ClientMode.CLI).get_config()
         click.echo(f"Server config: {server_config}")
-
-
-def _make_agent_aware_command(resource_name: str) -> type:
-    """Return a click.Command subclass that appends an agent context file to --help on non-TTY."""
-
-    class _AgentAwareCommand(click.Command):
-        def format_help(
-            self, ctx: click.Context, formatter: click.HelpFormatter
-        ) -> None:
-            super().format_help(ctx, formatter)
-            if not sys.stdout.isatty():
-                agent_text: str = (
-                    importlib.resources.files("datahub.cli.resources")
-                    .joinpath(resource_name)
-                    .read_text(encoding="utf-8")
-                )
-                formatter.write("\n")
-                formatter.write(agent_text)
-
-    return _AgentAwareCommand
 
 
 def _validate_init_inputs(
@@ -262,6 +274,12 @@ def _validate_init_inputs(
 
 
 @datahub.command(cls=_make_agent_aware_command("INIT_AGENT_CONTEXT.md"))
+@click.option(
+    "--profile",
+    type=str,
+    help="Profile to initialize. Never changes the active profile.",
+)
+@click.option("--description", type=str, help="Description shown in profile list.")
 @click.option(
     "--use-password",
     is_flag=True,
@@ -368,6 +386,8 @@ def init(
     support: bool = False,
     ticket_id: Optional[str] = None,
     agent_context: bool = False,
+    profile: Optional[str] = None,
+    description: Optional[str] = None,
 ) -> None:
     """Configure which DataHub instance to connect to.
 
@@ -377,48 +397,48 @@ def init(
     Quickstart (local DataHub instance with default credentials):
         # Generates token from default username/password (datahub/datahub)
         # Connects to http://localhost:8080 by default
-        datahub init --username datahub --password datahub
+        datahub init --profile local --username datahub --password datahub
 
     \b
     Interactive Mode (prompts for input):
-        datahub init
+        datahub init --profile local
 
     \b
     Mode 1: Auto-Generate Token from Username/Password
-        datahub init --username alice --password secret
-        datahub init --username alice --password secret \\
+        datahub init --profile local --username alice --password secret
+        datahub init --profile local --username alice --password secret \\
             --token-duration ONE_MONTH
-        datahub init --username alice --password secret \\
+        datahub init --profile local --username alice --password secret \\
             --token-duration NO_EXPIRY
 
     \b
     Mode 2: Use Existing Token
-        datahub init --token <your-existing-token>
+        datahub init --profile local --token <your-existing-token>
 
     \b
     Mode 3: SSO Browser Login (OIDC/SAML)
-        datahub init --sso --host https://example.com/gms
-        datahub init --sso --host https://example.com/gms \\
+        datahub init --profile local --sso --host https://example.com/gms
+        datahub init --profile local --sso --host https://example.com/gms \\
             --token-duration ONE_MONTH
 
     \b
     Mode 4: Native OAuth2 PKCE Login
-        datahub init --oauth --host https://your-instance.acryl.io/gms
+        datahub init --profile local --oauth --host https://your-instance.acryl.io/gms
         Stores an access token + refresh token; auto-refreshes on expiry.
         Requires an instance with the OAuth2 server enabled. No extra
         dependencies (unlike --sso which requires Playwright).
 
     \b
     Support Login (DataHub Cloud — customer debugging):
-        datahub init --oauth --support --ticket-id SUPPORT-123 \\
-            --host https://customer.acryl.io/gms
+        datahub init --profile local --oauth --support --ticket-id acme-123 \\
+            --host https://acme.example.com/gms
 
     \b
     Environment Variables (for automation):
         export DATAHUB_GMS_URL=http://localhost:8080
         export DATAHUB_USERNAME=alice
         export DATAHUB_PASSWORD=secret
-        datahub init --token-duration ONE_WEEK --force
+        datahub init --profile local --token-duration ONE_WEEK --force
 
     \b
     Available Token Durations:
@@ -428,7 +448,7 @@ def init(
 
     \b
     DataHub Cloud (Acryl-hosted instances):
-        datahub init --token <token> \\
+        datahub init --profile local --token <token> \\
             --host https://your-instance.acryl.io/gms
     """
     if agent_context:
@@ -460,10 +480,9 @@ def init(
         use_password, token, username, password, token_duration, sso=sso, oauth=oauth
     )
 
-    # Handle overwrite confirmation: prompt only on interactive TTYs.
-    # Non-TTY environments (agents, CI) silently overwrite — same as --force.
-    if os.path.isfile(DATAHUB_CONFIG_PATH) and not force and sys.stdin.isatty():
-        click.confirm(f"{DATAHUB_CONFIG_PATH} already exists. Overwrite?", abort=True)
+    resolved = resolve_profile(profile, allow_create=True, for_init=True)
+    if resolved.path.is_file() and not force and sys.stdin.isatty():
+        click.confirm(f"{resolved.path} already exists. Overwrite?", abort=True)
 
     # Get host (CLI arg > Env var > silent default if credentials provided > prompt)
     # When credentials are supplied non-interactively, skip the prompt and default to
@@ -487,6 +506,64 @@ def init(
             default="http://localhost:8080",
         )
     host_value = fixup_gms_url(host_value)
+
+    if resolved.path.is_file() and not force and not sys.stdin.isatty():
+        try:
+            previous_server = stored_server(resolved.path)
+        except (ValueError, OSError, yaml.YAMLError) as exc:
+            raise click.ClickException(
+                f"Cannot safely overwrite {resolved.path}. Inspect the file or add --force."
+            ) from exc
+        if previous_server is None or previous_server.rstrip("/") != host_value.rstrip(
+            "/"
+        ):
+            suggested = (
+                re.sub(
+                    r"[^a-z0-9._-]",
+                    "-",
+                    (urlparse(host_value).hostname or "local").split(".")[0].lower(),
+                ).strip("-_.")[:63]
+                or "local"
+            )
+            if suggested == "default" or suggested == resolved.name:
+                suggested = suggested[:59] + "-new"
+            auth_args = []
+            for option, value in [
+                ("--token", token),
+                ("--username", username),
+                ("--password", password),
+                ("--token-duration", token_duration),
+                ("--ticket-id", ticket_id),
+                ("--description", description),
+            ]:
+                if value is not None:
+                    auth_args.extend([option, value])
+            for option, enabled in [
+                ("--sso", sso),
+                ("--oauth", oauth),
+                ("--support", support),
+                ("--use-password", use_password),
+            ]:
+                if enabled:
+                    auth_args.append(option)
+            command = shlex.join(
+                [
+                    "datahub",
+                    "init",
+                    "--profile",
+                    suggested,
+                    "--host",
+                    host_value,
+                    *auth_args,
+                ]
+            )
+            raise click.ClickException(
+                f'{resolved.path} (profile "{resolved.name}") points at {previous_server or "an invalid server"}.\n'
+                f"Refusing to repoint it to {host_value} from a non-interactive session.\n"
+                f"To add a separate profile for this instance, run:\n  {command}\n"
+                f"Then pass --profile {suggested} (or set DATAHUB_PROFILE={suggested}) on later commands.\n"
+                "To overwrite anyway, add --force."
+            )
 
     # Resolve effective token duration: explicit > host-based default
     # Local dev gets a generous default so tokens don't expire mid-session.
@@ -519,8 +596,12 @@ def init(
             client_id=result.client_id,
             refresh_token=result.refresh_token,
             token_endpoint=result.token_endpoint,
+            path=resolved.path,
+            description=description,
         )
-        click.echo(f"✓ Configuration written to {DATAHUB_CONFIG_PATH}")
+        click.echo(
+            f"Configuration written to {resolved.path} (profile {resolved.name!r})"
+        )
         return
     elif sso:
         # SSO browser login flow
@@ -569,11 +650,18 @@ def init(
         )
 
     # Write configuration
-    write_gms_config(host_value, token_value, merge_with_previous=False)
+    write_gms_config(
+        host_value,
+        token_value,
+        merge_with_previous=False,
+        path=resolved.path,
+        description=description,
+    )
 
-    click.echo(f"✓ Configuration written to {DATAHUB_CONFIG_PATH}")
+    click.echo(f"Configuration written to {resolved.path} (profile {resolved.name!r})")
 
 
+datahub.add_command(profile_command)
 datahub.add_command(check)
 datahub.add_command(docker)
 datahub.add_command(ingest)
@@ -648,7 +736,31 @@ except ImportError as e:
 enable_auto_decorators(datahub)
 
 
-def main(**kwargs):
+def lift_profile_args(args: list[str]) -> list[str]:
+    """Move profile options ahead of subcommands, respecting the option terminator."""
+    profiles: list[str] = []
+    remaining: list[str] = []
+    index = 0
+    while index < len(args):
+        arg = args[index]
+        if arg == "--":
+            remaining.extend(args[index:])
+            break
+        if arg == "--profile":
+            if index + 1 >= len(args) or args[index + 1].startswith("--"):
+                raise click.UsageError("--profile requires a name.")
+            profiles.extend(args[index : index + 2])
+            index += 2
+        elif arg.startswith("--profile="):
+            profiles.append(arg)
+            index += 1
+        else:
+            remaining.append(arg)
+            index += 1
+    return profiles + remaining
+
+
+def main(args: Optional[list[str]] = None, **kwargs: object) -> None:
     # We use threads in a variety of places within our CLI. The multiprocessing
     # "fork" start method is not safe to use with threads.
     # MacOS and Windows already default to "spawn", and Linux will as well starting in Python 3.14.
@@ -659,7 +771,13 @@ def main(**kwargs):
 
     # This wrapper prevents click from suppressing errors.
     try:
-        sys.exit(datahub(standalone_mode=False, **kwargs))
+        sys.exit(
+            datahub(
+                args=lift_profile_args(args if args is not None else sys.argv[1:]),
+                standalone_mode=False,
+                **kwargs,
+            )
+        )
     except click.Abort:
         # Click already automatically prints an abort message, so we can just exit.
         sys.exit(1)

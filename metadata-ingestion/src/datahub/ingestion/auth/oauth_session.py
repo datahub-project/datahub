@@ -146,7 +146,7 @@ def _write_atomically(config_file: str, raw: dict) -> None:
     try:
         with os.fdopen(fd, "w") as stream:
             yaml.dump(raw, stream, default_flow_style=False)
-        os.chmod(temporary, os.stat(config_file).st_mode & 0o777)
+        os.chmod(temporary, 0o600)
         os.replace(temporary, config_file)
     except BaseException:
         with contextlib.suppress(OSError):

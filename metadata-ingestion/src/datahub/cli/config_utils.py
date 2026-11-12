@@ -4,8 +4,15 @@ For helper methods to contain manipulation of the config file in local system.
 
 import logging
 import os
+import re
 import sys
-from typing import Optional, Tuple
+import tempfile
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
+from typing import Dict, Iterator, List, Mapping, Optional, Tuple
 
 import click
 import yaml
@@ -24,6 +31,7 @@ from datahub.configuration.env_vars import (
 from datahub.ingestion.auth.env import ENV_AUTH_TYPE, build_auth_config_from_env
 from datahub.ingestion.auth.oauth_session import (
     OAUTH_SESSION_AUTH_TYPE,
+    decode_jwt_exp,
     has_oauth_session,
     read_session_token,
 )
@@ -63,19 +71,230 @@ def _should_skip_config() -> bool:
     return get_skip_config()
 
 
-def persist_raw_datahub_config(config: dict) -> None:
-    with open(DATAHUB_CONFIG_PATH, "w+") as outfile:
-        yaml.dump(config, outfile, default_flow_style=False)
-    return None
+@dataclass(frozen=True)
+class ResolvedProfile:
+    name: str
+    path: Path
+    source: str
+    server: Optional[str]
 
 
-def get_raw_client_config() -> Optional[dict]:
-    with open(DATAHUB_CONFIG_PATH) as stream:
+_cli_profile: ContextVar[Optional[str]] = ContextVar(
+    "datahub_cli_profile", default=None
+)
+_PROFILE_NAME = re.compile(r"[a-z0-9][a-z0-9._-]{0,62}\Z")
+
+
+def validate_profile_name(name: str) -> str:
+    if not _PROFILE_NAME.fullmatch(name):
+        raise click.UsageError("Profile names must match [a-z0-9][a-z0-9._-]{0,62}.")
+    return name
+
+
+def profile_path(name: str) -> Path:
+    validate_profile_name(name)
+    if name == "default":
+        return Path.home() / ".datahubenv"
+    return Path.home() / ".datahub" / "profiles" / name / ".datahubenv"
+
+
+def current_profile_path() -> Path:
+    return Path.home() / ".datahub" / "current-profile"
+
+
+def read_profile_config(path: Path) -> Dict[str, object]:
+    with path.open() as stream:
+        raw = yaml.safe_load(stream)
+    if not isinstance(raw, dict) or not all(isinstance(k, str) for k in raw):
+        raise ValueError(f"{path} must contain a YAML mapping.")
+    return raw
+
+
+def stored_server(path: Path) -> Optional[str]:
+    raw = read_profile_config(path)
+    gms = raw.get("gms")
+    server = gms.get("server") if isinstance(gms, dict) else None
+    return server if isinstance(server, str) else None
+
+
+def available_profiles() -> List[ResolvedProfile]:
+    names = ["default"]
+    directory = Path.home() / ".datahub" / "profiles"
+    if directory.is_dir():
+        names.extend(
+            sorted(
+                p.name
+                for p in directory.iterdir()
+                if _PROFILE_NAME.fullmatch(p.name) and p.name != "default"
+            )
+        )
+    profiles: List[ResolvedProfile] = []
+    for name in names:
+        path = profile_path(name)
+        if path.is_file():
+            try:
+                server = stored_server(path)
+            except (ValueError, OSError, yaml.YAMLError):
+                server = None
+            profiles.append(
+                ResolvedProfile(name=name, path=path, source="file", server=server)
+            )
+    return profiles
+
+
+def available_profile_message() -> str:
+    profiles = available_profiles()
+    return "Available profiles: " + (
+        ", ".join(f"{p.name} ({p.server or 'invalid config'})" for p in profiles)
+        or "none. Create one with datahub init --profile local."
+    )
+
+
+def reset_profile_cache() -> None:
+    _resolve_profile.cache_clear()
+
+
+@contextmanager
+def select_cli_profile(name: Optional[str]) -> Iterator[None]:
+    token = _cli_profile.set(name)
+    reset_profile_cache()
+    try:
+        yield
+    finally:
+        _cli_profile.reset(token)
+        reset_profile_cache()
+
+
+def resolve_profile(
+    profile: Optional[str] = None,
+    *,
+    allow_create: bool = False,
+    for_init: bool = False,
+) -> ResolvedProfile:
+    explicit = profile if profile is not None else _cli_profile.get()
+    source = "--profile" if explicit is not None else "DATAHUB_PROFILE"
+    if explicit is None:
+        explicit = os.environ.get("DATAHUB_PROFILE")
+    if explicit is not None and _should_skip_config():
+        raise click.UsageError(
+            "An explicit profile cannot be combined with DATAHUB_SKIP_CONFIG."
+        )
+    env_server, _ = _get_config_from_env(warn_deprecated=False)
+    pointer = current_profile_path()
+    active = None
+    if explicit is None and not _should_skip_config() and (for_init or not env_server):
+        if pointer.is_file():
+            active = pointer.read_text(encoding="utf-8").strip()
+    return _resolve_profile(
+        home=str(Path.home()),
+        explicit=explicit,
+        source=source,
+        env_server=env_server,
+        active=active,
+        allow_create=allow_create,
+        for_init=for_init,
+        skip_config=_should_skip_config(),
+    )
+
+
+@lru_cache(maxsize=32)
+def _resolve_profile(
+    home: str,
+    explicit: Optional[str],
+    source: str,
+    env_server: Optional[str],
+    active: Optional[str],
+    allow_create: bool,
+    for_init: bool,
+    skip_config: bool,
+) -> ResolvedProfile:
+    name = (
+        explicit
+        if explicit is not None
+        else active
+        if active is not None
+        else "default"
+    )
+    validate_profile_name(name)
+    path = (
+        Path(home) / ".datahubenv"
+        if name == "default"
+        else Path(home) / ".datahub" / "profiles" / name / ".datahubenv"
+    )
+    if explicit is None:
+        source = "current-profile" if active is not None else "default"
+        if env_server and not for_init:
+            source = "DATAHUB_GMS_URL"
+    if explicit is None and (source == "DATAHUB_GMS_URL" or skip_config):
+        return ResolvedProfile(name=name, path=path, source=source, server=env_server)
+    if (
+        not path.is_file()
+        and not allow_create
+        and (explicit is not None or name != "default")
+    ):
+        raise MissingConfigError(
+            f"Unknown profile {name!r}. {available_profile_message()}"
+        )
+    server = None
+    if path.is_file():
         try:
-            return yaml.safe_load(stream)
-        except yaml.YAMLError as exc:
-            click.secho(f"{DATAHUB_CONFIG_PATH} malformed, error: {exc}", bold=True)
-            return None
+            server = stored_server(path)
+        except (ValueError, OSError, yaml.YAMLError):
+            # Loading reports malformed configs; discovery and init must still work.
+            pass
+    if source == "DATAHUB_GMS_URL":
+        server = env_server
+    elif explicit is not None and env_server and server and not for_init:
+        if server.rstrip("/") != env_server.rstrip("/"):
+            click.echo(
+                f"Warning: profile {name!r} selects {server}; ignoring DATAHUB_GMS_URL ({env_server}).",
+                err=True,
+            )
+    return ResolvedProfile(name=name, path=path, source=source, server=server)
+
+
+def ensure_private_directory(path: Path) -> None:
+    if not path.exists():
+        ensure_private_directory(path.parent)
+        path.mkdir(mode=0o700, exist_ok=True)
+
+
+def persist_raw_datahub_config(
+    config: Mapping[str, object], path: Optional[Path] = None
+) -> None:
+    target = path or resolve_profile(for_init=True, allow_create=True).path
+    ensure_private_directory(target.parent)
+    fd, temporary = tempfile.mkstemp(dir=target.parent, prefix=".datahubenv.")
+    try:
+        with os.fdopen(fd, "w") as outfile:
+            yaml.safe_dump(dict(config), outfile, default_flow_style=False)
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, target)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    reset_profile_cache()
+
+
+def get_raw_client_config(path: Optional[Path] = None) -> Optional[Dict[str, object]]:
+    target = path or resolve_profile(for_init=True).path
+    try:
+        return read_profile_config(target)
+    except (yaml.YAMLError, ValueError) as exc:
+        click.secho(f"{target} malformed, error: {exc}", bold=True)
+        return None
+
+
+def profile_token_expiry(raw: Dict[str, object]) -> Optional[float]:
+    gms = raw.get("gms")
+    token = gms.get("token") if isinstance(gms, dict) else None
+    return decode_jwt_exp(token) if isinstance(token, str) else None
+
+
+def profile_target_line(resolved: ResolvedProfile) -> str:
+    return (
+        f"{resolved.name}  {resolved.server or '(no server)'}  (from {resolved.source})"
+    )
 
 
 class OAuthSessionConfig(BaseModel):
@@ -92,7 +311,9 @@ class DatahubConfig(BaseModel):
     oauth: Optional[OAuthSessionConfig] = None
 
 
-def _get_config_from_env() -> Tuple[Optional[str], Optional[str]]:
+def _get_config_from_env(
+    *, warn_deprecated: bool = True
+) -> Tuple[Optional[str], Optional[str]]:
     host = get_gms_host()
     port = get_gms_port()
     token = get_gms_token()
@@ -103,7 +324,7 @@ def _get_config_from_env() -> Tuple[Optional[str], Optional[str]]:
         return url, token
     # The reason for using host as URL is backward compatibility
     # If port is not being used we assume someone is using host env var as URL
-    if url is None and host is not None:
+    if url is None and host is not None and warn_deprecated:
         logger.warning(
             f"Do not use {ENV_METADATA_HOST} as URL. Use {ENV_METADATA_HOST_URL} instead"
         )
@@ -123,8 +344,10 @@ def get_url_from_env() -> Optional[str]:
     return url
 
 
-def load_client_config(*, refresh_per_request: bool = False) -> DatahubClientConfig:
-    """Resolve the client config from the environment or ~/.datahubenv.
+def load_client_config(
+    profile: Optional[str] = None, *, refresh_per_request: bool = False
+) -> DatahubClientConfig:
+    """Resolve environment credentials or the selected connection profile.
 
     For a `datahub init --oauth` session the returned `token` is the session's
     current access token. With `refresh_per_request`, the config instead carries
@@ -136,6 +359,7 @@ def load_client_config(*, refresh_per_request: bool = False) -> DatahubClientCon
     # inherit environment variables — e.g. ingestion recipe subprocesses spawned
     # by the Remote Executor, whose default sink resolves through this function —
     # authenticate with short-lived OAuth tokens.
+    resolved = resolve_profile(profile)
     auth_env = build_auth_config_from_env()
     if auth_env is not None and get_system_client_id() is not None:
         logger.warning(
@@ -144,7 +368,7 @@ def load_client_config(*, refresh_per_request: bool = False) -> DatahubClientCon
         )
 
     gms_host_env, gms_token_env = _get_config_from_env()
-    if gms_host_env:
+    if gms_host_env and resolved.source == "DATAHUB_GMS_URL":
         if auth_env is not None:
             return DatahubClientConfig(server=gms_host_env, auth=auth_env)
         # TODO We should also load system auth credentials here.
@@ -156,8 +380,8 @@ def load_client_config(*, refresh_per_request: bool = False) -> DatahubClientCon
         )
 
     try:
-        _ensure_datahub_config()
-        client_config_dict = get_raw_client_config()
+        _ensure_datahub_config(resolved.path)
+        client_config_dict = get_raw_client_config(resolved.path)
         datahub_config: DatahubClientConfig = DatahubConfig.model_validate(
             client_config_dict
         ).gms
@@ -167,12 +391,12 @@ def load_client_config(*, refresh_per_request: bool = False) -> DatahubClientCon
             # URL — telling it to run `datahub init` would be misleading.
             raise MissingConfigError(
                 f"{ENV_AUTH_TYPE} is set but no GMS server was provided. "
-                f"Set {ENV_METADATA_HOST_URL} (or run `datahub init` to create "
-                f"a {CONDENSED_DATAHUB_CONFIG_PATH} file)."
+                f"Set {ENV_METADATA_HOST_URL} (or run `datahub init --profile local` to create "
+                f"a {resolved.path} file)."
             ) from None
         raise
     except ValidationError as e:
-        click.echo(f"Error loading your {CONDENSED_DATAHUB_CONFIG_PATH}")
+        click.echo(f"Error loading your {resolved.path}")
         click.echo(e, err=True)
         sys.exit(1)
 
@@ -183,7 +407,7 @@ def load_client_config(*, refresh_per_request: bool = False) -> DatahubClientCon
         if datahub_config.token:
             logger.warning(
                 f"{ENV_AUTH_TYPE} is set; ignoring the static token stored in "
-                f"{CONDENSED_DATAHUB_CONFIG_PATH}."
+                f"{resolved.path}."
             )
         return datahub_config.model_copy(update={"token": None, "auth": auth_env})
 
@@ -193,44 +417,50 @@ def load_client_config(*, refresh_per_request: bool = False) -> DatahubClientCon
                 "token": None,
                 "auth": AuthConfig(
                     type=OAUTH_SESSION_AUTH_TYPE,
-                    config={"config_file": DATAHUB_CONFIG_PATH},
+                    config={"config_file": str(resolved.path)},
                 ),
             }
         )
 
-    refreshed_token = refresh_oauth_token_if_needed()
+    refreshed_token = refresh_oauth_token_if_needed(resolved.path)
     if refreshed_token is not None:
         datahub_config = datahub_config.model_copy(update={"token": refreshed_token})
 
     return datahub_config
 
 
-def _ensure_datahub_config() -> None:
-    if not os.path.isfile(DATAHUB_CONFIG_PATH):
+def _ensure_datahub_config(path: Optional[Path] = None) -> None:
+    target = path or resolve_profile().path
+    if not target.is_file():
         raise MissingConfigError(
-            f"No {CONDENSED_DATAHUB_CONFIG_PATH} file found, and no configuration was found in environment variables. "
-            f"Run `datahub init` to create a {CONDENSED_DATAHUB_CONFIG_PATH} file."
+            f"No {target} file found, and no configuration was found in environment variables. "
+            f"Run `datahub init --profile local` to create a profile. {available_profile_message()}"
         )
 
 
 def write_gms_config(
-    host: str, token: Optional[str], merge_with_previous: bool = True
+    host: str,
+    token: Optional[str],
+    merge_with_previous: bool = True,
+    *,
+    path: Optional[Path] = None,
+    description: Optional[str] = None,
 ) -> None:
     config = DatahubConfig(gms=DatahubClientConfig(server=host, token=token))
     if merge_with_previous:
         try:
-            previous_config = get_raw_client_config()
+            previous_config = get_raw_client_config(path)
             assert isinstance(previous_config, dict)
         except Exception as e:
             # ok to fail on this
             previous_config = {}
-            logger.debug(
-                f"Failed to retrieve config from file {DATAHUB_CONFIG_PATH}: {e}. This isn't fatal."
-            )
+            logger.debug(f"Failed to retrieve config: {e}. This isn't fatal.")
         config_dict = {**previous_config, **config.model_dump(exclude={"oauth"})}
     else:
         config_dict = config.model_dump(exclude={"oauth"})
-    persist_raw_datahub_config(config_dict)
+    if description is not None:
+        config_dict["profile"] = {"description": description}
+    persist_raw_datahub_config(config_dict, path)
 
 
 def write_oauth_config(
@@ -239,6 +469,9 @@ def write_oauth_config(
     client_id: str,
     refresh_token: Optional[str],
     token_endpoint: Optional[str] = None,
+    *,
+    path: Optional[Path] = None,
+    description: Optional[str] = None,
 ) -> None:
     """Write GMS config together with OAuth2 session tokens to ~/.datahubenv."""
     config = DatahubConfig(gms=DatahubClientConfig(server=host, token=access_token))
@@ -249,10 +482,12 @@ def write_oauth_config(
     )
     config_dict = config.model_dump()
     config_dict["oauth"] = oauth.model_dump(exclude_none=True)
-    persist_raw_datahub_config(config_dict)
+    if description is not None:
+        config_dict["profile"] = {"description": description}
+    persist_raw_datahub_config(config_dict, path)
 
 
-def refresh_oauth_token_if_needed() -> Optional[str]:
+def refresh_oauth_token_if_needed(path: Optional[Path] = None) -> Optional[str]:
     """
     If OAuth2 session tokens are stored and the access token is within 5 minutes of
     expiry, refresh it using the stored refresh token.
@@ -260,15 +495,17 @@ def refresh_oauth_token_if_needed() -> Optional[str]:
     Returns the new access token if refreshed, None if no refresh was needed or if
     the refresh fails (failures are non-fatal — the existing token is left in place).
     """
-    if not os.path.isfile(DATAHUB_CONFIG_PATH):
+    target = path or resolve_profile(for_init=True).path
+    if not target.is_file():
         return None
 
     try:
-        raw = get_raw_client_config()
+        raw = get_raw_client_config(target)
         if raw is None or not has_oauth_session(raw):
             return None
-        token, _ = read_session_token(DATAHUB_CONFIG_PATH)
-        return token if token != raw["gms"].get("token") else None
+        token, _ = read_session_token(str(target))
+        gms = raw.get("gms")
+        return token if isinstance(gms, dict) and token != gms.get("token") else None
     except Exception as e:
         logger.debug("OAuth2 token refresh failed (non-fatal): %s", e, exc_info=True)
         return None
