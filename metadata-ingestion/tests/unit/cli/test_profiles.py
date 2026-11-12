@@ -487,6 +487,37 @@ def test_pointer_source_is_named_in_target_line() -> None:
     assert "datahub profile use" in result.output
 
 
+def test_stale_pointer_does_not_block_ingest_with_its_own_sink(home: Path) -> None:
+    # The write announcement must not fail a recipe that never reads the
+    # CLI connection (here a file sink).
+    config_utils.current_profile_path().parent.mkdir(parents=True, exist_ok=True)
+    config_utils.current_profile_path().write_text("deleted\n")
+    recipe = home / "recipe.yml"
+    out = home / "out.json"
+    events = home / "events.json"
+    events.write_text("[]")
+    recipe.write_text(
+        yaml.safe_dump(
+            {
+                "source": {"type": "file", "config": {"path": str(events)}},
+                "sink": {"type": "file", "config": {"filename": str(out)}},
+            }
+        )
+    )
+    result = invoke("ingest", "run", "-c", str(recipe), "--no-default-report")
+    assert result.exit_code == 0, result.output
+    assert out.exists()
+
+
+def test_connection_resolves_without_a_home_directory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Arbitrary-UID containers: no HOME and no passwd entry; Path.home() raises.
+    monkeypatch.setattr("os.path.expanduser", lambda path: path)
+    monkeypatch.setenv("DATAHUB_GMS_URL", "http://gms:8080")
+    assert load_client_config().server == "http://gms:8080"
+
+
 def test_lite_config_stays_in_default_datahubenv(home: Path) -> None:
     from datahub.cli.lite_cli import get_lite_config, write_lite_config
 

@@ -428,8 +428,14 @@ def with_profile_target(callback: Callable[_P, _R]) -> Callable[_P, _R]:
     def wrapped(*args: _P.args, **kwargs: _P.kwargs) -> _R:
         ctx = click.get_current_context(silent=True)
         if ctx is not None and _writes_metadata(ctx):
-            resolved = resolve_profile()
-            if resolved.name != "default":
+            try:
+                resolved: Optional[ResolvedProfile] = resolve_profile()
+            except (MissingConfigError, click.UsageError):
+                # Only an announcement: a command that needs the connection
+                # reports the error itself, and one that doesn't (an ingest
+                # recipe with its own sink) must not fail on a stale pointer.
+                resolved = None
+            if resolved is not None and resolved.name != "default":
                 click.echo(profile_target_line(resolved), err=True)
         return callback(*args, **kwargs)
 

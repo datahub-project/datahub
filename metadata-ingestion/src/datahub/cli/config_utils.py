@@ -91,6 +91,13 @@ def validate_profile_name(name: str) -> str:
     return name
 
 
+def _home() -> Path:
+    # Not Path.home(): it raises when HOME is unset and the UID has no passwd
+    # entry (containers run as an arbitrary UID). expanduser leaves "~" in
+    # place instead, as the legacy import-time DATAHUB_CONFIG_PATH did.
+    return Path(os.path.expanduser("~"))
+
+
 def _profile_path_in(home: Path, name: str) -> Path:
     if name == "default":
         return home / ".datahubenv"
@@ -99,11 +106,11 @@ def _profile_path_in(home: Path, name: str) -> Path:
 
 def profile_path(name: str) -> Path:
     validate_profile_name(name)
-    return _profile_path_in(Path.home(), name)
+    return _profile_path_in(_home(), name)
 
 
 def current_profile_path() -> Path:
-    return Path.home() / ".datahub" / "current-profile"
+    return _home() / ".datahub" / "current-profile"
 
 
 def read_profile_config(path: Path) -> Dict[str, object]:
@@ -123,7 +130,7 @@ def stored_server(path: Path) -> Optional[str]:
 
 def available_profiles() -> List[ResolvedProfile]:
     names = ["default"]
-    directory = Path.home() / ".datahub" / "profiles"
+    directory = _home() / ".datahub" / "profiles"
     if directory.is_dir():
         names.extend(
             sorted(
@@ -207,7 +214,7 @@ def resolve_profile(
         if pointer.is_file():
             active = pointer.read_text(encoding="utf-8").strip() or None
     return _resolve_profile(
-        home=str(Path.home()),
+        home=str(_home()),
         explicit=explicit,
         source=source,
         env_server=env_server,
