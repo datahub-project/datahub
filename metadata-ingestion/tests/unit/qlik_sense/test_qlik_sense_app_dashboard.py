@@ -123,11 +123,11 @@ def test_app_is_a_dashboard_of_its_sheets_and_tables(
     [subtypes] = [
         types for wu in workunits if (types := wu.get_aspect_of_type(SubTypesClass))
     ]
-    assert subtypes.typeNames == ["Qlik App"]
+    assert subtypes.typeNames == ["Qlik App Dashboard"]
     [container] = [
         c for wu in workunits if (c := wu.get_aspect_of_type(ContainerClass))
     ]
-    assert container.container == make_container_urn(source._gen_space_key("space-1"))
+    assert container.container == make_container_urn(source._gen_app_key("app-1"))
 
 
 def _chart(chart_id: str) -> Chart:
