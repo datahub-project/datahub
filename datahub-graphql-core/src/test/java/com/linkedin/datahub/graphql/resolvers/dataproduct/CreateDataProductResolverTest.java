@@ -11,10 +11,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.expectThrows;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateDataProductInput;
 import com.linkedin.datahub.graphql.generated.CreateDataProductPropertiesInput;
 import com.linkedin.datahub.graphql.generated.DataProduct;
@@ -89,7 +91,13 @@ public class CreateDataProductResolverTest {
     DataFetchingEnvironment environment =
         mockEnvironment(createInputWithoutDomain(), getMockDenyContext());
 
-    assertThrows(CompletionException.class, () -> resolver.get(environment).join());
+    CompletionException exception =
+        expectThrows(CompletionException.class, () -> resolver.get(environment).join());
+    Throwable cause = exception.getCause();
+    while (cause != null && !(cause instanceof AuthorizationException)) {
+      cause = cause.getCause();
+    }
+    assertNotNull(cause, "Expected an AuthorizationException in the cause chain");
     verify(dataProductService, never()).createDataProduct(any(), any(), any(), any(), any());
   }
 
