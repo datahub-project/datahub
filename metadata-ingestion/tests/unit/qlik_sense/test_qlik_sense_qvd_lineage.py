@@ -615,3 +615,33 @@ def test_lib_path_may_separate_the_connection_with_a_backslash() -> None:
         folders={"QVD Data": "//nas/qvd"}, ignored_connections=[], folder_aliases={}
     )
     assert resolver.resolve(load.file) == "//nas/qvd/gold/lots.qvd"
+
+
+def test_unset_variable_in_a_connection_name_expands_to_nothing() -> None:
+    # An empty prefix is not in the app's variables, as setting a variable to
+    # nothing deletes it, and Qlik expands an unknown variable to nothing.
+    parsed = parse_script(
+        "Orders: LOAD id FROM [lib://$(vPrefix)QVD Data/raw/orders.qvd] (qvd);\n"
+        "Other: LOAD id FROM [lib://$(vPrefix)Unknown/raw/x.qvd] (qvd);",
+        app_variables={"vOther": "x"},
+    )
+    resolver = QvdPathResolver(
+        folders={"QVD Data": "//nas/qvd"}, ignored_connections=[], folder_aliases={}
+    )
+
+    resolved = [resolver.resolve(load.file) for load in parsed.qvd_loads]
+
+    # Only taken when what is left is a folder connection.
+    assert resolved == ["//nas/qvd/raw/orders.qvd", None]
+    assert resolver.unresolved == ["lib://$(vPrefix)Unknown/raw/x.qvd"]
+
+
+def test_path_from_a_quoted_variable_drops_its_quotes() -> None:
+    # SET keeps the quotes in the variable's value.
+    parsed = parse_script(
+        "Orders: LOAD id FROM [$(vFolder)orders.qvd] (qvd);",
+        app_variables={"vFolder": "'lib://QVD Data/raw/'"},
+    )
+
+    [load] = parsed.qvd_loads
+    assert load.file == QvdReference(connection="QVD Data", path="raw/orders.qvd")

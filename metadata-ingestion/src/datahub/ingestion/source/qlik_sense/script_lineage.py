@@ -958,15 +958,26 @@ class _ScriptParser(BaseModel):
             return None
         if "$(" in path:
             path = self._expand_app_variables(path)
-        if "$(" in path or "*" in path or "?" in path:
-            self.unresolved_qvd_paths.append(path)
-            return None
+        if path.startswith("'lib://"):
+            # A variable set with SET keeps its quotes, so a path built from
+            # one, such as $(vFolder)orders.qvd, holds them.
+            path = path.replace("'", "")
         lib_path = LIB_PATH_RE.match(path)
-        if lib_path:
+        if (
+            lib_path
+            and "$(" not in lib_path.group("path")
+            and "*" not in path
+            and "?" not in path
+        ):
+            # A variable left in the connection name is resolved against the
+            # folder connections, as one Qlik expands to nothing.
             return QvdReference(
                 connection=lib_path.group("connection"),
                 path=lib_path.group("path"),
             )
+        if "$(" in path or "*" in path or "?" in path:
+            self.unresolved_qvd_paths.append(path)
+            return None
         if ABSOLUTE_PATH_RE.match(path):
             return QvdReference(path=path)
         # Relative to the Directory statement or the working directory.
