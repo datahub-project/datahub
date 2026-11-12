@@ -274,7 +274,7 @@ def _resolve_profile(
     if source == "DATAHUB_GMS_URL":
         server = env_server
     elif explicit is not None and env_server and server and not for_init:
-        if not _same_server(server, env_server):
+        if not same_server(server, env_server):
             click.echo(
                 f"Warning: profile {name!r} selects {server}; ignoring DATAHUB_GMS_URL ({env_server}).",
                 err=True,
@@ -282,7 +282,7 @@ def _resolve_profile(
     return ResolvedProfile(name=name, path=path, source=source, server=server)
 
 
-def _same_server(left: Optional[str], right: Optional[str]) -> bool:
+def same_server(left: Optional[str], right: Optional[str]) -> bool:
     if not left or not right:
         return False
     return left.rstrip("/") == right.rstrip("/")
@@ -419,7 +419,7 @@ def load_client_config(
         auth_env is not None
         and gms_host_env
         and resolved.source != "DATAHUB_GMS_URL"
-        and not _same_server(resolved.server, gms_host_env)
+        and not same_server(resolved.server, gms_host_env)
     ):
         # Env OAuth is minted for the env server; a profile that points
         # elsewhere must not receive its tokens. On the same server it still wins.

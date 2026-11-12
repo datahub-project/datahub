@@ -392,13 +392,9 @@ def _writes_metadata(ctx: click.Context) -> bool:
     if commands[0] in {"put", "delete", "container", "migrate"}:
         return True
     if commands[0] == "ingest":
-        return len(commands) > 1 and commands[1] in {
-            "run",
-            "deploy",
-            "mcps",
-            "rollback",
-            "replay",
-        }
+        # `run` and `replay` write through the recipe's sink, so they announce
+        # the real destination themselves once the recipe is loaded.
+        return len(commands) > 1 and commands[1] in {"deploy", "mcps", "rollback"}
     verbs = {
         "upsert",
         "register",

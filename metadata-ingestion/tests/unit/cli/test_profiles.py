@@ -395,7 +395,8 @@ def test_environment_and_skip_do_not_read_saved_config(
     "group_name, command_name, announces",
     [
         ("put", "aspect", True),
-        ("ingest", "run", True),
+        ("ingest", "deploy", True),
+        ("ingest", "run", False),
         ("ingest", "list-source-runs", False),
         ("user", "upsert", True),
         ("dataproduct", "add_owner", True),
@@ -507,6 +508,60 @@ def test_stale_pointer_does_not_block_ingest_with_its_own_sink(home: Path) -> No
     result = invoke("ingest", "run", "-c", str(recipe), "--no-default-report")
     assert result.exit_code == 0, result.output
     assert out.exists()
+
+
+def _rest_recipe(home: Path, server: str) -> Path:
+    events = home / "events.json"
+    events.write_text("[]")
+    recipe = home / "rest-recipe.yml"
+    recipe.write_text(
+        yaml.safe_dump(
+            {
+                "source": {"type": "file", "config": {"path": str(events)}},
+                "sink": {"type": "datahub-rest", "config": {"server": server}},
+            }
+        )
+    )
+    return recipe
+
+
+def test_explicit_profile_contradicting_recipe_sink_is_refused(
+    home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The recipe takes ${DATAHUB_GMS_URL} from an environment exported for
+    # another instance; --profile must not appear to confirm that target.
+    store("staging", "https://staging.example.com/gms")
+    monkeypatch.setenv("DATAHUB_GMS_URL", "https://prod.example.com/gms")
+    recipe = _rest_recipe(home, "${DATAHUB_GMS_URL}")
+    with patch("datahub.ingestion.run.pipeline.Pipeline.create") as create:
+        result = invoke("--profile", "staging", "ingest", "run", "-c", str(recipe))
+    assert result.exit_code != 0
+    assert "https://prod.example.com/gms" in result.output
+    create.assert_not_called()
+
+
+def test_recipe_sink_check_matches_or_warns_for_ambient_selection(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from datahub.cli.ingest_cli import _check_sink_against_profile
+
+    def sink(server: str) -> dict:
+        return {"sink": {"type": "datahub-rest", "config": {"server": server}}}
+
+    store("staging", "https://staging.example.com/gms")
+    _check_sink_against_profile(sink("https://elsewhere.example.com/gms"))
+    assert capsys.readouterr().err == ""  # no named profile: unchanged behavior
+
+    monkeypatch.setenv("DATAHUB_PROFILE", "staging")
+    _check_sink_against_profile(sink("https://staging.example.com/gms/"))
+    assert "[recipe sink]" in capsys.readouterr().err
+    _check_sink_against_profile(sink("https://elsewhere.example.com/gms"))
+    assert "Warning" in capsys.readouterr().err
+    _check_sink_against_profile({})
+    assert "[default sink]" in capsys.readouterr().err
+    with select_cli_profile("staging"):
+        with pytest.raises(click.UsageError):
+            _check_sink_against_profile(sink("https://elsewhere.example.com/gms"))
 
 
 def test_connection_resolves_without_a_home_directory(

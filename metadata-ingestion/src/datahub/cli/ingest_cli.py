@@ -5,7 +5,7 @@ import os
 import sys
 import textwrap
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
     from datahub.ingestion.recording.recorder import IngestionRecorder
@@ -17,7 +17,15 @@ from tabulate import tabulate
 
 from datahub._version import nice_version_name
 from datahub.cli import cli_utils
-from datahub.cli.config_utils import load_client_config, resolve_profile
+from datahub.cli.config_utils import (
+    MissingConfigError,
+    get_url_from_env,
+    load_client_config,
+    profile_target_line,
+    resolve_profile,
+    same_server,
+    selected_named_profile,
+)
 from datahub.configuration.common import GraphError
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.graph.client import get_default_graph
@@ -218,6 +226,9 @@ def run(
 
     if test_source_connection:
         sys.exit(_test_source_connection(report_to, pipeline_config))
+
+    if not dry_run:
+        _check_sink_against_profile(pipeline_config)
 
     if no_default_report:
         # The default is "datahub" reporting. The extra flag will disable it.
@@ -497,6 +508,51 @@ def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> 
         if connection_report:
             logger.error(connection_report.as_json())
         return 1
+
+
+def _check_sink_against_profile(pipeline_config: Dict[str, Any]) -> None:
+    """Announce where a recipe writes when a profile is selected, and refuse a
+    recipe sink that contradicts an explicit --profile.
+
+    A recipe's own sink decides the destination, not the profile; announcing
+    the profile alone would confirm the wrong target. Silent without a named
+    profile, so executors and existing scripts see no change.
+    """
+    try:
+        named = selected_named_profile()
+    except (MissingConfigError, click.UsageError):
+        # A stale pointer: the default sink reports it if it is used.
+        return
+    if named is None:
+        return
+    sink = pipeline_config.get("sink") or {}
+    sink_type = sink.get("type") if isinstance(sink, dict) else None
+    if not sink_type:
+        click.echo(f"{profile_target_line(named)}  [default sink]", err=True)
+        return
+    if sink_type != "datahub-rest":
+        click.echo(
+            f"Sink {sink_type}: its destination comes from the recipe, "
+            f"not profile {named.name!r}.",
+            err=True,
+        )
+        return
+    server = (sink.get("config") or {}).get("server")
+    if server == "__from_env__":
+        server = get_url_from_env()
+    if same_server(server, named.server):
+        click.echo(f"{profile_target_line(named)}  [recipe sink]", err=True)
+        return
+    conflict = (
+        f"Profile {named.name!r} selects {named.server}, but the recipe's "
+        f"datahub-rest sink writes to {server}."
+    )
+    if named.source == "--profile":
+        raise click.UsageError(
+            f"{conflict} Remove --profile to write to the recipe's server, or "
+            "remove the recipe's sink to write to the profile's server."
+        )
+    click.echo(f"Warning: {conflict} The recipe's sink is used.", err=True)
 
 
 def parse_restli_response(response):
@@ -962,6 +1018,8 @@ def replay(
         ) as replayer:
             recipe = replayer.get_recipe()
             logger.info(f"Loaded recording: run_id={replayer.run_id}")
+            if live_sink:
+                _check_sink_against_profile(recipe)
 
             # Create and run pipeline
             pipeline = Pipeline.create(recipe)

@@ -22,7 +22,9 @@ DATAHUB_PROFILE=acme datahub profile current --format json
 ```
 
 `current` returns `name`, `server`, `source`, and `token_expires` (JWT expiry in epoch seconds, or null).
-Confirm the server before writing. Writes announce a named target on stderr. Discovery output never
+Confirm the server before writing. Writes announce a named target on stderr. For `datahub ingest run`, the recipe's
+sink decides the destination: omit the sink to write to the selected profile. `--profile` with a
+recipe sink on another server is refused. Discovery output never
 includes tokens.
 
 ## Maintain profiles

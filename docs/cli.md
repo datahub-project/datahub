@@ -109,7 +109,11 @@ agents should pin a profile with `--profile` or `DATAHUB_PROFILE` rather than re
 
 `datahub profile current --format json` reports `name`, `server`, `source`, and `token_expires`
 (JWT expiry in epoch seconds, or null). Check the server before a write. Write commands announce
-named targets on stderr. The Python SDK uses the same rules through `load_client_config(profile=...)`,
+named targets on stderr. `datahub ingest run` writes through the recipe's sink, so it announces
+that destination instead. A recipe whose `datahub-rest` sink names a different server than an
+explicit `--profile` is refused before anything runs. Under `DATAHUB_PROFILE` or the active pointer
+the recipe's sink wins with a warning naming both servers. A recipe without a sink writes to the
+selected profile. The Python SDK uses the same rules through `load_client_config(profile=...)`,
 including clients that load their default connection through `DataHubGraph`.
 
 ### Manage connections
