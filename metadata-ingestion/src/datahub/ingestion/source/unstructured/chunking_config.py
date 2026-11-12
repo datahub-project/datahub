@@ -2,12 +2,15 @@
 
 import re
 from dataclasses import dataclass
-from typing import Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from pydantic import Field, field_validator
 
 from datahub.configuration import env_vars
 from datahub.configuration.common import ConfigModel, TransparentSecretStr
+
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.config import DatahubClientConfig
 
 _LOCAL_EMBEDDING_DEFAULT_ENDPOINT = "http://localhost:11434/v1/embeddings"
 
@@ -396,6 +399,12 @@ class EmbeddingConfig(ConfigModel):
         )
 
 
+def _load_selected_client_config() -> "DatahubClientConfig":
+    from datahub.cli.config_utils import load_client_config
+
+    return load_client_config()
+
+
 def _get_default_gms_server() -> str:
     """Get default GMS server URL with fallback to ~/.datahubenv.
 
@@ -411,7 +420,10 @@ def _get_default_gms_server() -> str:
 
     # An explicit profile outranks raw env vars, and load_client_config applies
     # that rule; reading env first would mix two instances' URL and token.
-    url = None if explicit_profile_selected() else env_vars.get_gms_url()
+    if explicit_profile_selected():
+        # A named profile that is missing must fail, not fall back to localhost.
+        return _load_selected_client_config().server
+    url = env_vars.get_gms_url()
     if url:
         return url
 
@@ -447,7 +459,10 @@ def _get_default_gms_token() -> Optional[TransparentSecretStr]:
     """
     from datahub.cli.config_utils import explicit_profile_selected
 
-    token = None if explicit_profile_selected() else env_vars.get_gms_token()
+    if explicit_profile_selected():
+        explicit_token = _load_selected_client_config().token
+        return TransparentSecretStr(explicit_token) if explicit_token else None
+    token = env_vars.get_gms_token()
     if token:
         return TransparentSecretStr(token)
 

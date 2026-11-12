@@ -91,11 +91,15 @@ def validate_profile_name(name: str) -> str:
     return name
 
 
+def _profile_path_in(home: Path, name: str) -> Path:
+    if name == "default":
+        return home / ".datahubenv"
+    return home / ".datahub" / "profiles" / name / ".datahubenv"
+
+
 def profile_path(name: str) -> Path:
     validate_profile_name(name)
-    if name == "default":
-        return Path.home() / ".datahubenv"
-    return Path.home() / ".datahub" / "profiles" / name / ".datahubenv"
+    return _profile_path_in(Path.home(), name)
 
 
 def current_profile_path() -> Path:
@@ -150,11 +154,16 @@ def available_profile_message() -> str:
     )
 
 
+def env_profile() -> Optional[str]:
+    """DATAHUB_PROFILE, treating an empty value (e.g. `export DATAHUB_PROFILE=`) as unset."""
+    return os.environ.get("DATAHUB_PROFILE", "").strip() or None
+
+
 def explicit_profile_selected() -> bool:
     """True when --profile or DATAHUB_PROFILE picks a profile over raw GMS env vars."""
     if _cli_profile.get() is not None:
         return True
-    return os.environ.get("DATAHUB_PROFILE") is not None and not _should_skip_config()
+    return env_profile() is not None and not _should_skip_config()
 
 
 def reset_profile_cache() -> None:
@@ -185,7 +194,7 @@ def resolve_profile(
             "An explicit profile cannot be combined with DATAHUB_SKIP_CONFIG."
         )
     if explicit is None:
-        explicit = os.environ.get("DATAHUB_PROFILE")
+        explicit = env_profile()
         if explicit is not None and _should_skip_config():
             # Executors set DATAHUB_SKIP_CONFIG for subprocesses that may inherit
             # DATAHUB_PROFILE from a user shell; the env-only contract wins.
@@ -196,7 +205,7 @@ def resolve_profile(
     active = None
     if explicit is None and not _should_skip_config() and (for_init or not env_server):
         if pointer.is_file():
-            active = pointer.read_text(encoding="utf-8").strip()
+            active = pointer.read_text(encoding="utf-8").strip() or None
     return _resolve_profile(
         home=str(Path.home()),
         explicit=explicit,
@@ -228,11 +237,7 @@ def _resolve_profile(
         else "default"
     )
     validate_profile_name(name)
-    path = (
-        Path(home) / ".datahubenv"
-        if name == "default"
-        else Path(home) / ".datahub" / "profiles" / name / ".datahubenv"
-    )
+    path = _profile_path_in(Path(home), name)
     if explicit is None:
         source = "current-profile" if active is not None else "default"
         if env_server and not for_init:

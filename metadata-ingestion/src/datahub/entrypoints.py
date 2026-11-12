@@ -6,8 +6,8 @@ import platform
 import re
 import shlex
 import sys
-from contextlib import ExitStack
-from typing import ContextManager, Optional
+from contextlib import ExitStack, contextmanager
+from typing import ContextManager, Iterator, Optional
 from urllib.parse import urlparse
 
 import click
@@ -27,6 +27,8 @@ from datahub.cli.cli_utils import (
 )
 from datahub.cli.config_utils import (
     DATAHUB_CONFIG_PATH as DATAHUB_CONFIG_PATH,
+    env_profile,
+    profile_path,
     resolve_profile,
     select_cli_profile,
     stored_server,
@@ -133,11 +135,16 @@ def datahub(
     profile_stack = ExitStack()
     ctx.call_on_close(profile_stack.close)
     profile_stack.enter_context(select_cli_profile(profile))
+    if profile is not None:
+        # The ContextVar does not reach worker threads, spawned processes or
+        # child `datahub` commands; the environment does.
+        profile_stack.enter_context(_exported_profile(profile))
+    # Fail fast only on a profile the user named. A stale current-profile
+    # pointer surfaces when a command reads config, so `version`, `--help`
+    # and the profile commands that repair it keep working.
     if (
-        ctx.invoked_subcommand != "profile"
-        or profile is not None
-        or os.environ.get("DATAHUB_PROFILE") is not None
-    ):
+        profile is not None or env_profile() is not None
+    ) and ctx.invoked_subcommand != "profile":
         resolve_profile(
             allow_create=ctx.invoked_subcommand == "init",
             for_init=ctx.invoked_subcommand == "init",
@@ -522,8 +529,12 @@ def init(
                 ).strip("-_.")[:63]
                 or "local"
             )
-            if suggested == "default" or suggested == resolved.name:
-                suggested = suggested[:59] + "-new"
+            base, counter = suggested[:59], 1
+            while suggested in ("default", resolved.name) or (
+                profile_path(suggested).exists()
+            ):
+                counter += 1
+                suggested = f"{base}-{counter}"
             # Secrets are replaced with placeholders: this message lands in agent
             # transcripts and CI logs.
             auth_args = []
@@ -733,6 +744,19 @@ except ImportError as e:
 
 # Adding telemetry and upgrade decorators to all commands
 enable_auto_decorators(datahub)
+
+
+@contextmanager
+def _exported_profile(name: str) -> Iterator[None]:
+    previous = os.environ.get("DATAHUB_PROFILE")
+    os.environ["DATAHUB_PROFILE"] = name
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop("DATAHUB_PROFILE", None)
+        else:
+            os.environ["DATAHUB_PROFILE"] = previous
 
 
 def lift_profile_args(args: list[str]) -> list[str]:

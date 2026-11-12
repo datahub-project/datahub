@@ -27,7 +27,7 @@ includes tokens.
 
 ## Maintain profiles
 
-`datahub profile save acme` copies the stored default connection, ignoring environment credentials.
+`datahub profile save acme` copies the stored default connection, ignoring environment credentials. It does not copy an OAuth refresh token.
 `--from local` copies another profile, and `--force` explicitly replaces an existing destination.
 Use `profile show acme` to inspect authentication mode and expiry, `profile rename acme acme-staging`
 to rename a profile, and `profile doctor` to diagnose expired tokens, legacy keys, permissions, and

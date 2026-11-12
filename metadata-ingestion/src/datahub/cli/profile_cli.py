@@ -115,8 +115,9 @@ def list_profiles(output_format: str) -> None:
     """List profiles without revealing credentials."""
     try:
         resolved: Optional[ResolvedProfile] = resolve_profile()
-    except MissingConfigError:
-        # A stale current-profile pointer must not hide the list needed to fix it.
+    except (MissingConfigError, click.UsageError) as exc:
+        # An unknown or stale selection must not hide the list needed to fix it.
+        click.echo(f"Warning: {exc}", err=True)
         resolved = None
     # With DATAHUB_GMS_URL in effect no stored profile is in use.
     active_name = (
@@ -223,8 +224,16 @@ def save(name: str, source: str, force: bool) -> None:
             f"Profile {name!r} already exists. Use --force to overwrite."
         )
     raw = _read_profile(source)
+    # Refresh tokens rotate on use; two files sharing one would revoke each other.
+    had_oauth = raw.pop("oauth", None) is not None
     persist_raw_datahub_config(raw, target)
     click.echo(f"Saved profile {name!r} from {source!r}.")
+    if had_oauth:
+        click.echo(
+            f"The OAuth session was not copied; {name!r} uses the current access token "
+            f"until it expires. Run `datahub --profile {name} init --oauth` for its own session.",
+            err=True,
+        )
 
 
 @profile.command("show")

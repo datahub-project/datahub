@@ -537,3 +537,79 @@ def test_init_profile_through_main_entrypoint(
 
 def stored_server_of(name: str) -> str:
     return yaml.safe_load(profile_path(name).read_text())["gms"]["server"]
+
+
+def test_repoint_hint_suggests_an_unused_profile_name() -> None:
+    store("default")
+    store("acme-staging", "https://elsewhere.example.com/gms")
+    result = invoke(
+        "init", "--host", "https://acme-staging.example.com/gms", "--token", "t"
+    )
+    assert result.exit_code != 0
+    assert "--profile acme-staging-2" in result.output
+
+
+def test_empty_profile_selection_counts_as_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store("default", "http://localhost:8080")
+    monkeypatch.setenv("DATAHUB_PROFILE", "")
+    config_utils.current_profile_path().parent.mkdir(parents=True, exist_ok=True)
+    config_utils.current_profile_path().write_text("\n")
+    assert load_client_config().server == "http://localhost:8080"
+
+
+def test_stale_or_unknown_selection_keeps_repair_commands_working(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store("default", "http://localhost:8080")
+    config_utils.current_profile_path().parent.mkdir(parents=True, exist_ok=True)
+    config_utils.current_profile_path().write_text("gone\n")
+    assert invoke("version").exit_code == 0
+    monkeypatch.setenv("DATAHUB_PROFILE", "typo")
+    result = invoke("profile", "list")
+    assert result.exit_code == 0
+    assert "default" in result.output
+
+
+def test_profile_flag_reaches_child_processes() -> None:
+    store("acme")
+    seen: list = []
+
+    @datahub.command("probe-env")
+    def probe_env() -> None:
+        seen.append(os.environ.get("DATAHUB_PROFILE"))
+
+    try:
+        assert invoke("--profile", "acme", "probe-env").exit_code == 0
+    finally:
+        datahub.commands.pop("probe-env")
+    assert seen == ["acme"]
+    assert "DATAHUB_PROFILE" not in os.environ
+
+
+def test_save_does_not_share_an_oauth_session() -> None:
+    write_oauth_config(
+        host="https://acme.example.com/gms",
+        access_token="access",
+        client_id="cli",
+        refresh_token="refresh",
+        path=profile_path("default"),
+    )
+    result = invoke("profile", "save", "copy")
+    assert result.exit_code == 0, result.output
+    raw = yaml.safe_load(profile_path("copy").read_text())
+    assert "oauth" not in raw
+    assert raw["gms"]["token"] == "access"
+
+
+def test_chunking_defaults_fail_on_unknown_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        _get_default_gms_server,
+    )
+
+    monkeypatch.setenv("DATAHUB_PROFILE", "missing")
+    with pytest.raises(MissingConfigError):
+        _get_default_gms_server()
