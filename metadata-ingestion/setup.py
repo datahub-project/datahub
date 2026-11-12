@@ -143,7 +143,9 @@ sqlglot_lib = {
     # sqlglot[c] was removed in a prior PR as a workaround for a memory leak
     # (https://github.com/tobymao/sqlglot/issues/7506). 30.8.0 fixes the leak
     # upstream, so we restore [c] here for performance.
-    "sqlglot[c]==30.8.0",
+    # 30.11.0: PyPI no longer serves sqlglotc wheels for 30.7.0-30.10.0 (sdist only, which
+    # does not build without a C toolchain), so 30.8.0 broke fresh installs.
+    "sqlglot[c]==30.11.0",
     "patchy==2.8.0",
 }
 
@@ -523,9 +525,11 @@ embedding_common = {
 
 unstructured_lib = {
     # Unstructured.io core library for document partitioning with markdown support
-    # CVE-2026-71428: SSRF in partition(url=...) fixed in 0.24.0+ (requires Python 3.11+)
-    "unstructured[md]==0.24.1",
-    # unstructured 0.24.x requires ingest >=1.4.0
+    # CVE-2026-71428: SSRF in partition(url=...) fixed in 0.24.0+ (requires Python 3.11+).
+    # 0.24.x capped filelock<4, holding resolved envs on the 3.x line affected by
+    # CVE-2026-112940; 0.27.x requires filelock>=4.2.1, which carries the fix.
+    "unstructured[md]==0.27.37",
+    # unstructured 0.27.x accepts ingest >=1.4.0,<2
     "unstructured-ingest==1.4.28",
     # JSONPath for custom property extraction
     "jsonpath-ng==1.7.0",
@@ -576,7 +580,7 @@ plugins: Dict[str, Set[str]] = {
     | aws_common,
     "datahub-rest": rest_common,
     # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility; Docker/constraints enforce >=3.20.3 where needed.
-    "sync-file-emitter": {"filelock>=3.13.1,<4.0.0"},
+    "sync-file-emitter": {"filelock>=3.13.1,<5.0.0"},
     "datahub-lite": {
         "duckdb>=1.0.0,<2.0.0",
         # >=0.133.0: older fastapi caps starlette<1.0, blocking its CVE fixes.

@@ -2,7 +2,11 @@
 
 import hashlib
 import json
+import os
+import signal
 import sys
+import threading
+import time
 from typing import Any, Optional
 from unittest.mock import Mock, patch
 
@@ -19,7 +23,14 @@ from datahub.ingestion.source.datahub_documents.datahub_documents_source import 
     EMBED_SOURCE_ASPECT_NAMES,
     DataHubDocumentsSource,
 )
-from datahub.ingestion.source.datahub_documents.text_partitioner import TextPartitioner
+from datahub.ingestion.source.datahub_documents.markdown_link_guard import (
+    NoInlineLinksExtension,
+)
+from datahub.ingestion.source.datahub_documents.text_partitioner import (
+    PartitionTimeoutError,
+    TextPartitioner,
+    _TimeLimit,
+)
 from datahub.ingestion.source.unstructured.chunking_config import (
     ServerEmbeddingConfig,
     ServerSemanticSearchConfig,
@@ -2596,3 +2607,282 @@ class TestDocumentEventConsumerAspectFilter:
             yielded = list(consumer.consume_events())
 
         assert [e.get("entityUrn") for e in yielded] == ["urn:li:document:d2"]
+
+
+def _make_config(**overrides: Any) -> DataHubDocumentsSourceConfig:
+    base: dict[str, Any] = dict(
+        platform_filter=["*"],
+        datahub={"server": "http://test-server:8080"},
+        embedding={
+            "provider": "bedrock",
+            "model": "cohere.embed-english-v3",
+            "aws_region": "us-west-2",
+            "allow_local_embedding_config": True,
+        },
+        min_text_length=10,
+        stateful_ingestion={"enabled": False},
+    )
+    base.update(overrides)
+    return DataHubDocumentsSourceConfig(**base)
+
+
+_LINK_PATTERN_NAMES = (
+    "reference",
+    "link",
+    "image_link",
+    "image_reference",
+    "short_reference",
+    "short_image_ref",
+)
+
+
+def _texts(elements: list[dict[str, Any]]) -> str:
+    return "\n".join(e["text"] for e in elements)
+
+
+class TestMarkdownLinkGuard:
+    """CVE-2019-25781 workaround: Markdown link and image syntax is not parsed."""
+
+    def test_extension_removes_link_patterns(self):
+        import markdown  # type: ignore[import-untyped]
+
+        md = markdown.Markdown(extensions=[NoInlineLinksExtension()])
+        assert not [n for n in _LINK_PATTERN_NAMES if n in md.inlinePatterns]
+
+    @pytest.mark.parametrize("payload", ["[" * 32000, "![" * 8000, "[a](" * 4000])
+    def test_quadratic_inputs_are_fast(self, payload):
+        # Markdown directly, not partition_md: spaCy's tokenizer is separately slow
+        # on long punctuation runs, which the partition time limit covers.
+        import markdown  # type: ignore[import-untyped]
+
+        start = time.monotonic()
+        markdown.markdown(
+            payload, extensions=["tables", "fenced_code", NoInlineLinksExtension()]
+        )
+        assert time.monotonic() - start < 5
+
+    def test_link_syntax_kept_as_literal_text(self):
+        elements = TextPartitioner().partition_text(
+            "See [docs](https://x) here for the details."
+        )
+        assert "[docs](https://x)" in _texts(elements)
+
+    def test_documents_without_links_are_unchanged(self):
+        from unstructured.partition.md import partition_md
+
+        text = (
+            "# Runbook\n\nIntro paragraph with *emphasis* and `code`.\n\n"
+            "## Steps\n\n- first item\n- second item\n\n"
+            "| col_a | col_b |\n|---|---|\n| 1 | 2 |\n\n"
+            "```python\nprint('hi')\n```\n"
+        )
+
+        def shape(elements: list[dict[str, Any]]) -> list[tuple[str, str]]:
+            return [(e["type"], e["text"]) for e in elements]
+
+        assert shape(TextPartitioner().partition_text(text)) == shape(
+            [e.to_dict() for e in partition_md(text=text)]
+        )
+
+
+def _burn_cpu(seconds: float) -> None:
+    # The limit counts user CPU time, so the mocks must burn it: sleeping wouldn't
+    # count, and a tight loop over the clock is mostly system time.
+    deadline = time.process_time() + seconds
+    while time.process_time() < deadline:
+        total = 0
+        for i in range(20_000):
+            total += i
+
+
+def _slow_partition_md(**kwargs: Any) -> list:
+    _burn_cpu(5)
+    return []
+
+
+def _swallowing_partition_md(**kwargs: Any) -> list:
+    # Mimics a library with a broad `except` around slow work.
+    try:
+        _burn_cpu(5)
+    except PartitionTimeoutError:
+        pass
+    _burn_cpu(5)
+    return []
+
+
+def _catch_exception_loop_partition_md(**kwargs: Any) -> list:
+    # Mimics a per-item loop that catches Exception on every pass.
+    deadline = time.process_time() + 5
+    while time.process_time() < deadline:
+        try:
+            _burn_cpu(0.05)
+        except Exception:
+            pass
+    return []
+
+
+def _waiting_partition_md(**kwargs: Any) -> list:
+    time.sleep(1)
+    return []
+
+
+class TestPartitionTimeout:
+    # Elapsed time is measured as CPU time, like the limit, so a loaded CI machine
+    # can't make these flaky.
+
+    def test_config_default_timeout(self):
+        assert _make_config().partition_timeout_seconds == 30.0
+
+    @pytest.mark.parametrize("value", [-1, float("inf"), float("nan")])
+    def test_config_rejects_invalid_timeout(self, value):
+        with pytest.raises(ValueError):
+            _make_config(partition_timeout_seconds=value)
+
+    def test_existing_virtual_timer_is_left_alone(self):
+        previous = signal.signal(signal.SIGVTALRM, signal.SIG_IGN)
+        signal.setitimer(signal.ITIMER_VIRTUAL, 1000)
+        try:
+            TextPartitioner(timeout_seconds=5).partition_text("Some text.")
+            assert signal.getitimer(signal.ITIMER_VIRTUAL)[0] > 0
+            assert signal.getsignal(signal.SIGVTALRM) == signal.SIG_IGN
+        finally:
+            signal.setitimer(signal.ITIMER_VIRTUAL, 0)
+            signal.signal(signal.SIGVTALRM, previous)
+
+    def test_timeout_passes_through_except_exception(self):
+        with patch(
+            "unstructured.partition.md.partition_md", _catch_exception_loop_partition_md
+        ):
+            start = time.process_time()
+            with pytest.raises(PartitionTimeoutError):
+                TextPartitioner(timeout_seconds=0.5).partition_text("some text")
+            assert time.process_time() - start < 2
+
+    def test_timeout_survives_a_swallowed_alarm(self):
+        with patch("unstructured.partition.md.partition_md", _swallowing_partition_md):
+            start = time.process_time()
+            with pytest.raises(PartitionTimeoutError):
+                TextPartitioner(timeout_seconds=0.5).partition_text("some text")
+            assert time.process_time() - start < 3
+        assert signal.getitimer(signal.ITIMER_VIRTUAL) == (0.0, 0.0)
+
+    def test_timer_left_armed_after_the_block_is_disarmed_not_raised(self):
+        # Simulates an alarm interrupting __exit__ before it disarms: the timer is
+        # still on after the limited block has returned.
+        def leave_armed() -> None:
+            _TimeLimit(0.2).__enter__()
+
+        def previous(signum: int, frame: Any) -> None:
+            pass
+
+        original = signal.signal(signal.SIGVTALRM, previous)
+        try:
+            leave_armed()
+            _burn_cpu(1)  # would raise PartitionTimeoutError into this code
+            assert signal.getitimer(signal.ITIMER_VIRTUAL) == (0.0, 0.0)
+            assert signal.getsignal(signal.SIGVTALRM) is previous
+        finally:
+            signal.setitimer(signal.ITIMER_VIRTUAL, 0)
+            signal.signal(signal.SIGVTALRM, original)
+
+    def test_waiting_does_not_count_toward_the_limit(self):
+        # A busy or throttled machine stalls the process without using its CPU time.
+        with patch("unstructured.partition.md.partition_md", _waiting_partition_md):
+            TextPartitioner(timeout_seconds=0.3).partition_text("some text")
+
+    def test_language_profiles_load_before_the_time_limit(self):
+        from langdetect import detector_factory
+
+        with (
+            patch.object(detector_factory, "_factory", None),
+            patch("unstructured.partition.md.partition_md", _slow_partition_md),
+        ):
+            with pytest.raises(PartitionTimeoutError):
+                TextPartitioner(timeout_seconds=0.1).partition_text("some text")
+            # Fully loaded, not left half-built by an interrupted first load.
+            assert detector_factory._factory is not None
+            assert len(detector_factory._factory.get_lang_list()) == len(
+                os.listdir(detector_factory.PROFILES_DIRECTORY)
+            )
+
+    def test_timeout_fires_and_restores_handler(self):
+        def previous(signum: int, frame: Any) -> None:
+            pass
+
+        original = signal.signal(signal.SIGVTALRM, previous)
+        try:
+            with patch("unstructured.partition.md.partition_md", _slow_partition_md):
+                start = time.process_time()
+                with pytest.raises(PartitionTimeoutError):
+                    TextPartitioner(timeout_seconds=0.5).partition_text("some text")
+                assert time.process_time() - start < 2
+            assert signal.getsignal(signal.SIGVTALRM) is previous
+            assert signal.getitimer(signal.ITIMER_VIRTUAL) == (0.0, 0.0)
+        finally:
+            signal.signal(signal.SIGVTALRM, original)
+
+    def test_no_time_limit_off_main_thread(self):
+        errors: list[BaseException] = []
+
+        def run() -> None:
+            try:
+                TextPartitioner(timeout_seconds=0.5).partition_text("some text")
+            except BaseException as e:
+                errors.append(e)
+
+        with (
+            patch(
+                "unstructured.partition.md.partition_md",
+                Mock(return_value=[]),
+            ),
+            patch(
+                "datahub.ingestion.source.datahub_documents.text_partitioner.signal.signal"
+            ) as mock_signal,
+        ):
+            thread = threading.Thread(target=run)
+            thread.start()
+            thread.join()
+
+        assert not errors
+        mock_signal.assert_not_called()
+
+    def test_timed_out_document_is_skipped_and_hash_recorded(self):
+        # This release line has no semanticContent skip marker: the timed-out document
+        # emits nothing, the run continues, and its hash is recorded so it is not
+        # retried until its content changes.
+        ctx = PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+        text = "Document text that takes too long to partition."
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, _make_config())
+            source.config.incremental.enabled = True
+            mock_state_handler = Mock()
+            mock_state_handler.get_document_hash.return_value = "old-hash"
+            source.state_handler = mock_state_handler
+            docs = [
+                {"urn": "urn:li:document:slow", "text": text},
+                {"urn": "urn:li:document:next", "text": text},
+            ]
+            with (
+                patch.object(source, "_fetch_documents_graphql", return_value=docs),
+                patch.object(
+                    source.text_partitioner,
+                    "partition_text",
+                    side_effect=[PartitionTimeoutError("slow"), [{"text": "ok"}]],
+                ),
+                patch.object(
+                    source.chunking_source,
+                    "process_elements_inline",
+                    return_value=iter([]),
+                ) as mock_process_elements,
+            ):
+                workunits = list(source._process_batch_mode())
+
+        assert workunits == []
+        assert source.report.num_documents_partition_timeout == 1
+        mock_process_elements.assert_called_once()
+        recorded = [
+            c.args[0] for c in mock_state_handler.update_document_state.call_args_list
+        ]
+        assert "urn:li:document:slow" in recorded
