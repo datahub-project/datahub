@@ -5,9 +5,13 @@ from typing import Dict, Iterable, List, Optional, Set, Union
 
 from datahub.api.entities.common.serialized_value import SerializedResourceValue
 from datahub.emitter.mce_builder import make_tag_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import StructuredPropertyWriteMode
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    SnowflakeV2Config,
+    TagOption,
+)
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeTag
 from datahub.ingestion.source.snowflake.snowflake_tag_entities import (
@@ -19,7 +23,10 @@ from datahub.ingestion.source.snowflake.snowflake_tag_entities import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
-from datahub.metadata.schema_classes import StructuredPropertyDefinitionClass
+from datahub.metadata.schema_classes import (
+    StatusClass,
+    StructuredPropertyDefinitionClass,
+)
 from datahub.metadata.urns import DataTypeUrn, StructuredPropertyUrn, TagUrn
 from datahub.utilities.urns.urn import Urn
 
@@ -78,6 +85,8 @@ class SnowflakeTagResolver:
         self._emitted: Set[str] = set()
         self._value_types: Dict[str, str] = {}
         self._unreadable_definitions: Set[str] = set()
+        # Filled by the load and emptied once their Status is emitted.
+        self._managed_record_urns: List[str] = []
 
     def resolve_tag_urn(
         self, tag: SnowflakeTag, map_back: bool = True
@@ -136,12 +145,23 @@ class SnowflakeTagResolver:
 
         Existing records are emitted again so stale-entity removal keeps them.
         A new record is re-read first and dropped if another writer (sync-back)
-        created it since the run started, so it is never overwritten.
+        created it since the run started, so it is never overwritten. Managed
+        records get only a `Status`, once per run: never sync-back's content,
+        but enough to keep them out of stale-entity removal.
         """
+        if self.repository is not None and self.config.extract_tags != TagOption.skip:
+            # Load even if no tag was seen, so managed records stay checkpointed.
+            self._load()
         with self._lock:
             queued = list(self._queued.items())
             self._queued.clear()
             self._emitted.update(key for key, _ in queued)
+            managed_urns = self._managed_record_urns
+            self._managed_record_urns = []
+        for urn in managed_urns:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn, aspect=StatusClass(removed=False)
+            ).as_workunit()
         written_meanwhile = self._written_meanwhile(
             [key for key, _ in queued if key in self._new_keys]
         )
@@ -204,8 +224,11 @@ class SnowflakeTagResolver:
                     stored = []
                 for resource in stored:
                     record = self._parse(resource)
-                    if record is not None and self._is_this_instance(record):
-                        records[record.id.to_platform_resource_key().id] = record
+                    if record is None or not self._is_this_instance(record):
+                        continue
+                    records[record.id.to_platform_resource_key().id] = record
+                    if record.is_managed_by_datahub():
+                        self._managed_record_urns.append(resource.urn)
             self._records = records
             return records
 

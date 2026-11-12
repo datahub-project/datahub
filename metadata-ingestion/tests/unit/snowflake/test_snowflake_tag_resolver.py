@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional, Sequence
 
 from datahub.emitter.mcp_builder import StructuredPropertyWriteMode
+from datahub.ingestion.source.snowflake.snowflake_config import TagOption
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeTag
 from datahub.ingestion.source.snowflake.snowflake_tag_entities import (
@@ -13,8 +14,8 @@ from datahub.ingestion.source.snowflake.snowflake_tag_resolver import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
-from datahub.metadata.schema_classes import PlatformResourceInfoClass
-from datahub.metadata.urns import StructuredPropertyUrn, TagUrn
+from datahub.metadata.schema_classes import PlatformResourceInfoClass, StatusClass
+from datahub.metadata.urns import PlatformResourceUrn, StructuredPropertyUrn, TagUrn
 from tests.unit.snowflake.conftest import (
     aspects,
     fake_tag_repository,
@@ -38,8 +39,11 @@ def resolver(
     sp_mode: Optional[StructuredPropertyWriteMode] = None,
     value_type: Optional[str] = None,
     platform_instance: Optional[str] = None,
+    extract_tags: Optional[TagOption] = None,
 ) -> SnowflakeTagResolver:
     overrides: Dict[str, object] = {}
+    if extract_tags is not None:
+        overrides["extract_tags"] = extract_tags
     if sp_mode is not None:
         overrides["extract_tags_as_structured_properties"] = True
         overrides["structured_properties_write_mode"] = sp_mode
@@ -56,6 +60,10 @@ def resolver(
         ),
         platform_instance=platform_instance,
     )
+
+
+def _record_urn(record: SnowflakeTagPlatformResource) -> str:
+    return str(PlatformResourceUrn(record.id.to_platform_resource_key().id))
 
 
 def emitted_secondary_keys(r: SnowflakeTagResolver) -> List[List[str]]:
@@ -157,6 +165,37 @@ def test_existing_native_record_is_emitted_again_each_run() -> None:
 
     assert r.resolve_tag_urn(_TAG) == _NATIVE_TAG_URN
     assert emitted_secondary_keys(r) == [[_NATIVE_TAG_URN.urn()]]
+
+
+def test_managed_records_stay_in_the_checkpoint_with_status_only() -> None:
+    # Stale-entity removal would soft-delete a record that sync-back turned
+    # managed, after which the search no longer finds it.
+    other = SnowflakeTag(database="TEST_DB", schema="PUBLIC", name="PII", value="LOW")
+    managed = tag_record(_TAG, "urn:li:tag:pii", platform_instance="acct_a")
+    native = tag_record(
+        other,
+        "urn:li:tag:test_db.public.pii:low",
+        managed=False,
+        platform_instance="acct_a",
+    )
+    elsewhere = tag_record(other, "urn:li:tag:pii", platform_instance="acct_b")
+    r = resolver(
+        [managed, native, elsewhere],
+        platform_instance="acct_a",
+        extract_tags=TagOption.without_lineage,
+    )
+
+    first_run_end = list(r.platform_resource_workunits())
+    r.resolve_tag_urn(other)
+    later = list(r.platform_resource_workunits())
+
+    managed_urn = _record_urn(managed)
+    assert [wu.get_urn() for wu in first_run_end] == [managed_urn]
+    assert aspects(first_run_end, StatusClass) == {
+        managed_urn: StatusClass(removed=False)
+    }
+    assert list(aspects(later, PlatformResourceInfoClass)) == [_record_urn(native)]
+    assert managed_urn not in {wu.get_urn() for wu in later}
 
 
 def test_new_record_written_meanwhile_by_another_writer_is_not_overwritten() -> None:
