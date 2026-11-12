@@ -93,6 +93,12 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     make_custom_assertion_info,
     select_test_results_to_emit,
 )
+from datahub.ingestion.source.dremio.dremio_naming import (
+    DBT_DREMIO_NO_SCHEMA,
+    DbtDremioSchemaResolver,
+    dremio_dataset_name,
+    is_dremio_platform,
+)
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -2171,6 +2177,27 @@ class DBTNode:
         fqn = self._join_parts([self.database, self.schema, self.name])
         return fqn.replace('"', "")
 
+    def _target_platform_schema(self, target_platform: str) -> Optional[str]:
+        if is_dremio_platform(target_platform) and self.schema == DBT_DREMIO_NO_SCHEMA:
+            return None
+        return self.schema
+
+    def get_target_platform_fqn(self, target_platform: str) -> str:
+        """The name the target platform's own source gives this node's dataset.
+
+        The Dremio source names every dataset ``dremio.<path>``, lowercased, and
+        dbt-dremio's ``no_schema`` placeholder is not part of that path.
+        """
+        if self.is_semantic_model() or not is_dremio_platform(target_platform):
+            return self.get_db_fqn()
+        return dremio_dataset_name(
+            [
+                self.database,
+                self._target_platform_schema(target_platform),
+                self.name,
+            ]
+        ).replace('"', "")
+
     def get_urn(
         self,
         target_platform: str,
@@ -2179,7 +2206,7 @@ class DBTNode:
         # Otherwise, it's the target platform instance.
         data_platform_instance: Optional[str],
     ) -> str:
-        db_fqn = self.get_db_fqn()
+        db_fqn = self.get_target_platform_fqn(target_platform)
         if self.convert_urns_to_lowercase:
             db_fqn = db_fqn.lower()
         return mce_builder.make_dataset_urn_with_platform_instance(
@@ -2195,15 +2222,30 @@ class DBTNode:
     def is_semantic_model(self) -> bool:
         return self.node_type == DBT_NODE_TYPE_SEMANTIC_MODEL
 
-    def get_fake_ephemeral_table_name(self) -> str:
+    def _fake_ephemeral_parts(self, target_platform: str) -> List[Optional[str]]:
         assert self.is_ephemeral_model()
 
-        # Similar to get_db_fqn.
-        db_fqn = self._join_parts(
-            [self.database, self.schema, f"__datahub__dbt__ephemeral__{self.name}"]
-        )
-        db_fqn = db_fqn.lower()
-        return db_fqn.replace('"', "")
+        schema = self._target_platform_schema(target_platform)
+        if schema and is_dremio_platform(target_platform):
+            # A nested Dremio folder is a dotted schema, but detach_ctes keeps only
+            # 3 parts of the swapped-in name. Fold the folders into one part: the
+            # name is a placeholder that only has to match its own URN.
+            schema = schema.replace(".", "_")
+        return [self.database, schema, f"__datahub__dbt__ephemeral__{self.name}"]
+
+    def get_fake_ephemeral_table_name(self, target_platform: str) -> str:
+        """The table name an ephemeral model's CTE is swapped for in compiled SQL."""
+        db_fqn = self._join_parts(self._fake_ephemeral_parts(target_platform))
+        return db_fqn.lower().replace('"', "")
+
+    def get_fake_ephemeral_dataset_name(self, target_platform: str) -> str:
+        """The placeholder dataset name the schema resolver gives
+        get_fake_ephemeral_table_name."""
+        if is_dremio_platform(target_platform):
+            return dremio_dataset_name(
+                self._fake_ephemeral_parts(target_platform)
+            ).replace('"', "")
+        return self.get_fake_ephemeral_table_name(target_platform)
 
     def get_urn_for_upstream_lineage(
         self,
@@ -3298,14 +3340,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             f"Exposure {exposure.unique_id} depends on {upstream_dbt_name} which was not found in nodes"
                         )
 
-                # Dashboard info aspect
-                # Use current ingestion time for audit stamps since dbt exposures
-                # don't have created/modified timestamps
-                current_timestamp = int(datetime.now().timestamp() * 1000)
-                audit_stamp = AuditStampClass(
-                    time=current_timestamp,
-                    actor=mce_builder.make_user_urn("dbt_ingestion"),
-                )
+                # dbt exposures have no created or modified time. Leave the
+                # schema default (time 0 / unknown actor) so an unchanged
+                # exposure does not allocate a new dashboardInfo version. A
+                # wall clock is not a real modification time.
                 yield MetadataChangeProposalWrapper(
                     entityUrn=exposure_urn,
                     aspect=DashboardInfoClass(
@@ -3313,10 +3351,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         description=exposure.description or "",
                         customProperties=custom_properties,
                         externalUrl=exposure.url,
-                        lastModified=ChangeAuditStampsClass(
-                            created=audit_stamp,
-                            lastModified=audit_stamp,
-                        ),
+                        lastModified=ChangeAuditStampsClass(),
                         datasets=upstream_urns if upstream_urns else None,
                     ),
                 )
@@ -3762,7 +3797,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         warehouse_model_names: Dict[str, str] = {}  # warehouse name -> model unique id
         for node in original_nodes:
             if node.node_type == "model" and node.exists_in_target_platform:
-                warehouse_model_names[node.get_db_fqn()] = node.dbt_name
+                warehouse_model_names[
+                    node.get_target_platform_fqn(self.config.target_platform)
+                ] = node.dbt_name
 
         # Pass 2 - identify + drop duplicate sources.
         source_references_to_update: Dict[
@@ -3773,7 +3810,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if (
                 node.node_type == "source"
                 and node.exists_in_target_platform
-                and (model_name := warehouse_model_names.get(node.get_db_fqn()))
+                and (
+                    model_name := warehouse_model_names.get(
+                        node.get_target_platform_fqn(self.config.target_platform)
+                    )
+                )
             ):
                 self.report.warning(
                     title="Duplicate model and source names detected",
@@ -3872,11 +3913,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         graph: Optional[DataHubGraph] = self.ctx.graph
 
-        resolver_class: Type[SchemaResolver] = (
-            SchemaResolver
-            if self.config.include_database_name
-            else _TwoTierSchemaResolver
-        )
+        resolver_class: Type[SchemaResolver]
+        if is_dremio_platform(self.config.target_platform):
+            resolver_class = DbtDremioSchemaResolver
+        elif self.config.include_database_name:
+            resolver_class = SchemaResolver
+        else:
+            resolver_class = _TwoTierSchemaResolver
         schema_resolver = resolver_class(
             platform=self.config.target_platform,
             platform_instance=self.config.target_platform_instance,
@@ -3922,7 +3965,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     target_node_urn = (
                         mce_builder.make_dataset_urn_with_platform_instance(
                             platform=self.config.target_platform,
-                            name=node.get_fake_ephemeral_table_name(),
+                            name=node.get_fake_ephemeral_dataset_name(
+                                self.config.target_platform
+                            ),
                             platform_instance=self.config.target_platform_instance,
                             env=self.config.env,
                         )
@@ -4028,7 +4073,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 elif node.compiled_code:
                     # Add CTE stops based on the upstreams list.
                     cte_mapping = {
-                        cte_name: upstream_node.get_fake_ephemeral_table_name()
+                        cte_name: upstream_node.get_fake_ephemeral_table_name(
+                            self.config.target_platform
+                        )
                         for upstream_node in [
                             all_nodes_map[upstream_node_name]
                             for upstream_node_name in node.upstream_nodes

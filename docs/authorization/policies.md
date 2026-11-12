@@ -501,7 +501,7 @@ These privileges are for DataHub operators to access & manage the administrative
 | Manage Secrets                  | Allow actor to create & remove Secrets stored inside DataHub.                                                                                                                             |
 | Manage Users & Groups           | Allow actor to create, remove, and update users and groups on DataHub.                                                                                                                    |
 | Manage All Access Tokens        | Allow actor to create, list and revoke access tokens on behalf of users in DataHub. Be careful - Actors with this privilege are effectively super users that can impersonate other users. |
-| Manage User Credentials         | Allow actor to manage credentials for native DataHub users, including inviting new users and resetting passwords                                                                          |     |
+| Manage User Credentials         | Allow actor to manage credentials for native DataHub users, including inviting new users and resetting passwords. Attaching a role to an invite link also requires Manage Policies.       |     |
 | Manage Connections              | Allow actor to manage connections to external DataHub platforms.                                                                                                                          |
 
 #### Product Features

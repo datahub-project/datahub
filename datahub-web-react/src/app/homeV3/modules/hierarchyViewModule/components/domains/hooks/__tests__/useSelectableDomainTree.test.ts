@@ -1,6 +1,5 @@
 import { ApolloQueryResult, NetworkStatus } from '@apollo/client';
 import { act } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useInitialDomains from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useInitialDomains';
@@ -12,6 +11,7 @@ import useTreeNodesFromDomains from '@app/homeV3/modules/hierarchyViewModule/com
 import { convertDomainToTreeNode } from '@app/homeV3/modules/hierarchyViewModule/components/domains/utils';
 import useTree from '@app/homeV3/modules/hierarchyViewModule/treeView/useTree';
 import { mergeTrees } from '@app/homeV3/modules/hierarchyViewModule/treeView/utils';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { GetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { Domain, EntityType } from '@types';

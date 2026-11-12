@@ -91,6 +91,9 @@ chore, not a merge blocker.
   The alchemy library is documented in
   [`src/alchemy-components/README.mdx`](src/alchemy-components/README.mdx); preview
   components with `yarn storybook`.
+- Some alchemy components must be used through an app wrapper that adds app behavior
+  (an error boundary, DataHub mentions…). The `rulesdir/use-app-wrappers` entry in
+  `.eslintrc.js` lists them with the wrapper to import, and its lint error names the wrapper.
 - An alchemy component is generalized and reusable anywhere: it must not depend on DataHub
   aspects, data structures, or GraphQL types.
 - Reusable DataHub-specific components (which may take GraphQL types as props) go under

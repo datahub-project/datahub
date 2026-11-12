@@ -10,5 +10,12 @@
     "customOwnershipType": "Benutzerdefinierter Ownership Type",
     "ingestionSource": "Ingestion-Source",
     "groupBy.displayValue": "Nach {{label}} gruppieren",
-    "groupBy.group": "Gruppieren"
+    "groupBy.group": "Gruppieren",
+    "selectItems.addMoreSection": "Weitere hinzufügen",
+    "selectItems.entitiesLabel": "Entitäten",
+    "selectItems.itemsLabel": "Elemente",
+    "selectItems.noEntityFound": "Kein {{entityName}} gefunden",
+    "selectItems.removeAll": "Alle entfernen",
+    "selectItems.searchForEntity": "Nach {{entityName}} suchen...",
+    "selectItems.selectedSection": "Ausgewählt"
 }

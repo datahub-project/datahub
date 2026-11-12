@@ -9,9 +9,9 @@ import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components/macro';
 
 import { useDomainsContext } from '@app/domainV2/DomainsContext';
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossaryV2/utils';
 import CompactContext from '@app/sharedV2/CompactContext';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';

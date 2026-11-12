@@ -1,0 +1,16 @@
+{
+    "query_type": "UNKNOWN",
+    "query_type_props": {},
+    "query_fingerprint": "f80d1e3b5a9629fe4208921c84c41f8a0c5f7980c1b67d0b9f83fb8b106f9358",
+    "in_tables": [],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_schema.my_table_a,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_schema.my_table_b,PROD)"
+    ],
+    "column_lineage": null,
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "DROP TABLE my_schema.my_table_a, my_schema.my_table_b"
+    }
+}

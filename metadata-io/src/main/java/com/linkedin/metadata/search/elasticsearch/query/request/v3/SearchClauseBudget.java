@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public final class SearchClauseBudget {
+  // The estimated query does not include analyzer-level expansions for every engine/version. Leave
+  // enough room below OpenSearch's default 1024 limit for those expansions.
   public static final int CLAUSE_BUDGET = 850;
 
   /** Clauses per term outside the per-field queries (all-terms, description, fully qualified). */

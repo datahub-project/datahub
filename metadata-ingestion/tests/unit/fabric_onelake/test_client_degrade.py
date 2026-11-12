@@ -3,41 +3,32 @@ must be told, because empty is otherwise indistinguishable from 'no tables'."""
 
 import logging
 from typing import List, Tuple
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 import requests
 
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
+from tests.unit.fabric_common.conftest import fabric_response, specced_auth_helper
 
 
-def _response(status: int, body: bytes = b"{}") -> requests.Response:
-    response = requests.Response()
-    response.status_code = status
-    response._content = body
-    response.url = "https://api.fabric.microsoft.com/v1/x"
-    return response
-
-
-def _client() -> OneLakeClient:
-    auth = MagicMock()
-    auth.get_authorization_header.return_value = "Bearer placeholder-token"
-    return OneLakeClient(auth_helper=auth)
-
-
-def test_warehouse_404_is_reported_to_the_caller() -> None:
-    client = _client()
+def test_warehouse_404_is_reported_to_the_caller(
+    onelake_client: OneLakeClient,
+) -> None:
+    client = onelake_client
     seen: List[str] = []
 
-    with patch.object(client._session, "request", return_value=_response(404)):
+    with patch.object(client._session, "request", return_value=fabric_response(404)):
         tables = list(client.list_warehouse_tables("ws", "wh", on_degraded=seen.append))
 
     assert tables == []
     assert len(seen) == 1 and "404" in seen[0]
 
 
-def test_schemas_enabled_lakehouse_403_is_reported_to_the_caller() -> None:
-    client = _client()
+def test_schemas_enabled_lakehouse_403_is_reported_to_the_caller(
+    onelake_client: OneLakeClient,
+) -> None:
+    client = onelake_client
     seen: List[str] = []
 
     # GET lakehouse properties says schemas are enabled, then the OneLake
@@ -46,12 +37,16 @@ def test_schemas_enabled_lakehouse_403_is_reported_to_the_caller() -> None:
         patch.object(
             client._session,
             "request",
-            return_value=_response(200, b'{"properties": {"defaultSchema": "dbo"}}'),
+            return_value=fabric_response(
+                200, b'{"properties": {"defaultSchema": "dbo"}}'
+            ),
         ),
         patch.object(
             client._session,
             "get",
-            return_value=_response(403, b'{"error": "placeholder-token in body"}'),
+            return_value=fabric_response(
+                403, b'{"error": "placeholder-token in body"}'
+            ),
         ),
     ):
         tables = list(client.list_lakehouse_tables("ws", "lh", on_degraded=seen.append))
@@ -63,10 +58,12 @@ def test_schemas_enabled_lakehouse_403_is_reported_to_the_caller() -> None:
     assert "placeholder-token" not in seen[0]
 
 
-def test_ingestion_callers_still_get_a_silent_empty_result() -> None:
-    client = _client()
+def test_ingestion_callers_still_get_a_silent_empty_result(
+    onelake_client: OneLakeClient,
+) -> None:
+    client = onelake_client
 
-    with patch.object(client._session, "request", return_value=_response(404)):
+    with patch.object(client._session, "request", return_value=fabric_response(404)):
         assert list(client.list_warehouse_tables("ws", "wh")) == []
 
 
@@ -78,12 +75,12 @@ def _lakehouse_delta_api_failing(
 ) -> Tuple[OneLakeClient, List[requests.Response]]:
     """A schemas-enabled lakehouse whose Delta API call number `failing_call`
     (0 = list schemas, 1 = list tables) returns `status` with the sentinel."""
-    client = _client()
+    client = OneLakeClient(auth_helper=specced_auth_helper())
     responses = [
-        _response(200, b'{"schemas": [{"name": "dbo"}]}'),
-        _response(200, b'{"tables": []}'),
+        fabric_response(200, b'{"schemas": [{"name": "dbo"}]}'),
+        fabric_response(200, b'{"tables": []}'),
     ]
-    responses[failing_call] = _response(
+    responses[failing_call] = fabric_response(
         status, ('{"error": "' + _SENTINEL + '"}').encode()
     )
     return client, responses
@@ -105,7 +102,7 @@ def test_delta_api_error_bodies_never_reach_the_logs(
             patch.object(
                 client._session,
                 "request",
-                return_value=_response(
+                return_value=fabric_response(
                     200, b'{"properties": {"defaultSchema": "dbo"}}'
                 ),
             ),

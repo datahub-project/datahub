@@ -269,11 +269,12 @@ class LookerViewId:
 
         dataset_name = config.view_naming_pattern.replace_variables(n_mapping)
 
+        platform_detail = config.view_platform_detail(self.project_name)
         generated_urn = builder.make_dataset_urn_with_platform_instance(
             platform=config.platform_name,
             name=dataset_name,
-            platform_instance=config.platform_instance,
-            env=config.env,
+            platform_instance=platform_detail.platform_instance,
+            env=platform_detail.env,
         )
 
         logger.debug(
@@ -1983,11 +1984,13 @@ class LookerDashboard:
 class LookerUserRegistry:
     looker_api_wrapper: LookerAPI
     fields: str = ",".join(["id", "email", "display_name", "first_name", "last_name"])
-    _user_cache: Dict[str, LookerUser] = {}
 
     def __init__(self, looker_api: LookerAPI, report: LookerDashboardSourceReport):
         self.looker_api_wrapper = looker_api
         self.report = report
+        # Per-instance: a class-level dict would be shared by every registry in
+        # the process, leaking user ids cached by one ingestion run into the next.
+        self._user_cache: Dict[str, LookerUser] = {}
         self._initialize_user_cache()
 
     def _initialize_user_cache(self) -> None:

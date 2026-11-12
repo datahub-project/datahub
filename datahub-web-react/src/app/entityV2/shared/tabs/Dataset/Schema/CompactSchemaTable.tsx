@@ -6,9 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import useSchemaTitleRenderer from '@app/entityV2/dataset/profile/schema/utils/schemaTitleRenderer';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
 import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
@@ -26,6 +26,7 @@ type Props = {
     rows: Array<ExtendedSchemaFields>;
     schemaMetadata: SchemaMetadata | undefined | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
+    editedPrimaryKeys?: string[] | null;
     usageStats?: UsageQueryResult | null;
     fullHeight?: boolean;
     expandedRowsFromFilter?: Set<string>;
@@ -82,6 +83,7 @@ export default function CompactSchemaTable({
     rows,
     schemaMetadata,
     editableSchemaMetadata,
+    editedPrimaryKeys,
     usageStats,
     fullHeight,
     inputFields,
@@ -103,7 +105,7 @@ export default function CompactSchemaTable({
     const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, true, fieldInfoMaps);
     const usageStatsRenderer = useUsageStatsRenderer(usageStats);
 
-    const schemaTitleRenderer = useSchemaTitleRenderer(urn, schemaMetadata, '', true);
+    const schemaTitleRenderer = useSchemaTitleRenderer(urn, schemaMetadata, editedPrimaryKeys, '', true);
 
     const shortenedRows = useMemo(() => rows.slice(0, numberOfRowsToShow), [rows, numberOfRowsToShow]);
     const hasSeeMore = rows.length > numberOfRowsToShow;
@@ -229,6 +231,8 @@ export default function CompactSchemaTable({
             {!!schemaFields && (
                 <SchemaFieldDrawer
                     schemaFields={schemaFields}
+                    schemaPrimaryKeys={schemaMetadata?.primaryKeys}
+                    editedPrimaryKeys={editedPrimaryKeys}
                     expandedDrawerFieldPath={schemaFieldDrawerFieldPath}
                     editableSchemaMetadata={editableSchemaMetadata}
                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
