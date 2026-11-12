@@ -11,8 +11,11 @@ import com.datahub.authorization.DefaultAuthorizerConfiguration;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AppConfig;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.PersonalSidebarSection;
+import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
 import com.linkedin.datahub.graphql.generated.SearchBarAPI;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.config.*;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
@@ -436,6 +439,22 @@ public class AppConfigResolverTest {
     // Verify that the privileges lists are populated (they come from static config)
     assertFalse(result.getPoliciesConfig().getPlatformPrivileges().isEmpty());
     assertFalse(result.getPoliciesConfig().getResourcePrivileges().isEmpty());
+  }
+
+  @Test
+  public void testResourcePrivilegesEntityTypeMapping() throws Exception {
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    // The policy builder narrows resource search to these entity types; a null entityType
+    // drops the resource type from the search.
+    Map<String, EntityType> entityTypeByResourceType = new HashMap<>();
+    for (ResourcePrivileges privileges : result.getPoliciesConfig().getResourcePrivileges()) {
+      entityTypeByResourceType.put(privileges.getResourceType(), privileges.getEntityType());
+    }
+
+    assertEquals(
+        entityTypeByResourceType.get(PoliciesConfig.ASSERTION_PRIVILEGES.getResourceType()),
+        EntityType.ASSERTION);
   }
 
   @Test
