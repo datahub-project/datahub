@@ -419,20 +419,45 @@ def _writes_metadata(ctx: click.Context) -> bool:
     return bool(ctx.params.get("to_datahub") or ctx.params.get("update"))
 
 
+def _announce_target(ctx: click.Context) -> None:
+    if not _writes_metadata(ctx):
+        return
+    try:
+        resolved: Optional[ResolvedProfile] = resolve_profile()
+    except (MissingConfigError, click.UsageError):
+        # Only an announcement: a command that needs the connection
+        # reports the error itself, and one that doesn't (an ingest
+        # recipe with its own sink) must not fail on a stale pointer.
+        resolved = None
+    if resolved is not None and resolved.name != "default":
+        click.echo(profile_target_line(resolved), err=True)
+
+
 def with_profile_target(callback: Callable[_P, _R]) -> Callable[_P, _R]:
     @wraps(callback)
     def wrapped(*args: _P.args, **kwargs: _P.kwargs) -> _R:
         ctx = click.get_current_context(silent=True)
-        if ctx is not None and _writes_metadata(ctx):
-            try:
-                resolved: Optional[ResolvedProfile] = resolve_profile()
-            except (MissingConfigError, click.UsageError):
-                # Only an announcement: a command that needs the connection
-                # reports the error itself, and one that doesn't (an ingest
-                # recipe with its own sink) must not fail on a stale pointer.
-                resolved = None
-            if resolved is not None and resolved.name != "default":
-                click.echo(profile_target_line(resolved), err=True)
+        if ctx is not None:
+            _announce_target(ctx)
         return callback(*args, **kwargs)
 
     return wrapped
+
+
+def announce_profile_target(command: click.Command) -> None:
+    """Announce the write target before `command` runs.
+
+    Hooks the command's invoke rather than replacing its callback: telemetry
+    detects its own wrappers by walking the callback, and an instrumented
+    callback must stay the same object (see enable_auto_decorators).
+    """
+    original = command.invoke
+    if getattr(original, "_announces_profile_target", False):
+        return
+
+    def invoke(ctx: click.Context) -> object:
+        _announce_target(ctx)
+        return original(ctx)
+
+    invoke._announces_profile_target = True  # type: ignore[attr-defined]
+    command.invoke = invoke  # type: ignore[method-assign]

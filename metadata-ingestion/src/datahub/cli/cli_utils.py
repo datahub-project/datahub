@@ -514,10 +514,10 @@ def enable_auto_decorators(main_group: click.Group) -> None:
     def wrap_command_callback(command_obj):
         """Wrap a command's callback function to add decorators"""
         if hasattr(command_obj, "callback") and command_obj.callback:
-            from datahub.cli.profile_cli import with_profile_target
+            from datahub.cli.profile_cli import announce_profile_target
 
-            original_callback = with_profile_target(command_obj.callback)
-            command_obj.callback = original_callback
+            announce_profile_target(command_obj)
+            original_callback = command_obj.callback
 
             # Import here to avoid circular imports
             from datahub.telemetry import telemetry

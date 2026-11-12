@@ -573,6 +573,31 @@ def test_connection_resolves_without_a_home_directory(
     assert load_client_config().server == "http://gms:8080"
 
 
+def test_auto_decorators_announce_without_replacing_callbacks() -> None:
+    from datahub.cli.cli_utils import enable_auto_decorators
+
+    store("acme")
+
+    @click.group("datahub")
+    def root() -> None:
+        pass
+
+    @root.group("user")
+    def user() -> None:
+        pass
+
+    @user.command("upsert")
+    def upsert() -> None:
+        click.echo("done")
+
+    enable_auto_decorators(root)
+    enable_auto_decorators(root)  # idempotent: one announcement, not two
+    with select_cli_profile("acme"):
+        result = CliRunner().invoke(root, ["user", "upsert"])
+    assert result.exit_code == 0, result.output
+    assert result.stderr.count("https://acme.example.com/gms") == 1
+
+
 def test_lite_config_stays_in_default_datahubenv(home: Path) -> None:
     from datahub.cli.lite_cli import get_lite_config, write_lite_config
 
