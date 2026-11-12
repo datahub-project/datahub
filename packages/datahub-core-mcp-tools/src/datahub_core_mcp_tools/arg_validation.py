@@ -17,8 +17,10 @@ OpenAI-compatible endpoints, which reject the *whole* tool list with a 422
   union and ``WithJsonSchema`` publishes a plain array.
 """
 
-from typing import Annotated, List, Optional
+from typing import Annotated, List, Optional, Tuple, TypedDict
 
+from datahub.metadata.urns import Urn
+from datahub.utilities.urns.error import InvalidUrnError
 from pydantic import AliasChoices, BeforeValidator, WithJsonSchema
 from pydantic_core import from_json
 
@@ -101,6 +103,8 @@ def coerce_keyword_list(
 # canonical name missing from its own set becomes unreachable, so every name these
 # are applied to appears in them.
 FILTER_ALIASES = AliasChoices("filter", "filters")
+URNS_ALIASES = AliasChoices("urns", "urn", "entityUrns", "dataset_urns", "dataset_urn")
+FIELDS_ALIASES = AliasChoices("fields", "aspects")
 SIZE_ALIASES = AliasChoices(
     "num_results",
     "limit",
@@ -111,3 +115,75 @@ SIZE_ALIASES = AliasChoices(
     "pageSize",
 )
 OFFSET_ALIASES = AliasChoices("offset", "start")
+
+
+DATASET_URN_EXAMPLE = (
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
+)
+
+
+class SkippedUrn(TypedDict):
+    """One value a batch URN parameter rejected. Reaches the caller in a tool result."""
+
+    urn: str
+    error: str
+
+
+def urn_error_message(
+    value: str,
+    *,
+    tool: str,
+    param: str = "urn",
+    example: str = DATASET_URN_EXAMPLE,
+) -> Optional[str]:
+    """Why ``value`` is not a usable DataHub URN, or None when it is.
+
+    An empty value, a name, and a malformed URN get different messages because the
+    caller's next step differs: a name needs a lookup, so the message names the
+    tool that does it; a malformed URN gets the parser's reason.
+    """
+    candidate = value.strip()
+    if not candidate:
+        return (
+            f"{tool}: `{param}` is required and was empty. "
+            f"Expected a DataHub URN, e.g. {example}."
+        )
+    try:
+        Urn.from_string(candidate)
+    except InvalidUrnError as e:
+        if candidate.startswith("urn:li:"):
+            return (
+                f"{tool}: `{param}` is not a valid DataHub URN: {e}. "
+                f"Expected the form {example}."
+            )
+        return (
+            f"{tool}: `{param}` must be a DataHub URN, got {candidate!r}. "
+            f"Expected the form {example}. To turn a name into a URN, call "
+            f'search(query="{candidate}") and pass the `urn` from the result.'
+        )
+    return None
+
+
+def partition_urns(
+    values: List[str], *, tool: str, param: str = "urns"
+) -> Tuple[List[str], List[SkippedUrn]]:
+    """Split ``values`` into usable URNs (stripped) and rejected ones.
+
+    For a batch parameter, where one bad entry should not discard the good ones.
+    """
+    valid: List[str] = []
+    skipped: List[SkippedUrn] = []
+    for index, candidate in enumerate(values):
+        problem = urn_error_message(candidate, tool=tool, param=f"{param}[{index}]")
+        if problem is None:
+            valid.append(candidate.strip())
+        else:
+            skipped.append({"urn": candidate, "error": problem})
+    return valid, skipped
+
+
+def no_usable_urns_error(tool: str, skipped: List[SkippedUrn]) -> str:
+    """The message for a batch where every value was rejected, naming each one."""
+    return f"{tool}: none of the {len(skipped)} values are DataHub URNs.\n" + "\n".join(
+        entry["error"] for entry in skipped
+    )

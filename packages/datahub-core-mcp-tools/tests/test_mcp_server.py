@@ -29,7 +29,7 @@ async def test_registration_is_per_instance() -> None:
 
     register_tools(registered, is_oss=True)
 
-    assert set(await _tools(registered)) == {"get_me", "search"}
+    assert set(await _tools(registered)) == {"get_me", "search", "get_entities"}
     assert await _tools(untouched) == {}
 
 
@@ -38,7 +38,11 @@ async def test_registering_twice_on_separate_instances_is_independent() -> None:
     register_tools(first, is_oss=True)
     register_tools(second, is_oss=False)
 
-    assert set(await _tools(first)) == set(await _tools(second)) == {"get_me", "search"}
+    assert (
+        set(await _tools(first))
+        == set(await _tools(second))
+        == {"get_me", "search", "get_entities"}
+    )
 
 
 async def test_tools_carry_tags_and_explicit_annotations() -> None:

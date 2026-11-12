@@ -13,15 +13,31 @@ from dataclasses import dataclass
 from typing import Protocol, cast
 
 from datahub.ingestion.graph.client import DataHubGraph
+from loguru import logger
 from pydantic import JsonValue
 
 from . import graphql_helpers
+from .sibling_merge import SIBLINGS_KEY, SIBLINGS_SEARCH_KEY, sibling_merge_enabled
 
 JsonObject = dict[str, JsonValue]
 
 
 class ReadBackend(Protocol):
     def exists(self, urn: str) -> bool: ...
+
+    def entity(self, urn: str, *, include_contract: bool = False) -> JsonObject | None:
+        """The entity as ``get_entities`` reads it, raw (before cleaning); None when
+        GMS returns nothing for it.
+
+        A dataset with siblings carries their documentation-bearing parts under
+        ``siblingsSearch`` for sibling_merge. ``include_contract`` also reads a
+        dataset's data contract.
+        """
+        ...
+
+    def related_documents(self, urn: str, start: int, count: int) -> JsonObject:
+        """``getRelatedDocuments`` for the variables of ``related_documents.gql``."""
+        ...
 
     def aspects(self, urn: str) -> dict[str, JsonObject] | None:
         """Raw aspects keyed by aspect name (e.g. ``schemaMetadata``), each in
@@ -50,6 +66,60 @@ class GraphQLReadBackend:
 
     def exists(self, urn: str) -> bool:
         return self.graph.exists(urn)
+
+    def entity(self, urn: str, *, include_contract: bool = False) -> JsonObject | None:
+        variables: JsonObject = {"urn": urn}
+        if urn.startswith("urn:li:query:"):
+            # QueryEntity is not part of the Entity union GetEntity selects from.
+            document, operation = "query_entity.gql", "GetQueryEntity"
+        elif urn.startswith("urn:li:assertion:"):
+            document, operation = "assertion_entity.gql", "GetAssertionEntity"
+        else:
+            document, operation = "entity_details.gql", "GetEntity"
+            variables["includeContract"] = include_contract
+        entity = cast(
+            JsonObject | None,
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document(document),
+                variables=variables,
+                operation_name=operation,
+            )["entity"],
+        )
+        # Read here rather than in the tools, so every backend that wraps this one
+        # returns siblings too. GetEntity selects `siblings` only to learn whether
+        # there are any, so only datasets with siblings pay for this second query.
+        if (
+            entity is not None
+            and entity.get(SIBLINGS_KEY) is not None
+            and sibling_merge_enabled()
+        ):
+            try:
+                siblings = graphql_helpers.execute_graphql(
+                    self.graph,
+                    query=graphql_helpers.load_gql_document("entity_details.gql"),
+                    variables={"urn": urn},
+                    operation_name="GetEntitySiblings",
+                )["entity"]
+            except Exception as e:
+                # The entity's own metadata still answers the call.
+                logger.warning(
+                    f"Sibling read failed for {urn}; returning its own metadata: {e}"
+                )
+            else:
+                entity[SIBLINGS_SEARCH_KEY] = (siblings or {}).get(SIBLINGS_SEARCH_KEY)
+        return entity
+
+    def related_documents(self, urn: str, start: int, count: int) -> JsonObject:
+        return cast(
+            JsonObject,
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document("related_documents.gql"),
+                variables={"urn": urn, "input": {"start": start, "count": count}},
+                operation_name="getRelatedDocuments",
+            ),
+        )
 
     def aspects(self, urn: str) -> dict[str, JsonObject] | None:
         # get_entity_semityped returns at least the key aspect even for an entity

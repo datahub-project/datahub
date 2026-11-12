@@ -20,7 +20,9 @@ from .background_execution import run_in_background
 from .graphql_helpers import get_mcp_context
 from .progress_heartbeat import with_progress_heartbeat
 from .result_policy import trust_label_tags
+from .schema_matching import SchemaFieldMatcher
 from .tool_context import BackgroundExecution
+from .tools.entities import SchemaFieldsTool, get_entities
 from .tools.get_me import get_me
 from .tools.search import search, search_description
 from .version_requirements import tool_annotations
@@ -127,6 +129,7 @@ def register_tools(
     *,
     is_oss: bool,
     groups: Optional[Collection[str]] = None,
+    schema_field_matcher: Optional[SchemaFieldMatcher] = None,
 ) -> list[str]:
     """Register every DataHub tool this deployment supports on ``mcp_instance``.
 
@@ -136,6 +139,8 @@ def register_tools(
             (False). Some tools describe themselves differently on each.
         groups: Register only these tool groups (see tool_groups), plus the
             system tools every server serves. None registers every group.
+        schema_field_matcher: How the schema tools rank columns against names
+            and keywords on this server; substring matching by default.
 
     Returns:
         The names of the tools registered.
@@ -167,5 +172,15 @@ def register_tools(
         search,
         ToolType.SEARCH,
         description=search_description(is_oss=is_oss),
+    )
+    schema_tools = (
+        SchemaFieldsTool(matcher=schema_field_matcher)
+        if schema_field_matcher is not None
+        else None
+    )
+    add(
+        "get_entities",
+        schema_tools.get_entities if schema_tools else get_entities,
+        ToolType.SEARCH,
     )
     return registered
