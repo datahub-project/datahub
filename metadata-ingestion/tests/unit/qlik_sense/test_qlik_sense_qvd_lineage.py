@@ -190,6 +190,7 @@ def _run(
         api.failed_user_lookups = {}
         api.change_check_failures = []
         api.lineage_read_failures = []
+        api.field_lineage_failures = []
         api.get_user_name.return_value = None
         api.get_data_connections.return_value = CONNECTIONS
         api.get_items.return_value = apps

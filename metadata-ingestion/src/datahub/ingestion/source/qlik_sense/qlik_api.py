@@ -114,6 +114,9 @@ class QlikAPI(QlikBaseAPI):
                 dataset.stored_from_qris = [
                     qri for table in tables for qri in table.source_qris
                 ]
+                dataset.stored_field_lineage_failed = any(
+                    table.field_lineage_failed for table in tables
+                )
                 for table in tables:
                     for name, sources in table.field_source_qris.items():
                         dataset.stored_field_source_qris.setdefault(name, []).extend(
@@ -155,7 +158,16 @@ class QlikAPI(QlikBaseAPI):
                 table.source_qris.append(edge[Constant.SOURCE])
         if self.config.include_column_lineage:
             for table in tables.values():
-                self._add_field_lineage(qri, table)
+                # The table graph is complete without its field level, which
+                # only adds column lineage.
+                try:
+                    self._add_field_lineage(qri, table)
+                except Exception as e:
+                    log_read_error(
+                        f"Unable to fetch field lineage of {table.qri}. Exception: {e}"
+                    )
+                    table.field_lineage_failed = True
+                    self.field_lineage_failures.append(f"{table.qri}: {e}")
         return list(tables.values())
 
     def _add_field_lineage(self, qri: str, table: LineageTable) -> None:
