@@ -4,10 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { mapAvatarTypeToEntityType } from '@components/components/Avatar/utils';
 import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
 
 import { getRolePolicies, getRoleUsers } from '@app/permissions/roles/roles.utils';
+import { mapAvatarTypeToEntityType } from '@app/sharedV2/avatar/avatar.utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpUser, DataHubPolicy, DataHubRole, EntityType } from '@types';
