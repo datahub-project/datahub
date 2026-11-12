@@ -12,6 +12,7 @@ from datahub.ingestion.source.qlik_sense.qvd_lineage import (
     QvdPathResolver,
     app_qvd_lineage,
     canonical_path,
+    qvd_folders,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     DataConnectionInfo,
@@ -19,6 +20,8 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     parse_script,
 )
 from datahub.metadata.schema_classes import (
+    ContainerClass,
+    ContainerPropertiesClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     SchemaMetadataClass,
@@ -205,6 +208,8 @@ def _run(
                 SchemaMetadataClass,
                 DatasetPropertiesClass,
                 SubTypesClass,
+                ContainerClass,
+                ContainerPropertiesClass,
             ):
                 aspect = wu.get_aspect_of_type(aspect_type)
                 if aspect:
@@ -307,3 +312,36 @@ def test_stored_qvd_takes_the_data_model_fields_a_load_star_hides() -> None:
         ("id", "id"),
         ("amount", "amount"),
     ]
+
+
+@pytest.mark.parametrize(
+    "path, expected",
+    [
+        (
+            "//nas.example.com/qvd/raw/orders.qvd",
+            [("\\\\nas.example.com\\qvd", None), ("raw", "//nas.example.com/qvd")],
+        ),
+        ("d:/data/orders.qvd", [("d:", None), ("data", "d:")]),
+    ],
+)
+def test_qvd_folders_start_at_the_share_or_drive(
+    path: str, expected: List[Any]
+) -> None:
+    assert [(folder.name, folder.parent) for folder in qvd_folders(path)] == expected
+
+
+def test_qvds_are_in_folder_containers_of_their_share() -> None:
+    _, aspects = _run([_app("etl-app", ETL_SCRIPT), _app("report-app", REPORT_SCRIPT)])
+    names = {
+        urn: props["ContainerPropertiesClass"].name
+        for urn, props in aspects.items()
+        if "ContainerPropertiesClass" in props
+        and props["SubTypesClass"].typeNames == ["Folder"]
+    }
+    # One container per folder, however many QVDs and apps it holds.
+    assert sorted(names.values()) == ["\\\\nas\\qvd", "clean", "raw"]
+    clean_folder = aspects[CLEAN]["ContainerClass"].container
+    raw_folder = aspects[RAW]["ContainerClass"].container
+    assert names[clean_folder] == "clean"
+    assert names[raw_folder] == "raw"
+    assert names[aspects[clean_folder]["ContainerClass"].container] == "\\\\nas\\qvd"

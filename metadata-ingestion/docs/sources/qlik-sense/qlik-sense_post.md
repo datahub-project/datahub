@@ -60,6 +60,8 @@ On-prem, the connector opens each app with its data and reads its data model, so
 
 On Qlik Sense Enterprise on Windows, QVD lineage comes from the load scripts. A table loaded with `LOAD ... FROM <file> (qvd)` links upstream to that QVD, and a QVD written with `STORE <table> INTO <file>` links upstream to the stored table, so lineage runs from an ETL app, through the QVDs it writes, to the apps that load them. Each QVD is a dataset with the `QVD` subtype, named after its file without the extension.
 
+Each QVD is placed in `Folder` containers that follow its path, starting from the UNC share (`\\server\share`) or drive (`D:`), so QVDs are browsed by share and folder.
+
 A QVD is identified by its file path: a `lib://` path is resolved through the folder of its data connection, and file system paths, which only legacy mode allows, are used as they are. Paths are matched without regard to case or slash direction, so two connections to the same folder find the same QVD. When apps reach one share by different names, such as a short and a fully qualified host name, map them with `qvd_folder_aliases`:
 
 ```yaml

@@ -58,6 +58,10 @@ class AppKey(ContainerKey):
     app: str
 
 
+class QvdFolderKey(ContainerKey):
+    path: str
+
+
 class SpaceType(Enum):
     PERSONAL = "personal"
     SHARED = "shared"

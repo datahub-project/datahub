@@ -15,7 +15,11 @@ from pydantic import BaseModel
 import datahub.emitter.mce_builder as builder
 from datahub._version import __version__
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import add_entity_to_container, gen_containers
+from datahub.emitter.mcp_builder import (
+    add_dataset_to_container,
+    add_entity_to_container,
+    gen_containers,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -36,6 +40,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
+    DatasetContainerSubTypes,
     DatasetSubTypes,
 )
 from datahub.ingestion.source.qlik_sense.app_state import (
@@ -62,6 +67,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     LineageTable,
     QlikDataset,
     QlikTable,
+    QvdFolderKey,
     SchemaField as QlikDatasetSchemaField,
     Sheet,
     Space,
@@ -84,6 +90,7 @@ from datahub.ingestion.source.qlik_sense.qvd_lineage import (
     QvdPathResolver,
     QvdWrite,
     app_qvd_lineage,
+    qvd_folders,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     BACKTICK_QUOTED_PLATFORMS,
@@ -296,6 +303,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # The files each app's load script reads, to resolve the files in its
         # lineage graph with.
         self._file_sources_by_app: Dict[str, FileSourceResolver] = {}
+        self._qvd_folders_emitted: Set[str] = set()
         self._app_space_ids: Dict[str, str] = {}
         self._resolved_file_qris: Set[str] = set()
         self._allowed_space_ids: Set[str] = set()
@@ -620,6 +628,31 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             instance=self.config.platform_instance,
         )
+
+    def _gen_qvd_folder_key(self, path: str) -> QvdFolderKey:
+        return QvdFolderKey(
+            path=path,
+            platform=self.platform,
+            instance=self.config.platform_instance,
+        )
+
+    def _gen_qvd_folders(self, path: str) -> Iterable[MetadataWorkUnit]:
+        """Folder containers for an on-prem QVD, from its share or drive down,
+        each emitted once a run; the QVD goes in the innermost one."""
+        folders = qvd_folders(path)
+        for folder in folders:
+            if folder.path in self._qvd_folders_emitted:
+                continue
+            self._qvd_folders_emitted.add(folder.path)
+            yield from gen_containers(
+                container_key=self._gen_qvd_folder_key(folder.path),
+                name=folder.name,
+                sub_types=[DatasetContainerSubTypes.FOLDER],
+                parent_container_key=self._gen_qvd_folder_key(folder.parent)
+                if folder.parent
+                else None,
+                qualified_name=folder.path,
+            )
 
     def _gen_app_key(self, app_id: str) -> AppKey:
         return AppKey(
@@ -2308,6 +2341,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 entityUrn=urn,
                 aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_QVD]),
             ).as_workunit()
+            # Without a container the browse path would be cut at the dots
+            # of the server name.
+            folders = qvd_folders(path)
+            if folders:
+                yield from self._gen_qvd_folders(path)
+                yield from add_dataset_to_container(
+                    container_key=self._gen_qvd_folder_key(folders[-1].path),
+                    dataset_urn=urn,
+                )
 
     def _gen_qvd_lineage(self) -> Iterable[MetadataWorkUnit]:
         """Schema and lineage of on-prem QVDs, from every app that writes or
