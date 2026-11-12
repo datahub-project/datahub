@@ -152,20 +152,19 @@ export class IncidentsPage extends BasePage {
    * the group may not be present at the moment this method is called (e.g. in test 3
    * where Apollo cache is empty and the query must fetch from GMS).  Without the wait,
    * `isVisible()` returns false before the group renders, the expansion click is never
-   * made, and the group stays collapsed once data loads (the `processed` flag in
-   * `useGetExpandedTableGroupsFromEntityUrnInUrl` prevents the auto-expand from re-firing).
+   * made, and a group closed by an `incident_urn` link stays collapsed once data loads.
    */
   async expandGroupIfNeeded(priority: string): Promise<void> {
     const group = this.getIncidentGroup(priority);
     // Wait for the group row to appear in the DOM before checking its state.
     await group.waitFor({ state: 'attached', timeout: 15000 });
-    const collapsedIcon = group.getByTestId('group-header-collapsed-icon');
-    const isCollapsed = await collapsedIcon.isVisible().catch(() => false);
+    // The group header's caret is labelled "Expand group" only while the group is collapsed.
+    const expandButton = group.getByRole('button', { name: 'Expand group' });
+    const isCollapsed = await expandButton.isVisible().catch(() => false);
     if (isCollapsed) {
-      await collapsedIcon.click({ force: true });
-      // Wait for the collapsed icon to disappear so downstream assertions
-      // don't race the expand animation.
-      await collapsedIcon.waitFor({ state: 'hidden', timeout: 10000 });
+      await expandButton.click();
+      // Wait for the label to flip so downstream assertions don't race the re-render.
+      await group.getByRole('button', { name: 'Collapse group' }).waitFor({ state: 'visible', timeout: 10000 });
     }
   }
 

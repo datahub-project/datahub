@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 
 import { InteriorTitleContent } from '@app/entityV2/dataset/profile/schema/components/InteriorTitleContent';
 import { getEffectivePrimaryKeys, isPrimaryKeyField } from '@app/entityV2/dataset/profile/schema/utils/primaryKeys';
@@ -17,17 +17,20 @@ export default function useSchemaTitleRenderer(
         () => getEffectivePrimaryKeys(schemaMetadata, editedPrimaryKeys),
         [schemaMetadata, editedPrimaryKeys],
     );
-    return (fieldPath: string, record: ExtendedSchemaFields): JSX.Element => {
-        return (
-            <InteriorTitleContent
-                parentUrn={parentUrn}
-                isCompact={isCompact}
-                filterText={filterText}
-                fieldPath={fieldPath}
-                record={record}
-                schemaMetadata={schemaMetadata}
-                isPrimaryKey={isPrimaryKeyField(primaryKeys, record)}
-            />
-        );
-    };
+    return useCallback(
+        (fieldPath: string, record: ExtendedSchemaFields): JSX.Element => {
+            return (
+                <InteriorTitleContent
+                    parentUrn={parentUrn}
+                    isCompact={isCompact}
+                    filterText={filterText}
+                    fieldPath={fieldPath}
+                    record={record}
+                    schemaMetadata={schemaMetadata}
+                    isPrimaryKey={isPrimaryKeyField(primaryKeys, record)}
+                />
+            );
+        },
+        [parentUrn, isCompact, filterText, schemaMetadata, primaryKeys],
+    );
 }
