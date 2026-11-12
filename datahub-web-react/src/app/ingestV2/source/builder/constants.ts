@@ -28,6 +28,7 @@ import feastLogo from '@images/feastlogo.png';
 import fivetranLogo from '@images/fivetranlogo.png';
 import flinkLogo from '@images/flinklogo.svg';
 import githubLogo from '@images/githublogo.png';
+import gitlabLogo from '@images/gitlablogo.png';
 import glueLogo from '@images/gluelogo.png';
 import googleDocsLogo from '@images/googledocslogo.svg';
 import grafanaLogo from '@images/grafana.png';
@@ -159,6 +160,9 @@ export const NOTION = 'notion';
 const GITHUB = 'github';
 export const GITHUB_DOCUMENTS = 'github-documents';
 const GITHUB_URN = `urn:li:dataPlatform:${GITHUB}`;
+const GITLAB = 'gitlab';
+export const GITLAB_DOCUMENTS = 'gitlab-documents';
+const GITLAB_URN = `urn:li:dataPlatform:${GITLAB}`;
 const NOTION_URN = `urn:li:dataPlatform:${NOTION}`;
 export const OKTA = 'okta';
 const OKTA_URN = `urn:li:dataPlatform:${OKTA}`;
@@ -296,6 +300,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [MYSQL_URN]: mysqlLogo,
     [CONFLUENCE_URN]: confluenceLogo,
     [GITHUB_URN]: githubLogo,
+    [GITLAB_URN]: gitlabLogo,
     [NOTION_URN]: notionLogo,
     [OKTA_URN]: oktaLogo,
     [ORACLE_URN]: oracleLogo,
@@ -355,4 +360,5 @@ export const SOURCE_TO_PLATFORM_URN = {
     [DATAHUB_LINEAGE_FILE]: DATAHUB_URN,
     [DATAHUB_BUSINESS_GLOSSARY]: DATAHUB_URN,
     [GITHUB_DOCUMENTS]: GITHUB_URN,
+    [GITLAB_DOCUMENTS]: GITLAB_URN,
 };

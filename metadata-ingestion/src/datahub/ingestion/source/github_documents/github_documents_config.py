@@ -19,21 +19,12 @@ from datahub.ingestion.source.unstructured.config import (
 )
 
 
-class GitHubDocumentsSourceConfig(
+class RepositoryDocumentsSourceConfigBase(
     StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
 ):
-    """
-    Configuration for ingesting markdown and text documents from a GitHub repository.
-    """
+    """Settings shared by every git-host documents source."""
 
-    github_token: SecretStr = Field(
-        description="GitHub access token (PAT or GitHub App installation token)."
-    )
-    repository: str = Field(
-        description=(
-            "Repository to ingest, as 'owner/repo' or 'https://github.com/owner/repo'."
-        )
-    )
+    repository: str = Field(description="Repository to ingest.")
     branch: str = Field(
         default="main",
         description="Branch to read files from.",
@@ -65,14 +56,14 @@ class GitHubDocumentsSourceConfig(
         default=None,
         description=(
             "Optional parent document URN. Top-level imported items are nested beneath "
-            "this document while preserving the GitHub folder hierarchy."
+            "this document while preserving the repository folder hierarchy."
         ),
     )
     document_import_mode: DocumentImportMode = Field(
         default=DocumentImportMode.NATIVE,
         description=(
             "NATIVE imports editable documents in DataHub. EXTERNAL imports read-only "
-            "references that link back to GitHub."
+            "references that link back to the repository."
         ),
     )
     show_in_global_context: bool = Field(
@@ -108,8 +99,9 @@ class GitHubDocumentsSourceConfig(
     include_organization_in_browse_path: bool = Field(
         default=False,
         description=(
-            "Include the GitHub organization/owner name as the top-most entry in "
-            "the browse path, above the repository name."
+            "Include the repository owner (GitHub organization, GitLab group "
+            "path) as the top-most entry in the browse path, above the "
+            "repository name."
         ),
     )
 
@@ -121,13 +113,6 @@ class GitHubDocumentsSourceConfig(
         default_factory=HierarchyConfig,
         description="Parent-child relationship configuration.",
     )
-
-    @field_validator("github_token")
-    @classmethod
-    def validate_github_token(cls, value: SecretStr) -> SecretStr:
-        if not value or not value.get_secret_value().strip():
-            raise ValueError("github_token is required and cannot be empty")
-        return value
 
     @field_validator("okf_bundle_roots")
     @classmethod
@@ -143,11 +128,6 @@ class GitHubDocumentsSourceConfig(
             if canonical not in normalized:
                 normalized.append(canonical)
         return normalized
-
-    @field_validator("repository")
-    @classmethod
-    def validate_repository(cls, value: str) -> str:
-        return parse_repo_identifier(value)
 
     @field_validator("file_extensions")
     @classmethod
@@ -165,7 +145,7 @@ class GitHubDocumentsSourceConfig(
         return normalized or [".md", ".txt"]
 
     @model_validator(mode="after")
-    def apply_document_mapping_defaults(self) -> "GitHubDocumentsSourceConfig":
+    def apply_document_mapping_defaults(self) -> "RepositoryDocumentsSourceConfigBase":
         if self.document_mapping.id_pattern == "{source_type}-{directory}-{basename}":
             self.document_mapping.id_pattern = "{source_type}-{basename}"
 
@@ -177,3 +157,30 @@ class GitHubDocumentsSourceConfig(
         if self.parent_document_urn:
             self.hierarchy.folder_mapping.root_parent = self.parent_document_urn
         return self
+
+
+class GitHubDocumentsSourceConfig(RepositoryDocumentsSourceConfigBase):
+    """
+    Configuration for ingesting markdown and text documents from a GitHub repository.
+    """
+
+    github_token: SecretStr = Field(
+        description="GitHub access token (PAT or GitHub App installation token)."
+    )
+    repository: str = Field(
+        description=(
+            "Repository to ingest, as 'owner/repo' or 'https://github.com/owner/repo'."
+        )
+    )
+
+    @field_validator("github_token")
+    @classmethod
+    def validate_github_token(cls, value: SecretStr) -> SecretStr:
+        if not value or not value.get_secret_value().strip():
+            raise ValueError("github_token is required and cannot be empty")
+        return value
+
+    @field_validator("repository")
+    @classmethod
+    def validate_repository(cls, value: str) -> str:
+        return parse_repo_identifier(value)

@@ -42,6 +42,30 @@ class GitHubFileInfo:
     sha: Optional[str] = None
 
 
+class RepositoryDocumentsClient(Protocol):
+    """Read access a repository documents source needs from a git host's API."""
+
+    @property
+    def index_file_paths(self) -> Set[str]: ...
+
+    @property
+    def last_api_error(self) -> Optional[str]: ...
+
+    def get_latest_commit_sha(self, owner_repo: str, branch: str) -> str: ...
+
+    def list_matching_files(
+        self,
+        owner_repo: str,
+        branch: str,
+        path_prefix: str,
+        extensions: List[str],
+    ) -> Tuple[List[GitHubFileInfo], bool]: ...
+
+    def fetch_file_content(
+        self, owner_repo: str, file_path: str, branch: str
+    ) -> Optional[str]: ...
+
+
 def parse_repo_identifier(raw: str) -> str:
     """Parse owner/repo from a URL or shorthand identifier."""
     raw = raw.strip().rstrip("/")
@@ -64,25 +88,29 @@ def parse_repo_identifier(raw: str) -> str:
     )
 
 
-def make_file_source_id(owner_repo: str, file_path: str) -> str:
+def make_file_source_id(
+    owner_repo: str, file_path: str, *, source_prefix: str = "github"
+) -> str:
     repo_part = owner_repo.replace("/", ".")
     path_no_ext = file_path
     dot = path_no_ext.rfind(".")
     if dot > 0:
         path_no_ext = path_no_ext[:dot]
     path_part = path_no_ext.replace("/", ".")
-    return f"github.{repo_part}.{path_part}"
+    return f"{source_prefix}.{repo_part}.{path_part}"
 
 
-def make_dir_source_id(owner_repo: str, dir_path: str) -> str:
+def make_dir_source_id(
+    owner_repo: str, dir_path: str, *, source_prefix: str = "github"
+) -> str:
     repo_part = owner_repo.replace("/", ".")
     path_part = dir_path.replace("/", ".")
-    return f"github.{repo_part}.{path_part}._dir"
+    return f"{source_prefix}.{repo_part}.{path_part}._dir"
 
 
-def make_repo_source_id(owner_repo: str) -> str:
+def make_repo_source_id(owner_repo: str, *, source_prefix: str = "github") -> str:
     repo_part = owner_repo.replace("/", ".")
-    return f"github.{repo_part}._repo"
+    return f"{source_prefix}.{repo_part}._repo"
 
 
 def normalize_document_id(source_id: str) -> str:
@@ -351,13 +379,16 @@ def resolve_parent_dir_source_id(
     path_prefix: str,
     *,
     repo_root_source_id: Optional[str] = None,
+    source_prefix: str = "github",
 ) -> Optional[str]:
     relative_path = _relativize(full_path, path_prefix.strip("/"))
     parent_dir = _parent_directory(relative_path)
     if parent_dir is None:
         return repo_root_source_id
     return make_dir_source_id(
-        owner_repo, _resolve_path(path_prefix.strip("/"), parent_dir)
+        owner_repo,
+        _resolve_path(path_prefix.strip("/"), parent_dir),
+        source_prefix=source_prefix,
     )
 
 

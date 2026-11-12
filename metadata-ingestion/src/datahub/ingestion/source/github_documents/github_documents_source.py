@@ -1,4 +1,4 @@
-"""Ingest documents from a GitHub repository."""
+"""Ingest documents from a git repository (GitHub, and the base for other hosts)."""
 
 from __future__ import annotations
 
@@ -39,6 +39,7 @@ from datahub.ingestion.reporting.datahub_ingestion_run_summary_provider import (
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.github_documents.github_api import (
     GitHubApiClient,
+    RepositoryDocumentsClient,
     StaticTokenProvider,
     collect_intermediate_directories,
     make_dir_source_id,
@@ -49,6 +50,7 @@ from datahub.ingestion.source.github_documents.github_api import (
 )
 from datahub.ingestion.source.github_documents.github_documents_config import (
     GitHubDocumentsSourceConfig,
+    RepositoryDocumentsSourceConfigBase,
 )
 from datahub.ingestion.source.github_documents.github_documents_report import (
     GitHubDocumentsSourceReport,
@@ -149,31 +151,24 @@ def _looks_like_concept(file_path: str, content: str) -> bool:
     return isinstance(concept_type, str) and bool(concept_type.strip())
 
 
-@platform_name("GitHub")
-@config_class(GitHubDocumentsSourceConfig)
-@support_status(SupportStatus.ALPHA)
-@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
+class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource):
     """
-    Ingest markdown and text files from a GitHub repository as DataHub Document entities.
+    Shared import logic for documents sources backed by a git host.
 
-    Preserves repository folder structure as parent-child document relationships. By default
-    documents are ingested as native (editable) documents; set ``document_import_mode`` to
-    ``EXTERNAL`` for read-only references back to GitHub.
-
-    Markdown concepts inside OKF bundles are mapped to OKF and native aspects
-    when enable_okf is set. Other files retain their original text.
+    Subclasses set ``platform`` and supply the API client and file URLs. The
+    platform name also prefixes source ids and the ``<platform>_*`` custom
+    properties, so documents from different hosts never share an identity.
     """
 
-    platform = "github"
+    platform: str
 
-    def __init__(self, config: GitHubDocumentsSourceConfig, ctx: PipelineContext):
+    def __init__(
+        self, config: RepositoryDocumentsSourceConfigBase, ctx: PipelineContext
+    ):
         super().__init__(config, ctx)  # type: ignore[arg-type]
         self.config = config
         self.report: GitHubDocumentsSourceReport = GitHubDocumentsSourceReport()
-        self.client = GitHubApiClient(
-            StaticTokenProvider(config.github_token.get_secret_value())
-        )
+        self.client: RepositoryDocumentsClient = self._create_client()
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             state_provider=self.state_provider,
             report=self.report,
@@ -192,7 +187,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         self._repo_root_source_id: Optional[str] = (
             None
             if config.parent_document_urn or not config.create_repo_root_document
-            else make_repo_source_id(config.repository)
+            else make_repo_source_id(config.repository, source_prefix=self.platform)
         )
         # Cache of import_source_id -> existing document URN (sync-back round-trip).
         self._resolved_source_id_urns: Dict[str, Optional[str]] = {}
@@ -203,9 +198,35 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         self._okf_lookup_cache = OkfLookupCache()
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "GitHubDocumentsSource":
-        config = GitHubDocumentsSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
+    def create(
+        cls, config_dict: dict, ctx: PipelineContext
+    ) -> "RepositoryDocumentsSourceBase":
+        return cls(cls._parse_config(config_dict), ctx)
+
+    @classmethod
+    def _parse_config(cls, config_dict: dict) -> RepositoryDocumentsSourceConfigBase:
+        raise NotImplementedError
+
+    @classmethod
+    def _make_client(
+        cls, config: RepositoryDocumentsSourceConfigBase
+    ) -> RepositoryDocumentsClient:
+        raise NotImplementedError
+
+    def _create_client(self) -> RepositoryDocumentsClient:
+        return self._make_client(self.config)
+
+    def _repository_url(self, owner_repo: str) -> str:
+        """Canonical repository URL: no branch, no trailing slash."""
+        raise NotImplementedError
+
+    def _build_external_url(
+        self, owner_repo: str, branch: str, path: str, *, is_directory: bool
+    ) -> str:
+        raise NotImplementedError
+
+    def _prop(self, name: str) -> str:
+        return f"{self.platform}_{name}"
 
     def get_excluded_workunit_processors(self):
         # Manual stale-removal handler supports registering skipped unchanged files.
@@ -285,6 +306,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 explicit_roots=self.config.okf_bundle_roots,
                 fetch=fetch_index,
                 report=self.report,
+                location=self._repository_url(owner_repo),
             )
 
         if self._repo_root_source_id:
@@ -325,9 +347,9 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         title = owner_repo.split("/")[-1] if "/" in owner_repo else owner_repo
         doc_id = normalize_document_id(source_id)
         custom_properties = {
-            "import_source": "github",
-            "github_repo": owner_repo,
-            "github_branch": branch,
+            "import_source": self.platform,
+            self._prop("repo"): owner_repo,
+            self._prop("branch"): branch,
             "is_repo_root_document": "true",
             PROP_IMPORT_SOURCE_ID: source_id,
         }
@@ -338,9 +360,10 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             text="",
             owner_repo=owner_repo,
             branch=branch,
-            github_path="",
+            repo_path="",
             parent_document=None,
             custom_properties=custom_properties,
+            is_directory=True,
         )
         self._register_hierarchy(source_id, title, parent_source_id=None)
         self._source_id_to_urn[source_id] = str(doc.urn)
@@ -355,17 +378,20 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         dir_path: str,
         path_prefix: str,
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit a metadata-only folder document for a GitHub directory.
+        """Emit a metadata-only folder document for a repository directory.
 
-        Folder bodies are not synced from GitHub files. DataHub may hold richer
-        folder content than GitHub (a deliberate DH ⊇ GH split).
+        Folder bodies are not synced from repository files. DataHub may hold
+        richer folder content than the repository (a deliberate DH ⊇ GH split).
         """
-        dir_source_id = make_dir_source_id(owner_repo, dir_path)
+        dir_source_id = make_dir_source_id(
+            owner_repo, dir_path, source_prefix=self.platform
+        )
         parent_source_id = resolve_parent_dir_source_id(
             owner_repo,
             dir_path,
             path_prefix,
             repo_root_source_id=self._repo_root_source_id,
+            source_prefix=self.platform,
         )
         parent_urn = self._resolve_parent_urn(parent_source_id)
 
@@ -387,16 +413,17 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 text="",
                 owner_repo=owner_repo,
                 branch=branch,
-                github_path=dir_path,
+                repo_path=dir_path,
                 parent_document=parent_urn,
                 custom_properties={
-                    "import_source": "github",
-                    "github_repo": owner_repo,
-                    "github_branch": branch,
-                    "github_directory_path": dir_path,
+                    "import_source": self.platform,
+                    self._prop("repo"): owner_repo,
+                    self._prop("branch"): branch,
+                    self._prop("directory_path"): dir_path,
                     "is_folder_document": "true",
                     PROP_IMPORT_SOURCE_ID: dir_source_id,
                 },
+                is_directory=True,
             )
         doc._set_aspect(StatusClass(removed=False))
         self._register_hierarchy(
@@ -425,7 +452,9 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             self.report.files_skipped += 1
             return
 
-        source_id = make_file_source_id(owner_repo, file_path)
+        source_id = make_file_source_id(
+            owner_repo, file_path, source_prefix=self.platform
+        )
         doc_id, document_urn = self._resolve_document_identity(
             source_id, owner_repo, file_path
         )
@@ -477,6 +506,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             file_path,
             path_prefix,
             repo_root_source_id=self._repo_root_source_id,
+            source_prefix=self.platform,
         )
         parent_urn = self._resolve_parent_urn(parent_source_id)
 
@@ -504,18 +534,18 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 title = okf_mapping.title or title
                 self.report.okf_files_processed += 1
         custom_properties = {
-            "import_source": "github",
-            "github_repo": owner_repo,
-            "github_branch": branch,
-            "github_file_path": file_path,
-            "github_commit_sha": commit_sha,
+            "import_source": self.platform,
+            self._prop("repo"): owner_repo,
+            self._prop("branch"): branch,
+            self._prop("file_path"): file_path,
+            self._prop("commit_sha"): commit_sha,
             PROP_IMPORT_SOURCE_ID: source_id,
             "content_hash": compute_file_content_hash(text),
             "source_content_hash": source_hash,
             "extraction_algo_version": EXTRACTION_ALGO_VERSION,
         }
         if blob_sha:
-            custom_properties["github_blob_sha"] = blob_sha
+            custom_properties[self._prop("blob_sha")] = blob_sha
 
         doc = self._build_document(
             doc_id=doc_id,
@@ -523,11 +553,11 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             text=text,
             owner_repo=owner_repo,
             branch=branch,
-            github_path=file_path,
+            repo_path=file_path,
             parent_document=parent_urn,
             custom_properties=custom_properties,
         )
-        # GitHub is source of truth for import: if the file still exists, clear
+        # The repository is source of truth for import: if the file still exists, clear
         # Status.removed so a previously soft-deleted DataHub doc is resurrected.
         # The unchanged-file short-circuit above resurrects too, so this does not
         # depend on whether the content happened to change.
@@ -615,7 +645,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
     def _resolve_document_identity(
         self, source_id: str, owner_repo: str, path: str, *, is_directory: bool = False
     ) -> Tuple[str, str]:
-        """Return ``(doc_id, document_urn)`` for a GitHub file or directory.
+        """Return ``(doc_id, document_urn)`` for a repository file or directory.
 
         Prefers an existing document already stamped with this
         ``import_source_id`` (e.g. created in DataHub and synced back) so
@@ -731,7 +761,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             self.report.failure(
                 title="Document identity lookup failed",
                 message=(
-                    "Could not search for an existing document for this GitHub "
+                    "Could not search for an existing document for this repository "
                     "path. Stale entity removal is skipped for this run so no "
                     "document is soft-deleted; re-run once search is reachable."
                 ),
@@ -747,8 +777,8 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             # folder document carries github_directory_path and no
             # github_file_path, so querying the file key for a directory could
             # never match.
-            path_property = (
-                PROP_GITHUB_DIRECTORY_PATH if is_directory else PROP_GITHUB_FILE_PATH
+            path_property = self._prop(
+                "directory_path" if is_directory else "file_path"
             )
             try:
                 matches = self._search_documents_by_properties(
@@ -761,7 +791,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                         {
                             "field": "customProperties",
                             "condition": "EQUAL",
-                            "values": [f"github_repo={owner_repo}"],
+                            "values": [f"{self._prop('repo')}={owner_repo}"],
                         },
                     ]
                 )
@@ -769,7 +799,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.failure(
                     title="Document identity lookup failed",
                     message=(
-                        "Fallback github_file_path search failed for this GitHub "
+                        f"Fallback {path_property} search failed for this repository "
                         "path. Stale entity removal is skipped for this run so no "
                         "document is soft-deleted; re-run once search is reachable."
                     ),
@@ -784,7 +814,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         )
         if chosen and chosen != canonical_urn:
             logger.info(
-                "Reusing existing document %s for GitHub path %s (source_id=%s)",
+                "Reusing existing document %s for repository path %s (source_id=%s)",
                 chosen,
                 path,
                 source_id,
@@ -806,9 +836,9 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         unique = sorted(dict.fromkeys(matches))
         if len(unique) > 1:
             self.report.warning(
-                title="Ambiguous document identity for GitHub path",
+                title="Ambiguous document identity for repository path",
                 message=(
-                    "More than one DataHub document claims this GitHub path. One was "
+                    "More than one DataHub document claims this repository path. One was "
                     "reused; the others were left in place this run. Merge or delete "
                     "the duplicates, or rename them so their titles map to distinct "
                     "file names."
@@ -852,7 +882,8 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         owner_repo = self.config.repository
-        org_name, _, repo_name = owner_repo.partition("/")
+        # rpartition: GitLab projects can sit under nested groups (a/b/project).
+        org_name, _, repo_name = owner_repo.rpartition("/")
 
         if self.config.include_organization_in_browse_path and org_name:
             entries.append(BrowsePathEntryClass(id=org_name))
@@ -906,13 +937,6 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             )
         return self.config.parent_document_urn
 
-    def _build_github_external_url(
-        self, owner_repo: str, branch: str, github_path: str
-    ) -> str:
-        return (
-            f"https://github.com/{owner_repo}/blob/{branch}/{github_path.lstrip('/')}"
-        )
-
     def _build_document(
         self,
         doc_id: str,
@@ -920,12 +944,15 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         text: str,
         owner_repo: str,
         branch: str,
-        github_path: str,
+        repo_path: str,
         parent_document: Optional[str],
         custom_properties: Dict[str, str],
+        is_directory: bool = False,
     ) -> Document:
-        external_url = self._build_github_external_url(owner_repo, branch, github_path)
-        external_id = github_path or owner_repo
+        external_url = self._build_external_url(
+            owner_repo, branch, repo_path, is_directory=is_directory
+        )
+        external_id = repo_path or owner_repo
 
         if self.config.document_import_mode == DocumentImportMode.NATIVE:
             doc = Document.create_document(
@@ -983,7 +1010,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 )
             except Exception as exc:
                 # Non-fatal: only costs us resurrection of documents whose file came
-                # back to GitHub unchanged. Import itself is unaffected.
+                # back to the repository unchanged. Import itself is unaffected.
                 logger.debug("Could not list soft-deleted documents: %s", exc)
         self._soft_deleted_cache = urns
         return urns
@@ -991,7 +1018,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
     def _resurrect_unchanged_document(
         self, document_urn: str, owner_repo: str
     ) -> Iterable[MetadataWorkUnit]:
-        """Clear Status.removed for an unchanged file that exists in GitHub again.
+        """Clear Status.removed for an unchanged file that exists in the repository again.
 
         Without this, deleting a file, letting stale removal soft-delete its
         document, then restoring the file with identical content would leave the
@@ -1019,7 +1046,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
     @classmethod
     def test_connection(cls, config_dict: dict) -> TestConnectionReport:
         try:
-            config = GitHubDocumentsSourceConfig.parse_obj(config_dict)
+            config = cls._parse_config(config_dict)
         except Exception as exc:
             return TestConnectionReport(
                 internal_failure=True,
@@ -1027,9 +1054,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         try:
-            client = GitHubApiClient(
-                StaticTokenProvider(config.github_token.get_secret_value())
-            )
+            client = cls._make_client(config)
             client.list_matching_files(
                 config.repository,
                 config.branch,
@@ -1046,7 +1071,49 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 ),
                 internal_failure=True,
                 internal_failure_reason=(
-                    f"Failed to connect to GitHub repository: {exc}. "
-                    "Verify repository, branch, token, and network access."
+                    f"Failed to connect to {cls.platform} repository: "
+                    f"{exc}. Verify repository, branch, token, and network access."
                 ),
             )
+
+
+@platform_name("GitHub")
+@config_class(GitHubDocumentsSourceConfig)
+@support_status(SupportStatus.ALPHA)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+class GitHubDocumentsSource(RepositoryDocumentsSourceBase):
+    """
+    Ingest markdown and text files from a GitHub repository as DataHub Document entities.
+
+    Preserves repository folder structure as parent-child document relationships. By default
+    documents are ingested as native (editable) documents; set ``document_import_mode`` to
+    ``EXTERNAL`` for read-only references back to GitHub.
+
+    Markdown concepts inside OKF bundles are mapped to OKF and native aspects
+    when enable_okf is set. Other files retain their original text.
+    """
+
+    platform = "github"
+    config: GitHubDocumentsSourceConfig
+    client: GitHubApiClient
+
+    @classmethod
+    def _parse_config(cls, config_dict: dict) -> GitHubDocumentsSourceConfig:
+        return GitHubDocumentsSourceConfig.parse_obj(config_dict)
+
+    @classmethod
+    def _make_client(
+        cls, config: RepositoryDocumentsSourceConfigBase
+    ) -> RepositoryDocumentsClient:
+        assert isinstance(config, GitHubDocumentsSourceConfig)
+        return GitHubApiClient(
+            StaticTokenProvider(config.github_token.get_secret_value())
+        )
+
+    def _repository_url(self, owner_repo: str) -> str:
+        return f"https://github.com/{owner_repo}"
+
+    def _build_external_url(
+        self, owner_repo: str, branch: str, path: str, *, is_directory: bool
+    ) -> str:
+        return f"{self._repository_url(owner_repo)}/blob/{branch}/{path.lstrip('/')}"

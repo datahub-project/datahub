@@ -700,6 +700,17 @@
         "isNew": true
     },
     {
+        "urn": "urn:li:dataPlatform:gitlab",
+        "name": "gitlab-documents",
+        "displayName": "GitLab",
+        "description": "Import files from a GitLab project as context Documents.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/gitlab/",
+        "recipe": "source:\n  type: gitlab-documents\n  config:\n    gitlab_token: null\n    base_url: https://gitlab.com\n    repository: group/project\n    branch: main\n    path_prefix: \"\"\n    file_extensions:\n      - .md\n      - .txt\n    document_import_mode: NATIVE\n    create_repo_root_document: true\n    show_in_global_context: true",
+        "category": "Context Document Sources",
+        "isPopular": false,
+        "isNew": true
+    },
+    {
         "urn": "urn:li:dataPlatform:airflow",
         "name": "airflow",
         "displayName": "Airflow",

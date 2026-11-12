@@ -52,8 +52,9 @@ def discover_bundles(
     explicit_roots: List[str],
     fetch: Callable[[str], Optional[str]],
     report: GitHubDocumentsSourceReport,
+    location: Optional[str] = None,
 ) -> Dict[str, OkfBundleClass]:
-    location = f"https://github.com/{repo}"
+    location = location or f"https://github.com/{repo}"
     bundles = {_key(root): _bundle(location, _key(root)) for root in explicit_roots}
     # Ancestor indexes can sit outside path_prefix or the max_files slice.
     # The recursive tree provides their existence without another tree request.
