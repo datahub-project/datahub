@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=78.1.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "datahub-ai-service"
+dynamic = ["version"]
+description = "DataHub's AI service: serves DataHub's MCP tools over HTTP"
+requires-python = ">=3.11"
+readme = "README.md"
+license = "Apache-2.0"
+dependencies = [
+    # Floors, not pins: released alongside DataHub and installed with matching
+    # versions of both.
+    "acryl-datahub[datahub-rest]>=1.7.0",
+    "datahub-core-mcp-tools",
+    "click>=8.1.0,<9",
+    "fastmcp>=4.0.0,<5",
+    "loguru>=0.7.0,<1",
+    "starlette>=0.47.0,<2",
+    "uvicorn>=0.30.0,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx>=0.27.0,<1",
+    "mypy==1.17.1",
+    "pytest>=8.3.4,<10",
+    "pytest-asyncio>=1.0.0,<2",
+    "pytest-cov>=6.0.0,<8",
+    "ruff==0.15.22",
+    "types-requests>=2.28.0,<3",
+]
+
+[project.scripts]
+datahub-ai-service = "datahub_ai_service.cli:cli"
+
+[tool.setuptools.dynamic]
+version = { attr = "datahub_ai_service._version.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"datahub_ai_service" = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests"]
+addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = ["integration: needs a running DataHub"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+exclude = ["venv", "build", "dist"]
+
+[tool.ruff.lint]
+extend-select = ["B", "E", "F", "I", "RUF100"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["datahub_ai_service", "datahub_core_mcp_tools"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+follow_imports = "silent"
+check_untyped_defs = true
+exclude = ["venv", "build", "dist"]

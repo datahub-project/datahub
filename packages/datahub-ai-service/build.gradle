@@ -1,0 +1,8 @@
+ext {
+  // Installed editable before this package, so local and CI builds run against the
+  // monorepo's own SDK and tools rather than published wheels.
+  local_dependency_dirs = ['../../metadata-ingestion', '../datahub-core-mcp-tools']
+  local_dependency_tasks = [':metadata-ingestion:codegen']
+}
+
+apply from: "${rootProject.projectDir}/gradle/python/datahub-python-package.gradle"
