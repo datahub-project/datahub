@@ -349,6 +349,13 @@ class QlikSourceConfig(
         "Repository Service, to connect or reply before the request fails. An app "
         "whose read times out is ingested as partly read.",
     )
+    include_column_lineage: bool = Field(
+        default=True,
+        description="Qlik Cloud only. Read the field level of Qlik's lineage graph "
+        "for each app table and each dataset an app stores into, for column-level "
+        "lineage and the fields of tables a load script drops. Costs one request "
+        "per table.",
+    )
     # Qlik app dataset upstream tables from data connection to platform instance mapping
     data_connection_to_platform_instance: Dict[str, PlatformDetail] = Field(
         default={},

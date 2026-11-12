@@ -183,6 +183,10 @@ class LineageTable(BaseModel):
     qri: str
     label: str
     source_qris: List[str] = []
+    # The table's field names, and the field nodes each is loaded or stored
+    # from, when the graph was read at field level.
+    fields: List[str] = []
+    field_source_qris: Dict[str, List[str]] = {}
 
 
 class ListedDataset(BaseModel):
@@ -202,6 +206,8 @@ class QlikDataset(Item):
     # App tables that store into this dataset; None when Qlik's lineage graph
     # for it could not be read.
     stored_from_qris: Optional[List[str]] = None
+    # The dataset's fields, and the app table field nodes each is stored from.
+    stored_field_source_qris: Dict[str, List[str]] = {}
 
     @model_validator(mode="before")
     @classmethod
@@ -387,7 +393,7 @@ class App(Item):
         if not values.get(Constant.SPACEID):
             # spaceId none indicates app present in personal space
             values[Constant.SPACEID] = Constant.PERSONAL_SPACE_ID
-        values[Constant.QRI] = f"qri:app:sense://{values['id']}"
+        values.setdefault(Constant.QRI, f"qri:app:sense://{values['id']}")
         return values
 
     @property

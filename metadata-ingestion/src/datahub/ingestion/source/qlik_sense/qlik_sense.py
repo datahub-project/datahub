@@ -1,9 +1,11 @@
+import base64
 import copy
 import functools
 import hashlib
 import json
 import logging
 import posixpath
+import re
 from datetime import datetime
 from functools import partial
 from typing import Collection, Dict, Iterable, List, Optional, Set, Tuple, Union
@@ -172,7 +174,9 @@ class _PartialRead(StrEnum):
 ENTITY_CHECK_BATCH_SIZE = 100
 
 # Lineage graph QRIs of Qlik dataset tables, `<dataset secureQri>#<table>`.
-QLIK_APP_QRI_PREFIX = "qri:app:sense://"
+# An analytics app is a sense resource in the lineage graph, a script app a
+# dataprep resource.
+QLIK_APP_QRI_RE = re.compile(r"^qri:app:(?:sense|dataprep)://([^#]+)")
 QVD_EXTENSION = ".qvd"
 
 
@@ -206,6 +210,19 @@ def _qvd_fields(writes: List[QvdWrite], reads: List[str]) -> Optional[List[str]]
             )
         )
     return reads or None
+
+
+def _qlik_app_id(qri: str) -> Optional[str]:
+    match = QLIK_APP_QRI_RE.match(qri)
+    return match.group(1) if match else None
+
+
+def _qlik_field_id(name: str) -> str:
+    """The last part of a field node's QRI in Qlik's lineage graph, which is the
+    unpadded base64url SHA-256 of the field name. Not documented by Qlik, so it
+    is only used to confirm a name, never to make one up."""
+    digest = hashlib.sha256(name.encode("utf-8")).digest()
+    return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
 
 
 class _ResolvedSources(BaseModel):
@@ -281,6 +298,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # Datasets and the app table QRIs stored into them, linked once every
         # app has been read.
         self._dataset_store_sources: Dict[str, List[str]] = {}
+        self._dataset_store_field_sources: Dict[str, Dict[str, List[str]]] = {}
+        # Field names seen this run, by their field id in Qlik's lineage graph.
+        self._field_names_by_id: Dict[str, str] = {}
         # Owned here rather than by the automatic processor so that entities of
         # apps skipped as unchanged or only partly read can be kept in the state.
         self.stale_entity_removal_handler: Optional[StaleEntityRemovalHandler] = (
@@ -1393,11 +1413,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _kept_table_urns(self, app_id: str) -> Optional[Dict[str, str]]:
         if app_id not in self._apps_tables_known:
             return None
-        prefix = f"{QLIK_APP_QRI_PREFIX}{app_id}#"
         return {
             qri: urn
             for qri, urn in self._app_table_urns_by_qri.items()
-            if qri.startswith(prefix)
+            if _qlik_app_id(qri) == app_id
         }
 
     def _app_tables_known(self, app_id: str) -> bool:
@@ -1417,27 +1436,73 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         result incomplete. With `own_app_id`, only that app's tables are linked."""
         resolved = _ResolvedSources()
         for source_qri in source_qris:
-            if source_qri.startswith(QLIK_APP_QRI_PREFIX):
-                app_id = source_qri[len(QLIK_APP_QRI_PREFIX) :].partition("#")[0]
-                if own_app_id is not None and app_id != own_app_id:
-                    continue
-                if not self._app_tables_known(app_id):
-                    resolved.complete = False
-                    continue
-                urn = self._app_table_urns_by_qri.get(source_qri)
-            else:
-                # Data files, and files Qlik catalogued on a data connection
-                # such as ADLS, are datasets. Other sources, such as database
-                # tables, have opaque QRIs; the load script parser traces SQL
-                # loads instead.
-                datasets = self._dataset_urns_by_secure_qri
-                if datasets is None:
-                    resolved.complete = False
-                    continue
-                urn = datasets.get(source_qri.rpartition("#")[0])
-            if urn and urn != dataset_urn and urn not in resolved.urns:
+            urn, known = self._resolve_source(source_qri, dataset_urn, own_app_id)
+            if not known:
+                resolved.complete = False
+            elif urn and urn not in resolved.urns:
                 resolved.urns.append(urn)
         return resolved
+
+    def _resolve_source(
+        self, table_qri: str, dataset_urn: str, own_app_id: Optional[str]
+    ) -> Tuple[Optional[str], bool]:
+        """The URN of a source table node, if this run ingests it, and whether
+        that could be told this run."""
+        app_id = _qlik_app_id(table_qri)
+        if app_id is not None:
+            if own_app_id is not None and app_id != own_app_id:
+                return None, True
+            if not self._app_tables_known(app_id):
+                return None, False
+            urn = self._app_table_urns_by_qri.get(table_qri)
+        else:
+            # Data files, and files Qlik catalogued on a data connection such
+            # as ADLS, are datasets. Other sources, such as database tables,
+            # have opaque QRIs; the load script parser traces SQL loads instead.
+            datasets = self._dataset_urns_by_secure_qri
+            if datasets is None:
+                return None, False
+            urn = datasets.get(table_qri.rpartition("#")[0])
+        return (urn if urn != dataset_urn else None), True
+
+    def _learn_field_names(self, names: Iterable[str]) -> None:
+        for name in names:
+            self._field_names_by_id.setdefault(_qlik_field_id(name), name)
+
+    def _graph_column_lineage(
+        self,
+        dataset_urn: str,
+        field_source_qris: Dict[str, List[str]],
+        own_app_id: Optional[str],
+    ) -> List[FineGrainedLineage]:
+        """Column lineage from the field level of Qlik's lineage graph. A source
+        field is named only when its id is the hash of a field name the run
+        has seen, such as the field it is loaded into."""
+        lineages = []
+        for field, source_qris in field_source_qris.items():
+            upstreams: List[str] = []
+            for field_qri in source_qris:
+                table_qri, _, field_id = field_qri.rpartition("#")
+                urn, _ = self._resolve_source(table_qri, dataset_urn, own_app_id)
+                name = (
+                    field
+                    if _qlik_field_id(field) == field_id
+                    else self._field_names_by_id.get(field_id)
+                )
+                if urn and name:
+                    upstream = builder.make_schema_field_urn(urn, name)
+                    if upstream not in upstreams:
+                        upstreams.append(upstream)
+            if upstreams:
+                lineages.append(
+                    FineGrainedLineage(
+                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                        upstreams=upstreams,
+                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                        downstreams=[builder.make_schema_field_urn(dataset_urn, field)],
+                    )
+                )
+        return lineages
 
     @staticmethod
     def _patch_upstreams(
@@ -1467,8 +1532,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._gen_app_table_entity(
                 identifier,
                 self._table_schema(
-                    identifier,
-                    self._script_table_fields(script_table) if script_table else [],
+                    identifier, self._lineage_table_fields(table, script_table)
                 ),
                 app.id,
             )
@@ -1498,11 +1562,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     for urn in script_table.upstream_urns
                     if urn not in upstream_urns
                 )
-            fine_grained = (
-                self._script_column_lineage(dataset_urn, script_table)
-                if script_table
-                else None
-            )
+            fine_grained = [
+                *(
+                    self._script_column_lineage(dataset_urn, script_table) or []
+                    if script_table
+                    else []
+                ),
+                *self._graph_column_lineage(
+                    dataset_urn, table.field_source_qris, own_app_id=app.id
+                ),
+            ] or None
             if resolved.complete and not app.script_read_failed:
                 # The app owns its tables, so the lineage is written whole, which
                 # also drops upstreams the app no longer reads.
@@ -1626,6 +1695,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 merged.extend(u for u in upstreams if u not in merged)
             table.column_upstreams = column_upstreams
 
+    def _lineage_table_fields(
+        self, table: LineageTable, script_table: Optional[ScriptTableLineage]
+    ) -> List[QlikDatasetSchemaField]:
+        """The fields the load script or, failing that, the field level of the
+        lineage graph gives a table, for a table the data model no longer
+        holds, such as one the script drops after storing it."""
+        parsed = self._script_table_fields(script_table) if script_table else []
+        return parsed or [QlikDatasetSchemaField(name=name) for name in table.fields]
+
     def _table_schema(
         self, identifier: str, parsed: List[QlikDatasetSchemaField]
     ) -> List[QlikDatasetSchemaField]:
@@ -1666,6 +1744,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             f"{app.id}.{table.name}".lower(): table.fields
             for table in app.data_model_tables
         }
+        self._learn_field_names(
+            field.name for table in app.data_model_tables for field in table.fields
+        )
+        self._learn_field_names(
+            field for table in app.lineage_tables for field in table.fields
+        )
         if self.config.on_prem is None and not app.tables:
             self.reporter.apps_without_load_model.append(app.id)
         parsed = self._parsed_script(app)
@@ -1698,7 +1782,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             table_fields[urn] = self._table_schema(
                 self._lineage_table_identifier(app.id, table),
-                self._script_table_fields(matched) if matched else [],
+                self._lineage_table_fields(table, matched),
             )
             if matched:
                 script_table_urns.add(urn)
@@ -1863,6 +1947,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         dataset_urn = self._gen_qlik_dataset_urn(dataset_identifier)
         if dataset.stored_from_qris is not None:
             self._dataset_store_sources[dataset_urn] = dataset.stored_from_qris
+            self._dataset_store_field_sources[dataset_urn] = (
+                dataset.stored_field_source_qris
+            )
+        self._learn_field_names(field.name for field in dataset.datasetSchema)
 
         yield self._gen_entity_status_aspect(dataset_urn)
 
@@ -2195,6 +2283,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             resolved = self._resolve_lineage_sources(
                 source_qris, dataset_urn, own_app_id=None
             )
+            stored_fields = self._graph_column_lineage(
+                dataset_urn,
+                self._dataset_store_field_sources.get(dataset_urn, {}),
+                own_app_id=None,
+            )
             if not resolved.complete:
                 self.reporter.warning(
                     title="Lineage of Qlik dataset only added to",
@@ -2212,7 +2305,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 # Without the current lineage, edges can only be added: a dataset
                 # is not built by one app, so its other lineage must stay.
                 yield from self._patch_upstreams(
-                    dataset_urn, resolved.urns, DatasetLineageType.COPY
+                    dataset_urn, resolved.urns, DatasetLineageType.COPY, stored_fields
                 )
                 continue
 
@@ -2250,7 +2343,36 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     for urn in storing
                 ),
             ]
-            if [u.dataset for u in upstreams] != [u.dataset for u in current.upstreams]:
+
+            def from_app_tables(lineage: FineGrainedLineage) -> bool:
+                return any(
+                    from_app_table(SchemaFieldUrn.from_string(upstream).parent)
+                    for upstream in lineage.upstreams or []
+                )
+
+            current_fields = current.fineGrainedLineages or []
+            fine_grained = [
+                *(
+                    lineage
+                    for lineage in current_fields
+                    if not from_app_tables(lineage)
+                ),
+                # Column edges of storing tables that could not be read this
+                # run are kept with their table edges.
+                *(
+                    []
+                    if resolved.complete
+                    else (
+                        lineage
+                        for lineage in current_fields
+                        if from_app_tables(lineage) and lineage not in stored_fields
+                    )
+                ),
+                *stored_fields,
+            ]
+            if [u.dataset for u in upstreams] != [
+                u.dataset for u in current.upstreams
+            ] or fine_grained != current_fields:
                 # Edges from app tables that no longer store into the dataset
                 # are dropped; lineage from anywhere else, such as added in
                 # DataHub, is kept.
@@ -2258,7 +2380,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     entityUrn=dataset_urn,
                     aspect=UpstreamLineage(
                         upstreams=upstreams,
-                        fineGrainedLineages=current.fineGrainedLineages,
+                        fineGrainedLineages=fine_grained or None,
                     ),
                 ).as_workunit()
 
