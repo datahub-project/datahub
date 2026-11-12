@@ -46,12 +46,15 @@ const ChildRow = styled.div`
 
 export default function SidebarLogicalSection() {
     const { t } = useTranslation('entity.shared.containers');
-    const { logicalModelsEnabled } = useAppConfig().config.featureFlags;
+    const { config } = useAppConfig();
+    const { logicalModelsEnabled } = config.featureFlags;
+    // Deployments can hide this section (e.g. when a micro frontend replaces it): visualConfig.hideLogicalModelSidebarSection.
+    const hidden = !!config.visualConfig?.hideLogicalModelSidebarSection;
     const [showAllChildren, setShowAllChildren] = useState(false);
     const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
 
-    if (!logicalModelsEnabled) {
+    if (!logicalModelsEnabled || hidden) {
         return null;
     }
 

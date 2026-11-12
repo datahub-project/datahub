@@ -241,13 +241,15 @@ See [MCP/MCL Events - Aspect Size Validation](../advanced/mcp-mcl.md#aspect-size
 
 ### UI Configuration
 
-| Environment Variable                          | Default | Description                                                                        | Components |
-| --------------------------------------------- | ------- | ---------------------------------------------------------------------------------- | ---------- |
-| `REACT_APP_HIDE_GLOSSARY`                     | `false` | Hide glossary in the UI                                                            | Frontend   |
-| `REACT_APP_SHOW_FULL_TITLE_IN_LINEAGE`        | `false` | Show full title in lineage                                                         | Frontend   |
-| `DOMAIN_DEFAULT_TAB`                          | ``      | Default tab for domains (set to DOCUMENTATION_TAB to show documentation tab first) | Frontend   |
-| `APPLICATION_SHOW_SIDEBAR_SECTION_WHEN_EMPTY` | `false` | Show sidebar section when empty (deprecated)                                       | Frontend   |
-| `SEARCH_RESULT_NAME_HIGHLIGHT_ENABLED`        | `true`  | Enable visual highlighting on search result names/descriptions                     | Frontend   |
+| Environment Variable                           | Default | Description                                                                        | Components |
+| ---------------------------------------------- | ------- | ---------------------------------------------------------------------------------- | ---------- |
+| `REACT_APP_HIDE_GLOSSARY`                      | `false` | Hide glossary in the UI                                                            | Frontend   |
+| `REACT_APP_SHOW_FULL_TITLE_IN_LINEAGE`         | `false` | Show full title in lineage                                                         | Frontend   |
+| `REACT_APP_HIDE_LOGICAL_MODEL_SIDEBAR_SECTION` | `false` | Hide the Logical Parent / Physical Children section in an entity's sidebar         | Frontend   |
+| `REACT_APP_HIDE_LOGICAL_MODEL_COLUMN_SECTION`  | `false` | Hide the Logical Parent / Physical Children section in the column drawer           | Frontend   |
+| `DOMAIN_DEFAULT_TAB`                           | ``      | Default tab for domains (set to DOCUMENTATION_TAB to show documentation tab first) | Frontend   |
+| `APPLICATION_SHOW_SIDEBAR_SECTION_WHEN_EMPTY`  | `false` | Show sidebar section when empty (deprecated)                                       | Frontend   |
+| `SEARCH_RESULT_NAME_HIGHLIGHT_ENABLED`         | `true`  | Enable visual highlighting on search result names/descriptions                     | Frontend   |
 
 ## Storage Layer Configuration
 
