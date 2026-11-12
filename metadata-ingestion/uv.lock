@@ -1077,6 +1077,7 @@ hive-metastore = [
 ]
 iceberg = [
     { name = "cachetools" },
+    { name = "pyarrow" },
     { name = "pyiceberg", extra = ["adlfs", "dynamodb", "glue", "hive", "pyarrow", "s3fs", "snappy"] },
     { name = "sortedcontainers" },
 ]
@@ -2434,6 +2435,7 @@ requires-dist = [
     { name = "pyarrow", marker = "extra == 'excel'", specifier = ">14.0.0,<24.0.0" },
     { name = "pyarrow", marker = "extra == 'gcs'", specifier = ">14.0.0,<24.0.0" },
     { name = "pyarrow", marker = "extra == 'gcs-slim'", specifier = ">14.0.0,<24.0.0" },
+    { name = "pyarrow", marker = "extra == 'iceberg'", specifier = ">14.0.0,<24.0.0" },
     { name = "pyarrow", marker = "extra == 'integration-tests'", specifier = ">14.0.0,<24.0.0" },
     { name = "pyarrow", marker = "extra == 's3'", specifier = ">14.0.0,<24.0.0" },
     { name = "pyarrow", marker = "extra == 's3-slim'", specifier = ">14.0.0,<24.0.0" },
