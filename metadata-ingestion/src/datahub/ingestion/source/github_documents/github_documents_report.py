@@ -1,7 +1,6 @@
 """Reporting for the github-documents ingestion source."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -21,7 +20,6 @@ class GitHubDocumentsSourceReport(StaleEntityRemovalSourceReport):
     okf_unresolved_values: int = 0
     okf_invalid_values: int = 0
     okf_unversioned_index_files: int = 0
-    okf_disabled_reason: Optional[str] = None
     tree_truncated: bool = False
     files_truncated_by_limit: bool = False
     hidden_lifecycle_search_unsupported: bool = False

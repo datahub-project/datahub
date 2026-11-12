@@ -14,7 +14,8 @@ marked.use({
             /* Checks if the markdown link is of a DataHub mention format and
                parses it into the necessary DOM structure described in DataHubMentionsExtension */
             if (text.startsWith('@') && href?.startsWith('urn')) {
-                return `<span ${DATAHUB_MENTION_ATTRS.urn}="${escapeHtml(href)}">${escapeHtml(text)}</span>`;
+                const name = text.replace(/^@/, '');
+                return `<span ${DATAHUB_MENTION_ATTRS.urn}="${escapeHtml(href)}" ${DATAHUB_MENTION_ATTRS.name}="${escapeHtml(name)}">${escapeHtml(text)}</span>`;
             }
 
             /* Check if this is a file link (URL points to our file storage) */

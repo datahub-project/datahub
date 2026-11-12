@@ -1,5 +1,4 @@
 import { ApolloClient, InMemoryCache } from '@apollo/client';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
 import {
@@ -13,6 +12,7 @@ import { Entity as RegistryEntity } from '@app/entityV2/Entity';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { DomainMock1, DomainMock3, expectedResult } from '@src/Mocks';
 import { EntityRegistryContext } from '@src/entityRegistryContext';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { Entity, EntityType } from '@types';
 

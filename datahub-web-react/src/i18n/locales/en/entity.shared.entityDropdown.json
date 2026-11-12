@@ -14,6 +14,7 @@
     "createGlossary.nameMaxLengthError": "Name must be 100 characters or less.",
     "createGlossary.namePlaceholder": "Provide a name...",
     "createGlossary.nameRequired": "Enter a {{entityName}} name.",
+    "createGlossary.noCreatePermission": "You don't have permission to create a {{entityName}} here.",
     "createGlossary.parentLabel": "Parent <optional>(optional)</optional>",
     "createGlossary.searchParentPlaceholder": "Search for a parent group...",
     "createGlossary.success": "Created {{entityName}}!",

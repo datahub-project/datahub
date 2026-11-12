@@ -335,10 +335,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             new ConfiguredIndexPrefixResolver(isV2Enabled() ? "keywordv3dual" : "keywordv3"),
             entityIndex);
     EntityRegistry entityRegistry = TestOperationContexts.defaultEntityRegistry();
-    mappingsBuilder = createDelegatingMappingsBuilder(entityIndex);
+    mappingsBuilder = createDelegatingMappingsBuilder(entityIndex, getSearchClient());
     // Built as MappingsBuilderFactory builds it, with the engine's own mapping details
     engineV3MappingsBuilder =
-        new MultiEntityMappingsBuilder(entityIndex, null, ESUtils.KEYWORD_MAXLENGTH, List.of());
+        new MultiEntityMappingsBuilder(
+            entityIndex, getSearchClient(), ESUtils.KEYWORD_MAXLENGTH, List.of());
     // Both the document transformer and the filter resolver look the definition up
     DataHubSearchConfig searched = new DataHubSearchConfig().setQueryByDefault(true);
     StructuredPropertyDefinition retentionPolicy =
