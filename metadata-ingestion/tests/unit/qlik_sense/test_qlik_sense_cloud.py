@@ -581,6 +581,7 @@ def test_failed_owner_lookup_is_tried_once_and_reported_once(
     base_url = "https://tenant.example.com/api/v1"
     requests_mock.get(f"{base_url}/api-keys", json={})
     users = requests_mock.get(f"{base_url}/users/user-1", status_code=503)
+    requests_mock.get(f"{base_url}/items?resourceType=dataset", json={"data": []})
     with patch(
         "datahub.ingestion.source.qlik_sense.qlik_sense.QlikSenseSource._create_api",
         side_effect=QlikAPI,

@@ -214,9 +214,10 @@ class QlikAPI(QlikBaseAPI):
                         )
                     )
         except Exception as e:
-            self._record_unread(
-                "datasets", f"Unable to list datasets. Exception: {e}", e
-            )
+            # Only lineage needs the list, and it falls back to adding edges,
+            # so this is not a failed read of the run's entities.
+            log_read_error(f"Unable to list datasets. Exception: {e}")
+            self.dataset_listing_error = str(e)
             return None
         return datasets
 
