@@ -81,3 +81,14 @@ def _status_error(status: int) -> requests.HTTPError:
 )
 def test_classify_gms_error(error: Exception, expected: type) -> None:
     assert isinstance(classify_gms_error(error), expected)
+
+
+async def test_a_token_gms_later_rejects_is_checked_again(
+    gms: FakeGms, verifier: DataHubTokenVerifier
+) -> None:
+    await verifier.verify("alice-token")
+    verifier.invalidate("alice-token")
+    del gms.users["alice-token"]
+
+    with pytest.raises(InvalidCredentialError):
+        await verifier.verify("alice-token")

@@ -48,8 +48,10 @@ def gms() -> Iterator[str]:
     server.shutdown()
 
 
-def _me(factory: CallerClientFactory, **build: float) -> object:
-    client = factory.build("token", **build)
+def _me(
+    factory: CallerClientFactory, time_limit_seconds: float | None = None
+) -> object:
+    client = factory.build("token", time_limit_seconds=time_limit_seconds)
     try:
         return client._graph.execute_graphql("query getMe { me { corpUser { urn } } }")
     finally:
@@ -110,3 +112,15 @@ def test_a_request_in_flight_gets_only_the_time_left(gms: str) -> None:
     with pytest.raises(requests.RequestException):
         _me(factory, time_limit_seconds=0.3)
     assert time.monotonic() - started < 0.9
+
+
+def test_a_rejected_request_is_reported(gms: str) -> None:
+    _Gms.script = [(401, 0)]
+    rejected: list[bool] = []
+    client = CallerClientFactory(gms, timeout_seconds=5).build(
+        "token", on_rejected=lambda: rejected.append(True)
+    )
+
+    with pytest.raises(OperationalError):
+        client._graph.execute_graphql("query q { me { corpUser { urn } } }")
+    assert rejected == [True]

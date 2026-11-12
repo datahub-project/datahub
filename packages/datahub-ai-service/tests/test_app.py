@@ -12,7 +12,6 @@ from sse_starlette import EventSourceResponse
 from datahub_ai_service.app import create_app
 from datahub_ai_service.config import AiServiceConfig, ResponseMode
 from datahub_ai_service.mcp.telemetry import ToolCallEvent
-from datahub_core_mcp_tools.gms_server_info import GmsServerInfo
 
 INITIALIZE = {
     "jsonrpc": "2.0",
@@ -32,7 +31,7 @@ def _app(gms: FakeGms, **config: Any) -> Any:
     return create_app(
         AiServiceConfig(gms_url="http://gms.invalid:8080", **config),
         client_factory=FakeClientFactory(gms),
-        server_info=lambda: GmsServerInfo(version="v1.7.0", server_env="core"),
+        server_info=lambda: gms.server_info(),
         observers=observers,
     )
 
@@ -50,7 +49,8 @@ async def test_health_needs_no_credential_or_gms(gms: FakeGms) -> None:
         response = await http.get(f"{url}/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json()["status"] == "ok"
+    assert response.json()["mcp"]["gmsAuth"] == "unknown"
 
 
 @pytest.mark.parametrize(
@@ -236,3 +236,67 @@ async def test_cancelled_calls_are_recorded(gms: FakeGms) -> None:
     assert events[0].error_type is None
     # The worker kept its client until it finished; then it was closed once.
     assert gms.open_clients == 0
+
+
+async def test_auth_off_needs_no_token_and_runs_as_the_system_user(
+    gms: FakeGms,
+) -> None:
+    gms.auth_enabled = False
+
+    async with serve(_app(gms)) as url, httpx.AsyncClient() as http:
+        async with Client(StreamableHttpTransport(f"{url}/mcp")) as client:
+            result = await client.call_tool("get_me")
+        health = (await http.get(f"{url}/health")).json()
+
+    assert result.data["data"]["corpUser"]["urn"] == "urn:li:corpuser:__datahub_system"
+    assert "authentication is off" in result.data["message"]
+    assert health["mcp"] == {
+        "enabled": True,
+        "authMode": "auto",
+        "gmsAuth": "off",
+        "available": True,
+    }
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [{}, {"Authorization": "Bearer garbage"}, {"Authorization": "Bearer alice-token"}],
+)
+async def test_required_mode_is_unavailable_while_gms_auth_is_off(
+    gms: FakeGms, headers: dict[str, str]
+) -> None:
+    gms.auth_enabled = False
+
+    async with serve(_app(gms, auth_mode="required")) as url:
+        async with httpx.AsyncClient() as http:
+            response = await http.post(
+                f"{url}/mcp", json=INITIALIZE, headers={**MCP_HEADERS, **headers}
+            )
+            health = (await http.get(f"{url}/health")).json()
+
+    # Never a successful login: GMS with auth off can't check a token.
+    assert response.status_code == 503
+    assert response.json()["error"] == "datahub_auth_off"
+    assert health["mcp"]["available"] is False
+
+
+async def test_turning_gms_auth_on_drops_cached_verdicts(gms: FakeGms) -> None:
+    async with serve(_app(gms)) as url, httpx.AsyncClient() as http:
+
+        async def initialize(token: str) -> int:
+            response = await http.post(
+                f"{url}/mcp",
+                json=INITIALIZE,
+                headers={**MCP_HEADERS, "Authorization": f"Bearer {token}"},
+            )
+            return response.status_code
+
+        assert await initialize("alice-token") == 200
+        gms.auth_enabled = False
+        assert await initialize("anything") == 200
+        # Auth back on: alice is checked again, and an unknown token is refused.
+        gms.auth_enabled = True
+        calls = gms.me_calls
+        assert await initialize("alice-token") == 200
+        assert gms.me_calls == calls + 1
+        assert await initialize("anything") == 401

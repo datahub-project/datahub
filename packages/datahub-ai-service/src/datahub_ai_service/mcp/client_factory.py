@@ -42,26 +42,32 @@ class ToolDeadlineExceeded(ToolError):
     """The tool call ran past its time limit before its next GMS request."""
 
 
-def _with_deadline(
+def _guarded(
     request: Callable[..., requests.Response],
     *,
-    deadline: float,
-    limit_seconds: float,
+    deadline: Optional[float],
+    limit_seconds: Optional[float],
     timeout_seconds: float,
     clock: Callable[[], float],
+    on_rejected: Optional[Callable[[], None]],
 ) -> Callable[..., requests.Response]:
     @functools.wraps(request)
-    def bounded(method: str, url: str, **kwargs: Any) -> requests.Response:
-        remaining = deadline - clock()
-        if remaining <= 0:
-            raise ToolDeadlineExceeded(
-                f"The tool call ran past its {limit_seconds:.0f}s limit and stopped "
-                "before its next DataHub request. Try a narrower request."
-            )
-        budget = min(timeout_seconds, remaining)
-        return request(method, url, **{**kwargs, "timeout": (budget, budget)})
+    def guarded(method: str, url: str, **kwargs: Any) -> requests.Response:
+        if deadline is not None:
+            remaining = deadline - clock()
+            if remaining <= 0:
+                raise ToolDeadlineExceeded(
+                    f"The tool call ran past its {limit_seconds:.0f}s limit and "
+                    "stopped before its next DataHub request. Try a narrower request."
+                )
+            budget = min(timeout_seconds, remaining)
+            kwargs = {**kwargs, "timeout": (budget, budget)}
+        response = request(method, url, **kwargs)
+        if on_rejected is not None and response.status_code in (401, 403):
+            on_rejected()
+        return response
 
-    return bounded
+    return guarded
 
 
 class CallerClientFactory:
@@ -79,10 +85,17 @@ class CallerClientFactory:
         self._clock = clock
 
     def build(
-        self, token: str, *, time_limit_seconds: Optional[float] = None
+        self,
+        token: Optional[str],
+        *,
+        time_limit_seconds: Optional[float] = None,
+        on_rejected: Optional[Callable[[], None]] = None,
     ) -> DataHubClient:
-        """A client for ``token``; with a time limit, it stops sending requests
-        once that many seconds have passed since now."""
+        """A client for ``token`` (None sends no credential).
+
+        With a time limit, it stops sending requests once that many seconds have
+        passed since now. ``on_rejected`` runs whenever GMS answers 401 or 403.
+        """
         client = DataHubClient(
             config=DatahubClientConfig(
                 server=self._gms_url,
@@ -97,12 +110,14 @@ class CallerClientFactory:
         adapter = HTTPAdapter(max_retries=_RETRIES)
         session.mount("http://", adapter)
         session.mount("https://", adapter)
-        if time_limit_seconds is not None:
-            session.request = _with_deadline(  # type: ignore[method-assign]
-                session.request,
-                deadline=self._clock() + time_limit_seconds,
-                limit_seconds=time_limit_seconds,
-                timeout_seconds=self._timeout_seconds,
-                clock=self._clock,
-            )
+        session.request = _guarded(  # type: ignore[method-assign]
+            session.request,
+            deadline=None
+            if time_limit_seconds is None
+            else self._clock() + time_limit_seconds,
+            limit_seconds=time_limit_seconds,
+            timeout_seconds=self._timeout_seconds,
+            clock=self._clock,
+            on_rejected=on_rejected,
+        )
         return client

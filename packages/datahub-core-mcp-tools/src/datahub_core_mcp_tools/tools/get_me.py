@@ -6,10 +6,15 @@ from fastmcp.exceptions import ToolError
 from loguru import logger
 
 from .. import graphql_helpers
+from ..gms_server_info import GmsServerInfo
 from ..version_requirements import min_version, read_only
 
 # GMS answers `me` for the actor it authenticated. With metadata-service auth off it
 # accepts any token, or none, and answers for an actor that may have no user entity.
+AUTH_OFF_MESSAGE = (
+    "DataHub authentication is off (METADATA_SERVICE_AUTH_ENABLED=false), so every "
+    "request runs as DataHub's system user."
+)
 NONEXISTENT_USER_WARNING = (
     "DataHub returned a user that does not exist ({user}). Check the auth "
     "settings and METADATA_SERVICE_AUTH_ENABLED; the supplied token might be invalid."
@@ -51,7 +56,10 @@ def get_me() -> dict[str, Any]:
 
     message = "Successfully retrieved authenticated user information"
     corp_user = me_data.get("corpUser") or {}
-    if corp_user.get("exists") is False:
+    info = graphql_helpers.get_mcp_context().tool_context.get(GmsServerInfo)
+    if info is not None and info.auth_enabled is False:
+        message = AUTH_OFF_MESSAGE
+    elif corp_user.get("exists") is False:
         message = NONEXISTENT_USER_WARNING.format(
             user=corp_user.get("urn") or corp_user.get("username") or "unknown"
         )

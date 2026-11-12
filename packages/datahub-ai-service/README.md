@@ -3,9 +3,14 @@
 DataHub's AI service. It serves DataHub's MCP tools (from `datahub-core-mcp-tools`) over streamable
 HTTP at `/mcp`, and an unauthenticated `/health` probe.
 
-Every MCP request carries its caller's DataHub personal access token as
-`Authorization: Bearer <token>`. The service checks it with GMS and calls DataHub as that
-caller. It never uses a shared or system credential.
+Authentication follows GMS. When GMS auth is on (`METADATA_SERVICE_AUTH_ENABLED=true`), every
+MCP request carries its caller's DataHub personal access token as `Authorization: Bearer <token>`;
+the service checks it with GMS and calls DataHub as that caller. When GMS auth is off, no token
+is needed and requests run as DataHub's system user, as direct calls to GMS do. The service
+never holds a shared or system credential. While GMS can't be reached, or its auth mode can't be
+told, `/mcp` answers 503.
+
+`/health` reports the auth mode it last saw, for status pages and debugging.
 
 ## Run
 
@@ -23,16 +28,17 @@ claude mcp add --transport http datahub http://localhost:9005/mcp \
 
 ## Configuration
 
-| Variable                              | Default   | Meaning                                                    |
-| ------------------------------------- | --------- | ---------------------------------------------------------- |
-| `DATAHUB_GMS_URL`                     | required  | GMS base URL; may include a path prefix                    |
-| `DATAHUB_AI_HOST`                     | `0.0.0.0` | Interface to listen on                                     |
-| `DATAHUB_AI_PORT`                     | `9005`    | Port to listen on                                          |
-| `DATAHUB_AI_MCP_ENABLED`              | `true`    | Serve MCP at `/mcp`                                        |
-| `DATAHUB_AI_MCP_RESPONSE_MODE`        | `sse`     | `sse` streams responses; `json` returns one body           |
-| `DATAHUB_MCP_TOKEN_CACHE_TTL_SECONDS` | `300`     | How long a verified token is trusted before checking again |
-| `DATAHUB_AI_GMS_TIMEOUT_SECONDS`      | `30`      | Connect and read timeout for each GMS request              |
-| `DATAHUB_AI_TOOL_TIME_LIMIT_SECONDS`  | `300`     | How long one tool call may keep sending requests to GMS    |
+| Variable                              | Default   | Meaning                                                                |
+| ------------------------------------- | --------- | ---------------------------------------------------------------------- |
+| `DATAHUB_GMS_URL`                     | required  | GMS base URL; may include a path prefix                                |
+| `DATAHUB_AI_HOST`                     | `0.0.0.0` | Interface to listen on                                                 |
+| `DATAHUB_AI_PORT`                     | `9005`    | Port to listen on                                                      |
+| `DATAHUB_AI_MCP_ENABLED`              | `true`    | Serve MCP at `/mcp`                                                    |
+| `DATAHUB_AI_MCP_RESPONSE_MODE`        | `sse`     | `sse` streams responses; `json` returns one body                       |
+| `DATAHUB_AI_AUTH_MODE`                | `auto`    | `auto` follows GMS; `required` serves `/mcp` only while GMS auth is on |
+| `DATAHUB_MCP_TOKEN_CACHE_TTL_SECONDS` | `300`     | How long a verified token is trusted before checking again             |
+| `DATAHUB_AI_GMS_TIMEOUT_SECONDS`      | `30`      | Connect and read timeout for each GMS request                          |
+| `DATAHUB_AI_TOOL_TIME_LIMIT_SECONDS`  | `300`     | How long one tool call may keep sending requests to GMS                |
 
 `DATAHUB_GMS_TOKEN` is refused: each caller sends their own token.
 
