@@ -80,10 +80,16 @@ type SchemaTableColumn = {
     sorter?: (a: ExtendedSchemaFields, b: ExtendedSchemaFields) => number;
 };
 
+// Converted columns are cached per definition: when one column changes (e.g. usage, as the drawer opens),
+// the others keep their identity and their memoized cells skip re-rendering.
+const tableColumnCache = new WeakMap<SchemaTableColumn, Column<ExtendedSchemaFields>>();
+
 const toTableColumn = (column: SchemaTableColumn): Column<ExtendedSchemaFields> => {
+    const cached = tableColumnCache.get(column);
+    if (cached) return cached;
     const width = column.width ? `${column.width}px` : undefined;
     const { render, dataIndex } = column;
-    return {
+    const tableColumn: Column<ExtendedSchemaFields> = {
         key: column.key,
         title: column.title,
         width,
@@ -96,6 +102,8 @@ const toTableColumn = (column: SchemaTableColumn): Column<ExtendedSchemaFields> 
                   render(dataIndex ? record[dataIndex as keyof ExtendedSchemaFields] : undefined, record, index)
             : undefined,
     };
+    tableColumnCache.set(column, tableColumn);
+    return tableColumn;
 };
 
 const EMPTY_SET: Set<string> = new Set();
