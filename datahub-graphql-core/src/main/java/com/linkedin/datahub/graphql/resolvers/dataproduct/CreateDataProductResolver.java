@@ -21,6 +21,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -36,20 +37,28 @@ public class CreateDataProductResolver implements DataFetcher<CompletableFuture<
     final QueryContext context = environment.getContext();
     final CreateDataProductInput input =
         bindArgument(environment.getArgument("input"), CreateDataProductInput.class);
-    final Urn domainUrn = UrnUtils.getUrn(input.getDomainUrn());
+    final Urn domainUrn =
+        StringUtils.isBlank(input.getDomainUrn()) ? null : UrnUtils.getUrn(input.getDomainUrn());
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          // The privilege check below accepts EDIT_ENTITY on whatever URN it is given, and the
-          // dataProductProperties write is committed before setDomain rejects a non-domain URN,
-          // which would leave a product with no domain and no owner.
-          if (!Constants.DOMAIN_ENTITY_NAME.equals(domainUrn.getEntityType())) {
-            throw new IllegalArgumentException("The provided domainUrn is not a Domain");
-          }
-          if (!_dataProductService.verifyEntityExists(context.getOperationContext(), domainUrn)) {
-            throw new IllegalArgumentException("The Domain provided dos not exist");
-          }
-          if (!DataProductAuthorizationUtils.isAuthorizedToManageDataProducts(context, domainUrn)) {
+          if (domainUrn != null) {
+            // The privilege check below accepts EDIT_ENTITY on whatever URN it is given, and the
+            // dataProductProperties write is committed before setDomain rejects a non-domain URN,
+            // which would leave a product with no domain and no owner.
+            if (!Constants.DOMAIN_ENTITY_NAME.equals(domainUrn.getEntityType())) {
+              throw new IllegalArgumentException("The provided domainUrn is not a Domain");
+            }
+            if (!_dataProductService.verifyEntityExists(context.getOperationContext(), domainUrn)) {
+              throw new IllegalArgumentException("The Domain provided dos not exist");
+            }
+            if (!DataProductAuthorizationUtils.isAuthorizedToManageDataProducts(
+                context, domainUrn)) {
+              throw new AuthorizationException(
+                  "Unauthorized to perform this action. Please contact your DataHub administrator.");
+            }
+          } else if (!DataProductAuthorizationUtils.isAuthorizedToCreateDataProductWithoutDomain(
+              context)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
@@ -78,10 +87,10 @@ public class CreateDataProductResolver implements DataFetcher<CompletableFuture<
                     input.getProperties().getName(),
                     input.getProperties().getDescription(),
                     parentDataProductUrn);
-            _dataProductService.setDomain(
-                context.getOperationContext(),
-                dataProductUrn,
-                UrnUtils.getUrn(input.getDomainUrn()));
+            if (domainUrn != null) {
+              _dataProductService.setDomain(
+                  context.getOperationContext(), dataProductUrn, domainUrn);
+            }
             OwnerUtils.addCreatorAsOwner(
                 context, dataProductUrn.toString(), OwnerEntityType.CORP_USER, _entityService);
             EntityResponse response =

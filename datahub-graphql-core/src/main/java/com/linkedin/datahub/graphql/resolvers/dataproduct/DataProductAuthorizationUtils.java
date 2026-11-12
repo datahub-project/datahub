@@ -54,6 +54,15 @@ public class DataProductAuthorizationUtils {
         context, domainUrn.getEntityType(), domainUrn.toString(), orPrivilegeGroups);
   }
 
+  /**
+   * There is no Domain to scope {@code MANAGE_DATA_PRODUCTS} against, so a platform-level privilege
+   * is required to create a Data Product without one.
+   */
+  public static boolean isAuthorizedToCreateDataProductWithoutDomain(
+      @Nonnull QueryContext context) {
+    return AuthorizationUtils.canManageDomains(context);
+  }
+
   /** Requires {@code MANAGE_DATA_PRODUCTS} on at least one domain associated with the product. */
   public static boolean isAuthorizedToManageDataProductsOnAnyDomain(
       @Nonnull QueryContext context, @Nullable Domains domains) {
