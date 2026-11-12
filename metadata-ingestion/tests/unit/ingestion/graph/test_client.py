@@ -12,6 +12,7 @@ from datahub.configuration.common import OperationalError
 from datahub.emitter.emit_mode import EmitMode
 from datahub.ingestion.graph.client import _APPEND_MAX_ATTEMPTS, DataHubGraph
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     MetadataAttributionClass,
     MetadataChangeProposalClass,
     StructuredPropertiesClass,
@@ -283,11 +284,19 @@ class TestAddStructuredPropertyValues:
             assert call.kwargs["emit_mode"] == EmitMode.SYNC_PRIMARY
 
     def _assignment(
-        self, values: List[Union[str, float]], source: Optional[str] = None
+        self,
+        values: List[Union[str, float]],
+        source: Optional[str] = None,
+        created_time: Optional[int] = None,
     ) -> StructuredPropertyValueAssignmentClass:
         return StructuredPropertyValueAssignmentClass(
             propertyUrn=self._PROP,
             values=values,
+            created=AuditStampClass(
+                time=created_time, actor=f"urn:li:corpuser:user{created_time}"
+            )
+            if created_time is not None
+            else None,
             attribution=MetadataAttributionClass(
                 time=0, actor="urn:li:corpuser:datahub", source=source
             )
@@ -339,6 +348,38 @@ class TestAddStructuredPropertyValues:
         assert remove["path"] == f"/properties/{self._PROP}/{self._PROPAGATION}"
         assert "attribution" not in add["value"]
         assert add["value"]["values"] == [{"string": "a"}, {"string": "c"}]
+
+    def test_keeps_the_earliest_created_stamp(self) -> None:
+        graph = self._graph_with(
+            StructuredPropertiesClass(
+                properties=[
+                    self._assignment(["a"], created_time=200),
+                    self._assignment(["b"], source=self._PROPAGATION, created_time=100),
+                ]
+            )
+        )
+
+        graph.add_structured_property_values(self._ENTITY, self._PROP, ["c"])
+
+        _, add = self._written(graph)
+        assert add["value"]["created"] == {
+            "time": 100,
+            "actor": "urn:li:corpuser:user100",
+        }
+        assert add["value"]["lastModified"]["actor"] == "urn:li:corpuser:__ingestion"
+        assert add["value"]["lastModified"]["time"] > 100
+
+    def test_stamps_created_now_when_none_was_stored(self) -> None:
+        graph = self._graph_with(
+            StructuredPropertiesClass(properties=[self._assignment(["a"])])
+        )
+
+        graph.add_structured_property_values(self._ENTITY, self._PROP, ["c"])
+
+        (add,) = self._written(graph)
+        assert add["value"]["created"]["actor"] == "urn:li:corpuser:__ingestion"
+        assert add["value"]["created"]["time"] > 0
+        assert add["value"]["lastModified"] == add["value"]["created"]
 
     def test_merges_values_from_every_entry_for_the_property(self) -> None:
         graph = self._graph_with(

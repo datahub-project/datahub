@@ -39,7 +39,7 @@ from datahub.cli.cli_utils import guess_frontend_url_from_gms_url
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.emit_mode import EmitMode
-from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
+from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
@@ -77,6 +77,7 @@ from datahub.metadata.schema_classes import (
     ASPECT_NAME_MAP,
     KEY_ASPECTS,
     AspectBag,
+    AuditStampClass,
     BrowsePathsClass,
     DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
@@ -88,6 +89,7 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StatusClass,
     StructuredPropertiesClass,
+    StructuredPropertyValueAssignmentClass,
     SystemMetadataClass,
     TelemetryClientIdClass,
 )
@@ -150,6 +152,13 @@ _ENTITY_SPECS_CACHE = ServerStateDiskCache("entity_aspect_specs")
 # Alias for backwards compatibility.
 # DEPRECATION: Remove in v0.10.2.
 DataHubGraphConfig = DatahubClientConfig
+
+
+def _audit_stamp_now() -> AuditStampClass:
+    # Imported here: datahub.sdk imports this module, so a top-level import is circular.
+    from datahub.sdk._utils import DEFAULT_ACTOR_URN
+
+    return AuditStampClass(time=make_ts_millis(datetime.now()), actor=DEFAULT_ACTOR_URN)
 
 
 def entity_type_to_graphql(entity_type: str) -> str:
@@ -2029,7 +2038,23 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 patch.remove_structured_property(
                     key=property_urn, attribution_source=source
                 )
-            patch.set_structured_property(key=property_urn, value=merged)
+            # Stamp the entry the way the SDK's Entity.set_structured_property does: keep the
+            # stored `created` (the earliest, when entries are merged), else now; and set
+            # `lastModified` to now. A bare set would write the entry without either.
+            now = _audit_stamp_now()
+            created = min(
+                (entry.created for entry in entries if entry.created),
+                key=lambda stamp: stamp.time,
+                default=now,
+            )
+            patch.set_structured_property_manual(
+                StructuredPropertyValueAssignmentClass(
+                    propertyUrn=property_urn,
+                    values=merged,
+                    created=created,
+                    lastModified=now,
+                )
+            )
             try:
                 for mcp in patch.build():
                     mcp.headers = {"If-Version-Match": version}
