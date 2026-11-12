@@ -44,6 +44,25 @@ describe('Popover', () => {
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
+    it('mounts kept content only after the first open, then keeps it when closed', () => {
+        render(
+            <ThemeProvider theme={themeV2}>
+                <Popover content={<span>Kept content</span>} trigger="click" destroyTooltipOnHide={false}>
+                    <button type="button">Open details</button>
+                </Popover>
+            </ThemeProvider>,
+        );
+
+        expect(screen.queryByText('Kept content')).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Open details' }));
+        expect(screen.getByText('Kept content')).toBeVisible();
+
+        fireEvent.keyDown(document, { key: 'Escape' });
+        expect(screen.getByText('Kept content')).toBeInTheDocument();
+        expect(screen.getByText('Kept content')).not.toBeVisible();
+    });
+
     it('stays open when a menu portaled from its content is pressed, and closes on an outside press', () => {
         const PortaledMenu = () => createPortal(<button type="button">Edit view</button>, document.body);
 
