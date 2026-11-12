@@ -1,7 +1,7 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useDocumentNavigation } from '@app/document/hooks/useDocumentNavigation';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const mockPush = vi.fn();
 let mockPathname = '/';

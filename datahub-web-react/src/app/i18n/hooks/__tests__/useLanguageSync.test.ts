@@ -1,4 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
 import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,6 +6,7 @@ import { useLanguageSync } from '@app/i18n/hooks/useLanguageSync';
 import { useLocaleConfig } from '@app/i18n/hooks/useLocaleConfig';
 import { hasLocaleBundleFailed } from '@src/i18n/localeBackend';
 import { setDayjsLocale } from '@utils/dayjs';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 vi.mock('@app/i18n/hooks/useLocaleConfig');
 vi.mock('i18next', () => ({ default: { language: 'en', changeLanguage: vi.fn() } }));

@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useHandleOnboardingTour } from '@app/onboarding/useHandleOnboardingTour';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const mockSetTourReshow = vi.fn();
 const mockSetIsTourOpen = vi.fn();
