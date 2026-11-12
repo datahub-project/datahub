@@ -2,11 +2,15 @@ import base64
 import hashlib
 import re
 from typing import Dict, List, Optional
-from urllib.parse import urlparse
 
 from pydantic import BaseModel
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.ingestion.source.azure.abs_utils import is_azure_path, parse_azure_path
+from datahub.ingestion.source.data_lake_common.object_store import (
+    GCSObjectStore,
+    S3ObjectStore,
+)
 
 # Qlik Cloud names a file a data connection reads as
 # qri:file:<scheme>://<connection>#<path>#<item>, and its lineage graph hides
@@ -121,22 +125,28 @@ def file_storage_of_connection(connect_statement: str) -> Optional[FileStorage]:
 
 
 def file_storage_of_uri(uri: str) -> Optional[FileStorage]:
-    """The storage an `abfss://`, `s3://` or `gs://` URI names."""
-    parsed = urlparse(uri.strip())
-    folder = parsed.path.strip("/")
-    if parsed.scheme in ("abfs", "abfss", "wasb", "wasbs") and "@" in parsed.netloc:
-        container = parsed.netloc.split("@", 1)[0]
-        return FileStorage(
-            platform="abs", location="/".join(filter(None, [container, folder]))
-        )
-    if parsed.scheme in ("s3", "s3a", "s3n") and parsed.netloc:
-        return FileStorage(
-            platform="s3", location="/".join(filter(None, [parsed.netloc, folder]))
-        )
-    if parsed.scheme == "gs" and parsed.netloc:
-        return FileStorage(
-            platform="gcs", location="/".join(filter(None, [parsed.netloc, folder]))
-        )
+    """The storage an Azure (`abfss://`, `abfs://` or Azure HTTPS), `s3://` or
+    `gs://` URI names."""
+    uri = uri.strip()
+    if is_azure_path(uri):
+        try:
+            azure = parse_azure_path(uri)
+        except ValueError:
+            # az:// and adl:// need an account name, which the container
+            # location does not include.
+            return None
+        location = [azure.container_name, azure.object_path.strip("/")]
+        return FileStorage(platform="abs", location="/".join(filter(None, location)))
+    for platform, store in (("s3", S3ObjectStore), ("gcs", GCSObjectStore)):
+        if store.is_uri(uri):
+            location = [
+                store.get_bucket_name(uri),
+                store.get_object_key(uri).strip("/"),
+            ]
+            if location[0]:
+                return FileStorage(
+                    platform=platform, location="/".join(filter(None, location))
+                )
     return None
 
 
@@ -178,11 +188,16 @@ class FileSourceResolver:
 
 
 def file_dataset_urn(
-    storage: FileStorage, path: str, platform_instance: Optional[str], env: str
+    storage: FileStorage,
+    path: str,
+    platform_instance: Optional[str],
+    env: str,
+    lowercase: bool = False,
 ) -> str:
+    name = f"{storage.location}/{path}"
     return make_dataset_urn_with_platform_instance(
         platform=storage.platform,
-        name=f"{storage.location}/{path}",
+        name=name.lower() if lowercase else name,
         platform_instance=platform_instance,
         env=env,
     )
