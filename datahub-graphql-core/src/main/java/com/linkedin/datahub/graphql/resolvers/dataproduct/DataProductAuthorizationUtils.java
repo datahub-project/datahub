@@ -65,12 +65,12 @@ public class DataProductAuthorizationUtils {
   }
 
   /**
-   * There is no Domain to scope {@code MANAGE_DATA_PRODUCTS} against, so a platform-level privilege
-   * is required to create a Data Product without one.
+   * A Data Product without a Domain requires the platform-wide {@code MANAGE_ALL_DATA_PRODUCTS}
+   * privilege, since there is no Domain to scope {@code MANAGE_DATA_PRODUCTS} against.
    */
   public static boolean isAuthorizedToCreateDataProductWithoutDomain(
       @Nonnull QueryContext context) {
-    return AuthorizationUtils.canManageDomains(context);
+    return canManageAllDataProducts(context);
   }
 
   /** Requires {@code MANAGE_DATA_PRODUCTS} on at least one domain associated with the product. */
