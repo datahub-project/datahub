@@ -1,12 +1,15 @@
+import { toast } from '@components';
 import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
-import { Modal, Tag, message } from 'antd';
-import React from 'react';
+import { Tag } from 'antd';
+import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { MatchedFieldName } from '@app/search/matches/constants';
+import { StopPropagation } from '@app/sharedV2/StopPropagation';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveBusinessAttributeMutation } from '@graphql/mutations.generated';
@@ -55,70 +58,75 @@ export default function AttributeContent({
         'businessAttributes' as MatchedFieldName,
     );
 
-    const removeAttribute = (attributeToRemove: BusinessAttributeAssociation) => {
+    const [attributeToRemove, setAttributeToRemove] = useState<BusinessAttributeAssociation | undefined>(undefined);
+    const attributeToRemoveName =
+        attributeToRemove &&
+        entityRegistry.getDisplayName(attributeToRemove.businessAttribute.type, attributeToRemove.businessAttribute);
+
+    const removeAttribute = (attribute: BusinessAttributeAssociation) => {
         onOpenModal?.();
-        const AttributeName =
-            attributeToRemove &&
-            entityRegistry.getDisplayName(
-                attributeToRemove.businessAttribute.type,
-                attributeToRemove.businessAttribute,
-            );
-        Modal.confirm({
-            title: t('removeConfirm.title', { attributeName: AttributeName }),
-            content: t('removeConfirm.content', { attributeName: AttributeName }),
-            onOk() {
-                if (attributeToRemove.associatedUrn || entityUrn) {
-                    removeBusinessAttributeMutation({
-                        variables: {
-                            input: {
-                                businessAttributeUrn: attributeToRemove.businessAttribute.urn,
-                                resourceUrn: [
-                                    {
-                                        resourceUrn: attributeToRemove.associatedUrn || entityUrn || '',
-                                        subResource: null,
-                                        subResourceType: null,
-                                    },
-                                ],
+        setAttributeToRemove(attribute);
+    };
+
+    const confirmRemoveAttribute = () => {
+        setAttributeToRemove(undefined);
+        if (attributeToRemove && (attributeToRemove.associatedUrn || entityUrn)) {
+            removeBusinessAttributeMutation({
+                variables: {
+                    input: {
+                        businessAttributeUrn: attributeToRemove.businessAttribute.urn,
+                        resourceUrn: [
+                            {
+                                resourceUrn: attributeToRemove.associatedUrn || entityUrn || '',
+                                subResource: null,
+                                subResourceType: null,
                             },
-                        },
-                    })
-                        .then(({ errors }) => {
-                            if (!errors) {
-                                message.success({ content: t('removeSuccess'), duration: 2 });
-                            }
-                        })
-                        .then(refetch)
-                        .catch((e) => {
-                            message.destroy();
-                            message.error({
-                                content: t('removeAttributeError', { error: e.message || '' }),
-                                duration: 3,
-                            });
-                        });
-                }
-            },
-            onCancel() {},
-            okText: tc('yes'),
-            maskClosable: true,
-            closable: true,
-        });
+                        ],
+                    },
+                },
+            })
+                .then(({ errors }) => {
+                    if (!errors) {
+                        toast.success(t('removeSuccess'), { duration: 2 });
+                    }
+                })
+                .then(refetch)
+                .catch((e) => {
+                    toast.destroy();
+                    toast.error(t('removeAttributeError', { error: e.message || '' }), { duration: 3 });
+                });
+        }
     };
 
     return (
-        <StyledAttribute
-            style={{ cursor: 'pointer', whiteSpace: 'normal' }}
-            closable={canRemove && !readOnly}
-            onClose={(e) => {
-                e.preventDefault();
-                removeAttribute(businessAttribute as BusinessAttributeAssociation);
-            }}
-            fontSize={fontSize}
-            highlightAttribute={highlightAttribute}
-        >
-            <Globe style={{ marginRight: '4px' }} />
-            <Highlight style={{ marginLeft: 0 }} matchStyle={highlightMatchStyle} search={highlightText}>
-                {entityRegistry.getDisplayName(EntityType.BusinessAttribute, businessAttribute?.businessAttribute)}
-            </Highlight>
-        </StyledAttribute>
+        <>
+            <StyledAttribute
+                style={{ cursor: 'pointer', whiteSpace: 'normal' }}
+                closable={canRemove && !readOnly}
+                onClose={(e) => {
+                    e.preventDefault();
+                    removeAttribute(businessAttribute as BusinessAttributeAssociation);
+                }}
+                fontSize={fontSize}
+                highlightAttribute={highlightAttribute}
+            >
+                <Globe style={{ marginRight: '4px' }} />
+                <Highlight style={{ marginLeft: 0 }} matchStyle={highlightMatchStyle} search={highlightText}>
+                    {entityRegistry.getDisplayName(EntityType.BusinessAttribute, businessAttribute?.businessAttribute)}
+                </Highlight>
+            </StyledAttribute>
+            {!!attributeToRemove && (
+                <StopPropagation>
+                    <ConfirmationModal
+                        isOpen
+                        handleClose={() => setAttributeToRemove(undefined)}
+                        handleConfirm={confirmRemoveAttribute}
+                        modalTitle={t('removeConfirm.title', { attributeName: attributeToRemoveName })}
+                        modalText={t('removeConfirm.content', { attributeName: attributeToRemoveName })}
+                        confirmButtonText={tc('yes')}
+                    />
+                </StopPropagation>
+            )}
+        </>
     );
 }

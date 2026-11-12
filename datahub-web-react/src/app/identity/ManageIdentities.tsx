@@ -1,5 +1,4 @@
-import { Text } from '@components';
-import { Typography } from 'antd';
+import { Heading, Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -25,10 +24,8 @@ const PageHeaderContainer = styled.div`
     }
 `;
 
-const PageTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 12px;
-    }
+const PageTitle = styled.div`
+    margin-bottom: 12px;
 `;
 
 const Content = styled.div`
@@ -106,7 +103,11 @@ export const ManageIdentities = ({ version }: Props) => {
     return (
         <PageContainer>
             <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
-                <PageTitle level={3}>{t('pageTitle')}</PageTitle>
+                <PageTitle>
+                    <Heading type="h3" size="4xl" weight="semiBold">
+                        {t('pageTitle')}
+                    </Heading>
+                </PageTitle>
                 <Text color="textSecondary">{t('pageSubTitle')}</Text>
             </PageHeaderContainer>
             <Content>

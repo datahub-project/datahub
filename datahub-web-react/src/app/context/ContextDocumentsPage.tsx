@@ -1,5 +1,5 @@
-import { Loader } from '@components';
-import { Result } from 'antd';
+import { EmptyState, Loader } from '@components';
+import { LockSimple } from '@phosphor-icons/react/dist/csr/LockSimple';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Redirect } from 'react-router-dom';
@@ -124,10 +124,11 @@ export default function ContextDocumentsPage() {
     if (rootNodes.length === 0 && !canCreateDocuments) {
         return (
             <ContentCard data-testid="context-documents-empty-unauthorized">
-                <Result
-                    status="403"
+                <EmptyState
+                    icon={LockSimple}
+                    size="lg"
                     title={t('document.noDocumentsTitle')}
-                    subTitle={t('document.noDocumentsSubtitle')}
+                    description={t('document.noDocumentsSubtitle')}
                 />
             </ContentCard>
         );

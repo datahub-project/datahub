@@ -1,5 +1,5 @@
+import { Button, Heading } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { Button, Empty, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -10,7 +10,7 @@ const EmptyDomainContainer = styled.div`
     overflow-y: auto;
 `;
 
-const StyledEmpty = styled(Empty)`
+const EmptyContent = styled.div`
     width: 35vw;
     @media screen and (max-width: 1300px) {
         width: 50vw;
@@ -24,12 +24,14 @@ const StyledEmpty = styled(Empty)`
         }
     }
     padding: 20px;
-    .ant-empty-image {
-        display: none;
-    }
+    margin: 32px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
 `;
 
-const StyledButton = styled(Button)`
+const ButtonContainer = styled.div`
     margin: 18px 8px 0 0;
 `;
 
@@ -50,19 +52,18 @@ function EmptyDomainsSection(props: Props) {
     const { t } = useTranslation('governance.domain');
     return (
         <EmptyDomainContainer>
-            <StyledEmpty
-                description={
-                    <>
-                        <IconContainer>{icon}</IconContainer>
-                        <Typography.Title level={4}>{title}</Typography.Title>
-                        {description}
-                    </>
-                }
-            >
-                <StyledButton onClick={() => setIsCreatingDomain(true)}>
-                    <Plus /> {t('empty.createButton')}
-                </StyledButton>
-            </StyledEmpty>
+            <EmptyContent>
+                <IconContainer>{icon}</IconContainer>
+                <Heading type="h4" size="xl" weight="semiBold">
+                    {title}
+                </Heading>
+                {description}
+                <ButtonContainer>
+                    <Button variant="outline" icon={{ icon: Plus }} onClick={() => setIsCreatingDomain(true)}>
+                        {t('empty.createButton')}
+                    </Button>
+                </ButtonContainer>
+            </EmptyContent>
         </EmptyDomainContainer>
     );
 }

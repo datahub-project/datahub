@@ -1,5 +1,4 @@
 import { LegendItem, LegendLabel, LegendOrdinal } from '@visx/legend';
-import { Col, Row } from 'antd';
 import { ScaleOrdinal } from 'd3-scale/src/ordinal';
 import React from 'react';
 import styled from 'styled-components';
@@ -10,8 +9,15 @@ type Props = {
     ordinalScale: ScaleOrdinal<string, string>;
 };
 
-const LegendRow = styled(Row)`
+const LegendRow = styled.div`
+    display: flex;
+    flex-wrap: wrap;
     width: 100%;
+`;
+
+const LegendCol = styled.div`
+    flex: 0 0 33.33333333%;
+    max-width: 33.33333333%;
 `;
 
 export default function Legend({ ordinalScale }: Props) {
@@ -20,7 +26,7 @@ export default function Legend({ ordinalScale }: Props) {
             <LegendOrdinal scale={ordinalScale} labelFormat={(d: any) => d}>
                 {(labels) => {
                     return labels.map((label) => (
-                        <Col span={8}>
+                        <LegendCol>
                             <LegendItem key={`legend-quantile-${label}`}>
                                 <svg width={legendGlyphSize} height={legendGlyphSize} style={{ margin: '2px 0' }}>
                                     <circle
@@ -34,7 +40,7 @@ export default function Legend({ ordinalScale }: Props) {
                                     {label.text}
                                 </LegendLabel>
                             </LegendItem>
-                        </Col>
+                        </LegendCol>
                     ));
                 }}
             </LegendOrdinal>
