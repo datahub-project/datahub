@@ -2271,10 +2271,11 @@ class GlueSource(StatefulIngestionSourceBase):
                 # along with the rest of its write batch.
                 self.report.num_column_lineage_empty_field_path += 1
                 self.report.warning(
-                    title="Column lineage skipped for column with empty field path",
-                    message="A column's field path is empty, so no valid column-level "
-                    "lineage could be built for it. The table's other lineage is unaffected.",
-                    context=f"{dataset_urn} field_path={field.fieldPath}",
+                    title="Column lineage skipped for unsupported column name",
+                    message="The column's field path is empty once its type annotations are "
+                    "removed, so no valid column-level lineage could be built for it. The "
+                    "table's other lineage is unaffected.",
+                    context=f"{dataset_urn} upstream={upstream_urn} field_path={field.fieldPath}",
                 )
                 continue
             if field_path_v1 in upstream_paths:

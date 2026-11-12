@@ -1968,8 +1968,18 @@ def test_column_lineage_skips_and_warns_on_empty_field_path() -> None:
         # Annotation-like text is part of the name unless it is a whole path segment.
         ("[type=foo]", "string", ["[type=foo]"]),
         ("a[key=x]b", "string", ["a[key=x]b"]),
+        ("a[key=x].b", "string", ["a[key=x].b"]),
         ("s", "struct<x:int>", ["s", "s.x"]),
-        # Array and map paths stay whole, as their simplified forms can collide.
+        # Array, map and union paths stay whole, as their simplified forms can collide.
+        (
+            "u",
+            "uniontype<int,string>",
+            [
+                "[version=2.0].[type=struct].[type=union].u",
+                "[version=2.0].[type=struct].[type=union].[type=int].u",
+                "[version=2.0].[type=struct].[type=union].[type=string].u",
+            ],
+        ),
         (
             "arr",
             "array<string>",
