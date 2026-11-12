@@ -1,0 +1,126 @@
+// Shared build for the pyproject-based Python packages under packages/
+// (datahub-core-mcp-tools, datahub-ai-service). Each package sets, before applying this file:
+//   local_dependency_dirs:  directories installed editable ahead of the package
+//   local_dependency_tasks: tasks those directories need first (e.g. codegen)
+// Tasks: install, installDev, lint, lintFix, testQuick, testFull.
+
+apply plugin: 'base'
+apply from: "${rootProject.projectDir}/gradle/versioning/versioning.gradle"
+apply from: "${rootProject.projectDir}/gradle/coverage/python-coverage.gradle"
+apply from: "${rootProject.projectDir}/gradle/python/python-uv.gradle"
+
+ext {
+  python_executable = 'python3'
+  venv_name = 'venv'
+}
+
+if (!project.hasProperty("extra_pip_requirements")) {
+  ext.extra_pip_requirements = ""
+}
+if (!project.hasProperty("local_dependency_dirs")) {
+  ext.local_dependency_dirs = []
+}
+if (!project.hasProperty("local_dependency_tasks")) {
+  ext.local_dependency_tasks = []
+}
+
+def editable_deps = local_dependency_dirs.collect { "-e ${it}" }.join(' ')
+def uv_install = "VIRTUAL_ENV=${venv_name} ${venv_name}/bin/uv pip install ${editable_deps}"
+def venv_activate = "source ${venv_name}/bin/activate && set -x && "
+
+tasks.register('checkPythonVersion', Exec) {
+  commandLine python_executable, '-c',
+      'import sys; assert sys.version_info >= (3, 11), f"Python version {sys.version_info[:2]} is too old; 3.11+ is required"'
+}
+
+tasks.register('environmentSetup', Exec) {
+  dependsOn 'checkPythonVersion'
+  def sentinel_file = "${venv_name}/.venv_environment_sentinel"
+  inputs.file file('pyproject.toml')
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+      "${python_executable} -m venv ${venv_name} && " +
+      "${venv_name}/bin/python -m pip install --upgrade uv && " +
+      "touch ${sentinel_file}"
+}
+
+tasks.register('installPackage', Exec) {
+  dependsOn 'environmentSetup'
+  dependsOn local_dependency_tasks
+  def sentinel_file = "${venv_name}/.build_install_package_sentinel"
+  inputs.file file('pyproject.toml')
+  local_dependency_dirs.each { inputs.file file("${it}/" + (file("${it}/setup.py").exists() ? 'setup.py' : 'pyproject.toml')) }
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+      venv_activate + "${uv_install} -e . ${extra_pip_requirements} && touch ${sentinel_file}"
+}
+
+tasks.register('install') {
+  dependsOn 'installPackage'
+}
+
+tasks.register('installDev', Exec) {
+  dependsOn 'install'
+  def sentinel_file = "${venv_name}/.build_install_dev_sentinel"
+  inputs.file file('pyproject.toml')
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+      venv_activate + "${uv_install} -e .[dev] ${extra_pip_requirements} && touch ${sentinel_file}"
+}
+
+tasks.register('lint', Exec) {
+  dependsOn 'installDev'
+  commandLine 'bash', '-c',
+      venv_activate +
+      "ruff check src tests && " +
+      "ruff format --check src tests && " +
+      "mypy --show-traceback --show-error-codes src tests"
+}
+
+tasks.register('lintFix', Exec) {
+  dependsOn 'installDev'
+  commandLine 'bash', '-c',
+      venv_activate + "ruff check --fix src tests && ruff format src tests"
+}
+
+tasks.register('testQuick', Exec) {
+  dependsOn 'installDev'
+  inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
+  inputs.files(project.fileTree(dir: "tests/"))
+  inputs.file file("pyproject.toml")
+  outputs.dir("test-results")
+  commandLine 'bash', '-c',
+      venv_activate +
+      "pytest -m 'not integration' -vv ${get_coverage_args('quick')} " +
+      "--junit-xml=test-results/junit.quick.xml"
+}
+
+tasks.register('testFull', Exec) {
+  dependsOn 'installDev'
+  inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
+  inputs.files(project.fileTree(dir: "tests/"))
+  inputs.file file("pyproject.toml")
+  outputs.dir("test-results")
+  commandLine 'bash', '-c',
+      venv_activate +
+      "pytest -vv ${get_coverage_args('full')} --junit-xml=test-results/junit.full.xml"
+}
+
+tasks.register('cleanPythonCache', Exec) {
+  commandLine 'bash', '-x', '-c',
+      "find src tests -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete"
+}
+
+build.dependsOn install
+check.dependsOn testQuick
+
+clean {
+  delete venv_name
+  delete 'build'
+  delete 'dist'
+  delete 'test-results'
+  delete '.ruff_cache'
+  delete '.mypy_cache'
+  delete '.pytest_cache'
+}
+clean.dependsOn cleanPythonCache

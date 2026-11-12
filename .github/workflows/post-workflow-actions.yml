@@ -17,6 +17,7 @@ on:
       - "Dagster Plugin"
       - "DataHub Actions"
       - "DataHub Agent Context"
+      - "DataHub AI Service"
       - "Docker Build, Scan, Test"
       - "documentation"
       - "Frontend Preview"

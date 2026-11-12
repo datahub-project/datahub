@@ -139,6 +139,8 @@ jobs:
             -x :metadata-ingestion:check \
             -x :datahub-agent-context:build \
             -x :datahub-agent-context:check \
+            -x :packages:datahub-core-mcp-tools:build \
+            -x :packages:datahub-core-mcp-tools:check \
             -x :datahub-actions:build \
             -x :datahub-actions:check \
             -x :docs-website:build \
@@ -554,6 +556,8 @@ jobs:
             -x :metadata-ingestion:check \
             -x :datahub-agent-context:build \
             -x :datahub-agent-context:check \
+            -x :packages:datahub-core-mcp-tools:build \
+            -x :packages:datahub-core-mcp-tools:check \
             -x :datahub-actions:build \
             -x :datahub-actions:check \
             -x :metadata-integration:java:acryl-spark-lineage:build \
