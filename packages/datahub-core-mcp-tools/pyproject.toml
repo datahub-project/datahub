@@ -36,7 +36,7 @@ version = { attr = "datahub_core_mcp_tools._version.__version__" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-"datahub_core_mcp_tools" = ["py.typed"]
+"datahub_core_mcp_tools" = ["py.typed", "gql/*.gql"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

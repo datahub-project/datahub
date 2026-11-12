@@ -9,6 +9,7 @@ on:
       - ".github/workflows/datahub-ai-service.yml"
       - "gradle/python/datahub-python-package.gradle"
       - "packages/**"
+      - "datahub-graphql-core/src/main/resources/**"
       - "metadata-ingestion/**"
       - "metadata-models/**"
   pull_request:
@@ -18,6 +19,7 @@ on:
       - ".github/workflows/datahub-ai-service.yml"
       - "gradle/python/datahub-python-package.gradle"
       - "packages/**"
+      - "datahub-graphql-core/src/main/resources/**"
       - "metadata-ingestion/**"
       - "metadata-models/**"
   workflow_dispatch:
