@@ -32,6 +32,16 @@ claude mcp add --transport http datahub http://localhost:9005/mcp \
   --header "Authorization: Bearer <personal access token>"
 ```
 
+Or run the image (`docker/datahub-ai-service/Dockerfile`, built with `./gradlew :packages:datahub-ai-service:docker`):
+
+```bash
+docker run -p 9005:9005 -e DATAHUB_GMS_URL=http://host.docker.internal:8080 acryldata/datahub-ai-service:head
+```
+
+The image runs as a non-root user and reports health from `/health`. Its third-party
+dependencies are locked in `docker/datahub-ai-service/requirements.lock`; regenerate it with
+`./gradlew :packages:datahub-ai-service:lockfileUpdate`.
+
 ## Configuration
 
 | Variable                              | Default                     | Meaning                                                                |
