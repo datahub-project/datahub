@@ -210,6 +210,7 @@ def _run(
     api.change_check_failures = []
     api.lineage_read_failures = []
     api.field_lineage_failures = []
+    api.opened_without_data = []
     api.get_user_name.return_value = None
     api.list_datasets.return_value = datasets
     api.get_items.return_value = [
