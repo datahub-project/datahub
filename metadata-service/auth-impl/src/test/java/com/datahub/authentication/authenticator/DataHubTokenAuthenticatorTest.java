@@ -31,6 +31,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import jakarta.persistence.PersistenceException;
 import java.util.Collections;
 import java.util.Map;
 import org.mockito.Mockito;
@@ -218,7 +219,7 @@ public class DataHubTokenAuthenticatorTest {
 
     final EntityService failingService = mock(EntityService.class);
     Mockito.when(failingService.exists(any(OperationContext.class), any(Urn.class), eq(true)))
-        .thenThrow(new RuntimeException("Unsuccessfully waited for a connection"));
+        .thenThrow(new PersistenceException("Unsuccessfully waited for a connection"));
     final StatefulTokenService coldTokenService =
         new StatefulTokenService(
             testOperationContext(),

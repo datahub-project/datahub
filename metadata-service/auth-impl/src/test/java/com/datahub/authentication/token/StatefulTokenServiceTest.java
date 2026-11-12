@@ -18,6 +18,7 @@ import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import jakarta.persistence.PersistenceException;
 import java.util.Date;
 import java.util.Map;
 import org.mockito.Mockito;
@@ -230,7 +231,7 @@ public class StatefulTokenServiceTest {
 
     final AspectRetriever failingRetriever = mock(AspectRetriever.class);
     Mockito.when(failingRetriever.getLatestAspectObjects(any(), any(), any()))
-        .thenThrow(new RuntimeException("Unsuccessfully waited for a connection"));
+        .thenThrow(new PersistenceException("Unsuccessfully waited for a connection"));
     final OperationContext failingContext = Mockito.spy(opContext);
     Mockito.doReturn(failingRetriever).when(failingContext).getAspectRetriever();
     final StatefulTokenService validator =
@@ -238,6 +239,35 @@ public class StatefulTokenServiceTest {
             failingContext, TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY, null);
 
     assertThrows(TokenStoreUnavailableException.class, () -> validator.validateAccessToken(token));
+  }
+
+  /** A non-transient actor-status failure (e.g. a corrupt aspect) stays a plain 401, not a 503. */
+  @Test
+  public void testCorruptActorStatusIsNotStoreUnavailable() {
+    final StatefulTokenService issuer =
+        new StatefulTokenService(
+            opContext, TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY, null);
+    final String token =
+        issuer.generateAccessToken(
+            opContext,
+            TokenType.PERSONAL,
+            new Actor(ActorType.USER, "datahub"),
+            "token",
+            "",
+            "urn:li:corpuser:datahub");
+
+    final AspectRetriever corruptRetriever = mock(AspectRetriever.class);
+    Mockito.when(corruptRetriever.getLatestAspectObjects(any(), any(), any()))
+        .thenThrow(new IllegalStateException("cannot build CorpUserStatus from aspect"));
+    final OperationContext corruptContext = Mockito.spy(opContext);
+    Mockito.doReturn(corruptRetriever).when(corruptContext).getAspectRetriever();
+    final StatefulTokenService validator =
+        new StatefulTokenService(
+            corruptContext, TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY, null);
+
+    final TokenException failure =
+        expectThrows(TokenException.class, () -> validator.validateAccessToken(token));
+    assertFalse(failure instanceof TokenStoreUnavailableException);
   }
 
   /** An expired token stays expired (401), even when the store needed for cleanup is down. */
@@ -259,7 +289,7 @@ public class StatefulTokenServiceTest {
 
     final EntityService<?> failingService = mock(EntityService.class);
     Mockito.when(failingService.exists(any(OperationContext.class), any(Urn.class), eq(true)))
-        .thenThrow(new RuntimeException("Unsuccessfully waited for a connection"));
+        .thenThrow(new PersistenceException("Unsuccessfully waited for a connection"));
     // Cold local revocation map, so cleanup has to read the failing store.
     final StatefulTokenService validator =
         new StatefulTokenService(

@@ -3,6 +3,7 @@ package com.datahub.authentication.token;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.OperationContext;
@@ -167,10 +168,13 @@ public class StatelessTokenService {
     final AspectRetriever aspectRetriever;
     final ActorContext actorContext;
     try {
+      final Actor actor = new Actor(ActorType.USER, actorId);
+      // Fail a malformed actor id here, as an invalid token, before any store read.
+      UrnUtils.getUrn(actor.toUrnStr());
       aspectRetriever = systemOperationContext.getAspectRetriever();
       actorContext =
           ActorContext.builder()
-              .authentication(new Authentication(new Actor(ActorType.USER, actorId), ""))
+              .authentication(new Authentication(actor, ""))
               .enforceExistenceEnabled(true)
               .build();
     } catch (RuntimeException e) {
@@ -182,9 +186,13 @@ public class StatelessTokenService {
       // Use the existing isActive check from ActorContext
       active = actorContext.isActive(systemOperationContext, aspectRetriever);
     } catch (RuntimeException e) {
-      // The actor's status could not be read, which says nothing about the token itself.
-      throw new TokenStoreUnavailableException(
-          "Failed to validate DataHub token: Unable to load actor status from store", e);
+      if (TokenStoreFailures.isStoreUnavailable(e)) {
+        // The actor's status could not be read, which says nothing about the token itself.
+        throw new TokenStoreUnavailableException(
+            "Failed to validate DataHub token: Unable to load actor status from store", e);
+      }
+      // Anything else (for example a corrupt status aspect) will not clear on retry.
+      throw new TokenException("Failed to validate actor status", e);
     }
     if (!active) {
       throw new TokenException("Actor is not active");

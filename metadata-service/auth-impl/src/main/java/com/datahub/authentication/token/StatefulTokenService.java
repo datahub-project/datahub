@@ -196,8 +196,8 @@ public class StatefulTokenService extends StatelessTokenService {
   }
 
   /**
-   * A failure of the revocation map or the entity store raises {@link
-   * TokenStoreUnavailableException}, so callers can tell "could not check" from "revoked".
+   * A store failure (database, timeout or cache cluster; see {@link TokenStoreFailures}) raises
+   * {@link TokenStoreUnavailableException}, so callers can tell "could not check" from "revoked".
    */
   private boolean tokenExists(@Nonnull String hashedToken) throws TokenException {
     try {
@@ -214,7 +214,11 @@ public class StatefulTokenService extends StatelessTokenService {
       Boolean published = revokedTokens.get(hashedToken);
       return published == null ? exists : !published;
     } catch (RuntimeException e) {
-      throw new TokenStoreUnavailableException(
+      if (TokenStoreFailures.isStoreUnavailable(e)) {
+        throw new TokenStoreUnavailableException(
+            "Failed to validate DataHub token: Unable to load token information from store", e);
+      }
+      throw new TokenException(
           "Failed to validate DataHub token: Unable to load token information from store", e);
     }
   }
