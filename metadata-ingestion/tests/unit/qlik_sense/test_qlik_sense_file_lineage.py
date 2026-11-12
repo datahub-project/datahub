@@ -30,6 +30,8 @@ LOAD * FROM [$(vLake)/landing/orders.csv]
 (txt, utf8, embedded labels, delimiter is ',');
 Regions:
 LOAD * FROM [lib://Sales Space:Lake/ref/regions.xlsx] (ooxml, embedded labels);
+Targets:
+LOAD * FROM [lib://Lake/ref/targets.csv] (txt);
 """
 
 
@@ -54,6 +56,7 @@ def _source(
         PipelineContext(run_id="test-file-lineage"),
     )
     source._data_connections = connections
+    source.qlik_api.spaces = {"space-1": "Sales Space"}
     app = App.model_validate(
         {
             "id": "app-1",
@@ -73,6 +76,7 @@ def _source(
     source._file_sources_by_app[app.id] = source._file_source_resolver(
         app, parse_script(SCRIPT)
     )
+    source._app_space_ids[app.id] = app.spaceId
     return source
 
 
@@ -80,6 +84,7 @@ def test_script_lists_every_file_a_load_reads() -> None:
     assert parse_script(SCRIPT).file_loads == [
         "lib://Sales Space:Lake//landing/orders.csv",
         "lib://Sales Space:Lake/ref/regions.xlsx",
+        "lib://Lake/ref/targets.csv",
     ]
 
 
@@ -217,3 +222,59 @@ def test_file_without_known_storage_is_reported(mock_api_cls: MagicMock) -> None
         is None
     )
     assert list(source.reporter.unresolved_file_connections) == [CONNECTION]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_bare_connection_name_is_the_app_spaces(mock_api_cls: MagicMock) -> None:
+    source = _source(
+        {CONNECTION: {"storage_uri": "s3://sales-bucket"}},
+        {},
+    )
+
+    assert (
+        source._resolve_file_source(
+            "app-1", _file_qri("s3", "unknown", "ref/targets.csv")
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:s3,sales-bucket/ref/targets.csv,PROD)"
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_mapping_without_env_uses_the_recipe_env(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(
+            {
+                **CLOUD_CONFIG,
+                "env": "DEV",
+                "file_connection_to_storage": {
+                    CONNECTION: {"storage_uri": "gs://sales"}
+                },
+            }
+        ),
+        PipelineContext(run_id="test-file-lineage"),
+    )
+    source._data_connections = {}
+    source.qlik_api.spaces = {"space-1": "Sales Space"}
+    source._file_sources_by_app["app-1"] = source._file_source_resolver(
+        App.model_validate(
+            {
+                "id": "app-1",
+                "qTitle": "Sales",
+                "description": "",
+                "createdDate": "2024-01-09T18:05:36.000Z",
+                "modifiedDate": "2024-01-09T18:05:36.000Z",
+                "spaceId": "space-1",
+            }
+        ),
+        parse_script(SCRIPT),
+    )
+    source._app_space_ids["app-1"] = "space-1"
+
+    assert (
+        source._resolve_file_source(
+            "app-1", _file_qri("gcs", "sales", "ref/regions.xlsx")
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:gcs,sales/ref/regions.xlsx,DEV)"
+    )

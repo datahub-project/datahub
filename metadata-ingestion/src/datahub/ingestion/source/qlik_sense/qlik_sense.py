@@ -296,6 +296,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # The files each app's load script reads, to resolve the files in its
         # lineage graph with.
         self._file_sources_by_app: Dict[str, FileSourceResolver] = {}
+        self._app_space_ids: Dict[str, str] = {}
         self._resolved_file_qris: Set[str] = set()
         self._allowed_space_ids: Set[str] = set()
         # Table QRI -> dataset URN for the tables of apps read or kept this run.
@@ -1581,14 +1582,23 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return FileSourceResolver(references)
 
     def _file_storage(
-        self, connection: str
+        self, connection: str, space_id: str
     ) -> Tuple[Optional[FileStorage], Optional[FileStorageDetail]]:
-        detail = self.config.file_connection_to_storage.get(connection)
-        info = (
-            self._get_data_connections().get(connection)
-            if self.config.on_prem is None
-            else None
+        # A bare name is the app's own space's connection, so a mapping keyed
+        # `<space>:<connection>` matches it, as a bare key matches either.
+        space_name = self.qlik_api.spaces.get(space_id)
+        names = connection_lookup_names(connection)
+        if space_name and SPACE_SEPARATOR not in connection:
+            names.insert(0, f"{space_name}{SPACE_SEPARATOR}{connection}")
+        detail = next(
+            (
+                self.config.file_connection_to_storage[name]
+                for name in names
+                if name in self.config.file_connection_to_storage
+            ),
+            None,
         )
+        info = self._find_data_connection(connection, space_id)
         visible = info.file_storage if info else None
         if detail is not None and detail.storage_uri:
             storage = file_storage_of_uri(detail.storage_uri)
@@ -1603,12 +1613,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         Azure Storage, when the app's load script reads it through a data
         connection whose storage is known."""
         resolver = self._file_sources_by_app.get(app_id)
-        if resolver is None:
+        space_id = self._app_space_ids.get(app_id)
+        if resolver is None or space_id is None:
             return None
         references, connection_id = resolver.candidates(file_qri)
         urns = set()
         for reference in references:
-            storage, detail = self._file_storage(reference.connection)
+            storage, detail = self._file_storage(reference.connection, space_id)
             if storage is None:
                 if (
                     reference.connection
@@ -1628,7 +1639,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     storage,
                     reference.path,
                     platform_instance=detail.platform_instance if detail else None,
-                    env=detail.env if detail else self.config.env,
+                    # An env the mapping leaves unset is the recipe's.
+                    env=detail.env
+                    if detail and "env" in detail.model_fields_set
+                    else self.config.env,
                 )
             )
         # Two connections whose storage could hold the file leave it unknown.
@@ -1931,6 +1945,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.apps_without_load_model.append(app.id)
         parsed = self._parsed_script(app)
         self._file_sources_by_app[app.id] = self._file_source_resolver(app, parsed)
+        self._app_space_ids[app.id] = app.spaceId
         script_tables = self._build_script_tables(app, parsed=parsed)
         self._name_unknown_tables(app, script_tables)
         qvd_lineage = (
