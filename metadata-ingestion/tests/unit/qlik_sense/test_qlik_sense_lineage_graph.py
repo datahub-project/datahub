@@ -882,6 +882,16 @@ def test_dataset_store_column_lineage_removes_only_stale_app_table_edges(
                 downstreamType="FIELD",
                 downstreams=[make_schema_field_urn(stored, "Price")],
             ),
+            # One with several downstream fields, from an owned table.
+            FineGrainedLineageClass(
+                upstreamType="FIELD_SET",
+                upstreams=[make_schema_field_urn(curve, "Gone")],
+                downstreamType="FIELD_SET",
+                downstreams=[
+                    make_schema_field_urn(stored, "A"),
+                    make_schema_field_urn(stored, "B"),
+                ],
+            ),
         ],
     )
     mock_api_cls.return_value.unread_items = []
