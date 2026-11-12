@@ -593,6 +593,12 @@ def _expand_variables(statement: str, variables: Dict[str, str]) -> str:
     )
 
 
+def strip_set_quotes(path: str) -> str:
+    """A variable set with SET keeps its quotes, so a path built from one, such
+    as $(vFolder)orders.qvd, holds them."""
+    return path.replace(path[0], "") if path[:1] in ("'", '"') else path
+
+
 def _unquote(name: str) -> str:
     if len(name) > 1 and QUOTE_PAIRS.get(name[0]) == name[-1]:
         return name[1:-1]
@@ -930,10 +936,7 @@ class _ScriptParser(BaseModel):
         if "$(" in path:
             # Expanded first, as the variable may hold the `.qvd` name.
             path = self._expand_app_variables(path)
-        if path[:1] in ("'", '"'):
-            # A variable set with SET keeps its quotes, so a path built from
-            # one, such as $(vFolder)orders.qvd, holds them.
-            path = path.replace(path[0], "")
+        path = strip_set_quotes(path)
         format_name = (spec or "").split(",")[0].strip().lower()
         if format_name:
             is_qvd = format_name == "qvd"
