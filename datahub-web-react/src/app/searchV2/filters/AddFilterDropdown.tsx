@@ -10,6 +10,7 @@ import { ItemType } from '@components/components/Menu/types';
 import { renderFilterMenuItem } from '@app/searchV2/filters/FilterMenuItem';
 import { DEFAULT_FILTER_FIELDS } from '@app/searchV2/filters/field/fields';
 import { FilterField, FilterPredicate } from '@app/searchV2/filters/types';
+import { CloseFilterMenuProvider } from '@app/searchV2/filters/value/CloseFilterMenuContext';
 import ValueMenu from '@app/searchV2/filters/value/ValueMenu';
 import { getDefaultFieldOperatorType } from '@app/searchV2/filters/value/utils';
 import { PARENT_DOCUMENT_FILTER_NAME } from '@app/searchV2/utils/constants';
@@ -40,10 +41,13 @@ export default function AddFilterDropdown({ fields = DEFAULT_FILTER_FIELDS, onAd
                 values,
                 defaultValueOptions: [],
             });
-            setIsOpen(false);
         },
         [onAddFilter],
     );
+
+    // Submenus add their filter when they hide, which includes moving to another item, so adding
+    // keeps the menu open; explicit commits close it through the context.
+    const closeMenu = useCallback(() => setIsOpen(false), []);
 
     const items: ItemType[] = useMemo(() => {
         return fields
@@ -75,11 +79,13 @@ export default function AddFilterDropdown({ fields = DEFAULT_FILTER_FIELDS, onAd
     }, [fields, includeCount, handleAddFilter, isContextDocumentsEnabled]);
 
     return (
-        <Menu items={items} open={isOpen} onOpenChange={setIsOpen}>
-            <AddFilterButton variant="text">
-                <Icon icon={Plus} size="md" />
-                {t('filters.addFilter')}
-            </AddFilterButton>
-        </Menu>
+        <CloseFilterMenuProvider value={closeMenu}>
+            <Menu items={items} open={isOpen} onOpenChange={setIsOpen}>
+                <AddFilterButton variant="text">
+                    <Icon icon={Plus} size="md" />
+                    {t('filters.addFilter')}
+                </AddFilterButton>
+            </Menu>
+        </CloseFilterMenuProvider>
     );
 }

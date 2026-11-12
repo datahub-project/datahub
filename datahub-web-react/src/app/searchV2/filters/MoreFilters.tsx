@@ -11,6 +11,7 @@ import { FilterScenarioType } from '@app/searchV2/filters/render/types';
 import { useFilterRendererRegistry } from '@app/searchV2/filters/render/useFilterRenderer';
 import { FilterPredicate } from '@app/searchV2/filters/types';
 import useSearchFilterAnalytics from '@app/searchV2/filters/useSearchFilterAnalytics';
+import { CloseFilterMenuProvider } from '@app/searchV2/filters/value/CloseFilterMenuContext';
 import { getNumActiveFiltersForGroupOfFilters, useGetFilterDisplayName } from '@app/searchV2/filters/utils';
 import { useAppConfig } from '@src/app/useAppConfig';
 
@@ -31,12 +32,16 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
     const filterRendererRegistry = useFilterRendererRegistry();
     const { config } = useAppConfig();
 
+    const closeMenu = useCallback(() => setIsMenuOpen(false), []);
+
+    // Boolean renderers apply on click, so they close the menu with it. Value submenus apply when
+    // they hide, which includes moving to another item, so they close only on explicit commits.
     const updateFiltersAndClose = useCallback(
         (newFilters: FacetFilterInput[]) => {
             onChangeFilters(newFilters);
-            setIsMenuOpen(false);
+            closeMenu();
         },
-        [onChangeFilters],
+        [onChangeFilters, closeMenu],
     );
 
     // The menu is controlled so that applying a filter can close it; antd handles outside clicks,
@@ -91,7 +96,7 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
                                         filter={filter}
                                         activeFilters={activeFilters}
                                         filterPredicates={filterPredicates}
-                                        onChangeFilters={updateFiltersAndClose}
+                                        onChangeFilters={onChangeFilters}
                                     />
                                 );
                             },
@@ -105,16 +110,23 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
             getFilterDisplayName,
             activeFilters,
             filterPredicates,
+            onChangeFilters,
             updateFiltersAndClose,
             config,
         ],
     );
 
     return (
-        <Menu items={menuItems} open={isMenuOpen} onOpenChange={onOpenChange}>
-            <SearchFilterBase data-testid="more-filters-dropdown" isActive={!!numActiveFilters} isOpen={isMenuOpen}>
-                {t('filters.moreCount', { count: numActiveFilters })}
-            </SearchFilterBase>
-        </Menu>
+        <CloseFilterMenuProvider value={closeMenu}>
+            <Menu items={menuItems} open={isMenuOpen} onOpenChange={onOpenChange}>
+                <SearchFilterBase
+                    data-testid="more-filters-dropdown"
+                    isActive={!!numActiveFilters}
+                    isOpen={isMenuOpen}
+                >
+                    {t('filters.moreCount', { count: numActiveFilters })}
+                </SearchFilterBase>
+            </Menu>
+        </CloseFilterMenuProvider>
     );
 }

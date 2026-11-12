@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { FieldType, FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
 import { getIsDateRangeFilter } from '@app/searchV2/filters/utils';
 import BooleanValueMenu from '@app/searchV2/filters/value/BooleanValueMenu';
+import { useCloseFilterMenu } from '@app/searchV2/filters/value/CloseFilterMenuContext';
 import DateRangeMenu from '@app/searchV2/filters/value/DateRangeMenu';
 import EntityTypeMenu from '@app/searchV2/filters/value/EntityTypeMenu';
 import EntityValueMenu from '@app/searchV2/filters/value/EntityValueMenu';
@@ -41,22 +42,44 @@ export default function ValueMenu({
     showDefaultOptions,
 }: Props) {
     const [stagedSelectedValues, setStagedSelectedValues] = useState<FilterValue[]>(values || []);
+    // Whether the user changed the selection since it was last committed or synced. A commit can be
+    // triggered twice in a row (Enter closes the menu, and closing commits), and state lags a render
+    // behind, so this lives in a ref: the second call must see that there is nothing left to apply.
+    const hasUncommittedChangesRef = useRef(false);
     const isDateRangeFilter = getIsDateRangeFilter(field);
+    const closeMenu = useCloseFilterMenu();
 
     const previousValues = usePrevious(values);
     useEffect(() => {
         if (!isEqual(values, previousValues)) {
             setStagedSelectedValues(values);
+            hasUncommittedChangesRef.current = false;
         }
     }, [values, previousValues]);
 
+    const stageValues = (newValues: FilterValue[]) => {
+        hasUncommittedChangesRef.current = true;
+        setStagedSelectedValues(newValues);
+    };
+
     // Commits the staged selection, then resets it to the current values. Menus that add a new
-    // filter (Add filter) always receive `values={[]}`, so without the reset the same selection
-    // would be committed again the next time the menu closes.
+    // filter (Add filter) always receive `values={[]}`, so the reset clears them for the next use.
     const applyStagedValues = () => {
+        if (!hasUncommittedChangesRef.current) return;
+        hasUncommittedChangesRef.current = false;
         if (isEqual(values, stagedSelectedValues)) return;
         onChangeValues(stagedSelectedValues);
         setStagedSelectedValues(values);
+    };
+
+    const submitStagedValues = () => {
+        applyStagedValues();
+        closeMenu();
+    };
+
+    const applyValuesAndClose = (newValues: FilterValue[]) => {
+        onChangeValues(newValues);
+        closeMenu();
     };
 
     const wrapperRef = useRef(null);
@@ -75,7 +98,15 @@ export default function ValueMenu({
     }, [isRendered]);
 
     if (isDateRangeFilter && manuallyUpdateFilters) {
-        return <DateRangeMenu field={field} manuallyUpdateFilters={manuallyUpdateFilters} />;
+        return (
+            <DateRangeMenu
+                field={field}
+                manuallyUpdateFilters={(newValues) => {
+                    manuallyUpdateFilters(newValues);
+                    closeMenu();
+                }}
+            />
+        );
     }
 
     const renderValueMenu = () => {
@@ -85,8 +116,8 @@ export default function ValueMenu({
                     <TextValueMenu
                         field={field}
                         values={stagedSelectedValues}
-                        onChangeValues={setStagedSelectedValues}
-                        onSubmit={applyStagedValues}
+                        onChangeValues={stageValues}
+                        onSubmit={submitStagedValues}
                         isRenderedInSubMenu={isRenderedInSubMenu}
                     />
                 );
@@ -96,7 +127,7 @@ export default function ValueMenu({
                         field={field}
                         values={stagedSelectedValues}
                         className={className}
-                        onChangeValues={setStagedSelectedValues}
+                        onChangeValues={stageValues}
                         isRenderedInSubMenu={isRenderedInSubMenu}
                     />
                 );
@@ -108,7 +139,7 @@ export default function ValueMenu({
                         values={stagedSelectedValues}
                         defaultOptions={defaultOptions}
                         className={className}
-                        onChangeValues={setStagedSelectedValues}
+                        onChangeValues={stageValues}
                         isRenderedInSubMenu={isRenderedInSubMenu}
                     />
                 );
@@ -120,7 +151,7 @@ export default function ValueMenu({
                         values={stagedSelectedValues}
                         defaultOptions={defaultOptions}
                         className={className}
-                        onChangeValues={setStagedSelectedValues}
+                        onChangeValues={stageValues}
                         isRenderedInSubMenu={isRenderedInSubMenu}
                         showDefaultOptions={showDefaultOptions}
                     />
@@ -133,7 +164,7 @@ export default function ValueMenu({
                         values={stagedSelectedValues}
                         defaultOptions={defaultOptions}
                         className={className}
-                        onChangeValues={setStagedSelectedValues}
+                        onChangeValues={stageValues}
                         aggregationsEntityTypes={aggregationsEntityTypes}
                         isRenderedInSubMenu={isRenderedInSubMenu}
                         showDefaultOptions={showDefaultOptions}
@@ -147,7 +178,7 @@ export default function ValueMenu({
                         values={stagedSelectedValues}
                         defaultOptions={defaultOptions}
                         className={className}
-                        onChangeValues={setStagedSelectedValues}
+                        onChangeValues={stageValues}
                         aggregationsEntityTypes={aggregationsEntityTypes}
                         isRenderedInSubMenu={isRenderedInSubMenu}
                         showDefaultOptions={showDefaultOptions}
@@ -159,7 +190,7 @@ export default function ValueMenu({
                         field={field}
                         values={stagedSelectedValues}
                         className={className}
-                        onChangeValues={onChangeValues}
+                        onChangeValues={applyValuesAndClose}
                         isRenderedInSubMenu={isRenderedInSubMenu}
                     />
                 );
