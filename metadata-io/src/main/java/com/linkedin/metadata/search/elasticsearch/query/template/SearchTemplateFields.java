@@ -38,7 +38,7 @@ public final class SearchTemplateFields {
    * Labels that each keep their own query group, so a hit in name, qualifiedName, and id does not
    * add those scores together. Every other label shares one group.
    */
-  public static final Set<String> IDENTITY_FIELDS = Set.of("name", "qualifiedName", "id");
+  public static final Set<String> IDENTITY_FIELDS = Set.of("name", "qualifiedName", "id", "email");
 
   private SearchTemplateFields() {}
 

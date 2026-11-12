@@ -1607,6 +1607,110 @@ def fulltext_property_probe(query_id: str, query: str, urn: str) -> dict[str, An
     }
 
 
+def exact_id_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """A dataset id equal to the query, with no stored name, against partial ids.
+
+    The partials carry a description and an owner or a tag. Those signals outrank
+    a bare id when every id overlap is the same tier.
+    """
+    exact = dataset_urn("packid", "idrankprobe ledger")
+    orders = dataset_urn("packid", "idrankprobe_orders")
+    snapshot = dataset_urn("packid", "ledger_snapshot")
+    steward = "urn:li:corpuser:packsteward"
+    proposals = [
+        mcp(exact, "datasetProperties", {"created": stamp()}),
+        mcp(
+            orders,
+            "datasetProperties",
+            {
+                "name": "Orders fact",
+                "description": "Column notes for a documented table.",
+            },
+        ),
+        mcp(orders, "globalTags", {"tags": [{"tag": "urn:li:tag:packnote"}]}),
+        mcp(
+            snapshot,
+            "datasetProperties",
+            {
+                "name": "Snapshot table",
+                "description": "Column notes for a second documented table.",
+            },
+        ),
+        mcp(
+            snapshot,
+            "ownership",
+            {
+                "owners": [{"owner": steward, "type": "TECHNICAL_OWNER"}],
+                "lastModified": {"time": 0, "actor": steward},
+            },
+        ),
+    ]
+    return proposals, [probe("exact-dataset-id", "idrankprobe ledger", exact)]
+
+
+def email_lookup_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Corpuser email lookup. The address lives only on corpUserInfo.email.
+
+    The full address is an exact keyword match. The local part is a partial
+    email: a one-token display name stays first, and the address stays above a
+    long display name that only contains the other token.
+    """
+    address = "mailbox.lookup@search-quality.test"
+    target = "urn:li:corpuser:packaddressee"
+    name_match = "urn:li:corpuser:packtextmatch"
+    weaker = "urn:li:corpuser:packlookupnote"
+    proposals = [
+        mcp(
+            target,
+            "corpUserInfo",
+            {
+                "active": True,
+                "displayName": "Catalog Steward",
+                "email": address,
+            },
+        ),
+        mcp(
+            name_match,
+            "corpUserInfo",
+            {"active": True, "displayName": "Mailbox"},
+        ),
+        mcp(
+            weaker,
+            "corpUserInfo",
+            {
+                "active": True,
+                "displayName": (
+                    "Runbook editor keeps notes about the quarterly operations "
+                    "review and the lookup step sits among many other catalog "
+                    "procedures that the editor records for the team during "
+                    "planning and follow up meetings across the year"
+                ),
+            },
+        ),
+    ]
+    return proposals, [
+        {
+            "id": "corpuser-email-address",
+            "group": "keyword-probe",
+            "query": address,
+            "surfaces": ["keyword"],
+            "entityTypes": ["corpuser"],
+            "grades": [{"urn": target, "relevance": 1}],
+            "exactTopHit": target,
+        },
+        {
+            "id": "corpuser-email-local",
+            "group": "keyword-probe",
+            "query": "mailbox.lookup",
+            "surfaces": ["keyword"],
+            "entityTypes": ["corpuser"],
+            "grades": [{"urn": target, "relevance": 1}],
+            "exactTopHit": name_match,
+            "rankAbove": {"urn": target, "above": [weaker]},
+        },
+    ]
+
+
 def probe(query_id: str, query: str, urn: str) -> dict[str, Any]:
     return {
         "id": query_id,
@@ -2847,6 +2951,10 @@ def generate(root: Path | None = None) -> Path:
             platforms.add(platform)
 
     probe_mcps, probe_judgments = catalog_probes()
+    id_mcps, id_judgments = exact_id_probes()
+    email_mcps, email_judgments = email_lookup_probes()
+    probe_mcps = probe_mcps + id_mcps + email_mcps
+    probe_judgments = probe_judgments + id_judgments + email_judgments
     ranking_mcps, interactive_ranking_judgments = interactive_ranking_probes()
     boost_mcps, boost_judgments = entity_weight_probes(imported)
     semantic_mcps, semantic_judgment = semantic_documents()

@@ -10,6 +10,7 @@ import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
@@ -61,7 +62,10 @@ public class SemanticEntitySearchServiceFactoryTest {
   /** Builds the bean and returns the expected vector dimension it hands the service. */
   private static int dimensionPassedToService(SemanticSearchConfiguration semanticSearch)
       throws Exception {
+    EntityIndexVersionConfiguration v2 = new EntityIndexVersionConfiguration();
+    v2.setEnabled(true);
     EntityIndexConfiguration entityIndex = new EntityIndexConfiguration();
+    entityIndex.setV2(v2);
     entityIndex.setSemanticSearch(semanticSearch);
     ElasticSearchConfiguration elasticSearch = new ElasticSearchConfiguration();
     elasticSearch.setEntityIndex(entityIndex);

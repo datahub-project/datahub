@@ -1042,11 +1042,8 @@ elasticsearch:
       enabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED:false}
       cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V3_CLEANUP:false}
       keywordReadEnabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED:false}
-      # Semantic (kNN) search reads document vectors from V3 indices instead of the V2 semantic
-      # indices. Independent of keywordReadEnabled; turn on once V3 holds the document embeddings.
-      semanticReadEnabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_SEMANTIC_READ_ENABLED:false}
       # Full-text keyword search reranks document rows with kNN scores from the V3 document index,
-      # keeping every other row where keyword search put it. Needs V3 keyword and semantic reads.
+      # keeping every other row where keyword search put it. Needs semantic search reading V3.
       hybridReadEnabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_HYBRID_READ_ENABLED:false}
       analyzerConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_ANALYZER_CONFIG:search_entity_analyzer_config.yaml}
       mappingConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAPPING_CONFIG:search_entity_mapping_config.yaml}
@@ -2588,6 +2585,11 @@ trace:
   timeout-seconds: ${TRACE_TIMEOUT_SECONDS:30}
   pollMaxAttempts: ${TRACE_POLL_MAX_ATTEMPTS:5}
   pollDurationMs: ${TRACE_POLL_DURATION_MS:1000}
+  # How long search stays pending after the consumer offset passes a write, before that is a
+  # failure. Unset: the system-metadata refresh interval plus the structured-property mapping put
+  # allowance (socket and connection-request timeouts times the attempts, plus the retry backoff,
+  # capped by the put budget).
+  searchCommitGraceMillis: ${TRACE_SEARCH_COMMIT_GRACE_MILLIS:#{null}}
   futures:
     cancel-on-timeout: ${TRACE_FUTURES_CANCEL_ON_TIMEOUT:true}
   executor:

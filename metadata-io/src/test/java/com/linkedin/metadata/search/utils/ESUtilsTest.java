@@ -24,6 +24,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -33,6 +34,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -1232,6 +1234,36 @@ public class ESUtilsTest {
     assertEquals(
         sortField("structuredProperties.ab.fgh.ten.keyword", null, opContext, aspectRetriever),
         "structuredProperties.ab.fgh.ten.keyword");
+  }
+
+  @Test
+  public void testSystemFieldsSortAsIndexFields() {
+    List<EntitySpec> entitySpecs =
+        List.of(TestOperationContexts.defaultEntityRegistry().getEntitySpec("dataset"));
+
+    SearchSourceBuilder timeSource = new SearchSourceBuilder();
+    ESUtils.buildSortOrder(
+        timeSource,
+        List.of(
+            new SortCriterion()
+                .setField(MappingConstants.SYSTEM_MODIFIED_TIME_FIELD)
+                .setOrder(SortOrder.DESCENDING)),
+        entitySpecs);
+    FieldSortBuilder timeSort = (FieldSortBuilder) timeSource.sorts().get(0);
+    assertEquals(timeSort.getFieldName(), MappingConstants.SYSTEM_MODIFIED_TIME_FIELD);
+    assertEquals(timeSort.unmappedType(), "date");
+
+    SearchSourceBuilder actorSource = new SearchSourceBuilder();
+    ESUtils.buildSortOrder(
+        actorSource,
+        List.of(
+            new SortCriterion()
+                .setField(MappingConstants.SYSTEM_MODIFIED_ACTOR_FIELD)
+                .setOrder(SortOrder.ASCENDING)),
+        entitySpecs);
+    FieldSortBuilder actorSort = (FieldSortBuilder) actorSource.sorts().get(0);
+    assertEquals(actorSort.getFieldName(), MappingConstants.SYSTEM_MODIFIED_ACTOR_FIELD);
+    assertEquals(actorSort.unmappedType(), "keyword");
   }
 
   private static String sortField(

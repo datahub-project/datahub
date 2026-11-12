@@ -52,9 +52,10 @@ quickstart_version_map:
     docker_tag: v1.7.0.1
     mysql_tag: "8.2"
 
+  # Latest 1.6 patch (security + bugfixes).
   v1.6.0:
-    composefile_git_ref: v1.6.0.2
-    docker_tag: v1.6.0.2
+    composefile_git_ref: v1.6.0.4
+    docker_tag: v1.6.0.4
     mysql_tag: "8.2"
 
   # Must be v1.4.0.3+ so datahub-upgrade runs SqlSetup when DATAHUB_SQL_SETUP_ENABLED=true.

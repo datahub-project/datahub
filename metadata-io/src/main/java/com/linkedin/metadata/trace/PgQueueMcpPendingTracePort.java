@@ -158,10 +158,10 @@ public final class PgQueueMcpPendingTracePort implements McpPendingTracePort {
                       messages.get(aspectName);
                   if (message != null && committed < message.getFirst().offset()) {
                     return TraceStorageStatus.ok(
-                        TraceWriteStatus.PENDING, "Consumer has not processed offset.");
+                        TraceWriteStatus.PENDING, TraceOffsetMessages.NOT_PROCESSED);
                   }
                   return TraceStorageStatus.fail(
-                      TraceWriteStatus.ERROR, "Consumer has processed past the offset.");
+                      TraceWriteStatus.ERROR, TraceOffsetMessages.PROCESSED_PAST);
                 }));
   }
 

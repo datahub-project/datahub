@@ -1419,12 +1419,18 @@ public class ESSearchDAO {
         SearchTemplateContextVariables.PREFIX_FIELD, autocompletePrefixField(entitySpec, field));
     // The whole-name prefix reads the default name only, and only when the entity's name opted
     // into v3.lowercase. A caller-chosen field keeps the analyzed prefix alone, since the
-    // lowercase subfield exists only on the name.
+    // lowercase subfield exists only on the name. The default field, and an explicit email
+    // field, also prefix the email keyword. Email has no lowercase subfield, so the template
+    // matches it case-insensitively.
     if (isDefaultAutocompleteField(field)
         && new SearchFieldResolver(List.of(entitySpec)).hasLowercaseSubfield("name")) {
       context.put(
           SearchTemplateContextVariables.PREFIX_KEYWORD,
           SearchTemplateFields.lowercaseKeywordPath("name"));
+    }
+    if (isDefaultAutocompleteField(field) || isEmailAutocompleteField(field)) {
+      context.put(
+          SearchTemplateContextVariables.EMAIL_KEYWORD, SearchTemplateFields.keywordPath("email"));
     }
     context.put(
         SearchTemplateContextVariables.NORMALIZED_KEYWORD, ESUtils.keywordNormalize(query.strip()));
@@ -1477,6 +1483,10 @@ public class ESSearchDAO {
   /** GraphQL sends {@code name} for the default autocomplete field, so it is not a custom pick. */
   private static boolean isDefaultAutocompleteField(@Nullable String field) {
     return field == null || field.isBlank() || "name".equals(field.strip());
+  }
+
+  private static boolean isEmailAutocompleteField(@Nullable String field) {
+    return field != null && "email".equalsIgnoreCase(field.strip());
   }
 
   @Nonnull

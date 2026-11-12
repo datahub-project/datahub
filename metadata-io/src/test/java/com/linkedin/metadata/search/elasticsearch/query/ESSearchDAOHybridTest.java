@@ -23,6 +23,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
@@ -189,7 +190,9 @@ public class ESSearchDAOHybridTest {
     template.setKnn("{ \"field\": \"embeddings.vector\", \"k\": 10 }");
     harness.store(Constants.SEARCH_TEMPLATE_FULLTEXT_URN, template);
     ElasticSearchConfiguration elastic = harness.elastic();
-    elastic.getEntityIndex().getV3().setSemanticReadEnabled(true);
+    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+    semanticSearch.setEnabled(true);
+    elastic.getEntityIndex().setSemanticSearch(semanticSearch);
     harness.opContext =
         harness.opContext.withSearchTemplateRuntime(
             new SearchTemplateCoordinator(

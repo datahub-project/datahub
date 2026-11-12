@@ -621,6 +621,14 @@ public class IncrementalReindexStateTest {
         IncrementalReindexState.key(
             ENTITY_INDEX, IncrementalReindexState.OLD_BACKING_INDEX_INCOMPLETE_MIGRATION),
         "true");
+    failedAttempt.put(
+        IncrementalReindexState.key(ENTITY_INDEX, IncrementalReindexState.DUAL_WRITE_START_TIME),
+        "1000");
+    failedAttempt.put(
+        IncrementalReindexState.key(ENTITY_INDEX, IncrementalReindexState.TASK_ID), "old-task");
+    failedAttempt.put(
+        IncrementalReindexState.key(ENTITY_INDEX, IncrementalReindexState.REINDEX_COMPLETE_TIME),
+        "2000");
 
     Map<String, String> replanned =
         IncrementalReindexState.setBackfillPending(failedAttempt, ENTITY_INDEX, NEXT_INDEX, 2000L);
@@ -636,6 +644,17 @@ public class IncrementalReindexStateTest {
     assertFalse(IncrementalReindexState.isOldBackingIndexIdSchemeStale(replanned, ENTITY_INDEX));
     assertFalse(
         IncrementalReindexState.isOldBackingIndexIncompleteMigration(replanned, ENTITY_INDEX));
+    assertTrue(
+        IncrementalReindexState.get(
+                replanned, ENTITY_INDEX, IncrementalReindexState.DUAL_WRITE_START_TIME)
+            .isEmpty());
+    assertTrue(
+        IncrementalReindexState.get(replanned, ENTITY_INDEX, IncrementalReindexState.TASK_ID)
+            .isEmpty());
+    assertTrue(
+        IncrementalReindexState.get(
+                replanned, ENTITY_INDEX, IncrementalReindexState.REINDEX_COMPLETE_TIME)
+            .isEmpty());
   }
 
   private static Map<String, String> timeseriesPhase1State(

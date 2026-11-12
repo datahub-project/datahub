@@ -9,8 +9,8 @@ import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.index.query.QueryBuilders;
 
 /**
  * Drops a rendered clause that targets only a field the template removed. A multi-field clause
@@ -37,6 +37,10 @@ public final class SearchTemplateFieldPruner {
 
   private SearchTemplateFieldPruner() {}
 
+  /**
+   * Drops clauses that target a removed field. An emptied query matches nothing, the same rule as
+   * {@link #pruneRendered}.
+   */
   @Nonnull
   public static QueryBuilder prune(@Nonnull QueryBuilder built, @Nonnull Set<String> removed) {
     if (removed.isEmpty()) {
@@ -45,11 +49,70 @@ public final class SearchTemplateFieldPruner {
     try {
       JsonNode pruned = pruneNode(SearchTemplateMappers.JSON.readTree(built.toString()), removed);
       if (pruned == null || pruned.isNull() || (pruned.isObject() && pruned.isEmpty())) {
-        return QueryBuilders.matchAllQuery();
+        // Same rule as pruneRendered: nothing left to match means no documents, not every document.
+        return new MatchNoneQueryBuilder();
       }
       return SearchTemplateJson.parseQuery(SearchTemplateMappers.JSON.writeValueAsString(pruned));
     } catch (Exception e) {
       throw new IllegalStateException("Search template query could not be pruned", e);
+    }
+  }
+
+  /**
+   * Prunes a rendered template body before it is parsed, while an empty {@code fields} list is
+   * still visible. Runs even when no field was removed. Returns null when no clause remains, and
+   * returns the input unchanged when it is not JSON so the parser reports the error.
+   */
+  @Nullable
+  public static String pruneRendered(@Nullable String json, @Nonnull Set<String> removed) {
+    if (json == null || json.isBlank()) {
+      return json;
+    }
+    JsonNode parsed;
+    try {
+      parsed = SearchTemplateMappers.JSON.readTree(json);
+    } catch (Exception e) {
+      return json;
+    }
+    JsonNode pruned = pruneNode(parsed, removed);
+    if (pruned == null || pruned.isNull() || (pruned.isObject() && pruned.isEmpty())) {
+      return null;
+    }
+    try {
+      return SearchTemplateMappers.JSON.writeValueAsString(pruned);
+    } catch (Exception e) {
+      throw new IllegalStateException("Search template query could not be pruned", e);
+    }
+  }
+
+  /**
+   * {@link #pruneRendered} for a clauses body, which holds bool lists ({@code must}, {@code
+   * filter}, ...) at the top level. Returns null when no list keeps a clause.
+   */
+  @Nullable
+  public static String pruneRenderedClauses(@Nullable String json, @Nonnull Set<String> removed) {
+    if (json == null || json.isBlank()) {
+      return json;
+    }
+    JsonNode parsed;
+    try {
+      parsed = SearchTemplateMappers.JSON.readTree(json);
+    } catch (Exception e) {
+      return json;
+    }
+    if (!parsed.isObject()) {
+      return json;
+    }
+    ObjectNode wrapped = SearchTemplateMappers.JSON.createObjectNode();
+    wrapped.set("bool", parsed);
+    JsonNode pruned = pruneNode(wrapped, removed);
+    if (pruned == null || !pruned.has("bool")) {
+      return null;
+    }
+    try {
+      return SearchTemplateMappers.JSON.writeValueAsString(pruned.get("bool"));
+    } catch (Exception e) {
+      throw new IllegalStateException("Search template clauses could not be pruned", e);
     }
   }
 
@@ -160,20 +223,40 @@ public final class SearchTemplateFieldPruner {
   private static JsonNode pruneBool(
       @Nonnull ObjectNode query, @Nonnull ObjectNode inner, @Nonnull Set<String> removed) {
     boolean any = false;
+    boolean shouldEmptied = false;
     for (String clause : BOOL_CLAUSES) {
-      JsonNode list = inner.get(clause);
-      if (list == null || !list.isArray()) {
+      JsonNode value = inner.get(clause);
+      // OpenSearch accepts a bool clause as one object or as a list. An object is one clause.
+      ArrayNode list = clauseList(value);
+      if (list == null) {
         continue;
       }
       ArrayNode kept = keptQueries(list, removed);
       if (kept.isEmpty()) {
         inner.remove(clause);
+        shouldEmptied |= "should".equals(clause) && !list.isEmpty();
       } else {
         inner.set(clause, kept);
         any = true;
       }
     }
+    // OpenSearch caps minimum_should_match at the number of should clauses, so a required should
+    // that lost every clause would otherwise turn into a filter that matches everything.
+    if (shouldEmptied && requiresShould(inner.get("minimum_should_match"))) {
+      return null;
+    }
     return any ? query : null;
+  }
+
+  private static boolean requiresShould(@Nullable JsonNode minimumShouldMatch) {
+    if (minimumShouldMatch == null || minimumShouldMatch.isNull()) {
+      return false;
+    }
+    if (minimumShouldMatch.isNumber()) {
+      return minimumShouldMatch.asInt() > 0;
+    }
+    String spec = minimumShouldMatch.asText().trim();
+    return !spec.isEmpty() && !"0".equals(spec) && !"0%".equals(spec);
   }
 
   @Nullable
@@ -210,6 +293,21 @@ public final class SearchTemplateFieldPruner {
     return query;
   }
 
+  /** A bool clause written as one object, or the array it already is. Anything else is ignored. */
+  @Nullable
+  private static ArrayNode clauseList(@Nullable JsonNode value) {
+    if (value == null || value.isNull()) {
+      return null;
+    }
+    if (value.isArray()) {
+      return (ArrayNode) value;
+    }
+    if (value.isObject()) {
+      return SearchTemplateMappers.JSON.createArrayNode().add(value);
+    }
+    return null;
+  }
+
   @Nonnull
   private static ArrayNode keptQueries(@Nonnull JsonNode list, @Nonnull Set<String> removed) {
     ArrayNode kept = SearchTemplateMappers.JSON.createArrayNode();
@@ -235,8 +333,13 @@ public final class SearchTemplateFieldPruner {
   private static boolean targets(@Nonnull String field, @Nonnull Set<String> removed) {
     String bare = field;
     int caret = bare.lastIndexOf('^');
-    if (caret > 0) {
+    if (caret >= 0) {
       bare = bare.substring(0, caret);
+    }
+    // A blank name comes from an unset template variable. OpenSearch would read it as no field
+    // or every field, so the clause is dropped.
+    if (bare.isBlank()) {
+      return true;
     }
     for (String name : removed) {
       if (bare.equals(name) || bare.startsWith(name + ".")) {
