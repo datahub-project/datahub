@@ -16,7 +16,9 @@ from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
+    MetadataChangeProposalClass,
     StatusClass,
+    UpstreamLineageClass,
     _Aspect,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -70,6 +72,8 @@ class _Qlik:
         self.objects_fail = False
         self.apps_without_sheets: Set[str] = set()
         self.failing_streams: Set[str] = set()
+        self.scripts: Dict[str, str] = {}
+        self.extra_connections: List[Dict[str, object]] = []
 
     def qrs_get(
         self, url: str, params: Optional[Dict[str, str]] = None, **_: object
@@ -98,7 +102,7 @@ class _Qlik:
                 return FakeResponse({}, status_code=503)
             return FakeResponse(self.objects)
         if url.endswith("/dataconnection/full"):
-            return FakeResponse([self.data_connection])
+            return FakeResponse([self.data_connection, *self.extra_connections])
         raise AssertionError(url)
 
     def open_engine(self, app_id: str, **_: object) -> MagicMock:
@@ -113,7 +117,7 @@ class _Qlik:
             if app_id == "app-1"
             else _app_engine_calls(app_id)
         )
-        websocket.get_script.return_value = LOAD_SCRIPT
+        websocket.get_script.return_value = self.scripts.get(app_id, LOAD_SCRIPT)
         return websocket
 
 
@@ -809,3 +813,106 @@ def test_partly_read_app_is_kept_for_a_limited_number_of_runs(
     assert not [wu for wu in outcomes[1][1] if wu.get_urn() == container]
     assert [wu for wu in outcomes[3][1] if wu.get_urn() == container]
     assert not _soft_deleted_urns(outcomes[3][1])
+
+
+QVD_FOLDER: Dict[str, object] = {
+    "name": "QVD Data",
+    "connectionstring": "\\\\nas\\qvd",
+    "type": "folder",
+}
+STORING_SCRIPT = """
+Orders: LOAD id, amount FROM [lib://QVD Data/raw/orders.qvd] (qvd);
+STORE Orders INTO [lib://QVD Data/clean/orders.qvd] (qvd);
+"""
+READING_SCRIPT = "Sales: LOAD id FROM [lib://QVD Data/clean/orders.qvd] (qvd);"
+CLEAN_QVD = (
+    "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,//nas/qvd/clean/orders.qvd,PROD)"
+)
+
+
+def _qvd_qlik() -> _Qlik:
+    qlik = _Qlik()
+    qlik.other_apps = [SECOND_APP]
+    qlik.extra_connections = [QVD_FOLDER]
+    qlik.scripts = {"app-1": STORING_SCRIPT, "app-2": READING_SCRIPT}
+    return qlik
+
+
+def _qvd_upstreams(workunits: List[MetadataWorkUnit]) -> Optional[List[str]]:
+    for wu in workunits:
+        lineage = wu.get_aspect_of_type(UpstreamLineageClass)
+        if wu.get_urn() == CLEAN_QVD and lineage is not None:
+            return [upstream.dataset for upstream in lineage.upstreams]
+    return None
+
+
+def test_kept_unchanged_app_still_writes_its_qvd(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _qvd_qlik()
+    datahub = _DataHub(mock_datahub_graph)
+    first, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    writer = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    assert _qvd_upstreams(first_wus) == [writer]
+
+    # Only the reading app changed, so the writing app is kept from its
+    # checkpoint, whose QVD writes keep its edge.
+    edited_app = {**SECOND_APP, "modifiedDate": "2024-02-01T09:00:00.000Z"}
+    qlik.other_apps = [edited_app]
+    second, second_wus = _run(mock_datahub_graph, qlik, "run-2")
+
+    assert second.reporter.apps_skipped_unchanged == 1
+    assert _qvd_upstreams(second_wus) == [writer]
+
+
+def test_app_checkpoint_from_before_qvd_lineage_is_read_again(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _qvd_qlik()
+    datahub = _DataHub(mock_datahub_graph)
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    opens = qlik.engine_opens
+
+    def without_qvds(
+        handler: QlikAppStateHandler, app_id: str
+    ) -> Optional[AppCheckpoint]:
+        checkpoint = _previous_checkpoint(handler, app_id)
+        return checkpoint.model_copy(update={"qvds": None}) if checkpoint else None
+
+    with patch.object(QlikAppStateHandler, "previous", without_qvds):
+        second, second_wus = _run(mock_datahub_graph, qlik, "run-2")
+
+    # Its QVD writes are unknown, so it is read rather than kept, and the QVD's
+    # lineage is written from what it writes now instead of being blocked.
+    assert qlik.engine_opens == opens + 2
+    assert second.reporter.apps_skipped_unchanged == 0
+    assert _qvd_upstreams(second_wus) is not None
+
+
+def test_partly_read_app_kept_from_its_checkpoint_only_adds_qvd_lineage(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _qvd_qlik()
+    datahub = _DataHub(mock_datahub_graph)
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1", skip_unchanged_apps=False)
+    datahub.write(first_wus)
+
+    qlik.engine_fails_for = {"app-1"}
+    second, second_wus = _run(
+        mock_datahub_graph, qlik, "run-2", skip_unchanged_apps=False
+    )
+
+    # Its last full read may no longer be what it writes, so the QVD's edges
+    # are added to rather than replaced.
+    assert _qvd_upstreams(second_wus) is None
+    assert any(
+        wu.get_urn() == CLEAN_QVD
+        and isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.changeType == "PATCH"
+        for wu in second_wus
+    )
+    assert "Lineage of Qlik QVDs only added to" in [
+        warning.title for warning in second.reporter.warnings
+    ]

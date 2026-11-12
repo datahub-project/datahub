@@ -71,6 +71,7 @@ from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import QlikBaseAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.qvd_lineage import (
+    CANONICAL_ABSOLUTE_PATH_RE,
     AppQvdLineage,
     AppQvds,
     QvdPathResolver,
@@ -292,7 +293,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # On-prem, the QVDs each app read or kept this run writes and reads, and
         # the apps whose QVDs are unknown.
         self._app_qvds: Dict[str, AppQvds] = {}
-        self._apps_qvds_unknown: Set[str] = set()
+        # Apps whose QVD writes are not known this run, with why.
+        self._apps_qvds_unknown: Dict[str, str] = {}
+        self._unresolved_qvd_loads = 0
+        self._unlabelled_qvd_loads = 0
         # The data model fields of the app being emitted, by table identifier.
         self._data_model_fields: Dict[str, List[QlikDatasetSchemaField]] = {}
         # Datasets and the app table QRIs stored into them, linked once every
@@ -440,6 +444,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             fingerprint
         ):
             return False
+        if self.config.on_prem is not None and previous.qvds is None:
+            # Recorded before QVD lineage, so the QVDs it writes are only
+            # known by reading it again.
+            return False
         # Checkpoints are committed even when the sink failed, so only trust one
         # whose metadata actually reached DataHub and was not deleted since.
         graph = self.ctx.graph
@@ -497,14 +505,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 exc=e,
             )
             self._apps_tables_unknown.add(app_id)
-            self._apps_qvds_unknown.add(app_id)
+            self._apps_qvds_unknown[app_id] = "its last read could not be loaded"
             return []
         if previous is None:
             self._apps_tables_unknown.add(app_id)
-            self._apps_qvds_unknown.add(app_id)
+            self._apps_qvds_unknown[app_id] = "it has no last read to keep"
             return []
         if previous.qvds is None:
-            self._apps_qvds_unknown.add(app_id)
+            self._apps_qvds_unknown[app_id] = (
+                "its last read was recorded before QVD lineage"
+            )
         else:
             self._app_qvds[app_id] = previous.qvds
         if previous.table_urns_by_qri is None:
@@ -555,6 +565,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         urns = self._keep_previous_urns(app.id)
         if not urns:
             return _PartialRead.NOT_KEPT
+        # Its QVD writes are from its last full read and may have changed, so
+        # they protect its QVD edges without replacing anyone else's.
+        self._apps_qvds_unknown.setdefault(
+            app.id, "it was partly read, so its QVDs are from its last full read"
+        )
         # No fingerprint, so the next run reads the app again.
         self.app_state.record(
             app.id,
@@ -2040,10 +2055,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
         for path in [*parsed.unresolved_qvd_paths, *resolver.unresolved]:
             self.reporter.unresolved_qvd_paths.append(f"{app.id}: {path}")
+            self._unresolved_qvd_loads += 1
+        for path in parsed.unlabelled_qvd_loads:
+            self.reporter.unlabelled_qvd_loads.append(f"{app.id}: {path}")
+            self._unlabelled_qvd_loads += 1
         self.reporter.qvds_found += len(lineage.paths)
         if app.script is None or app.script_read_failed:
             # QVDs the script writes can't be known, so their lineage is kept.
-            self._apps_qvds_unknown.add(app.id)
+            self._apps_qvds_unknown[app.id] = "its load script could not be read"
         else:
             self._app_qvds[app.id] = lineage.qvds
         return lineage
@@ -2101,6 +2120,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_qvd_lineage(self) -> Iterable[MetadataWorkUnit]:
         """Schema and lineage of on-prem QVDs, from every app that writes or
         reads them this run or was kept from an earlier one."""
+        self._report_unresolved_qvds()
         writes: Dict[str, List[QvdWrite]] = {}
         reads: Dict[str, List[str]] = {}
         for qvds in self._app_qvds.values():
@@ -2111,19 +2131,27 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 known.extend(field for field in read_fields if field not in known)
         if not (writes or reads):
             return
-        if self._apps_qvds_unknown or self.qlik_api.unread_items:
-            # An app that could not be read may write any QVD, so writing their
-            # lineage could drop its edges.
+        unknown = dict(self._apps_qvds_unknown)
+        if self.qlik_api.unread_items:
+            unknown["apps that could not be listed"] = "they were not read"
+        if unknown:
+            # An app whose QVD writes are unknown may write any QVD, so edges
+            # are only added and a QVD only it writes keeps its last schema.
             self.reporter.warning(
-                title="Lineage of Qlik QVDs not updated",
-                message="An app's load script could not be read this run, so the "
-                "QVDs it writes are unknown and QVD schemas and lineage are kept "
-                "from the last run.",
-                context=", ".join(sorted(self._apps_qvds_unknown) or ["unread items"]),
+                title="Lineage of Qlik QVDs only added to",
+                message="The QVDs some apps write are not known this run, so QVD "
+                "lineage is added to the last run's rather than replaced, and only "
+                "QVDs written by an app read this run get a new schema.",
+                context=_bounded_list(
+                    [f"{app}: {reason}" for app, reason in sorted(unknown.items())]
+                ),
             )
-            return
         for urn in sorted({*writes, *reads}):
-            fields = _qvd_fields(writes.get(urn, []), reads.get(urn, []))
+            fields = (
+                _qvd_fields(writes.get(urn, []), reads.get(urn, []))
+                if urn in writes or not unknown
+                else None
+            )
             if fields is not None:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=urn,
@@ -2138,19 +2166,39 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                         ),
                     ),
                 ).as_workunit()
-            if urn in writes:
-                yield from self._gen_qvd_upstreams(urn, writes[urn])
+            # A QVD no app writes any more still loses its old writers' edges.
+            yield from self._gen_qvd_upstreams(
+                urn, writes.get(urn, []), replace=not unknown
+            )
+
+    def _report_unresolved_qvds(self) -> None:
+        if not (self._unresolved_qvd_loads or self._unlabelled_qvd_loads):
+            return
+        self.reporter.warning(
+            title="Some Qlik QVD loads have no lineage",
+            message="QVD paths that name no single file the connector can "
+            "resolve, such as a wildcard, an unexpanded variable, a relative path "
+            "or an unknown data connection, and QVDs loaded without a table label, "
+            "are not linked. See unresolved_qvd_paths and unlabelled_qvd_loads.",
+            context=f"{self._unresolved_qvd_loads} unresolved QVD paths, "
+            f"{self._unlabelled_qvd_loads} unlabelled QVD loads",
+        )
 
     def _from_app_table(self, urn: str) -> bool:
         """An on-prem Qlik dataset other than a QVD is an app table, whose
-        edges this connector owns."""
+        edges this connector owns. QVDs are named by their file path, and app
+        tables by their app id."""
         dataset = DatasetUrn.from_string(urn)
-        return dataset.platform == builder.make_data_platform_urn(
-            self.platform
-        ) and not dataset.name.endswith(".qvd")
+        if dataset.platform != builder.make_data_platform_urn(self.platform):
+            return False
+        name = dataset.name
+        instance = self.config.platform_instance
+        if instance and name.startswith(f"{instance}."):
+            name = name[len(instance) + 1 :]
+        return not CANONICAL_ABSOLUTE_PATH_RE.match(name)
 
     def _gen_qvd_upstreams(
-        self, qvd_urn: str, writes: List[QvdWrite]
+        self, qvd_urn: str, writes: List[QvdWrite], replace: bool
     ) -> Iterable[MetadataWorkUnit]:
         table_urns = list(dict.fromkeys(write.table_urn for write in writes))
         fine_grained = [
@@ -2166,13 +2214,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             for field in write.fields or []
             if field.source
         ]
-        current = self._current_upstreams(qvd_urn)
+        current = self._current_upstreams(qvd_urn) if replace else None
         if current is None:
-            # Without the current lineage, edges can only be added, as lineage
-            # from elsewhere, such as added in DataHub, must stay.
-            yield from self._patch_upstreams(
-                qvd_urn, table_urns, DatasetLineageType.COPY, fine_grained
-            )
+            # Without the current lineage, or with writers unknown this run,
+            # edges can only be added, as lineage from elsewhere must stay.
+            if table_urns:
+                yield from self._patch_upstreams(
+                    qvd_urn, table_urns, DatasetLineageType.COPY, fine_grained
+                )
             return
         # Edges from app tables that no longer store into the QVD are dropped;
         # lineage from anywhere else is kept.
