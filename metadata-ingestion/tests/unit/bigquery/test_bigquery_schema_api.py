@@ -428,6 +428,78 @@ class TestColumns:
             w.title for w in report.warnings
         }
 
+    def test_policy_tag_failure_mid_stream_clears_raw_tags(self) -> None:
+        # Tags streamed before the failure must not be emitted as raw resource names.
+        api = make_api()
+        report = BigQueryV2Report()
+        rows = [
+            self._column_row(
+                "t1", "c0", 1, policy_tags=["projects/p/taxonomies/1/policyTags/2"]
+            ),
+            self._column_row("t2", "c0", 1, policy_tags=123),
+        ]
+        with (
+            patch.object(api, "get_query_result", return_value=rows),
+            patch.object(api, "build_policy_tag_display_name_mapping") as build_mapping,
+        ):
+            columns = api.get_columns_for_dataset(
+                PROJECT,
+                DATASET,
+                column_limit=10,
+                report=report,
+                extract_policy_tags_from_catalog=True,
+            )
+
+        assert columns is not None
+        assert columns["t1"][0].policy_tags == []
+        assert columns["t2"][0].policy_tags == []
+        build_mapping.assert_not_called()
+
+    def test_policy_tags_are_resolved_to_display_names(self) -> None:
+        api = make_api()
+        report = BigQueryV2Report()
+        tag = "projects/p/taxonomies/1/policyTags/2"
+        rows = [
+            self._column_row("tagged", "c0", 1, policy_tags=[tag]),
+            self._column_row("plain", "c0", 1, policy_tags=None),
+        ]
+        with (
+            patch.object(api, "get_query_result", return_value=rows),
+            patch.object(
+                api, "build_policy_tag_display_name_mapping", return_value={tag: "PII"}
+            ),
+        ):
+            columns = api.get_columns_for_dataset(
+                PROJECT,
+                DATASET,
+                column_limit=10,
+                report=report,
+                extract_policy_tags_from_catalog=True,
+            )
+
+        assert columns is not None
+        assert columns["tagged"][0].policy_tags == ["PII"]
+        assert columns["plain"][0].policy_tags == []
+
+    def test_non_contiguous_table_rows_are_merged_and_reported(self) -> None:
+        api = make_api()
+        report = BigQueryV2Report()
+        rows = [
+            self._column_row("a", "c0", 1),
+            self._column_row("b", "c0", 1),
+            self._column_row("a", "c1", 2),
+        ]
+        with patch.object(api, "get_query_result", return_value=rows):
+            columns = api.get_columns_for_dataset(
+                PROJECT, DATASET, column_limit=10, report=report
+            )
+
+        assert columns is not None
+        assert [c.name for c in columns["a"]] == ["c0", "c1"]
+        assert "Column rows for a table were not contiguous" in {
+            w.title for w in report.warnings
+        }
+
 
 def test_partition_info_rejects_blank_field_names() -> None:
     with pytest.raises(ValueError):
