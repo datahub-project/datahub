@@ -173,9 +173,9 @@ _ODBC_ATHENA_NAV_TABLE_ONLY = (
 )
 
 # Athena ODBC navigation that surfaces the Kind=Database catalog, the Schema
-# (Athena's real database) and the leaf table. The catalog is stripped to match
+# (Athena's real database) and the leaf table. The catalog is left out to match
 # the standalone Athena connector; with a server_to_platform_instance mapping the
-# strip must drop the catalog, not the embedded platform_instance prefix.
+# platform_instance prefix must be kept.
 _ODBC_ATHENA_NAV_CATALOG_SCHEMA_TABLE = (
     'let\n    Source = Odbc.DataSource("driver={Simba Amazon Athena ODBC Driver};'
     'dsn=athena_prod", [HierarchicalNavigation=true]),\n'
@@ -183,6 +183,18 @@ _ODBC_ATHENA_NAV_CATALOG_SCHEMA_TABLE = (
     '    mydb_Schema = awsdatacatalog_Database{[Name="mydb",Kind="Schema"]}[Data],\n'
     '    accounts_Table = mydb_Schema{[Name="accounts",Kind="Table"]}[Data]\n'
     "in\n    accounts_Table"
+)
+
+# Athena federated catalogs (e.g. DynamoDB) allow dots in table names. Navigation
+# already builds database.table without the catalog, so the dotted table must
+# not be mistaken for a catalog.database.table name.
+_ODBC_ATHENA_NAV_DOTTED_TABLE = (
+    'let\n    Source = Odbc.DataSource("driver={Simba Amazon Athena ODBC Driver};'
+    'dsn=athena_prod", [HierarchicalNavigation=true]),\n'
+    '    dynamo_Database = Source{[Name="dynamo_catalog",Kind="Database"]}[Data],\n'
+    '    default_Schema = dynamo_Database{[Name="default",Kind="Schema"]}[Data],\n'
+    '    orders_Table = default_Schema{[Name="orders.v2",Kind="Table"]}[Data]\n'
+    "in\n    orders_Table"
 )
 
 # Athena reached through Odbc.Query rather than navigation. sqlglot lowercases the
@@ -372,7 +384,7 @@ _ODBC_NAV_SUCCESS_CASES = [
             },
         },
         "urn:li:dataset:(urn:li:dataPlatform:athena,my_instance.mydb.accounts,PROD)",
-        id="athena-catalog-strip-preserves-platform-instance",
+        id="athena-catalog-level-preserves-platform-instance",
     ),
     # dataset_type_mapping resolves on the PowerBI platform name, so the instance
     # only applies if ODBC resolves with the runtime pair (Athena), not ODBC's own.
@@ -387,6 +399,14 @@ _ODBC_NAV_SUCCESS_CASES = [
         },
         "urn:li:dataset:(urn:li:dataPlatform:athena,my_instance.mydb.accounts,PROD)",
         id="athena-platform-instance-from-dataset-type-mapping",
+    ),
+    pytest.param(
+        _ODBC_ATHENA_NAV_DOTTED_TABLE,
+        "orders.v2",
+        "default.orders.v2",
+        {},
+        "urn:li:dataset:(urn:li:dataPlatform:athena,default.orders.v2,PROD)",
+        id="athena-dotted-table-keeps-database",
     ),
     pytest.param(
         _ODBC_ATHENA_QUERY_CATALOG_TABLE,

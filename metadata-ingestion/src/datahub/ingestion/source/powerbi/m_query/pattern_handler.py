@@ -2378,10 +2378,10 @@ class OdbcLineage(AbstractLineage):
         platform_detail: PlatformDetail,
         dsn: str,
     ) -> Lineage:
-        """Athena-specific post-processing for both the query and hierarchical
-        navigation paths. Strips the catalog prefix so URNs match the standalone
-        Athena connector's database.table shape, then applies federated table
-        platform overrides (e.g. athena -> mysql). No-op for other platforms."""
+        """Athena-specific post-processing for the Odbc.Query path. Strips the
+        catalog prefix so URNs match the standalone Athena connector's
+        database.table shape, then applies federated table platform overrides
+        (e.g. athena -> mysql). No-op for other platforms."""
         if platform_pair.datahub_data_platform_name != ATHENA_PLATFORM:
             return result
         # URNs embed the configured platform_instance as the leading segment of
@@ -2910,7 +2910,13 @@ class OdbcLineage(AbstractLineage):
             column_lineage=column_lineage,
         )
 
-        return self._post_process_athena(result, platform_pair, platform_detail, dsn)
+        if platform_pair.datahub_data_platform_name != ATHENA_PLATFORM:
+            return result
+        # Navigation names are built without the catalog already, so the
+        # catalog strip would only ever delete a real level here.
+        return self._apply_table_platform_override(
+            result, dsn, platform_detail.platform_instance
+        )
 
     @staticmethod
     def create_platform_pair(
