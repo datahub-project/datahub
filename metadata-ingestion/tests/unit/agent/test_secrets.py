@@ -10,6 +10,7 @@ from datahub.ingestion.agent.secrets import (
     EnvVarResolver,
     MappingResolver,
     SecretResolver,
+    default_resolvers,
     resolve_config,
     resolve_config_collecting,
 )
@@ -220,3 +221,25 @@ def test_datahubenv_resolver_declines_on_an_unknown_profile(monkeypatch, tmp_pat
     _isolated_home(monkeypatch, tmp_path)
     monkeypatch.setenv("DATAHUB_PROFILE", "missing")
     assert DatahubEnvResolver().resolve("DATAHUB_GMS_URL") is None
+
+
+def test_recipe_connection_refs_follow_a_selected_profile(monkeypatch, tmp_path):
+    """Through the real chain: exported DATAHUB_GMS_* must not pair with (or
+    override) a profile chosen by name."""
+    from datahub.cli.config_utils import persist_raw_datahub_config, profile_path
+
+    _isolated_home(monkeypatch, tmp_path)
+    persist_raw_datahub_config(
+        {"gms": {"server": "https://selected.example.com/gms"}},
+        profile_path("selected"),
+    )
+    monkeypatch.setenv("DATAHUB_PROFILE", "selected")
+    monkeypatch.setenv("DATAHUB_GMS_URL", "https://other.example.com/gms")
+    monkeypatch.setenv("DATAHUB_GMS_TOKEN", "other-instance-token")
+    monkeypatch.setenv("MY_PW", "pw")
+    recipe: Dict[str, object] = {"server": "${DATAHUB_GMS_URL}", "password": "${MY_PW}"}
+    out = resolve_config(recipe, default_resolvers())
+    assert out == {"server": "https://selected.example.com/gms", "password": "pw"}
+    # The profile has no token; the exported one belongs to another instance.
+    with pytest.raises(ValueError, match="DATAHUB_GMS_TOKEN"):
+        resolve_config({"token": "${DATAHUB_GMS_TOKEN}"}, default_resolvers())

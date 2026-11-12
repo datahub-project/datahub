@@ -267,12 +267,18 @@ def _resolve_profile(
     if source == "DATAHUB_GMS_URL":
         server = env_server
     elif explicit is not None and env_server and server and not for_init:
-        if server.rstrip("/") != env_server.rstrip("/"):
+        if not _same_server(server, env_server):
             click.echo(
                 f"Warning: profile {name!r} selects {server}; ignoring DATAHUB_GMS_URL ({env_server}).",
                 err=True,
             )
     return ResolvedProfile(name=name, path=path, source=source, server=server)
+
+
+def _same_server(left: Optional[str], right: Optional[str]) -> bool:
+    if not left or not right:
+        return False
+    return left.rstrip("/") == right.rstrip("/")
 
 
 def ensure_private_directory(path: Path) -> None:
@@ -316,10 +322,25 @@ def profile_token_expiry(raw: Dict[str, object]) -> Optional[float]:
     return decode_jwt_exp(token) if isinstance(token, str) else None
 
 
+_SOURCE_LABELS = {
+    "current-profile": "current-profile, the machine-wide default set by `datahub profile use`",
+}
+
+
 def profile_target_line(resolved: ResolvedProfile) -> str:
-    return (
-        f"{resolved.name}  {resolved.server or '(no server)'}  (from {resolved.source})"
-    )
+    source = _SOURCE_LABELS.get(resolved.source, resolved.source)
+    return f"{resolved.name}  {resolved.server or '(no server)'}  (from {source})"
+
+
+_NAMED_PROFILE_SOURCES = frozenset({"--profile", "DATAHUB_PROFILE", "current-profile"})
+
+
+def selected_named_profile() -> Optional[ResolvedProfile]:
+    """The selected profile when one is chosen by name rather than by legacy
+    defaults or DATAHUB_GMS_URL. Such a profile owns both the server and its
+    credential, so neither may be taken from the environment on its own."""
+    resolved = resolve_profile()
+    return resolved if resolved.source in _NAMED_PROFILE_SOURCES else None
 
 
 class OAuthSessionConfig(BaseModel):
@@ -387,9 +408,14 @@ def load_client_config(
     resolved = resolve_profile(profile)
     auth_env = build_auth_config_from_env()
     gms_host_env, gms_token_env = _get_config_from_env()
-    if auth_env is not None and gms_host_env and resolved.source != "DATAHUB_GMS_URL":
-        # Env OAuth is minted for the env server; an explicit profile points
-        # elsewhere, so its tokens must not cross origins.
+    if (
+        auth_env is not None
+        and gms_host_env
+        and resolved.source != "DATAHUB_GMS_URL"
+        and not _same_server(resolved.server, gms_host_env)
+    ):
+        # Env OAuth is minted for the env server; a profile that points
+        # elsewhere must not receive its tokens. On the same server it still wins.
         logger.warning(
             f"{ENV_AUTH_TYPE} is configured for {ENV_METADATA_HOST_URL}; ignoring it "
             f"because profile {resolved.name!r} was selected."

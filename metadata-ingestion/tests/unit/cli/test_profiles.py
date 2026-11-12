@@ -460,6 +460,57 @@ def test_environment_oauth_not_sent_to_explicit_profile_server(
     assert config.token == "acme-token"
 
 
+def test_environment_oauth_kept_when_env_url_names_the_profile_server(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store("acme", token="acme-token")
+    monkeypatch.setenv("DATAHUB_GMS_URL", "https://acme.example.com/gms/")
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "k8s_oidc")
+    config = load_client_config(profile="acme")
+    assert config.token is None
+    assert config.auth is not None and config.auth.type == "k8s_oidc"
+
+
+def test_use_shell_prints_export_without_moving_pointer() -> None:
+    store("staging")
+    result = invoke("profile", "use", "--shell", "staging")
+    assert result.exit_code == 0, result.output
+    assert result.stdout.strip() == "export DATAHUB_PROFILE=staging"
+    assert not config_utils.current_profile_path().exists()
+    assert invoke("profile", "use", "--shell", "missing").exit_code != 0
+
+
+def test_pointer_source_is_named_in_target_line() -> None:
+    store("staging")
+    invoke("profile", "use", "staging", "--yes")
+    result = invoke("profile", "current")
+    assert "datahub profile use" in result.output
+
+
+def test_lite_config_stays_in_default_datahubenv(home: Path) -> None:
+    from datahub.cli.lite_cli import get_lite_config, write_lite_config
+
+    store("default", "http://localhost:8080")
+    store("acme")
+    with select_cli_profile("acme"):
+        write_lite_config(get_lite_config())
+    assert "lite" in yaml.safe_load((home / ".datahubenv").read_text())
+    assert "lite" not in yaml.safe_load(profile_path("acme").read_text())
+
+
+def test_oauth_refresh_follows_symlinked_config(home: Path) -> None:
+    from datahub.ingestion.auth.oauth_session import _write_atomically
+
+    real = home / "dotfiles" / "datahubenv"
+    real.parent.mkdir()
+    real.write_text("gms:\n  server: http://old\n")
+    link = home / ".datahubenv"
+    link.symlink_to(real)
+    _write_atomically(str(link), {"gms": {"server": "http://new"}})
+    assert link.is_symlink()
+    assert "http://new" in real.read_text()
+
+
 def test_list_marks_no_profile_active_under_env_url(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -34,5 +34,7 @@ to rename a profile, and `profile doctor` to diagnose expired tokens, legacy key
 stray files. Doctor changes nothing without `--fix` and never deletes non-config files.
 
 `profile use` changes the machine default and requires `--yes` without a TTY. Agents must not use it.
+`profile use --shell <name>` only prints `export DATAHUB_PROFILE=<name>` and changes nothing; prefer
+setting `DATAHUB_PROFILE` or passing `--profile` directly.
 `profile remove` deletes a profile directory (resetting to `default` if it was active) and requires `--yes` without a TTY. The reserved `default`
 profile cannot be removed or renamed.

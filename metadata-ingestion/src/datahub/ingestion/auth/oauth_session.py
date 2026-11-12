@@ -141,13 +141,16 @@ def _write_atomically(config_file: str, raw: dict) -> None:
     # The server may already have rotated the refresh token, so a truncated file
     # would lose the session. Write a sibling file and rename it into place;
     # readers that skip the lock see either the old file or the new one.
-    directory, name = os.path.split(os.path.abspath(config_file))
+    # Replace the link's target, not the link: config files are often symlinks
+    # into a dotfiles repo, and replacing the link would leave the target stale.
+    target = os.path.realpath(config_file)
+    directory, name = os.path.split(target)
     fd, temporary = tempfile.mkstemp(dir=directory, prefix=f".{name}.tmp.")
     try:
         with os.fdopen(fd, "w") as stream:
             yaml.dump(raw, stream, default_flow_style=False)
         os.chmod(temporary, 0o600)
-        os.replace(temporary, config_file)
+        os.replace(temporary, target)
     except BaseException:
         with contextlib.suppress(OSError):
             os.unlink(temporary)

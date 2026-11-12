@@ -96,6 +96,17 @@ and connection environment precedence stay unchanged. Environment-configured OAu
 (`DATAHUB_AUTH_TYPE`) keeps its precedence over static tokens, but is not applied to an explicit
 profile while `DATAHUB_GMS_URL` names another server, because its tokens belong to that server.
 
+A profile selects a server together with its credential. Unlike `AWS_PROFILE`, which exported
+AWS credentials can still override, `DATAHUB_PROFILE` deliberately outranks `DATAHUB_GMS_URL` and
+`DATAHUB_GMS_TOKEN`, so a token exported for one instance is never sent to another. Recipe
+references to `${DATAHUB_GMS_URL}` and `${DATAHUB_GMS_TOKEN}` follow the same rule.
+
+The active pointer (`profile use`) is a convenience for interactive use and is shared by every
+shell and agent on the machine. To switch one shell only, run
+`eval "$(datahub profile use --shell acme)"`, which sets `DATAHUB_PROFILE` there. Scripts and
+agents should pin a profile with `--profile` or `DATAHUB_PROFILE` rather than rely on the pointer;
+`profile current` and the write-target line say when the pointer made the choice.
+
 `datahub profile current --format json` reports `name`, `server`, `source`, and `token_expires`
 (JWT expiry in epoch seconds, or null). Check the server before a write. Write commands announce
 named targets on stderr. The Python SDK uses the same rules through `load_client_config(profile=...)`,
@@ -107,7 +118,7 @@ including clients that load their default connection through `DataHubGraph`.
 | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `datahub profile list [--format json]`               | Lists names, servers, token status, descriptions, and an active marker. Never displays tokens.                                                                                                                                |
 | `datahub profile current [--format json]`            | Reports the selected profile and why it was chosen.                                                                                                                                                                           |
-| `datahub profile use acme`                           | Changes the machine default. Requires `--yes` without a terminal. `use default` removes the active pointer.                                                                                                                   |
+| `datahub profile use acme [--shell]`                 | Changes the machine default. Requires `--yes` without a terminal. `use default` removes the active pointer. `--shell` instead prints `export DATAHUB_PROFILE=acme` for the current shell.                                     |
 | `datahub profile save acme [--from local] [--force]` | Copies a stored connection, defaulting to `~/.datahubenv`. Ignores environment credentials and refuses an existing destination without `--force`. An OAuth session is not copied; run `init --oauth` on the copy for its own. |
 | `datahub profile show acme`                          | Displays server, expiry, auth mode, and path with the token redacted. `--show-token` reveals it explicitly.                                                                                                                   |
 | `datahub profile remove acme`                        | Deletes the profile directory after confirmation; if it was active, `default` becomes active. Requires `--yes` without a terminal and refuses `default`.                                                                      |
@@ -115,7 +126,8 @@ including clients that load their default connection through `DataHubGraph`.
 | `datahub profile doctor [--fix]`                     | Reports expired tokens, legacy keys, loose permissions, and stray files. Only `--fix` applies repairs. Never deletes stray files.                                                                                             |
 
 Profiles store one credential each, in plaintext YAML with directory permissions `0700` and file
-permissions `0600`. OAuth refresh updates the profile it read from. New descriptions live under
+permissions `0600`. OAuth refresh updates the profile it read from. OAuth sessions are per
+profile: two profiles for the same identity provider each need their own `init --oauth` login. New descriptions live under
 the top-level `profile.description` key, preserving compatibility with older configuration readers.
 
 ### Initialize safely from scripts

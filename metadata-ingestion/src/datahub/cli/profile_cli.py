@@ -201,13 +201,28 @@ def current(output_format: str) -> None:
 @profile.command("use")
 @click.argument("name")
 @click.option("--yes", is_flag=True)
-def use(name: str, yes: bool) -> None:
-    """Change the default for all shells on this machine."""
+@click.option(
+    "--shell",
+    "shell_only",
+    is_flag=True,
+    help='Print an export for this shell only, e.g. eval "$(datahub profile use --shell prod)".',
+)
+def use(name: str, yes: bool, shell_only: bool) -> None:
+    """Change the default for all shells on this machine, or with --shell, for one shell."""
     if name != "default":
+        # Also validates the name, which keeps the printed export shell-safe.
         _read_profile(name)
+    if shell_only:
+        click.echo(f"export DATAHUB_PROFILE={name}")
+        return
     _require_yes(yes, f"Use profile {name!r} as the machine default?")
     set_current_profile(name)
     click.echo(f"Active profile: {name}")
+    click.echo(
+        "This applies to every shell and agent on this machine. To switch only "
+        f'this shell, run: eval "$(datahub profile use --shell {name})"',
+        err=True,
+    )
 
 
 @profile.command("save")
