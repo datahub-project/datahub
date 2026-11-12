@@ -21,6 +21,12 @@ export function useIsNestedDomainsEnabled() {
     return appConfig.config.featureFlags.nestedDomainsEnabled;
 }
 
+/** Whether DataHub's built-in MCP server is on (MCP_SERVER_ENABLED). Off hides every MCP screen. */
+export function useIsMcpServerEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.mcpServerEnabled;
+}
+
 export function useBusinessAttributesFlag() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.businessAttributeEntityEnabled;

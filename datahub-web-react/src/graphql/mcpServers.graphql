@@ -1,0 +1,61 @@
+# DataHub-hosted MCP server settings.
+#
+# Scoped servers live on mcpSettings.servers (one per slug, exposed at /mcp/:slug).
+# The default server (no slug, exposed at /mcp) is configured through
+# mcpSettings.defaultMcpServerOverrides. Tool selection uses the AgentToolRef model.
+
+fragment McpServerConfigFields on McpServerConfig {
+    slug
+    name
+    description
+    enabled
+    customInstructions
+    instructionSize
+    tools {
+        refType
+        toolId
+        enabled
+    }
+    viewUrn
+    view {
+        urn
+        name
+        viewType
+    }
+    created {
+        time
+    }
+    lastModified {
+        time
+    }
+}
+
+query GetMcpServers {
+    mcpSettings {
+        enabled
+        observationTelemetryEnabled
+        observationToolEnabled
+        servers {
+            ...McpServerConfigFields
+        }
+        defaultMcpServerOverrides {
+            ...McpServerConfigFields
+        }
+    }
+}
+
+# Upserts scoped servers (merged by slug) and/or the default-server overrides. Servers
+# left out of the input are unchanged, but a server that is included is replaced from
+# the input: an omitted field (tools, viewUrn, ...) is cleared, not kept. Callers send
+# the server's complete desired state (see configToInput and McpServerModal).
+mutation UpdateMcpServers($input: UpdateMcpSettingsInput!) {
+    updateMcpSettings(input: $input)
+}
+
+# Readable by every signed-in user, unlike the rest of the MCP settings screens, so
+# features outside settings can hide themselves when an admin has turned MCP off.
+query GetMcpEnabled {
+    mcpSettings {
+        enabled
+    }
+}

@@ -5,6 +5,7 @@ import { Bell } from '@phosphor-icons/react/dist/csr/Bell';
 import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import { House } from '@phosphor-icons/react/dist/csr/House';
 import { ShieldCheck } from '@phosphor-icons/react/dist/csr/ShieldCheck';
+import { Sparkle } from '@phosphor-icons/react/dist/csr/Sparkle';
 import { Star } from '@phosphor-icons/react/dist/csr/Star';
 import { ToggleRight } from '@phosphor-icons/react/dist/csr/ToggleRight';
 import { Users } from '@phosphor-icons/react/dist/csr/Users';
@@ -19,6 +20,7 @@ import useGetLogoutHandler from '@app/auth/useGetLogoutHandler';
 import { useUserContext } from '@app/context/useUserContext';
 import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import { NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarRedesign/types';
+import { useCanManageMcpServers } from '@app/settingsV2/platform/ai/mcpServers/hooks/useCanManageMcpServers';
 import { DEFAULT_PATH, PATHS } from '@app/settingsV2/settingsPaths';
 import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
 import { PAGE_GAP_PX } from '@app/sharedV2/layouts/constants';
@@ -142,6 +144,7 @@ const SettingsPageContent = () => {
     const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements && !readOnlyModeEnabled;
     const showAccessTokens = me && me?.platformPrivileges?.generatePersonalAccessTokens;
     const showFeatures = me?.platformPrivileges?.manageIngestion; // TODO: Add feature flag for this
+    const showAiSettings = useCanManageMcpServers();
 
     // Menu Items based on PATHS
     const menuItems: NavBarMenuItems = {
@@ -221,6 +224,23 @@ const SettingsPageContent = () => {
                         isHidden: !showPolicies,
                         icon: <Bank />,
                         selectedIcon: fillIcon(<Bank />),
+                    },
+                ],
+            },
+            // Platform Section
+            {
+                type: NavBarMenuItemTypes.Group,
+                title: t('nav.platform'),
+                key: 'platform',
+                items: [
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: t('nav.ai'),
+                        key: 'ai',
+                        link: `${url}/ai`,
+                        isHidden: !showAiSettings,
+                        icon: <Sparkle />,
+                        selectedIcon: fillIcon(<Sparkle />),
                     },
                 ],
             },

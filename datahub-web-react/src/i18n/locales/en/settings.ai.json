@@ -1,0 +1,22 @@
+{
+    "platform.ai.navTitle": "AI",
+    "platform.ai.mcpServers.tabTitle": "MCP Servers",
+    "platform.ai.mcpServers.pageTitle": "MCP Servers",
+    "platform.ai.mcpServers.pageSubtitle": "Connect AI tools to DataHub through the Model Context Protocol.",
+    "platform.ai.mcpServers.columnName": "Name",
+    "platform.ai.mcpServers.columnConnectionUrl": "Connection URL",
+    "platform.ai.mcpServers.columnEnabled": "Enabled",
+    "platform.ai.mcpServers.defaultTag": "Default",
+    "platform.ai.mcpServers.copyUrl": "Copy connection URL",
+    "platform.ai.mcpServers.urlCopied": "Connection URL copied.",
+    "platform.ai.mcpServers.enabled": "MCP server enabled.",
+    "platform.ai.mcpServers.disabled": "MCP server disabled.",
+    "platform.ai.mcpServers.updateFailed": "Failed to update MCP server.",
+    "platform.ai.mcpServers.loadError": "Failed to load MCP servers.",
+    "platform.ai.mcpServers.partialLoadError": "Some server details failed to load. Refresh the page before you change a server.",
+    "platform.ai.mcpServers.masterSwitchLabel": "Enable MCP Servers",
+    "platform.ai.mcpServers.masterSwitchHelp": "When off, DataHub's MCP servers are turned off for all users.",
+    "platform.ai.mcpServers.masterSwitchDisableTitle": "Disable MCP Servers",
+    "platform.ai.mcpServers.masterSwitchDisableBody": "Are you sure you want to turn off DataHub's MCP servers, including the default MCP server?",
+    "platform.ai.mcpServers.masterSwitchDisableConfirm": "Disable"
+}
