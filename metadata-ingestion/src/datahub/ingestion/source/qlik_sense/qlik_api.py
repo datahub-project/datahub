@@ -424,6 +424,9 @@ class QlikAPI(QlikBaseAPI):
                         if not table.get("qIsSynthetic")
                     ]
                 except Exception as e:
+                    # Unlabelled script tables are named from the data model,
+                    # so without it they may not match their graph tables.
+                    app.tables_read_failed = True
                     errors.record(
                         f"Unable to read the data model of app {app_id}. Exception: {e}"
                     )

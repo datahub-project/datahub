@@ -469,6 +469,27 @@ def test_missing_lineage_graph(
     )
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_missing_lineage_graph_without_a_last_read_only_adds_lineage(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    source.app_state = MagicMock()
+    source.app_state.previous.return_value = None
+    app = _app("etl-app", [])
+    app.lineage_graph_missing = True
+
+    source._check_missing_lineage_graph(app)
+
+    # Nothing says whether the app has tables, but the app itself was read.
+    assert app.read_complete
+    assert app.tables_read_failed
+    assert len(source.reporter.warnings) == 1
+
+
 def test_datasets_are_listed(requests_mock: requests_mock_module.Mocker) -> None:
     requests_mock.get(f"{BASE_URL}/api-keys", json={})
     api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))

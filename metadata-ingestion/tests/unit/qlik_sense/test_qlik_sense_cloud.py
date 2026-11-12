@@ -249,6 +249,33 @@ def test_only_denied_load_script_keeps_app_complete(
     assert app.read_complete is denied
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
+def test_unread_data_model_leaves_tables_unknown(
+    mock_session_cls: MagicMock,
+    mock_websocket_cls: MagicMock,
+    mock_app_cls: MagicMock,
+) -> None:
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    app = _cloud_app()
+    mock_app_cls.model_validate.return_value = app
+    websocket = mock_websocket_cls.for_cloud.return_value
+    websocket.get_script.return_value = "Orders: SQL SELECT * FROM orders;"
+    websocket.get_data_model_tables.side_effect = TimeoutError("timed out")
+
+    with (
+        patch.object(api, "_get_app_sheets", return_value=[]),
+        patch.object(api, "_get_app_used_tables", return_value=[]),
+        patch.object(api, "get_table_lineage", return_value=[]),
+    ):
+        api._get_app("app-1")
+
+    # Unlabelled script tables are named from the data model.
+    assert app.tables_read_failed
+    assert not app.read_complete
+
+
 def _cloud_app(**extra: object) -> App:
     return App.model_validate(
         {
