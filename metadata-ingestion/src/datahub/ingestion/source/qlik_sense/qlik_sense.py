@@ -3012,6 +3012,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         yield from self._gen_dataset_store_lineage()
         yield from self._gen_stored_table_types()
         yield from self._gen_qvd_lineage()
+        if self.qlik_api.opened_without_data:
+            self.reporter.warning(
+                title="Qlik apps read without their data",
+                message="Opening these apps with their data was denied, as with "
+                "section access, or timed out, so they were read without it: "
+                "their tables have no field types.",
+                context=_bounded_list(self.qlik_api.opened_without_data),
+            )
         if self.qlik_api.field_lineage_failures:
             self.reporter.warning(
                 title="Unable to read Qlik column lineage",
