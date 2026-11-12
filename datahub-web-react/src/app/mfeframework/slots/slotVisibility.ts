@@ -25,6 +25,27 @@ export const SLOT_VISIBILITY_PREDICATES: Record<string, SlotVisibilityPredicate>
      */
     physicalDataset: (entityType, entityData) =>
         entityType === (EntityType.Dataset as string) && !isLogicalModel(EntityType.Dataset, entityData),
+
+    /**
+     * A logical model: a dataset on a platform flagged `logical: true`, typically with physical
+     * instances linked to it. Slots that only make sense on the logical model (e.g. listing its
+     * physical instances) opt in with `visibleWhen: [logicalDataset]`.
+     *
+     * Unlike `physicalDataset`, this reports `false` while `entityData` is still loading, so the tab
+     * appears once the platform flag is known rather than flashing on every dataset page.
+     */
+    logicalDataset: (entityType, entityData) =>
+        entityType === (EntityType.Dataset as string) && isLogicalModel(EntityType.Dataset, entityData),
+
+    /**
+     * A physical dataset linked to a logical model (it has a `logicalParent`). Slots that compare a
+     * physical asset with its model opt in with `visibleWhen: [physicalChild]`. Like `logicalDataset`, it
+     * reports `false` until `entityData` has loaded, so the slot appears late rather than flashing.
+     */
+    physicalChild: (entityType, entityData) =>
+        entityType === (EntityType.Dataset as string) &&
+        !!entityData?.logicalParent &&
+        !isLogicalModel(EntityType.Dataset, entityData),
 };
 
 /**
@@ -39,7 +60,7 @@ export const SLOT_VISIBILITY_PREDICATES: Record<string, SlotVisibilityPredicate>
  *
  * Note: while the page is still loading, `entityData` is `null` and a predicate may report `true`
  * (e.g. `physicalDataset` cannot yet see the platform flag). The tab can therefore appear for a beat
- * and then hide once the data lands. This matches how DataHub's own `display.visible` gates behave
+ * and then hide once the data lands (`logicalDataset` reports `false` instead, so it appears late). This matches how DataHub's own `display.visible` gates behave
  * with in-flight `entityData`, and it self-corrects on the next render.
  */
 export function isSlotTabVisible(

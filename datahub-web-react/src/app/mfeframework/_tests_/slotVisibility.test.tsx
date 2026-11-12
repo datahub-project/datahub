@@ -108,6 +108,24 @@ describe('slot visibility (Layer 2)', () => {
         expect(isSlotTabVisible(tabConfig(['physicalDataset']), EntityType.Dataset, null)).toBe(true);
     });
 
+    it('shows a logicalDataset tab only on a logical dataset', () => {
+        expect(isSlotTabVisible(tabConfig(['logicalDataset']), EntityType.Dataset, LOGICAL_DATASET)).toBe(true);
+        expect(isSlotTabVisible(tabConfig(['logicalDataset']), EntityType.Dataset, PHYSICAL_DATASET)).toBe(false);
+        expect(isSlotTabVisible(tabConfig(['logicalDataset']), EntityType.Chart, LOGICAL_DATASET)).toBe(false);
+    });
+
+    // Opposite of physicalDataset: the platform flag is unknown while loading, so stay hidden until it lands.
+    it('hides a logicalDataset tab while entityData is still loading', () => {
+        expect(isSlotTabVisible(tabConfig(['logicalDataset']), EntityType.Dataset, null)).toBe(false);
+    });
+
+    it('shows a physicalChild tab only on a physical dataset linked to a logical model', () => {
+        const linked = { ...PHYSICAL_DATASET, logicalParent: { urn: 'urn:li:dataset:(x)' } } as GenericEntityProperties;
+        expect(isSlotTabVisible(tabConfig(['physicalChild']), EntityType.Dataset, linked)).toBe(true);
+        expect(isSlotTabVisible(tabConfig(['physicalChild']), EntityType.Dataset, PHYSICAL_DATASET)).toBe(false);
+        expect(isSlotTabVisible(tabConfig(['physicalChild']), EntityType.Dataset, null)).toBe(false);
+    });
+
     it('treats an unknown predicate as no match and logs', () => {
         expect(isSlotTabVisible(tabConfig(['nopeNotReal']), EntityType.Dataset, PHYSICAL_DATASET)).toBe(false);
         expect(console.error).toHaveBeenCalledWith(expect.stringContaining('nopeNotReal'));
