@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
+import { useGetEntities } from '@app/sharedV2/useGetEntities';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useAggregateAcrossEntitiesLazyQuery } from '@graphql/search.generated';
@@ -55,6 +56,18 @@ export default function AggregationValueInput({
         [data, facetField],
     );
 
+    // Selected values can be missing from the facet (e.g. a saved View whose platform no longer has
+    // assets); resolve those URNs so they don't render raw.
+    const missingSelectedUrns = useMemo(() => {
+        if (loading) return [];
+        const aggValues = new Set(aggregations.map((agg) => agg.value));
+        return selectedValues.filter((v) => !aggValues.has(v));
+    }, [aggregations, selectedValues, loading]);
+    const { entities: missingSelectedEntities } = useGetEntities(missingSelectedUrns, false, {
+        skipLineage: true,
+        skipSiblingsSearch: true,
+    });
+
     const getEntityLabel = useCallback(
         (entity: Entity) => {
             const name = entityRegistry.getDisplayName(entity.type, entity);
@@ -79,10 +92,10 @@ export default function AggregationValueInput({
 
         const extraSelectedOptions = selectedValues
             .filter((v) => !existingValues.has(v))
-            .map((v) => ({
-                value: v,
-                label: capitalizeFirstLetterOnly(v) || v,
-            }));
+            .map((v) => {
+                const entity = missingSelectedEntities.find((e) => e.urn === v);
+                return { value: v, label: entity ? getEntityLabel(entity) : capitalizeFirstLetterOnly(v) || v };
+            });
 
         const allOptions = [...aggOptions, ...extraSelectedOptions];
 
@@ -95,7 +108,7 @@ export default function AggregationValueInput({
             const bSelected = selectedSet.has(b.value) ? 0 : 1;
             return aSelected - bSelected;
         });
-    }, [aggregations, selectedValues, searchQuery, getEntityLabel]);
+    }, [aggregations, selectedValues, searchQuery, getEntityLabel, missingSelectedEntities]);
 
     const onSearch = useCallback((text: string) => {
         setSearchQuery(text);

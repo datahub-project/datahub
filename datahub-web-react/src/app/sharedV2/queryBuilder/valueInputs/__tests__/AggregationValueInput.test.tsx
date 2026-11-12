@@ -13,6 +13,14 @@ const mocks = vi.hoisted(() => ({
     fetchAggregations: vi.fn(),
     data: undefined as unknown,
     selectProps: undefined as CapturedSelect | undefined,
+    resolvedEntities: [] as unknown[],
+}));
+
+vi.mock('@app/sharedV2/useGetEntities', () => ({
+    useGetEntities: (urns: string[]) => ({
+        entities: mocks.resolvedEntities.filter((e: any) => urns.includes(e.urn)),
+        loading: false,
+    }),
 }));
 
 vi.mock('@components', async () => ({
@@ -71,5 +79,15 @@ describe('AggregationValueInput', () => {
         );
         expect(mocks.fetchAggregations.mock.calls[0][0].variables.input.searchFlags.maxAggValues).toBeGreaterThan(20);
         expect(mocks.selectProps?.options.map((o) => o.label)).toEqual(['snowflake prod', 'bigquery prod']);
+    });
+
+    it('shows a selected value missing from the facet by its entity name, not its URN', () => {
+        const urn = 'urn:li:dataPlatform:mysql';
+        mocks.data = { aggregateAcrossEntities: { facets: [{ field: 'platform', aggregations: [] }] } };
+        mocks.resolvedEntities = [{ urn, type: EntityType.DataPlatform, name: 'MySQL' }];
+
+        render(<AggregationValueInput facetField="platform" selectedValues={[urn]} onChangeSelectedValues={vi.fn()} />);
+
+        expect(mocks.selectProps?.options).toEqual([{ value: urn, label: 'MySQL' }]);
     });
 });
