@@ -446,12 +446,12 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Qlik App Dashboard"
+                "App"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1794506388003,
+        "lastObserved": 1794508940720,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -592,6 +592,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1794413386299,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(qlik-sense,qlik_sense_platform.f4f57386-263a-4ec9-b40c-abcd2467f423)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Sheet"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794508940722,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }

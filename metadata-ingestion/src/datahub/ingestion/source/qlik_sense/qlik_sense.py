@@ -1090,6 +1090,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if sheet.charts_complete:
                 yield self._gen_dashboard_info_workunit(sheet, app.id)
 
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn,
+                aspect=SubTypes(typeNames=[BIAssetSubTypes.QLIK_SHEET]),
+            ).as_workunit()
+
             yield from add_entity_to_container(
                 container_key=self._gen_app_key(app.id),
                 entity_type="dashboard",
