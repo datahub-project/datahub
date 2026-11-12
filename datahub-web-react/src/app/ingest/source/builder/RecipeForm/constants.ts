@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import {
     AZURE_AUTHORITY_URL,
     AZURE_CLIENT_ID,
@@ -123,6 +125,16 @@ import {
     DORIS_PASSWORD,
     DORIS_USERNAME,
 } from '@app/ingest/source/builder/RecipeForm/doris';
+import {
+    HIGHTOUCH_API_KEY,
+    HIGHTOUCH_EMIT_MODELS,
+    HIGHTOUCH_INCLUDE_SYNC_RUNS,
+    HIGHTOUCH_MAX_SYNC_RUNS,
+    HIGHTOUCH_MODEL_ALLOW,
+    HIGHTOUCH_MODEL_DENY,
+    HIGHTOUCH_SYNC_ALLOW,
+    HIGHTOUCH_SYNC_DENY,
+} from '@app/ingest/source/builder/RecipeForm/hightouch';
 import {
     HIVE_DATABASE,
     HIVE_HOST_PORT,
@@ -405,6 +417,7 @@ import {
     VERTICA,
 } from '@app/ingest/source/builder/constants';
 import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
+import { HIGHTOUCH } from '@app/ingestV2/source/conf/hightouch/hightouch';
 import { HIVE } from '@app/ingestV2/source/conf/hive/hive';
 import { KAFKA } from '@app/ingestV2/source/conf/kafka/kafka';
 import { LOOKER } from '@app/ingestV2/source/conf/looker/looker';
@@ -938,6 +951,19 @@ export const RECIPE_FIELDS: RecipeFields = {
             FOLDER_DENY,
         ],
         advancedFields: [STATEFUL_INGESTION_ENABLED],
+    },
+    [HIGHTOUCH]: {
+        fields: [HIGHTOUCH_API_KEY],
+        filterFields: [HIGHTOUCH_SYNC_ALLOW, HIGHTOUCH_SYNC_DENY, HIGHTOUCH_MODEL_ALLOW, HIGHTOUCH_MODEL_DENY],
+        advancedFields: [
+            HIGHTOUCH_EMIT_MODELS,
+            HIGHTOUCH_INCLUDE_SYNC_RUNS,
+            HIGHTOUCH_MAX_SYNC_RUNS,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        get filterSectionTooltip() {
+            return i18next.t('ingestion.sourceBuilder:hightouch.filterSection.tooltip');
+        },
     },
     [NOTION]: {
         fields: [NOTION_API_KEY, NOTION_PAGE_IDS],

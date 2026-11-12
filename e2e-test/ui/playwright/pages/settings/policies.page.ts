@@ -1,7 +1,8 @@
 import { Locator, Page, expect } from '@playwright/test';
 import { BaseSettingsPage, type PageOptions } from './base.settings.page';
 import { TOAST_MESSAGES } from './constants';
-import { WAIT_TIMEOUT, SHORT_TIMEOUT, TIMEOUTS } from '../../utils/constants';
+import { WAIT_TIMEOUT, SHORT_TIMEOUT } from '../../utils/constants';
+import { GraphQLHelper } from '../../helpers/graphql-helper';
 
 export class PoliciesPage extends BaseSettingsPage {
   private readonly searchInput: Locator;
@@ -104,16 +105,22 @@ export class PoliciesPage extends BaseSettingsPage {
   }
 
   async searchForPolicy(policyName: string): Promise<void> {
-    await this.searchInput.clear();
-    await this.searchInput.fill(policyName);
     // The policies search box is debounced, so the table keeps rendering the previous result set
     // for a moment after the last keystroke. Callers open a row menu immediately after searching,
     // and the debounced refetch then unmounts the table rows — silently closing that open menu.
-    // Wait for the debounce to fire and its refetch to finish before handing control back.
-    // A fixed wait is required here: repeat searches for the same term short-circuit in the UI
-    // (no refetch is issued), so there is no network response or DOM change to wait on.
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    // Wait for the refetch to finish before handing control back. Searching for the term already
+    // in the box short-circuits in the UI (ManagePolicies skips an unchanged query), so there is
+    // no refetch to wait for in that case.
+    const alreadySearched = (await this.searchInput.inputValue()) === policyName;
+    const refetched = alreadySearched
+      ? undefined
+      : new GraphQLHelper(this.page).waitForGraphQLResponse(
+          'listPolicies',
+          (variables) => (variables.input as { query?: string } | undefined)?.query === policyName,
+        );
+    await this.searchInput.clear();
+    await this.searchInput.fill(policyName);
+    await refetched;
     await this.page.waitForLoadState('networkidle');
   }
 

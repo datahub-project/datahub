@@ -4,8 +4,6 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components/macro';
 
-import { Editor } from '@components/components/Editor';
-
 import { useRefetch } from '@app/entityV2/shared/EntityContext';
 import {
     EditorContainer,
@@ -16,6 +14,7 @@ import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContex
 import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossaryV2/utils';
+import { Editor } from '@app/sharedV2/editor/Editor';
 
 import {
     useUpdateDescriptionMutation,

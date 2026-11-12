@@ -1,11 +1,11 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { waitFor } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
 import * as useUserContextModule from '@app/context/useUserContext';
 import { useIsProductAnnouncementEnabled, useIsProductAnnouncementVisible } from '@app/sharedV2/product/update/hooks';
 import * as useAppConfigModule from '@app/useAppConfig';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { BatchGetStepStatesDocument } from '@graphql/step.generated';
 

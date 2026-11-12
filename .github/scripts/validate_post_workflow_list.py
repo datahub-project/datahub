@@ -25,6 +25,7 @@ IGNORED_WORKFLOWS = {
     "Create Linear Ticket for PR & Issue Review",
     "PR & Issue Routing (Linear Shadow Mode)",
     "PR Comment",
+    "PR Docs Impact Check",
     "Pull Request Labeler"
 }
 

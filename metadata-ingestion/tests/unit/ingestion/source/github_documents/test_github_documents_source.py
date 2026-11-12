@@ -1,7 +1,6 @@
 """Unit tests for GitHubDocumentsSource."""
 
 import json
-import logging
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Type, TypedDict, cast
 from unittest.mock import MagicMock, patch
 
@@ -1350,6 +1349,7 @@ def okf_source() -> GitHubDocumentsSource:
             repository="example-org/analytics",
             path_prefix="docs",
             okf_bundle_roots=[""],
+            enable_okf=True,
         ),
         PipelineContext(run_id="test-run"),
     )
@@ -1362,6 +1362,7 @@ def test_okf_maps_metadata_and_preserves_frontmatter(newline: str) -> None:
             github_token=SecretStr("test-token"),
             repository="example-org/analytics",
             okf_bundle_roots=[""],
+            enable_okf=True,
             create_repo_root_document=False,
         ),
         PipelineContext(run_id="test-run"),
@@ -2532,174 +2533,84 @@ def test_sync_back_skip_still_clears_stale_okf_state(
     )
 
 
-@pytest.mark.parametrize(
-    "server", ["no-graph", "supported", "unsupported", "unreadable"]
-)
-@pytest.mark.parametrize("enabled", [True, False])
-def test_okf_server_compatibility(
-    okf_source: GitHubDocumentsSource,
-    server: str,
-    enabled: bool,
-    caplog: pytest.LogCaptureFixture,
+@pytest.mark.parametrize("with_graph", [False, True])
+def test_default_import_preserves_frontmatter(
+    source: GitHubDocumentsSource, with_graph: bool
 ) -> None:
     content = (
-        "---\ntype: Guide\nowners: [alice@example.com]\ntags: [metrics]\n"
-        "glossary_terms: [urn:li:glossaryTerm:active-user]\n---\nBody"
+        "---\ntype: Guide\ntitle: Concept title\nowners: [alice@example.com]\n"
+        "tags: [metrics]\nglossary_terms: [urn:li:glossaryTerm:active-user]\n---\nBody"
     )
-    okf_source.config.enable_okf = enabled
+    source.config.okf_bundle_roots = [""]
+    if with_graph:
+        graph = MagicMock()
+        graph.get_aspect.return_value = None
+        graph.get_urns_by_filter.return_value = []
+        source.ctx.graph = graph
     _mock_github_client(
-        okf_source,
-        files=[GitHubFileInfo(path=f"docs/{name}.md", size=100) for name in ["a", "b"]],
+        source,
+        files=[GitHubFileInfo(path="docs/guide.md", size=len(content))],
         file_content=content,
     )
-    bundle = OkfBundleClass(
-        location="https://github.com/example-org/analytics", rootPath="."
-    )
-    graph = MagicMock()
-    graph.get_entity_aspect_specs.return_value = (
-        None
-        if server == "unreadable"
-        else EntityAspectSpecs(
-            entity_aspects={
-                "document": {"documentInfo", "okfProperties"}
-                if server == "supported"
-                else {"documentInfo"},
-                "dataset": {"okfProperties"},
-            }
-        )
-    )
-    graph.get_urns_by_filter.return_value = []
-    stored = OkfPropertiesClass(
-        bundle=bundle, conceptId="previous", type="Guide", raw="---\ntype: Guide\n---\n"
-    )
-    graph.get_aspect.side_effect = lambda urn, cls: (
-        stored if cls is OkfPropertiesClass else None
-    )
-    if server != "no-graph":
-        okf_source.ctx.graph = graph
-    with caplog.at_level(
-        logging.DEBUG,
-        logger="datahub.ingestion.source.github_documents.github_documents_source",
-    ):
-        workunits = list(okf_source.get_workunits())
-    effective = enabled and server != "unsupported"
-    properties = [wu.get_aspect_of_type(OkfPropertiesClass) for wu in workunits]
-    concepts = [
-        aspect for aspect in properties if aspect is not None and aspect.raw is not None
+    source.client._index_file_paths = {"index.md"}
+    workunits = list(source.get_workunits())
+    info = _document_infos_by_source_id(workunits)[
+        make_file_source_id(source.config.repository, "docs/guide.md")
     ]
-    assert len(concepts) == (2 if effective else 0)
-    infos = _document_infos_by_source_id(workunits)
-    for name in ["a", "b"]:
-        info = infos[make_file_source_id("example-org/analytics", f"docs/{name}.md")]
-        assert info.contents.text == ("Body" if effective else content)
-        assert info.customProperties is not None
-        assert info.customProperties["source_content_hash"] == compute_source_hash(
-            content, bundle=bundle if effective else None, enable_okf=effective
-        )
-        assert info.customProperties["content_hash"] == compute_file_content_hash(
-            info.contents.text
-        )
+    assert info.contents.text == content
+    assert info.title == "guide.md"
+    assert info.customProperties is not None
+    assert info.customProperties["source_content_hash"] == compute_file_content_hash(
+        content
+    )
+    assert not any(wu.get_aspect_of_type(OkfPropertiesClass) for wu in workunits)
+    assert not any(wu.get_aspect_of_type(SubTypesClass) for wu in workunits)
     for aspect_name in ["ownership", "globalTags", "glossaryTerms"]:
-        assert len(_okf_patch_operations(workunits, aspect_name)) == (
-            2 if effective else 0
-        )
-    assert sum(bool(wu.get_aspect_of_type(SubTypesClass)) for wu in workunits) == (
-        2 if effective else 0
+        assert not _okf_patch_operations(workunits, aspect_name)
+    assert not source.report.warnings
+    assert source.report.okf_files_processed == 0
+    assert isinstance(source.client.fetch_file_content, MagicMock)
+    source.client.fetch_file_content.assert_called_once_with(
+        source.config.repository, "docs/guide.md", "abc123"
     )
-    assert okf_source.config.enable_okf == enabled
-    assert okf_source.report.okf_disabled_reason == (
-        "unsupported_aspect" if server == "unsupported" else None
-    )
-    assert len(okf_source.report.warnings) == (
-        1 if server in {"unsupported", "unreadable"} else 0
-    )
-    if server == "unsupported":
-        assert all(aspect is None for aspect in properties)
-        assert not any(
-            getattr(wu.metadata, "changeType", None) == ChangeTypeClass.DELETE
-            for wu in workunits
-        )
-        assert not any(
-            call.args[1] is OkfPropertiesClass
-            for call in graph.get_aspect.call_args_list
-        )
-    if server == "no-graph":
+    if with_graph:
         graph.get_entity_aspect_specs.assert_not_called()
-        assert (
-            sum(
-                "server support for okfProperties was not checked" in record.message
-                for record in caplog.records
-            )
-            == 1
-        )
+
+
+@pytest.mark.parametrize("registry", ["unsupported", "forbidden"])
+def test_okf_opt_in_does_not_check_server_support(
+    okf_source: GitHubDocumentsSource, registry: str
+) -> None:
+    graph = MagicMock()
+    if registry == "forbidden":
+        graph.get_entity_aspect_specs.side_effect = PermissionError("403 Forbidden")
     else:
-        graph.get_entity_aspect_specs.assert_called_once_with()
-
-
-def test_okf_capability_check_is_lazy(okf_source: GitHubDocumentsSource) -> None:
-    graph = MagicMock()
-    okf_source.ctx.graph = graph
-    _mock_github_client(okf_source, files=[])
-    assert list(okf_source.get_workunits_internal()) == []
-    graph.get_entity_aspect_specs.assert_not_called()
-    assert not okf_source.report.warnings
-
-
-def test_server_upgrade_rechecks_support_and_reimports_plain_files(
-    okf_source: GitHubDocumentsSource,
-) -> None:
-    content = "---\ntype: Guide\nowners: [alice@example.com]\n---\nBody"
-    _mock_github_client(
-        okf_source,
-        files=[GitHubFileInfo(path=f"docs/{name}.md", size=100) for name in ["a", "b"]],
-        file_content=content,
-    )
-    graph = MagicMock()
-    graph.get_entity_aspect_specs.side_effect = [
-        EntityAspectSpecs(entity_aspects={"document": {"documentInfo"}}),
-        EntityAspectSpecs(
-            entity_aspects={"document": {"documentInfo", "okfProperties"}}
-        ),
-    ]
-    graph.get_urns_by_filter.return_value = []
-    existing: Dict[str, DocumentInfoClass] = {}
-    graph.get_aspect.side_effect = lambda urn, cls: (
-        existing.get(urn) if cls is DocumentInfoClass else None
-    )
-    okf_source.ctx.graph = graph
-    first = list(okf_source.get_workunits())
-    graph.get_entity_aspect_specs.assert_called_once_with()
-    for wu in first:
-        info = wu.get_aspect_of_type(DocumentInfoClass)
-        if info is not None:
-            existing[wu.get_urn()] = info
-    second = list(okf_source.get_workunits())
-    assert graph.get_entity_aspect_specs.call_count == 2
-    assert okf_source.report.okf_disabled_reason is None
-    assert sum(bool(wu.get_aspect_of_type(OkfPropertiesClass)) for wu in second) == 2
-    infos = _document_infos_by_source_id(second)
-    for name in ["a", "b"]:
-        info = infos[make_file_source_id("example-org/analytics", f"docs/{name}.md")]
-        assert info.contents.text == "Body"
-
-
-def test_registry_fetch_error_keeps_okf_enabled(
-    okf_source: GitHubDocumentsSource,
-) -> None:
-    graph = MagicMock()
-    graph.get_entity_aspect_specs.side_effect = RuntimeError("Registry unavailable")
+        graph.get_entity_aspect_specs.return_value = EntityAspectSpecs(
+            entity_aspects={"document": {"documentInfo"}}
+        )
     graph.get_aspect.return_value = None
     graph.get_urns_by_filter.return_value = []
     okf_source.ctx.graph = graph
     _mock_github_client(
         okf_source,
-        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
-        file_content="---\ntype: Guide\n---\nBody",
+        files=[GitHubFileInfo(path="docs/guide.md", size=100)],
+        file_content=(
+            "---\ntype: Guide\nowners: [alice@example.com]\ntags: [metrics]\n"
+            "glossary_terms: [urn:li:glossaryTerm:active-user]\n---\nBody"
+        ),
     )
     workunits = list(okf_source.get_workunits())
     assert any(wu.get_aspect_of_type(OkfPropertiesClass) for wu in workunits)
-    graph.get_entity_aspect_specs.assert_called_once_with()
-    assert len(okf_source.report.warnings) == 1
+    assert any(wu.get_aspect_of_type(SubTypesClass) for wu in workunits)
+    for aspect_name in ["ownership", "globalTags", "glossaryTerms"]:
+        assert _okf_patch_operations(workunits, aspect_name)
+    info = _document_infos_by_source_id(workunits)[
+        make_file_source_id(okf_source.config.repository, "docs/guide.md")
+    ]
+    assert info.contents.text == "Body"
+    assert okf_source.report.okf_files_processed == 1
+    graph.get_entity_aspect_specs.assert_not_called()
+    assert not okf_source.report.warnings
 
 
 @pytest.mark.parametrize(
@@ -2741,9 +2652,6 @@ def test_source_never_emits_delete_workunits(
         ),
     }
     graph = MagicMock()
-    graph.get_entity_aspect_specs.return_value = EntityAspectSpecs(
-        entity_aspects={"document": {"okfProperties"}}
-    )
     graph.get_urns_by_filter.return_value = []
     graph.get_aspect.side_effect = lambda urn, cls: aspects.get(cls)
     okf_source.ctx.graph = graph
@@ -2781,9 +2689,6 @@ def test_already_neutral_okf_state_is_not_cleaned_again(
     )
     neutral = OkfPropertiesClass()
     graph = MagicMock()
-    graph.get_entity_aspect_specs.return_value = EntityAspectSpecs(
-        entity_aspects={"document": {"okfProperties"}}
-    )
     graph.get_urns_by_filter.return_value = []
     graph.get_aspect.side_effect = lambda urn, cls: (
         neutral

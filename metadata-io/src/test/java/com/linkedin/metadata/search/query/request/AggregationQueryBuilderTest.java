@@ -31,6 +31,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.FilterValue;
 import com.linkedin.metadata.search.FilterValueArray;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3AggregationQueryBuilder;
 import com.linkedin.r2.RemoteInvocationException;
@@ -1693,6 +1694,119 @@ public class AggregationQueryBuilderTest {
         .thenReturn(mockResult);
 
     return mockAspectRetriever;
+  }
+
+  @Test
+  public void testMergeAliasedFacetsBothPresent() {
+    AggregationMetadata originFacet = new AggregationMetadata();
+    originFacet.setName("origin");
+    originFacet.setAggregations(new LongMap(ImmutableMap.of("PROD", 10L, "DEV", 3L)));
+    originFacet.setFilterValues(new FilterValueArray());
+
+    AggregationMetadata envFacet = new AggregationMetadata();
+    envFacet.setName("env");
+    envFacet.setAggregations(new LongMap(ImmutableMap.of("PROD", 5L, "STAGING", 2L)));
+    envFacet.setFilterValues(new FilterValueArray());
+
+    AggregationQueryBuilder.mergeAliasedFacets(new ArrayList<>(List.of(originFacet, envFacet)));
+
+    Map<String, Long> expected = ImmutableMap.of("PROD", 15L, "DEV", 3L, "STAGING", 2L);
+    Assert.assertEquals(originFacet.getAggregations(), expected);
+    Assert.assertEquals(filterValueCounts(originFacet), expected);
+    Assert.assertEquals(envFacet.getAggregations(), expected);
+    Assert.assertEquals(filterValueCounts(envFacet), expected);
+    Assert.assertNotSame(originFacet.getFilterValues(), envFacet.getFilterValues());
+  }
+
+  @Test
+  public void testMergeAliasedFacetsOnlyEnvPresentAddsOrigin() {
+    AggregationMetadata envFacet = new AggregationMetadata();
+    envFacet.setName("env");
+    envFacet.setDisplayName("Environment");
+    envFacet.setAggregations(new LongMap(ImmutableMap.of("PROD", 5L)));
+    envFacet.setFilterValues(new FilterValueArray());
+    List<AggregationMetadata> aggregations = new ArrayList<>(List.of(envFacet));
+
+    AggregationQueryBuilder.mergeAliasedFacets(aggregations);
+
+    Assert.assertEquals(aggregations.size(), 2);
+    AggregationMetadata originFacet = aggregations.get(1);
+    Assert.assertEquals(originFacet.getName(), "origin");
+    Assert.assertEquals(originFacet.getDisplayName(), "Environment");
+    Assert.assertEquals(filterValueCounts(originFacet), ImmutableMap.of("PROD", 5L));
+  }
+
+  @Test
+  public void testGetAggregationsRequestsBothEnvironmentAliases() {
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            TEST_OS_SEARCH_CONFIG.getSearch(),
+            ImmutableMap.of(
+                mock(EntitySpec.class),
+                ImmutableList.of(environmentAnnotation("origin"), environmentAnnotation("env"))));
+
+    for (String requested : ImmutableList.of("origin", "env")) {
+      Assert.assertEquals(
+          environmentAggregationNames(builder, requested),
+          ImmutableSet.of("origin", "env"),
+          requested);
+    }
+  }
+
+  @Test
+  public void testGetAggregationsKeepsEnvironmentAliasesSeparateOnV3() {
+    AggregationQueryBuilder builder =
+        new V3AggregationQueryBuilder(
+            TEST_OS_SEARCH_CONFIG.getSearch(),
+            ImmutableMap.of(
+                mock(EntitySpec.class),
+                ImmutableList.of(environmentAnnotation("origin"), environmentAnnotation("env"))),
+            mock(SearchFieldResolver.class));
+
+    Assert.assertEquals(environmentAggregationNames(builder, "origin"), ImmutableSet.of("origin"));
+  }
+
+  private static Set<String> environmentAggregationNames(
+      AggregationQueryBuilder builder, String requested) {
+    return builder
+        .getAggregations(
+            TestOperationContexts.systemContextNoSearchAuthorization()
+                .withSearchFlags(flags -> flags.setIncludeDefaultFacets(false)),
+            ImmutableList.of(requested))
+        .stream()
+        .map(AggregationBuilder::getName)
+        .filter(name -> !name.equals(INDEX_VIRTUAL_FIELD))
+        .collect(Collectors.toSet());
+  }
+
+  private static Map<String, Long> filterValueCounts(AggregationMetadata facet) {
+    return facet.getFilterValues().stream()
+        .collect(Collectors.toMap(FilterValue::getValue, FilterValue::getFacetCount));
+  }
+
+  private static SearchableAnnotation environmentAnnotation(String fieldName) {
+    return new SearchableAnnotation(
+        fieldName,
+        SearchableAnnotation.FieldType.KEYWORD,
+        true,
+        true,
+        false,
+        false,
+        Optional.of("Environment"),
+        Optional.empty(),
+        1.0,
+        Optional.empty(),
+        Optional.empty(),
+        Collections.<Object, Double>emptyMap(),
+        Collections.<String>emptyList(),
+        false,
+        false,
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        false);
   }
 
   private AggregationBuilder getEntityTypeAggregation(List<AggregationBuilder> aggs) {

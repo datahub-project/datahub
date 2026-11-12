@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { MenuItemType } from '@components/components/Menu/types';
@@ -9,6 +9,7 @@ import useAddPropertyMenuItems from '@app/entityV2/summary/properties/menuAddPro
 import useStructuredPropertiesMenuItems from '@app/entityV2/summary/properties/menuAddProperty/hooks/useStructuredPropertiesMenuItems';
 import { AssetProperty } from '@app/entityV2/summary/properties/types';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { SummaryElementType } from '@types';
 
