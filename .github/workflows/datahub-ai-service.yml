@@ -63,3 +63,55 @@ jobs:
           artifact-name: ${{ matrix.package }}-test-results
           test-results-paths: "packages/${{ matrix.package }}/test-results/**"
           junit-file-globs: "packages/${{ matrix.package }}/test-results/*.xml"
+
+  image:
+    # Builds the image the way the release does (single arch here; docker-unified
+    # publishes amd64 + arm64) and checks what a broken Dockerfile or a dependency
+    # bump would change silently: its size, its user, and that it becomes healthy.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      IMAGE: acryldata/datahub-ai-service:debug
+      # Uncompressed size on the runner; the image was ~365 MB when this was set.
+      SIZE_BUDGET_MB: 450
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+      - name: Build image
+        run: ./gradlew :packages:datahub-ai-service:docker
+      - name: Size budget
+        run: |
+          size_mb=$(( $(docker image inspect "$IMAGE" --format '{{.Size}}') / 1000000 ))
+          echo "datahub-ai-service image: ${size_mb} MB (budget ${SIZE_BUDGET_MB} MB)" | tee -a "$GITHUB_STEP_SUMMARY"
+          if (( size_mb > SIZE_BUDGET_MB )); then
+            echo "::error::datahub-ai-service image is ${size_mb} MB, over its ${SIZE_BUDGET_MB} MB budget"
+            exit 1
+          fi
+      - name: Runs as non-root, without curl
+        run: |
+          user=$(docker image inspect "$IMAGE" --format '{{.Config.User}}')
+          if [[ -z "$user" || "$user" == root || "$user" == 0 ]]; then
+            echo "::error::image runs as '${user:-root}'"
+            exit 1
+          fi
+          if docker run --rm --entrypoint sh "$IMAGE" -c 'command -v curl'; then
+            echo "::error::curl is installed in the image"
+            exit 1
+          fi
+      - name: Healthy without GMS
+        # The service must start, and report healthy, before GMS is reachable.
+        run: |
+          docker run -d --name ai -p 127.0.0.1:9005:9005 \
+            -e DATAHUB_GMS_URL=http://gms.invalid:8080 "$IMAGE"
+          for i in $(seq 1 30); do
+            health=$(docker inspect ai --format '{{.State.Health.Status}}')
+            [[ "$health" == healthy ]] && break
+            sleep 1
+          done
+          echo "health after ${i}s: ${health}"
+          curl -fsS http://127.0.0.1:9005/health
+          if [[ "$health" != healthy ]]; then
+            docker logs ai
+            exit 1
+          fi
