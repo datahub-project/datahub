@@ -251,12 +251,16 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         )
         if tree_truncated:
             self.report.tree_truncated = True
-            self.report.warning(
+            # Reported as a failure, not a warning: StaleEntityRemovalHandler skips
+            # soft-deletion when the source has failures. Files missing from a
+            # partial listing must not be treated as deleted from the repository.
+            self.report.failure(
                 title=f"{self.platform}-tree-truncated",
                 message=(
                     f"{self.platform_display_name} returned a truncated tree; "
-                    "only a subset of files will be imported. "
-                    "Narrow path_prefix or split across multiple ingestion sources."
+                    "only a subset of files will be imported and stale document "
+                    "removal is skipped for this run. Narrow path_prefix or split "
+                    "across multiple ingestion sources."
                 ),
                 context=f"repository={owner_repo}, branch={branch}",
             )

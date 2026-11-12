@@ -255,9 +255,8 @@ def test_get_workunits_reports_truncated_tree(source: GitHubDocumentsSource) -> 
 
     list(source.get_workunits())
     assert source.report.tree_truncated is True
-    assert any(
-        "truncated" in (entry.message or "").lower() for entry in source.report.warnings
-    )
+    # A failure, so stale removal does not delete files the listing missed.
+    assert "github-tree-truncated" in {entry.title for entry in source.report.failures}
 
 
 def test_get_workunits_truncates_files_at_max_files_limit() -> None:
