@@ -796,6 +796,13 @@ jobs:
         if: ${{ steps.resolve-mode.outputs.mode != 'off' }}
         run: ./metadata-ingestion/scripts/install_deps.sh
 
+      # smoke.sh installs ../metadata-ingestion as an editable package, so
+      # collecting the suite imports datahub.metadata, which only exists once
+      # codegen has run (pytest_tests gets it from :metadata-ingestion:install).
+      - name: Generate metadata model classes
+        if: ${{ steps.resolve-mode.outputs.mode != 'off' }}
+        run: ./gradlew :metadata-ingestion:codegen
+
       - name: Plan pytest batches
         id: plan
         if: ${{ steps.resolve-mode.outputs.mode != 'off' }}
