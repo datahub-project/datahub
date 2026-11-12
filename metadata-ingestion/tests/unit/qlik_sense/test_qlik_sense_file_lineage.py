@@ -551,6 +551,21 @@ def test_unresolved_file_of_an_app_with_includes_only_adds(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unresolved_file_of_an_app_loading_by_wildcard_only_adds(
+    mock_api_cls: MagicMock,
+) -> None:
+    # The wildcard may read the file the graph names.
+    writes = _graph_app_run(
+        mock_api_cls,
+        {},
+        [],
+        script=SCRIPT + "Daily:\nLOAD * FROM [lib://Lake/daily/*.csv] (txt);\n",
+    )
+
+    assert writes[ORDERS] == f"patch:{RATES}"
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_file_resolves_when_datasets_could_not_be_listed(
     mock_api_cls: MagicMock,
 ) -> None:
