@@ -37,7 +37,8 @@ export class SearchPage extends BasePage {
     this.searchBarInput = page.getByTestId('search-bar');
     this.clearButton = page.getByTestId('button-clear');
     this.autocompleteDropdown = page.getByTestId('search-bar-dropdown');
-    this.filterDropdownMenu = page.getByTestId('filter-dropdown');
+    // Closed filter menus stay mounted (hidden) so they can apply on close; only the open one counts.
+    this.filterDropdownMenu = page.getByTestId('filter-dropdown').filter({ visible: true });
     this.filterOptions = this.filterDropdownMenu.getByTestId(/^filter-option-/);
     this.visibleMoreFilterOptions = page.getByTestId(/^more-filter-/).filter({ visible: true });
     this.graphql = new GraphQLHelper(page);

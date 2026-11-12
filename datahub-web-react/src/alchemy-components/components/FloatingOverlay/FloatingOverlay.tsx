@@ -226,6 +226,10 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
         const [overlayId] = useState(() => `alchemy-overlay-${Math.random().toString(36).slice(2)}`);
         const isControlled = controlledOpen !== undefined || visible !== undefined;
         const isOpen = controlledOpen ?? visible ?? uncontrolledOpen;
+        // Content kept on hide is still only mounted after the first open, as in antd: mounting
+        // every closed overlay up front would run their queries and duplicate their DOM on load.
+        const [hasOpened, setHasOpened] = useState(isOpen);
+        if (isOpen && !hasOpened) setHasOpened(true);
         const content = resolveContent(contentProp);
         const contentPresent = hasContent(content);
         const triggers = useMemo(() => (Array.isArray(trigger) ? trigger : [trigger]), [trigger]);
@@ -503,7 +507,11 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
 
         const shouldDestroyWhenHidden =
             typeof destroyTooltipOnHide === 'boolean' ? destroyTooltipOnHide : !destroyTooltipOnHide.keepParent;
-        if (!hasContent(content) || (!isOpen && shouldDestroyWhenHidden) || typeof document === 'undefined') {
+        if (
+            !hasContent(content) ||
+            (!isOpen && (shouldDestroyWhenHidden || !hasOpened)) ||
+            typeof document === 'undefined'
+        ) {
             return reference;
         }
 

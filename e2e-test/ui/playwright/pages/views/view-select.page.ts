@@ -35,7 +35,7 @@ export class ViewSelectPage extends BasePage {
     this.conditionSelect = page.getByTestId('condition-select');
     this.conditionOperatorSelect = page.getByTestId('condition-operator-select');
     this.entitySearchInput = page.getByTestId('entity-search-input');
-    this.dropdownSearchInput = page.getByTestId('dropdown-search-input');
+    this.dropdownSearchInput = page.getByTestId('dropdown-search-input').filter({ visible: true });
     this.footerButtonUpdate = page.getByTestId('footer-button-update');
     this.viewBuilderSave = page.getByTestId('view-builder-save');
     this.resultsContainer = page.getByTestId('browse-v2-results');
