@@ -37,6 +37,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Component
 @Slf4j
 public class AuthenticationEnforcementFilter extends OncePerRequestFilter {
+  /** Retry-After for 503s caused by an unreachable authentication store. */
+  static final int RETRY_AFTER_SECONDS = 1;
+
   @Autowired private ConfigurationProvider configurationProvider;
 
   private Set<String> excludedPathPatterns;
@@ -73,6 +76,20 @@ public class AuthenticationEnforcementFilter extends OncePerRequestFilter {
         // This path requires authentication
         if (authentication == null || isAnonymousUser(authentication)) {
           String remoteAddr = request.getRemoteAddr();
+          if (Boolean.TRUE.equals(
+              request.getAttribute(
+                  AuthenticationExtractionFilter.AUTHENTICATION_UNAVAILABLE_ATTRIBUTE))) {
+            // The credentials could not be checked, not found invalid: ask the client to retry.
+            log.warn(
+                "Authentication unavailable for protected path: {} from {}; returning 503",
+                request.getServletPath(),
+                remoteAddr != null ? remoteAddr : "unknown");
+            response.setHeader("Retry-After", String.valueOf(RETRY_AFTER_SECONDS));
+            response.sendError(
+                HttpServletResponse.SC_SERVICE_UNAVAILABLE,
+                "Authentication is temporarily unavailable. Please retry the request.");
+            return;
+          }
           log.warn(
               "Rejected unauthenticated request to protected path: {} from {}",
               request.getServletPath(),

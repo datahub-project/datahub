@@ -159,8 +159,14 @@ public class StatefulTokenService extends StatelessTokenService {
       }
       return tokenClaims;
     } catch (final TokenExpiredException e) {
-      // delete entity
-      this.revokeAccessToken(systemOperationContext, hash(accessToken));
+      // Best-effort cleanup of the token entity. Expiry is conclusive, so a cleanup failure (the
+      // entity is already gone, or the store is unavailable) must not replace it.
+      try {
+        this.revokeAccessToken(systemOperationContext, hash(accessToken));
+      } catch (TokenException | RuntimeException cleanupError) {
+        log.debug("Could not clean up expired access token", cleanupError);
+        e.addSuppressed(cleanupError);
+      }
       throw e;
     }
   }
@@ -189,25 +195,28 @@ public class StatefulTokenService extends StatelessTokenService {
     return !tokenExists(hashedToken);
   }
 
+  /**
+   * A failure of the revocation map or the entity store raises {@link
+   * TokenStoreUnavailableException}, so callers can tell "could not check" from "revoked".
+   */
   private boolean tokenExists(@Nonnull String hashedToken) throws TokenException {
-    Boolean cached = revokedTokens.get(hashedToken);
-    if (cached != null) {
-      return !cached;
-    }
-    final boolean exists;
     try {
-      exists =
+      Boolean cached = revokedTokens.get(hashedToken);
+      if (cached != null) {
+        return !cached;
+      }
+      final boolean exists =
           _entityService.exists(
               systemOperationContext.withReadPreference(ReadPreference.PRIMARY),
               tokenUrnFromKey(hashedToken),
               true);
+      revokedTokens.putIfAbsent(hashedToken, !exists);
+      Boolean published = revokedTokens.get(hashedToken);
+      return published == null ? exists : !published;
     } catch (RuntimeException e) {
-      throw new TokenException(
+      throw new TokenStoreUnavailableException(
           "Failed to validate DataHub token: Unable to load token information from store", e);
     }
-    revokedTokens.putIfAbsent(hashedToken, !exists);
-    Boolean published = revokedTokens.get(hashedToken);
-    return published == null ? exists : !published;
   }
 
   /** Hashes the input after salting it. */

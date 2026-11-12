@@ -164,23 +164,30 @@ public class StatelessTokenService {
 
   /** Validates that the actor is active using the OperationContext's built-in validation */
   private void validateActor(@Nonnull final String actorId) throws TokenException {
+    final AspectRetriever aspectRetriever;
+    final ActorContext actorContext;
     try {
-      AspectRetriever aspectRetriever = systemOperationContext.getAspectRetriever();
-      ActorContext actorContext =
+      aspectRetriever = systemOperationContext.getAspectRetriever();
+      actorContext =
           ActorContext.builder()
               .authentication(new Authentication(new Actor(ActorType.USER, actorId), ""))
               .enforceExistenceEnabled(true)
               .build();
-
-      // Use the existing isActive check from ActorContext
-      if (!actorContext.isActive(systemOperationContext, aspectRetriever)) {
-        throw new TokenException("Actor is not active");
-      }
-    } catch (Exception e) {
-      if (e instanceof TokenException) {
-        throw (TokenException) e;
-      }
+    } catch (RuntimeException e) {
       throw new TokenException("Failed to validate actor status", e);
+    }
+
+    final boolean active;
+    try {
+      // Use the existing isActive check from ActorContext
+      active = actorContext.isActive(systemOperationContext, aspectRetriever);
+    } catch (RuntimeException e) {
+      // The actor's status could not be read, which says nothing about the token itself.
+      throw new TokenStoreUnavailableException(
+          "Failed to validate DataHub token: Unable to load actor status from store", e);
+    }
+    if (!active) {
+      throw new TokenException("Actor is not active");
     }
   }
 

@@ -6,6 +6,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.auth.authentication.filter.AuthenticationEnforcementFilter;
+import com.datahub.auth.authentication.filter.AuthenticationExtractionFilter;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
@@ -139,6 +140,61 @@ public class AuthenticationEnforcementFilterTest extends AbstractTestNGSpringCon
         .sendError(
             eq(HttpServletResponse.SC_UNAUTHORIZED), eq("Unauthorized to perform this action."));
     verify(filterChain, never()).doFilter(any(), any());
+  }
+
+  @Test
+  public void testEnforcementWhenAuthenticationUnavailableReturns503()
+      throws ServletException, IOException {
+    FilterConfig mockFilterConfig = mock(FilterConfig.class);
+    when(mockFilterConfig.getInitParameterNames()).thenReturn(Collections.emptyEnumeration());
+    authenticationEnforcementFilter.init(mockFilterConfig);
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    HttpServletResponse servletResponse = mock(HttpServletResponse.class);
+    FilterChain filterChain = mock(FilterChain.class);
+
+    when(servletRequest.getServletPath()).thenReturn("/api/v2/graphql");
+    // Extraction filter could not check the credentials (e.g. token store unreachable).
+    when(servletRequest.getAttribute(
+            AuthenticationExtractionFilter.AUTHENTICATION_UNAVAILABLE_ATTRIBUTE))
+        .thenReturn(Boolean.TRUE);
+    Actor anonymousActor = new Actor(ActorType.USER, ANONYMOUS_ACTOR_ID);
+    AuthenticationContext.setAuthentication(
+        new Authentication(anonymousActor, "", Collections.emptyMap()));
+
+    authenticationEnforcementFilter.doFilter(servletRequest, servletResponse, filterChain);
+
+    verify(servletResponse, times(1)).setHeader("Retry-After", "1");
+    verify(servletResponse, times(1))
+        .sendError(eq(HttpServletResponse.SC_SERVICE_UNAVAILABLE), anyString());
+    verify(servletResponse, never()).sendError(eq(HttpServletResponse.SC_UNAUTHORIZED), any());
+    verify(filterChain, never()).doFilter(any(), any());
+  }
+
+  @Test
+  public void testExcludedPathIgnoresAuthenticationUnavailable()
+      throws ServletException, IOException {
+    FilterConfig mockFilterConfig = mock(FilterConfig.class);
+    when(mockFilterConfig.getInitParameterNames()).thenReturn(Collections.emptyEnumeration());
+    authenticationEnforcementFilter.init(mockFilterConfig);
+    ReflectionTestUtils.setField(
+        authenticationEnforcementFilter,
+        "excludedPathPatterns",
+        new HashSet<>(Collections.singletonList("/health")));
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    HttpServletResponse servletResponse = mock(HttpServletResponse.class);
+    FilterChain filterChain = mock(FilterChain.class);
+
+    when(servletRequest.getServletPath()).thenReturn("/health");
+    when(servletRequest.getAttribute(
+            AuthenticationExtractionFilter.AUTHENTICATION_UNAVAILABLE_ATTRIBUTE))
+        .thenReturn(Boolean.TRUE);
+
+    authenticationEnforcementFilter.doFilter(servletRequest, servletResponse, filterChain);
+
+    verify(filterChain, times(1)).doFilter(servletRequest, servletResponse);
+    verify(servletResponse, never()).sendError(anyInt(), anyString());
   }
 
   @Test

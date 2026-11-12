@@ -19,6 +19,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.authentication.AuthenticationRequest;
+import com.datahub.authentication.AuthenticationUnavailableException;
 import com.datahub.authentication.AuthenticatorContext;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.token.TestHazelcast;
@@ -197,6 +198,54 @@ public class DataHubTokenAuthenticatorTest {
     assertEquals(claimsMap.get(TOKEN_TYPE_CLAIM_NAME), "PERSONAL");
     assertEquals(claimsMap.get(ACTOR_TYPE_CLAIM_NAME), "USER");
     assertEquals(claimsMap.get(ACTOR_ID_CLAIM_NAME), "datahub");
+  }
+
+  @Test
+  public void testAuthenticateTokenStoreUnavailable() throws Exception {
+    // Issue a valid token with one service, then validate it on a fresh service (empty local
+    // revocation map) whose entity store fails, as during database connection-pool exhaustion.
+    Mockito.when(mockService.exists(any(OperationContext.class), any(Urn.class), eq(true)))
+        .thenReturn(true);
+    final Actor datahub = new Actor(ActorType.USER, "datahub");
+    final String validToken =
+        statefulTokenService.generateAccessToken(
+            testOperationContext(),
+            TokenType.PERSONAL,
+            datahub,
+            "some token",
+            "A token description",
+            datahub.toUrnStr());
+
+    final EntityService failingService = mock(EntityService.class);
+    Mockito.when(failingService.exists(any(OperationContext.class), any(Urn.class), eq(true)))
+        .thenThrow(new RuntimeException("Unsuccessfully waited for a connection"));
+    final StatefulTokenService coldTokenService =
+        new StatefulTokenService(
+            testOperationContext(),
+            TEST_SIGNING_KEY,
+            "HS256",
+            null,
+            failingService,
+            TEST_SALT,
+            null);
+
+    final DataHubTokenAuthenticator authenticator = new DataHubTokenAuthenticator();
+    authenticator.init(
+        ImmutableMap.of(
+            SIGNING_KEY_CONFIG_NAME,
+            TEST_SIGNING_KEY,
+            SALT_CONFIG_NAME,
+            TEST_SALT,
+            SIGNING_ALG_CONFIG_NAME,
+            "HS256"),
+        new AuthenticatorContext(
+            ImmutableMap.of(ENTITY_SERVICE, failingService, TOKEN_SERVICE, coldTokenService)));
+
+    final AuthenticationRequest context =
+        new AuthenticationRequest(
+            ImmutableMap.of(AUTHORIZATION_HEADER_NAME, String.format("Bearer %s", validToken)));
+    assertThrows(
+        AuthenticationUnavailableException.class, () -> authenticator.authenticate(context));
   }
 
   @Test
