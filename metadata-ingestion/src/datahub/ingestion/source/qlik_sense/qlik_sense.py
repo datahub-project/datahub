@@ -44,6 +44,7 @@ from datahub.ingestion.source.qlik_sense.app_state import (
 )
 from datahub.ingestion.source.qlik_sense.config import (
     Constant,
+    FileStorageDetail,
     PlatformDetail,
     QlikSourceConfig,
     QlikSourceReport,
@@ -67,6 +68,13 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     SpaceKey,
     UnchangedApp,
 )
+from datahub.ingestion.source.qlik_sense.file_lineage import (
+    FileReference,
+    FileSourceResolver,
+    FileStorage,
+    file_dataset_urn,
+    file_storage_of_uri,
+)
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import QlikBaseAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
@@ -79,6 +87,7 @@ from datahub.ingestion.source.qlik_sense.qvd_lineage import (
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     BACKTICK_QUOTED_PLATFORMS,
+    LIB_PATH_RE,
     SPACE_SEPARATOR,
     DataConnectionInfo,
     ParsedScript,
@@ -284,6 +293,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self.reporter = QlikSourceReport()
         self.ui_host = config.ui_hostname()
         self._data_connections: Optional[Dict[str, DataConnectionInfo]] = None
+        # The files each app's load script reads, to resolve the files in its
+        # lineage graph with.
+        self._file_sources_by_app: Dict[str, FileSourceResolver] = {}
+        self._resolved_file_qris: Set[str] = set()
         self._allowed_space_ids: Set[str] = set()
         # Table QRI -> dataset URN for the tables of apps read or kept this run.
         # Lineage only links to tables in here, as other URNs may never exist.
@@ -1533,7 +1546,87 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if datasets is None:
                 return None, False
             urn = datasets.get(table_qri.rpartition("#")[0])
+            if urn is None and own_app_id is not None:
+                urn = self._resolve_file_source(own_app_id, table_qri)
         return (urn if urn != dataset_urn else None), True
+
+    def _file_source_resolver(
+        self, app: App, parsed: ParsedScript
+    ) -> FileSourceResolver:
+        references = []
+        for file_path in parsed.file_loads:
+            # Paths are often built from variables the script sets with LET or
+            # in an included script, which the app's variables hold.
+            lib_path = LIB_PATH_RE.match(
+                expand_variables(file_path, app.variables).strip()
+            )
+            if lib_path and "$(" not in lib_path.group(0):
+                references.append(
+                    FileReference(
+                        connection=lib_path.group("connection"),
+                        path=lib_path.group("path"),
+                    )
+                )
+        return FileSourceResolver(references)
+
+    def _file_storage(
+        self, connection: str
+    ) -> Tuple[Optional[FileStorage], Optional[FileStorageDetail]]:
+        detail = self.config.file_connection_to_storage.get(connection)
+        info = (
+            self._get_data_connections().get(connection)
+            if self.config.on_prem is None
+            else None
+        )
+        visible = info.file_storage if info else None
+        if detail is not None and detail.storage_uri:
+            storage = file_storage_of_uri(detail.storage_uri)
+            if storage is not None and visible is not None:
+                # The connection's own properties still check the QRI.
+                storage.qri_connection_id = visible.qri_connection_id
+            return storage, detail
+        return visible, detail
+
+    def _resolve_file_source(self, app_id: str, file_qri: str) -> Optional[str]:
+        """The dataset of a file in an app's lineage graph, such as a CSV on
+        Azure Storage, when the app's load script reads it through a data
+        connection whose storage is known."""
+        resolver = self._file_sources_by_app.get(app_id)
+        if resolver is None:
+            return None
+        references, connection_id = resolver.candidates(file_qri)
+        urns = set()
+        for reference in references:
+            storage, detail = self._file_storage(reference.connection)
+            if storage is None:
+                if (
+                    reference.connection
+                    not in self.reporter.unresolved_file_connections
+                ):
+                    self.reporter.unresolved_file_connections.append(
+                        reference.connection
+                    )
+                continue
+            if (
+                storage.qri_connection_id is not None
+                and storage.qri_connection_id != connection_id
+            ):
+                continue
+            urns.add(
+                file_dataset_urn(
+                    storage,
+                    reference.path,
+                    platform_instance=detail.platform_instance if detail else None,
+                    env=detail.env if detail else self.config.env,
+                )
+            )
+        # Two connections whose storage could hold the file leave it unknown.
+        if len(urns) != 1:
+            return None
+        if file_qri not in self._resolved_file_qris:
+            self._resolved_file_qris.add(file_qri)
+            self.reporter.file_sources_resolved += 1
+        return next(iter(urns))
 
     def _learn_field_names(self, names: Iterable[str]) -> None:
         for name in names:
@@ -1826,6 +1919,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.on_prem is None and not app.tables:
             self.reporter.apps_without_load_model.append(app.id)
         parsed = self._parsed_script(app)
+        self._file_sources_by_app[app.id] = self._file_source_resolver(app, parsed)
         script_tables = self._build_script_tables(app, parsed=parsed)
         self._name_unknown_tables(app, script_tables)
         qvd_lineage = (

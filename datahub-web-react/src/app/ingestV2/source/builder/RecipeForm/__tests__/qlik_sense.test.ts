@@ -5,6 +5,7 @@ import { RECIPE_FIELDS } from '@app/ingestV2/source/builder/RecipeForm/constants
 import {
     QLIK_API_KEY,
     QLIK_DATA_CONNECTION_MAP,
+    QLIK_FILE_CONNECTION_MAP,
     QLIK_DEPLOYMENT,
     QLIK_DEPLOYMENT_CLOUD,
     QLIK_DEPLOYMENT_ON_PREM,
@@ -208,6 +209,29 @@ describe('Qlik Sense recipe form', () => {
                 default_schema: 'dbo',
             },
         ]);
+    });
+
+    it('round-trips the file connection mapping, shown for Qlik Cloud only', () => {
+        const recipe = QLIK_FILE_CONNECTION_MAP.setValueOnRecipeOverride?.(baseRecipe(), [
+            {
+                data_connection_name: 'Sales Space:Lake',
+                storage_uri: 'abfss://lake@account.dfs.core.windows.net/sales',
+                platform_instance: '',
+                env: '',
+            },
+        ]);
+        expect(recipe.source.config.file_connection_to_storage).toEqual({
+            'Sales Space:Lake': { storage_uri: 'abfss://lake@account.dfs.core.windows.net/sales' },
+        });
+        expect(QLIK_FILE_CONNECTION_MAP.getValueFromRecipeOverride?.(recipe)).toEqual([
+            {
+                data_connection_name: 'Sales Space:Lake',
+                storage_uri: 'abfss://lake@account.dfs.core.windows.net/sales',
+                platform_instance: '',
+                env: '',
+            },
+        ]);
+        expect(QLIK_FILE_CONNECTION_MAP.dynamicHidden?.({ deployment: 'on_prem' })).toBe(true);
     });
 
     it('accepts a bare tenant hostname and rejects a scheme or path', () => {

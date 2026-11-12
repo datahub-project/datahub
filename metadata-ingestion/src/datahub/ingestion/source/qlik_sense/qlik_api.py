@@ -17,6 +17,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     QlikTable,
     Space,
 )
+from datahub.ingestion.source.qlik_sense.file_lineage import file_storage_of_connection
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
     IsUnchanged,
     QlikBaseAPI,
@@ -345,6 +346,9 @@ class QlikAPI(QlikBaseAPI):
                         Constant.QCONNECTSTATEMENT,
                         Constant.QTYPE,
                     ),
+                )
+                info.file_storage = file_storage_of_connection(
+                    connection.get(Constant.QCONNECTSTATEMENT) or ""
                 )
                 # A personal connection has no space, like a personal app.
                 space_name = self.spaces.get(

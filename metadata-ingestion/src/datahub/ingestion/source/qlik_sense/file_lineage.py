@@ -1,0 +1,171 @@
+import base64
+import hashlib
+import re
+from typing import Dict, List, Optional, Tuple
+from urllib.parse import urlparse
+
+from pydantic import BaseModel
+
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+
+# Qlik Cloud names a file a data connection reads as
+# qri:file:<scheme>://<connection>#<path>#<item>, and its lineage graph hides
+# each part behind the base64url SHA-256 of its text (a secure QRI).
+FILE_QRI_RE = re.compile(
+    r"^qri:file:(?P<scheme>[a-z0-9-]+)://(?P<connection>[^#]+)#(?P<path>[^#]+)"
+)
+CONNECT_PROPERTY_RE = re.compile(r"(?P<key>[A-Za-z][\w.]*)=(?P<value>[^;\"]*)")
+
+
+class FileConnector(BaseModel):
+    """A Qlik file connector, as `GET /api/v1/data-sources` describes it: the
+    DataHub platform its files are on, and the connection properties its
+    `qriDefinition` builds the connection part of a file's QRI from."""
+
+    platform: str
+    qri_scheme: str
+    connection_properties: List[str]
+    # The connection property that names the bucket or container, with any
+    # folder inside it, which a file's DataHub name starts with.
+    location_property: str
+
+
+FILE_CONNECTORS: Dict[str, FileConnector] = {
+    "File_AzureStorageConnector": FileConnector(
+        platform="abs",
+        qri_scheme="adls",
+        connection_properties=["blobContainerPath"],
+        location_property="blobContainerPath",
+    ),
+    "File_AmazonS3Connector": FileConnector(
+        platform="s3",
+        qri_scheme="s3",
+        connection_properties=["region", "bucketName"],
+        location_property="bucketName",
+    ),
+    "File_AmazonS3ConnectorV2": FileConnector(
+        platform="s3",
+        qri_scheme="s3",
+        connection_properties=["region", "bucketName"],
+        location_property="bucketName",
+    ),
+    "File_GoogleCloudStorageConnector": FileConnector(
+        platform="gcs",
+        qri_scheme="gcs",
+        connection_properties=["bucketName"],
+        location_property="bucketName",
+    ),
+}
+
+
+class FileStorage(BaseModel):
+    """Where a file data connection's files are: a DataHub platform and the
+    bucket or container, with any folder inside it, file paths are under."""
+
+    platform: str
+    location: str
+    # The id of the connection part of its files' secure QRIs, when the
+    # connection's properties are known.
+    qri_connection_id: Optional[str] = None
+
+
+def qri_part_id(text: str) -> str:
+    digest = hashlib.sha256(text.encode("utf-8")).digest()
+    return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+
+
+def connect_properties(connect_statement: str) -> Dict[str, str]:
+    return {
+        match.group("key"): match.group("value").strip()
+        for match in CONNECT_PROPERTY_RE.finditer(connect_statement)
+    }
+
+
+def file_storage_of_connection(connect_statement: str) -> Optional[FileStorage]:
+    """The storage a Qlik Cloud file data connection reads, from its connect
+    statement, or None when it is not a known file connector or lacks the
+    properties its files' QRIs are built from."""
+    properties = connect_properties(connect_statement)
+    connector = FILE_CONNECTORS.get(properties.get("sourceType", ""))
+    if connector is None:
+        return None
+    values = [properties.get(name, "") for name in connector.connection_properties]
+    location = properties.get(connector.location_property, "").strip("/")
+    if not all(values) or not location:
+        return None
+    return FileStorage(
+        platform=connector.platform,
+        location=location,
+        qri_connection_id=qri_part_id("/".join(values)),
+    )
+
+
+def file_storage_of_uri(uri: str) -> Optional[FileStorage]:
+    """The storage an `abfss://`, `s3://` or `gs://` URI names."""
+    parsed = urlparse(uri.strip())
+    folder = parsed.path.strip("/")
+    if parsed.scheme in ("abfs", "abfss", "wasb", "wasbs") and "@" in parsed.netloc:
+        container = parsed.netloc.split("@", 1)[0]
+        return FileStorage(
+            platform="abs", location="/".join(filter(None, [container, folder]))
+        )
+    if parsed.scheme in ("s3", "s3a", "s3n") and parsed.netloc:
+        return FileStorage(
+            platform="s3", location="/".join(filter(None, [parsed.netloc, folder]))
+        )
+    if parsed.scheme == "gs" and parsed.netloc:
+        return FileStorage(
+            platform="gcs", location="/".join(filter(None, [parsed.netloc, folder]))
+        )
+    return None
+
+
+def normalized_file_path(path: str) -> str:
+    # Qlik builds a file's QRI from its path inside the data connection, with
+    # no leading or doubled separators, which a path assembled from variables
+    # such as `$(vFolder)/file.qvd` often has.
+    return "/".join(part for part in path.replace("\\", "/").split("/") if part)
+
+
+class FileReference(BaseModel):
+    connection: str
+    path: str
+
+
+class FileSourceResolver:
+    """Resolves the files in an app's lineage graph to datasets, from the
+    `lib://` files its load script reads. A file is resolved only when the
+    hash of a path the script reads is the path part of the file's QRI, and
+    the connection the script reads it through maps to a storage whose
+    connection part, when known, is the QRI's too."""
+
+    def __init__(self, references: List[FileReference]) -> None:
+        self._by_path_id: Dict[str, List[FileReference]] = {}
+        for reference in references:
+            path = normalized_file_path(reference.path)
+            if path:
+                self._by_path_id.setdefault(qri_part_id(path), []).append(
+                    FileReference(connection=reference.connection, path=path)
+                )
+
+    def candidates(self, file_qri: str) -> Tuple[List[FileReference], str]:
+        """The script's references to the file a secure QRI names, and the id
+        of the QRI's connection part."""
+        match = FILE_QRI_RE.match(file_qri)
+        if not match:
+            return [], ""
+        references = self._by_path_id.get(match.group("path"), [])
+        # Several reads of the same file are one reference.
+        unique = {(ref.connection, ref.path): ref for ref in references}
+        return list(unique.values()), match.group("connection")
+
+
+def file_dataset_urn(
+    storage: FileStorage, path: str, platform_instance: Optional[str], env: str
+) -> str:
+    return make_dataset_urn_with_platform_instance(
+        platform=storage.platform,
+        name=f"{storage.location}/{path}",
+        platform_instance=platform_instance,
+        env=env,
+    )

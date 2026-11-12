@@ -463,21 +463,47 @@ const dataConnectionDetailFields = [
     DATA_CONNECTION_DEFAULT_SCHEMA,
 ];
 
-type DataConnectionMappingRow = Record<string, string | undefined>;
+type MappingRow = Record<string, string | undefined>;
 
 // Rows become keys of one mapping, so a repeated name would silently replace the earlier row.
-export const uniqueDataConnectionNamesRule = {
-    validator(_: unknown, rows: DataConnectionMappingRow[] | undefined) {
-        const names = (rows ?? []).map((row) => row?.[DATA_CONNECTION_NAME.name]).filter((name) => !!name);
+const uniqueKeysRule = (keyField: RecipeField, label: string) => ({
+    validator(_: unknown, rows: MappingRow[] | undefined) {
+        const names = (rows ?? []).map((row) => row?.[keyField.name]).filter((name) => !!name);
         const duplicate = names.find((name, index) => names.indexOf(name) !== index);
         if (duplicate) {
-            return Promise.reject(new Error(`Data Connection Name "${duplicate}" is used more than once`));
+            return Promise.reject(new Error(`${label} "${duplicate}" is used more than once`));
         }
         return Promise.resolve();
     },
-};
+});
 
-const dataConnectionMapFieldPath = 'source.config.data_connection_to_platform_instance';
+export const uniqueDataConnectionNamesRule = uniqueKeysRule(DATA_CONNECTION_NAME, 'Data Connection Name');
+
+// A recipe mapping of connection names to details, edited as one row per connection.
+const connectionMappingOverrides = (fieldPath: string, keyField: RecipeField, detailFields: RecipeField[]) => ({
+    getValueFromRecipeOverride: (recipe: any) => {
+        const value = get(recipe, fieldPath);
+        if (!value) return undefined;
+        return Object.keys(value).map((connectionName) => ({
+            [keyField.name]: connectionName,
+            ...Object.fromEntries(detailFields.map((f) => [f.name, value[connectionName]?.[f.name] ?? ''])),
+        }));
+    },
+    setValueOnRecipeOverride: (recipe: any, rows: MappingRow[] | undefined) => {
+        const named = (rows ?? []).filter((row) => !!row?.[keyField.name]);
+        if (!named.length) return setFieldValueOnRecipe(recipe, null, fieldPath);
+
+        const mapping: Record<string, MappingRow> = {};
+        named.forEach((row) => {
+            // Empty inputs are left out so the connector infers or defaults them.
+            mapping[row[keyField.name] as string] = Object.fromEntries(
+                detailFields.filter((f) => !!row[f.name]).map((f) => [f.name, row[f.name]]),
+            );
+        });
+        return setFieldValueOnRecipe(recipe, mapping, fieldPath);
+    },
+});
+
 export const QLIK_DATA_CONNECTION_MAP: RecipeField = {
     name: 'data_connection_to_platform_instance',
     label: 'Data Connection Mapping',
@@ -486,31 +512,62 @@ export const QLIK_DATA_CONNECTION_MAP: RecipeField = {
         'Upstream platform details for each Qlik data connection, used to build lineage from load script SELECT statements. Only needed when they cannot be inferred from the connection, or when the upstream source uses a platform instance or a non-PROD env.',
     type: FieldType.DICT,
     buttonLabel: 'Add mapping',
-    fieldPath: dataConnectionMapFieldPath,
+    fieldPath: 'source.config.data_connection_to_platform_instance',
     keyField: DATA_CONNECTION_NAME,
     fields: dataConnectionDetailFields,
     rules: [uniqueDataConnectionNamesRule],
-    getValueFromRecipeOverride: (recipe: any) => {
-        const value = get(recipe, dataConnectionMapFieldPath);
-        if (!value) return undefined;
-        return Object.keys(value).map((connectionName) => ({
-            [DATA_CONNECTION_NAME.name]: connectionName,
-            ...Object.fromEntries(
-                dataConnectionDetailFields.map((f) => [f.name, value[connectionName]?.[f.name] ?? '']),
-            ),
-        }));
-    },
-    setValueOnRecipeOverride: (recipe: any, rows: DataConnectionMappingRow[] | undefined) => {
-        const named = (rows ?? []).filter((row) => !!row?.[DATA_CONNECTION_NAME.name]);
-        if (!named.length) return setFieldValueOnRecipe(recipe, null, dataConnectionMapFieldPath);
+    ...connectionMappingOverrides(
+        'source.config.data_connection_to_platform_instance',
+        DATA_CONNECTION_NAME,
+        dataConnectionDetailFields,
+    ),
+};
 
-        const mapping: Record<string, DataConnectionMappingRow> = {};
-        named.forEach((row) => {
-            // Empty inputs are left out so the connector infers or defaults them.
-            mapping[row[DATA_CONNECTION_NAME.name] as string] = Object.fromEntries(
-                dataConnectionDetailFields.filter((f) => !!row[f.name]).map((f) => [f.name, row[f.name]]),
-            );
-        });
-        return setFieldValueOnRecipe(recipe, mapping, dataConnectionMapFieldPath);
+const FILE_CONNECTION_NAME: RecipeField = {
+    ...DATA_CONNECTION_NAME,
+    tooltip:
+        'Name of the Azure Storage, Amazon S3 or Google Cloud Storage data connection as load scripts write it, for example Sales Space:Lake.',
+    placeholder: 'Sales Space:Lake',
+};
+
+const FILE_CONNECTION_STORAGE_URI: RecipeField = {
+    name: 'storage_uri',
+    label: 'Storage URI',
+    helper: 'abfss://, s3:// or gs:// URI of the files',
+    tooltip:
+        'Where the connection reads files from, for example abfss://container@account.dfs.core.windows.net/folder. Read from the data connection when empty, which needs the API key user to see the connection.',
+    type: FieldType.TEXT,
+    fieldPath: 'storage_uri',
+    placeholder: 'abfss://container@account.dfs.core.windows.net/folder',
+    rules: null,
+};
+
+const fileConnectionDetailFields = [
+    FILE_CONNECTION_STORAGE_URI,
+    {
+        ...DATA_CONNECTION_PLATFORM_INSTANCE,
+        tooltip: 'Platform instance used when ingesting the storage, so lineage joins its datasets.',
+        placeholder: 'datalake',
     },
+    DATA_CONNECTION_ENV,
+];
+
+export const QLIK_FILE_CONNECTION_MAP: RecipeField = {
+    name: 'file_connection_to_storage',
+    label: 'File Connection Mapping',
+    helper: 'Map file data connections to their storage',
+    tooltip:
+        'Where the files of Azure Storage, Amazon S3 and Google Cloud Storage data connections are in DataHub, for lineage from the files apps load. Qlik Cloud only.',
+    type: FieldType.DICT,
+    buttonLabel: 'Add mapping',
+    fieldPath: 'source.config.file_connection_to_storage',
+    keyField: FILE_CONNECTION_NAME,
+    fields: fileConnectionDetailFields,
+    rules: [uniqueKeysRule(FILE_CONNECTION_NAME, 'Data Connection Name')],
+    dynamicHidden: isOnPrem,
+    ...connectionMappingOverrides(
+        'source.config.file_connection_to_storage',
+        FILE_CONNECTION_NAME,
+        fileConnectionDetailFields,
+    ),
 };

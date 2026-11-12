@@ -3,6 +3,7 @@ from typing import AbstractSet, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from datahub.ingestion.source.qlik_sense.file_lineage import FileStorage
 from datahub.metadata.urns import DatasetUrn
 
 CONNECT_RE = re.compile(
@@ -355,6 +356,8 @@ class ParsedScript(BaseModel):
     # QVD paths that name no single file the connector can resolve, such as a
     # wildcard, a variable it could not expand or a relative path.
     unresolved_qvd_paths: List[str] = []
+    # The path of every file a LOAD reads, in any format, as written.
+    file_loads: List[str] = []
 
 
 class ScriptTableLineage(BaseModel):
@@ -374,6 +377,8 @@ class DataConnectionInfo(BaseModel):
     database: Optional[str] = None
     # The folder of a folder data connection, for QVD paths in it.
     folder_path: Optional[str] = None
+    # The storage of a Qlik Cloud file data connection, such as Azure Storage.
+    file_storage: Optional[FileStorage] = None
 
 
 class ResolvedConnection(BaseModel):
@@ -725,6 +730,7 @@ class _ScriptParser(BaseModel):
     qvd_loads: List[QvdLoad] = []
     qvd_stores: List[QvdStore] = []
     unresolved_qvd_paths: List[str] = []
+    file_loads: List[str] = []
     flow: _ControlFlowTracker = Field(default_factory=_ControlFlowTracker)
     pending_label: Optional[str] = None
     pending_loads: List[PrecedingLoad] = []
@@ -931,6 +937,7 @@ class _ScriptParser(BaseModel):
         source = FILE_SOURCE_RE.match(statement, keyword.start()) if keyword else None
         if source is None:
             return
+        self.file_loads.append(_unquote(source.group("path").strip()).strip())
         file = self._qvd_file(source.group("path"), source.group("spec"), False)
         # Without a label the table is named by Qlik, which a STORE can't be
         # matched against reliably.
@@ -975,6 +982,7 @@ def parse_script(script: str) -> ParsedScript:
         qvd_loads=parser.qvd_loads,
         qvd_stores=parser.qvd_stores,
         unresolved_qvd_paths=parser.unresolved_qvd_paths,
+        file_loads=parser.file_loads,
     )
 
 
