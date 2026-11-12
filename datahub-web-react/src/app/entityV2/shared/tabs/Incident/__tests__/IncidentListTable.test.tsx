@@ -1,5 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { History } from 'history';
 import React from 'react';
 import { useHistory } from 'react-router';
@@ -79,5 +79,25 @@ describe('IncidentListTable incident links', () => {
 
         expect(isCollapsed('LOW')).toBe(false);
         expect(isCollapsed('HIGH')).toBe(true);
+    });
+
+    it('reopens the linked group when the same link is followed again after the user closed it', () => {
+        render(
+            <MockedProvider mocks={[]}>
+                <TestPageContainer initialEntries={[`/?incident_urn=${HIGH.urn}`]}>
+                    <CaptureHistory />
+                    <IncidentListTable incidentData={incidentData} filter={filter} refetch={vi.fn()} />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        fireEvent.click(
+            within(screen.getByTestId('incident-group-HIGH')).getByRole('button', { name: 'Collapse group' }),
+        );
+        expect(isCollapsed('HIGH')).toBe(true);
+
+        act(() => history?.push(`/?incident_urn=${HIGH.urn}`));
+
+        expect(isCollapsed('HIGH')).toBe(false);
     });
 });

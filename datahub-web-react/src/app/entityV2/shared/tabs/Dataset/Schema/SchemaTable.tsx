@@ -20,6 +20,7 @@ import {
     renderMetadataCell as renderMetadataCellFor,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/metadataStatus';
 import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
+import { getFieldUsageCount } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/statsUtil';
 import useBusinessAttributeRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useBusinessAttributeRenderer';
 import useDescriptionRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useDescriptionRenderer';
 import useEditableSchemaFieldInfoMaps from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useEditableSchemaFieldInfoMaps';
@@ -66,47 +67,8 @@ type Props = {
     metadataStatus?: MetadataStatus;
 };
 
-/**
- * Column definitions in the shape the schema renderers were written for: `render` receives the
- * `dataIndex` value first, then the row. `toTableColumn` adapts them to the alchemy Table.
- */
-type SchemaTableColumn = {
-    key: string;
-    title: React.ReactNode;
-    dataIndex?: string;
-    width?: number;
-    fixed?: 'left';
-    render?: (value: any, record: ExtendedSchemaFields, index: number) => React.ReactNode;
-    sorter?: (a: ExtendedSchemaFields, b: ExtendedSchemaFields) => number;
-};
-
-// Converted columns are cached per definition: when one column changes (e.g. usage, as the drawer opens),
-// the others keep their identity and their memoized cells skip re-rendering.
-const tableColumnCache = new WeakMap<SchemaTableColumn, Column<ExtendedSchemaFields>>();
-
-const toTableColumn = (column: SchemaTableColumn): Column<ExtendedSchemaFields> => {
-    const cached = tableColumnCache.get(column);
-    if (cached) return cached;
-    const width = column.width ? `${column.width}px` : undefined;
-    const { render, dataIndex } = column;
-    const tableColumn: Column<ExtendedSchemaFields> = {
-        key: column.key,
-        title: column.title,
-        width,
-        // Only the pinned Name column keeps a floor; the rest shrink so the last columns stay in view.
-        minWidth: column.fixed ? width : undefined,
-        fixed: column.fixed,
-        sorter: column.sorter,
-        render: render
-            ? (record, index) =>
-                  render(dataIndex ? record[dataIndex as keyof ExtendedSchemaFields] : undefined, record, index)
-            : undefined,
-    };
-    tableColumnCache.set(column, tableColumn);
-    return tableColumn;
-};
-
 const EMPTY_SET: Set<string> = new Set();
+const NAME_COLUMN_WIDTH = '240px';
 const UNSORTED: TableSortState = { sortColumn: null, sortOrder: SortingState.ORIGINAL };
 const KEYBOARD_CONTROL_DEBOUNCE_MS = 50;
 // Virtualized rows are exactly this tall, matching the previous antd schema table.
@@ -189,19 +151,20 @@ export default function SchemaTable({
     const hasNestedRows = useMemo(() => hasNestedSchemaRows(rows), [rows]);
 
     const fieldColumn = useMemo(
-        (): SchemaTableColumn => ({
+        (): Column<ExtendedSchemaFields> => ({
             fixed: 'left',
-            width: 240,
+            width: NAME_COLUMN_WIDTH,
+            // Only the pinned Name column keeps a floor; the rest shrink so the last columns stay in view.
+            minWidth: NAME_COLUMN_WIDTH,
             title: tc('name'),
-            dataIndex: 'fieldPath',
             key: 'fieldPath',
-            render: (fieldPath, record) => {
+            render: (record) => {
                 const depth = record.depth ?? 0;
                 const showDepthBadge = depth >= MIN_DEPTH_FOR_BADGE || (isSearchActive && hasNestedRows);
                 return (
                     <NameCell>
                         {showDepthBadge && <SchemaFieldDepthBadge depth={depth} />}
-                        {schemaTitleRenderer(fieldPath, record)}
+                        {schemaTitleRenderer(record.fieldPath, record)}
                     </NameCell>
                 );
             },
@@ -212,10 +175,9 @@ export default function SchemaTable({
     );
 
     const typeColumn = useMemo(
-        (): SchemaTableColumn => ({
-            width: 100,
+        (): Column<ExtendedSchemaFields> => ({
+            width: '100px',
             title: tc('type'),
-            dataIndex: 'type',
             key: 'type',
             render: schemaTypeRenderer,
             sorter: (sourceA, sourceB) => sourceA.type.localeCompare(sourceB.type),
@@ -233,12 +195,12 @@ export default function SchemaTable({
     );
 
     const descriptionColumn = useMemo(
-        (): SchemaTableColumn => ({
-            width: 400,
+        (): Column<ExtendedSchemaFields> => ({
+            width: '400px',
             title: tc('description'),
-            dataIndex: 'description',
             key: 'description',
-            render: (description, record) => renderMetadataCell(120, () => descriptionRender(description, record)),
+            render: (record) =>
+                renderMetadataCell(120, () => descriptionRender(record.description ?? undefined, record)),
             sorter: (sourceA, sourceB) =>
                 (extractFieldDescription(sourceA).sanitizedDescription ? 1 : 0) -
                 (extractFieldDescription(sourceB).sanitizedDescription ? 1 : 0),
@@ -247,12 +209,11 @@ export default function SchemaTable({
     );
 
     const tagColumn = useMemo(
-        (): SchemaTableColumn => ({
-            width: 100,
+        (): Column<ExtendedSchemaFields> => ({
+            width: '100px',
             title: tc('tags'),
-            dataIndex: 'globalTags',
             key: 'tag',
-            render: (tags, record) => renderMetadataCell(80, () => tagRenderer(tags, record)),
+            render: (record) => renderMetadataCell(80, () => tagRenderer(record.globalTags, record)),
             sorter: (sourceA, sourceB) =>
                 extractFieldTagsInfo(sourceA).numberOfTags - extractFieldTagsInfo(sourceB).numberOfTags,
         }),
@@ -260,12 +221,11 @@ export default function SchemaTable({
     );
 
     const termColumn = useMemo(
-        (): SchemaTableColumn => ({
-            width: 200,
+        (): Column<ExtendedSchemaFields> => ({
+            width: '200px',
             title: t('schemaTable.glossaryTermsColumn'),
-            dataIndex: 'globalTags',
             key: 'term',
-            render: (tags, record) => renderMetadataCell(80, () => termRenderer(tags, record)),
+            render: (record) => renderMetadataCell(80, () => termRenderer(record.globalTags, record)),
             sorter: (sourceA, sourceB) =>
                 extractFieldGlossaryTermsInfo(sourceA).numberOfTerms -
                 extractFieldGlossaryTermsInfo(sourceB).numberOfTerms,
@@ -274,43 +234,29 @@ export default function SchemaTable({
     );
 
     const businessAttributeColumn = useMemo(
-        (): SchemaTableColumn => ({
-            width: 150,
+        (): Column<ExtendedSchemaFields> => ({
+            width: '150px',
             title: t('schemaTable.businessAttributeColumn'),
-            dataIndex: 'businessAttribute',
             key: 'businessAttribute',
             render: businessAttributeRenderer,
         }),
         [businessAttributeRenderer, t],
     );
 
-    // Function to get the count of each usageStats fieldPath
-    const getCount = useCallback(
-        (fieldPath: any) => {
-            const data: any =
-                usageStats?.aggregations?.fields &&
-                usageStats?.aggregations?.fields?.find((field) => {
-                    return field?.fieldName === fieldPath;
-                });
-            return (data && data.count) ?? 0;
-        },
-        [usageStats],
-    );
-
     const usageColumn = useMemo(
-        (): SchemaTableColumn => ({
-            width: 100,
+        (): Column<ExtendedSchemaFields> => ({
+            width: '100px',
             title: t('schemaTable.statsColumn'),
-            dataIndex: 'fieldPath',
             key: 'usage',
-            render: usageStatsRenderer,
-            sorter: (sourceA, sourceB) => getCount(sourceA.fieldPath) - getCount(sourceB.fieldPath),
+            render: (record) => usageStatsRenderer(record.fieldPath),
+            sorter: (sourceA, sourceB) =>
+                getFieldUsageCount(usageStats, sourceA.fieldPath) - getFieldUsageCount(usageStats, sourceB.fieldPath),
         }),
-        [usageStatsRenderer, getCount, t],
+        [usageStatsRenderer, usageStats, t],
     );
 
     const tableColumns = useMemo(() => {
-        let columns: SchemaTableColumn[] = [
+        let columns: Column<ExtendedSchemaFields>[] = [
             fieldColumn,
             typeColumn,
             descriptionColumn,
@@ -325,7 +271,7 @@ export default function SchemaTable({
 
         if (structuredPropColumns) columns.splice(columns.length - 1, 0, ...structuredPropColumns);
         if (visibleColumns) columns = columns.filter((column) => visibleColumns.includes(column.key));
-        return columns.map(toTableColumn);
+        return columns;
     }, [
         fieldColumn,
         typeColumn,

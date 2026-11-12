@@ -12,7 +12,7 @@ export default function useBusinessAttributeRenderer(filterText: string, canEdit
     const businessAttributesFlag = useBusinessAttributesFlag();
 
     return useCallback(
-        (businessAttribute: string, record: SchemaField): JSX.Element | null => {
+        (record: SchemaField): JSX.Element | null => {
             return businessAttributesFlag ? (
                 <BusinessAttributeGroup
                     businessAttribute={record?.schemaFieldEntity?.businessAttributes?.businessAttribute || undefined}

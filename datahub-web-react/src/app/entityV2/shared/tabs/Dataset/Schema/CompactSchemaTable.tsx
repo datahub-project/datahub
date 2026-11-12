@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import { useDebounce } from 'react-use';
@@ -13,6 +13,7 @@ import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
 import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
+import { getFieldUsageCount } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/statsUtil';
 import useDescriptionRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useDescriptionRenderer';
 import useEditableSchemaFieldInfoMaps from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useEditableSchemaFieldInfoMaps';
 import useExtractFieldDescriptionInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldDescriptionInfo';
@@ -109,19 +110,6 @@ export default function CompactSchemaTable({
 
     const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata, fieldInfoMaps);
 
-    // Function to get the count of each usageStats fieldPath
-    const getCount = useCallback(
-        (fieldPath: any) => {
-            const data: any =
-                usageStats?.aggregations?.fields &&
-                usageStats?.aggregations?.fields?.find((field) => {
-                    return field?.fieldName === fieldPath;
-                });
-            return (data && data.count) ?? 0;
-        },
-        [usageStats],
-    );
-
     // Memoized so the table's memoized cells only re-render when a row or a renderer actually changes;
     // this table sits in sidebars whose parents re-render often.
     const columns = useMemo(() => {
@@ -149,7 +137,9 @@ export default function CompactSchemaTable({
                 key: 'usage',
                 width: '100px',
                 render: (record) => usageStatsRenderer(record.fieldPath),
-                sorter: (sourceA, sourceB) => getCount(sourceA.fieldPath) - getCount(sourceB.fieldPath),
+                sorter: (sourceA, sourceB) =>
+                    getFieldUsageCount(usageStats, sourceA.fieldPath) -
+                    getFieldUsageCount(usageStats, sourceB.fieldPath),
             });
         }
         return tableColumns;
@@ -160,7 +150,7 @@ export default function CompactSchemaTable({
         extractFieldDescription,
         hasUsageStats,
         usageStatsRenderer,
-        getCount,
+        usageStats,
     ]);
 
     return (

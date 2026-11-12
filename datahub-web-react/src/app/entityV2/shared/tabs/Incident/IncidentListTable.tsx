@@ -46,12 +46,13 @@ export const IncidentListTable = ({ incidentData, filter, refetch, privileges }:
     const [collapsedByGrouping, setCollapsedByGrouping] = useState<Record<string, string[]>>({});
     const collapsedKeys = (groupBy && collapsedByGrouping[groupBy]) || EMPTY_KEYS;
 
-    // A link to one incident opens only that incident's group. It applies once per link and grouping,
-    // so a later `incident_urn` (or a new grouping) opens its group even after the user has toggled groups.
+    // A link to one incident opens only that incident's group. It applies once per navigation and grouping,
+    // so following a link (even the same one again) or switching grouping opens the linked group, while the
+    // user's own toggles in between are left alone.
     const appliedLinksRef = useRef<Set<string>>(new Set());
     useEffect(() => {
         if (!groupBy || !linkedIncidentUrn || !groups.length) return;
-        const linkKey = `${groupBy}:${linkedIncidentUrn}`;
+        const linkKey = `${groupBy}:${linkedIncidentUrn}:${location.key}`;
         if (appliedLinksRef.current.has(linkKey)) return;
         const linkedGroup = groups.find((group) =>
             group.incidents.some((incident) => incident.urn === linkedIncidentUrn),
@@ -62,7 +63,7 @@ export const IncidentListTable = ({ incidentData, filter, refetch, privileges }:
             ...previous,
             [groupBy]: groups.map((group) => group.name).filter((name) => name !== linkedGroup.name),
         }));
-    }, [groupBy, linkedIncidentUrn, groups]);
+    }, [groupBy, linkedIncidentUrn, location.key, groups]);
 
     // get columns data from the custom hooks
     const incidentsTableCols = useIncidentsTableColumns(refetch, privileges);

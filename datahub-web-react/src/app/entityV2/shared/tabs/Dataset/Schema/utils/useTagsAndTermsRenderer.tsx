@@ -53,7 +53,7 @@ export default function useTagsAndTermsRenderer(
     const { showTags, showTerms } = options;
 
     return useCallback(
-        (tags: GlobalTags, record: SchemaField) => {
+        (tags: GlobalTags | null | undefined, record: SchemaField) => {
             const { directTerms, editableTerms, uneditableTerms } = extractFieldGlossaryTermsInfo(record);
             const { directTags, editableTags, uneditableTags } = extractFieldTagsInfo(record, tags);
 

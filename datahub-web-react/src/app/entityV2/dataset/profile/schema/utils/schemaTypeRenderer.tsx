@@ -31,7 +31,7 @@ const InteriorTypeContent = ({ record }: InteriorTypeProps) => {
 };
 
 export default function useSchemaTypeRenderer() {
-    return useCallback((fieldPath: string, record: ExtendedSchemaFields): JSX.Element => {
+    return useCallback((record: ExtendedSchemaFields): JSX.Element => {
         return (
             <Popover content={<InteriorTypeContent record={record} />}>
                 <InteriorTypeContent record={record} />
