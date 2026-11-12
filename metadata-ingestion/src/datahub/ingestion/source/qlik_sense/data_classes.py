@@ -187,6 +187,9 @@ class LineageTable(BaseModel):
     # from, when the graph was read at field level.
     fields: List[str] = []
     field_source_qris: Dict[str, List[str]] = {}
+    # The field level could not be read, so the table's column lineage is
+    # unknown this run.
+    field_lineage_failed: bool = False
 
 
 class ListedDataset(BaseModel):
@@ -208,6 +211,7 @@ class QlikDataset(Item):
     stored_from_qris: Optional[List[str]] = None
     # The dataset's fields, and the app table field nodes each is stored from.
     stored_field_source_qris: Dict[str, List[str]] = {}
+    stored_field_lineage_failed: bool = False
 
     @model_validator(mode="before")
     @classmethod
