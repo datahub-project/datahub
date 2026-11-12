@@ -1770,11 +1770,7 @@ module.exports = {
       ],
     },
     {
-      "Release History": [
-        "releases",
-        "docs/how/breaking-changes",
-        "docs/how/updating-datahub",
-      ],
+      "Release History": ["releases", "docs/how/breaking-changes"],
     },
     {
       type: "doc",
