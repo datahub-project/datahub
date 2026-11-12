@@ -119,7 +119,7 @@ auto.offset.reset=earliest
 [admin.trace-reader]
 bootstrap.servers=[b-1.msk.example.amazonaws.com:9098] (List)
 client.id=trace-reader
-sasl.client.callback.handler.class=software.amazon.msk.auth.iam.IAMClientCallbackHandler
+sasl.client.callback.handler.class=com.linkedin.gms.factory.kafka.DataHubMskIamClientCallbackHandler
 sasl.jaas.config=software.amazon.msk.auth.iam.IAMLoginModule required;
 sasl.mechanism=AWS_MSK_IAM
 security.protocol=SASL_SSL

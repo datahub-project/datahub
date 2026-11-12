@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mockStatic;
 
 import com.linkedin.gms.factory.ProductionConfigContextRunner;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.kafka.DataHubMskIamClientCallbackHandler;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -16,6 +17,8 @@ import org.mockito.MockedStatic;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.ApplicationContext;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 
 /**
  * Builds the admin client from the {@link ConfigurationProvider} and {@link KafkaProperties} that
@@ -113,6 +116,36 @@ public class AdminClientFactoryTest {
                     .containsEntry(
                         AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, List.of("producer:9093"))
                     .containsEntry(AdminClientConfig.SECURITY_PROTOCOL_CONFIG, "SASL_SSL"));
+  }
+
+  @Test
+  public void testMskIamUsesTheDataHubCallbackHandlerAndDisablesDebugCreds() {
+    StaticCredentialsProvider credentials =
+        StaticCredentialsProvider.create(AwsBasicCredentials.create("id", "secret"));
+    DataHubMskIamClientCallbackHandler.installSharedCredentials(credentials);
+    try {
+      // The documented MSK IAM setup, with the stock callback handler.
+      ProductionConfigContextRunner.create()
+          .withPropertyValues(
+              "spring.kafka.properties.security.protocol=SASL_SSL",
+              "spring.kafka.properties.sasl.mechanism=AWS_MSK_IAM",
+              "spring.kafka.properties.sasl.jaas.config="
+                  + "software.amazon.msk.auth.iam.IAMLoginModule required awsDebugCreds=true;",
+              "spring.kafka.properties.sasl.client.callback.handler.class="
+                  + "software.amazon.msk.auth.iam.IAMClientCallbackHandler")
+          .run(
+              context ->
+                  assertThat(adminProperties(context, "client-h"))
+                      .containsEntry(
+                          "sasl.client.callback.handler.class",
+                          DataHubMskIamClientCallbackHandler.class.getName())
+                      .containsEntry(
+                          "sasl.jaas.config",
+                          "software.amazon.msk.auth.iam.IAMLoginModule required"
+                              + " awsDebugCreds=false;"));
+    } finally {
+      DataHubMskIamClientCallbackHandler.resetIfInstalled(credentials);
+    }
   }
 
   @SuppressWarnings("unchecked")
