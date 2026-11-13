@@ -101,6 +101,9 @@ class AppQvds(BaseModel):
     writes: Dict[str, List[QvdWrite]] = {}
     # QVD URN -> fields the app loads from it.
     reads: Dict[str, List[str]] = {}
+    # False when a STORE's path could not be resolved, so the app may write
+    # QVDs not listed in `writes`.
+    writes_complete: bool = True
 
 
 class AppQvdLineage(BaseModel):
