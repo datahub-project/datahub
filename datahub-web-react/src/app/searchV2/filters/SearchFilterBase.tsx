@@ -1,15 +1,25 @@
 import { Icon } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/ssr/CaretDown';
+import { X } from '@phosphor-icons/react/dist/ssr/X';
 import React, { HTMLAttributes, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-
-import { ClearButton } from '@components/components/Select/components';
 
 import { SearchFilterLabel } from '@app/searchV2/filters/styledComponents';
 
 const StyledIcon = styled(Icon)`
     color: ${(props) => props.theme.colors.text};
+`;
+
+// A plain icon rather than a button: the pill is already the control, and a button inside it is a
+// nested interactive control that screen readers may not announce. Keyboard users clear with Delete.
+const ClearIcon = styled.span`
+    display: inline-flex;
+    cursor: pointer;
+    color: ${(props) => props.theme.colors.text};
+
+    &:hover {
+        color: ${(props) => props.theme.colors.textSecondary};
+    }
 `;
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
@@ -22,7 +32,6 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 // Forwards its ref so overlays (e.g. the filter value Popover) anchor directly on the pill.
 export const SearchFilterBase = React.forwardRef<HTMLDivElement, React.PropsWithChildren<Props>>(
     ({ children, isOpen, isActive, onClear, showClear, onKeyDown, ...props }, ref) => {
-        const { t: tc } = useTranslation('common.actions');
         const onClearHandler = useCallback(
             (e: React.MouseEvent) => {
                 e.stopPropagation();
@@ -31,9 +40,8 @@ export const SearchFilterBase = React.forwardRef<HTMLDivElement, React.PropsWith
             [onClear],
         );
 
-        // The pill can't be a <button>: it holds the clear button. Enter and Space click it instead,
-        // which opens the menu or popover it triggers. The clear button stays out of the tab order, so
-        // the pill doesn't nest a second control; Delete or Backspace clears from the keyboard.
+        // The pill can't be a <button>: it holds the clear icon. Enter and Space click it instead,
+        // which opens the menu or popover it triggers, and Delete or Backspace clears it.
         const onKeyDownHandler = useCallback(
             (e: React.KeyboardEvent<HTMLDivElement>) => {
                 onKeyDown?.(e);
@@ -61,7 +69,11 @@ export const SearchFilterBase = React.forwardRef<HTMLDivElement, React.PropsWith
                 {...props}
             >
                 {children}
-                {showClear ? <ClearButton onClick={onClearHandler} tabIndex={-1} aria-label={tc('remove')} /> : null}
+                {showClear ? (
+                    <ClearIcon onClick={onClearHandler} aria-hidden data-testid="search-filter-clear">
+                        <Icon icon={X} size="md" />
+                    </ClearIcon>
+                ) : null}
                 <StyledIcon icon={CaretDown} size="md" rotate={isOpen ? '180' : '0'} />
             </SearchFilterLabel>
         );
