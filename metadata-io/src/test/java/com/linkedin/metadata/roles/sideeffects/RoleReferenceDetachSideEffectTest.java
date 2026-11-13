@@ -140,7 +140,12 @@ public class RoleReferenceDetachSideEffectTest {
     List<MCPItem> output = run(roleKeyMcl(ChangeType.DELETE));
 
     assertEquals(output.size(), 1);
-    PatchItemImpl patch = (PatchItemImpl) output.get(0);
+    PatchItemImpl patch =
+        PatchItemImpl.builder()
+            .build(
+                ((PatchItemImpl) output.get(0)).getMetadataChangeProposal(),
+                AuditStampUtils.createDefaultAuditStamp(),
+                TEST_REGISTRY);
     assertEquals(patch.getUrn(), DATASET_URN);
     assertEquals(patch.getAspectName(), ACCESS_ASPECT_NAME);
 

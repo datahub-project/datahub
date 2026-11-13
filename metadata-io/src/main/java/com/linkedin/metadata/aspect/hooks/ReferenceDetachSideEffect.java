@@ -262,7 +262,7 @@ public abstract class ReferenceDetachSideEffect extends MCPSideEffect {
       @Nonnull RetrieverContext retrieverContext) {
     final EntitySpec entitySpec =
         Optional.ofNullable(retrieverContext.getAspectRetriever().getEntityRegistry())
-            .map(registry -> registry.getEntitySpec(entityUrn.getEntityType()))
+            .flatMap(registry -> registry.findEntitySpec(entityUrn.getEntityType()))
             .orElse(null);
     if (entitySpec == null || entitySpec.getAspectSpec(referencingAspectName()) == null) {
       return null;
