@@ -15,6 +15,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
+import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
 import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
 import com.linkedin.metadata.utils.elasticsearch.IndexSettingsComparison;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -726,10 +727,19 @@ public class ReindexConfig {
         super.requiresApplyMappings =
             !mappingsDiff.entriesDiffering().isEmpty()
                 || !mappingsDiff.entriesOnlyOnRight().isEmpty();
+        // A new property under an object, such as embeddings.<profileKey>, differs as the parent
+        // object. Elasticsearch accepts that property in place. A changed type or parameter on a
+        // field that already exists still differs and reindexes.
+        final Set<String> nestedPropertyAdditions =
+            nestedPropertyAdditionFields(mappingsDiff.entriesDiffering());
+        final boolean onlyNestedAdditions =
+            !mappingsDiff.entriesDiffering().isEmpty()
+                && nestedPropertyAdditions.size() == mappingsDiff.entriesDiffering().size();
         super.isPureMappingsAddition =
             super.requiresApplyMappings
-                && mappingsDiff.entriesDiffering().isEmpty()
-                && !mappingsDiff.entriesOnlyOnRight().isEmpty();
+                && ((mappingsDiff.entriesDiffering().isEmpty()
+                        && !mappingsDiff.entriesOnlyOnRight().isEmpty())
+                    || onlyNestedAdditions);
         Set<String> inPlaceApplyableFields =
             inPlaceApplyableDifferingFields(mappingsDiff.entriesDiffering());
         super.isInPlaceMappingParameterUpdate =
@@ -822,6 +832,7 @@ public class ReindexConfig {
             mappingsDiff.entriesDiffering().keySet().stream()
                 .filter(key -> !STRUCTURED_PROPERTY_MAPPING_FIELD.equals(key))
                 .filter(key -> !inPlaceApplyableFields.contains(key))
+                .filter(key -> !onlyNestedAdditions || !nestedPropertyAdditions.contains(key))
                 .collect(Collectors.toSet());
         super.requiresDataBackfill =
             !newNonStructuredPropertyFields.isEmpty()
@@ -1332,6 +1343,85 @@ public class ReindexConfig {
         result.put(field.getKey(), currentField);
       }
       return result;
+    }
+
+    /**
+     * Fields whose only difference is a property the target adds under {@code properties}. The
+     * parent object is what {@link Maps#difference} reports, because it does not walk into the
+     * nested map.
+     */
+    private static Set<String> nestedPropertyAdditionFields(
+        Map<String, MapDifference.ValueDifference<Object>> differing) {
+      Set<String> additions = new HashSet<>();
+      for (Map.Entry<String, MapDifference.ValueDifference<Object>> entry : differing.entrySet()) {
+        // Other objects keep today's comparison. A new embedding profile is the addition this
+        // recognizes: the parent embeddings object is the diff, and the new key is only a property.
+        if (!SemanticEmbeddingMappings.EMBEDDINGS_FIELD.equals(entry.getKey())) {
+          continue;
+        }
+        if (equalsAllowingAddedProperties(
+            entry.getValue().leftValue(), entry.getValue().rightValue())) {
+          additions.add(entry.getKey());
+        }
+      }
+      return additions;
+    }
+
+    /**
+     * True when {@code target} has every field {@code current} has, those fields match, and any
+     * extra target keys are new names under a {@code properties} map. A new {@code type} or a
+     * changed parameter is not an addition.
+     */
+    @SuppressWarnings("unchecked")
+    private static boolean equalsAllowingAddedProperties(Object current, Object target) {
+      if (!(current instanceof Map) || !(target instanceof Map)) {
+        return Objects.equals(current, target);
+      }
+      Map<String, Object> currentMap = (Map<String, Object>) current;
+      Map<String, Object> targetMap = (Map<String, Object>) target;
+      Set<String> keys = new HashSet<>();
+      keys.addAll(currentMap.keySet());
+      keys.addAll(targetMap.keySet());
+      for (String key : keys) {
+        boolean inCurrent = currentMap.containsKey(key);
+        boolean inTarget = targetMap.containsKey(key);
+        if (inCurrent && !inTarget) {
+          return false;
+        }
+        if (!inCurrent && inTarget) {
+          if (!PROPERTIES.equals(key)) {
+            return false;
+          }
+          continue;
+        }
+        if (PROPERTIES.equals(key)) {
+          if (!propertiesEqualAllowingAdditions(currentMap.get(key), targetMap.get(key))) {
+            return false;
+          }
+        } else if (!equalsAllowingAddedProperties(currentMap.get(key), targetMap.get(key))) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static boolean propertiesEqualAllowingAdditions(Object current, Object target) {
+      if (!(current instanceof Map) || !(target instanceof Map)) {
+        return Objects.equals(current, target);
+      }
+      Map<String, Object> currentProperties = (Map<String, Object>) current;
+      Map<String, Object> targetProperties = (Map<String, Object>) target;
+      for (Map.Entry<String, Object> entry : currentProperties.entrySet()) {
+        if (!targetProperties.containsKey(entry.getKey())) {
+          return false;
+        }
+        if (!equalsAllowingAddedProperties(
+            entry.getValue(), targetProperties.get(entry.getKey()))) {
+          return false;
+        }
+      }
+      return true;
     }
 
     /**
