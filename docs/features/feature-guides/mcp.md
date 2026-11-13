@@ -169,10 +169,10 @@ Mutation tools are available on DataHub Cloud v0.3.17+ and on DataHub Core v1.9.
 On self-hosted DataHub Core, the **Ingestion** tool group is off unless an admin selects it on the [settings page](#mcp-settings-page). "All tools" never includes it.
 :::
 
-**Ingestion** — Write and check ingestion recipes, as the `datahub recipe` CLI does, and create and change the ingestion sources DataHub runs on its executor. Recipe credentials must be secret references such as `${SNOWFLAKE_PASSWORD}` to [DataHub secrets](../../ui-ingestion.md); the tools refuse a recipe with a literal password, token or key, and mask literal ones already stored in a source.
+**Ingestion** — Write and check ingestion recipes, as the `datahub recipe` CLI does, and create, run and debug the ingestion sources DataHub runs on its executor, and roll back a run. Recipe credentials must be secret references such as `${SNOWFLAKE_PASSWORD}` to [DataHub secrets](../../ui-ingestion.md); the tools refuse a recipe with a literal password, token or key, and mask literal ones already stored in a source.
 
 :::caution
-Selecting the Ingestion group lets an agent create and change ingestion sources, which can then write metadata into DataHub. Select it only for agents you trust to do that. Each call runs with the caller's own privileges: managing sources needs the **Manage Metadata Ingestion** privilege.
+Selecting the Ingestion group lets an agent create, change and run ingestion sources, which write metadata into DataHub (and, with stateful ingestion, remove what a source no longer has), and roll back runs, which removes what they wrote. Select it only for agents you trust to do that. Each call runs with the caller's own privileges: managing sources needs the **Manage Metadata Ingestion** privilege.
 :::
 
 <details>
@@ -189,6 +189,14 @@ Selecting the Ingestion group lets an agent create and change ingestion sources,
 `create_ingestion_source` — Create an ingestion source from a recipe, with an optional cron schedule. It does not run it.
 
 `update_ingestion_source` — Change named fields of a source's recipe (`profiling.enabled`, ...), its name, schedule or executor, keeping everything else.
+
+`run_ingestion` — Start a run of a saved source on the executor, or only test a recipe's or source's connection (`test_source_connection`), waiting for the test's report. DataHub Core runs saved sources only: there are no dry runs, previews or runs of an unsaved recipe.
+
+`list_ingestion_runs` — List a source's recent runs, or read one run's status, counts, first failures and warnings, and CLI version.
+
+`list_ingestion_run_entities` — List the entities and aspects a run wrote.
+
+`rollback_ingestion_run` — Roll back a run, as `datahub ingest rollback` does: entities the run created are soft-deleted and the aspects it wrote are reverted. By default it is a dry run that only reports what would change.
 
 </details>
 
@@ -652,6 +660,23 @@ On Team and Enterprise plans, an Owner adds the connector for everyone under **O
 </details>
 
 <details>
+  <summary>ChatGPT</summary>
+
+ChatGPT adds an MCP server as a custom plugin, which authenticates only with OAuth or with no authentication. It can't send a DataHub access token, and DataHub's MCP server doesn't offer OAuth, so ChatGPT can connect only while GMS authentication is off. It calls the server from OpenAI's servers, so it also needs a public HTTPS URL (see the note below). With GMS authentication on, use another client.
+
+Without GMS authentication, anyone who finds a public `/mcp` URL can call it too, and every call runs as DataHub's system user. Connect ChatGPT only to a DataHub whose metadata you are comfortable exposing.
+
+1. In ChatGPT on the web, open [Plugins](https://chatgpt.com/plugins), select the **+** button, then **Add custom MCP server**.
+2. Enter a name, such as `DataHub`, and under **Connection**, the **Server URL**: `<your-datahub-url>/mcp`.
+3. For authentication, choose **No authentication**.
+4. Review the risk warning, select **I understand and want to continue**, then **Create as a plugin**.
+5. Install the plugin. In a conversation, type `@` and select it.
+
+Your ChatGPT workspace's permissions decide whether you can add custom MCP servers. To reach a private server from ChatGPT, OpenAI offers [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels), which runs a tunnel client inside your network. See OpenAI's [Add custom MCP server](https://developers.openai.com/api/docs/guides/custom-mcp-server).
+
+</details>
+
+<details>
   <summary>Cursor</summary>
 
 Add to `~/.cursor/mcp.json` (or `.cursor/mcp.json` in a project):
@@ -750,8 +775,8 @@ Set the client's authentication mode to a header or bearer token, not OAuth. For
 
 </details>
 
-:::note claude.ai and the Claude API need a public HTTPS URL
-Custom connectors in claude.ai and Claude Desktop, and the Claude API's MCP connector, call your server from Anthropic's cloud, not from your computer. They can reach only a public HTTPS URL: never `localhost`, a VPN, or a private network. For a private DataHub, use a client that connects from your machine (Claude Code, Cursor, VS Code, or Claude Desktop with `mcp-remote`). If you do publish `/mcp`, turn on GMS authentication first, so every request needs an access token.
+:::note claude.ai, ChatGPT and the Claude API need a public HTTPS URL
+Custom connectors in claude.ai and Claude Desktop, and the Claude API's MCP connector, call your server from Anthropic's cloud, not from your computer, and ChatGPT's custom MCP servers call it from OpenAI's servers. They can reach only a public HTTPS URL: never `localhost`, a VPN, or a private network. For a private DataHub, use a client that connects from your machine (Claude Code, Cursor, VS Code, or Claude Desktop with `mcp-remote`). If you do publish `/mcp`, turn on GMS authentication first, so every request needs an access token.
 :::
 
 ### Authentication {#self-hosted-authentication}

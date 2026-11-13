@@ -172,6 +172,26 @@ class ReadBackend(Protocol):
         source's urn, name, type, schedule and latest run."""
         ...
 
+    def ingestion_executions(
+        self, urn: str, start: int, count: int
+    ) -> JsonObject | None:
+        """The source's name and a page of its runs, newest first
+        (``listIngestionExecutions`` in ``ingestion.gql``); None when GMS has no
+        source at ``urn``."""
+        ...
+
+    def execution_request(self, urn: str, *, report: bool = True) -> JsonObject | None:
+        """The execution request (``getExecution``), or with ``report=False``
+        only its status (``getExecutionStatus``); None when GMS has none."""
+        ...
+
+    def ingestion_run_rows(
+        self, run_id: str, start: int, count: int
+    ) -> list[JsonObject]:
+        """The aspects run ``run_id`` wrote, one row per aspect (Rest.li
+        ``/runs?action=describe``, without the aspect values)."""
+        ...
+
 
 @dataclass(frozen=True)
 class ReadBackendBinding:
@@ -495,6 +515,50 @@ class GraphQLReadBackend:
             "ingestionSources"
         ) or []
         return [cast(JsonObject, s) for s in sources if isinstance(s, dict)]
+
+    def ingestion_executions(
+        self, urn: str, start: int, count: int
+    ) -> JsonObject | None:
+        return cast(
+            JsonObject | None,
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document("ingestion.gql"),
+                variables={"urn": urn, "start": start, "count": count},
+                operation_name="listIngestionExecutions",
+            ).get("ingestionSource"),
+        )
+
+    def execution_request(self, urn: str, *, report: bool = True) -> JsonObject | None:
+        return cast(
+            JsonObject | None,
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document("ingestion.gql"),
+                variables={"urn": urn},
+                operation_name="getExecution" if report else "getExecutionStatus",
+            ).get("executionRequest"),
+        )
+
+    def ingestion_run_rows(
+        self, run_id: str, start: int, count: int
+    ) -> list[JsonObject]:
+        # GraphQL has no per-run listing; Rest.li's runs resource does.
+        try:
+            response = self.graph._post_generic(
+                f"{self.graph._gms_server}/runs?action=describe",
+                {
+                    "runId": run_id,
+                    "start": start,
+                    "count": count,
+                    "includeSoft": False,
+                    "includeAspect": False,
+                },
+            )
+        except Exception as e:
+            raise ToolError(graphql_helpers.describe_datahub_error(e)) from e
+        rows = response.get("value") if isinstance(response, dict) else None
+        return [cast(JsonObject, r) for r in rows or [] if isinstance(r, dict)]
 
 
 def _live_siblings(entity: JsonObject, urn: str) -> set[str]:

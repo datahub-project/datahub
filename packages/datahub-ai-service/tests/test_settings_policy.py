@@ -36,6 +36,10 @@ INGESTION_TOOLS = {
     "list_ingestion_sources",
     "create_ingestion_source",
     "update_ingestion_source",
+    "run_ingestion",
+    "list_ingestion_runs",
+    "list_ingestion_run_entities",
+    "rollback_ingestion_run",
 }
 
 

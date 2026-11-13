@@ -135,6 +135,10 @@ INGESTION_TOOLS = {
     "list_ingestion_sources",
     "create_ingestion_source",
     "update_ingestion_source",
+    "run_ingestion",
+    "list_ingestion_runs",
+    "list_ingestion_run_entities",
+    "rollback_ingestion_run",
 }
 
 
@@ -226,5 +230,7 @@ async def test_the_writes_switch_removes_the_ingestion_groups_writes(
         "get_recipe_schema",
         "validate_recipe",
         "list_ingestion_sources",
+        "list_ingestion_runs",
+        "list_ingestion_run_entities",
     }
     assert all(t.annotations.read_only_hint for t in tools)

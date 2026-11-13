@@ -53,6 +53,12 @@ from .tools.ingestion_recipes import (
     list_connector_types,
     validate_recipe,
 )
+from .tools.ingestion_runs import (
+    list_ingestion_run_entities,
+    list_ingestion_runs,
+    rollback_ingestion_run,
+    run_ingestion,
+)
 from .tools.ingestion_sources import (
     create_ingestion_source,
     list_ingestion_sources,
@@ -351,4 +357,13 @@ def register_tools(
     add("list_ingestion_sources", list_ingestion_sources, ToolType.INGESTION)
     add("create_ingestion_source", create_ingestion_source, ToolType.INGESTION)
     add("update_ingestion_source", update_ingestion_source, ToolType.INGESTION)
+    # A connection test waits on the executor for up to five minutes.
+    add("run_ingestion", run_ingestion, ToolType.INGESTION, slow=True)
+    add("list_ingestion_runs", list_ingestion_runs, ToolType.INGESTION)
+    add(
+        "list_ingestion_run_entities",
+        list_ingestion_run_entities,
+        ToolType.INGESTION,
+    )
+    add("rollback_ingestion_run", rollback_ingestion_run, ToolType.INGESTION)
     return registered

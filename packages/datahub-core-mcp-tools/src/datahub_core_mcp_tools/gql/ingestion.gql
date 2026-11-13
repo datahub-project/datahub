@@ -63,3 +63,70 @@ mutation updateIngestionSource(
 ) {
   updateIngestionSource(urn: $urn, input: $input)
 }
+
+# Ingestion runs (execution requests).
+
+mutation createIngestionExecutionRequest(
+  $input: CreateIngestionExecutionRequestInput!
+) {
+  createIngestionExecutionRequest(input: $input)
+}
+
+mutation createTestConnectionRequest($input: CreateTestConnectionRequestInput!) {
+  createTestConnectionRequest(input: $input)
+}
+
+query listIngestionExecutions($urn: String!, $start: Int!, $count: Int!) {
+  ingestionSource(urn: $urn) {
+    urn
+    name
+    executions(start: $start, count: $count) {
+      total
+      executionRequests {
+        urn
+        input {
+          requestedAt
+        }
+        result {
+          status
+          startTimeMs
+          durationMs
+        }
+      }
+    }
+  }
+}
+
+# Polled while a connection test runs: no report, which can be large.
+query getExecutionStatus($urn: String!) {
+  executionRequest(urn: $urn) {
+    urn
+    result {
+      status
+    }
+  }
+}
+
+query getExecution($urn: String!) {
+  executionRequest(urn: $urn) {
+    urn
+    input {
+      task
+      requestedAt
+      source {
+        type
+        ingestionSource
+      }
+    }
+    result {
+      status
+      startTimeMs
+      durationMs
+      report
+      structuredReport {
+        type
+        serializedValue
+      }
+    }
+  }
+}
