@@ -587,6 +587,72 @@ def test_get_semantic_search_config_retries_without_vertex_provider():
     assert "vertexProviderConfig" not in fallback_query
 
 
+def test_get_semantic_search_config_patch_flag_fallback_keeps_vertex():
+    from datahub.configuration.common import GraphError
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        get_semantic_search_config,
+    )
+
+    fake_graph = MagicMock()
+    fake_graph.execute_graphql.side_effect = [
+        GraphError(
+            "FieldUndefined: Field 'semanticContentPatchSupported' is undefined"
+        ),
+        {
+            "appConfig": {
+                "semanticSearchConfig": {
+                    "enabled": True,
+                    "enabledEntities": ["document"],
+                    "embeddingConfig": {
+                        "provider": "vertex_ai",
+                        "modelId": "gemini-embedding-001",
+                        "modelEmbeddingKey": "gemini_embedding_001",
+                        "vertexProviderConfig": {
+                            "projectId": "my-project",
+                            "location": "us-east1",
+                        },
+                    },
+                },
+                "entityIndexV3": {"enabled": True},
+            }
+        },
+    ]
+    result = get_semantic_search_config(fake_graph)
+    assert result.embedding_config is not None
+    assert result.embedding_config.vertex_project_id == "my-project"
+    assert result.embedding_config.vertex_location == "us-east1"
+    assert result.entity_index_v3_enabled is True
+    assert result.semantic_content_patch_supported is False
+    fallback_query = fake_graph.execute_graphql.call_args_list[1].kwargs["query"]
+    assert "semanticContentPatchSupported" not in fallback_query
+    assert "vertexProviderConfig" in fallback_query
+    assert "entityIndexV3" in fallback_query
+
+
+def test_get_semantic_search_config_patch_flag_then_legacy_schema():
+    from datahub.configuration.common import GraphError
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        get_semantic_search_config,
+    )
+
+    fake_graph = MagicMock()
+    fake_graph.execute_graphql.side_effect = [
+        GraphError(
+            "FieldUndefined: Field 'semanticContentPatchSupported' is undefined"
+        ),
+        GraphError("FieldUndefined: Field 'vertexProviderConfig' is undefined"),
+        {"appConfig": {"semanticSearchConfig": _LEGACY_SEMANTIC_CONFIG}},
+    ]
+    result = get_semantic_search_config(fake_graph)
+    assert result.enabled is True
+    assert result.entity_index_v3_enabled is None
+    assert fake_graph.execute_graphql.call_count == 3
+    oldest_query = fake_graph.execute_graphql.call_args_list[2].kwargs["query"]
+    assert "semanticContentPatchSupported" not in oldest_query
+    assert "vertexProviderConfig" not in oldest_query
+    assert "entityIndexV3" not in oldest_query
+
+
 def test_resolve_embedding_skips_when_v3_on_but_semantic_off():
     from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
     from datahub.ingestion.source.unstructured.chunking_source import (
@@ -637,3 +703,99 @@ def test_resolve_embedding_loads_when_semantic_on_regardless_of_v3():
     )
     assert resolved.provider == "bedrock"
     assert resolved.model == "cohere.embed-english-v3"
+
+
+def test_get_semantic_search_config_patch_flag_without_embedding_config():
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        get_semantic_search_config,
+    )
+
+    fake_graph = MagicMock()
+    fake_graph.execute_graphql.return_value = {
+        "appConfig": {
+            "semanticSearchConfig": {
+                "enabled": True,
+                "enabledEntities": ["document"],
+                "semanticContentPatchSupported": True,
+                "embeddingConfig": None,
+            }
+        }
+    }
+    result = get_semantic_search_config(fake_graph)
+    assert result.embedding_config is None
+    assert result.semantic_content_patch_supported is True
+
+
+def test_get_semantic_search_config_patch_flag_falls_back_to_embedding_config():
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        get_semantic_search_config,
+    )
+
+    fake_graph = MagicMock()
+    fake_graph.execute_graphql.return_value = {
+        "appConfig": {
+            "semanticSearchConfig": {
+                "enabled": True,
+                "enabledEntities": ["document"],
+                "embeddingConfig": {
+                    "provider": "bedrock",
+                    "modelId": "cohere.embed-english-v3",
+                    "modelEmbeddingKey": "cohere_embed_v3",
+                    "semanticContentPatchSupported": True,
+                    "awsProviderConfig": {"region": "us-west-2"},
+                },
+            }
+        }
+    }
+    result = get_semantic_search_config(fake_graph)
+    assert result.semantic_content_patch_supported is True
+
+
+def _break_glass_config() -> EmbeddingConfig:
+    return EmbeddingConfig(
+        provider="bedrock",
+        model="cohere.embed-english-v3",
+        aws_region="us-west-2",
+        allow_local_embedding_config=True,
+    )
+
+
+def test_resolve_embedding_break_glass_discovers_patch_support():
+    from datahub.ingestion.source.unstructured.chunking_source import (
+        DocumentChunkingSource,
+    )
+
+    fake_graph = MagicMock()
+    fake_graph.execute_graphql.return_value = {
+        "appConfig": {
+            "semanticSearchConfig": {
+                "enabled": True,
+                "enabledEntities": ["document"],
+                "semanticContentPatchSupported": True,
+                "embeddingConfig": {
+                    "provider": "openai",
+                    "modelId": "text-embedding-3-small",
+                    "modelEmbeddingKey": "text_embedding_3_small",
+                },
+            }
+        }
+    }
+    resolved = DocumentChunkingSource.resolve_embedding_config(
+        _break_glass_config(), graph=fake_graph
+    )
+    assert resolved.provider == "bedrock"
+    assert resolved._semantic_content_patch_supported is True
+
+
+def test_resolve_embedding_break_glass_survives_config_lookup_failure():
+    from datahub.ingestion.source.unstructured.chunking_source import (
+        DocumentChunkingSource,
+    )
+
+    fake_graph = MagicMock()
+    fake_graph.execute_graphql.side_effect = RuntimeError("server unreachable")
+    resolved = DocumentChunkingSource.resolve_embedding_config(
+        _break_glass_config(), graph=fake_graph
+    )
+    assert resolved.provider == "bedrock"
+    assert resolved._semantic_content_patch_supported is False

@@ -1668,6 +1668,54 @@ class TestSkipMarkersAndEmbedAccounting:
         assert aspect.embeddings["other_model"].modelVersion == "other/model-v1"
         assert own_key not in aspect.embeddings
 
+    def test_skip_marker_patches_one_profile_when_the_server_supports_it(
+        self, pipeline_context, chunking_config
+    ):
+        source = self._source(pipeline_context, chunking_config)
+        source.config.embedding._semantic_content_patch_supported = True
+        graph = MagicMock()
+        source.graph = graph
+
+        wu = source.build_skip_marker_workunit("urn:li:document:multi", "EMPTY_TEXT")
+
+        graph.get_aspect.assert_not_called()
+        payload = json.loads(wu.metadata.aspect.value)
+        assert len(payload) == 1
+        profile = payload[0]["value"]
+        assert payload[0]["path"].startswith("/embeddings/")
+        assert profile["modelVersion"]
+        assert profile["generatedAt"]
+        assert profile.get("vectorState") == "SKIPPED"
+        assert profile.get("stateReason") == "EMPTY_TEXT"
+        assert "skipReason" not in profile
+        assert "skippedAt" not in profile
+        assert all(op["path"] != "/skipReason" for op in payload)
+        assert all(op["path"] != "/skippedAt" for op in payload)
+
+    def test_embed_patch_removes_legacy_skip_fields(
+        self, pipeline_context, chunking_config
+    ):
+        source = self._source(pipeline_context, chunking_config)
+        source.config.embedding._semantic_content_patch_supported = True
+
+        wus = list(
+            source._emit_semantic_content(
+                "urn:li:document:embedded",
+                [{"text": "hello"}],
+                [[0.1, 0.2]],
+            )
+        )
+
+        assert len(wus) == 1
+        payload = json.loads(wus[0].metadata.aspect.value)
+        ops = {(op["op"], op["path"]) for op in payload}
+        assert ("remove", "/skipReason") in ops
+        assert ("remove", "/skippedAt") in ops
+        assert any(
+            op["op"] == "add" and op["path"].startswith("/embeddings/")
+            for op in payload
+        )
+
     def test_skip_marker_read_failure_raises_instead_of_erasing(
         self, pipeline_context, chunking_config
     ):
@@ -2079,3 +2127,23 @@ def test_exact_cap_with_trailing_blanks_not_counted_truncated(
     assert len(semantic_wus) == 1
     assert len(_semantic_embeddings(semantic_wus[0])["cohere_embed_v3"].chunks) == 3
     assert source.report.num_documents_truncated_oversized == 0
+
+
+def test_content_hash_ignores_generated_at():
+    from datahub.ingestion.source.unstructured.chunking_source import (
+        _stamp_profile_payload,
+    )
+
+    def stamped(generated_at: int) -> str:
+        profile = EmbeddingModelDataClass(
+            modelVersion="model",
+            generatedAt=generated_at,
+            sourceTextSha256="abc",
+            totalChunks=1,
+            chunks=[EmbeddingChunkClass(position=0, vector=[0.1, 0.2], text="hello")],
+        )
+        _stamp_profile_payload(profile, False)
+        assert profile.contentHash is not None
+        return profile.contentHash
+
+    assert stamped(1) == stamped(2)

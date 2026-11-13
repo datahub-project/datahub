@@ -1,0 +1,13 @@
+namespace com.linkedin.common
+
+/**
+ * Forward-only record of each content source's update time.
+ * The map key is a watch key: the aspect name when a profile watches the whole aspect, or
+ * "aspect#path" when it watches one path of it, so profiles watching different paths of one
+ * aspect keep separate clocks. The value is the audit-stamp time in milliseconds of the aspect
+ * version that changed that path, not a clock reading taken when this record is written.
+ * A later change keeps the larger time.
+ */
+record SemanticRefreshMarker {
+  sources: map[string, long] = { }
+}

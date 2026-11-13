@@ -74,6 +74,28 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _set_profile_field(profile: EmbeddingModelDataClass, name: str, value: Any) -> None:
+    if any(field.name == name for field in profile.RECORD_SCHEMA.fields):
+        setattr(profile, name, value)
+
+
+def _stamp_profile_payload(profile: EmbeddingModelDataClass, partial: bool) -> None:
+    """Hash the capped chunks this write stores. Distinct from the source-text digest."""
+    chunks = [chunk.to_obj() for chunk in profile.chunks] if profile.chunks else []
+    payload = json.dumps(
+        {"chunks": chunks, "sourceTextSha256": profile.sourceTextSha256},
+        sort_keys=True,
+        default=str,
+    )
+    _set_profile_field(
+        profile, "contentHash", hashlib.sha256(payload.encode()).hexdigest()
+    )
+    _set_profile_field(profile, "partial", partial)
+    _set_profile_field(profile, "vectorState", "READY")
+    if profile.chunks:
+        _set_profile_field(profile, "vectorDimension", len(profile.chunks[0].vector))
+
+
 class SkipMarkerReadError(RuntimeError):
     """Raised when the existing semanticContent aspect cannot be read while building a
     skip marker. Callers must leave the document's incremental state unrecorded so the
@@ -1020,7 +1042,31 @@ class DocumentChunkingSource(Source):
         so the marker carries forward every other model's existing entry (dropping only
         this pipeline's own) — otherwise one pipeline's skip would erase other models'
         embeddings, and the index projection would clear their vectors.
+
+        When the server accepts profile patches, the marker sets this profile's vector
+        state and does not read or rewrite the rest of the aspect.
         """
+        if self.config.embedding._semantic_content_patch_supported:
+            from datahub.specific.semantic_content import SemanticContentPatchBuilder
+
+            own_key = self.get_model_embedding_key()
+            assert own_key is not None
+            profile = EmbeddingModelDataClass(
+                modelVersion=self.resolved_target.semantic_model_version,
+                generatedAt=int(datetime.now(timezone.utc).timestamp() * 1000),
+                totalChunks=0,
+                chunks=[],
+            )
+            _set_profile_field(profile, "vectorState", "SKIPPED")
+            _set_profile_field(profile, "stateReason", reason)
+            return MetadataWorkUnit(
+                id=f"{document_urn}-semanticContent-skip",
+                mcp_raw=SemanticContentPatchBuilder(document_urn)
+                .set_profile(own_key, profile)
+                .build()[0],
+                is_primary_source=False,
+            )
+
         preserved_embeddings: dict[str, EmbeddingModelDataClass] = {}
         if self.graph is not None:
             own_key = self.get_model_embedding_key()
@@ -1114,6 +1160,21 @@ class DocumentChunkingSource(Source):
 
         assert semantic_content is not None
 
+        if self.config.embedding._semantic_content_patch_supported:
+            from datahub.specific.semantic_content import SemanticContentPatchBuilder
+
+            profile = semantic_content.embeddings[model_key]
+            _stamp_profile_payload(profile, capped.kept_chunks < capped.original_chunks)
+            yield MetadataWorkUnit(
+                id=f"{document_urn}-semanticContent",
+                mcp_raw=SemanticContentPatchBuilder(document_urn)
+                .set_profile(model_key, profile)
+                .clear_legacy_skip()
+                .build()[0],
+                is_primary_source=False,
+            )
+            return
+
         # Create MetadataWorkUnit
         mcp = MetadataChangeProposalWrapper(
             entityUrn=document_urn,
@@ -1206,6 +1267,9 @@ class DocumentChunkingSource(Source):
                     embedding_config.validate_against_server(
                         server_config.embedding_config
                     )
+                    embedding_config._semantic_content_patch_supported = (
+                        server_config.semantic_content_patch_supported
+                    )
 
                     logger.info(
                         "✓ Local embedding configuration validated successfully"
@@ -1250,6 +1314,20 @@ class DocumentChunkingSource(Source):
                     "Proceeding with local embedding configuration. "
                     "This may cause semantic search to fail if configuration doesn't match the server."
                 )
+                if graph:
+                    # Patch writes keep sibling profiles and refresh markers intact, so
+                    # discover the capability even when validation is bypassed.
+                    try:
+                        embedding_config._semantic_content_patch_supported = (
+                            get_semantic_search_config(
+                                graph
+                            ).semantic_content_patch_supported
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Could not check semanticContent patch support; "
+                            f"writing full aspects instead: {e}"
+                        )
 
             embedding_config._resolved_target = resolve_embedding_target(
                 embedding_config
@@ -1277,6 +1355,9 @@ class DocumentChunkingSource(Source):
                     resolved = EmbeddingConfig.from_server(
                         server_config.embedding_config,
                         api_key=local_api_key,
+                    )
+                    resolved._semantic_content_patch_supported = (
+                        server_config.semantic_content_patch_supported
                     )
                     logger.info(
                         "✓ Loaded embedding configuration from server"

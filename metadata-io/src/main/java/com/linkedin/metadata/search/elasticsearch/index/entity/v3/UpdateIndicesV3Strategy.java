@@ -1716,7 +1716,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     return new V3DocumentBuildResult(combinedDocument, latestSystemMetadata);
   }
 
-  private void liftSemanticEmbeddingsToRoot(
+  void liftSemanticEmbeddingsToRoot(
       @Nonnull String entityType, @Nonnull ObjectNode combinedDocument) {
     if (!SemanticEmbeddingMappings.isEnabledForEntity(semanticSearchConfiguration, entityType)) {
       return;
@@ -1729,7 +1729,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
             List.of(
                 SemanticEmbeddingMappings.EMBEDDINGS_FIELD,
                 SemanticEmbeddingMappings.SKIP_REASON_FIELD,
-                SemanticEmbeddingMappings.SKIPPED_AT_FIELD)) {
+                SemanticEmbeddingMappings.SKIPPED_AT_FIELD,
+                "refreshMarker")) {
           if (semanticContent.has(field)) {
             combinedDocument.set(field, semanticContent.get(field));
             semanticContent.remove(field);

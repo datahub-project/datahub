@@ -1512,6 +1512,90 @@ public class SearchDocumentTransformerTest {
   }
 
   @Test
+  public void testSetSemanticContentSearchValue_StripsProfileControlFields() {
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    com.linkedin.common.EmbeddingModelDataMap embeddings =
+        new com.linkedin.common.EmbeddingModelDataMap();
+    embeddings.put(
+        "cohere_embed_v3",
+        new com.linkedin.common.EmbeddingModelData()
+            .setModelVersion("bedrock/cohere.embed-english-v3")
+            .setGeneratedAt(456L)
+            .setTotalChunks(0)
+            .setChunks(new com.linkedin.common.EmbeddingChunkArray())
+            .setSourceTextSha256("abc")
+            .setVectorState(com.linkedin.common.SemanticVectorState.READY)
+            .setCurrent(true)
+            .setContentHash("hash"));
+    com.linkedin.common.SemanticContent aspect =
+        new com.linkedin.common.SemanticContent()
+            .setEmbeddings(embeddings)
+            .setRefreshMarker(new com.linkedin.common.SemanticRefreshMarker());
+    ObjectNode doc = JsonNodeFactory.instance.objectNode();
+
+    transformer.setSemanticContentSearchValue(aspect, doc, false);
+
+    ObjectNode profile = (ObjectNode) doc.get("embeddings").get("cohere_embed_v3");
+    assertEquals(profile.get("modelVersion").asText(), "bedrock/cohere.embed-english-v3");
+    assertEquals(profile.get("sourceTextSha256").asText(), "abc");
+    assertFalse(profile.has("vectorState"));
+    assertFalse(profile.has("current"));
+    assertFalse(profile.has("contentHash"));
+    assertFalse(doc.has("refreshMarker"));
+  }
+
+  @Test
+  public void testSetSemanticContentSearchValue_KeepsProfileStateOnV3() {
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    com.linkedin.common.EmbeddingModelDataMap embeddings =
+        new com.linkedin.common.EmbeddingModelDataMap();
+    embeddings.put(
+        "cohere_embed_v3",
+        new com.linkedin.common.EmbeddingModelData()
+            .setModelVersion("bedrock/cohere.embed-english-v3")
+            .setGeneratedAt(456L)
+            .setTotalChunks(0)
+            .setChunks(new com.linkedin.common.EmbeddingChunkArray())
+            .setSourceTextSha256("abc")
+            .setVectorState(com.linkedin.common.SemanticVectorState.READY)
+            .setCurrent(true)
+            .setContentHash("hash"));
+    com.linkedin.data.template.LongMap sources = new com.linkedin.data.template.LongMap();
+    sources.put("documentInfo", 80L);
+    com.linkedin.common.SemanticContent aspect =
+        new com.linkedin.common.SemanticContent()
+            .setEmbeddings(embeddings)
+            .setRefreshMarker(new com.linkedin.common.SemanticRefreshMarker().setSources(sources));
+    ObjectNode doc = JsonNodeFactory.instance.objectNode();
+
+    SearchDocumentTransformer.beginV3Projection();
+    try {
+      transformer.setSemanticContentSearchValue(aspect, doc, false);
+
+      ObjectNode profile = (ObjectNode) doc.get("embeddings").get("cohere_embed_v3");
+      assertEquals(profile.get("vectorState").asText(), "READY");
+      assertTrue(profile.get("current").asBoolean());
+      assertEquals(profile.get("contentHash").asText(), "hash");
+      assertEquals(doc.get("refreshMarker").get("sources").get("documentInfo").asLong(), 80L);
+
+      ObjectNode cleared = JsonNodeFactory.instance.objectNode();
+      transformer.setSemanticContentSearchValue(aspect, cleared, true);
+      assertTrue(cleared.get("embeddings").isNull());
+      assertTrue(cleared.get("refreshMarker").isNull());
+
+      ObjectNode unmarked = JsonNodeFactory.instance.objectNode();
+      transformer.setSemanticContentSearchValue(
+          new com.linkedin.common.SemanticContent().setEmbeddings(embeddings), unmarked, false);
+      assertTrue(unmarked.get("refreshMarker").isNull());
+      assertTrue(unmarked.get("embeddings").get("cohere_embed_v3").has("current"));
+    } finally {
+      SearchDocumentTransformer.endV3Projection();
+    }
+  }
+
+  @Test
   public void testEmptySiblingDoesNotClearSharedHasValues() {
     AspectSpec relatedTerms =
         ENTITY_REGISTRY

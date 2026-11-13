@@ -332,6 +332,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             semanticSearchConfig.setEnabled(_semanticSearchConfiguration.isEnabled());
             semanticSearchConfig.setEnabledEntities(
                 new java.util.ArrayList<>(_semanticSearchConfiguration.getEnabledEntities()));
+            semanticSearchConfig.setSemanticContentPatchSupported(true);
 
             // Build EmbeddingConfig from server's embedding provider configuration
             if (_semanticSearchConfiguration.getEmbeddingProvider() != null) {
@@ -345,6 +346,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
               // Derive and set canonical model embedding key
               final String modelEmbeddingKey = deriveModelEmbeddingKey(providerConfig.getModelId());
               embeddingConfig.setModelEmbeddingKey(modelEmbeddingKey);
+              embeddingConfig.setSemanticContentPatchSupported(true);
 
               // Populate provider-specific configuration
               if ("aws-bedrock".equalsIgnoreCase(providerConfig.getType())

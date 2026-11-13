@@ -46,4 +46,58 @@ record EmbeddingModelData {
    * Individual chunks with their embedding vectors.
    */
   chunks: array[EmbeddingChunk]
+
+  /**
+   * What this profile stores. Absent when the field is missing and there are no chunks.
+   * Legacy data with chunks and no value is read as READY.
+   */
+  vectorState: optional SemanticVectorState
+
+  /**
+   * Outstanding work for this profile. Independent of vectorState.
+   */
+  workState: optional SemanticWorkState
+
+  /**
+   * Why the profile is excluded, skipped, deferred, or quarantined.
+   */
+  stateReason: optional string
+
+  /**
+   * Policy version that produced the current vector or work state.
+   */
+  policyVersion: optional string
+
+  /**
+   * True when the stored vectors match the profile's bound content.
+   * Unset on legacy data.
+   */
+  current: optional boolean
+
+  /**
+   * The entity refresh marker these vectors represent.
+   */
+  refreshMarker: optional SemanticRefreshMarker
+
+  /**
+   * Set when a content write could not name a version or timestamp.
+   * A metadata-service write always has a timestamp, so this stays unset there.
+   */
+  dirty: optional boolean
+
+  /**
+   * True when the chunk cap cut this profile before hashing.
+   */
+  partial: optional boolean
+
+  /**
+   * Hash of the capped chunk payload that was embedded.
+   * Distinct from sourceTextSha256, which covers the resolved source text.
+   */
+  contentHash: optional string
+
+  /**
+   * Dimension of the stored vectors.
+   */
+  vectorDimension: optional int
 }

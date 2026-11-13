@@ -10,6 +10,7 @@ import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
+import com.linkedin.metadata.config.search.SemanticProfilesConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.NoOpEmbeddingProvider;
@@ -113,7 +114,8 @@ public class ElasticSearchServiceFactoryHybridTest {
                 true,
                 Set.of("document"),
                 new HashMap<>(Map.of("text_embedding_3_small", model)),
-                providerConfiguration))
+                providerConfiguration,
+                new SemanticProfilesConfiguration()))
         .build();
   }
 }

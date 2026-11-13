@@ -87,35 +87,77 @@ def test_old_server_without_local_config_skips_embedding(
     assert source.config.embedding.provider is None
 
 
+def _break_glass_config() -> DocumentChunkingSourceConfig:
+    return DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="bedrock",
+            model="cohere.embed-english-v3",
+            aws_region="us-west-2",
+            allow_local_embedding_config=True,
+        )
+    )
+
+
 @patch(
     "datahub.ingestion.source.unstructured.chunking_source.get_semantic_search_config"
 )
 @patch("datahub.ingestion.source.unstructured.chunking_source.DataHubGraph")
 def test_old_server_with_break_glass_flag(mock_graph_class, mock_get_config):
-    """Test that break-glass flag skips server validation entirely."""
-    config = DocumentChunkingSourceConfig(
-        embedding=EmbeddingConfig(
-            provider="bedrock",
-            model="cohere.embed-english-v3",
-            aws_region="us-west-2",
-            allow_local_embedding_config=True,  # Break-glass flag
-        )
+    """A failed patch-capability probe still keeps the local embedding config.
+
+    Break-glass skips validation. Standalone mode still asks the server whether
+    semanticContent patches are supported, and a lookup failure must not fail startup.
+    """
+    mock_graph_class.return_value = Mock()
+    mock_get_config.side_effect = GraphError(
+        "Server does not expose semantic search configuration."
     )
 
-    ctx = PipelineContext(run_id="test")
+    source = DocumentChunkingSource(
+        PipelineContext(run_id="test"), _break_glass_config(), standalone=True
+    )
 
-    mock_graph = Mock()
-    mock_graph_class.return_value = mock_graph
-
-    # With break-glass flag, we shouldn't even call the API
-    source = DocumentChunkingSource(ctx, config, standalone=True)
-
-    # Verify we didn't try to call the server API
-    mock_get_config.assert_not_called()
-
-    # Verify source was created with local config
+    mock_get_config.assert_called_once()
     assert source.config.embedding.provider == "bedrock"
     assert source.config.embedding.model == "cohere.embed-english-v3"
+    assert not source.config.embedding._semantic_content_patch_supported
+
+
+@patch(
+    "datahub.ingestion.source.unstructured.chunking_source.get_semantic_search_config"
+)
+@patch("datahub.ingestion.source.unstructured.chunking_source.DataHubGraph")
+def test_break_glass_records_patch_support_without_validating(
+    mock_graph_class, mock_get_config
+):
+    """A disabled or mismatched server config does not reject the local config.
+
+    The probe only records patch support. It does not validate the local model.
+    """
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        ServerEmbeddingConfig,
+        ServerSemanticSearchConfig,
+    )
+
+    mock_graph_class.return_value = Mock()
+    mock_get_config.return_value = ServerSemanticSearchConfig(
+        enabled=False,
+        enabled_entities=[],
+        embedding_config=ServerEmbeddingConfig(
+            provider="openai",
+            model_id="text-embedding-3-small",
+            model_embedding_key="openai_3_small",
+        ),
+        semantic_content_patch_supported=True,
+    )
+
+    source = DocumentChunkingSource(
+        PipelineContext(run_id="test"), _break_glass_config(), standalone=True
+    )
+
+    assert source.config.embedding.provider == "bedrock"
+    assert source.config.embedding.model == "cohere.embed-english-v3"
+    assert source.config.embedding._semantic_content_patch_supported
 
 
 @patch(

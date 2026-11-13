@@ -13,16 +13,24 @@ namespace com.linkedin.common
  *   only embeddings (not source text) are shared with DataHub
  */
 @Aspect = {
-  "name": "semanticContent"
+  "name": "semanticContent",
+  "schemaVersion": 2
 }
 record SemanticContent {
 
   /**
-   * Map of embedding model name to embedding data.
-   * Key is the model identifier (e.g., cohere_embed_v3, openai_ada_002).
-   * Allows storing embeddings from multiple models simultaneously.
+   * Map of embedding profile key to embedding data.
+   * The key is the model identifier (e.g., cohere_embed_v3, openai_ada_002).
+   * One entity holds any number of profiles. A write of one key leaves the others in place.
    */
   embeddings: map[string, EmbeddingModelData]
+
+  /**
+   * Write time of each watched path, keyed by watch key (aspect name, or "aspect#path").
+   * Moves forward only.
+   * A profile stores its own copy of the marker its vectors represent.
+   */
+  refreshMarker: optional SemanticRefreshMarker
 
   /**
    * Set (with an empty embeddings map) when the embedding pipeline deliberately declined to
@@ -32,6 +40,8 @@ record SemanticContent {
    * NO_INDEXABLE_CONTENT (text partitioned to no indexable elements), PARTITION_TIMEOUT
    * (partitioning exceeded the recipe's partition_timeout_seconds). Overwritten with real
    * embeddings when the entity later becomes embeddable and is processed.
+   * Legacy entity-wide marker. A per-profile skip records its reason on that profile
+   * and does not write this field. A reader that sees any profile key ignores it.
    */
   skipReason: optional string
 

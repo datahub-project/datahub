@@ -399,14 +399,15 @@ public class AspectsBatchImpl implements AspectsBatch {
         this.items = Collections.emptyList();
       }
 
-      // Defense in depth: non-system writers must not retain reserved appSource=systemUpdate.
-      // Auth validators no longer trust that stamp; stripping prevents other consumers from
-      // treating client-supplied provenance as a system-upgrade signal.
+      // A non-system writer must not keep appSource=systemUpdate or semanticApply.
+      // Auth validators no longer trust the app-source stamp, and the refresh hook
+      // treats semanticApply as a system apply that already set current.
       if (operationContext == null || !operationContext.isSystemAuth()) {
         for (BatchItem item : this.items) {
           SystemMetadata systemMetadata = item.getSystemMetadata();
-          if (SystemMetadataUtils.stripReservedAppSource(systemMetadata)
-              && item instanceof MCPItem) {
+          boolean strippedAppSource = SystemMetadataUtils.stripReservedAppSource(systemMetadata);
+          boolean strippedApply = SystemMetadataUtils.stripSemanticApply(systemMetadata);
+          if ((strippedAppSource || strippedApply) && item instanceof MCPItem) {
             ((MCPItem) item).setSystemMetadata(systemMetadata);
           }
         }

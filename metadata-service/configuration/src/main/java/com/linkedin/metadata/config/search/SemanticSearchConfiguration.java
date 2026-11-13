@@ -25,4 +25,7 @@ public class SemanticSearchConfiguration {
 
   /** Configuration for the embedding provider used to generate query embeddings. */
   private EmbeddingProviderConfiguration embeddingProvider;
+
+  /** Per-profile staleness bindings and service ownership switch. */
+  private SemanticProfilesConfiguration profiles = new SemanticProfilesConfiguration();
 }

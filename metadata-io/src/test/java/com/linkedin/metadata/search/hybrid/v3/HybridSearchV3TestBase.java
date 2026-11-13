@@ -36,6 +36,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
+import com.linkedin.metadata.config.search.SemanticProfilesConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -151,7 +152,12 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
     ModelEmbeddingConfig model = new ModelEmbeddingConfig();
     model.setVectorDimension(QUERY_VECTOR.length);
     SemanticSearchConfiguration semanticSearch =
-        new SemanticSearchConfiguration(true, Set.of("document"), Map.of(MODEL_KEY, model), null);
+        new SemanticSearchConfiguration(
+            true,
+            Set.of("document"),
+            Map.of(MODEL_KEY, model),
+            null,
+            new SemanticProfilesConfiguration());
     EntityIndexConfiguration entityIndex =
         V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.toBuilder()
             .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
