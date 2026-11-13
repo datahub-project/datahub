@@ -200,18 +200,6 @@ const COLOR_RULE_EXCLUDED_FILES = [
     'src/app/dataviz/**',
 ];
 
-// --------------------------------------------------------------------------
-// alchemy-components must not depend on application code
-//
-// src/alchemy-components is a standalone component library; it must not
-// import from src/app or the generated GraphQL code (src/graphql,
-// src/types.generated). ALCHEMY_APP_IMPORT_EXCLUDED_FILES lists the existing
-// violations: remove an entry once its file is fixed, never add new ones.
-// --------------------------------------------------------------------------
-const ALCHEMY_APP_IMPORT_EXCLUDED_FILES = [
-    'src/alchemy-components/components/Avatar/utils.ts',
-];
-
 // Base `@typescript-eslint/no-restricted-imports` paths. The alchemy override
 // sets the same rule, which replaces these options, so it repeats them.
 const TS_RESTRICTED_IMPORT_PATHS = [
@@ -372,7 +360,6 @@ module.exports = {
         // doesn't collide with the `no-restricted-imports` color override above.
         {
             files: ['src/alchemy-components/**/*.ts', 'src/alchemy-components/**/*.tsx'],
-            excludedFiles: ALCHEMY_APP_IMPORT_EXCLUDED_FILES,
             rules: {
                 '@typescript-eslint/no-restricted-imports': [
                     'error',

@@ -155,7 +155,7 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
                             expandedRowKeys: [...Array.from(expandedRows)],
                             defaultExpandAllRows: false,
                             expandRowByClick: false,
-                            expandIcon: (props) => <ExpandIcon {...props} isCompact />,
+                            expandIcon: (props) => <ExpandIcon {...props} />,
                             onExpand: (expanded, record) => {
                                 if (expanded) {
                                     setExpandedRows((previousRows) => new Set(previousRows.add(record.qualifiedName)));
