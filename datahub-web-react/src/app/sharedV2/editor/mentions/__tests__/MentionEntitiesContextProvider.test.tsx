@@ -9,10 +9,10 @@ import {
 } from '@app/sharedV2/editor/mentions/MentionEntitiesContext';
 import { MentionEntitiesContextProvider } from '@app/sharedV2/editor/mentions/MentionEntitiesContextProvider';
 
-import { useGetEntitiesQuery } from '@graphql/entity.generated';
+import { useGetEntityMentionChipsQuery } from '@graphql/search.generated';
 
-vi.mock('@graphql/entity.generated', () => ({
-    useGetEntitiesQuery: vi.fn(),
+vi.mock('@graphql/search.generated', () => ({
+    useGetEntityMentionChipsQuery: vi.fn(),
 }));
 
 const ALICE = 'urn:li:corpuser:alice';
@@ -44,7 +44,9 @@ function stubBrowser() {
 }
 
 function renderProvider(urns: string[], result: QueryResult, urn: string) {
-    vi.mocked(useGetEntitiesQuery).mockReturnValue(result as unknown as ReturnType<typeof useGetEntitiesQuery>);
+    vi.mocked(useGetEntityMentionChipsQuery).mockReturnValue(
+        result as unknown as ReturnType<typeof useGetEntityMentionChipsQuery>,
+    );
     const seen: { found?: MentionEntityResult; ready?: boolean } = {};
     function Mention() {
         const { ref, ready } = useMentionChipReady();
@@ -61,7 +63,7 @@ function renderProvider(urns: string[], result: QueryResult, urn: string) {
 }
 
 function lastQueryOptions() {
-    return vi.mocked(useGetEntitiesQuery).mock.lastCall?.[0];
+    return vi.mocked(useGetEntityMentionChipsQuery).mock.lastCall?.[0];
 }
 
 describe('MentionEntitiesContextProvider', () => {
