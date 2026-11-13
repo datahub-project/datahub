@@ -33,6 +33,9 @@ dev = [
     "ruff==0.15.22",
 ]
 
+[project.scripts]
+datahub-mcp-stdio = "datahub_core_mcp_tools.stdio:main"
+
 [tool.setuptools.dynamic]
 version = { attr = "datahub_core_mcp_tools._version.__version__" }
 
