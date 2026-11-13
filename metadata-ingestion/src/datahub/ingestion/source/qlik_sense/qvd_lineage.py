@@ -38,7 +38,11 @@ class QvdPathResolver:
         folders: Dict[str, str],
         ignored_connections: Iterable[str],
         folder_aliases: Dict[str, str],
+        variables_known: bool = True,
     ):
+        # Whether the app's variables were read, so one it doesn't have is
+        # unset rather than unread.
+        self.variables_known = variables_known
         # Folder data connection name -> folder path. Qlik matches data
         # connection names without regard to case.
         self.folders = {name.lower(): folder for name, folder in folders.items()}
@@ -61,7 +65,7 @@ class QvdPathResolver:
             return None
         else:
             folder = self.folders.get(file.connection.lower())
-            if folder is None and "$(" in file.connection:
+            if folder is None and "$(" in file.connection and self.variables_known:
                 # A variable the app doesn't have expanded to nothing when it
                 # reloaded, such as an empty connection prefix. Taken only when
                 # what is left names a folder connection.
