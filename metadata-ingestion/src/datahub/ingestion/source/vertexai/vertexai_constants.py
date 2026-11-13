@@ -1,5 +1,5 @@
 import re
-from typing import List, Literal, Set, Type
+from typing import Dict, List, Literal, Set, Type
 
 from google.cloud import aiplatform
 
@@ -16,7 +16,6 @@ KUBEFLOW_TIMESTAMP_SUFFIX_PATTERN = re.compile(r"-\d{14}$")
 # Field names for object attributes
 UPDATE_TIME_FIELD = "update_time"
 CREATE_TIME_FIELD = "create_time"
-VERSION_ID_FIELD = "version_id"
 
 # Model version sorting configuration
 # Padding for version IDs to ensure correct string-based sorting (supports up to 9,999,999,999)
@@ -37,6 +36,81 @@ class ResourceTypes:
     CUSTOM_JOB = "CustomJob"
     BATCH_PREDICTION_JOB = "BatchPredictionJob"
     HYPERPARAMETER_TUNING_JOB = "HyperparameterTuningJob"
+
+
+class ResourceReads:
+    """The reads of a region: three in parallel (phase 1), then the model step."""
+
+    TRAINING_JOBS = "training_jobs"
+    EXPERIMENTS = "experiments"
+    PIPELINES = "pipelines"
+    MODELS = "models"
+
+
+class DetailCalls:
+    """Call kinds of detail reads: a stop covers one of these in one region."""
+
+    TRAINING_JOB_LOOKUP = "training_job_lookup"
+    ML_METADATA = "ml_metadata"
+    ML_METADATA_ARTIFACTS = "ml_metadata_artifacts"
+    ML_METADATA_EXECUTION_CACHE = "ml_metadata_execution_cache"
+    AUTOML_OUTPUT_MODEL = "automl_output_model"
+    TRAINING_DATASETS = "training_datasets"
+    MODEL_LOOKUP = "model_lookup"
+    ENDPOINT_LIST = "endpoint_list"
+    EVALUATION_LOOKUP = "evaluation_lookup"
+    EXPERIMENT_RUN_EXECUTIONS = "experiment_run_executions"
+    EXPERIMENT_RUN_LOGGED_JOBS = "experiment_run_logged_jobs"
+    EXPERIMENT_RUN_DETAIL = "experiment_run_detail"
+    EXPERIMENT_RUN_ARTIFACTS = "experiment_run_artifacts"
+    PIPELINE_LOOKUP = "pipeline_lookup"
+    PIPELINE_TASK_ARTIFACTS = "pipeline_task_artifacts"
+    AUTOML_JOB_CONFIG = "automl_job_config"
+    REGION_DISCOVERY = "region_discovery"
+
+
+RATE_LIMIT_SWITCH = "rate_limit"
+
+# Before a detail read has worked in a region, this many refusals stop it there:
+# the permission is then most likely missing, not one item locked.
+REFUSALS_BEFORE_STOP = 25
+
+DETAIL_SWITCHES: Dict[str, str] = {
+    DetailCalls.ML_METADATA: "extract_execution_metrics or use_ml_metadata_for_lineage",
+    DetailCalls.ML_METADATA_ARTIFACTS: "use_ml_metadata_for_lineage",
+    DetailCalls.ML_METADATA_EXECUTION_CACHE: "ml_metadata_max_execution_search_limit",
+    DetailCalls.EVALUATION_LOOKUP: "include_evaluations",
+}
+
+
+# Only a pipeline's task details name the models its tasks use, so a stopped
+# lookup holds the region's models back; every other kept item's links are
+# rebuilt from its listing or never reach a written model.
+LINKS_LOST_ON_STOP = frozenset({DetailCalls.PIPELINE_LOOKUP})
+
+# The switch that turns each read off, named when a read is lost for good.
+READ_SWITCHES: Dict[str, str] = {
+    ResourceReads.TRAINING_JOBS: "include_training_jobs",
+    ResourceReads.EXPERIMENTS: "include_experiments",
+    ResourceReads.PIPELINES: "include_pipelines",
+    ResourceReads.MODELS: "include_models",
+}
+
+
+class ResourceKinds:
+    """The kind segment of an entity name: `{project}.{kind}.{id}`."""
+
+    MODEL_GROUP = "model_group"
+    MODEL = "model"
+    ENDPOINT = "endpoint"
+    DATASET = "dataset"
+    JOB = "job"
+    EXPERIMENT = "experiment"
+    EXPERIMENT_RUN = "experiment_run"
+    EXECUTION = "execution"
+    PIPELINE_RUN = "pipeline_run"
+    PIPELINE_TASK_RUN = "pipeline_task_run"
+    MODEL_EVALUATION = "model_evaluation"
 
 
 # Type for external data platforms referenced in Vertex AI lineage
@@ -85,6 +159,18 @@ class ResourceCategory:
     PIPELINES: ResourceCategoryType = "Pipelines"
     EXPERIMENTS: ResourceCategoryType = "Experiments"
     EVALUATIONS: ResourceCategoryType = "Evaluations"
+
+    @classmethod
+    def all(cls) -> List[ResourceCategoryType]:
+        return [
+            cls.MODELS,
+            cls.TRAINING_JOBS,
+            cls.DATASETS,
+            cls.ENDPOINTS,
+            cls.PIPELINES,
+            cls.EXPERIMENTS,
+            cls.EVALUATIONS,
+        ]
 
 
 class MLMetadataSchemas:

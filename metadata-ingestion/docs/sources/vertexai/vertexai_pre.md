@@ -21,7 +21,7 @@ The source supports ingesting across multiple GCP projects by specifying `projec
 
 **Rate limiting**: If you see `429 Quota Exceeded` errors, enable rate limiting with `rate_limit: true`. The default `requests_per_min: 600` matches Google's standard quota of 600 resource-management requests per minute per region. Lower this value (e.g. `300`) if you share quota with other workloads running in the same project and region.
 
-Enabling `stateful_ingestion` has two effects: (1) resources not updated since the previous run are skipped, reducing redundant API calls on subsequent runs; and (2) entities deleted from Vertex AI are automatically soft-deleted in DataHub. Use `stateful_ingestion.ignore_old_state: true` to get soft-deletion only without the incremental skip behaviour.
+Enabling `stateful_ingestion` soft-deletes entities that were deleted from Vertex AI since the previous run. Entities the connector could not read in a run are kept, and the report says why. `stateful_ingestion.ignore_old_state: true` turns soft-deletion off for that run.
 
 For improved organization in the DataHub UI:
 
@@ -46,30 +46,43 @@ Grant the following permissions to the service account on all target projects.
 
 **Default GCP Role:** [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)
 
-| Permission                          | Description                                                          |
-| ----------------------------------- | -------------------------------------------------------------------- |
-| `aiplatform.models.list`            | Allows a user to view and list all ML models in a project            |
-| `aiplatform.models.get`             | Allows a user to view details of a specific ML model                 |
-| `aiplatform.endpoints.list`         | Allows a user to view and list all prediction endpoints in a project |
-| `aiplatform.endpoints.get`          | Allows a user to view details of a specific prediction endpoint      |
-| `aiplatform.trainingPipelines.list` | Allows a user to view and list all training pipelines in a project   |
-| `aiplatform.trainingPipelines.get`  | Allows a user to view details of a specific training pipeline        |
-| `aiplatform.customJobs.list`        | Allows a user to view and list all custom jobs in a project          |
-| `aiplatform.customJobs.get`         | Allows a user to view details of a specific custom job               |
-| `aiplatform.experiments.list`       | Allows a user to view and list all experiments in a project          |
-| `aiplatform.experiments.get`        | Allows a user to view details of a specific experiment in a project  |
-| `aiplatform.metadataStores.list`    | Allows a user to view and list all metadata stores in a project      |
-| `aiplatform.metadataStores.get`     | Allows a user to view details of a specific metadata store           |
-| `aiplatform.executions.list`        | Allows a user to view and list all executions in a project           |
-| `aiplatform.executions.get`         | Allows a user to view details of a specific execution                |
-| `aiplatform.datasets.list`          | Allows a user to view and list all datasets in a project             |
-| `aiplatform.datasets.get`           | Allows a user to view details of a specific dataset                  |
-| `aiplatform.pipelineJobs.list`      | Allows a user to view and list all pipeline jobs in a project        |
-| `aiplatform.pipelineJobs.get`       | Allows a user to view details of a specific pipeline job             |
+| Permission                                             | Description                                                                           |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `aiplatform.models.list`                               | Allows a user to view and list all ML models in a project                             |
+| `aiplatform.models.get`                                | Allows a user to view details of a specific ML model                                  |
+| `aiplatform.endpoints.list`                            | Allows a user to view and list all prediction endpoints in a project                  |
+| `aiplatform.endpoints.get`                             | Allows a user to view details of a specific prediction endpoint                       |
+| `aiplatform.trainingPipelines.list`                    | Allows a user to view and list all training pipelines in a project                    |
+| `aiplatform.trainingPipelines.get`                     | Allows a user to view details of a specific training pipeline                         |
+| `aiplatform.customJobs.list`                           | Allows a user to view and list all custom jobs in a project                           |
+| `aiplatform.customJobs.get`                            | Allows a user to view details of a specific custom job                                |
+| `aiplatform.contexts.list`                             | Allows a user to view and list all contexts (experiments) in a project                |
+| `aiplatform.contexts.get`                              | Allows a user to view details of a specific context                                   |
+| `aiplatform.artifacts.list`                            | Allows a user to view and list all ML Metadata artifacts in a project                 |
+| `aiplatform.artifacts.get`                             | Allows a user to view details of a specific ML Metadata artifact                      |
+| `aiplatform.metadataStores.list`                       | Allows a user to view and list all metadata stores in a project                       |
+| `aiplatform.metadataStores.get`                        | Allows a user to view details of a specific metadata store                            |
+| `aiplatform.executions.list`                           | Allows a user to view and list all executions in a project                            |
+| `aiplatform.executions.get`                            | Allows a user to view details of a specific execution                                 |
+| `aiplatform.executions.queryExecutionInputsAndOutputs` | Allows a user to read the input and output artifacts of an execution                  |
+| `aiplatform.modelEvaluations.list`                     | Allows a user to view and list the evaluations of a model                             |
+| `aiplatform.modelEvaluations.get`                      | Allows a user to view details of a specific model evaluation                          |
+| `aiplatform.locations.list`                            | Allows a user to list the regions of a project (used when `discover_regions` is true) |
+| `aiplatform.datasets.list`                             | Allows a user to view and list all datasets in a project                              |
+| `aiplatform.datasets.get`                              | Allows a user to view details of a specific dataset                                   |
+| `aiplatform.pipelineJobs.list`                         | Allows a user to view and list all pipeline jobs in a project                         |
+| `aiplatform.pipelineJobs.get`                          | Allows a user to view details of a specific pipeline job                              |
 
 :::note ML Metadata Permissions
 
-ML Metadata extraction (enabled by default for enhanced lineage tracking) requires the `aiplatform.metadataStores.*` and `aiplatform.executions.*` permissions listed above. If your service account lacks these permissions, the connector will gracefully fall back with warnings. To disable ML Metadata features, set `use_ml_metadata_for_lineage: false`, `extract_execution_metrics: false`, and `include_evaluations: false`.
+ML Metadata extraction is enabled by default. All the permissions above are in `roles/aiplatform.viewer`. If the service account lacks the ML Metadata permissions, training jobs are written without the details below and the report warns. Experiments cannot be read at all without them, so for a project listed in `project_ids` the run fails, after writing everything else, until the permissions are granted or `include_experiments: false` is set. What each setting controls:
+
+- `use_ml_metadata_for_lineage: false` stops the ML Metadata lineage calls for training jobs.
+- `extract_execution_metrics: false` stops training-job hyperparameters and metrics from being read. With both this and `use_ml_metadata_for_lineage` set to `false`, training jobs make no ML Metadata calls.
+- `include_evaluations: false` stops the model evaluation calls.
+- Experiments and their runs always read ML Metadata (contexts, artifacts, executions). Only `include_experiments: false` stops them.
+
+If a training-job ML Metadata read is refused, that job is written without ML Metadata lineage, hyperparameters and metrics, because the two are read together. Until the read has worked once in a region, 25 refusals in a row stop it there for the rest of the run. Turning off `use_ml_metadata_for_lineage` skips the artifact lineage call (`queryExecutionInputsAndOutputs`), so a refusal of only that permission then no longer costs hyperparameters and metrics.
 
 :::
 

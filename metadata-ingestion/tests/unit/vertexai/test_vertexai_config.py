@@ -232,3 +232,14 @@ def test_rate_limit_creates_shared_rate_limiter() -> None:
     assert source.training_extractor.rate_limiter is source._rate_limiter
     assert source.pipeline_extractor.rate_limiter is source._rate_limiter
     assert source.experiment_extractor.rate_limiter is source._rate_limiter
+
+
+def test_platform_instance_map_refuses_an_env_that_does_not_exist() -> None:
+    with pytest.raises(ValueError, match="env must be one of"):
+        VertexAIConfig.model_validate(
+            {
+                "region": "us-central1",
+                "project_ids": ["project-1"],
+                "platform_instance_map": {"gcs": {"env": "NOT_AN_ENV"}},
+            }
+        )

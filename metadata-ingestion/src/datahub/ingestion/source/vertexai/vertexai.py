@@ -2,14 +2,7 @@ import logging
 from contextlib import AbstractContextManager, nullcontext
 from typing import Dict, Iterable, List, Literal, Optional, Union
 
-from google.api_core.exceptions import (
-    DeadlineExceeded,
-    GoogleAPICallError,
-    InvalidArgument,
-    PermissionDenied,
-    ServiceUnavailable,
-    Unauthenticated,
-)
+from google.api_core.exceptions import GoogleAPICallError
 from google.cloud import aiplatform, aiplatform_v1
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import Model
@@ -31,15 +24,11 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.gcp_errors import is_service_disabled
 from datahub.ingestion.source.common.gcp_project_filter import (
     GcpProjectFilterConfig,
     resolve_gcp_projects,
 )
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalSourceReport,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -52,10 +41,13 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     PLATFORM,
+    DetailCalls,
     ExternalURLs,
     MLMetadataDefaults,
     ResourceCategory,
     ResourceCategoryType,
+    ResourceKinds,
+    ResourceReads,
 )
 from datahub.ingestion.source.vertexai.vertexai_experiment_extractor import (
     VertexAIExperimentExtractor,
@@ -76,13 +68,24 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
 from datahub.ingestion.source.vertexai.vertexai_pipeline_extractor import (
     VertexAIPipelineExtractor,
 )
+from datahub.ingestion.source.vertexai.vertexai_read_ledger import ReadLedger
+from datahub.ingestion.source.vertexai.vertexai_report import VertexAISourceReport
+from datahub.ingestion.source.vertexai.vertexai_scope import (
+    CarryForward,
+    DetailResult,
+    ErrorKind,
+    Scope,
+    StoppedScopes,
+    classify_error,
+    scope_context,
+    urn_entity_name,
+)
 from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.ingestion.source.vertexai.vertexai_training_extractor import (
     VertexAITrainingExtractor,
 )
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     create_vertex_retry_without_429,
-    format_api_error_message,
     get_project_container,
     get_resource_category_container,
     patch_vertex_sdk_retry,
@@ -97,6 +100,13 @@ from datahub.utilities.ratelimiter import RateLimiter
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
+
+_MODEL_STEP_KINDS = [
+    ResourceKinds.MODEL,
+    ResourceKinds.MODEL_GROUP,
+    ResourceKinds.ENDPOINT,
+    ResourceKinds.MODEL_EVALUATION,
+]
 
 
 @platform_name("Vertex AI", id=PLATFORM)
@@ -128,7 +138,7 @@ class VertexAISource(StatefulIngestionSourceBase):
     def __init__(self, ctx: PipelineContext, config: VertexAIConfig):
         super().__init__(config, ctx)
         self.config = config
-        self.report: StaleEntityRemovalSourceReport = StaleEntityRemovalSourceReport()
+        self.report: VertexAISourceReport = VertexAISourceReport()
         self.model_usage_tracker = ModelUsageTracker()
 
         # Initialize state handler for incremental ingestion
@@ -138,8 +148,19 @@ class VertexAISource(StatefulIngestionSourceBase):
         )
 
         self._credentials = self._setup_credentials()
+        self._stopped = StoppedScopes(rate_limit_enabled=config.rate_limit)
+        self._carry = CarryForward(
+            state_provider=self.state_provider,
+            platform=self.platform,
+            platform_instance=config.platform_instance,
+            env=config.env,
+            report=self.report,
+        )
+        self._ledger = ReadLedger(report=self.report, stopped=self._stopped)
         self._projects = self._resolve_target_projects()
-        self._project_to_regions = self._resolve_project_regions()
+        # Resolved when the run starts: the stale-removal checkpoint that
+        # carry-forward writes to does not exist yet during __init__.
+        self._project_to_regions: Dict[str, List[str]] = {}
 
         self._current_project_id: Optional[str] = None
         self._current_region: Optional[str] = None
@@ -249,6 +270,10 @@ class VertexAISource(StatefulIngestionSourceBase):
             model_usage_tracker=self.model_usage_tracker,
             platform=self.platform,
             state_handler=self.state_handler,
+            report=self.report,
+            get_scope_fn=self._current_scope,
+            stopped_scopes=self._stopped,
+            carry_forward=self._carry,
             rate_limiter=self._rate_limiter,
         )
         self.experiment_extractor = VertexAIExperimentExtractor(
@@ -263,6 +288,8 @@ class VertexAISource(StatefulIngestionSourceBase):
             platform=self.platform,
             report=self.report,
             state_handler=self.state_handler,
+            get_scope_fn=self._current_scope,
+            stopped_scopes=self._stopped,
             rate_limiter=self._rate_limiter,
         )
         self.training_extractor = VertexAITrainingExtractor(
@@ -276,10 +303,13 @@ class VertexAISource(StatefulIngestionSourceBase):
             yield_common_aspects_fn=self._yield_common_aspects,
             gen_ml_model_mcps_fn=self._gen_ml_model_mcps,
             get_job_lineage_from_ml_metadata_fn=self._get_job_lineage_from_ml_metadata,
+            get_scope_fn=self._current_scope,
             platform=self.platform,
             report=self.report,
             state_handler=self.state_handler,
             model_usage_tracker=self.model_usage_tracker,
+            stopped_scopes=self._stopped,
+            carry_forward=self._carry,
             rate_limiter=self._rate_limiter,
         )
         self.model_extractor = VertexAIModelExtractor(
@@ -293,10 +323,14 @@ class VertexAISource(StatefulIngestionSourceBase):
             model_usage_tracker=self.model_usage_tracker,
             platform=self.platform,
             state_handler=self.state_handler,
+            report=self.report,
+            get_scope_fn=self._current_scope,
+            stopped_scopes=self._stopped,
+            carry_forward=self._carry,
             rate_limiter=self._rate_limiter,
         )
 
-    def get_report(self) -> StaleEntityRemovalSourceReport:
+    def get_report(self) -> VertexAISourceReport:
         return self.report
 
     def _yield_common_aspects(
@@ -336,40 +370,137 @@ class VertexAISource(StatefulIngestionSourceBase):
                 ),
             ).as_workunit()
 
+    def _current_scope(self) -> Scope:
+        return Scope(project=self._get_project_id(), region=self._get_region())
+
+    def _keep_project_entities(self, project_id: str) -> None:
+        self._carry.keep_project(project_id)
+        # Only these kinds name checkpointed entities: process instances never are.
+        self._carry.keep_kind(project_id, [*_MODEL_STEP_KINDS, ResourceKinds.DATASET])
+        self._keep_unscoped_entities(project_id)
+
+    def _keep_unscoped_entities(self, project_id: str) -> None:
+        # GUID containers, flows and jobs cannot be tied to a project, so a
+        # project that was ingested before keeps all of them.
+        self._carry.keep_all_containers(project_id)
+        self._carry.keep_all_flows(project_id)
+
+    def _report_project_unreadable(
+        self, project_id: str, exc: Optional[BaseException]
+    ) -> None:
+        self.report.failure(
+            title="Project could not be read",
+            message="Nothing could be read from this project. Its earlier entities are kept and not soft-deleted.",
+            context=scope_context(Scope(project=project_id), exc),
+            exc=exc,
+        )
+        self._keep_project_entities(project_id)
+
+    def _handle_project_error(self, project_id: str, exc: Exception) -> None:
+        # Discovery returns every project the account can see, with no check
+        # that the API is on or that a Vertex AI role is held, so a refusal of
+        # either kind on a discovered project is a warning, not a failure.
+        kind = classify_error(exc)
+        listed = bool(self.config.project_ids)
+        self.report.report_lost_read(
+            project_id,
+            scope_context(Scope(project=project_id), exc),
+            temporary=kind is ErrorKind.TRANSIENT,
+        )
+        if not listed and kind is ErrorKind.PROJECT_WIDE:
+            self.report.warning(
+                title="Project skipped: API not enabled or project invalid",
+                message="The Vertex AI API is disabled for this project, or the project is invalid; skipping it. Its earlier entities are kept.",
+                context=scope_context(Scope(project=project_id), exc),
+                exc=exc,
+            )
+            self._keep_project_entities(project_id)
+        elif not listed and kind is ErrorKind.REFUSED:
+            self.report.warning(
+                title="Project skipped: no Vertex AI access",
+                message="The service account has no Vertex AI role on this project; skipping it. Its earlier entities are kept. Grant a Vertex AI role or exclude the project with project_id_pattern.",
+                context=scope_context(Scope(project=project_id), exc),
+                exc=exc,
+            )
+            self._keep_project_entities(project_id)
+        else:
+            self._report_project_unreadable(project_id, exc)
+
+    def _keep_phase1_kind(self, project_id: str, resource_type: str) -> None:
+        if resource_type == ResourceReads.TRAINING_JOBS:
+            self._carry.keep_kind(project_id, [ResourceKinds.DATASET])
+        elif resource_type == ResourceReads.EXPERIMENTS:
+            self._carry.keep_all_containers(project_id)
+        elif resource_type == ResourceReads.PIPELINES:
+            self._carry.keep_all_flows(project_id)
+            self._carry.keep_all_containers(project_id)
+        else:
+            raise ValueError(f"Unknown phase 1 read: {resource_type}")
+
+    def _keep_lost_phase1(self, project_id: str, region: str) -> None:
+        for resource_type in self._ledger.lost_phase1_kinds(project_id, region):
+            self._keep_phase1_kind(project_id, resource_type)
+
+    def _hold_back_pending_lineage(self, project_id: str) -> None:
+        """Links tracked for a held-back model stay in the tracker, but no
+        lineage-only write may replace the model's stored properties."""
+        prefix = f"{project_id}."
+        self.model_usage_tracker.skip_pending_lineage(
+            [
+                urn
+                for urn in self.model_usage_tracker.get_pending_lineage_urns()
+                if (urn_entity_name(urn) or "").startswith(prefix)
+            ]
+        )
+
+    def _keep_model_step(self, project_id: str) -> None:
+        self._carry.keep_kind(project_id, _MODEL_STEP_KINDS)
+        self._carry.keep_all_containers(project_id)
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        self._project_to_regions = self._resolve_project_regions()
         for project_id in self._projects:
+            if not self._project_to_regions.get(project_id):
+                continue
             self._current_project_id = project_id
             try:
                 yield from self._gen_workunits_for_project(project_id)
-            except PermissionDenied as e:
-                if not is_service_disabled(e):
-                    raise
-                self.report.warning(
-                    title="Agent Platform API not enabled for project",
-                    message="The Agent Platform (formerly Vertex AI) API is disabled for this project; skipping it entirely.",
-                    context=f"project={project_id}",
-                    exc=e,
-                )
+            except Exception as e:
+                self._handle_project_error(project_id, e)
+                self._ledger.record_lost_reads(project_id)
+        # Flushing runs on this thread and a pass costs every earlier URN, so it
+        # runs once, before the stale-removal diff that follows the stream.
+        self._carry.flush()
 
     def _gen_workunits_for_project(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         """Emit all workunits for a single project across its configured regions.
 
         The first resource is fetched before any container is emitted, so a project
-        with a disabled API fails before emitting orphan containers.
+        whose every read failed emits no orphan containers.
         """
         resources = iter(self._gen_project_resource_workunits(project_id))
         first = next(resources, None)
-        yield from self._gen_project_workunits()
+        # With nothing yielded, the reads are already all done.
+        if first is not None or not self._ledger.every_read_failed(project_id):
+            yield from self._gen_project_workunits()
         if first is not None:
             yield first
             yield from resources
+        if self._ledger.every_read_failed(project_id):
+            self._handle_project_error(
+                project_id, self._ledger.representative_error(project_id)
+            )
+        else:
+            self._ledger.report_lost_reads(
+                project_id, listed=bool(self.config.project_ids)
+            )
+        self._ledger.record_lost_reads(project_id)
 
     def _gen_project_resource_workunits(
         self, project_id: str
     ) -> Iterable[MetadataWorkUnit]:
         """Fetch resource workunits for a project across its configured regions."""
         regions = self._project_to_regions.get(project_id, [self._get_region()])
-        # Experiments are project-scoped, so extract them only for the first region
         first_region = True
         for region in regions:
             logger.info(
@@ -411,30 +542,29 @@ class VertexAISource(StatefulIngestionSourceBase):
                         metadata_client=self._metadata_client,
                         config=ml_metadata_config,
                         uri_parser=self.uri_parser,
+                        report=self.report,
+                        stopped_scopes=self._stopped,
+                        scope=self._current_scope,
                         rate_limiter=self._rate_limiter,
                     )
-                except (
-                    PermissionDenied,
-                    Unauthenticated,
-                    DeadlineExceeded,
-                    ServiceUnavailable,
-                    InvalidArgument,
-                    ValueError,
-                    GoogleAPICallError,
-                ) as e:
-                    error_type = type(e).__name__
-                    if isinstance(e, (PermissionDenied, Unauthenticated)):
-                        reason = "permission issue"
-                    elif isinstance(e, (DeadlineExceeded, ServiceUnavailable)):
-                        reason = "timeout or service unavailable"
-                    elif isinstance(e, InvalidArgument):
-                        reason = "invalid configuration"
-                    elif isinstance(e, ValueError):
-                        reason = "configuration error"
-                    else:
-                        reason = "API error"
-                    logger.warning(
-                        f"Failed to initialize ML Metadata client for project {project_id} region {region} due to {reason} | cause={error_type}: {e}"
+                except (GoogleAPICallError, ValueError) as e:
+                    self.report.warning(
+                        title="ML Metadata client could not be created",
+                        message="The ML Metadata client could not be created, so training jobs in this region are written without hyperparameters, metrics or ML Metadata lineage.",
+                        context=scope_context(
+                            Scope(
+                                project=project_id,
+                                region=region,
+                                kind=DetailCalls.ML_METADATA,
+                            ),
+                            e,
+                        ),
+                        exc=e,
+                    )
+                    self._stopped.lost(
+                        Scope(project_id, region, kind=DetailCalls.ML_METADATA),
+                        classify_error(e),
+                        e,
                     )
                     self._metadata_client = None
                     self._ml_metadata_helper = None
@@ -443,13 +573,17 @@ class VertexAISource(StatefulIngestionSourceBase):
             # These write to model_usage_tracker; models read from it in Phase 2.
             phase1_resources = []
             if self.config.include_training_jobs:
-                phase1_resources.append(("training_jobs",))
-            # experiments/experiment_runs are project-scoped, only extract once
+                phase1_resources.append((ResourceReads.TRAINING_JOBS,))
+            # Experiments are project-scoped, so only the first region reads them.
             if first_region and self.config.include_experiments:
-                phase1_resources.append(("experiments",))
+                phase1_resources.append((ResourceReads.EXPERIMENTS,))
             if self.config.include_pipelines:
-                phase1_resources.append(("pipelines",))
+                phase1_resources.append((ResourceReads.PIPELINES,))
 
+            phase1_args = [
+                (resource_type, project_id, region)
+                for (resource_type,) in phase1_resources
+            ]
             if not get_vertexai_disable_parallelism() and len(phase1_resources) > 1:
                 max_workers = len(phase1_resources)
                 logger.info(
@@ -459,15 +593,52 @@ class VertexAISource(StatefulIngestionSourceBase):
                     max_workers,
                 )
                 yield from ThreadedIteratorExecutor.process(
-                    worker_func=self._fetch_phase1_resource,
-                    args_list=phase1_resources,
+                    worker_func=self._read_phase1_resource,
+                    args_list=phase1_args,
                     max_workers=max_workers,
                 )
             else:
-                for (resource_type,) in phase1_resources:
-                    yield from self._fetch_phase1_resource(resource_type)
+                for args in phase1_args:
+                    yield from self._read_phase1_resource(*args)
+            self._keep_lost_phase1(project_id, region)
 
             # Phase 2: Models must come AFTER Phase 1 (reads model_usage_tracker).
+            if self.config.include_models or self.config.include_evaluations:
+                held_back_by = self._ledger.hold_back_error(project_id, region)
+                if held_back_by is not None:
+                    self._lose_model_step(project_id, region, held_back_by)
+                else:
+                    yield from self._gen_model_step_workunits(project_id, region)
+
+            if self._ledger.project_wide_error(project_id) is not None:
+                # No region can get past this, so the rest are not read at all.
+                if region != regions[-1]:
+                    self._keep_unread_regions(project_id, first_region=first_region)
+                break
+
+            first_region = False
+
+    def _keep_unread_regions(self, project_id: str, first_region: bool) -> None:
+        if self.config.include_training_jobs:
+            self._keep_phase1_kind(project_id, ResourceReads.TRAINING_JOBS)
+        if first_region and self.config.include_experiments:
+            self._keep_phase1_kind(project_id, ResourceReads.EXPERIMENTS)
+        if self.config.include_pipelines:
+            self._keep_phase1_kind(project_id, ResourceReads.PIPELINES)
+        if self.config.include_models or self.config.include_evaluations:
+            self._keep_model_step(project_id)
+
+    def _lose_model_step(self, project_id: str, region: str, exc: Exception) -> None:
+        self._ledger.record_read(project_id, region, ResourceReads.MODELS, error=exc)
+        self._hold_back_pending_lineage(project_id)
+        self._keep_model_step(project_id)
+
+    def _gen_model_step_workunits(
+        self, project_id: str, region: str
+    ) -> Iterable[MetadataWorkUnit]:
+        # Runs on the main thread, so a failure here costs only this region's
+        # model step. Item and detail failures are decided inside the extractor.
+        try:
             if self.config.include_models:
                 yield from auto_workunit(self.model_extractor.get_model_workunits())
 
@@ -482,9 +653,24 @@ class VertexAISource(StatefulIngestionSourceBase):
                 yield from auto_workunit(
                     self.model_extractor.get_evaluation_workunits()
                 )
+        except Exception as e:
+            self._lose_model_step(project_id, region, e)
+        else:
+            self._ledger.record_read(project_id, region, ResourceReads.MODELS)
 
-            # Mark that we've processed the first region
-            first_region = False
+    def _read_phase1_resource(
+        self, resource_type: str, project_id: str, region: str
+    ) -> Iterable[MetadataWorkUnit]:
+        # Runs in a worker thread: it must never let an exception escape, or the
+        # executor drops the sibling workers' output.
+        try:
+            for workunit in self._fetch_phase1_resource(resource_type):
+                self._ledger.record_wrote_output(project_id, region, resource_type)
+                yield workunit
+        except Exception as e:
+            self._ledger.record_read(project_id, region, resource_type, error=e)
+        else:
+            self._ledger.record_read(project_id, region, resource_type)
 
     def _fetch_phase1_resource(self, resource_type: str) -> Iterable[MetadataWorkUnit]:
         """Fetch a single Phase 1 resource type (training jobs, experiments, or pipelines).
@@ -493,14 +679,14 @@ class VertexAISource(StatefulIngestionSourceBase):
         get_experiment_workunits() sets state that get_experiment_run_workunits() reads,
         so they must run sequentially in the same thread.
         """
-        if resource_type == "training_jobs":
+        if resource_type == ResourceReads.TRAINING_JOBS:
             yield from auto_workunit(self.training_extractor.get_workunits())
-        elif resource_type == "experiments":
+        elif resource_type == ResourceReads.EXPERIMENTS:
             yield from self.experiment_extractor.get_experiment_workunits()
             yield from auto_workunit(
                 self.experiment_extractor.get_experiment_run_workunits()
             )
-        elif resource_type == "pipelines":
+        elif resource_type == ResourceReads.PIPELINES:
             yield from auto_workunit(self.pipeline_extractor.get_workunits())
 
     def _gen_project_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -539,17 +725,7 @@ class VertexAISource(StatefulIngestionSourceBase):
         )
 
     def _generate_resource_category_containers(self) -> Iterable[MetadataWorkUnit]:
-        categories = [
-            ResourceCategory.MODELS,
-            ResourceCategory.TRAINING_JOBS,
-            ResourceCategory.DATASETS,
-            ResourceCategory.ENDPOINTS,
-            ResourceCategory.PIPELINES,
-            ResourceCategory.EXPERIMENTS,
-            ResourceCategory.EVALUATIONS,
-        ]
-
-        for category in categories:
+        for category in ResourceCategory.all():
             category_key = self._get_resource_category_container(category)
             yield from gen_containers(
                 parent_container_key=self._get_project_container(),
@@ -572,13 +748,12 @@ class VertexAISource(StatefulIngestionSourceBase):
         """Discover available Vertex AI regions for a project using Locations API."""
         try:
             client = aiplatform_v1.PipelineServiceClient(
-                client_options={"api_endpoint": "aiplatform.googleapis.com"}
+                client_options={"api_endpoint": "aiplatform.googleapis.com"},
+                credentials=self._credentials,
             )
-            locations = client.list_locations(
-                request={"name": f"projects/{project_id}"}
-            )
+            response = client.list_locations(request={"name": f"projects/{project_id}"})
             discovered: List[str] = []
-            for loc in locations:
+            for loc in response.locations:
                 # loc.name like projects/{project}/locations/{region}
                 try:
                     parts = loc.name.split("/")
@@ -590,16 +765,30 @@ class VertexAISource(StatefulIngestionSourceBase):
                         f"Failed to parse region from location name '{loc.name}' for project {project_id} | cause={type(e).__name__}: {e}"
                     )
                     continue
+            if not discovered:
+                raise ValueError("The location list holds no usable region")
             return discovered
-        except GoogleAPICallError as e:
-            logger.warning(
-                f"{format_api_error_message(e, f'discovering Vertex AI regions for project {project_id}', 'project', project_id)}; falling back to configured region(s)"
-            )
+        except Exception as e:
+            if self.config.region:
+                self.report.warning(
+                    title="Region discovery failed",
+                    message="Could not list regions (needs aiplatform.locations.list); using the configured region instead. List `regions` in the recipe to skip discovery.",
+                    context=scope_context(Scope(project=project_id), e),
+                    exc=e,
+                )
+                self._stopped.lost(
+                    Scope(project_id, kind=DetailCalls.REGION_DISCOVERY),
+                    classify_error(e),
+                    e,
+                )
+                self._keep_project_entities(project_id)
+            else:
+                self._handle_project_error(project_id, e)
             return []
 
     def _get_job_lineage_from_ml_metadata(
         self, job: VertexAiResourceNoun
-    ) -> Optional[LineageMetadata]:
+    ) -> Optional[DetailResult[Optional[LineageMetadata]]]:
         if not self._ml_metadata_helper:
             return None
         return self._ml_metadata_helper.get_job_lineage_metadata(job)

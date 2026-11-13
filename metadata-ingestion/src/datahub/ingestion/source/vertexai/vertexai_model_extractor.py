@@ -1,13 +1,14 @@
 import logging
 import types
 from contextlib import AbstractContextManager, nullcontext
+from functools import partial
 from numbers import Real
 from operator import attrgetter
 from typing import Callable, Dict, Iterable, List, Optional, Union
 
 from google.cloud.aiplatform import Endpoint, ModelEvaluation
 from google.cloud.aiplatform.models import Model, VersionInfo
-from google.cloud.aiplatform_v1.types import ListModelVersionsRequest
+from google.cloud.aiplatform_v1.types import DeployedModel, ListModelVersionsRequest
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -22,10 +23,11 @@ from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     CREATE_TIME_FIELD,
     ORDER_BY_UPDATE_TIME_DESC,
-    VERSION_ID_FIELD,
     VERSION_SORT_ID_PADDING,
+    DetailCalls,
     MLModelType,
     ResourceCategory,
+    ResourceKinds,
     ResourceTypes,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
@@ -37,12 +39,20 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     ModelUsageTracker,
     YieldCommonAspectsProtocol,
 )
+from datahub.ingestion.source.vertexai.vertexai_report import VertexAISourceReport
+from datahub.ingestion.source.vertexai.vertexai_scope import (
+    CarryForward,
+    DetailReader,
+    DetailResult,
+    Scope,
+    StoppedScopes,
+    read_list_item,
+)
 from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     filter_by_update_time,
     gen_resource_subfolder_container,
     get_actor_from_labels,
-    handle_google_api_errors,
     log_checkpoint_time,
     log_progress,
     rate_limited_gapic_list,
@@ -68,6 +78,9 @@ from datahub.utilities.time import datetime_to_ts_millis
 logger = logging.getLogger(__name__)
 
 
+_MODEL_KEEP_CALLS = (DetailCalls.MODEL_LOOKUP, DetailCalls.ENDPOINT_LIST)
+
+
 class VertexAIModelExtractor:
     def __init__(
         self,
@@ -81,6 +94,10 @@ class VertexAIModelExtractor:
         model_usage_tracker: ModelUsageTracker,
         platform: str,
         state_handler: VertexAIStateHandler,
+        report: VertexAISourceReport,
+        get_scope_fn: Callable[[], Scope],
+        stopped_scopes: StoppedScopes,
+        carry_forward: CarryForward,
         rate_limiter: Union[RateLimiter, AbstractContextManager[None]] = nullcontext(),
     ):
         self.config = config
@@ -94,14 +111,21 @@ class VertexAIModelExtractor:
         self.platform = platform
         self.state_handler = state_handler
         self.rate_limiter = rate_limiter
+        self.report = report
+        self._get_scope = get_scope_fn
+        self._stopped = stopped_scopes
+        self._carry = carry_forward
+        self._read_detail = DetailReader(report, stopped_scopes, get_scope_fn)
 
         self.endpoints: Optional[Dict[str, List[Endpoint]]] = None
+        self._endpoints_keep_previous = False
         self._models_cache: Optional[List[Model]] = None
 
     def reset_regional_caches(self) -> None:
         """Clear the cached models and endpoints, which are region-specific."""
         self._models_cache = None
         self.endpoints = None
+        self._endpoints_keep_previous = False
 
     def _list_versions(self, model: Model) -> List[VersionInfo]:
         registry = model.versioning_registry
@@ -122,6 +146,13 @@ class VertexAIModelExtractor:
             for m in pager
         ]
 
+    def _read_versions(self, model: Model) -> DetailResult[List[VersionInfo]]:
+        return self._read_detail(
+            DetailCalls.MODEL_LOOKUP,
+            lambda: self._list_versions(model),
+            item=model.name,
+        )
+
     def _list_models(self) -> List:
         if self._models_cache is None:
             self._models_cache = rate_limited_gapic_list(
@@ -130,6 +161,20 @@ class VertexAIModelExtractor:
                 order_by=ORDER_BY_UPDATE_TIME_DESC,
             )
         return self._models_cache
+
+    def _keep_model(self, model: Model) -> None:
+        """Keeps a model's earlier versions, its group and the deployments that
+        serve it, and bars lineage-only writes for them: a model group and a
+        model version are replaced in full."""
+        model_name = self.name_formatter.format_model_name(entity_id=model.name)
+        group_urn = self.urn_builder.make_ml_model_group_urn(model)
+        self._carry.keep_model_versions(model_name)
+        self._carry.keep_urn(group_urn)
+        # Deployments are written only from a written version. A lost endpoint
+        # list keeps every deployment of the project as it loads.
+        for deployment_urn in self._build_endpoint_urns(self._search_endpoint(model)):
+            self._carry.keep_urn(deployment_urn)
+        self.model_usage_tracker.skip_pending_lineage_of_model(model_name, group_urn)
 
     def get_model_workunits(self) -> Iterable[MetadataWorkUnit]:
         logger.info("Fetching Models from Vertex AI")
@@ -159,18 +204,19 @@ class VertexAIModelExtractor:
 
             yield from self._gen_ml_group_container(model)
 
-            model_versions = self._list_versions(model)
-            for model_version in model_versions:
-                total_versions += 1
-                log_progress(total_versions, None, "model versions")
-                logger.debug(
-                    f"Ingesting model version (name: {model.display_name} id:{model.name} version:{model_version.version_id})"
-                )
-                yield from self._get_ml_model_mcps(
-                    model=model, model_version=model_version
-                )
+            model_versions = self._versions_to_write(model)
+            if model_versions is not None:
+                for model_version in model_versions:
+                    total_versions += 1
+                    log_progress(total_versions, None, "model versions")
+                    logger.debug(
+                        f"Ingesting model version (name: {model.display_name} id:{model.name} version:{model_version.version_id})"
+                    )
+                    yield from self._get_ml_model_mcps(
+                        model=model, model_version=model_version
+                    )
 
-            yield from self._gen_ml_group_properties(model)
+                yield from self._gen_ml_group_properties(model)
 
             if (
                 self.config.max_models is not None
@@ -182,6 +228,22 @@ class VertexAIModelExtractor:
             logger.info(
                 f"Finished processing {total_versions} model versions from Vertex AI"
             )
+
+    def _versions_to_write(self, model: Model) -> Optional[List[VersionInfo]]:
+        """The model's versions, or None when its stored versions and group stay
+        as they were: without the versions, or the deployments each version
+        lists, they cannot be written."""
+        if self._stopped.any_transient(self._get_scope(), _MODEL_KEEP_CALLS):
+            self.report.report_item_kept_after_stop()
+            versions = None
+        else:
+            versions = self._read_versions(model).value
+            if versions:
+                self._load_endpoints()
+        if versions is None or (versions and self._endpoints_keep_previous):
+            self._keep_model(model)
+            return None
+        return versions
 
     def get_evaluation_workunits(self) -> Iterable[MetadataWorkUnit]:
         logger.info("Fetching Models for evaluation extraction from Vertex AI")
@@ -199,47 +261,54 @@ class VertexAIModelExtractor:
             if not self.config.model_name_pattern.allowed(model.display_name or ""):
                 continue
 
-            with handle_google_api_errors(
-                "fetch model evaluations", "model", model.name
-            ):
-                evaluations: List[ModelEvaluation] = rate_limited_gapic_list(
-                    ModelEvaluation, self.rate_limiter, parent=model.resource_name
+            result = self._read_evaluations(model)
+            if result.value is None:
+                # Nothing else writes evaluations, so the earlier ones are kept.
+                self._carry.keep_kind(
+                    self._get_scope().project, [ResourceKinds.MODEL_EVALUATION]
+                )
+                continue
+            evaluations = result.value
+            evaluations.sort(key=attrgetter(CREATE_TIME_FIELD), reverse=True)
+
+            if last_checkpoint_millis:
+                evaluations = filter_by_update_time(
+                    evaluations,
+                    last_checkpoint_millis,
+                    time_field="create_time",
+                    resource_type="model evaluations",
                 )
 
-                evaluations.sort(key=attrgetter(CREATE_TIME_FIELD), reverse=True)
+            if self.config.max_evaluations_per_model is not None:
+                evaluations = evaluations[: self.config.max_evaluations_per_model]
 
-                if last_checkpoint_millis:
-                    evaluations = filter_by_update_time(
-                        evaluations,
-                        last_checkpoint_millis,
-                        time_field="create_time",
-                        resource_type="model evaluations",
+            for evaluation in evaluations:
+                if hasattr(evaluation, CREATE_TIME_FIELD) and evaluation.create_time:
+                    self.state_handler.update_resource_timestamp(
+                        ResourceTypes.MODEL_EVALUATION,
+                        int(evaluation.create_time.timestamp() * 1000),
                     )
 
-                if self.config.max_evaluations_per_model is not None:
-                    evaluations = evaluations[: self.config.max_evaluations_per_model]
-
-                for evaluation in evaluations:
-                    if (
-                        hasattr(evaluation, CREATE_TIME_FIELD)
-                        and evaluation.create_time
-                    ):
-                        self.state_handler.update_resource_timestamp(
-                            ResourceTypes.MODEL_EVALUATION,
-                            int(evaluation.create_time.timestamp() * 1000),
-                        )
-
-                    total_evaluations += 1
-                    log_progress(total_evaluations, None, "model evaluations")
-                    logger.debug(
-                        f"Ingesting evaluation for model {model.display_name}: {evaluation.name}"
-                    )
-                    yield from self._gen_model_evaluation_mcps(model, evaluation)
+                total_evaluations += 1
+                log_progress(total_evaluations, None, "model evaluations")
+                logger.debug(
+                    f"Ingesting evaluation for model {model.display_name}: {evaluation.name}"
+                )
+                yield from self._gen_model_evaluation_mcps(model, evaluation)
 
         if total_evaluations > 0:
             logger.info(
                 f"Finished processing {total_evaluations} model evaluations from Vertex AI"
             )
+
+    def _read_evaluations(self, model: Model) -> DetailResult[List[ModelEvaluation]]:
+        return self._read_detail(
+            DetailCalls.EVALUATION_LOOKUP,
+            lambda: rate_limited_gapic_list(
+                ModelEvaluation, self.rate_limiter, parent=model.resource_name
+            ),
+            item=model.name,
+        )
 
     def emit_pending_lineage_updates(self) -> Iterable[MetadataWorkUnit]:
         """
@@ -347,32 +416,6 @@ class VertexAIModelExtractor:
             logger.warning(f"Failed to extract evaluation metrics: {e}", exc_info=True)
 
         return metrics
-
-    def _get_evaluation_model_urn(self, model: Model) -> str:
-        try:
-            with handle_google_api_errors(
-                "get model versions", "model", model.name, log_level="debug"
-            ):
-                versions: List[VersionInfo] = self._list_versions(model)
-                if versions:
-                    latest_version = max(versions, key=attrgetter(VERSION_ID_FIELD))
-                    model_name = self.name_formatter.format_model_name(
-                        entity_id=model.name
-                    )
-                    return self.urn_builder.make_ml_model_urn(
-                        latest_version, model_name
-                    )
-        except AttributeError as e:
-            logger.debug(
-                f"Could not get versioned URN for model {model.name} (versioning not available), using simple URN | resource_type=model | resource_name={model.name} | cause={type(e).__name__}: {e}"
-            )
-
-        model_name = self.name_formatter.format_model_name(entity_id=model.name)
-        return builder.make_ml_model_urn(
-            platform=self.platform,
-            model_name=model_name,
-            env=self.config.env,
-        )
 
     def _gen_model_evaluation_mcps(
         self, model: Model, evaluation: ModelEvaluation
@@ -722,20 +765,44 @@ class VertexAIModelExtractor:
         )
         return version_set_urn
 
-    def _search_endpoint(self, model: Model) -> List[Endpoint]:
+    def _list_deployed(self, endpoint: Endpoint) -> List[DeployedModel]:
+        with self.rate_limiter:
+            return endpoint.list_models()
+
+    def _read_endpoints(self) -> Dict[str, List[Endpoint]]:
+        endpoint_dict: Dict[str, List[Endpoint]] = {}
+        all_endpoints: List[Endpoint] = rate_limited_gapic_list(
+            self.client.Endpoint, self.rate_limiter
+        )
+        scope = self._get_scope()
+        for endpoint in all_endpoints:
+            deployed = read_list_item(
+                Scope(project=scope.project, region=scope.region, item=endpoint.name),
+                partial(self._list_deployed, endpoint),
+                report=self.report,
+                stopped=self._stopped,
+                call_kind=DetailCalls.ENDPOINT_LIST,
+            )
+            if deployed is None:
+                for deployment_urn in self._build_endpoint_urns([endpoint]):
+                    self._carry.keep_urn(deployment_urn)
+                continue
+            for resource in deployed:
+                endpoint_dict.setdefault(resource.model, []).append(endpoint)
+        return endpoint_dict
+
+    def _load_endpoints(self) -> None:
         if self.endpoints is None:
             logger.info("Fetching Endpoints from Vertex AI")
-            endpoint_dict: Dict[str, List[Endpoint]] = {}
-            all_endpoints = rate_limited_gapic_list(
-                self.client.Endpoint, self.rate_limiter
+            listed = self._read_detail.region_list(
+                DetailCalls.ENDPOINT_LIST,
+                self._read_endpoints,
+                ResourceKinds.ENDPOINT,
+                self._carry,
             )
-            for endpoint in all_endpoints:
-                with self.rate_limiter:
-                    deployed = endpoint.list_models()
-                for resource in deployed:
-                    if resource.model not in endpoint_dict:
-                        endpoint_dict[resource.model] = []
-                    endpoint_dict[resource.model].append(endpoint)
-            self.endpoints = endpoint_dict
+            self.endpoints = listed.value or {}
+            self._endpoints_keep_previous = listed.keep_previous
 
-        return self.endpoints.get(model.resource_name, [])
+    def _search_endpoint(self, model: Model) -> List[Endpoint]:
+        self._load_endpoints()
+        return (self.endpoints or {}).get(model.resource_name, [])

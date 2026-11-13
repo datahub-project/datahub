@@ -17,7 +17,8 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     ResourceCategoryType,
 )
 from datahub.metadata.schema_classes import EdgeClass, MLHyperParamClass, MLMetricClass
-from datahub.metadata.urns import DataFlowUrn, DataJobUrn
+from datahub.metadata.urns import DataFlowUrn, DataJobUrn, MlModelUrn
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -78,12 +79,6 @@ class ExecutionMetadata(BaseModel):
     execution_name: str
     hyperparams: List[MLHyperParamClass] = Field(default_factory=list)
     metrics: List[MLMetricClass] = Field(default_factory=list)
-    input_artifact_urns: List[str] = Field(
-        default_factory=list
-    )  # Can be DatasetUrn or MlModelUrn
-    output_artifact_urns: List[str] = Field(
-        default_factory=list
-    )  # Can be DatasetUrn or MlModelUrn
     custom_properties: Dict[str, str] = Field(default_factory=dict)
 
 
@@ -150,6 +145,8 @@ class TrainingJobMetadata(BaseModel):
     output_model_version: Optional[Annotated[VersionInfo, SkipValidation()]] = None
     external_input_urns: Optional[List[str]] = None
     external_output_urns: Optional[List[str]] = None
+    # A detail was unreadable for now: the job is not written, its previous version stays.
+    keep_previous: bool = False
     lineage: Optional[LineageMetadata] = None
 
 
@@ -201,9 +198,9 @@ class ExperimentRunMetadata(BaseModel):
 class PipelineTaskArtifacts(BaseModel):
     """Artifacts (datasets and models) for a pipeline task."""
 
-    input_dataset_urns: Optional[List[str]] = None
-    output_dataset_urns: Optional[List[str]] = None
-    output_model_resource_names: Optional[List[str]] = None
+    input_dataset_urns: List[str] = Field(default_factory=list)
+    output_dataset_urns: List[str] = Field(default_factory=list)
+    output_model_resource_names: List[str] = Field(default_factory=list)
 
 
 class PipelineTaskMetadata(BaseModel):
@@ -436,6 +433,15 @@ class PendingResourceUsage(BaseModel):
             self.downstream_job_urns.append(job_urn)
 
 
+def model_version_base(urn: str) -> Optional[str]:
+    """The model name of a model version URN, whose name ends in an underscore
+    and a numeric version ID; None for any other URN."""
+    if guess_entity_type(urn) != MlModelUrn.ENTITY_TYPE:
+        return None
+    base, _, version = MlModelUrn.from_string(urn).name.rpartition("_")
+    return base if version.isdecimal() else None
+
+
 class ModelUsageTracker(BaseModel):
     """Tracks ML Model and ML Model Group lineage relationships with DataJobs."""
 
@@ -444,10 +450,15 @@ class ModelUsageTracker(BaseModel):
     relationships: Dict[str, ModelLineageRelationships] = Field(default_factory=dict)
     pending_resources: Dict[str, PendingResourceUsage] = Field(default_factory=dict)
     emitted_urns: Set[str] = Field(default_factory=set)
+    skipped_lineage_urns: Set[str] = Field(default_factory=set)
+    version_urns_by_model: Dict[str, Set[str]] = Field(default_factory=dict)
 
     def _get_or_create_relationships(self, urn: str) -> ModelLineageRelationships:
         if urn not in self.relationships:
             self.relationships[urn] = ModelLineageRelationships()
+            model_name = model_version_base(urn)
+            if model_name is not None:
+                self.version_urns_by_model.setdefault(model_name, set()).add(urn)
         return self.relationships[urn]
 
     def _get_or_create_pending(self, resource_name: str) -> PendingResourceUsage:
@@ -521,6 +532,15 @@ class ModelUsageTracker(BaseModel):
         """Mark a URN as having been emitted (to avoid duplicates in incremental mode)."""
         self.emitted_urns.add(urn)
 
+    def skip_pending_lineage(self, urns: List[str]) -> None:
+        """Keep tracking these URNs' links but never report them as pending."""
+        self.skipped_lineage_urns.update(urns)
+
+    def skip_pending_lineage_of_model(self, model_name: str, group_urn: str) -> None:
+        """Skips the tracked links of every version of a model and of its group."""
+        tracked = [group_urn, *self.version_urns_by_model.get(model_name, ())]
+        self.skip_pending_lineage([urn for urn in tracked if urn in self.relationships])
+
     def get_pending_lineage_urns(self) -> List[str]:
         """
         Get all URNs with tracked lineage that haven't been emitted yet.
@@ -530,6 +550,7 @@ class ModelUsageTracker(BaseModel):
             urn
             for urn in self.relationships
             if urn not in self.emitted_urns
+            and urn not in self.skipped_lineage_urns
             and (
                 self.relationships[urn].downstream_jobs
                 or self.relationships[urn].training_jobs

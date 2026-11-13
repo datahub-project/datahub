@@ -1,13 +1,12 @@
 import functools
 import inspect
 import logging
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import AbstractContextManager
 from datetime import datetime, timezone
 from typing import (
     Any,
     Dict,
     Iterable,
-    Iterator,
     List,
     Optional,
     Protocol,
@@ -17,15 +16,7 @@ from typing import (
 )
 
 from google.api_core import retry as api_retry
-from google.api_core.exceptions import (
-    DeadlineExceeded,
-    GoogleAPICallError,
-    NotFound,
-    PermissionDenied,
-    ResourceExhausted,
-    ServiceUnavailable,
-    Unauthenticated,
-)
+from google.api_core.exceptions import ResourceExhausted
 from google.cloud.aiplatform import initializer as vertex_initializer
 
 import datahub.emitter.mce_builder as builder
@@ -278,59 +269,6 @@ def gen_browse_path_from_container(container_key: ContainerKey) -> BrowsePathsV2
         browse_path.insert(0, BrowsePathEntryClass(id=container_urn, urn=container_urn))
         current_container = current_container.parent_key()
     return BrowsePathsV2Class(path=browse_path)
-
-
-def format_api_error_message(
-    error: Exception,
-    operation: str,
-    resource_type: Optional[str] = None,
-    resource_name: Optional[str] = None,
-    *,
-    custom_message: Optional[str] = None,
-) -> str:
-    """Format a Google API error message; custom_message overrides the default."""
-    error_type = type(error).__name__
-
-    if custom_message:
-        msg = custom_message
-    elif isinstance(error, (PermissionDenied, Unauthenticated)):
-        msg = f"Permission denied while {operation}"
-    elif isinstance(error, ResourceExhausted):
-        msg = f"API quota exceeded while {operation}"
-    elif isinstance(error, (DeadlineExceeded, ServiceUnavailable)):
-        msg = f"Timeout or service unavailable while {operation}"
-    elif isinstance(error, NotFound):
-        msg = f"{operation} not found"
-    else:
-        msg = f"Error while {operation}"
-
-    if resource_type and resource_name:
-        msg += f" | resource_type={resource_type} | resource_name={resource_name}"
-    msg += f" | cause={error_type}: {error}"
-
-    return msg
-
-
-@contextmanager
-def handle_google_api_errors(
-    operation: str,
-    resource_type: Optional[str] = None,
-    resource_name: Optional[str] = None,
-    log_level: str = "warning",
-) -> Iterator[None]:
-    """Suppress Google API exceptions and log them."""
-    try:
-        yield
-    except NotFound as e:
-        logger.debug(
-            format_api_error_message(e, operation, resource_type, resource_name)
-        )
-    except GoogleAPICallError as e:
-        msg = format_api_error_message(e, operation, resource_type, resource_name)
-        if log_level == "debug":
-            logger.debug(msg)
-        else:
-            logger.warning(msg)
 
 
 def log_checkpoint_time(checkpoint_millis: int, resource_type: str) -> None:

@@ -1,29 +1,41 @@
 import logging
 from contextlib import AbstractContextManager, nullcontext
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Union
+from functools import partial
+from typing import (
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    TypeVar,
+    Union,
+)
 
-from google.api_core.exceptions import GoogleAPICallError, NotFound
-from google.cloud.aiplatform import ExperimentRun, initializer as vertex_initializer
+from google.api_core.exceptions import NotFound
+from google.cloud.aiplatform import (
+    CustomJob,
+    ExperimentRun,
+    initializer as vertex_initializer,
+)
 from google.cloud.aiplatform.metadata import (
     constants as metadata_constants,
     utils as metadata_utils,
 )
+from google.cloud.aiplatform.metadata.artifact import Artifact
 from google.cloud.aiplatform.metadata.context import Context as MetadataContext
 from google.cloud.aiplatform.metadata.execution import (
     Execution as MetadataExecution,
 )
 from google.cloud.aiplatform.metadata.experiment_resources import Experiment
-from google.cloud.aiplatform_v1.types import Artifact, Execution
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalSourceReport,
-)
 from datahub.ingestion.source.vertexai.vertexai_builder import (
     VertexAIExternalURLBuilder,
     VertexAINameFormatter,
@@ -32,7 +44,9 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 )
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
+    DetailCalls,
     ResourceCategory,
+    ResourceReads,
     ResourceTypes,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
@@ -42,9 +56,17 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     RunTimestamps,
     YieldCommonAspectsProtocol,
 )
+from datahub.ingestion.source.vertexai.vertexai_report import VertexAISourceReport
 from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     get_execution_result_status,
     is_status_for_run_event_class,
+)
+from datahub.ingestion.source.vertexai.vertexai_scope import (
+    DetailReader,
+    Scope,
+    StoppedScopes,
+    read_list_item,
+    scope_context,
 )
 from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.ingestion.source.vertexai.vertexai_utils import (
@@ -77,6 +99,34 @@ from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
 
+T = TypeVar("T")
+
+_RUN_CALL_KINDS = (
+    DetailCalls.EXPERIMENT_RUN_EXECUTIONS,
+    DetailCalls.EXPERIMENT_RUN_LOGGED_JOBS,
+    DetailCalls.EXPERIMENT_RUN_DETAIL,
+)
+
+
+@dataclass
+class _RunState:
+    state: str
+    params: List[MLHyperParamClass]
+    metrics: List[MLMetricClass]
+
+
+@dataclass
+class _RunReads:
+    executions: List[MetadataExecution]
+    logged_jobs: List[CustomJob]
+    state: _RunState
+
+
+@dataclass
+class _ExecutionArtifacts:
+    inputs: List[Artifact]
+    outputs: List[Artifact]
+
 
 class VertexAIExperimentExtractor:
     def __init__(
@@ -90,8 +140,10 @@ class VertexAIExperimentExtractor:
         yield_common_aspects_fn: YieldCommonAspectsProtocol,
         model_usage_tracker: ModelUsageTracker,
         platform: str,
-        report: StaleEntityRemovalSourceReport,
+        report: VertexAISourceReport,
         state_handler: VertexAIStateHandler,
+        get_scope_fn: Callable[[], Scope],
+        stopped_scopes: StoppedScopes,
         rate_limiter: Union[RateLimiter, AbstractContextManager[None]] = nullcontext(),
     ):
         self.config = config
@@ -106,6 +158,9 @@ class VertexAIExperimentExtractor:
         self.report = report
         self.state_handler = state_handler
         self.rate_limiter = rate_limiter
+        self._get_scope = get_scope_fn
+        self._stopped = stopped_scopes
+        self._read_detail = DetailReader(report, stopped_scopes, get_scope_fn)
 
         self.experiments: Optional[List[ExperimentMetadata]] = None
 
@@ -131,9 +186,9 @@ class VertexAIExperimentExtractor:
             )
         except NotFound:
             # Vertex AI creates the default Metadata Store lazily on first use of
-            # ML Metadata, so a 404 here means the project simply has no experiments
-            # to ingest — not an error. Skip and continue with the rest of the project.
-            self.report.warning(
+            # ML Metadata, so a 404 here means the project has no experiments, and
+            # earlier experiments are really gone.
+            self.report.info(
                 title="Vertex AI Metadata Store not found",
                 message=(
                     "Skipping experiment extraction because the project has no "
@@ -141,7 +196,7 @@ class VertexAIExperimentExtractor:
                     "projects that have never logged an Experiment or run a "
                     "Vertex AI Pipeline."
                 ),
-                context=f"project={self._get_project_id()}",
+                context=scope_context(self._get_scope()),
             )
             return []
         experiments = []
@@ -167,21 +222,19 @@ class VertexAIExperimentExtractor:
             schema_title=metadata_constants.SYSTEM_RUN,
             in_context=[experiment.resource_name],
         )
-        run_contexts = rate_limited_gapic_list(
-            MetadataContext,
-            self.rate_limiter,
-            parent=parent,
-            filter_str=run_context_filter,
-        )
-        run_executions = rate_limited_gapic_list(
-            MetadataExecution,
-            self.rate_limiter,
-            parent=parent,
-            filter_str=run_exec_filter,
-        )
         nodes: List[Union[MetadataContext, MetadataExecution]] = [
-            *run_contexts,
-            *run_executions,
+            *rate_limited_gapic_list(
+                MetadataContext,
+                self.rate_limiter,
+                parent=parent,
+                filter_str=run_context_filter,
+            ),
+            *rate_limited_gapic_list(
+                MetadataExecution,
+                self.rate_limiter,
+                parent=parent,
+                filter_str=run_exec_filter,
+            ),
         ]
         runs: List[ExperimentRun] = []
         for node in nodes:
@@ -275,7 +328,22 @@ class VertexAIExperimentExtractor:
             logger.info(
                 f"Fetching ExperimentRuns for experiment {experiment_meta.name}"
             )
-            runs = self._list_experiment_runs_rate_limited(experiment_meta.experiment)
+            scope = self._get_scope()
+            runs = read_list_item(
+                Scope(
+                    project=scope.project,
+                    region=scope.region,
+                    item=experiment_meta.name,
+                ),
+                partial(
+                    self._list_experiment_runs_rate_limited, experiment_meta.experiment
+                ),
+                report=self.report,
+                stopped=self._stopped,
+                call_kind=ResourceReads.EXPERIMENTS,
+            )
+            if runs is None:
+                continue
 
             run_metadata = [
                 ExperimentRunMetadata(
@@ -335,36 +403,42 @@ class VertexAIExperimentExtractor:
             external_url=self.url_builder.make_experiment_url(experiment.name),
         )
 
-    def _get_experiment_run_params(self, run: ExperimentRun) -> List[MLHyperParamClass]:
-        return [
-            MLHyperParamClass(name=k, value=str(v)) for k, v in run.get_params().items()
-        ]
+    def _read_run_state(self, run: ExperimentRun) -> _RunState:
+        return _RunState(
+            state=run.get_state(),
+            params=[
+                MLHyperParamClass(name=k, value=str(v))
+                for k, v in run.get_params().items()
+            ],
+            metrics=[
+                MLMetricClass(name=k, value=str(v))
+                for k, v in run.get_metrics().items()
+            ],
+        )
 
-    def _get_experiment_run_metrics(self, run: ExperimentRun) -> List[MLMetricClass]:
-        return [
-            MLMetricClass(name=k, value=str(v)) for k, v in run.get_metrics().items()
-        ]
+    def _read_logged_custom_jobs(self, run: ExperimentRun) -> List[CustomJob]:
+        # The SDK only sets this key for runs that logged a custom job, and
+        # fails on every other run.
+        node = getattr(run, "_metadata_node", None)
+        metadata = getattr(node, "metadata", None)
+        if (
+            isinstance(metadata, Mapping)
+            and metadata_constants._CUSTOM_JOB_KEY not in metadata
+        ):
+            return []
+        with self.rate_limiter:
+            return list(run.get_logged_custom_jobs())
 
-    def _get_logged_training_job_urns(self, run: ExperimentRun) -> List[str]:
+    def _logged_training_job_urns(self, custom_jobs: List[CustomJob]) -> List[str]:
         """Return DataProcessInstance URNs for any CustomJobs logged to this run."""
-        urns: List[str] = []
-        try:
-            with self.rate_limiter:
-                custom_jobs = run.get_logged_custom_jobs()
-            for job in custom_jobs:
-                job_id = self.name_formatter.format_job_name(entity_id=job.name)
-                urns.append(builder.make_data_process_instance_urn(job_id))
-        except NotFound:
-            logger.debug(f"No logged custom jobs found for run {run.name}")
-        except GoogleAPICallError as e:
-            logger.warning(
-                f"API error fetching logged custom jobs for run {run.name}: {e}",
-                exc_info=True,
+        return [
+            builder.make_data_process_instance_urn(
+                self.name_formatter.format_job_name(entity_id=job.name)
             )
-        return urns
+            for job in custom_jobs
+        ]
 
-    def _get_run_timestamps(self, run: ExperimentRun) -> RunTimestamps:
-        executions = run.get_executions()
+    def _get_run_timestamps(self, executions: List[MetadataExecution]) -> RunTimestamps:
         if len(executions) == 1:
             create_time = executions[0].create_time
             update_time = executions[0].update_time
@@ -390,26 +464,29 @@ class VertexAIExperimentExtractor:
             return "UNKNOWN"
 
     def _make_custom_properties_for_run(
-        self, experiment: Experiment, run: ExperimentRun
+        self,
+        experiment: Experiment,
+        run: ExperimentRun,
+        executions: List[MetadataExecution],
     ) -> Dict[str, str]:
         properties: Dict[str, str] = dict()
         properties["externalUrl"] = self.url_builder.make_experiment_run_url(
             experiment, run
         )
-        for exec in run.get_executions():
+        for exec in executions:
             exec_name = exec.name
             properties[f"created time ({exec_name})"] = str(exec.create_time)
             properties[f"update time ({exec_name})"] = str(exec.update_time)
         return properties
 
     def _make_custom_properties_for_execution(
-        self, execution: Execution
+        self, artifacts: _ExecutionArtifacts
     ) -> Dict[str, str]:
         properties: Dict[str, str] = dict()
-        for input in execution.get_input_artifacts():
+        for input in artifacts.inputs:
             input_name = getattr(input, "name", "")
             properties[f"input artifact ({input_name})"] = getattr(input, "uri", "")
-        for output in execution.get_output_artifacts():
+        for output in artifacts.outputs:
             output_name = getattr(output, "name", "")
             properties[f"output artifact ({output_name})"] = getattr(output, "uri", "")
 
@@ -433,7 +510,7 @@ class VertexAIExperimentExtractor:
         return edges
 
     def _gen_run_execution(
-        self, execution: Execution, run: ExperimentRun, exp: Experiment
+        self, execution: MetadataExecution, run: ExperimentRun, exp: Experiment
     ) -> Iterable[MetadataWorkUnit]:
         create_time = execution.create_time
         update_time = execution.update_time
@@ -449,11 +526,23 @@ class VertexAIExperimentExtractor:
             self.name_formatter.format_run_execution_name(execution.name)
         )
 
+        read_artifacts = self._read_detail(
+            DetailCalls.EXPERIMENT_RUN_ARTIFACTS,
+            lambda: _ExecutionArtifacts(
+                inputs=list(execution.get_input_artifacts()),
+                outputs=list(execution.get_output_artifacts()),
+            ),
+            item=f"{exp.name}/{run.name}/{execution.name}",
+        )
+        if read_artifacts.keep_previous:
+            return
+        artifacts = read_artifacts.value or _ExecutionArtifacts(inputs=[], outputs=[])
+
         input_edges = self._extract_edges_from_artifacts(
-            execution.get_input_artifacts(), execution_urn, is_input=True
+            artifacts.inputs, execution_urn, is_input=True
         )
         output_edges = self._extract_edges_from_artifacts(
-            execution.get_output_artifacts(), execution_urn, is_input=False
+            artifacts.outputs, execution_urn, is_input=False
         )
 
         yield MetadataChangeProposalWrapper(
@@ -466,7 +555,7 @@ class VertexAIExperimentExtractor:
                     or builder.UNKNOWN_USER,
                 ),
                 externalUrl=self.url_builder.make_artifact_url(experiment=exp, run=run),
-                customProperties=self._make_custom_properties_for_execution(execution),
+                customProperties=self._make_custom_properties_for_execution(artifacts),
             ),
         ).as_workunit()
 
@@ -518,6 +607,42 @@ class VertexAIExperimentExtractor:
                 ),
             ).as_workunit()
 
+    def _read_run(
+        self, experiment: Experiment, run: ExperimentRun
+    ) -> Optional[_RunReads]:
+        """The run's details, or None when the stored run is kept. Only a
+        temporary failure keeps it, and then its remaining reads are not made."""
+        item = f"{experiment.name}/{run.name}"
+        if self._stopped.any_transient(self._get_scope(), _RUN_CALL_KINDS):
+            self.report.report_item_kept_after_stop()
+            return None
+        executions = self._read_detail(
+            DetailCalls.EXPERIMENT_RUN_EXECUTIONS,
+            lambda: list(run.get_executions()),
+            item=item,
+        )
+        if executions.keep_previous:
+            return None
+        jobs = self._read_detail(
+            DetailCalls.EXPERIMENT_RUN_LOGGED_JOBS,
+            lambda: self._read_logged_custom_jobs(run),
+            item=item,
+        )
+        if jobs.keep_previous:
+            return None
+        state = self._read_detail(
+            DetailCalls.EXPERIMENT_RUN_DETAIL,
+            lambda: self._read_run_state(run),
+            item=item,
+        )
+        if state.keep_previous:
+            return None
+        return _RunReads(
+            executions=executions.value or [],
+            logged_jobs=jobs.value or [],
+            state=state.value or _RunState(state="", params=[], metrics=[]),
+        )
+
     def _gen_experiment_run_mcps(
         self, experiment_meta: ExperimentMetadata, run_meta: ExperimentRunMetadata
     ) -> Iterable[MetadataWorkUnit]:
@@ -530,15 +655,20 @@ class VertexAIExperimentExtractor:
             id=self.name_formatter.format_experiment_id(experiment.name),
         )
         run_urn = self.urn_builder.make_experiment_run_urn(experiment, run)
-        timestamps = self._get_run_timestamps(run)
-        run_result_type = self._get_run_result_status(run.get_state())
+        reads = self._read_run(experiment, run)
+        if reads is None:
+            return
+        executions = reads.executions
+        run_state = reads.state
+        timestamps = self._get_run_timestamps(executions)
+        run_result_type = self._get_run_result_status(run_state.state)
 
-        for execution in run.get_executions():
+        for execution in executions:
             yield from self._gen_run_execution(
                 execution=execution, exp=experiment, run=run
             )
 
-        training_job_urns = self._get_logged_training_job_urns(run)
+        training_job_urns = self._logged_training_job_urns(reads.logged_jobs)
         if training_job_urns:
             yield MetadataChangeProposalWrapper(
                 entityUrn=run_urn,
@@ -560,7 +690,9 @@ class VertexAIExperimentExtractor:
                     or builder.UNKNOWN_USER,
                 ),
                 externalUrl=self.url_builder.make_experiment_run_url(experiment, run),
-                customProperties=self._make_custom_properties_for_run(experiment, run),
+                customProperties=self._make_custom_properties_for_run(
+                    experiment, run, executions
+                ),
             ),
         ).as_workunit()
 
@@ -572,8 +704,8 @@ class VertexAIExperimentExtractor:
         yield MetadataChangeProposalWrapper(
             entityUrn=run_urn,
             aspect=MLTrainingRunPropertiesClass(
-                hyperParams=self._get_experiment_run_params(run),
-                trainingMetrics=self._get_experiment_run_metrics(run),
+                hyperParams=run_state.params,
+                trainingMetrics=run_state.metrics,
                 externalUrl=self.url_builder.make_experiment_run_url(experiment, run),
                 id=f"{experiment.name}-{run.name}",
             ),

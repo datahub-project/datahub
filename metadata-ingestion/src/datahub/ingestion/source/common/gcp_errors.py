@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Mapping, Optional
 
 from google.api_core.exceptions import Forbidden, GoogleAPICallError
 
@@ -27,9 +27,7 @@ def error_info_reason(exc: GoogleAPICallError) -> Optional[str]:
         )
 
 
-def error_info_service(exc: GoogleAPICallError) -> Optional[str]:
-    """The API the ErrorInfo names (`bigquery.googleapis.com`), or None, so a
-    message can name the service that actually refused rather than guess."""
+def _error_info_metadata(exc: GoogleAPICallError) -> Mapping[str, str]:
     try:
         metadata = exc._error_info.metadata if exc._error_info else None
     except AttributeError:
@@ -41,7 +39,18 @@ def error_info_service(exc: GoogleAPICallError) -> Optional[str]:
             ),
             None,
         )
-    return (metadata or {}).get("service")
+    return metadata or {}
+
+
+def error_info_service(exc: GoogleAPICallError) -> Optional[str]:
+    """The API the ErrorInfo names (`bigquery.googleapis.com`), or None, so a
+    message can name the service that actually refused rather than guess."""
+    return _error_info_metadata(exc).get("service")
+
+
+def error_info_permission(exc: GoogleAPICallError) -> Optional[str]:
+    """The IAM permission a refusal names (`aiplatform.models.list`), or None."""
+    return _error_info_metadata(exc).get("permission")
 
 
 def is_service_disabled(exc: Forbidden) -> bool:

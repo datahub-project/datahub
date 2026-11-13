@@ -203,6 +203,7 @@ def get_mock_pipeline_job() -> PipelineJob:
     mock_pipeline_job.update_time = MOCK_UPDATE_TIME
     mock_pipeline_job.location = "us-west2"
     gca_resource = MagicMock(spec=PipelineJobType)
+    gca_resource.update_time = MOCK_UPDATE_TIME
     mock_pipeline_job.gca_resource = gca_resource
     task_detail = MagicMock(spec=PipelineTaskDetail)
     task_detail.task_name = "reverse"
