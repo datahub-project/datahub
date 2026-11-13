@@ -127,7 +127,7 @@ IGNORE_PATHS = [
 ]
 
 
-def _client(service: Literal["s3"]) -> Any:
+def _client(service: Literal["s3", "sts"]) -> Any:
     return boto3.client(
         service,
         endpoint_url=ENDPOINT_URL,
@@ -543,3 +543,88 @@ def test_probe_issues_only_metadata_operations_against_the_emulator(
         ]:
             run_probe_method("s3", config, command, dict(kwargs))
     assert seen and set(seen) <= {"ListBuckets", "ListObjectsV2"}
+
+
+# Floci keeps each assumed-role account's buckets apart, so these never show up
+# in the base account the other recipes list.
+ACCOUNT_OBJECTS = {
+    "111111111111": {
+        "sales-raw": ["orders/2024/part1.csv", "orders/2025/part1.csv"],
+        "sales-empty": [],
+    },
+    "222222222222": {"logs-archive": ["app/2025/events.json"]},
+}
+
+
+def _account_s3_client(account_id: str) -> Any:
+    credentials = _client("sts").assume_role(
+        RoleArn=f"arn:aws:iam::{account_id}:role/DataHubReader",
+        RoleSessionName="seed",
+    )["Credentials"]
+    return boto3.client(
+        "s3",
+        endpoint_url=ENDPOINT_URL,
+        region_name=REGION,
+        aws_access_key_id=credentials["AccessKeyId"],
+        aws_secret_access_key=credentials["SecretAccessKey"],
+        aws_session_token=credentials["SessionToken"],
+    )
+
+
+def test_data_lake_s3_multi_account_ingest(
+    s3_emulator: None,
+    pytestconfig: pytest.Config,
+    tmp_path: pathlib.Path,
+    mock_time: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for account_id, buckets in ACCOUNT_OBJECTS.items():
+        s3 = _account_s3_client(account_id)
+        for bucket, keys in buckets.items():
+            s3.create_bucket(Bucket=bucket)
+            for key in keys:
+                s3.put_object(Bucket=bucket, Key=key, Body=b"id\n1\n")
+
+    # aws_accounts assumes roles from the default credential chain, and the STS
+    # client it uses takes its endpoint from the environment.
+    monkeypatch.delenv("AWS_PROFILE", raising=False)
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test")
+    monkeypatch.setenv("AWS_ENDPOINT_URL_STS", ENDPOINT_URL)
+
+    output = tmp_path / "multi_account.json"
+    pipeline = Pipeline.create(
+        {
+            "run_id": "multi_account",
+            "source": {
+                "type": "s3",
+                "config": {
+                    "path_specs": [
+                        {"include": "s3://*/*/*/", "emit_folders_only": True}
+                    ],
+                    "aws_config": {
+                        "aws_region": REGION,
+                        "aws_endpoint_url": ENDPOINT_URL,
+                    },
+                    "aws_accounts": [
+                        {
+                            "aws_role": "arn:aws:iam::111111111111:role/DataHubReader",
+                            "name": "Sales",
+                        },
+                        {"aws_role": "arn:aws:iam::222222222222:role/DataHubReader"},
+                    ],
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": str(output)}},
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output,
+        golden_path=test_resources_dir
+        / "golden-files/s3/golden_mces_multi_account.json",
+        ignore_paths=IGNORE_PATHS,
+    )
