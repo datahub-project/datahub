@@ -4,6 +4,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Set
 
 from datahub.ingestion.source.repository_documents.okf_bundles import (
     RESERVED_FILENAMES as RESERVED_FILENAMES,
+    ROOT_PATH as ROOT_PATH,
     bundle_index_path as bundle_index_path,
     concept_id as concept_id,
     discover_bundles as _discover_bundles,
