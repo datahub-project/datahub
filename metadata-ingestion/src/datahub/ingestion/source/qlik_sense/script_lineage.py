@@ -1,4 +1,5 @@
 import re
+from collections import Counter
 from typing import AbstractSet, Dict, List, Optional, Set
 
 from pydantic import BaseModel, Field
@@ -52,6 +53,10 @@ VARIABLE_RE = re.compile(
     r"^(?P<kind>SET|LET)\s+(?P<name>[^\s=]+)\s*=(?P<value>.*)$",
     re.IGNORECASE | re.DOTALL,
 )
+LET_NAME_RE = re.compile(
+    r"^\s*LET\s+(?P<name>[^\s=]+)\s*=", re.IGNORECASE | re.MULTILINE
+)
+EXPRESSION_NAME_RE = re.compile(r"[^\W\d]\w*")
 STRING_LITERAL_RE = re.compile(r"'(?P<single>[^']*)'|\"(?P<double>[^\"]*)\"")
 VARIABLE_REFERENCE_RE = re.compile(r"\$\((?P<name>[^()=]+)\)")
 LABEL_RE = re.compile(
@@ -552,6 +557,9 @@ class _ControlFlowTracker(BaseModel):
     blocks: List[_Block] = []
     # FOR or DO loops the current statement runs in.
     loop_depth: int = 0
+    # Variables the script sets with LET more than once, so the value the
+    # app's last reload left is only the last of several.
+    reassigned: Set[str] = set()
 
     def apply_control(self, control: "re.Match[str]") -> None:
         if control.group("if") or control.group("switch"):
@@ -622,19 +630,35 @@ class _ControlFlowTracker(BaseModel):
             return False
         value = match.group("value").strip()
         literal = STRING_LITERAL_RE.fullmatch(value)
-        if literal:
+        name = match.group("name")
+        if self._reads_unknown(value, literal is None):
+            # Such as SET vPath = $(vFile) in a loop over files: a copy of an
+            # unknown value is unknown too.
+            self.state.forget_variable(name)
+        elif literal:
             self.state.set_variable(match.group("name"), _first_group(literal))
         elif match.group("kind").upper() == "SET":
             self.state.set_variable(match.group("name"), value)
-        elif self.loop_depth or in_sub or self.blocks:
-            # Run more than once, or in a branch that may not have run, so the
-            # value the app's last reload left need not be this one.
+        elif self.loop_depth or in_sub or self.blocks or name in self.reassigned:
+            # Run more than once, in a branch that may not have run, or set
+            # again later, so the value the app's last reload left need not be
+            # this one.
             self.state.forget_variable(match.group("name"))
         else:
             # LET evaluates an expression the parser can't, so the value the
             # app's last reload left, if any, stands in for it.
             self.state.set_variable(match.group("name"), None)
         return True
+
+    def _reads_unknown(self, value: str, is_expression: bool) -> bool:
+        names = {
+            reference.group("name").strip()
+            for reference in VARIABLE_REFERENCE_RE.finditer(value)
+        }
+        if is_expression:
+            # An expression can read a variable by its bare name.
+            names.update(EXPRESSION_NAME_RE.findall(STRING_LITERAL_RE.sub("", value)))
+        return not names.isdisjoint(self.state.unknown)
 
 
 # How many levels of variables inside variables a path is expanded through.
@@ -1141,6 +1165,10 @@ def parse_script(
 ) -> ParsedScript:
     parsed = _script_pieces(script)
     parser = _ScriptParser(subs=parsed.subs, app_variables=app_variables or {})
+    let_counts = Counter(match.group("name") for match in LET_NAME_RE.finditer(script))
+    reassigned = {name for name, count in let_counts.items() if count > 1}
+    parser.flow.reassigned = reassigned
+    parser.flow.state.unknown.update(reassigned)
     parser.run(parsed.pieces)
     return ParsedScript(
         tables=parser.tables,

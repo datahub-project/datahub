@@ -103,6 +103,17 @@ def test_fallback_values_fill_sql_until_the_script_sets_the_variable() -> None:
             id="LET in a SWITCH case",
         ),
         pytest.param(
+            "LET vTable = Lower('SALES_' & vRegion);\n"
+            "T: SQL SELECT id FROM $(vTable);\n"
+            "LET vTable = Lower('HIST_' & vRegion);",
+            id="LET set again later",
+        ),
+        pytest.param(
+            "FOR EACH vT IN 'a', 'b'\nSET vTable = $(vT);\n"
+            "T: SQL SELECT id FROM $(vTable);\nNEXT vT;",
+            id="SET copying a loop variable",
+        ),
+        pytest.param(
             "FOR EACH vTable IN 'a', 'b'\n$(Include=lib://Scripts/common.qvs);\n"
             "T: SQL SELECT id FROM $(vTable);\nNEXT vTable;",
             id="loop variable after an include",
@@ -193,3 +204,14 @@ def test_file_list_loop_load_is_not_named_by_the_last_value() -> None:
     assert load.uses_unknown_variable
     # On-prem apps have no graph files, so only the reference list is checked.
     assert not source._file_source_resolver(app, parsed)._by_path_id
+
+
+def test_file_load_through_a_copy_of_a_loop_variable_is_unnamed() -> None:
+    source = _source({})
+    app = _app(
+        "FOR EACH vFile IN FileList('lib://Lake/m/*.csv')\n"
+        "SET vPath = $(vFile);\nX: LOAD * FROM [$(vPath)] (txt);\nNEXT vFile;",
+        {"vFile": "lib://Lake/m/last.csv", "vPath": "lib://Lake/m/last.csv"},
+    )
+    [load] = source._parsed_script(app).file_loads
+    assert load.uses_unknown_variable
