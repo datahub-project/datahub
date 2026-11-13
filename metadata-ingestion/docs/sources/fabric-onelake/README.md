@@ -31,3 +31,7 @@ Platform (fabric-onelake)
 ### Platform Instance as Tenant
 
 The Fabric REST API does not expose tenant-level endpoints. To represent tenant-level organization in DataHub, set the `platform_instance` configuration field to your tenant identifier (e.g., "contoso-tenant"). This will be included in all container and dataset URNs, effectively grouping all workspaces under the specified platform instance/tenant.
+
+### Microsoft Fabric
+
+For how this connector fits with the other Fabric connectors and Fabric notebook lineage, and the settings that must match between them, see the [Microsoft Fabric overview](https://docs.datahub.com/docs/quick-ingestion-guides/fabric/overview).
