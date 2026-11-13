@@ -3,7 +3,9 @@ from typing import Any, Dict, Optional, Tuple
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ArgumentError
 
-UNPARSEABLE_URL_PLACEHOLDER = "<unparseable SQLAlchemy URL>"
+# Query parameters that carry a password in a connection URL (libpq and most
+# DBAPI drivers accept these as an alternative to the userinfo password).
+_PASSWORD_QUERY_PARAMS = frozenset({"password", "passwd", "pwd", "sslpassword"})
 
 
 def parse_host_port(
@@ -72,18 +74,26 @@ def make_sqlalchemy_uri(
     ).render_as_string(hide_password=False)
 
 
-def url_for_logging(url: str) -> str:
-    """Render a SQLAlchemy URL with its password replaced by "***", for logs.
-
-    Don't rely on the secret masking filter for connection URLs: SQLAlchemy
-    percent-encodes the password, so the logged form may not match any
-    registered secret, and a password embedded in `sqlalchemy_uri` is never
-    registered at all. A URL that can't be parsed is not logged, since we
-    can't tell where its password is."""
+def sqlalchemy_uri_secrets(url: str) -> Dict[str, str]:
+    """Passwords embedded in a SQLAlchemy URL -- the userinfo password and any
+    password-like query parameter -- keyed by a name for the secret registry.
+    Values are decoded, so the registry also covers their percent-encoded
+    forms. A URL that can't be parsed yields nothing."""
     try:
-        return make_url(url).render_as_string(hide_password=True)
+        parsed = make_url(url)
     except (ArgumentError, ValueError):
-        return UNPARSEABLE_URL_PLACEHOLDER
+        return {}
+    secrets: Dict[str, str] = {}
+    if parsed.password:
+        secrets["sqlalchemy_uri.password"] = str(parsed.password)
+    for key, value in parsed.query.items():
+        if key.lower() not in _PASSWORD_QUERY_PARAMS:
+            continue
+        values = (value,) if isinstance(value, str) else value
+        for index, item in enumerate(values):
+            suffix = f".{index}" if len(values) > 1 else ""
+            secrets[f"sqlalchemy_uri.{key}{suffix}"] = item
+    return secrets
 
 
 def url_dialect_and_driver(url: str) -> Tuple[str, str]:

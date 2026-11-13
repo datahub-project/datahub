@@ -74,7 +74,6 @@ from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
     ProbeEngineSettings,
 )
-from datahub.ingestion.source.sql.sqlalchemy_uri import url_for_logging
 from datahub.ingestion.source.sql.stored_procedures.models import (
     BaseProcedure,
 )
@@ -665,7 +664,7 @@ class PostgresSource(SQLAlchemySource):
             database=self.config.database or self.config.initial_database
         )
 
-        logger.debug(f"sql_alchemy_url={url_for_logging(url)}")
+        logger.debug(f"sql_alchemy_url={url}")
 
         engine = create_engine(url, **self._get_engine_options())
         self._setup_rds_iam_event_listener(engine)

@@ -45,7 +45,10 @@ from datahub.ingestion.source.sql.protocol_probe_settings import (
     ProbeEngineSettings as ProbeEngineSettings,
     probe_settings_for_url,
 )
-from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
+from datahub.ingestion.source.sql.sqlalchemy_uri import (
+    make_sqlalchemy_uri,
+    sqlalchemy_uri_secrets,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -53,6 +56,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+from datahub.masking.secret_registry import SecretRegistry
 
 if TYPE_CHECKING:
     from datahub.ingestion.agent.sql_gate import CatalogScope
@@ -386,6 +390,16 @@ class SQLAlchemyConnectionConfig(ConfigModel):
     _database_alias_removed = pydantic_removed_field(
         "database_alias", month="November", year=2023
     )
+
+    @model_validator(mode="after")
+    def _register_sqlalchemy_uri_secrets(self) -> "SQLAlchemyConnectionConfig":
+        # sqlalchemy_uri is a plain str, so _register_secret_fields never sees the
+        # credentials embedded in it. Register them by hand so they are masked.
+        if self.sqlalchemy_uri:
+            secrets = sqlalchemy_uri_secrets(self.sqlalchemy_uri)
+            if secrets:
+                SecretRegistry.get_instance().register_secrets_batch(secrets)
+        return self
 
     def get_sql_alchemy_url(
         self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None

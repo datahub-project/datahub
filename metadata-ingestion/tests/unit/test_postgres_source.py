@@ -43,10 +43,6 @@ from datahub.ingestion.source.sql.postgres.source import (
 )
 from datahub.ingestion.source.sql.sql_common import get_column_type
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-from datahub.ingestion.source.sql.sqlalchemy_uri import (
-    UNPARSEABLE_URL_PLACEHOLDER,
-    url_for_logging,
-)
 from datahub.masking.masking_filter import install_masking_filter
 from datahub.masking.secret_registry import SecretRegistry
 from datahub.metadata.schema_classes import (
@@ -941,34 +937,28 @@ def test_debug_connection_url_log_hides_password(
     _assert_password_not_logged(masked_source_log.getvalue(), password)
 
 
-def test_debug_connection_url_log_hides_password_in_sqlalchemy_uri(
-    masked_source_log: StringIO,
-) -> None:
-    password = "placeholder-uri-secret-42"
-    _log_connection_url(
-        {
-            "sqlalchemy_uri": f"postgresql+psycopg2://my_user:{password}@my-host:5432/my_db",
-            "host_port": "my-host:5432",
-        }
-    )
-    _assert_password_not_logged(masked_source_log.getvalue(), password)
-
-
 @pytest.mark.parametrize(
-    "url, expected",
+    "password, sqlalchemy_uri",
     [
         pytest.param(
-            "postgresql+psycopg2://my_user:Str0ng%21Pass%232024@my-host:5432/my_db",
-            "postgresql+psycopg2://my_user:***@my-host:5432/my_db",
-            id="password_hidden",
+            "placeholder-uri-secret-42",
+            "postgresql+psycopg2://my_user:placeholder-uri-secret-42@my-host:5432/my_db",
+            id="userinfo",
         ),
-        pytest.param("not a url", UNPARSEABLE_URL_PLACEHOLDER, id="unparseable"),
         pytest.param(
-            "postgresql://my_user:my_secret@my-host:not_a_port/my_db",
-            UNPARSEABLE_URL_PLACEHOLDER,
-            id="invalid_port",
+            "Str0ng!Uri#Secret",
+            "postgresql+psycopg2://my_user:Str0ng%21Uri%23Secret@my-host:5432/my_db",
+            id="userinfo_percent_encoded",
+        ),
+        pytest.param(
+            "placeholder-query-secret-42",
+            "postgresql+psycopg2://my_user@my-host:5432/my_db?password=placeholder-query-secret-42",
+            id="query_parameter",
         ),
     ],
 )
-def test_url_for_logging(url: str, expected: str) -> None:
-    assert url_for_logging(url) == expected
+def test_debug_connection_url_log_hides_password_in_sqlalchemy_uri(
+    masked_source_log: StringIO, password: str, sqlalchemy_uri: str
+) -> None:
+    _log_connection_url({"sqlalchemy_uri": sqlalchemy_uri, "host_port": "my-host:5432"})
+    _assert_password_not_logged(masked_source_log.getvalue(), password)
