@@ -359,10 +359,12 @@ class DataLakeSourceConfig(
                 "roles are not assumed from aws_access_key_id or aws_profile. "
                 "Remove them from aws_config."
             )
+        # A placeholder such as {table} in the bucket segment lists every bucket,
+        # so it counts as a wildcard; glob_include widens placeholders to `*`.
         fixed_buckets = sorted(
             spec.include
             for spec in self.path_specs
-            if "*" not in get_bucket_name(spec.include)
+            if "*" not in get_bucket_name(spec.glob_include)
         )
         if fixed_buckets:
             # A named bucket belongs to one account. In every other account it is

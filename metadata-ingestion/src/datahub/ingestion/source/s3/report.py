@@ -25,6 +25,9 @@ class DataLakeSourceReport(StaleEntityRemovalSourceReport):
     schema_inference_time_taken_secs: float = 0.0
     aws_accounts_ingested: int = 0
     aws_accounts_failed: List[str] = dataclass_field(default_factory=list)
+    # True when stale-metadata removal is on and a failed account stops it for
+    # every account in this run.
+    stale_removal_skipped_due_to_account_failures: bool = False
 
     def report_file_scanned(self) -> None:
         self.files_scanned += 1

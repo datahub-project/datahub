@@ -1296,6 +1296,9 @@ class S3Source(StatefulIngestionSourceBase):
 
         if failed:
             self.report.aws_accounts_failed.append(account.account_id)
+            stateful = self.source_config.stateful_ingestion
+            if stateful and stateful.enabled and stateful.remove_stale_metadata:
+                self.report.stale_removal_skipped_due_to_account_failures = True
             return
         self.report.aws_accounts_ingested += 1
         if not emitted:

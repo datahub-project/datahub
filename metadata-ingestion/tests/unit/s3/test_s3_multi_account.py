@@ -1,5 +1,5 @@
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from boto3.session import Session
@@ -242,7 +242,14 @@ def test_each_account_is_ingested_under_its_own_role_and_container(
 def test_denied_role_fails_only_that_account(s3: Session) -> None:
     _seed_account(s3, ROLE_A, "bucket-a", ["raw/file.csv"])
     _seed_account(s3, ROLE_B, "bucket-b", ["curated/file.csv"])
-    source = S3Source.create(_config(), PipelineContext(run_id="multi-account"))
+    graph = MagicMock()
+    graph.get_latest_timeseries_value.return_value = None  # no previous checkpoint
+    source = S3Source.create(
+        _config(stateful_ingestion={"enabled": True}),
+        PipelineContext(
+            run_id="multi-account", pipeline_name="multi-account", graph=graph
+        ),
+    )
     recipe_container_wu_creator = source.container_WU_creator
     assume_role = aws_common.assume_role
 
@@ -261,6 +268,7 @@ def test_denied_role_fails_only_that_account(s3: Session) -> None:
     assert set(containers) == {ACCOUNT_B, "bucket-b", "curated"}
     assert source.report.aws_accounts_ingested == 1
     assert source.report.aws_accounts_failed == [ACCOUNT_A]
+    assert source.report.stale_removal_skipped_due_to_account_failures
     # A reported failure is what keeps stale-entity removal from soft-deleting
     # metadata of the account that could not be read.
     assert [f.title for f in source.report.failures] == [
@@ -393,6 +401,15 @@ def test_account_id_is_read_from_the_role_arn() -> None:
 def test_invalid_multi_account_config_is_rejected(overrides: Dict[str, Any]) -> None:
     with pytest.raises(ValidationError):
         DataLakeSourceConfig.model_validate(_config(**overrides))
+
+
+def test_placeholder_in_the_bucket_segment_counts_as_a_wildcard() -> None:
+    # {table} in the bucket segment lists every bucket, like s3://*/.
+    config = DataLakeSourceConfig.model_validate(
+        _config(path_specs=[{"include": "s3://{table}/*.csv"}])
+    )
+
+    assert config.aws_accounts
 
 
 def test_probe_refuses_multi_account_recipes() -> None:
