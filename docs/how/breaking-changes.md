@@ -24,6 +24,20 @@ by another script or agent. To connect to another instance, use a separate name,
 To intentionally replace an existing connection, add `--force`. Refreshing a token for the same
 server continues to work. Existing connection files and environment variables keep working.
 
+### Databricks metric views as Semantic Models and Metrics
+
+If you ingest Databricks Unity Catalog metric views (`include_metric_views: true`), they
+can now be ingested as Semantic Models and Metrics instead of `Metric View` datasets. The new
+`emit_semantic_model_entities` setting works the same way as the Snowflake setting for semantic
+views. Left unset, it turns on against DataHub Cloud 2.1.0 or later with Metrics enabled, and
+stays off on DataHub Core and on runs with no server connection. When it is on, each metric
+view's `Metric View` dataset is replaced by a Semantic Model, one logical dataset per table the
+metric view reads, and a Metric per measure. Stateful ingestion removes the old datasets, and
+anything added to them in DataHub, such as owners, documentation or glossary terms, is not
+moved to the new entities. Usage statistics and profiling are no longer collected for metric
+views. **Action:** on DataHub Cloud, to keep `Metric View` datasets, set
+`emit_semantic_model_entities: false` in the Databricks recipe.
+
 <!--
 
 ## <version number>
