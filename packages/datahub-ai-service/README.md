@@ -51,6 +51,7 @@ dependencies are locked in `docker/datahub-ai-service/requirements.lock`; regene
 | `DATAHUB_AI_PORT`                     | `9005`                      | Port to listen on                                                      |
 | `DATAHUB_AI_MCP_ENABLED`              | `true`                      | Serve MCP at `/mcp`                                                    |
 | `DATAHUB_AI_MCP_RESPONSE_MODE`        | `sse`                       | `sse` streams responses; `json` returns one body                       |
+| `DATAHUB_AI_METRICS_ENABLED`          | `true`                      | Serve Prometheus metrics at `/metrics`                                 |
 | `DATAHUB_AI_AUTH_MODE`                | `auto`                      | `auto` follows GMS; `required` serves `/mcp` only while GMS auth is on |
 | `DATAHUB_AI_ALLOWED_HOSTS`            | `localhost,127.0.0.1,[::1]` | Hosts `/mcp` answers while GMS auth is off (`host` or `host:port`)     |
 | `DATAHUB_AI_ALLOWED_ORIGINS`          | `http(s)://` those hosts    | Origins `/mcp` accepts while GMS auth is off (`scheme://host[:port]`)  |
@@ -66,6 +67,23 @@ a write is never applied twice.
 
 Use `json` only behind proxies that can't stream responses, and give them idle timeouts longer
 than the slowest tool call.
+
+## Metrics
+
+`/metrics` serves Prometheus metrics without authentication, like `/health`; the frontend
+proxies only `/mcp`, so it is reachable only where the service's own port is. Besides the
+process metrics:
+
+| Metric                                      | Labels             | Meaning                                                       |
+| ------------------------------------------- | ------------------ | ------------------------------------------------------------- |
+| `datahub_ai_mcp_tool_calls_total`           | `tool`, `outcome`  | Tool calls; `outcome` is `ok`, `error` or `cancelled`         |
+| `datahub_ai_mcp_tool_call_duration_seconds` | `tool`             | Tool call latency                                             |
+| `datahub_ai_mcp_auth_failures_total`        | `reason`           | `/mcp` requests refused before reaching a tool                |
+| `datahub_ai_gms_request_duration_seconds`   | `endpoint`         | Latency of requests to GMS made for callers, retries included |
+| `datahub_ai_gms_request_errors_total`       | `endpoint`, `kind` | Failed GMS requests: `timeout`, `connection`, `rejected`, ... |
+| `datahub_ai_usage_events_dropped_total`     |                    | Usage events dropped because the send queue was full          |
+
+A call to a tool the server doesn't serve is counted under `tool="other"`.
 
 ## Telemetry
 

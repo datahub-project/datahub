@@ -214,6 +214,8 @@ platformdirs==4.14.5
     # via fastmcp-slim
 progressbar2==4.7.0
     # via acryl-datahub
+prometheus-client==0.26.0
+    # via datahub-ai-service
 propcache==0.5.4
     # via
     #   aiohttp
@@ -264,7 +266,7 @@ python-multipart==0.0.33
     #   -c docker/snippets/ingestion/constraints.txt
     #   fastmcp-slim
     #   mcp
-python-utils==4.2.0
+python-utils==4.2.1
     # via progressbar2
 pywin32==312 ; sys_platform == 'win32'
     # via

@@ -29,6 +29,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from datahub_core_mcp_tools.graphql_helpers import http_status
 
+from ..metrics import ServiceMetrics
 from .auth_mode import GmsAuth, GmsAuthDetector
 from .client_factory import CallerClientFactory
 from .host_guard import HostGuard
@@ -194,8 +195,10 @@ class McpAuthMiddleware:
         host_guard: HostGuard,
         *,
         required: bool,
+        metrics: Optional[ServiceMetrics] = None,
     ) -> None:
         self._app = app
+        self._metrics = metrics
         self._verifier = verifier
         self._detector = detector
         self._host_guard = host_guard
@@ -214,7 +217,7 @@ class McpAuthMiddleware:
             self._gms_auth = gms_auth
 
         if gms_auth is GmsAuth.UNKNOWN:
-            await _send_error(
+            await self._refuse(
                 send,
                 503,
                 "datahub_unavailable",
@@ -224,7 +227,7 @@ class McpAuthMiddleware:
             return
         if gms_auth is GmsAuth.OFF:
             if self._required:
-                await _send_error(
+                await self._refuse(
                     send,
                     503,
                     "datahub_auth_off",
@@ -239,7 +242,7 @@ class McpAuthMiddleware:
             rejection = self._host_guard.rejection(scope)
             if rejection is not None:
                 logger.warning(f"Refused an MCP request: {rejection}")
-                await _send_error(send, 403, "forbidden_host", rejection)
+                await self._refuse(send, 403, "forbidden_host", rejection)
                 return
             caller = Caller(
                 token=_bearer_token(scope), actor_urn=None, gms_auth=GmsAuth.OFF
@@ -253,10 +256,17 @@ class McpAuthMiddleware:
         scope.setdefault("state", {})[CALLER_STATE_KEY] = caller
         await self._app(scope, receive, send)
 
+    async def _refuse(
+        self, send: Send, status: int, error: str, description: str
+    ) -> None:
+        if self._metrics is not None:
+            self._metrics.auth_failures.labels(error).inc()
+        await _send_error(send, status, error, description)
+
     async def _verify(self, scope: Scope, send: Send) -> Optional[Caller]:
         token = _bearer_token(scope)
         if token is None:
-            await _send_error(
+            await self._refuse(
                 send,
                 401,
                 "missing_token",
@@ -267,10 +277,12 @@ class McpAuthMiddleware:
             return await self._verifier.verify(token)
         except InvalidCredentialError as e:
             logger.info(f"Rejected an MCP request: {e}")
-            await _send_error(send, 401, "invalid_token", "DataHub rejected the token.")
+            await self._refuse(
+                send, 401, "invalid_token", "DataHub rejected the token."
+            )
         except GmsUnavailableError as e:
             logger.warning(f"Could not verify an MCP caller: {e}")
-            await _send_error(
+            await self._refuse(
                 send,
                 503,
                 "datahub_unavailable",

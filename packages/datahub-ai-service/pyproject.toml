@@ -17,6 +17,7 @@ dependencies = [
     "click>=8.1.0,<9",
     "fastmcp>=4.0.0,<5",
     "loguru>=0.7.0,<1",
+    "prometheus-client>=0.20.0,<1",
     "starlette>=0.47.0,<2",
     "uvicorn>=0.30.0,<1",
 ]

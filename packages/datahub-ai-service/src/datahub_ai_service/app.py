@@ -26,6 +26,7 @@ from .mcp.feature_gate import McpFeatureGate
 from .mcp.host_guard import HostGuard
 from .mcp.server import build_mcp_server
 from .mcp.telemetry import ToolCallObserver, ping_service_start, product_ping
+from .metrics import METRICS_PATH, ServiceMetrics
 
 MCP_PATH = "/mcp"
 
@@ -43,8 +44,9 @@ def create_app(
     ``telemetry_ping`` sends DataHub's anonymous product telemetry (the SDK's,
     off with DATAHUB_TELEMETRY_ENABLED=false).
     """
+    metrics = ServiceMetrics() if config.metrics_enabled else None
     client_factory = client_factory or CallerClientFactory(
-        config.gms_url, timeout_seconds=config.gms_timeout_seconds
+        config.gms_url, timeout_seconds=config.gms_timeout_seconds, metrics=metrics
     )
     if server_info is None:
         server_info_cache = GmsServerInfoCache()
@@ -77,6 +79,9 @@ def create_app(
         )
 
     routes: list[BaseRoute] = [Route("/health", health, methods=["GET"])]
+    if metrics is not None:
+        # Unauthenticated, like /health; the frontend proxies only /mcp.
+        routes.append(Route(METRICS_PATH, metrics.endpoint, methods=["GET"]))
     mcp_app = None
     if config.mcp_enabled:
         verifier = DataHubTokenVerifier(
@@ -89,6 +94,7 @@ def create_app(
             on_token_rejected=verifier.invalidate,
             observers=observers,
             telemetry_sinks=[product_ping(config, server_info, ping=telemetry_ping)],
+            metrics=metrics,
         )
         mcp_app = mcp.http_app(
             path=MCP_PATH,
@@ -112,6 +118,7 @@ def create_app(
                         config.trusted_proxies,
                     ),
                     required=config.auth_mode == "required",
+                    metrics=metrics,
                 ),
             )
         )

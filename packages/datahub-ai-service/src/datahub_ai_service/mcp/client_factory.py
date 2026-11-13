@@ -23,6 +23,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from .._version import __version__
+from ..metrics import ServiceMetrics
 
 _RETRIES = Retry(
     total=2,
@@ -50,6 +51,7 @@ def _guarded(
     timeout_seconds: float,
     clock: Callable[[], float],
     on_rejected: Optional[Callable[[], None]],
+    metrics: Optional[ServiceMetrics],
 ) -> Callable[..., requests.Response]:
     @functools.wraps(request)
     def guarded(method: str, url: str, **kwargs: Any) -> requests.Response:
@@ -62,7 +64,17 @@ def _guarded(
                 )
             budget = min(timeout_seconds, remaining)
             kwargs = {**kwargs, "timeout": (budget, budget)}
-        response = request(method, url, **kwargs)
+        started = clock()
+        try:
+            response = request(method, url, **kwargs)
+        except Exception as e:
+            if metrics is not None:
+                metrics.observe_gms_request(url, clock() - started, error=e)
+            raise
+        if metrics is not None:
+            metrics.observe_gms_request(
+                url, clock() - started, status=response.status_code
+            )
         if on_rejected is not None and response.status_code in (401, 403):
             on_rejected()
         return response
@@ -79,10 +91,12 @@ class CallerClientFactory:
         *,
         timeout_seconds: float,
         clock: Callable[[], float] = time.monotonic,
+        metrics: Optional[ServiceMetrics] = None,
     ) -> None:
         self._gms_url = gms_url
         self._timeout_seconds = timeout_seconds
         self._clock = clock
+        self._metrics = metrics
 
     def build(
         self,
@@ -119,5 +133,6 @@ class CallerClientFactory:
             timeout_seconds=self._timeout_seconds,
             clock=self._clock,
             on_rejected=on_rejected,
+            metrics=self._metrics,
         )
         return client
