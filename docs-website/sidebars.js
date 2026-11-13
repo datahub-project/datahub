@@ -191,6 +191,11 @@ module.exports = {
               id: "docs/dev-guides/agent-context/cursor",
             },
             {
+              label: "GitHub Copilot",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/github-copilot",
+            },
+            {
               label: "Claude",
               type: "doc",
               id: "docs/dev-guides/agent-context/claude",

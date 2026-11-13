@@ -262,3 +262,28 @@ def test_rebuild_omits_build_modules_for_shared_changes(monkeypatch):
 def test_rebuild_module_alias_builds_all_service_modules(monkeypatch):
     cmd = _rebuild_gradle_cmd(monkeypatch, module="frontend")
     assert "-PbuildModules=:datahub-frontend" in cmd
+
+
+def test_smoke_test_env_drops_inherited_profile(tmp_path, monkeypatch):
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "test.env")
+    monkeypatch.setattr(datahub_dev, "_gms_url", lambda: "http://localhost:9080")
+    monkeypatch.setenv("DATAHUB_PROFILE", "acme")
+    monkeypatch.delenv("DATAHUB_GMS_URL", raising=False)
+
+    env = datahub_dev._smoke_test_env()
+
+    assert "DATAHUB_PROFILE" not in env
+    assert env["DATAHUB_GMS_URL"] == "http://localhost:9080"
+
+
+def test_shell_env_clears_profile_before_exporting_url(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "test.env")
+    monkeypatch.setattr(datahub_dev, "_gms_url", lambda: "http://localhost:9080")
+
+    assert datahub_dev.cmd_shell_env(argparse.Namespace()) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[:2] == [
+        "unset DATAHUB_PROFILE",
+        "export DATAHUB_GMS_URL=http://localhost:9080",
+    ]
