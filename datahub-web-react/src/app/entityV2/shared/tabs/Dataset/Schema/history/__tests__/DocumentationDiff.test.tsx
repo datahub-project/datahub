@@ -26,6 +26,7 @@ vi.mock('@src/alchemy-components', () => ({
         green: { 1300: '#b4f0b4', 1000: '#22863a' },
         red: { 100: '#ffc9c9', 1000: '#c0392b' },
     },
+    Loader: () => null,
 }));
 
 const testTheme = {

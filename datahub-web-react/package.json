@@ -102,6 +102,7 @@
         "react-window": "^1.8.10",
         "reactflow": "^11.10.1",
         "reactour": "^1.19.3",
+        "refractor": "3.3.1",
         "remirror": "^2.0.23",
         "sql-formatter": "^15.8.2",
         "styled-components": "^5.2.1",

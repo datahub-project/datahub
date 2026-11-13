@@ -24,6 +24,28 @@ describe('Highlight', () => {
         expect(marks(container)).toEqual(['whole text']);
     });
 
+    it('respects caseSensitive', () => {
+        const { container } = render(
+            <Highlight search="Foo" caseSensitive>
+                foo Foo
+            </Highlight>,
+        );
+        expect(marks(container)).toEqual(['Foo']);
+    });
+
+    it('highlights every match of a global regex', () => {
+        const { container } = render(<Highlight search={/foo/g}>foo bar foo</Highlight>);
+        expect(marks(container)).toEqual(['foo', 'foo']);
+    });
+
+    it('evaluates anchors against the full text and skips empty matches', () => {
+        const { container: anchored } = render(<Highlight search={/^foo/}>foofoo</Highlight>);
+        const { container: optional } = render(<Highlight search={/x*/}>axb</Highlight>);
+        expect(marks(anchored)).toEqual(['foo']);
+        expect(marks(optional)).toEqual(['x']);
+        expect(optional.textContent).toBe('axb');
+    });
+
     it('renders text unchanged when search is empty or there is no match', () => {
         const { container: empty } = render(<Highlight search="">text</Highlight>);
         const { container: noMatch } = render(<Highlight search="zzz">text</Highlight>);

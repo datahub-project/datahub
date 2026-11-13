@@ -10,25 +10,25 @@ type Props = Omit<HTMLAttributes<HTMLSpanElement>, 'children'> & {
 
 type TextPart = { text: string; isMatch: boolean };
 
+// Always global: matchAll needs it, and scanning the whole text keeps anchors and lookbehinds correct
 function toRegExp(search: string | RegExp, caseSensitive: boolean): RegExp {
-    // Drop the global flag: a stateful lastIndex would skip matches between exec calls
-    if (search instanceof RegExp) return new RegExp(search.source, search.flags.replace('g', ''));
-    return new RegExp(search.replace(/[|\\{}()[\]^$+*?.-]/g, '\\$&'), caseSensitive ? '' : 'i');
+    if (search instanceof RegExp) {
+        return new RegExp(search.source, search.flags.includes('g') ? search.flags : `${search.flags}g`);
+    }
+    return new RegExp(search.replace(/[|\\{}()[\]^$+*?.-]/g, '\\$&'), caseSensitive ? 'g' : 'gi');
 }
 
 function splitByMatches(text: string, regex: RegExp): TextPart[] {
     const parts: TextPart[] = [];
-    let remaining = text;
-    while (remaining) {
-        const match = regex.exec(remaining);
-        if (!match || !match[0]) {
-            parts.push({ text: remaining, isMatch: false });
-            break;
-        }
-        if (match.index > 0) parts.push({ text: remaining.slice(0, match.index), isMatch: false });
+    let last = 0;
+    Array.from(text.matchAll(regex)).forEach((match) => {
+        const index = match.index ?? 0;
+        if (!match[0]) return;
+        if (index > last) parts.push({ text: text.slice(last, index), isMatch: false });
         parts.push({ text: match[0], isMatch: true });
-        remaining = remaining.slice(match.index + match[0].length);
-    }
+        last = index + match[0].length;
+    });
+    if (last < text.length) parts.push({ text: text.slice(last), isMatch: false });
     return parts;
 }
 

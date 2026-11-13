@@ -6,6 +6,7 @@ import {
     PARAM_DESCRIPTION,
     PARAM_PREVIOUS_DESCRIPTION,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
+import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
 
 import { ChangeEvent, ChangeOperationType } from '@types';
 
@@ -102,7 +103,7 @@ function DocumentationDiff({ changeEvent, inheritedPreviousDescription }: Props)
             </ToggleLink>
             {expanded && (
                 <DiffContainer data-testid="documentation-diff-content">
-                    <Suspense fallback={null}>
+                    <Suspense fallback={<SuspenseBlock />}>
                         <DocumentationDiffViewer oldValue={oldValue} newValue={newValue} />
                     </Suspense>
                 </DiffContainer>
