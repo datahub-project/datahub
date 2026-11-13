@@ -1764,9 +1764,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             ]
             if named:
                 references.extend(named)
-            else:
-                # A wildcard reads files the graph names one by one, which
-                # this path can't be matched against.
+            if not named or any("*" in path or "?" in path for path in candidates):
+                # A wildcard reads files the graph names one by one, which no
+                # path can be matched against, and either spelling may be the
+                # one the last reload read.
                 unnamed.append(load.expanded)
         if unnamed and self.config.on_prem is None:
             # On-prem apps have no lineage graph files to match.
