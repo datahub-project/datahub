@@ -1,6 +1,6 @@
 import subprocess
 import sys
-from typing import Any, Dict, List, Optional, Sequence, Tuple, cast
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Type, Union, cast
 from unittest import mock
 
 import pydantic
@@ -13,10 +13,18 @@ from datahub.emitter.mce_builder import (
     make_schema_field_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.incremental_lineage_helper import (
+    IncrementalLineageConfigMixin,
+)
+from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 from datahub.ingestion.run.pipeline_config import (
     AutoResolveLineageUrnsConfig,
     UpstreamPlatformCasing,
+)
+from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
+    AutoIncrementalLineageProcessor,
 )
 from datahub.ingestion.workunit_processors.auto_resolve_lineage_urns import (
     AutoResolveLineageUrnsProcessor,
@@ -1293,6 +1301,68 @@ def test_disabled_under_bare_mock_ctx():
     # naive check would enable the processor with a Mock config and crash mid-run. It
     # must fail closed.
     assert AutoResolveLineageUrnsProcessor.should_enable(mock.MagicMock()) is False
+
+
+class _LineageSource(Source):
+    def __init__(
+        self,
+        ctx: mock.MagicMock,
+        incremental_lineage: bool,
+        patches_own_lineage: bool,
+    ) -> None:
+        super().__init__(ctx)
+        self.config = IncrementalLineageConfigMixin(
+            incremental_lineage=incremental_lineage
+        )
+        self.report = SourceReport()
+        self._patches_own_lineage = patches_own_lineage
+
+    def get_report(self) -> SourceReport:
+        return self.report
+
+    def get_allowed_workunit_processors(
+        self,
+    ) -> List[Union[str, Type[WorkunitProcessor]]]:
+        return [AutoResolveLineageUrnsProcessor, AutoIncrementalLineageProcessor]
+
+    def get_excluded_workunit_processors(
+        self,
+    ) -> List[Union[str, Type[WorkunitProcessor]]]:
+        # dbt's shape: it patches its own lineage, so the generic patch step is out.
+        return [AutoIncrementalLineageProcessor] if self._patches_own_lineage else []
+
+
+@pytest.mark.parametrize(
+    "resolver_on, incremental_lineage, patches_own_lineage, resolver_runs, warned",
+    [
+        pytest.param(True, True, False, False, True, id="lineage-sent-as-patch"),
+        pytest.param(True, False, False, True, False, id="lineage-sent-in-full"),
+        pytest.param(True, True, True, True, False, id="source-patches-own-lineage"),
+        pytest.param(False, True, False, False, False, id="resolver-off"),
+    ],
+)
+def test_resolver_sits_out_when_lineage_is_sent_as_a_patch(
+    resolver_on: bool,
+    incremental_lineage: bool,
+    patches_own_lineage: bool,
+    resolver_runs: bool,
+    warned: bool,
+) -> None:
+    pipeline_ctx = _ctx(resolver_on, mock.MagicMock()).pipeline_context
+    source = _LineageSource(pipeline_ctx, incremental_lineage, patches_own_lineage)
+
+    with mock.patch.object(AutoResolveLineageUrnsProcessor, "_load_catalogs"):
+        built = [
+            type(getattr(p, "__self__", None)) for p in source.get_workunit_processors()
+        ]
+
+    assert (AutoResolveLineageUrnsProcessor in built) == resolver_runs
+    # Decided before the resolver is built, so a skipped run asks DataHub nothing.
+    assert pipeline_ctx.graph.get_aspect.called == resolver_runs
+    assert warned == any(
+        w.title == "Lineage URN casing resolution skipped"
+        for w in source.report.warnings
+    )
 
 
 # --- identity from a shared index, columns from our own load -----------------------
