@@ -170,16 +170,56 @@ def test_list_matching_files_falls_back_to_next_page_header() -> None:
     assert truncated is False
 
 
-def test_list_matching_files_reports_truncation_without_pagination_headers() -> None:
+def _full_tree_page(start: int = 0) -> list:
+    return [
+        {"id": f"b{i}", "type": "blob", "path": f"{i}.md"}
+        for i in range(start, start + 100)
+    ]
+
+
+@pytest.mark.parametrize(
+    "next_offset_page, expected_truncated",
+    [
+        # A proxy stripped the headers and more entries exist.
+        ([{"id": "b100", "type": "blob", "path": "100.md"}], True),
+        # Keyset listing of exactly one full page: nothing follows it.
+        ([], False),
+    ],
+)
+def test_full_page_without_pagination_headers_checks_for_more(
+    next_offset_page: list, expected_truncated: bool
+) -> None:
     client = GitLabApiClient("glpat-test")
-    page = [{"id": f"b{i}", "type": "blob", "path": f"{i}.md"} for i in range(100)]
     with requests_mock.Mocker() as m:
-        m.get(f"{API}/repository/tree", json=page)
+        m.get(f"{API}/repository/tree", json=_full_tree_page())
+        m.get(f"{API}/repository/tree?page=2", json=next_offset_page)
         files, truncated = client.list_matching_files(
             "acme/data/docs", "main", "", [".md"]
         )
     assert len(files) == 100
-    assert truncated is True
+    assert truncated is expected_truncated
+    probe = m.request_history[-1]
+    assert probe.qs["page"] == ["2"]
+    assert "pagination" not in probe.qs
+
+
+def test_keyset_last_full_page_is_not_truncated() -> None:
+    client = GitLabApiClient("glpat-test")
+    next_link = f"{API}/repository/tree?pagination=keyset&page_token=abc"
+    with requests_mock.Mocker() as m:
+        m.get(
+            f"{API}/repository/tree?ref=main",
+            json=_full_tree_page(),
+            headers={"Link": f'<{next_link}>; rel="next"'},
+        )
+        # Keyset's last page carries neither Link nor X-Next-Page.
+        m.get(next_link, json=_full_tree_page(start=100))
+        files, truncated = client.list_matching_files(
+            "acme/data/docs", "main", "", [".md"]
+        )
+    assert len(files) == 200
+    assert not truncated
+    assert m.call_count == 2
 
 
 def test_list_matching_files_refuses_next_link_to_another_host() -> None:

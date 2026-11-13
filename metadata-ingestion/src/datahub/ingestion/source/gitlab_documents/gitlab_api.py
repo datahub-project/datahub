@@ -138,7 +138,8 @@ class GitLabApiClient:
         matching: List[RepositoryFileInfo] = []
         self._index_file_paths = set()
 
-        truncated = False
+        saw_pagination_header = False
+        last_page_full = False
         while url:
             response = self._get(url, params=params)
             items = self._json_or_none(response)
@@ -165,12 +166,40 @@ class GitLabApiClient:
                         sha=blob_id if isinstance(blob_id, str) else None,
                     )
                 )
+            if "Link" in response.headers or "X-Next-Page" in response.headers:
+                saw_pagination_header = True
+            last_page_full = len(items) >= TREE_PAGE_SIZE
             url, params = self._next_tree_page(response, url, params)
-            if url is None and "X-Next-Page" not in response.headers:
-                # Neither pagination header came back (a proxy can strip them),
-                # so a full page may not be the last one.
-                truncated = len(items) >= TREE_PAGE_SIZE
+
+        # Keyset responses only send a Link header while more pages remain, and
+        # never X-Next-Page, so a complete tree can end on a full page with no
+        # pagination headers. Once pagination headers have been seen, a missing
+        # next link means the listing is done. If none came back at all (a proxy
+        # can strip them), a full single page is ambiguous, so ask for the next
+        # offset page to find out.
+        truncated = (
+            last_page_full
+            and not saw_pagination_header
+            and self._tree_has_entries_after_first_page(owner_repo, branch)
+        )
         return matching, truncated
+
+    def _tree_has_entries_after_first_page(self, owner_repo: str, branch: str) -> bool:
+        response = self._get(
+            f"{self._project_url(owner_repo)}/repository/tree",
+            params={
+                "ref": branch,
+                "recursive": "true",
+                "per_page": TREE_PAGE_SIZE,
+                "page": 2,
+            },
+        )
+        items = self._json_or_none(response)
+        if not isinstance(items, list):
+            # Cannot confirm the listing is complete, so treat it as truncated
+            # and keep stale removal from acting on it.
+            return True
+        return len(items) > 0
 
     def _next_tree_page(
         self,

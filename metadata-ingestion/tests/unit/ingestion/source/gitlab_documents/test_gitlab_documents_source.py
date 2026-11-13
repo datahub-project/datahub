@@ -276,6 +276,11 @@ def test_tree_without_pagination_headers_skips_stale_removal() -> None:
     with requests_mock.Mocker() as m:
         m.get(f"{API}/repository/branches/main", json={"commit": {"id": "abc123"}})
         m.get(f"{API}/repository/tree", json=page)
+        # The follow-up offset request shows more entries exist.
+        m.get(
+            f"{API}/repository/tree?page=2",
+            json=[{"id": "b100", "type": "blob", "path": "100.png"}],
+        )
         list(source.get_workunits())
 
     assert source.report.tree_truncated is True
