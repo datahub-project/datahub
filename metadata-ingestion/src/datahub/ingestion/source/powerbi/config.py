@@ -3,6 +3,7 @@ from dataclasses import dataclass, field as dataclass_field
 from enum import Enum
 from typing import (
     Annotated,
+    Callable,
     Dict,
     Iterable,
     List,
@@ -15,7 +16,7 @@ from typing import (
 )
 
 import pydantic
-from pydantic import ValidationInfo, field_validator, model_validator
+from pydantic import field_validator, model_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
@@ -1039,39 +1040,6 @@ class PowerBiDashboardSourceConfig(
             seen[lower] = key
         return value
 
-    @field_validator("dsn_to_platform_name", "dsn_to_database_schema", mode="after")
-    @classmethod
-    def _reject_case_insensitive_duplicate_dsn_keys(
-        cls, value: Dict[str, str], info: ValidationInfo
-    ) -> Dict[str, str]:
-        # Windows ODBC DSNs are case-insensitive, so DSN lookups fall back to a
-        # case-insensitive key match. Keys differing only in case are allowed when
-        # they map to the same value (recipes written before that fallback had to
-        # list every spelling), but conflicting values would be picked by dict
-        # order. Values are compared the way they are consumed: database/schema
-        # ignoring whitespace around segments (this runs before
-        # dsn_to_database_schema is normalised), platform names by exactly what
-        # normalize_platform_name resolves them to (e.g. "Amazon Redshift" and
-        # "AmazonRedshift" are both redshift). Unrecognised names all resolve to
-        # None and are skipped identically at runtime, so they compare equal.
-        def comparable(mapped: str) -> Optional[str]:
-            if info.field_name == "dsn_to_platform_name":
-                platform, _ = normalize_platform_name(mapped)
-                return platform
-            return ".".join(part.strip() for part in mapped.split("."))
-
-        seen: Dict[str, str] = {}
-        for key, mapped in value.items():
-            folded = fold_dsn_case(key)
-            if folded in seen and comparable(value[seen[folded]]) != comparable(mapped):
-                raise ValueError(
-                    f"{info.field_name} maps keys that differ only in case to "
-                    f"different values: {seen[folded]!r} and {key!r}. DSN names are "
-                    "case-insensitive, so give each DSN a single value."
-                )
-            seen.setdefault(folded, key)
-        return value
-
     @field_validator("dataset_type_mapping", mode="after")
     @classmethod
     def map_data_platform(cls, value):
@@ -1159,6 +1127,46 @@ class PowerBiDashboardSourceConfig(
                 # e.g. "prod . data" to "prod.data".
                 dsn_mapping[_key] = ".".join(part.strip() for part in parts)
 
+        return self
+
+    # Defined after validate_dsn_to_database_schema so shape errors win and the
+    # values compared here are already normalised.
+    @model_validator(mode="after")
+    def _reject_case_insensitive_duplicate_dsn_keys(
+        self,
+    ) -> "PowerBiDashboardSourceConfig":
+        # Windows ODBC DSNs are case-insensitive, so DSN lookups fall back to a
+        # case-insensitive key match. Keys differing only in case are allowed when
+        # they map to the same value (recipes written before that fallback had to
+        # list every spelling), but conflicting values would be picked by dict
+        # order. Values are compared the way they are consumed: platform names by
+        # exactly what normalize_platform_name resolves them to (e.g. "Amazon
+        # Redshift" and "AmazonRedshift" are both redshift; unrecognised names all
+        # resolve to None and are skipped identically), database/schema values
+        # ignoring case when lineage URNs are lowercased.
+        def platform(mapped: str) -> Optional[str]:
+            return normalize_platform_name(mapped)[0]
+
+        def database_schema(mapped: str) -> str:
+            return mapped.lower() if self.convert_lineage_urns_to_lowercase else mapped
+
+        checks: List[Tuple[str, Dict[str, str], Callable[[str], Optional[str]]]] = [
+            ("dsn_to_platform_name", self.dsn_to_platform_name, platform),
+            ("dsn_to_database_schema", self.dsn_to_database_schema, database_schema),
+        ]
+        for field_name, mapping, comparable in checks:
+            seen: Dict[str, str] = {}
+            for key, mapped in mapping.items():
+                folded = fold_dsn_case(key)
+                if folded in seen and comparable(mapping[seen[folded]]) != comparable(
+                    mapped
+                ):
+                    raise ValueError(
+                        f"{field_name} maps keys that differ only in case to "
+                        f"different values: {seen[folded]!r} and {key!r}. DSN names "
+                        "are case-insensitive, so give each DSN a single value."
+                    )
+                seen.setdefault(folded, key)
         return self
 
     def get_from_dataset_type_mapping(

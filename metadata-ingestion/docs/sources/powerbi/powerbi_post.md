@@ -131,7 +131,7 @@ source:
 
 Databricks navigation through the constant `SPARK` catalog of the Simba Spark driver treats the catalog as missing, because `spark.<schema>.<table>` never matches a Databricks catalog. Supply the real catalog with `dsn_to_database_schema`, for example `spark_dsn: hive_metastore`; without it the table is skipped with a warning. A `metastore` set for the Databricks server under `server_to_platform_instance` prefixes the catalog, as it does for `Databricks.Catalogs`.
 
-DSN names in `dsn_to_platform_name` and `dsn_to_database_schema` are matched case-insensitively. A recipe may list the same DSN under keys that differ only in case, but they must map to the same target (the same platform, or the same database and schema, compared case-sensitively); conflicting values fail config validation.
+DSN names in `dsn_to_platform_name` and `dsn_to_database_schema` are matched case-insensitively. A recipe may list the same DSN under keys that differ only in case, but they must map to the same target (the same platform, or the same database and schema, compared case-insensitively unless `convert_lineage_urns_to_lowercase` is off); conflicting values fail config validation.
 
 ODBC SQL queries (`Odbc.Query`) are parsed as SQL and keep their own URN shapes: the per-platform rules above apply only to hierarchical navigation. Oracle queries follow the same `default_database` rule as navigation, so both paths emit the same URN. For Athena both paths drop the leading catalog, keep the server's `platform_instance`, and apply `athena_table_platform_override`.
 

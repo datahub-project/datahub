@@ -320,6 +320,31 @@ class TestPowerBiConfig:
         config_dict = {**self.base_config, field: {"Prod": first, "PROD": second}}
         PowerBiDashboardSourceConfig.model_validate(config_dict)
 
+    @pytest.mark.parametrize("lowercase, valid", [(True, True), (False, False)])
+    def test_dsn_database_schema_case_duplicates_follow_urn_lowercasing(
+        self, lowercase: bool, valid: bool
+    ) -> None:
+        """Values differing only in case build the same URN when lineage URNs are
+        lowercased, so they only conflict when lowercasing is off."""
+        config_dict = {
+            **self.base_config,
+            "convert_lineage_urns_to_lowercase": lowercase,
+            "dsn_to_database_schema": {"MyDsn": "Prod.Data", "MYDSN": "prod.data"},
+        }
+        if valid:
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+        else:
+            with pytest.raises(ValidationError):
+                PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    def test_dsn_database_schema_shape_error_wins_over_case_duplicate(self) -> None:
+        config_dict = {
+            **self.base_config,
+            "dsn_to_database_schema": {"DSN": "prod.", "dsn": "prod"},
+        }
+        with pytest.raises(ValidationError, match="must not be blank"):
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+
     @pytest.mark.parametrize("platform_instance", ["", "   "])
     def test_athena_override_blank_platform_instance_invalid(
         self, platform_instance: str
