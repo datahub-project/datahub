@@ -67,6 +67,10 @@ class Constant:
     DATASETSCHEMA = "datasetSchema"
     GRAPH = "graph"
     NODES = "nodes"
+    EDGES = "edges"
+    SOURCE = "source"
+    TARGET = "target"
+    RESOURCEATTRIBUTES = "resourceAttributes"
     RESOURCES = "resources"
     LINEAGE = "lineage"
     TABLELABEL = "tableLabel"
@@ -137,6 +141,8 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     script_tables_found: int = 0
     script_tables_with_lineage: int = 0
     apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
+    # Apps Qlik Cloud has no lineage graph for, read as having no tables.
+    apps_without_lineage_graph: LossyList[str] = field(default_factory=LossyList)
     unresolved_data_connections: LossyList[str] = field(default_factory=LossyList)
     apps_read: int = 0
     apps_skipped_unchanged: int = 0
@@ -311,6 +317,14 @@ class QlikSourceConfig(
         description="Seconds to wait for the Qlik Engine, and on-prem for the "
         "Repository Service, to connect or reply before the request fails. An app "
         "whose read times out is ingested as partly read.",
+    )
+    include_column_lineage: bool = Field(
+        default=True,
+        description="Emit column-level lineage, from load scripts and app data "
+        "models and, on Qlik Cloud, from the field level of Qlik's lineage graph, "
+        "which is read for each app table and each dataset an app stores into and "
+        "also gives the fields of tables a load script drops. The field-level "
+        "reads cost one request per table.",
     )
     # Qlik app dataset upstream tables from data connection to platform instance mapping
     data_connection_to_platform_instance: Dict[str, PlatformDetail] = Field(

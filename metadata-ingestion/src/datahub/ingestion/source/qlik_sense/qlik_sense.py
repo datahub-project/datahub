@@ -1,10 +1,15 @@
+import base64
 import copy
+import functools
 import hashlib
 import json
 import logging
+import re
 from datetime import datetime
 from functools import partial
-from typing import Collection, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Collection, Dict, Iterable, List, Optional, Set, Tuple, Union
+
+from pydantic import BaseModel, ConfigDict
 
 import datahub.emitter.mce_builder as builder
 from datahub._version import __version__
@@ -18,6 +23,9 @@ from datahub.ingestion.api.decorators import (
     config_class,
     platform_name,
     support_status,
+)
+from datahub.ingestion.api.incremental_lineage_helper import (
+    convert_upstream_lineage_to_patch,
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
@@ -52,6 +60,8 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     BoxType,
     Chart,
     Item,
+    LineageTable,
+    ListedDataset,
     QlikDataset,
     QlikTable,
     SchemaField as QlikDatasetSchemaField,
@@ -70,11 +80,13 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     ResolvedConnection,
     ScriptTable,
     ScriptTableLineage,
+    app_table_identifier,
     apply_crosstable,
     apply_preceding_loads,
     brackets_to_backticks,
     connection_lookup_names,
     drop_condition_variables,
+    expand_variables,
     expression_names,
     has_qualified_name,
     infer_data_connection,
@@ -133,7 +145,9 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     SchemaFieldDataTypeClass,
 )
+from datahub.metadata.urns import SchemaFieldUrn
 from datahub.specific.chart import ChartPatchBuilder
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     column_refs_to_schema_field_urns,
@@ -155,6 +169,80 @@ class _PartialRead(StrEnum):
 # Entities per DataHub request when checking that a skipped app's entities exist.
 ENTITY_CHECK_BATCH_SIZE = 100
 
+# Lineage graph QRIs of Qlik dataset tables, `<dataset secureQri>#<table>`.
+# An analytics app is a sense resource in the lineage graph, a script app a
+# dataprep resource.
+QLIK_APP_QRI_RE = re.compile(r"^qri:app:(?:sense|dataprep)://([^#]+)")
+# Qlik Cloud datasets, such as QVDs stored in a space.
+QLIK_DATASET_QRI_PREFIX = "qri:qdf:"
+QVD_EXTENSION = ".qvd"
+
+
+def _is_qvd(dataset: Union[QlikDataset, ListedDataset]) -> bool:
+    return dataset.type.upper() == "QVD" or dataset.name.lower().endswith(QVD_EXTENSION)
+
+
+def _dataset_subtype(dataset: QlikDataset) -> str:
+    return (
+        DatasetSubTypes.QLIK_QVD if _is_qvd(dataset) else DatasetSubTypes.QLIK_DATASET
+    )
+
+
+def _dataset_display_name(dataset: QlikDataset) -> str:
+    # The URN keeps the file name, so `sales.qvd` and `sales.csv` in one space
+    # stay apart and QVDs ingested before keep their URNs.
+    if _is_qvd(dataset) and dataset.name.lower().endswith(QVD_EXTENSION):
+        return dataset.name[: -len(QVD_EXTENSION)]
+    return dataset.name
+
+
+def _qlik_app_id(qri: str) -> Optional[str]:
+    match = QLIK_APP_QRI_RE.match(qri)
+    return match.group(1) if match else None
+
+
+class PendingTableLineage(BaseModel):
+    """What an app table's lineage is built from, kept until the end of the
+    run when a source field's name is only read later."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    app_id: str
+    table_label: str
+    dataset_urn: str
+    upstream_urns: List[str]
+    # Every table-level source and the app's script and tables were read.
+    complete: bool
+    script_fields: List[FineGrainedLineage]
+    field_source_qris: Dict[str, List[str]]
+
+
+def _schema_field_parent(urn: str) -> Optional[str]:
+    # Lineage another tool wrote may hold any kind of URN.
+    try:
+        return SchemaFieldUrn.from_string(urn).parent
+    except Exception:
+        return None
+
+
+def _qlik_field_id(name: str) -> str:
+    """The last part of a field node's QRI in Qlik's lineage graph, which is the
+    unpadded base64url SHA-256 of the field name. Not documented by Qlik, so it
+    is only used to confirm a name, never to make one up."""
+    digest = hashlib.sha256(name.encode("utf-8")).digest()
+    return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+
+
+class _ResolvedSources(BaseModel):
+    urns: List[str] = []
+    # False when a source could not be resolved this run.
+    complete: bool = True
+
+
+def _bounded_list(items: List[str], limit: int = 10) -> str:
+    more = f" (and {len(items) - limit} more)" if len(items) > limit else ""
+    return ", ".join(items[:limit]) + more
+
 
 def _error_type(error: Optional[Exception]) -> str:
     # SQL parser errors quote the statement, which can hold credentials when a
@@ -173,7 +261,7 @@ def _error_type(error: Optional[Exception]) -> str:
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Disabled by default.",
+    "Enabled by default, can be disabled via configuration `include_column_lineage`",
 )
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
@@ -202,6 +290,36 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self.reporter = QlikSourceReport()
         self.ui_host = config.ui_hostname()
         self._data_connections: Optional[Dict[str, DataConnectionInfo]] = None
+        self._allowed_space_ids: Set[str] = set()
+        self._reported_no_graph = False
+        # Datasets with a column edge whose source field could not be named.
+        self._unnamed_field_lineage: Set[str] = set()
+        # A listed QVD of an allowed space had no secure QRI to match.
+        self._datasets_without_qri = False
+        # App tables whose lineage waits for field names read later in the run.
+        self._pending_table_lineage: List[PendingTableLineage] = []
+        # Table QRI -> dataset URN for the tables of apps read or kept this run.
+        # Lineage only links to tables in here, as other URNs may never exist.
+        self._app_table_urns_by_qri: Dict[str, str] = {}
+        # Tables the last run recorded for apps whose tables are known this
+        # run, so edges from a table since renamed or dropped are still owned.
+        self._previous_app_table_urns: Set[str] = set()
+        # Apps read or kept this run, by whether all their tables are known.
+        self._apps_tables_known: Set[str] = set()
+        self._apps_tables_unknown: Set[str] = set()
+        # The data model fields of the app being emitted, by table identifier.
+        self._data_model_fields: Dict[str, List[QlikDatasetSchemaField]] = {}
+        # Datasets and the app table QRIs stored into them, linked once every
+        # app has been read.
+        self._dataset_store_sources: Dict[str, List[str]] = {}
+        self._dataset_store_field_sources: Dict[str, Dict[str, List[str]]] = {}
+        self._dataset_store_fields_unknown: Set[str] = set()
+        # Graph tables whose fields have no type, such as a table the script
+        # drops after storing it, by URN.
+        self._untyped_tables: Dict[str, Tuple[str, List[QlikDatasetSchemaField]]] = {}
+        self._dataset_field_types: Dict[str, Dict[str, Optional[str]]] = {}
+        # Field names seen this run, by their field id in Qlik's lineage graph.
+        self._field_names_by_id: Dict[str, str] = {}
         # Owned here rather than by the automatic processor so that entities of
         # apps skipped as unchanged or only partly read can be kept in the state.
         self.stale_entity_removal_handler: Optional[StaleEntityRemovalHandler] = (
@@ -392,9 +510,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 context=app_id,
                 exc=e,
             )
+            self._apps_tables_unknown.add(app_id)
             return []
         if previous is None:
+            self._apps_tables_unknown.add(app_id)
             return []
+        if previous.table_urns_by_qri is None:
+            # Recorded before table URNs were kept in the state.
+            self._apps_tables_unknown.add(app_id)
+        else:
+            self._apps_tables_known.add(app_id)
+            self._app_table_urns_by_qri.update(previous.table_urns_by_qri)
         assert self.stale_entity_removal_handler is not None
         for urn in previous.urns:
             self.stale_entity_removal_handler.add_entity_to_state(
@@ -410,7 +536,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self.app_state.record(
                 app.id,
                 AppCheckpoint(
-                    fingerprint=self._salted_fingerprint(app.fingerprint), urns=urns
+                    fingerprint=self._salted_fingerprint(app.fingerprint),
+                    urns=urns,
+                    table_urns_by_qri=self._kept_table_urns(app.id),
                 ),
             )
         self.reporter.apps_skipped_unchanged += 1
@@ -441,6 +569,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 fingerprint=None,
                 urns=urns,
                 partial_reads=previous.partial_reads + 1,
+                table_urns_by_qri=previous.table_urns_by_qri,
             ),
         )
         return _PartialRead.KEPT
@@ -466,7 +595,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # Qlik are soft-deleted even when the change check keeps failing. No
         # fingerprint never matches, so such an app is read again next run.
         self.app_state.record(
-            app.id, AppCheckpoint(fingerprint=fingerprint, urns=list(urns))
+            app.id,
+            AppCheckpoint(
+                fingerprint=fingerprint,
+                urns=list(urns),
+                # Tables that could not all be read are recorded as unknown, so
+                # a later run can't take them for the app having no tables.
+                table_urns_by_qri=None
+                if app.tables_read_failed
+                else self._app_table_urns(app),
+            ),
         )
 
     def _gen_space_key(self, space_id: str) -> SpaceKey:
@@ -716,11 +854,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         input_tables_urns: List[str],
         has_unknown_schema: bool,
     ) -> List[str]:
-        # The fields behind a $(variable) expansion are unknown, so the chart
-        # may read any of the app's tables, as may a measure that could not be
-        # read, a derived field such as Date.autoCalendar.Year whose base field
-        # is not known, or a name that is not a known field while some table's
-        # columns are unknown (e.g. SELECT *). Set modifier values only filter.
+        # The fields behind a $(variable) expansion that could not be expanded
+        # are unknown, so the chart may read any of the app's tables, as may a
+        # measure that could not be read, a derived field such as
+        # Date.autoCalendar.Year whose base field is not known, or a name that
+        # is not a known field while some table's columns are unknown (e.g.
+        # SELECT *). Set modifier values only filter.
         unmatched = [
             name
             for expression in chart.field_expressions
@@ -734,10 +873,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             or (has_unknown_schema and unmatched)
         ):
             return input_tables_urns
-        return (
-            list(dict.fromkeys(field.dataset_urn for field in chart_fields))
-            or input_tables_urns
-        )
+        # Otherwise every name is known: a chart that reads no field of the
+        # app, such as a text object, has no input table.
+        return list(dict.fromkeys(field.dataset_urn for field in chart_fields))
 
     @staticmethod
     def _index_app_fields(
@@ -787,6 +925,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if self.config.ingest_owner and owner_username:
                 yield self._gen_entity_owner_aspect(dashboard_urn, owner_username)
 
+            for chart in sheet.charts:
+                chart.field_expressions = [
+                    expand_variables(expression, app.variables)
+                    for expression in chart.field_expressions
+                ]
             yield from self._gen_charts_workunit(
                 sheet.charts,
                 input_tables_urns,
@@ -884,7 +1027,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                             dataset=upstream_dataset_urn, type=DatasetLineageType.COPY
                         )
                     ],
-                    fineGrainedLineages=fine_grained_lineages,
+                    fineGrainedLineages=self._column_lineage(fine_grained_lineages),
                 ),
             ).as_workunit()
         else:
@@ -1055,12 +1198,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # Loads of one dataset URN are one table, so labels that differ only
         # in case are merged. Mapping tables are a separate namespace, so a
         # mapping load is kept apart.
-        identifier = f"{app_id}.{script_table.label}".lower()
+        identifier = app_table_identifier(app_id, script_table.label)
         lineage = tables.setdefault(
             (identifier, script_table.mapping),
             ScriptTableLineage(
                 label=script_table.label,
                 identifier=identifier,
+                label_unknown=script_table.label_unknown,
                 connection=connection_name,
                 mapping=script_table.mapping,
             ),
@@ -1181,12 +1325,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def _gen_script_tables_workunit(
-        self, tables: List[ScriptTableLineage], app_id: str
+        self,
+        tables: List[ScriptTableLineage],
+        app_id: str,
+        replace_lineage: bool = True,
     ) -> Iterable[MetadataWorkUnit]:
         for table in tables:
             dataset_urn = self._gen_qlik_dataset_urn(table.identifier)
             yield from self._gen_app_table_entity(
-                table.identifier, self._script_table_fields(table), app_id
+                table.identifier,
+                self._table_schema(table.identifier, self._script_table_fields(table)),
+                app_id,
             )
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
@@ -1199,6 +1348,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     },
                 ),
             ).as_workunit()
+            if not replace_lineage:
+                yield from self._patch_upstreams(
+                    dataset_urn,
+                    table.upstream_urns,
+                    DatasetLineageType.TRANSFORMED,
+                    self._column_lineage(
+                        self._script_column_lineage(dataset_urn, table)
+                    ),
+                )
+                continue
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=UpstreamLineage(
@@ -1206,21 +1365,357 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                         Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
                         for urn in table.upstream_urns
                     ],
-                    fineGrainedLineages=[
-                        FineGrainedLineage(
-                            upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                            upstreams=upstreams,
-                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                            downstreams=[
-                                builder.make_schema_field_urn(dataset_urn, column)
-                            ],
-                        )
-                        for column, upstreams in table.column_upstreams.items()
-                        if upstreams
-                    ]
-                    or None,
+                    fineGrainedLineages=self._column_lineage(
+                        self._script_column_lineage(dataset_urn, table)
+                    ),
                 ),
             ).as_workunit()
+
+    @staticmethod
+    def _script_column_lineage(
+        dataset_urn: str, table: ScriptTableLineage
+    ) -> Optional[List[FineGrainedLineage]]:
+        return [
+            FineGrainedLineage(
+                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                upstreams=upstreams,
+                downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                downstreams=[builder.make_schema_field_urn(dataset_urn, column)],
+            )
+            for column, upstreams in table.column_upstreams.items()
+            if upstreams
+        ] or None
+
+    @functools.cached_property
+    def _dataset_urns_by_secure_qri(self) -> Optional[Dict[str, str]]:
+        """Dataset URNs by secure QRI, or None when the datasets could not be
+        listed. First read after the allowed spaces are known."""
+        datasets = self.qlik_api.list_datasets()
+        if datasets is None:
+            self.reporter.warning(
+                title="Unable to list Qlik datasets",
+                message="Lineage to and from Qlik datasets, such as QVDs, is only "
+                "added to this run.",
+                context=str(self.qlik_api.dataset_listing_error),
+            )
+            return None
+        # Only datasets of allowed spaces are ingested.
+        allowed = [d for d in datasets if d.space_id in self._allowed_space_ids]
+        # Qlik traces QVDs, so one listed without a QRI may be a source the
+        # graph names; files it doesn't trace, such as text files, never are.
+        self._datasets_without_qri = any(
+            d.secure_qri is None and _is_qvd(d) for d in allowed
+        )
+        return {
+            dataset.secure_qri: self._gen_qlik_dataset_urn(
+                self._qlik_dataset_identifier(dataset.space_id, dataset.name)
+            )
+            for dataset in allowed
+            if dataset.secure_qri is not None
+        }
+
+    @staticmethod
+    def _lineage_table_identifier(app_id: str, table: LineageTable) -> str:
+        # The identifier load script tables use, so a table keeps its URN
+        # whether or not its load script SQL resolves to a database table.
+        label = table.label or table.qri.rpartition("#")[2]
+        return app_table_identifier(app_id, label)
+
+    def _app_table_urns(self, app: App) -> Dict[str, str]:
+        urns = {
+            table.tableQri: self._gen_qlik_dataset_urn(table.tableQri.lower())
+            for table in app.tables
+            if table.tableQri
+        }
+        urns.update(
+            (
+                table.qri,
+                self._gen_qlik_dataset_urn(
+                    self._lineage_table_identifier(app.id, table)
+                ),
+            )
+            for table in app.lineage_tables
+        )
+        return urns
+
+    def _register_app_tables(self, app: App) -> None:
+        self._app_table_urns_by_qri.update(self._app_table_urns(app))
+        if app.tables_read_failed:
+            self._apps_tables_unknown.add(app.id)
+            return
+        self._apps_tables_known.add(app.id)
+        previous = self._usable_checkpoint(app.id, [])
+        if previous is not None and previous.table_urns_by_qri:
+            self._previous_app_table_urns.update(previous.table_urns_by_qri.values())
+
+    def _kept_table_urns(self, app_id: str) -> Optional[Dict[str, str]]:
+        if app_id not in self._apps_tables_known:
+            return None
+        return {
+            qri: urn
+            for qri, urn in self._app_table_urns_by_qri.items()
+            if _qlik_app_id(qri) == app_id
+        }
+
+    def _app_tables_known(self, app_id: str) -> bool:
+        if app_id in self._apps_tables_unknown:
+            return False
+        if app_id in self._apps_tables_known:
+            return True
+        # Not read or kept this run, so deleted or outside the recipe, unless
+        # part of the run could not be read.
+        return not self.qlik_api.unread_items
+
+    def _resolve_lineage_sources(
+        self, source_qris: List[str], dataset_urn: str, own_app_id: Optional[str]
+    ) -> "_ResolvedSources":
+        """URNs of the sources this run ingests. A source that can't be resolved
+        this run, because the datasets or its app could not be read, makes the
+        result incomplete. With `own_app_id`, only that app's tables are linked."""
+        resolved = _ResolvedSources()
+        for source_qri in source_qris:
+            urn, known = self._resolve_source(source_qri, dataset_urn, own_app_id)
+            if not known:
+                resolved.complete = False
+            if urn and urn not in resolved.urns:
+                resolved.urns.append(urn)
+        return resolved
+
+    def _resolve_source(
+        self, table_qri: str, dataset_urn: str, own_app_id: Optional[str]
+    ) -> Tuple[Optional[str], bool]:
+        """The URN of a source table node, if this run ingests it, and whether
+        every source could be told this run. An unknown source may still have
+        a URN, which is only added."""
+        app_id = _qlik_app_id(table_qri)
+        if app_id is not None:
+            if own_app_id is not None and app_id != own_app_id:
+                return None, True
+            urn = self._app_table_urns_by_qri.get(table_qri)
+            if not self._app_tables_known(app_id):
+                # A table the graph names this run is still added, but the
+                # app's other tables are unknown.
+                return (urn if urn != dataset_urn else None), False
+        else:
+            # Data files, and files Qlik catalogued on a data connection such
+            # as ADLS, are datasets. Other sources, such as database tables,
+            # have opaque QRIs; the load script parser traces SQL loads instead.
+            datasets = self._dataset_urns_by_secure_qri
+            if datasets is None:
+                return None, False
+            urn = datasets.get(table_qri.rpartition("#")[0]) or datasets.get(table_qri)
+            if (
+                urn is None
+                and table_qri.startswith(QLIK_DATASET_QRI_PREFIX)
+                and self._datasets_without_qri
+            ):
+                # It may be an ingested dataset the listing gave no QRI for.
+                return None, False
+        return (urn if urn != dataset_urn else None), True
+
+    def _learn_field_names(self, names: Iterable[str]) -> None:
+        for name in names:
+            self._field_names_by_id.setdefault(_qlik_field_id(name), name)
+
+    def _graph_column_lineage(
+        self,
+        dataset_urn: str,
+        field_source_qris: Dict[str, List[str]],
+        own_app_id: Optional[str],
+    ) -> List[FineGrainedLineage]:
+        """Column lineage from the field level of Qlik's lineage graph. A source
+        field is named only when its id is the hash of a field name the run
+        has seen, such as the field it is loaded into."""
+        if not self.config.include_column_lineage:
+            # An unnamed source field would otherwise keep the table's lineage
+            # from being written whole, for column lineage that isn't emitted.
+            return []
+        lineages = []
+        for field, source_qris in field_source_qris.items():
+            upstreams: List[str] = []
+            for field_qri in source_qris:
+                table_qri, _, field_id = field_qri.rpartition("#")
+                urn, _ = self._resolve_source(table_qri, dataset_urn, own_app_id)
+                name = (
+                    field
+                    if _qlik_field_id(field) == field_id
+                    else self._field_names_by_id.get(field_id)
+                )
+                if urn and not name:
+                    # The source field is real but no field of that name has
+                    # been read yet, such as a renamed load from a QVD read
+                    # later in the run, so the table's column lineage is not
+                    # all known.
+                    self._unnamed_field_lineage.add(dataset_urn)
+                if urn and name:
+                    upstream = builder.make_schema_field_urn(urn, name)
+                    if upstream not in upstreams:
+                        upstreams.append(upstream)
+            if upstreams:
+                lineages.append(
+                    FineGrainedLineage(
+                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                        upstreams=upstreams,
+                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                        downstreams=[builder.make_schema_field_urn(dataset_urn, field)],
+                    )
+                )
+        return lineages
+
+    def _column_lineage(
+        self, lineages: Optional[List[FineGrainedLineage]]
+    ) -> Optional[List[FineGrainedLineage]]:
+        return (lineages or None) if self.config.include_column_lineage else None
+
+    @staticmethod
+    def _patch_upstreams(
+        dataset_urn: str,
+        upstream_urns: List[str],
+        lineage_type: str,
+        fine_grained: Optional[List[FineGrainedLineage]] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Adds lineage without replacing the edges an earlier run wrote."""
+        if not upstream_urns and not fine_grained:
+            return
+        yield convert_upstream_lineage_to_patch(
+            dataset_urn,
+            UpstreamLineage(
+                upstreams=[
+                    Upstream(dataset=urn, type=lineage_type) for urn in upstream_urns
+                ],
+                fineGrainedLineages=fine_grained or None,
+            ),
+            None,
+        )
+
+    def _gen_lineage_tables_workunit(
+        self, app: App, script_tables: Dict[str, ScriptTableLineage]
+    ) -> Iterable[MetadataWorkUnit]:
+        for table in app.lineage_tables:
+            script_table = script_tables.get(table.qri)
+            identifier = self._lineage_table_identifier(app.id, table)
+            dataset_urn = self._gen_qlik_dataset_urn(identifier)
+            schema = self._table_schema(
+                identifier, self._lineage_table_fields(table, script_table)
+            )
+            if schema and all(field.dataType is None for field in schema):
+                self._untyped_tables[dataset_urn] = (identifier, schema)
+            yield from self._gen_app_table_entity(identifier, schema, app.id)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=DatasetProperties(
+                    name=table.label,
+                    qualifiedName=table.label,
+                    customProperties={
+                        Constant.TYPE: DatasetSubTypes.QLIK_TABLE,
+                        Constant.QRI: table.qri,
+                        **(
+                            {Constant.DATACONNECTORNAME: script_table.connection}
+                            if script_table and script_table.connection
+                            else {}
+                        ),
+                    },
+                ),
+            ).as_workunit()
+            resolved = self._resolve_lineage_sources(
+                table.source_qris, dataset_urn, own_app_id=app.id
+            )
+            upstream_urns = list(resolved.urns)
+            if script_table:
+                upstream_urns.extend(
+                    urn
+                    for urn in script_table.upstream_urns
+                    if urn not in upstream_urns
+                )
+            pending = PendingTableLineage(
+                app_id=app.id,
+                table_label=table.label,
+                dataset_urn=dataset_urn,
+                upstream_urns=upstream_urns,
+                complete=resolved.complete
+                and not app.script_read_failed
+                and not app.tables_read_failed
+                and not table.field_lineage_failed,
+                script_fields=(
+                    self._script_column_lineage(dataset_urn, script_table) or []
+                    if script_table
+                    else []
+                ),
+                field_source_qris=table.field_source_qris,
+            )
+            graph_fields = self._graph_column_lineage(
+                dataset_urn, table.field_source_qris, own_app_id=app.id
+            )
+            if dataset_urn in self._unnamed_field_lineage:
+                # A source field is named by an item read later in the run, such
+                # as a renamed load from a QVD listed after the app, so the
+                # table's lineage is written, whole or as a patch, once every
+                # name is known.
+                self._unnamed_field_lineage.discard(dataset_urn)
+                self._pending_table_lineage.append(pending)
+                continue
+            yield from self._gen_table_lineage(pending, graph_fields)
+
+    def _gen_pending_table_lineage(self) -> Iterable[MetadataWorkUnit]:
+        for pending in self._pending_table_lineage:
+            graph_fields = self._graph_column_lineage(
+                pending.dataset_urn,
+                pending.field_source_qris,
+                own_app_id=pending.app_id,
+            )
+            yield from self._gen_table_lineage(pending, graph_fields)
+        self._pending_table_lineage = []
+
+    def _gen_table_lineage(
+        self, pending: "PendingTableLineage", graph_fields: List[FineGrainedLineage]
+    ) -> Iterable[MetadataWorkUnit]:
+        fine_grained = self._column_lineage([*pending.script_fields, *graph_fields])
+        if pending.complete and pending.dataset_urn not in self._unnamed_field_lineage:
+            # The app owns its tables, so the lineage is written whole, which
+            # also drops upstreams the app no longer reads.
+            yield MetadataChangeProposalWrapper(
+                entityUrn=pending.dataset_urn,
+                aspect=UpstreamLineage(
+                    upstreams=[
+                        Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
+                        for urn in pending.upstream_urns
+                    ],
+                    fineGrainedLineages=fine_grained,
+                ),
+            ).as_workunit()
+            return
+        # A dataset, the load script and the SQL lineage in it, or the name of
+        # a source field could not be read this run: replacing the lineage
+        # would drop the edges an earlier run wrote, so what was read is added
+        # to them instead.
+        self.reporter.warning(
+            title="Lineage of Qlik app table only added to",
+            message="A source of the table could not be read this run, so the "
+            "lineage read this run is added to the table's existing lineage "
+            "instead of replacing it.",
+            context=f"app={pending.app_id}, table={pending.table_label}",
+        )
+        yield from self._patch_upstreams(
+            pending.dataset_urn,
+            pending.upstream_urns,
+            DatasetLineageType.TRANSFORMED,
+            fine_grained,
+        )
+
+    @staticmethod
+    def _match_script_tables(
+        lineage_tables: List[LineageTable], script_tables: List[ScriptTableLineage]
+    ) -> Dict[str, ScriptTableLineage]:
+        """Script tables that are also lineage graph tables, by graph table QRI,
+        so each table is ingested once."""
+        by_label = {
+            table.label.lower(): table for table in script_tables if not table.mapping
+        }
+        return {
+            table.qri: by_label[table.label.lower()]
+            for table in lineage_tables
+            if table.label.lower() in by_label
+        }
 
     def _gen_app_tables_workunit(
         self, tables: List[QlikTable], app_id: str
@@ -1243,6 +1738,78 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if upstream_lineage_workunit:
                 yield upstream_lineage_workunit
 
+    @staticmethod
+    def _name_unknown_tables(app: App, script_tables: List[ScriptTableLineage]) -> None:
+        """Gives a script table the parser could not name its name in the data
+        model, when exactly one data model table no other table claims has
+        exactly its columns. Otherwise it keeps its made-up name."""
+        # A lineage graph table stays claimable: an unlabelled load the graph
+        # also traces must take its name, so both are ingested as one table.
+        claimed = {
+            table.label.lower() for table in script_tables if not table.label_unknown
+        }
+        unclaimed = [
+            table
+            for table in app.data_model_tables
+            if table.name.lower() not in claimed
+        ]
+        by_fields: Dict[frozenset, List[str]] = {}
+        for model_table in unclaimed:
+            fields = frozenset(field.name.lower() for field in model_table.fields)
+            by_fields.setdefault(fields, []).append(model_table.name)
+        unknown = [
+            table
+            for table in script_tables
+            if table.label_unknown and not table.mapping and table.column_upstreams
+        ]
+        columns = [frozenset(c.lower() for c in t.column_upstreams) for t in unknown]
+        for table, table_columns in zip(unknown, columns, strict=True):
+            names = by_fields.get(table_columns, [])
+            # Two unnamed tables with the same columns can't be told apart.
+            if len(names) == 1 and columns.count(table_columns) == 1:
+                table.label = names[0]
+                table.identifier = app_table_identifier(app.id, names[0])
+                table.label_unknown = False
+
+    def _use_data_model_field_names(
+        self, script_tables: List[ScriptTableLineage]
+    ) -> None:
+        """Spells each column as the data model does, so column lineage lands on
+        the schema's fields. The SQL parser may change a column's case."""
+        for table in script_tables:
+            fields = self._data_model_fields.get(table.identifier)
+            if not fields:
+                continue
+            names = {field.name for field in fields}
+            by_lower: Dict[str, List[str]] = {}
+            for name in names:
+                by_lower.setdefault(name.lower(), []).append(name)
+            column_upstreams: Dict[str, List[str]] = {}
+            for column, upstreams in table.column_upstreams.items():
+                matches = by_lower.get(column.lower(), [])
+                # Qlik field names are case-sensitive, so a column matching two
+                # fields keeps its own spelling.
+                name = column if column in names or len(matches) != 1 else matches[0]
+                merged = column_upstreams.setdefault(name, [])
+                merged.extend(u for u in upstreams if u not in merged)
+            table.column_upstreams = column_upstreams
+
+    def _lineage_table_fields(
+        self, table: LineageTable, script_table: Optional[ScriptTableLineage]
+    ) -> List[QlikDatasetSchemaField]:
+        """The fields the load script or, failing that, the field level of the
+        lineage graph gives a table, for a table the data model no longer
+        holds, such as one the script drops after storing it."""
+        parsed = self._script_table_fields(script_table) if script_table else []
+        return parsed or [QlikDatasetSchemaField(name=name) for name in table.fields]
+
+    def _table_schema(
+        self, identifier: str, parsed: List[QlikDatasetSchemaField]
+    ) -> List[QlikDatasetSchemaField]:
+        """A table's fields as the app's data model holds them, which the load
+        script only shows when its SELECT lists them."""
+        return self._data_model_fields.get(identifier) or parsed
+
     def _app_table_fields(
         self, tables: List[QlikTable], script_tables: List[ScriptTableLineage]
     ) -> Dict[str, List[QlikDatasetSchemaField]]:
@@ -1259,7 +1826,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if script_table.mapping:
                 continue
             table_fields[self._gen_qlik_dataset_urn(script_table.identifier)] = (
-                self._script_table_fields(script_table)
+                self._table_schema(
+                    script_table.identifier, self._script_table_fields(script_table)
+                )
             )
         return table_fields
 
@@ -1270,14 +1839,45 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         Map Qlik App to Datahub container
         """
         owner_username = self._get_owner_name(app.ownerId)
+        self._data_model_fields = {
+            app_table_identifier(app.id, table.name): table.fields
+            for table in app.data_model_tables
+        }
+        self._learn_field_names(
+            field.name for table in app.data_model_tables for field in table.fields
+        )
+        self._learn_field_names(
+            field for table in app.lineage_tables for field in table.fields
+        )
         if self.config.on_prem is None and not app.tables:
             self.reporter.apps_without_load_model.append(app.id)
         script_tables = self._build_script_tables(app)
+        self._name_unknown_tables(app, script_tables)
+        self._use_data_model_field_names(script_tables)
+        matched_script_tables = self._match_script_tables(
+            app.lineage_tables, script_tables
+        )
+        matched_ids = {id(table) for table in matched_script_tables.values()}
+        script_tables = [
+            table for table in script_tables if id(table) not in matched_ids
+        ]
         table_fields = self._app_table_fields(app.tables, script_tables)
-        input_tables_urns = list(table_fields)
         script_table_urns = {
             self._gen_qlik_dataset_urn(table.identifier) for table in script_tables
         }
+        self._register_app_tables(app)
+        for table in app.lineage_tables:
+            matched = matched_script_tables.get(table.qri)
+            urn = self._gen_qlik_dataset_urn(
+                self._lineage_table_identifier(app.id, table)
+            )
+            table_fields[urn] = self._table_schema(
+                self._lineage_table_identifier(app.id, table),
+                self._lineage_table_fields(table, matched),
+            )
+            if matched:
+                script_table_urns.add(urn)
+        input_tables_urns = list(table_fields)
         container_workunits = list(
             gen_containers(
                 container_key=self._gen_app_key(app.id),
@@ -1307,7 +1907,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             any(not fields for fields in table_fields.values()),
         )
         yield from self._gen_app_tables_workunit(app.tables, app.id)
-        yield from self._gen_script_tables_workunit(script_tables, app.id)
+        yield from self._gen_lineage_tables_workunit(app, matched_script_tables)
+        yield from self._gen_script_tables_workunit(
+            script_tables,
+            app.id,
+            # A table the lineage graph could not be read for may be one an
+            # earlier run merged with a graph table, whose other edges stay.
+            replace_lineage=not app.tables_read_failed,
+        )
         if fingerprint:
             # Skipping an unchanged app trusts this fingerprint, so it is written
             # only after everything else the app produced.
@@ -1402,7 +2009,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self, dataset_urn: str, dataset: QlikDataset
     ) -> MetadataWorkUnit:
         dataset_properties = DatasetProperties(
-            name=dataset.name,
+            name=_dataset_display_name(dataset),
             description=dataset.description,
             qualifiedName=dataset.name,
             externalUrl=f"https://{self.ui_host}/dataset/{dataset.itemId}",
@@ -1413,7 +2020,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             {
                 Constant.QRI: dataset.secureQri,
                 Constant.SPACEID: dataset.spaceId,
-                Constant.TYPE: DatasetSubTypes.QLIK_DATASET,
+                Constant.TYPE: _dataset_subtype(dataset),
                 Constant.DATASETTYPE: dataset.type,
                 Constant.SIZE: str(dataset.size),
                 Constant.ROWCOUNT: str(dataset.rowCount),
@@ -1424,12 +2031,26 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dataset_urn, aspect=dataset_properties
         ).as_workunit()
 
-    def _get_qlik_dataset_identifier(self, dataset: QlikDataset) -> str:
-        return f"{dataset.spaceId}.{dataset.name}".lower()
+    @staticmethod
+    def _qlik_dataset_identifier(space_id: str, name: str) -> str:
+        return f"{space_id}.{name}".lower()
 
     def _gen_dataset_workunit(self, dataset: QlikDataset) -> Iterable[MetadataWorkUnit]:
-        dataset_identifier = self._get_qlik_dataset_identifier(dataset)
+        dataset_identifier = self._qlik_dataset_identifier(
+            dataset.spaceId, dataset.name
+        )
         dataset_urn = self._gen_qlik_dataset_urn(dataset_identifier)
+        if dataset.stored_from_qris is not None:
+            self._dataset_store_sources[dataset_urn] = dataset.stored_from_qris
+            self._dataset_store_field_sources[dataset_urn] = (
+                dataset.stored_field_source_qris
+            )
+            if dataset.stored_field_lineage_failed:
+                self._dataset_store_fields_unknown.add(dataset_urn)
+        self._learn_field_names(field.name for field in dataset.datasetSchema)
+        self._dataset_field_types[dataset_urn] = {
+            field.name: field.dataType for field in dataset.datasetSchema
+        }
 
         yield self._gen_entity_status_aspect(dataset_urn)
 
@@ -1453,8 +2074,44 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
-            aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_DATASET]),
+            aspect=SubTypes(typeNames=[_dataset_subtype(dataset)]),
         ).as_workunit()
+
+    def _check_missing_lineage_graph(self, app: App) -> None:
+        # Qlik also answers 404 for lineage it has not computed yet, so a 404
+        # only means the app has no tables when its last read had none.
+        failures: List[str] = []
+        previous = self._usable_checkpoint(app.id, failures)
+        if failures:
+            # Without the last read, the app's tables may still exist.
+            app.read_errors.append(
+                "Qlik Cloud has no lineage graph for the app, and its last read "
+                "could not be loaded"
+            )
+            app.tables_read_failed = True
+        elif previous is not None and previous.table_urns_by_qri:
+            app.read_errors.append(
+                "Qlik Cloud has no lineage graph for the app, whose last read "
+                "had tables"
+            )
+            app.tables_read_failed = True
+        else:
+            self.reporter.apps_without_lineage_graph.append(app.id)
+            # A last read whose tables are unknown can't tell either.
+            unknown = previous is None or previous.table_urns_by_qri is None
+            if unknown and self.app_state.is_checkpointing_enabled():
+                # With no last read to compare with, the graph may only be
+                # missing because Qlik has not computed it yet, such as right
+                # after a reload, so the app's lineage is only added to. Without
+                # stateful ingestion there is never a last read, so the app is
+                # taken as having no tables, as before.
+                app.tables_read_failed = True
+                self.reporter.warning(
+                    title="Qlik Cloud has no lineage graph for app",
+                    message="Qlik may not have computed it yet, so the lineage "
+                    "of the app's tables is only added to this run.",
+                    context=app.id,
+                )
 
     def _gen_item_workunits(
         self,
@@ -1473,6 +2130,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     context=f"{item.id}: {fallback}",
                 )
             self.reporter.apps_read += 1
+            if item.lineage_graph_missing:
+                self._check_missing_lineage_graph(item)
             logger.info(
                 f"Processed app {item.qTitle} in space {space_name} "
                 f"({self.reporter.apps_read} apps read from the Engine)"
@@ -1504,8 +2163,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 # soft-deleting what this app's last full read produced.
                 self.reporter.failure(
                     title="Unable to fully read Qlik app",
-                    message="Some sheets, charts or load script lineage of this "
-                    "app could not be read from the Engine.",
+                    message="Some sheets, charts, tables or load script lineage "
+                    "of this app could not be read from Qlik.",
                     context=self._read_errors_context(item),
                 )
             if item.script_read_failed:
@@ -1524,6 +2183,182 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         elif isinstance(item, QlikDataset):
             yield from self._gen_dataset_workunit(item)
 
+    def _current_upstreams(self, dataset_urn: str) -> Optional[UpstreamLineage]:
+        graph = self.ctx.graph
+        if graph is None:
+            if not self._reported_no_graph:
+                self._reported_no_graph = True
+                self.reporter.info(
+                    title="Qlik dataset lineage only added to",
+                    message="Without a DataHub connection, such as with a file "
+                    "sink, edges from app tables that no longer store into a "
+                    "dataset can't be found, so none are removed.",
+                )
+            return None
+        try:
+            return graph.get_aspect(dataset_urn, UpstreamLineage) or UpstreamLineage(
+                upstreams=[]
+            )
+        except Exception as e:
+            self.reporter.warning(
+                title="Unable to read Qlik dataset lineage from DataHub",
+                message="The dataset's lineage from apps that store into it is "
+                "only added to.",
+                context=dataset_urn,
+                exc=e,
+            )
+            return None
+
+    def _gen_stored_table_types(self) -> Iterable[MetadataWorkUnit]:
+        """Types for the fields of untyped graph tables, from the datasets they
+        are stored into: a STORE writes a field's values unchanged, so a field
+        stored under its own name has the stored field's type. A field stored
+        into datasets that disagree on its type keeps none."""
+        types: Dict[str, Dict[str, Set[Optional[str]]]] = {}
+        for dataset_urn, field_sources in self._dataset_store_field_sources.items():
+            dataset_types = self._dataset_field_types.get(dataset_urn, {})
+            for field, source_qris in field_sources.items():
+                for field_qri in source_qris:
+                    table_qri, _, field_id = field_qri.rpartition("#")
+                    table_urn = self._app_table_urns_by_qri.get(table_qri)
+                    if (
+                        table_urn in self._untyped_tables
+                        and field_id == _qlik_field_id(field)
+                        and dataset_types.get(field)
+                    ):
+                        types.setdefault(table_urn, {}).setdefault(field, set()).add(
+                            dataset_types[field]
+                        )
+        for table_urn, field_types in types.items():
+            identifier, schema = self._untyped_tables[table_urn]
+            # Columns traced from a load script may have their case changed by
+            # the SQL parser, so a field matches a stored one of another case
+            # when no other stored field folds to the same name.
+            folded: Dict[str, List[str]] = {}
+            for name in field_types:
+                folded.setdefault(name.lower(), []).append(name)
+            typed = []
+            for schema_field in schema:
+                matches = folded.get(schema_field.name.lower(), [])
+                stored_name: Optional[str] = (
+                    schema_field.name
+                    if schema_field.name in field_types
+                    else (matches[0] if len(matches) == 1 else None)
+                )
+                stored_types = (
+                    field_types.get(stored_name, set()) if stored_name else set()
+                )
+                typed.append(
+                    schema_field.model_copy(
+                        update={"dataType": next(iter(stored_types))}
+                    )
+                    if len(stored_types) == 1
+                    else schema_field
+                )
+            yield self._gen_schema_metadata(identifier, typed)
+
+    def _gen_dataset_store_lineage(self) -> Iterable[MetadataWorkUnit]:
+        datasets = self._dataset_urns_by_secure_qri
+        qlik_datasets = set(datasets.values()) if datasets is not None else None
+        owned = self._known_app_table_urns()
+        for dataset_urn, source_qris in self._dataset_store_sources.items():
+            resolved = self._resolve_lineage_sources(
+                source_qris, dataset_urn, own_app_id=None
+            )
+            stored_fields = self._graph_column_lineage(
+                dataset_urn,
+                self._dataset_store_field_sources.get(dataset_urn, {}),
+                own_app_id=None,
+            )
+            if not resolved.complete:
+                self.reporter.warning(
+                    title="Lineage of Qlik dataset only added to",
+                    message="An app that stores into the dataset could not be read "
+                    "this run, so its storing tables are added to the dataset's "
+                    "lineage and none are removed.",
+                    context=dataset_urn,
+                )
+            # Added as a patch, so lineage from elsewhere, such as added in
+            # DataHub, stays.
+            patch = DatasetPatchBuilder(dataset_urn)
+            for urn in resolved.urns:
+                patch.add_upstream_lineage(
+                    Upstream(dataset=urn, type=DatasetLineageType.COPY)
+                )
+            for lineage in stored_fields:
+                patch.add_fine_grained_lineage(lineage)
+            # Edges this connector owns are those from the tables of apps read
+            # in full or kept this run. Those that no longer store into the
+            # dataset are removed one by one; while a storing app is unread
+            # this run, nothing is.
+            current = (
+                self._current_upstreams(dataset_urn)
+                if resolved.complete and qlik_datasets is not None
+                else None
+            )
+            if current is not None:
+                for upstream in current.upstreams:
+                    if upstream.dataset in owned and upstream.dataset not in (
+                        resolved.urns
+                    ):
+                        patch.remove_upstream_lineage(upstream.dataset)
+                if (
+                    self.config.include_column_lineage
+                    and dataset_urn not in self._dataset_store_fields_unknown
+                    and dataset_urn not in self._unnamed_field_lineage
+                ):
+                    for lineage in self._stale_field_lineage(
+                        current.fineGrainedLineages or [], stored_fields, owned
+                    ):
+                        patch.remove_fine_grained_lineage(lineage)
+            for mcp in patch.build():
+                yield MetadataWorkUnit(
+                    id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+                )
+
+    def _known_app_table_urns(self) -> Set[str]:
+        return self._previous_app_table_urns | {
+            urn
+            for qri, urn in self._app_table_urns_by_qri.items()
+            if _qlik_app_id(qri) in self._apps_tables_known
+        }
+
+    @staticmethod
+    def _stale_field_lineage(
+        current: List[FineGrainedLineage],
+        stored: List[FineGrainedLineage],
+        owned: Set[str],
+    ) -> List[FineGrainedLineage]:
+        """The column edges from owned tables that this run no longer stores,
+        each as a lineage holding only those upstream fields."""
+        stored_edges = {
+            (downstream, upstream)
+            for lineage in stored
+            for downstream in lineage.downstreams or []
+            for upstream in lineage.upstreams or []
+        }
+        stale = []
+        for lineage in current:
+            # A column edge can only be removed by patch through its single
+            # downstream field; one another tool wrote with none or several
+            # is not this connector's.
+            if len(lineage.downstreams or []) != 1:
+                continue
+            upstreams = [
+                upstream
+                for upstream in lineage.upstreams or []
+                if _schema_field_parent(upstream) in owned
+                and not any(
+                    (downstream, upstream) in stored_edges
+                    for downstream in lineage.downstreams or []
+                )
+            ]
+            if upstreams:
+                stale_lineage = FineGrainedLineage.from_obj(lineage.to_obj())
+                stale_lineage.upstreams = upstreams
+                stale.append(stale_lineage)
+        return stale
+
     @staticmethod
     def _read_errors_context(app: App) -> str:
         first, *rest = app.read_errors
@@ -1541,6 +2376,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if skip_unchanged:
             self._init_fingerprint_salt()
         space_names = {space.id: space.name for space in allowed_spaces}
+        self._allowed_space_ids = set(space_names)
         for space in allowed_spaces:
             yield from self._gen_space_workunit(space)
         logger.info(f"Reading the items of {len(allowed_spaces)} spaces")
@@ -1557,6 +2393,22 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             space_id = getattr(item, "spaceId", "")
             yield from self._gen_item_workunits(
                 item, space_names.get(space_id, space_id), record_state
+            )
+        yield from self._gen_pending_table_lineage()
+        yield from self._gen_dataset_store_lineage()
+        yield from self._gen_stored_table_types()
+        if self.qlik_api.field_lineage_failures:
+            self.reporter.warning(
+                title="Unable to read Qlik column lineage",
+                message="Column lineage of these tables is only added to this run, "
+                "and their table lineage is still read.",
+                context=_bounded_list(self.qlik_api.field_lineage_failures),
+            )
+        if self.qlik_api.lineage_read_failures:
+            self.reporter.warning(
+                title="Unable to read Qlik dataset lineage",
+                message="Lineage from the apps that store these datasets is skipped.",
+                context=_bounded_list(self.qlik_api.lineage_read_failures),
             )
         change_check_failures = [
             *self.qlik_api.change_check_failures,
