@@ -140,7 +140,6 @@ sink:
   type: "datahub-kafka"
   config:
     topic_routes:
-      MetadataChangeEvent: "custom_mce_topic_name" # Optional override
       MetadataChangeProposal: "custom_mcp_topic_name" # Optional override
     connection:
       bootstrap: "b-1.your-msk-cluster.region.amazonaws.com:9098"
@@ -158,19 +157,66 @@ sink:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                                        | Required | Default                | Description                                                                                                                                              |
-| -------------------------------------------- | -------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `connection.bootstrap`                       | ✅       |                        | Kafka bootstrap URL.                                                                                                                                     |
-| `connection.producer_config.<option>`        |          |                        | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.SerializingProducer                  |
-| `connection.producer_config.oauth_cb`        |          |                        | OAuth callback function for authentication (e.g., `datahub_actions.utils.kafka_msk_iam:oauth_cb` for MSK IAM)                                            |
-| `connection.schema_registry_url`             | ✅       |                        | URL of schema registry being used.                                                                                                                       |
-| `connection.schema_registry_config.<option>` |          |                        | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient |
-| `topic_routes.MetadataChangeEvent`           |          | MetadataChangeEvent    | Overridden Kafka topic name for the MetadataChangeEvent                                                                                                  |
-| `topic_routes.MetadataChangeProposal`        |          | MetadataChangeProposal | Overridden Kafka topic name for the MetadataChangeProposal                                                                                               |
+| Field                                        | Required | Default                | Description                                                                                                                                                                        |
+| -------------------------------------------- | -------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `connection.bootstrap`                       | ✅       |                        | Kafka bootstrap URL.                                                                                                                                                               |
+| `connection.producer_config.<option>`        |          |                        | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.SerializingProducer                                            |
+| `connection.producer_config.oauth_cb`        |          |                        | OAuth callback function for authentication (e.g., `datahub_actions.utils.kafka_msk_iam:oauth_cb` for MSK IAM)                                                                      |
+| `connection.schema_registry_url`             | ✅       |                        | URL of schema registry being used.                                                                                                                                                 |
+| `connection.schema_registry_config.<option>` |          |                        | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient                           |
+| `connection.auto_register_schemas`           |          | `true`                 | Register the MCP schema with the Schema Registry automatically. Set to `false` for a read-only Schema Registry; see [Using pre-registered schemas](#using-pre-registered-schemas). |
+| `topic_routes.MetadataChangeEvent`           |          |                        | Deprecated and ignored: MetadataChangeEvents are published to the MetadataChangeProposal topic.                                                                                    |
+| `topic_routes.MetadataChangeProposal`        |          | MetadataChangeProposal | Overridden Kafka topic name for the MetadataChangeProposal                                                                                                                         |
 
 The options in the producer config and schema registry config are passed to the Kafka SerializingProducer and SchemaRegistryClient respectively.
 
 For a full example with a number of security options, see this [example recipe](../examples/recipes/secured_kafka.dhub.yaml).
+
+### Using pre-registered schemas
+
+By default the Kafka sink registers the MetadataChangeProposal Avro schema with
+the Schema Registry on first use. If the ingestion user only has read access to
+the Schema Registry — for example because schema changes go through a review
+process — registration fails with an error like `User is denied operation Write
+on Subject`. In that case, disable auto-registration and register the schema
+yourself.
+
+Disable it in the recipe:
+
+```yaml
+sink:
+  type: datahub-kafka
+  config:
+    connection:
+      bootstrap: "broker:9092"
+      schema_registry_url: "http://schema-registry:8081"
+      auto_register_schemas: false
+```
+
+or for every run on a host or container (useful for Helm/Kubernetes
+deployments) with `DATAHUB_KAFKA_AUTO_REGISTER_SCHEMAS=false`. A value set in the
+recipe takes precedence over the environment variable.
+
+With auto-registration disabled, the MetadataChangeProposal subject must exist
+(subject names follow the `<topic>-value` convention, so a custom
+`topic_routes.MetadataChangeProposal` changes it):
+
+- `MetadataChangeProposal_v1-value`
+
+MetadataChangeEvent routes are ignored. Those events are converted to MCPs and
+published on the MetadataChangeProposal topic, so there is no separate MCE
+subject to register.
+
+Register the exact schema bundled with the version of `acryl-datahub` doing the
+ingestion. You can print it with:
+
+```shell
+python -c "from datahub.metadata.schemas import getMetadataChangeProposalSchema; print(getMetadataChangeProposalSchema())"
+```
+
+The sink checks that this schema is registered when it starts, and fails
+immediately with the missing subject's name if it is not. Re-register the
+schema after upgrading `acryl-datahub` if it changed.
 
 ### Kafka as the default sink (managed / executor-only)
 

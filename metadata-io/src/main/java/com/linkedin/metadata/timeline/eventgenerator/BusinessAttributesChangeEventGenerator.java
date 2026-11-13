@@ -70,6 +70,27 @@ public class BusinessAttributesChangeEventGenerator
               ChangeOperation.ADD,
               BUSINESS_ATTRIBUTE_ADDED_FORMAT,
               auditStamp));
+    } else if (Objects.nonNull(previousAssociation)
+        && Objects.nonNull(newAssociation)
+        && !Objects.equals(
+            previousAssociation.getBusinessAttributeUrn(),
+            newAssociation.getBusinessAttributeUrn())) {
+      // A field holds at most one business attribute, so replacing it is a removal of the old
+      // attribute followed by an addition of the new one.
+      changeEvents.add(
+          createChangeEvent(
+              previousAssociation,
+              urn,
+              ChangeOperation.REMOVE,
+              BUSINESS_ATTRIBUTE_REMOVED_FORMAT,
+              auditStamp));
+      changeEvents.add(
+          createChangeEvent(
+              newAssociation,
+              urn,
+              ChangeOperation.ADD,
+              BUSINESS_ATTRIBUTE_ADDED_FORMAT,
+              auditStamp));
     }
     return changeEvents;
   }

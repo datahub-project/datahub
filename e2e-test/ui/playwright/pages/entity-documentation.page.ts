@@ -106,14 +106,17 @@ export class EntityDocumentationPage extends BasePage {
     await this.page.waitForLoadState('networkidle');
     // Guard: ensure the entity page loaded and is not a "Not Found" error page.
     // The schema table is rendered only when the entity exists; waiting for any
-    // row with an id matching the column- convention confirms a real schema tab.
-    // eslint-disable-next-line playwright/no-raw-locators -- dynamic id prefix [id^="column-"]; no getByTestId equivalent
-    await expect(this.page.locator('[id^="column-"]').first()).toBeVisible({ timeout: 30000 });
+    // schema row confirms a real schema tab.
+    // eslint-disable-next-line playwright/no-raw-locators -- test-id-prefix attribute selector has no semantic equivalent
+    await expect(this.page.getByTestId('schema-table').locator('tr[data-testid^="schema-field-"]').first()).toBeVisible(
+      {
+        timeout: 30000,
+      },
+    );
   }
 
   async editFieldDescription(fieldName: string, description: string): Promise<void> {
-    // eslint-disable-next-line playwright/no-raw-locators -- React-generated CSS id (#column-{name}); no data-testid on schema rows
-    const row = this.page.locator(`#column-${fieldName}`);
+    const row = this.page.getByTestId(`schema-field-${fieldName}`);
     const maxAttempts = 2;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -167,10 +170,13 @@ export class EntityDocumentationPage extends BasePage {
         if (attempt === maxAttempts || this.page.isClosed()) {
           throw err;
         }
-        // Dismiss a stuck modal before retrying the drawer → edit flow.
+        // Dismiss a stuck modal before retrying the drawer → edit flow. If it stays open, the
+        // next attempt fails on its own steps, so don't fail here.
         await this.page.keyboard.press('Escape').catch(() => undefined);
-        // eslint-disable-next-line playwright/no-wait-for-timeout
-        await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS * attempt);
+        await this.page
+          .getByText('Update description')
+          .waitFor({ state: 'hidden', timeout: TIMEOUTS.SHORT })
+          .catch(() => undefined);
       }
     }
   }
@@ -179,11 +185,7 @@ export class EntityDocumentationPage extends BasePage {
 
   async openAddLinkForm(): Promise<void> {
     await this.addRelatedButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(500);
     await this.page.getByText('Add link').click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(500);
   }
 
   async fillLinkForm(url: string, label: string, showInPreview: boolean): Promise<void> {

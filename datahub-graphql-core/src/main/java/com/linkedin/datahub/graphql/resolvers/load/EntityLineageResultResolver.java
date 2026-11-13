@@ -123,6 +123,7 @@ public class EntityLineageResultResolver
                       lineageOpContext,
                       finalUrn,
                       resolvedDirection,
+                      start != null ? start : 0,
                       count != null ? count : 100,
                       resolvedSeparateSiblings,
                       includeGhostEntities),
@@ -165,12 +166,14 @@ public class EntityLineageResultResolver
   }
 
   /**
-   * Whether the request asked for {@code relationships} on this lineage field. Reads the field's
-   * own AST rather than {@link DataFetchingEnvironment#getSelectionSet()}: the selection set is
-   * computed from the normalized form of the whole operation, and for a search page (a union over
-   * every entity type) that exceeds graphql-java's 100,000 field limit and fails the request.
-   * Anything that cannot be resolved here (a missing fragment, no merged field) counts as selected,
-   * so the full walk is the fallback.
+   * Whether the request asked for {@code relationships} on this lineage field. A totals-only result
+   * is an empty page at the requested {@code start}, so a client that pages through relationships
+   * always selects them and takes the full walk. Reads the field's own AST rather than {@link
+   * DataFetchingEnvironment#getSelectionSet()}: the selection set is computed from the normalized
+   * form of the whole operation, and for a search page (a union over every entity type) that
+   * exceeds graphql-java's 100,000 field limit and fails the request. Anything that cannot be
+   * resolved here (a missing fragment, no merged field) counts as selected, so the full walk is the
+   * fallback.
    */
   static boolean selectsRelationships(@Nonnull final DataFetchingEnvironment environment) {
     final MergedField mergedField = environment.getMergedField();

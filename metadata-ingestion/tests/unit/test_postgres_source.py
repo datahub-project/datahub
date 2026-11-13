@@ -14,6 +14,7 @@ from sqlalchemy.dialects.postgresql import (
     base as pg_base,
 )
 from sqlalchemy.dialects.postgresql.base import PGDialect
+from sqlalchemy.exc import OperationalError
 
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -99,6 +100,51 @@ def tests_get_inspectors_with_database_provided(create_engine_mock):
     _ = list(source.get_inspectors())
     assert create_engine_mock.call_count == 1
     assert create_engine_mock.call_args_list[0][0][0].endswith("custom_db")
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_get_inspectors_single_database_disposes_engine_after_consumer(
+    create_engine_mock: MagicMock,
+) -> None:
+    engine = create_engine_mock.return_value
+    config = PostgresConfig.model_validate({**_base_config(), "database": "custom_db"})
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+
+    inspectors = iter(source.get_inspectors())
+    next(inspectors)
+    # The consumer still holds the inspector: connection and engine stay up.
+    assert not engine.connect.return_value.__exit__.called
+    assert not engine.dispose.called
+
+    assert list(inspectors) == []
+    assert engine.connect.return_value.__exit__.called
+    assert engine.dispose.called
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_get_inspectors_releases_listing_connection_before_first_database(
+    create_engine_mock: MagicMock,
+) -> None:
+    """The connection that lists the databases is only needed for the listing;
+    it must not stay checked out while the consumer works on each database."""
+    listing_conn = MagicMock()
+    listing_conn.__enter__.return_value = FakeConnection(
+        {"pg_database": [{"datname": "db1"}]}
+    )
+    engines = [MagicMock(), MagicMock()]
+    engines[0].connect.return_value = listing_conn
+    create_engine_mock.side_effect = engines
+    config = PostgresConfig.model_validate(
+        {**_base_config(), "initial_database": "db0"}
+    )
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+
+    inspectors = iter(source.get_inspectors())
+    next(inspectors)
+    assert listing_conn.__exit__.called
+
+    assert list(inspectors) == []
+    assert engines[0].dispose.called
 
 
 @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
@@ -651,6 +697,68 @@ def test_get_inspectors_skips_databases_denied_by_pattern(
     assert len(inspectors) == 1
     assert create_engine_mock.call_count == 2
     assert create_engine_mock.call_args_list[1][0][0].endswith("keep_me")
+
+
+def _engines_with_one_unreachable_database(
+    engines: Dict[str, List[MagicMock]],
+    connection_db: Dict[FakeConnection, str],
+) -> Any:
+    """A create_engine stand-in for a server listing my_db_a, my_db_denied and
+    my_db_b, where connecting to my_db_denied fails."""
+
+    def make_engine(url: Any, **kwargs: Any) -> MagicMock:
+        db_name = str(url).rsplit("/", 1)[-1]
+        engine = MagicMock()
+        engines.setdefault(db_name, []).append(engine)
+        if db_name == "my_db_denied":
+            engine.connect.side_effect = OperationalError(
+                "connect", {}, Exception("permission denied")
+            )
+        else:
+            conn = FakeConnection(
+                {
+                    "pg_database": [
+                        {"datname": name}
+                        for name in ["my_db_a", "my_db_denied", "my_db_b"]
+                    ]
+                }
+            )
+            connection_db[conn] = db_name
+            engine.connect.return_value = conn
+        return engine
+
+    return make_engine
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.inspect")
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_get_inspectors_skips_unreachable_database_and_reports_it(
+    create_engine_mock: MagicMock, inspect_mock: MagicMock
+) -> None:
+    engines: Dict[str, List[MagicMock]] = {}
+    connection_db: Dict[FakeConnection, str] = {}
+    create_engine_mock.side_effect = _engines_with_one_unreachable_database(
+        engines, connection_db
+    )
+    inspect_mock.side_effect = lambda conn: connection_db[conn]
+    config = PostgresConfig.model_validate(
+        {**_base_config(), "initial_database": "postgres"}
+    )
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+
+    # The databases around the unreachable one are still ingested.
+    assert list(source.get_inspectors()) == ["my_db_a", "my_db_b"]
+
+    # The skipped database is reported as a failure, which also stops stateful
+    # ingestion from soft-deleting its previously ingested entities.
+    failures = list(source.get_report().failures)
+    assert log_contexts(failures) == {"my_db_denied"}
+    assert len(failures[0].context) == 1
+
+    # Every engine, including the one that listed the databases, is disposed
+    # rather than holding a pooled connection open for the whole run.
+    for db_name in ["postgres", "my_db_a", "my_db_denied", "my_db_b"]:
+        assert all(e.dispose.called for e in engines[db_name])
 
 
 # --- view lineage fallback for views sqlglot could not parse ---

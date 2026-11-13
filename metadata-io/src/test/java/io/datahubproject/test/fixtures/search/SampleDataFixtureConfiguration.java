@@ -142,7 +142,8 @@ public class SampleDataFixtureConfiguration {
    * DelegatingMappingsBuilder with both v2 and v3 mappings builders.
    */
   private MappingsBuilder createMappingsBuilder() {
-    return createDelegatingMappingsBuilder(SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
+    return createDelegatingMappingsBuilder(
+        SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION, _searchClient);
   }
 
   @Bean
@@ -184,7 +185,7 @@ public class SampleDataFixtureConfiguration {
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     V2LegacySettingsBuilder settingsBuilder =
-        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention, false);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             false,
@@ -206,8 +207,9 @@ public class SampleDataFixtureConfiguration {
         TEST_ES_SEARCH_CONFIG,
         new V2MappingsBuilder(
             TEST_ES_SEARCH_CONFIG.getEntityIndex(),
-            OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
-        new V2LegacySettingsBuilder(TEST_ES_SEARCH_CONFIG.getIndex(), indexConvention),
+            OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+            ESUtils.KEYWORD_MAXLENGTH),
+        new V2LegacySettingsBuilder(TEST_ES_SEARCH_CONFIG.getIndex(), indexConvention, false),
         searchDAO,
         browseDAO,
         esWriteDAO);

@@ -156,7 +156,6 @@
     "searchBar.noResults.clearFilters": "очистить фильтры",
     "searchBar.noResults.clearFiltersAndView": "очистить фильтры и выбранное представление",
     "searchBar.noResults.clearView": "очистить выбранное представление",
-    "searchBar.noResults.defaultMessage": "Попробуйте изменить запрос, чтобы найти то, что вы ищете",
     "searchBar.noResults.orClearSuggestion": ", или <clickable>{{clearText}}</clickable>.",
     "searchBar.placeholder": "Найдите таблицы, дашборды, людей и многое другое",
     "searchBar.placeholderWithShortcut": "{{message}} ({{shortcut}})",

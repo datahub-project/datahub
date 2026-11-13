@@ -200,44 +200,6 @@ const COLOR_RULE_EXCLUDED_FILES = [
     'src/app/dataviz/**',
 ];
 
-// --------------------------------------------------------------------------
-// alchemy-components must not depend on application code
-//
-// src/alchemy-components is a standalone component library; it must not
-// import from src/app or the generated GraphQL code (src/graphql,
-// src/types.generated). ALCHEMY_APP_IMPORT_EXCLUDED_FILES lists the existing
-// violations: remove an entry once its file is fixed, never add new ones.
-// --------------------------------------------------------------------------
-const ALCHEMY_APP_IMPORT_EXCLUDED_FILES = [
-    'src/alchemy-components/components/Avatar/Avatar.tsx',
-    'src/alchemy-components/components/Avatar/AvatarPillWithLinkAndHover.tsx',
-    'src/alchemy-components/components/Avatar/utils.ts',
-    'src/alchemy-components/components/AvatarStack/AvatarStackWithHover.tsx',
-    'src/alchemy-components/components/AvatarStack/HoverSectionContent.tsx',
-    'src/alchemy-components/components/Editor/Editor.stories.tsx',
-    'src/alchemy-components/components/Editor/EditorImpl.tsx',
-    'src/alchemy-components/components/Editor/extensions/fileDragDrop/FileNodeView.tsx',
-    'src/alchemy-components/components/Editor/extensions/mentions/MentionsComponent.tsx',
-    'src/alchemy-components/components/Editor/extensions/mentions/MentionsDropdown.tsx',
-    'src/alchemy-components/components/Editor/extensions/mentions/MentionsNodeView.tsx',
-    'src/alchemy-components/components/Editor/readOnlyContent.tsx',
-    'src/alchemy-components/components/Editor/toolbar/Toolbar.tsx',
-    'src/alchemy-components/components/FileNode/FileNode.tsx',
-    'src/alchemy-components/components/IncidentStagePill/IncidentStagePill.tsx',
-    'src/alchemy-components/components/IncidentStagePill/constant.ts',
-    'src/alchemy-components/components/LineageCard/LineageCard.stories.tsx',
-    'src/alchemy-components/components/Modal/Modal.tsx',
-    'src/alchemy-components/components/Select/Nested/types.ts',
-    'src/alchemy-components/components/Select/SimpleSelect.tsx',
-    'src/alchemy-components/components/SelectItemsPopover/SelectItemPopover.tsx',
-    'src/alchemy-components/components/SelectItemsPopover/SelectItems.stories.tsx',
-    'src/alchemy-components/components/SelectItemsPopover/SelectItems.tsx',
-    'src/alchemy-components/components/SelectItemsPopover/__mock.data.ts',
-    'src/alchemy-components/components/SelectItemsPopover/hooks.tsx',
-    'src/alchemy-components/components/Tabs/Tabs.tsx',
-    'src/alchemy-components/components/Timeline/types.ts',
-];
-
 // Base `@typescript-eslint/no-restricted-imports` paths. The alchemy override
 // sets the same rule, which replaces these options, so it repeats them.
 const TS_RESTRICTED_IMPORT_PATHS = [
@@ -309,6 +271,16 @@ module.exports = {
         'import/prefer-default-export': 'off', // TODO: remove this lint rule
         '@typescript-eslint/no-restricted-imports': ['error', { paths: TS_RESTRICTED_IMPORT_PATHS }],
         'rulesdir/no-phosphor-generic-imports': 'error',
+        // Alchemy components that app code renders through an app wrapper: one entry per component.
+        'rulesdir/use-app-wrappers': [
+            'error',
+            {
+                components: [
+                    { name: 'Editor', folder: 'Editor', wrappers: ['src/app/sharedV2/editor/Editor.tsx'] },
+                    { name: 'Tabs', folder: 'Tabs', wrappers: ['src/app/sharedV2/tabs/Tabs.tsx'] },
+                ],
+            },
+        ],
         'no-console': 'off',
         'no-plusplus': 'off',
         'no-prototype-builtins': 'off',
@@ -388,7 +360,6 @@ module.exports = {
         // doesn't collide with the `no-restricted-imports` color override above.
         {
             files: ['src/alchemy-components/**/*.ts', 'src/alchemy-components/**/*.tsx'],
-            excludedFiles: ALCHEMY_APP_IMPORT_EXCLUDED_FILES,
             rules: {
                 '@typescript-eslint/no-restricted-imports': [
                     'error',

@@ -1,9 +1,9 @@
 /* eslint-disable max-classes-per-file */
 import { act, waitFor } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useVisibilityObserver } from '@app/entityV2/summary/documentation/useVisibilityObserver';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 class MockResizeObserver {
     cb: ResizeObserverCallback;
