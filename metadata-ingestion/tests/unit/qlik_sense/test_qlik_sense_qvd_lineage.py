@@ -869,6 +869,13 @@ def test_qvd_path_from_a_let_expression_takes_the_reload_value() -> None:
             "Year.qvd",
             id="SET value naming a loop variable",
         ),
+        pytest.param(
+            "FOR EACH vT IN 'a', 'b'\nIF vT = 'a' THEN\nSET vTable = 'Orders';\n"
+            "ELSE\nSET vTable = 'Customers';\nEND IF;\nNEXT vT;\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+            "Orders.qvd",
+            id="after a loop whose branches disagree",
+        ),
     ],
 )
 def test_qvd_path_from_a_variable_known_at_that_point_resolves(
