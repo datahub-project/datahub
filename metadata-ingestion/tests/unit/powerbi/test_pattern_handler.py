@@ -25,6 +25,7 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
     PowerBIPlatformDetail,
+    SupportedDataPlatform,
 )
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
@@ -976,6 +977,35 @@ def test_odbc_dsn_mapping_matches_dsn_case_insensitively():
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.orders,PROD)"
     ]
+
+
+@pytest.mark.parametrize(
+    "key, dsn",
+    [
+        ("Sales_DSN", "SALES_dsn"),
+        # casefold() would match "Straße" to "STRASSE"; lower() does not.
+        ("STRASSE", "Straße"),
+    ],
+)
+def test_lookup_dsn_folds_like_server_to_platform_instance(key: str, dsn: str) -> None:
+    """For a DSN-only connect string the DSN is also the server_to_platform_instance
+    key, so both lookups must fold case the same way or one DSN could get its
+    dsn_* entries but silently miss its platform_instance."""
+    config = _build_config(
+        server_to_platform_instance={key: {"platform_instance": "inst"}}
+    )
+    resolved = ResolvePlatformInstanceFromServerToPlatformInstance(
+        config
+    ).get_platform_instance(
+        PowerBIPlatformDetail(
+            data_platform_pair=SupportedDataPlatform.AMAZON_ATHENA.value,
+            data_platform_server=dsn,
+        )
+    )
+
+    assert (_lookup_dsn({key: "athena"}, dsn) is not None) == (
+        resolved.platform_instance == "inst"
+    )
 
 
 def test_lookup_dsn_matches_case_insensitively():

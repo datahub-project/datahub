@@ -50,6 +50,7 @@ from datahub.ingestion.source.powerbi.m_query.odbc import (
     extract_dsn,
     extract_platform,
     extract_server,
+    fold_dsn_case,
     normalize_platform_name,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
@@ -113,9 +114,9 @@ def _lookup_dsn(mapping: Dict[str, str], dsn: str) -> Optional[str]:
     # case-sensitive strings; an exact key still wins over a case-only match.
     if dsn in mapping:
         return mapping[dsn]
-    dsn_key = dsn.casefold()
+    dsn_key = fold_dsn_case(dsn)
     for key, value in mapping.items():
-        if key.casefold() == dsn_key:
+        if fold_dsn_case(key) == dsn_key:
             return value
     return None
 
@@ -2608,7 +2609,7 @@ class OdbcLineage(AbstractLineage):
             # names straight from the Power Query navigator.
             urn_database_key = urn_database.casefold()
             urn_table_key = urn_table.casefold()
-            dsn_key = dsn.casefold()
+            dsn_key = fold_dsn_case(dsn)
             scoped_indexes: List[int] = []
             global_indexes: List[int] = []
             for index, override in enumerate(
@@ -2621,7 +2622,7 @@ class OdbcLineage(AbstractLineage):
                     continue
                 if override.dsn is None:
                     global_indexes.append(index)
-                elif override.dsn.casefold() == dsn_key:
+                elif fold_dsn_case(override.dsn) == dsn_key:
                     scoped_indexes.append(index)
 
             candidates = scoped_indexes + global_indexes

@@ -37,7 +37,10 @@ from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
 )
-from datahub.ingestion.source.powerbi.m_query.odbc import normalize_platform_name
+from datahub.ingestion.source.powerbi.m_query.odbc import (
+    fold_dsn_case,
+    normalize_platform_name,
+)
 from datahub.ingestion.source.powerbi.powerbi_selection import (
     ACTIVE_WORKSPACE_STATE,
     probe_workspace_verdict,
@@ -1069,7 +1072,7 @@ class PowerBiDashboardSourceConfig(
 
         seen: Dict[str, str] = {}
         for key, mapped in value.items():
-            folded = key.casefold()
+            folded = fold_dsn_case(key)
             if folded in seen and comparable(value[seen[folded]]) != comparable(mapped):
                 raise ValueError(
                     f"{info.field_name} maps keys that differ only in case to "
@@ -1249,7 +1252,7 @@ class PowerBiDashboardSourceConfig(
         ] = {}
         for override in self.athena_table_platform_override:
             key = (
-                override.dsn.casefold() if override.dsn is not None else None,
+                fold_dsn_case(override.dsn) if override.dsn is not None else None,
                 override.database.casefold(),
                 override.table.casefold(),
             )

@@ -76,6 +76,16 @@ powerbi_platform_names = {
 }
 
 
+def fold_dsn_case(dsn: str) -> str:
+    """Case-fold a DSN name for case-insensitive comparison.
+
+    Uses lower(), not casefold(): for a DSN-only connect string the DSN is also the
+    server_to_platform_instance key, whose resolver folds with lower(), so every
+    DSN lookup must fold the same way or one DSN could match its dsn_* entries but
+    miss its platform_instance."""
+    return dsn.lower()
+
+
 def extract_driver(connection_string: str) -> Union[str, None]:
     """
     Parse an ODBC connection string and extract the driver name.
