@@ -10,7 +10,7 @@ import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/
 import { stripSiblingsFromEntity } from '@app/entityV2/shared/siblingUtils';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
-import { SHOW_SIBLINGS_URL_PARAM } from '@app/searchV2/siblings/useShowSiblings';
+import { SHOW_SIBLINGS_URL_PARAM, useIsShowSiblingsAvailable } from '@app/searchV2/siblings/useShowSiblings';
 import { SIBLINGS_SHOWN_INLINE, withLoadedMembers } from '@app/searchV2/siblings/useSiblingGroups';
 import { UnionType } from '@app/searchV2/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -60,14 +60,17 @@ export const SidebarSiblingsSection = () => {
     const dataNotCombinedWithSiblings = useDataNotCombinedWithSiblings<GetDatasetQuery>();
 
     const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    // Same rule as the search toggle: separate siblings and the server's siblingGroups query on.
+    const siblingGroupsAvailable = useIsShowSiblingsAvailable();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
 
     const [showAllSiblings, setShowAllSiblings] = useState(false);
 
     // Where siblings are separate results, the section shows the whole sibling group (transitive,
     // primary first) with its size, and "+ N more" opens search with "Show siblings" on. Until the
-    // group loads, or if it fails, the section falls back to the one-link siblings list below.
-    const groupQueried = showSeparateSiblings && entityType === EntityType.Dataset && !!urn;
+    // group loads, or if it fails, the section falls back to the one-link siblings list below. With
+    // the server's siblingGroups query off (GRAPHQL_QUERY_MAX_SIBLING_GROUP_URNS 0), it keeps that list.
+    const groupQueried = siblingGroupsAvailable && entityType === EntityType.Dataset && !!urn;
     const {
         data: groupData,
         loading: groupLoading,
