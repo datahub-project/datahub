@@ -87,6 +87,7 @@ export const DEFAULT_APP_CONFIG = {
         themeV2Toggleable: false,
         themeDarkModeEnabled: false,
         showSeparateSiblings: false,
+        maxSiblingGroupUrns: 0,
         schemaFieldCLLEnabled: false,
         schemaFieldLineageIgnoreStatus: false,
         showManageStructuredProperties: false,

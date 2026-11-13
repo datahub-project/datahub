@@ -85,6 +85,7 @@ query appConfig {
             themeV2Toggleable
             themeDarkModeEnabled
             showSeparateSiblings
+            maxSiblingGroupUrns
             showManageStructuredProperties
             schemaFieldCLLEnabled
             hideDbtSourceInLineage
