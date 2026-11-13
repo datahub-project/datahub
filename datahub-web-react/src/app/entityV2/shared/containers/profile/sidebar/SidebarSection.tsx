@@ -82,6 +82,8 @@ type Props = {
     collapsible?: boolean;
     expandedByDefault?: boolean;
     showFullCount?: boolean;
+    /** The count is a lower bound (the real number is larger), shown as e.g. "1000+". */
+    countIsLowerBound?: boolean;
     infoPopover?: string;
 };
 
@@ -94,6 +96,7 @@ export const SidebarSection = ({
     collapsible = true,
     expandedByDefault = true,
     showFullCount,
+    countIsLowerBound,
     infoPopover,
 }: Props) => {
     const [isExpanded, setIsExpanded] = useState(expandedByDefault);
@@ -112,7 +115,11 @@ export const SidebarSection = ({
                     )}
                     {count > 0 && (
                         <CountStyle>
-                            {showFullCount ? <>{count}</> : <>{count > 10 ? OVERFLOW_COUNT_DISPLAY : count}</>}
+                            {showFullCount ? (
+                                <>{countIsLowerBound ? `${count}+` : count}</>
+                            ) : (
+                                <>{count > 10 ? OVERFLOW_COUNT_DISPLAY : count}</>
+                            )}
                         </CountStyle>
                     )}
                     {collapsedContent}
