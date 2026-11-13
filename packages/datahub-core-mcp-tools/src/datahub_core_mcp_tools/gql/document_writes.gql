@@ -1,0 +1,20 @@
+# Reads and writes of the document tools. All exist on GMS 1.7.0.
+
+# Who is saving: the owner of a new document and the actor of its audit stamps.
+query getDocumentAuthor {
+  me {
+    corpUser {
+      urn
+      username
+      info {
+        displayName
+        fullName
+        firstName
+        lastName
+      }
+      editableProperties {
+        displayName
+      }
+    }
+  }
+}

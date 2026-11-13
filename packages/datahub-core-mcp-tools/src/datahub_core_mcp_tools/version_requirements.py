@@ -3,7 +3,8 @@
 ``@min_version`` declares the oldest DataHub a tool works on; the version filter
 that reads it is added with the GMS compatibility work. ``@read_only``,
 ``@destructive``, ``@idempotent`` and ``@open_world`` become the tool's MCP
-annotations.
+annotations. ``@pre_approval_validator`` names a check for hosts that ask a human
+to approve a call.
 
 Version schemes:
 - Cloud versions use 4 parts: 0.x.y.z (e.g. "0.3.16" or "0.3.16.1")
@@ -15,7 +16,7 @@ and OSS >= 1.4.0; omitting one side makes the tool unavailable there.
 
 import dataclasses
 import re
-from typing import Callable
+from typing import Callable, Optional
 
 from mcp.types import ToolAnnotations
 
@@ -88,6 +89,26 @@ def open_world(fn: Callable) -> Callable:
     """Declare that a tool may reach systems outside DataHub (MCP ``openWorldHint``)."""
     fn._open_world_hint = True  # type: ignore[attr-defined]
     return fn
+
+
+def pre_approval_validator(
+    validator: Callable[[dict], Optional[str]],
+) -> Callable[[Callable], Callable]:
+    """Declare a check to run before a human approves a call to the tool.
+
+    ``validator`` takes the call's arguments and returns an error message, or None
+    when the call may go ahead. Agent hosts that ask a human to approve writes run
+    it first, so a call the tool would refuse goes back to the model instead of
+    being approved and then failing. MCP clients never call it, so the tool runs
+    the same check itself.
+    """
+
+    def decorator(fn: Callable) -> Callable:
+        # The attribute name is the one such hosts read.
+        fn._tool_validator = validator  # type: ignore[attr-defined]
+        return fn
+
+    return decorator
 
 
 def tool_annotations(fn: Callable, *, read_only: bool | None = None) -> ToolAnnotations:

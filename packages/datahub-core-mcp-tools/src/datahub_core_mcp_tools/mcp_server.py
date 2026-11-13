@@ -50,6 +50,7 @@ from .tools.glossary_versioning import (
 from .tools.grep_entities import grep_entities
 from .tools.lineage import get_lineage, get_lineage_paths_between
 from .tools.owners import add_owners, remove_owners
+from .tools.save_document import is_save_document_enabled, save_document
 from .tools.search import search, search_description
 from .tools.structured_properties import (
     add_structured_properties,
@@ -289,6 +290,12 @@ def register_tools(
         remove_structured_properties,
         ToolType.MUTATION,
     )
+    if is_save_document_enabled():
+        add("save_document", save_document, ToolType.MUTATION)
+    else:
+        logger.info(
+            "Document tools not registered (SAVE_DOCUMENT_TOOL_ENABLED is false)"
+        )
     if is_entity_versioning_enabled():
         add(
             "create_glossary_term_version",
