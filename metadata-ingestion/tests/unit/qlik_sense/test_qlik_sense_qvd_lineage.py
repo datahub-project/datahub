@@ -680,3 +680,63 @@ def test_expression_variable_is_not_expanded_in_a_qvd_path() -> None:
     )
     assert not parsed.qvd_loads
     assert parsed.unresolved_qvd_paths == ["lib://QVD Data/$(vDir)/orders.qvd"]
+
+
+@pytest.mark.parametrize(
+    "script",
+    [
+        pytest.param(
+            "FOR EACH vTable IN 'Orders', 'Customers'\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);\nNEXT vTable;",
+            id="loop variable",
+        ),
+        pytest.param(
+            "FOR i = 1 TO 2\nLET vTable = TableName($(i));\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);\nNEXT i;",
+            id="LET in a loop",
+        ),
+        pytest.param(
+            "SUB L(vTable)\nT: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);\n"
+            "END SUB;\nCALL L(Lower(vSource));",
+            id="SUB parameter from an expression",
+        ),
+        pytest.param(
+            "IF vEnv = 'A' THEN\nLET vTable = Lower('Orders' & vRegion);\nELSE\n"
+            "LET vTable = Lower('Hist' & vRegion);\nEND IF;\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+            id="LET in IF branches",
+        ),
+        pytest.param(
+            "LET vTable = Lower('Orders' & vRegion);\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);\n"
+            "LET vTable = Lower('Hist' & vRegion);",
+            id="LET set again later",
+        ),
+        pytest.param(
+            "FOR EACH vT IN 'Orders', 'Customers'\nSET vTable = $(vT);\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);\nNEXT vT;",
+            id="SET copying a loop variable",
+        ),
+        pytest.param(
+            "FOR EACH vTable IN 'Orders', 'Customers'\n"
+            "$(Include=lib://Scripts/common.qvs);\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);\nNEXT vTable;",
+            id="loop variable after an include",
+        ),
+    ],
+)
+def test_qvd_path_from_a_varying_variable_stays_unresolved(script: str) -> None:
+    # The app keeps only the last value, which names one of several files.
+    parsed = parse_script(script, app_variables={"vTable": "Customers"})
+    assert not parsed.qvd_loads
+    assert parsed.unresolved_qvd_paths == ["lib://QVD Data/$(vTable).qvd"]
+
+
+def test_qvd_path_from_a_let_expression_takes_the_reload_value() -> None:
+    parsed = parse_script(
+        "LET vTable = Lower('Orders' & vRegion);\n"
+        "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+        app_variables={"vTable": "orders_eu"},
+    )
+    [load] = parsed.qvd_loads
+    assert load.file == QvdReference(connection="QVD Data", path="orders_eu.qvd")
