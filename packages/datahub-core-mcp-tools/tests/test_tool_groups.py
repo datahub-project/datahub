@@ -85,7 +85,7 @@ READ_TOOLS = {
     "grep_documents",
     "grep_entities",
 }
-WRITE_TOOLS = {"create_tag", "add_tags", "remove_tags"}
+WRITE_TOOLS = {"create_tag", "add_tags", "remove_tags", "add_terms", "remove_terms"}
 
 
 @pytest.mark.parametrize(

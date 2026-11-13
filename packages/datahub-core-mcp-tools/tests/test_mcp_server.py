@@ -45,6 +45,8 @@ async def test_registration_is_per_instance() -> None:
         "create_tag",
         "add_tags",
         "remove_tags",
+        "add_terms",
+        "remove_terms",
     }
     assert await _tools(untouched) == {}
 
@@ -73,6 +75,8 @@ async def test_registering_twice_on_separate_instances_is_independent() -> None:
             "create_tag",
             "add_tags",
             "remove_tags",
+            "add_terms",
+            "remove_terms",
         }
     )
 
@@ -111,7 +115,13 @@ async def test_write_tools_are_registered_by_default(
         for name, tool in (await _tools(mcp)).items()
         if "mutation" in tool.meta["fastmcp"]["tags"]
     }
-    assert {"create_tag", "add_tags", "remove_tags"} <= writes
+    assert {
+        "create_tag",
+        "add_tags",
+        "remove_tags",
+        "add_terms",
+        "remove_terms",
+    } <= writes
     assert writes <= set(registered)
 
 
