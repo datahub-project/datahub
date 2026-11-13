@@ -206,7 +206,8 @@ public class DataHubAuthorizerSqlSourceTest {
             10,
             0,
             DataHubAuthorizer.AuthorizationMode.DEFAULT,
-            1000);
+            1000,
+            null);
     assertFalse(authorizer.isSqlSourceEnabled());
   }
 }
