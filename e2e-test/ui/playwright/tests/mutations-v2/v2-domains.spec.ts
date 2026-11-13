@@ -85,8 +85,7 @@ test.describe('add remove domain', { tag: [TestTag.P0] }, () => {
 
       // Navigate to the container and confirm the domain reference is gone
       await domainsPage.navigateToContainer(CONTAINER_URN);
-      await expect(page.getByText('customers')).toBeVisible({ timeout: 30000 });
-      await expect(page.getByText(testDomain)).not.toBeVisible({ timeout: 10000 });
+      await domainsPage.expectDomainRemovedFromEntity(testDomain, 'customers');
     },
   );
 });

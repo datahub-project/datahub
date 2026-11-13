@@ -1,8 +1,9 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { vi } from 'vitest';
 
 import * as ReloadableContext from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { useReloadableLazyQuery } from '@app/sharedV2/reloadableContext/hooks/useReloadableLazyQuery';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 describe('useReloadableLazyQuery', () => {
     const useReloadableContextSpy = vi.spyOn(ReloadableContext, 'useReloadableContext');

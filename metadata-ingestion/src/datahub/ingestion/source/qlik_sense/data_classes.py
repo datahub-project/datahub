@@ -134,6 +134,73 @@ class SchemaField(_QlikBaseModel):
         return values
 
 
+# Qlik field tags, most specific first: a date is also tagged $numeric.
+_FIELD_TAG_TYPES = [
+    ("$timestamp", "TIMESTAMP"),
+    ("$date", "DATE"),
+    ("$integer", "INTEGER"),
+    ("$numeric", "DOUBLE"),
+    ("$text", "STRING"),
+]
+
+
+class DataModelTable(BaseModel):
+    """A table of an app's data model, from the Engine's GetTablesAndKeys."""
+
+    name: str
+    fields: List[SchemaField] = []
+
+    @classmethod
+    def from_engine(cls, table: Dict) -> "DataModelTable":
+        return cls(
+            name=table.get("qName") or "",
+            fields=[
+                SchemaField.model_validate(
+                    {
+                        "name": field["qName"],
+                        "dataType": {
+                            "type": next(
+                                (
+                                    data_type
+                                    for tag, data_type in _FIELD_TAG_TYPES
+                                    if tag in (field.get("qTags") or [])
+                                ),
+                                None,
+                            )
+                        },
+                    }
+                )
+                for field in table.get("qFields") or []
+                if field.get("qName") and not field.get("qIsSynthetic")
+            ],
+        )
+
+
+class LineageTable(BaseModel):
+    """A table node of Qlik Cloud's lineage graph, with the table nodes it is
+    loaded or stored from."""
+
+    qri: str
+    label: str
+    source_qris: List[str] = []
+    # The table's field names, and the field nodes each is loaded or stored
+    # from, when the graph was read at field level.
+    fields: List[str] = []
+    field_source_qris: Dict[str, List[str]] = {}
+    # The field level could not be read, so the table's column lineage is
+    # unknown this run.
+    field_lineage_failed: bool = False
+
+
+class ListedDataset(BaseModel):
+    space_id: str
+    name: str
+    # None when the listing gives none, so the dataset can't be matched to
+    # the lineage graph.
+    secure_qri: Optional[str] = None
+    type: str = ""
+
+
 class QlikDataset(Item):
     name: str
     secureQri: str
@@ -142,6 +209,12 @@ class QlikDataset(Item):
     rowCount: int
     itemId: str
     datasetSchema: List[SchemaField]
+    # App tables that store into this dataset; None when Qlik's lineage graph
+    # for it could not be read.
+    stored_from_qris: Optional[List[str]] = None
+    # The dataset's fields, and the app table field nodes each is stored from.
+    stored_field_source_qris: Dict[str, List[str]] = {}
+    stored_field_lineage_failed: bool = False
 
     @model_validator(mode="before")
     @classmethod
@@ -162,7 +235,13 @@ class QlikDataset(Item):
         values[Constant.SIZE] = values[Constant.OPERATIONAL].get(Constant.SIZE, 0)
         values[Constant.ROWCOUNT] = values[Constant.OPERATIONAL][Constant.ROWCOUNT]
 
-        values[Constant.DATASETSCHEMA] = values[Constant.SCHEMA][Constant.DATAFIELDS]
+        # Qlik keeps fields the file no longer has in the schema, marked as
+        # orphans.
+        values[Constant.DATASETSCHEMA] = [
+            field
+            for field in values[Constant.SCHEMA][Constant.DATAFIELDS]
+            if not field.get("orphan")
+        ]
         return values
 
 
@@ -293,12 +372,25 @@ class App(Item):
     qUsage: Optional[str] = None
     sheets: List[Sheet] = []
     tables: List[QlikTable] = []
+    # Tables of an app without a data model, from Qlik Cloud's lineage graph.
+    lineage_tables: List[LineageTable] = []
+    # Qlik Cloud answered 404 for the app's lineage graph.
+    lineage_graph_missing: bool = False
+    # The tables of the app's data model as the last reload left them, read on
+    # Qlik Cloud for apps whose tables come from the lineage graph or script.
+    data_model_tables: List[DataModelTable] = []
+    # Variable definitions by name, used to expand $(name) in chart expressions.
+    variables: Dict[str, str] = {}
+    variables_read_failed: bool = False
     script: Optional[str] = None
     fingerprint: Optional[str] = None
     script_read_failed: bool = False
     # The data model or the load script could not be read, so the app's tables,
     # and with them the chart inputs, are unknown.
     tables_read_failed: bool = False
+    # The app was opened without its data after loading it failed, so the next
+    # run must try again rather than skip it as unchanged.
+    data_load_failed: bool = False
     # Engine reads of this app that failed, so its metadata is only partly read.
     read_errors: List[str] = []
     # Batch Engine reads that fell back to slower per-object reads.
@@ -318,7 +410,7 @@ class App(Item):
         if not values.get(Constant.SPACEID):
             # spaceId none indicates app present in personal space
             values[Constant.SPACEID] = Constant.PERSONAL_SPACE_ID
-        values[Constant.QRI] = f"qri:app:sense://{values['id']}"
+        values.setdefault(Constant.QRI, f"qri:app:sense://{values['id']}")
         return values
 
     @property
