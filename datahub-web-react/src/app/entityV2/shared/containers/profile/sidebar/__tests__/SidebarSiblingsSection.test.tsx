@@ -28,6 +28,7 @@ vi.hoisted(() => {
 });
 
 const mockShowSeparateSiblings = vi.fn(() => false);
+const mockMaxSiblingGroupUrns = vi.fn(() => 30);
 const modalPropsMock = vi.fn();
 
 vi.mock('@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal', () => ({
@@ -42,6 +43,7 @@ vi.mock('@src/app/useAppConfig', async (importOriginal) => {
     return {
         ...actual,
         useIsShowSeparateSiblingsEnabled: () => mockShowSeparateSiblings(),
+        useMaxSiblingGroupUrns: () => mockMaxSiblingGroupUrns(),
     };
 });
 
@@ -179,6 +181,16 @@ describe('SidebarSiblingsSection', () => {
 
         beforeEach(() => {
             mockShowSeparateSiblings.mockReturnValue(true);
+            mockMaxSiblingGroupUrns.mockReturnValue(30);
+        });
+
+        it('keeps the one-link list, with no group request, while the server has siblingGroups off', async () => {
+            mockMaxSiblingGroupUrns.mockReturnValue(0);
+            const fetched = vi.fn(() => ({ data: { siblingGroups: [] } }));
+            renderSection(entityDataWithSiblings, [{ ...groupMock(fiveMembers, 120), result: fetched }]);
+            await waitFor(() => expect(screen.getByText('Composed of')).toBeInTheDocument());
+            expect(screen.getByTestId(`compact-entity-link-${SIBLING_URN}`)).toBeInTheDocument();
+            expect(fetched).not.toHaveBeenCalled();
         });
 
         it('shows the group size, the first five and "+ N more" opening search with siblings on', async () => {
