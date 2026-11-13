@@ -26,6 +26,8 @@ query appConfig {
             faviconUrl
             appTitle
             showFullTitleInLineage
+            hideLogicalModelSidebarSection
+            hideLogicalModelColumnSection
             queriesTab {
                 queriesTabResultSize
             }

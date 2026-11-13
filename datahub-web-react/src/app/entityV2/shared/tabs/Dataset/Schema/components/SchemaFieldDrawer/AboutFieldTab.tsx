@@ -12,6 +12,7 @@ import FieldTags from '@app/entityV2/shared/tabs/Dataset/Schema/components/Schem
 import FieldTerms from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTerms';
 import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsTabWrapper';
 import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+import MFEFieldDrawerSections from '@app/mfeframework/slots/MFEFieldDrawerSections';
 import useFileUpload from '@app/sharedV2/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/sharedV2/hooks/useFileUploadAnalyticsCallbacks';
 import SidebarStructuredProperties from '@src/app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
@@ -104,6 +105,7 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                             refetch={delayedRefetchNotes}
                         />
                         {!!notes?.length && <StyledDivider />}
+                        <MFEFieldDrawerSections fieldPath={expandedField.fieldPath} />
                         <FieldLogicalSection expandedField={expandedField} />
                         <FieldDescription
                             expandedField={expandedField}
