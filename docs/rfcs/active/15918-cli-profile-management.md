@@ -1,7 +1,7 @@
 - Start Date: 2026-01-18
 - RFC PR: [#15918](https://github.com/datahub-project/datahub/pull/15918)
 - Discussion Issue: (if any)
-- Implementation PR(s): [#21214](https://github.com/datahub-project/datahub/pull/21214)
+- Implementation PR(s): [#21214](https://github.com/datahub-project/datahub/pull/21214) (merged)
 
 # DataHub CLI Profile Management
 
@@ -91,7 +91,7 @@ The `.datahubenv` schema stays the same: `gms.server`, `gms.token`, optional `oa
 | `datahub init --profile <name> …`    | Writes `~/.datahub/profiles/<name>/.datahubenv`, creating the directory. `--profile` is the global option, not an `init` option, so there is one way to select the destination. All existing init modes (`--token`, `--username/--password`, `--sso`, `--oauth`, `--support`) work unchanged. Never changes the active profile. Adds `--description`, which is kept when `init` is re-run without it.                                  |
 | `datahub profile list`               | Name, server, token status (valid until / expired / no expiry), marker on the active one (none when `DATAHUB_GMS_URL` is in effect). Never prints tokens. `--format json`.                                                                                                                                                                                                                                                             |
 | `datahub profile current`            | Resolved profile, its server, and why it was chosen. `--format json` returns `{"name", "server", "source", "token_expires"}`.                                                                                                                                                                                                                                                                                                          |
-| `datahub profile use <name>` | Writes `~/.datahub/current-profile`. `use default` removes the file. Non-interactive use requires `--yes`. `--shell` instead prints `export DATAHUB_PROFILE=<name>` for `eval`, switching one shell and leaving the pointer alone; plain `use` prints that alternative. |
+| `datahub profile use <name>`         | Writes `~/.datahub/current-profile`. `use default` removes the file. Non-interactive use requires `--yes`. `--shell` instead prints `export DATAHUB_PROFILE=<name>` for `eval`, switching one shell and leaving the pointer alone; plain `use` prints that alternative.                                                                                                                                                                |
 | `datahub profile save <name>`        | Copies the `default` profile (`~/.datahubenv`) into a new named profile, so an existing setup becomes a profile without logging in again. Reads the file directly, never `DATAHUB_GMS_URL`/`DATAHUB_GMS_TOKEN`. Refuses an existing name unless `--force`. `--from <profile>` copies another profile instead. Does not copy an OAuth refresh token: refresh tokens rotate on use, so two profiles sharing one would revoke each other. |
 | `datahub profile show <name>`        | Server, token expiry, auth mode (static / OAuth with refresh), file path. Token redacted unless `--show-token`.                                                                                                                                                                                                                                                                                                                        |
 | `datahub profile remove <name>`      | Deletes the profile directory after a TTY confirmation; non-TTY requires `--yes`. Refuses `default`. If it was the active profile, removes `current-profile` and says `default` is now active.                                                                                                                                                                                                                                         |
@@ -125,12 +125,12 @@ A profile selects a server together with its credential. This is deliberately st
 
 `datahub ingest run` and `ingest replay --live-sink` write through the recipe's sink, not necessarily the selected profile, so announcing the profile would confirm the wrong target. They check the loaded recipe after `${VAR}` substitution instead:
 
-| Recipe sink                                    | No named profile | `DATAHUB_PROFILE` or pointer      | Explicit `--profile`          |
-| ---------------------------------------------- | ---------------- | --------------------------------- | ----------------------------- |
-| none (default sink)                            | unchanged        | announces the profile             | announces the profile         |
-| `datahub-rest` on the profile's server         | unchanged        | announces it                      | announces it                  |
-| `datahub-rest` on another server               | unchanged        | warns naming both; recipe wins    | error naming both; nothing runs |
-| other sink types (file, Kafka)                 | unchanged        | notes the recipe decides          | notes the recipe decides      |
+| Recipe sink                            | No named profile | `DATAHUB_PROFILE` or pointer   | Explicit `--profile`            |
+| -------------------------------------- | ---------------- | ------------------------------ | ------------------------------- |
+| none (default sink)                    | unchanged        | announces the profile          | announces the profile           |
+| `datahub-rest` on the profile's server | unchanged        | announces it                   | announces it                    |
+| `datahub-rest` on another server       | unchanged        | warns naming both; recipe wins | error naming both; nothing runs |
+| other sink types (file, Kafka)         | unchanged        | notes the recipe decides       | notes the recipe decides        |
 
 An explicit `--profile` is a direct statement of intent, and it is new, so refusing a contradiction breaks no existing invocation. `DATAHUB_PROFILE` and the pointer are session-wide, so a refusal there would fail every recipe with its own sink; they warn. The motivating case: `--profile staging` with a recipe sink of `${DATAHUB_GMS_URL}` while `DATAHUB_GMS_URL` is exported for prod. Recipe substitution for `datahub ingest` stays environment-only, since executors depend on it; the check compares the substituted server. A recipe's separate `datahub_api` (stateful-ingestion) server is not checked yet.
 
