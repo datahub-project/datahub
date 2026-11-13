@@ -985,18 +985,20 @@ def test_lookup_dsn_matches_case_insensitively():
 
 
 @pytest.mark.parametrize(
-    "catalog, expected",
+    "catalog, dsn_mapping, expected",
     [
-        ("SPARK", None),
+        ("SPARK", {}, None),
+        # SPARK is a missing catalog, so the mapping supplies the real one.
+        ("SPARK", {"d": "hive_metastore"}, "hive_metastore.default.orders"),
         # A real Unity Catalog catalog named "spark" is lowercase and kept.
-        ("spark", "spark.default.orders"),
-        ("hive_metastore", "hive_metastore.default.orders"),
+        ("spark", {}, "spark.default.orders"),
+        ("hive_metastore", {"d": "main"}, "hive_metastore.default.orders"),
     ],
 )
-def test_odbc_databricks_spark_pseudo_catalog_warns_and_skips(
-    catalog: str, expected: Optional[str]
+def test_odbc_databricks_spark_pseudo_catalog(
+    catalog: str, dsn_mapping: Dict[str, str], expected: Optional[str]
 ) -> None:
-    instance = _build_odbc_lineage()
+    instance = _build_odbc_lineage(dsn_to_database_schema=dsn_mapping)
     detail = DataAccessFunctionDetail(
         arg_list={},
         data_access_function_name="Odbc.DataSource",

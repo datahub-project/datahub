@@ -2228,8 +2228,8 @@ DATABRICKS_PLATFORM: str = (
 )
 # odbc.py maps the Simba Spark driver to databricks, whose navigation can expose a
 # constant "SPARK" catalog like Hive's "HIVE". spark.<schema>.<table> never joins
-# the Databricks connector's <catalog>.<schema>.<table> (e.g. hive_metastore), and
-# dsn_to_database_schema cannot fix it because navigation wins, so skip instead.
+# the Databricks connector's <catalog>.<schema>.<table> (e.g. hive_metastore), so
+# SPARK is treated as a missing catalog that dsn_to_database_schema must supply.
 # Exact case only: a Unity Catalog catalog really named "spark" is lowercase.
 SIMBA_SPARK_PSEUDO_CATALOG: str = "SPARK"
 
@@ -2742,17 +2742,22 @@ class OdbcLineage(AbstractLineage):
                 data_platform == DATABRICKS_PLATFORM
                 and database_name == SIMBA_SPARK_PSEUDO_CATALOG
             ):
-                self.reporter.warning(
-                    title="Cannot map Spark ODBC catalog to Databricks",
-                    message=(
-                        "ODBC navigation exposed the constant SPARK catalog, which "
-                        "does not match any Databricks catalog (for example "
-                        "hive_metastore); skipping lineage rather than emitting a "
-                        "URN that never joins."
-                    ),
-                    context=context,
-                )
-                return None
+                # Like Hive's HIVE, the constant SPARK catalog names no real
+                # catalog, so treat it as missing and let the mapping supply one.
+                if config_database is None:
+                    self.reporter.warning(
+                        title="Cannot map Spark ODBC catalog to Databricks",
+                        message=(
+                            "ODBC navigation exposed the constant SPARK catalog, "
+                            "which does not match any Databricks catalog; skipping "
+                            "lineage rather than emitting a URN that never joins. "
+                            "Add 'dsn_to_database_schema: {<dsn>: <catalog>}' (for "
+                            "example hive_metastore) to your PowerBI recipe."
+                        ),
+                        context=context,
+                    )
+                    return None
+                database_name = None
             # database.schema.table; never fall back to a truncated database.table.
             database = database_name or config_database
             schema = schema_name or config_schema
