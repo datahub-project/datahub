@@ -1936,15 +1936,6 @@ def test_odbc_athena_override_env(
             "mysql",
             [],
         ),
-        # Among global entries for the same table, the first one wins.
-        (
-            [
-                {"database": "mydb", "table": "orders", "platform": "mysql"},
-                {"database": "mydb", "table": "orders", "platform": "hive"},
-            ],
-            "mysql",
-            [],
-        ),
         # An entry scoped to another DSN did not match this upstream.
         (
             [
@@ -1963,7 +1954,6 @@ def test_odbc_athena_override_env(
     ids=[
         "dsn-scoped-beats-earlier-global",
         "dsn-scoped-beats-later-global",
-        "first-global-wins",
         "other-dsn-scope-not-matched",
     ],
 )

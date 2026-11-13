@@ -1,3 +1,5 @@
+from typing import Dict
+
 import pytest
 from pydantic import ValidationError
 
@@ -237,6 +239,51 @@ class TestPowerBiConfig:
         }
         with pytest.raises(ValueError, match="is not a recognized DataHub platform"):
             PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    @pytest.mark.parametrize(
+        "second, valid",
+        [
+            ({"database": "sales", "table": "orders", "platform": "mysql"}, False),
+            (
+                {
+                    "database": "sales",
+                    "table": "orders",
+                    "platform": "postgres",
+                    "env": "DEV",
+                },
+                False,
+            ),
+            ({"database": "sales", "table": "orders", "platform": "postgres"}, True),
+            # A different DSN scope is a different entry, not a duplicate.
+            (
+                {
+                    "dsn": "other",
+                    "database": "sales",
+                    "table": "orders",
+                    "platform": "mysql",
+                },
+                True,
+            ),
+        ],
+        ids=["platform-conflict", "env-conflict", "same-target", "other-dsn"],
+    )
+    def test_athena_override_case_only_duplicates(
+        self, second: Dict[str, str], valid: bool
+    ) -> None:
+        """Override matching ignores case, so entries differing only in case
+        would otherwise resolve silently by list order."""
+        config_dict = {
+            **self.base_config,
+            "athena_table_platform_override": [
+                {"database": "Sales", "table": "Orders", "platform": "postgres"},
+                second,
+            ],
+        }
+        if valid:
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+        else:
+            with pytest.raises(ValidationError):
+                PowerBiDashboardSourceConfig.model_validate(config_dict)
 
     @pytest.mark.parametrize(
         "field, first, second",

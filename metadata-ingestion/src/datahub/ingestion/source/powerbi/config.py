@@ -10,6 +10,7 @@ from typing import (
     Optional,
     Sequence,
     Set,
+    Tuple,
     Union,
 )
 
@@ -1239,5 +1240,27 @@ class PowerBiDashboardSourceConfig(
                     f"for {override.database}.{override.table} is not a recognized DataHub platform. "
                     f"Known platforms: {sorted(known_platforms)}."
                 )
+
+        # Matching ignores case, so entries for the same dsn/database/table
+        # (including ones that differ only in case) must not point at different
+        # targets, or the first one listed would win silently.
+        seen: Dict[
+            Tuple[Optional[str], str, str], Tuple[str, Optional[str], Optional[str]]
+        ] = {}
+        for override in self.athena_table_platform_override:
+            key = (
+                override.dsn.casefold() if override.dsn is not None else None,
+                override.database.casefold(),
+                override.table.casefold(),
+            )
+            target = (override.platform, override.platform_instance, override.env)
+            if key in seen and seen[key] != target:
+                raise ValueError(
+                    "athena_table_platform_override: entries for "
+                    f"{override.database}.{override.table} (dsn={override.dsn}) "
+                    "map to different targets. Matching ignores case, so keep "
+                    "one entry per table."
+                )
+            seen.setdefault(key, target)
 
         return self
