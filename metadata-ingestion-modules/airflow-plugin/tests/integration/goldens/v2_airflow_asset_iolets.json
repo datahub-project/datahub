@@ -17,7 +17,7 @@
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=airflow_asset_iolets",
+            "externalUrl": "http://airflow.example.com/dags/airflow_asset_iolets",
             "name": "airflow_asset_iolets",
             "env": "PROD"
         }
@@ -196,7 +196,7 @@
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=airflow_asset_iolets",
+            "externalUrl": "http://airflow.example.com/dags/airflow_asset_iolets",
             "name": "airflow_asset_iolets",
             "env": "PROD"
         }
@@ -917,7 +917,7 @@
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=airflow_asset_iolets",
+            "externalUrl": "http://airflow.example.com/dags/airflow_asset_iolets",
             "name": "airflow_asset_iolets",
             "env": "PROD"
         }
@@ -1713,7 +1713,7 @@
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=airflow_asset_iolets",
+            "externalUrl": "http://airflow.example.com/dags/airflow_asset_iolets",
             "name": "airflow_asset_iolets",
             "env": "PROD"
         }
@@ -2425,7 +2425,7 @@
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=airflow_asset_iolets",
+            "externalUrl": "http://airflow.example.com/dags/airflow_asset_iolets",
             "name": "airflow_asset_iolets",
             "env": "PROD"
         }
@@ -2978,7 +2978,7 @@
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=airflow_asset_iolets",
+            "externalUrl": "http://airflow.example.com/dags/airflow_asset_iolets",
             "name": "airflow_asset_iolets",
             "env": "PROD"
         }

@@ -39,11 +39,12 @@ const DeprecatedContainer = styled.div`
     color: ${(props) => props.theme.colors.textSecondary};
 `;
 
+// Both schema tables style their first column as the row title, so the field path inherits it.
 const FieldPathText = styled(Typography.Text)<{ $isCompact: boolean }>`
-    font-size: 12px;
+    font-size: inherit;
     line-height: ${(props) => (props.$isCompact ? '14px' : '24px')};
-    font-weight: 600;
-    color: ${(props) => props.theme.colors.textSecondary};
+    font-weight: inherit;
+    color: inherit;
 
     display: flex;
     align-items: center;
@@ -57,6 +58,7 @@ type InteriorTitleProps = {
     fieldPath: string;
     record: ExtendedSchemaFields;
     isCompact?: boolean;
+    isPrimaryKey: boolean;
 };
 
 export const InteriorTitleContent = ({
@@ -66,6 +68,7 @@ export const InteriorTitleContent = ({
     fieldPath,
     record,
     isCompact,
+    isPrimaryKey,
 }: InteriorTitleProps) => {
     const fieldPathWithoutAnnotations = translateFieldPath(fieldPath);
     const parentPathWithoutAnnotations = translateFieldPath(record.parent?.fieldPath || '');
@@ -113,7 +116,7 @@ export const InteriorTitleContent = ({
             </FieldPathContainer>
             {!isCompact && (
                 <>
-                    {(schemaMetadata?.primaryKeys?.includes(fieldPath) || record.isPartOfKey) && <PrimaryKeyLabel />}
+                    {isPrimaryKey && <PrimaryKeyLabel />}
                     {record.isPartitioningKey && <PartitioningKeyLabel />}
                     {record.nullable && <NullableLabel />}
                     {/* {record.nullable && <NullableLabel />} */}

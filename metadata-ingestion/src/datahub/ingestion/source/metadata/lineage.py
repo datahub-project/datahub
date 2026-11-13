@@ -15,6 +15,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.serialization_helper import post_json_transform
 from datahub.emitter.transform_operation import cap_transform_operation
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -172,7 +173,18 @@ class LineageFileSource(Source):
         config = self.load_lineage_config(self.config.file)
         logger.debug(config)
         for entity_node in config.lineage:
-            mcp = _get_lineage_mcp(entity_node, self.config.preserve_upstream)
+            try:
+                mcp = _get_lineage_mcp(entity_node, self.config.preserve_upstream)
+            except _UnreadableUpstreamLineage as exc:
+                entity_urn = (
+                    _get_entity_urn(entity_node.entity) or entity_node.entity.name
+                )
+                self.report.failure(
+                    "Failed to read stored upstream lineage",
+                    context=entity_urn,
+                    exc=exc,
+                )
+                continue
             if mcp:
                 yield mcp.as_workunit()
 
@@ -190,6 +202,39 @@ def _get_entity_urn(entity_config: EntityConfig) -> Optional[str]:
             platform_instance=entity_config.platform_instance,
         )
     return None
+
+
+class _UnreadableUpstreamLineage(Exception):
+    """Stored upstreamLineage exists but could not be parsed into its typed class."""
+
+
+def _read_stored_upstream_lineage(
+    entity_urn: str,
+) -> Optional[models.UpstreamLineageClass]:
+    """Return stored upstreamLineage, or None if the aspect is missing.
+
+    The unreadable-vs-missing distinction lives here so other callers of
+    get_aspects_for_entity keep its current behavior: a typed parse
+    failure is logged and the aspect is omitted, which looks the same as
+    a missing aspect.
+    """
+    client = get_default_graph(ClientMode.INGESTION)
+    raw_aspects = get_aspects_for_entity(
+        client._session,
+        client.config.server,
+        entity_urn=entity_urn,
+        aspects=["upstreamLineage"],
+        typed=False,
+    )
+    raw = raw_aspects.get("upstreamLineage")
+    if raw is None:
+        return None
+    try:
+        return models.UpstreamLineageClass.from_obj(post_json_transform(raw))
+    except Exception as exc:
+        raise _UnreadableUpstreamLineage(
+            f"could not parse stored upstreamLineage for {entity_urn}"
+        ) from exc
 
 
 def _get_lineage_mcp(
@@ -217,16 +262,8 @@ def _get_lineage_mcp(
     seen_upstream_urns: Set[str] = set()
     # extract the old lineage and save it for the new mcp
     if preserve_upstream:
-        client = get_default_graph(ClientMode.INGESTION)
-
-        old_upstream_lineage = get_aspects_for_entity(
-            client._session,
-            client.config.server,
-            entity_urn=entity_urn,
-            aspects=["upstreamLineage"],
-            typed=True,
-        ).get("upstreamLineage")
-        if isinstance(old_upstream_lineage, models.UpstreamLineageClass):
+        old_upstream_lineage = _read_stored_upstream_lineage(entity_urn)
+        if old_upstream_lineage is not None:
             # One edge per upstream, which also collapses copies left by earlier runs.
             for upstream in old_upstream_lineage.upstreams:
                 if upstream.dataset not in seen_upstream_urns:
