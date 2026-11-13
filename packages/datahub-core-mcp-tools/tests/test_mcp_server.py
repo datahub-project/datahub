@@ -49,6 +49,7 @@ async def test_registration_is_per_instance() -> None:
         "remove_terms",
         "create_glossary_term",
         "add_related_terms",
+        "create_domain",
         "set_domains",
         "remove_domains",
     }
@@ -83,6 +84,7 @@ async def test_registering_twice_on_separate_instances_is_independent() -> None:
             "remove_terms",
             "create_glossary_term",
             "add_related_terms",
+            "create_domain",
             "set_domains",
             "remove_domains",
         }
@@ -131,6 +133,7 @@ async def test_write_tools_are_registered_by_default(
         "remove_terms",
         "create_glossary_term",
         "add_related_terms",
+        "create_domain",
         "set_domains",
         "remove_domains",
     } <= writes

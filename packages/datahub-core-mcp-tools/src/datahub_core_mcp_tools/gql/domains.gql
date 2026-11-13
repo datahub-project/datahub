@@ -1,6 +1,25 @@
-# Domain writes. All exist on GMS 1.7.0.
+# Domain writes and the lookup create_domain makes. All exist on GMS 1.7.0.
 
 # A null domainUrn unsets the domain.
 mutation batchSetDomain($input: BatchSetDomainInput!) {
   batchSetDomain(input: $input)
+}
+
+mutation createDomain($input: CreateDomainInput!) {
+  createDomain(input: $input)
+}
+
+# Lists only the direct children of $parentDomain (the top-level domains when it
+# is null). Search is fuzzy: the caller compares the names it returns.
+query findDomainsByName($query: String!, $parentDomain: String, $count: Int!) {
+  listDomains(
+    input: { query: $query, parentDomain: $parentDomain, start: 0, count: $count }
+  ) {
+    domains {
+      urn
+      properties {
+        name
+      }
+    }
+  }
 }

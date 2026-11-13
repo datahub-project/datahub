@@ -124,6 +124,15 @@ class ReadBackend(Protocol):
         moments ago may be missing."""
         ...
 
+    def domains_named(
+        self, name: str, parent_domain: str | None, count: int
+    ) -> list[JsonObject]:
+        """Up to ``count`` domains directly under ``parent_domain`` (the top level
+        when None) that a search for ``name`` finds, each with its urn and
+        ``properties.name`` (``findDomainsByName`` in ``domains.gql``). Search
+        matches loosely: the caller compares names."""
+        ...
+
 
 @dataclass(frozen=True)
 class ReadBackendBinding:
@@ -362,6 +371,18 @@ class GraphQLReadBackend:
             for r in results
             if isinstance(r, dict) and isinstance(r.get("entity"), dict)
         ]
+
+    def domains_named(
+        self, name: str, parent_domain: str | None, count: int
+    ) -> list[JsonObject]:
+        result = graphql_helpers.execute_graphql(
+            self.graph,
+            query=graphql_helpers.load_gql_document("domains.gql"),
+            variables={"query": name, "parentDomain": parent_domain, "count": count},
+            operation_name="findDomainsByName",
+        )
+        domains = (result.get("listDomains") or {}).get("domains") or []
+        return [cast(JsonObject, d) for d in domains if isinstance(d, dict)]
 
 
 def get_read_backend() -> ReadBackend:
