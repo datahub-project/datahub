@@ -24,6 +24,7 @@ Reading the entity registry requires the Manage System Operations privilege.
 """
 
 import hashlib
+import itertools
 import json
 import logging
 import re
@@ -40,6 +41,7 @@ from typing import (
     Set,
     Tuple,
     Type,
+    TypeVar,
     Union,
     cast,
 )
@@ -58,6 +60,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
 from datahub.ingestion.source.datahub_documents.document_chunking_state_handler import (
     DocumentChunkingStateHandler,
 )
@@ -96,15 +99,21 @@ from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
     AutoWorkunitsReporterProcessor,
 )
 from datahub.metadata.schema_classes import SemanticContentClass
+from datahub.metadata.urns import Urn
+from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)
 
-REGISTRY_SPECS_PATH = "/openapi/v1/registry/models/entity/specifications"
-SCROLL_PATH = "/openapi/v3/entity/scroll"
+T = TypeVar("T")
+
 DOCUMENT_ENTITY_TYPE = "document"
 SIBLINGS_ASPECT = "siblings"
 DATA_PLATFORM_INSTANCE_ASPECT = "dataPlatformInstance"
 _PLATFORM_URN = re.compile(r"urn:li:dataPlatform:([^,()]+)")
+# Types whose URN starts with a bare platform name, e.g. urn:li:chart:(looker,123).
+_PLATFORM_KEYED_TYPES = frozenset({"chart", "dashboard", "dataFlow"})
+# Keyed by its dataFlow URN, e.g. urn:li:dataJob:(urn:li:dataFlow:(airflow,dag,prod),task).
+_FLOW_KEYED_TYPES = frozenset({"dataJob"})
 # Part of every content hash: bump it when the rendered text changes shape so all
 # entities are re-embedded with the new text.
 TEXT_BUILDER_VERSION = "entity_text_v1"
@@ -239,6 +248,13 @@ class DataHubEntityEmbeddingsSource(StatefulIngestionSourceBase):
             yield from self._run()
         except _RunAborted as e:
             logger.error(f"Aborting run: {e}")
+        except ServerEmbeddingRunError as e:
+            self.report.failure(
+                title="Server embeddings unavailable",
+                message="The DataHub server refused to embed, so no other entity can "
+                "be embedded either; aborting the run.",
+                exc=e,
+            )
         except Exception as e:
             self.report.failure(
                 title="Entity embeddings run failed",
@@ -266,11 +282,7 @@ class DataHubEntityEmbeddingsSource(StatefulIngestionSourceBase):
             return
 
         try:
-            self._specs = parse_registry(
-                self.graph._paginate_offset(
-                    f"{self.graph._gms_server}{REGISTRY_SPECS_PATH}"
-                )
-            )
+            self._specs = parse_registry(self.graph.get_entity_specifications())
         except OperationalError as e:
             if _http_status(e) != 403:
                 raise
@@ -372,32 +384,15 @@ class DataHubEntityEmbeddingsSource(StatefulIngestionSourceBase):
 
     def _scroll(
         self, entity_type: str, aspects: List[str]
-    ) -> Iterator[Tuple[str, Dict[str, Any]]]:
-        url = f"{self.graph._gms_server}{SCROLL_PATH}"
-        scroll_id: Optional[str] = None
-        while True:
-            params: Dict[str, Any] = {
-                "count": self.config.scroll_batch_size,
-                "query": "*",
-            }
-            if scroll_id:
-                params["scrollId"] = scroll_id
-            response = self.graph._post_generic(
-                url, {"entities": [entity_type], "aspects": aspects}, params=params
-            )
-            entities = response.get("entities")
-            # Treating a malformed response as an empty catalog would prune all state.
-            if not isinstance(entities, list):
-                raise ValueError(
-                    f"Scroll response for {entity_type} has no 'entities' list"
-                )
-            for entity in entities:
-                urn = entity.get("urn")
-                if urn:
-                    yield urn, _aspect_values(entity)
-            scroll_id = response.get("scrollId")
-            if not scroll_id or not entities:
-                return
+    ) -> Iterator[List[Tuple[str, Dict[str, Any]]]]:
+        """Pages of (urn, aspect values) of every entity of the type."""
+        # A malformed response raises rather than ending the scroll: treating it as
+        # an empty catalog would prune all state.
+        entities = self.graph.scroll_entities_raw(
+            entity_type, aspects, count=self.config.scroll_batch_size
+        )
+        for page in _batched(entities, self.config.scroll_batch_size):
+            yield [(entity["urn"], _aspect_values(entity)) for entity in page]
 
     def _process_entity_type(
         self, entity_type: str, seen: Set[str]
@@ -413,49 +408,78 @@ class DataHubEntityEmbeddingsSource(StatefulIngestionSourceBase):
             and DATA_PLATFORM_INSTANCE_ASPECT not in aspects_to_fetch
         ):
             aspects_to_fetch.append(DATA_PLATFORM_INSTANCE_ASPECT)
-        for urn, aspects in self._scroll(entity_type, aspects_to_fetch):
+        for page in self._scroll(entity_type, aspects_to_fetch):
             self._check_limits()
-            if self.lock is not None:
-                self.lock.heartbeat()
-            report.count(report.num_entities_scanned, entity_type)
-            platform = entity_platform(urn, aspects)
-            if platform is not None and not self.config.platform_pattern.allowed(
-                platform
-            ):
-                # Not added to `seen`, so its state is pruned and it is embedded
-                # again if its platform is allowed later.
-                report.count(report.num_entities_filtered, entity_type)
-                continue
-            seen.add(urn)
+            allowed: List[Tuple[str, Dict[str, Any]]] = []
+            for urn, aspects in page:
+                report.count(report.num_entities_scanned, entity_type)
+                platform = entity_platform(urn, aspects)
+                if platform is not None and not self.config.platform_pattern.allowed(
+                    platform
+                ):
+                    # Not added to `seen`, so its state is pruned and it is embedded
+                    # again if its platform is allowed later.
+                    report.count(report.num_entities_filtered, entity_type)
+                    continue
+                allowed.append((urn, aspects))
+            siblings, unavailable = self._fetch_siblings(allowed)
+            for urn, aspects in allowed:
+                yield from self._process_entity(
+                    entity_type, spec, urn, aspects, siblings, unavailable, seen
+                )
 
-            text = self.text_builder.build(
-                spec,
-                urn,
-                aspects,
-                self._resolve_reference,
-                self._fetch_siblings(urn, aspects),
-            )
-            content_hash = self._content_hash(text)
-            if not self._needs_embedding(urn, content_hash):
-                report.count(report.num_entities_unchanged, entity_type)
-                continue
+    def _process_entity(
+        self,
+        entity_type: str,
+        spec: EntityTextSpec,
+        urn: str,
+        aspects: Dict[str, Any],
+        siblings: Dict[str, Tuple[EntityTextSpec, Dict[str, Any]]],
+        unavailable: Set[str],
+        seen: Set[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        report = self.report
+        self._check_limits()
+        if self.lock is not None:
+            self.lock.heartbeat()
+        seen.add(urn)
 
-            workunits = self._embed(entity_type, urn, text)
-            if workunits is None:
-                continue
-            yield from workunits
-            # A skip marker is deterministic for this text, so it is recorded too and
-            # only retried when the text changes.
-            self._record(urn, content_hash)
-            if not text.strip():
-                report.count(report.num_entities_empty, entity_type)
-            elif _is_skip_marker(workunits):
-                report.count(report.num_entities_not_indexable, entity_type)
-            else:
-                report.count(report.num_entities_embedded, entity_type)
-                self._num_embedded += 1
-                if self.config.index_delay_seconds > 0:
-                    time.sleep(self.config.index_delay_seconds)
+        sibling_urns = (
+            _sibling_urns(urn, aspects) if self.config.text.include_siblings else []
+        )
+        if unavailable.intersection(sibling_urns):
+            # Its text would lack the sibling's, which would re-embed it with less
+            # text; it keeps its embeddings and state until the next run.
+            report.count(report.num_entities_failed, entity_type)
+            return
+        text = self.text_builder.build(
+            spec,
+            urn,
+            aspects,
+            self._resolve_reference,
+            [siblings[s] for s in sibling_urns if s in siblings],
+        )
+        content_hash = self._content_hash(text)
+        if not self._needs_embedding(urn, content_hash):
+            report.count(report.num_entities_unchanged, entity_type)
+            return
+
+        workunits = self._embed(entity_type, urn, text)
+        if workunits is None:
+            return
+        yield from workunits
+        # A skip marker is deterministic for this text, so it is recorded too and
+        # only retried when the text changes.
+        self._record(urn, content_hash)
+        if not text.strip():
+            report.count(report.num_entities_empty, entity_type)
+        elif _is_skip_marker(workunits):
+            report.count(report.num_entities_not_indexable, entity_type)
+        else:
+            report.count(report.num_entities_embedded, entity_type)
+            self._num_embedded += 1
+            if self.config.index_delay_seconds > 0:
+                time.sleep(self.config.index_delay_seconds)
 
     def _check_limits(self) -> None:
         budget = self.config.time_budget_seconds
@@ -495,6 +519,11 @@ class DataHubEntityEmbeddingsSource(StatefulIngestionSourceBase):
                 )
             if not workunits:
                 raise ValueError("No semanticContent was produced for the entity")
+        except ServerEmbeddingRunError:
+            # Every other entity would fail the same way; the run reports it once.
+            self._forget(urn)
+            self.report.count(self.report.num_entities_failed, entity_type)
+            raise
         except Exception as e:
             # Its previous hash may still match (e.g. a failed forced re-embed);
             # forgetting it makes the next run retry the entity.
@@ -609,30 +638,49 @@ class DataHubEntityEmbeddingsSource(StatefulIngestionSourceBase):
         return name
 
     def _fetch_siblings(
-        self, urn: str, aspects: Dict[str, Any]
-    ) -> List[Tuple[EntityTextSpec, Dict[str, Any]]]:
+        self, entities: List[Tuple[str, Dict[str, Any]]]
+    ) -> Tuple[Dict[str, Tuple[EntityTextSpec, Dict[str, Any]]], Set[str]]:
+        """The siblings of a page of entities, fetched in one request per sibling type.
+
+        Returns the spec and aspect values of each sibling by urn, and the urns of
+        the siblings that could not be fetched.
+        """
         if not self.config.text.include_siblings:
-            return []
-        siblings = (aspects.get(SIBLINGS_ASPECT) or {}).get("siblings") or []
-        result: List[Tuple[EntityTextSpec, Dict[str, Any]]] = []
-        for sibling_urn in siblings:
-            if not isinstance(sibling_urn, str) or sibling_urn == urn:
-                continue
-            sibling_type = urn_entity_type(sibling_urn)
-            spec = self._specs.get(sibling_type) if sibling_type else None
-            if spec is None or not spec.aspects:
-                continue
-            try:
-                raw = self.graph.get_entity_raw(sibling_urn, aspects=spec.aspects)
-            except Exception as e:
-                logger.debug(f"Could not fetch sibling {sibling_urn} of {urn}: {e}")
-                continue
-            sibling_aspects = _aspect_values(raw.get("aspects") or {})
-            # Siblings reference each other; drop the back-reference to avoid loops.
-            sibling_aspects.pop(SIBLINGS_ASPECT, None)
-            if sibling_aspects:
-                result.append((spec, sibling_aspects))
-        return result
+            return {}, set()
+        by_type: Dict[str, Dict[str, None]] = {}
+        for urn, aspects in entities:
+            for sibling_urn in _sibling_urns(urn, aspects):
+                sibling_type = urn_entity_type(sibling_urn)
+                spec = self._specs.get(sibling_type) if sibling_type else None
+                if sibling_type and spec is not None and spec.aspects:
+                    by_type.setdefault(sibling_type, {})[sibling_urn] = None
+        siblings: Dict[str, Tuple[EntityTextSpec, Dict[str, Any]]] = {}
+        unavailable: Set[str] = set()
+        for sibling_type, sibling_urns in by_type.items():
+            spec = self._specs[sibling_type]
+            for batch in _batched(sibling_urns, self.config.scroll_batch_size):
+                try:
+                    fetched = self.graph.get_entities_raw(
+                        sibling_type, batch, spec.aspects
+                    )
+                except Exception as e:
+                    unavailable.update(batch)
+                    self.report.warning(
+                        title="Siblings could not be fetched",
+                        message="Entities with these siblings are skipped and retried "
+                        "on the next run.",
+                        context=f"{len(batch)} {sibling_type} siblings",
+                        exc=e,
+                    )
+                    continue
+                for sibling_urn, entity in fetched.items():
+                    sibling_aspects = _aspect_values(entity)
+                    # Siblings reference each other; drop the back-reference to
+                    # avoid loops.
+                    sibling_aspects.pop(SIBLINGS_ASPECT, None)
+                    if sibling_aspects:
+                        siblings[sibling_urn] = (spec, sibling_aspects)
+        return siblings, unavailable
 
     def get_report(self) -> SourceReport:
         chunking_report = self.chunking_source.report
@@ -649,10 +697,33 @@ class DataHubEntityEmbeddingsSource(StatefulIngestionSourceBase):
 def entity_platform(urn: str, aspects: Dict[str, Any]) -> Optional[str]:
     """Platform name of an entity: its dataPlatformInstance, else the platform in its URN."""
     platform = (aspects.get(DATA_PLATFORM_INSTANCE_ASPECT) or {}).get("platform")
-    match = _PLATFORM_URN.search(
-        platform if isinstance(platform, str) and platform else urn
-    )
+    return _urn_platform(platform if isinstance(platform, str) and platform else urn)
+
+
+def _urn_platform(urn: str) -> Optional[str]:
+    try:
+        parsed: Optional[Urn] = Urn.from_string(urn)
+    except InvalidUrnError:
+        parsed = None
+    if parsed is not None and parsed.entity_ids:
+        key = parsed.entity_ids[0]
+        if parsed.entity_type in _FLOW_KEYED_TYPES:
+            return _urn_platform(key)
+        if parsed.entity_type in _PLATFORM_KEYED_TYPES:
+            return _urn_platform(key) if key.startswith("urn:li:") else key or None
+    match = _PLATFORM_URN.search(urn)
     return match.group(1) if match else None
+
+
+def _sibling_urns(urn: str, aspects: Dict[str, Any]) -> List[str]:
+    siblings = (aspects.get(SIBLINGS_ASPECT) or {}).get("siblings") or []
+    return [s for s in siblings if isinstance(s, str) and s != urn]
+
+
+def _batched(items: Iterable[T], size: int) -> Iterator[List[T]]:
+    iterator = iter(items)
+    while batch := list(itertools.islice(iterator, size)):
+        yield batch
 
 
 def _is_skip_marker(workunits: List[MetadataWorkUnit]) -> bool:

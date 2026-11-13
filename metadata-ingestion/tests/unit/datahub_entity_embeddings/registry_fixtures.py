@@ -197,4 +197,26 @@ CHART = entity(
     {"title": ["WORD_GRAM"]},
 )
 
-REGISTRY = [DATASET, TAG, DOMAIN, CONTAINER, DOCUMENT, DATA_PROCESS_INSTANCE, CHART]
+# With semanticContent added by a registry plugin.
+DASHBOARD = entity(
+    "dashboard",
+    aspect("dashboardKey"),
+    [
+        aspect(
+            "dashboardInfo", searchable("/title", "title", tier=1, entity_name=True)
+        ),
+        aspect("semanticContent"),
+    ],
+    {"title": ["WORD_GRAM"]},
+)
+
+REGISTRY = [
+    DATASET,
+    TAG,
+    DOMAIN,
+    CONTAINER,
+    DOCUMENT,
+    DATA_PROCESS_INSTANCE,
+    CHART,
+    DASHBOARD,
+]

@@ -125,7 +125,8 @@ class EntityTextConfig(ConfigModel):
         description="Merge the text of sibling entities (e.g. a dbt model and its "
         "BigQuery table) so each sibling is findable by the other's documentation. "
         "Siblings are the same asset, so their text is merged whatever their platform; "
-        "platform_pattern only decides which entities get embeddings.",
+        "platform_pattern only decides which entities get embeddings. Each sibling is "
+        "embedded with the merged text, so a search can return both.",
     )
     inline_value_chars: int = Field(
         default=200,
@@ -176,7 +177,9 @@ class DataHubEntityEmbeddingsSourceConfig(
         default=AllowDenyPattern.allow_all(),
         description="Platforms whose entities are embedded, matched against the platform "
         "name (e.g. 'pubsub', 'bigquery') of every entity type that has one: the "
-        "dataPlatformInstance aspect, else the platform in the entity's URN. Entities "
+        "dataPlatformInstance aspect, else the platform in the entity's URN (its "
+        "dataPlatform URN, or the platform name chart, dashboard, dataFlow and dataJob "
+        "URNs start with). Entities "
         "without a platform (tags, domains, glossary terms...) are not affected. It "
         "applies to future runs only: entities embedded before they were excluded keep "
         "their semanticContent.",

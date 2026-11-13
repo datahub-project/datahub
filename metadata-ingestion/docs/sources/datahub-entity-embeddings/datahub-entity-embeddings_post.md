@@ -1,7 +1,8 @@
 ### Capabilities
 
 - **Entity types from the server.** By default (`entity_types: [auto]`) the source embeds every type in the server's `semanticSearchConfig.enabledEntities`, except `document`. A type is skipped, and the reason is recorded in the report, when it is not in the entity registry, has no `semanticContent` aspect, has no searchable text fields, or belongs to a search group outside `search_groups`.
-- **Platform filtering.** `platform_pattern` matches the platform from the `dataPlatformInstance` aspect, or else the platform in the entity's URN. Entities without a platform, such as tags, domains and glossary terms, are not filtered.
+- **Platform filtering.** `platform_pattern` matches the platform from the `dataPlatformInstance` aspect, or else the platform in the entity's URN: its `dataPlatform` URN, or the platform name that chart, dashboard, dataFlow and dataJob URNs start with (`looker` in `urn:li:chart:(looker,123)`). Entities without a platform, such as tags, domains and glossary terms, are not filtered.
+- **Siblings.** With `text.include_siblings` (on by default), an entity's text includes the text of its siblings, such as a dbt model and its warehouse table, so a search matches either one. Each sibling gets its own embeddings of the merged text, so a search can return both. Set `text.include_siblings: false` to embed each entity with its own text only.
 - **Incremental runs.** Only new or changed entities are embedded again. Changing the embedding model or the chunking settings re-embeds everything.
 - **Bounded runs.** `max_entities_per_run` caps the entities embedded per run, and `time_budget_seconds` caps the run time; both stop a run cleanly. With stateful ingestion (the default) the state is committed and the next run continues where it stopped; without it, the next run starts over. `max_consecutive_failures` aborts a run when the embedding provider keeps failing. `index_delay_seconds` spaces out writes to GMS.
 
@@ -18,7 +19,7 @@ On registries that assign entity types to search groups, only types in `search_g
 
 #### Incremental processing
 
-Stateful ingestion, enabled by default, stores a hash of each entity's text and embedding configuration, so only new or changed entities are embedded again. When `max_entities_per_run` or `time_budget_seconds` stops a run, the next run continues where it stopped. Entities that fail, including during a forced re-embed, are retried on the next run.
+Stateful ingestion, enabled by default, stores a hash of each entity's text and embedding configuration, so only new or changed entities are embedded again. When `max_entities_per_run` or `time_budget_seconds` stops a run, the next run continues where it stopped. A run aborted by `max_consecutive_failures` or by the server refusing to embed also commits the state of the entities it embedded, so they are not embedded again. Entities that fail, including during a forced re-embed, are retried on the next run.
 
 #### Scheduling with DataHub Documents
 
@@ -34,7 +35,8 @@ The first run embeds every eligible entity unless `time_budget_seconds` or `max_
 ### Limitations
 
 - An entity that is later excluded, by entity type or by `platform_pattern`, keeps its last embeddings.
-- Referenced entities and siblings are read one at a time, which adds requests on large catalogs.
+- Referenced entities, such as tags and domains, are read one at a time the first time a run meets them, which adds requests on large catalogs.
+- Siblings are read on every run, even for unchanged entities, because the text compared with the stored hash includes theirs. They are read in one request per scroll page and sibling type; when that request fails, the entities of the page that have those siblings are skipped and retried on the next run.
 - Entities whose text is empty or yields no chunks get a skip marker instead of embeddings, like in `datahub-documents`.
 - `max_entities_per_run` counts embedded entities only; unchanged and filtered entities are still scanned, so it does not bound the run time on its own.
 
@@ -45,3 +47,4 @@ The first run embeds every eligible entity unless `time_budget_seconds` or `max_
 - **"No embedding model"**: no embedding provider and model could be resolved from either the server's semantic search configuration or the recipe's `embedding` section. Check both: an `embedding` section in the recipe takes precedence and is validated against the server's configuration unless `embedding.allow_local_embedding_config` is set.
 - **"Entity type skipped"**: the report lists each skipped type with its reason. To embed a type that lacks the `semanticContent` aspect, add the aspect with an entity registry plugin (see Prerequisites).
 - **"Too many consecutive embedding failures"**: the embedding provider is failing, for example because of credentials, quota or an unknown model. Entities that failed are retried on the next run.
+- **"Server embeddings unavailable"**: with the server-side embedding provider, the server refused to embed (no permission, a quota it says not to retry, or embeddings turned off), so the run aborts on the first entity instead of failing each one.

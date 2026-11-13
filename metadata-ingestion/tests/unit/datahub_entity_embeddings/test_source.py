@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -6,11 +6,12 @@ from requests.models import HTTPError
 
 pytest.importorskip("unstructured")
 
-from datahub.configuration.common import OperationalError
+from datahub.configuration.common import GraphError, OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
 from datahub.ingestion.source.datahub_entity_embeddings.config import (
     DataHubEntityEmbeddingsSourceConfig,
 )
@@ -58,6 +59,18 @@ def container(name: str, platform: str) -> Dict[str, Any]:
     }
 
 
+def dashboard(dashboard_id: str, tool: str) -> Dict[str, Any]:
+    return {
+        "urn": f"urn:li:dashboard:({tool},{dashboard_id})",
+        "dashboardInfo": {"value": {"title": dashboard_id}},
+    }
+
+
+def with_sibling(entity: Dict[str, Any], sibling_urn: str) -> Dict[str, Any]:
+    entity["siblings"] = {"value": {"siblings": [sibling_urn]}}
+    return entity
+
+
 def domain(name: str) -> Dict[str, Any]:
     return {
         "urn": f"urn:li:domain:{name}",
@@ -98,11 +111,11 @@ class Harness:
         **config: Any,
     ):
         self.graph = MagicMock(spec=DataHubGraph)
-        self.graph._gms_server = "http://gms:8080"
-        self.graph._paginate_offset.return_value = iter(REGISTRY)
+        self.graph.get_entity_specifications.return_value = REGISTRY
         self.scroll_calls: List[Dict[str, Any]] = []
         self.pages = {t: list(p) for t, p in pages.items()}
-        self.graph._post_generic.side_effect = self._scroll
+        self.graph.scroll_entities_raw.side_effect = self._scroll
+        self.graph.get_entities_raw.return_value = {}
         self.graph.get_entity_raw.return_value = {"aspects": {}}
         self.enabled = enabled if enabled is not None else ["document", "dataset"]
         self.state = state or {}
@@ -142,14 +155,11 @@ class Harness:
         self.source.state_handler = handler
 
     def _scroll(
-        self, url: str, body: Dict[str, Any], params: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        self.scroll_calls.append(body)
-        remaining = self.pages.get(body["entities"][0], [])
-        if not remaining:
-            return {"entities": [], "scrollId": None}
-        page = remaining.pop(0)
-        return {"entities": page, "scrollId": "next" if remaining else None}
+        self, entity_name: str, aspects: List[str], count: int
+    ) -> Iterator[Dict[str, Any]]:
+        self.scroll_calls.append({"entities": [entity_name], "aspects": aspects})
+        for page in self.pages.get(entity_name, []):
+            yield from page
 
     def run(self) -> List[str]:
         return [wu.get_urn() for wu in self.source_workunits()]
@@ -182,6 +192,10 @@ class Harness:
         ),
         ("urn:li:tag:pii", {}, None),
         ("urn:li:container:c2", {"dataPlatformInstance": {}}, None),
+        ("urn:li:chart:(looker,123)", {}, "looker"),
+        ("urn:li:dashboard:(urn:li:dataPlatform:tableau,d1)", {}, "tableau"),
+        ("urn:li:dataFlow:(airflow,dag,prod)", {}, "airflow"),
+        ("urn:li:dataJob:(urn:li:dataFlow:(airflow,dag,prod),task)", {}, "airflow"),
     ],
 )
 def test_entity_platform(
@@ -315,9 +329,7 @@ class TestRun:
     def test_malformed_scroll_response_fails_without_pruning(self):
         known = dataset("a")["urn"]
         harness = Harness({"dataset": [[dataset("a")]]}, state={known: "x"})
-        harness.graph._post_generic.side_effect = lambda url, body, params: {
-            "error": "unsupported"
-        }
+        harness.graph.scroll_entities_raw.side_effect = GraphError("no entities list")
         assert harness.run() == []
         assert harness.source.report.failures
         assert known in harness.current_state.document_state
@@ -368,6 +380,45 @@ class TestRun:
         assert harness.run() == []
         assert harness.source.report.num_entities_failed == {"dataset": 2}
         assert harness.source.report.failures
+
+    def test_abort_keeps_the_state_of_entities_already_embedded(self):
+        # The checkpoint still commits after an abort, so these are not re-embedded.
+        gone = "urn:li:dataset:(urn:li:dataPlatform:bigquery,gone,PROD)"
+        harness = Harness(
+            {"dataset": [[dataset("a"), dataset("b"), dataset("c")]]},
+            state={gone: "x"},
+            max_consecutive_failures=2,
+        )
+        embedded = dataset("a")["urn"]
+
+        def embed(document_urn, elements, **_):
+            if document_urn != embedded:
+                raise RuntimeError("down")
+            return iter([workunit(document_urn)])
+
+        harness.chunking.process_elements_inline.side_effect = embed
+        assert harness.run() == [embedded]
+        assert harness.source.report.failures
+        assert embedded in harness.recorded
+        assert gone in harness.current_state.document_state
+
+    def test_server_embedding_errors_abort_the_run(self):
+        # The server refused the run, so no other entity can succeed either.
+        gone = "urn:li:dataset:(urn:li:dataPlatform:bigquery,gone,PROD)"
+        harness = Harness(
+            {"dataset": [[dataset("a"), dataset("b"), dataset("c")]]},
+            state={gone: "x"},
+        )
+        harness.chunking.process_elements_inline.side_effect = ServerEmbeddingRunError(
+            "Semantic search embeddings are not offered"
+        )
+        assert harness.run() == []
+        assert harness.chunking.process_elements_inline.call_count == 1
+        report = harness.source.report
+        assert report.num_entities_failed == {"dataset": 1}
+        assert "Server embeddings unavailable" in str(report.failures)
+        assert not report.warnings
+        assert gone in harness.current_state.document_state
 
     def test_skip_markers_do_not_hide_a_failing_provider(self):
         # Skip markers never call the provider, so they don't reset the count.
@@ -440,7 +491,7 @@ class TestRun:
         harness = Harness({"dataset": [[dataset("a")]]})
         error = OperationalError("Unable to get metadata from DataHub", {})
         error.__cause__ = HTTPError(response=MagicMock(status_code=403))
-        harness.graph._paginate_offset.side_effect = error
+        harness.graph.get_entity_specifications.side_effect = error
         assert harness.run() == []
         assert "MANAGE_SYSTEM_OPERATIONS" in str(harness.source.report.failures)
         assert harness.scroll_calls == []
@@ -489,6 +540,16 @@ class TestRun:
         )
         assert "dataPlatformInstance" not in domain_body["aspects"]
 
+    def test_platform_pattern_applies_to_platform_keyed_urns(self):
+        # Dashboard URNs carry a bare platform name instead of a dataPlatform URN.
+        harness = Harness(
+            {"dashboard": [[dashboard("d1", "looker"), dashboard("d2", "tableau")]]},
+            enabled=["dashboard"],
+            platform_pattern={"deny": ["looker"]},
+        )
+        assert harness.run() == [dashboard("d2", "tableau")["urn"]]
+        assert harness.source.report.num_entities_filtered == {"dashboard": 1}
+
     def test_platform_pattern_allow_list(self):
         harness = Harness(
             {"dataset": [[dataset("a"), dataset("b", platform="dbt")]]},
@@ -515,6 +576,63 @@ class TestRun:
         assert len(domain_calls) == 1
         elements_text = str(harness.chunking.process_elements_inline.call_args_list[0])
         assert "Sales" in elements_text
+
+    def test_siblings_are_fetched_once_per_page(self):
+        dbt_a = "urn:li:dataset:(urn:li:dataPlatform:dbt,a,PROD)"
+        dbt_b = "urn:li:dataset:(urn:li:dataPlatform:dbt,b,PROD)"
+        harness = Harness(
+            {
+                "dataset": [
+                    [
+                        with_sibling(dataset("a"), dbt_a),
+                        with_sibling(dataset("b"), dbt_b),
+                        dataset("c"),
+                    ]
+                ]
+            }
+        )
+        harness.graph.get_entities_raw.return_value = {
+            dbt_a: {
+                "urn": dbt_a,
+                "datasetProperties": {"value": {"description": "dbt model a"}},
+                "siblings": {"value": {"siblings": [dataset("a")["urn"]]}},
+            },
+        }
+        assert len(harness.run()) == 3
+        harness.graph.get_entities_raw.assert_called_once()
+        entity_type, urns, aspects = harness.graph.get_entities_raw.call_args.args
+        assert (entity_type, urns) == ("dataset", [dbt_a, dbt_b])
+        assert "datasetProperties" in aspects
+        first_text = str(harness.chunking.process_elements_inline.call_args_list[0])
+        assert "dbt model a" in first_text
+
+    def test_entities_with_unavailable_siblings_are_retried_next_run(self):
+        # Embedding them without the sibling's text would replace their embeddings
+        # with ones built from less text.
+        sibling = "urn:li:dataset:(urn:li:dataPlatform:dbt,a,PROD)"
+        with_dbt = with_sibling(dataset("a"), sibling)
+        harness = Harness(
+            {"dataset": [[with_dbt, dataset("b")]]}, state={with_dbt["urn"]: "old"}
+        )
+        harness.graph.get_entities_raw.side_effect = HTTPError("timeout")
+        assert harness.run() == [dataset("b")["urn"]]
+        report = harness.source.report
+        assert report.num_entities_failed == {"dataset": 1}
+        assert "Siblings could not be fetched" in str(report.warnings)
+        assert not report.failures
+        assert harness.current_state.document_state[with_dbt["urn"]] == {
+            "content_hash": "old"
+        }
+
+    def test_siblings_are_not_fetched_when_disabled(self):
+        sibling = "urn:li:dataset:(urn:li:dataPlatform:dbt,a,PROD)"
+        harness = Harness(
+            {"dataset": [[with_sibling(dataset("a"), sibling)]]},
+            text={"include_siblings": False},
+        )
+        assert len(harness.run()) == 1
+        harness.graph.get_entities_raw.assert_not_called()
+        assert "siblings" not in harness.scroll_calls[0]["aspects"]
 
 
 def test_content_hash_follows_the_server_embedding_model():
