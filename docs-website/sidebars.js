@@ -53,6 +53,22 @@ module.exports = {
       items: [
         // "docs/how/ui-tabs-guide",
         {
+          label: "Ingestion",
+          type: "category",
+          collapsed: true,
+          link: {
+            type: "doc",
+            id: "docs/ui-ingestion",
+          },
+          items: [
+            {
+              label: "Security",
+              type: "doc",
+              id: "docs/metadata-ingestion-security",
+            },
+          ],
+        },
+        {
           label: "Ask DataHub",
           type: "category",
           className: "saasOnly",
@@ -100,22 +116,6 @@ module.exports = {
                   id: "docs/features/feature-guides/ask-datahub-plugins/glean",
                 },
               ],
-            },
-          ],
-        },
-        {
-          label: "Ingestion",
-          type: "category",
-          collapsed: true,
-          link: {
-            type: "doc",
-            id: "docs/ui-ingestion",
-          },
-          items: [
-            {
-              label: "Security",
-              type: "doc",
-              id: "docs/metadata-ingestion-security",
             },
           ],
         },
