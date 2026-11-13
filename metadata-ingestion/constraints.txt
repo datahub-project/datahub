@@ -430,6 +430,7 @@ google-api-core==2.25.2 ; python_full_version >= '3.11' and python_full_version 
     #   google-cloud-datacatalog-lineage
     #   google-cloud-dataplex
     #   google-cloud-logging
+    #   google-cloud-pubsub
     #   google-cloud-resource-manager
     #   google-cloud-secret-manager
     #   google-cloud-storage
@@ -452,6 +453,7 @@ google-auth==2.49.0 ; python_full_version >= '3.11' and python_full_version < '3
     #   google-cloud-datacatalog-lineage
     #   google-cloud-dataplex
     #   google-cloud-logging
+    #   google-cloud-pubsub
     #   google-cloud-resource-manager
     #   google-cloud-secret-manager
     #   google-cloud-storage
@@ -484,6 +486,8 @@ google-cloud-datacatalog-lineage==0.5.0 ; python_full_version >= '3.11' and pyth
 google-cloud-dataplex==2.16.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 google-cloud-logging==3.14.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via acryl-datahub
+google-cloud-pubsub==2.39.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 google-cloud-resource-manager==1.16.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
@@ -526,6 +530,7 @@ grpc-google-iam-v1==0.14.3 ; python_full_version >= '3.11' and python_full_versi
     #   google-cloud-datacatalog
     #   google-cloud-dataplex
     #   google-cloud-logging
+    #   google-cloud-pubsub
     #   google-cloud-resource-manager
     #   google-cloud-secret-manager
 grpcio==1.84.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -538,6 +543,7 @@ grpcio==1.84.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   google-cloud-datacatalog-lineage
     #   google-cloud-dataplex
     #   google-cloud-logging
+    #   google-cloud-pubsub
     #   google-cloud-resource-manager
     #   google-cloud-secret-manager
     #   googleapis-common-protos
@@ -546,7 +552,9 @@ grpcio==1.84.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   grpcio-tools
     #   opensearch-protobufs
 grpcio-status==1.62.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
-    # via google-api-core
+    # via
+    #   google-api-core
+    #   google-cloud-pubsub
 grpcio-tools==1.71.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 gssapi==1.11.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -880,11 +888,13 @@ opensearch-py==3.2.0 ; python_full_version >= '3.11' and python_full_version < '
 opentelemetry-api==1.45.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   google-cloud-logging
+    #   google-cloud-pubsub
     #   mlflow-skinny
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
 opentelemetry-sdk==1.45.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
+    #   google-cloud-pubsub
     #   mlflow-skinny
     #   unstructured-ingest
 opentelemetry-semantic-conventions==0.66b1 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -999,6 +1009,7 @@ proto-plus==1.27.1 ; python_full_version >= '3.11' and python_full_version < '3.
     #   google-cloud-datacatalog-lineage
     #   google-cloud-dataplex
     #   google-cloud-logging
+    #   google-cloud-pubsub
     #   google-cloud-resource-manager
     #   google-cloud-secret-manager
 protobuf==5.29.6 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -1015,6 +1026,7 @@ protobuf==5.29.6 ; python_full_version >= '3.11' and python_full_version < '3.14
     #   google-cloud-datacatalog-lineage
     #   google-cloud-dataplex
     #   google-cloud-logging
+    #   google-cloud-pubsub
     #   google-cloud-resource-manager
     #   google-cloud-secret-manager
     #   googleapis-common-protos
