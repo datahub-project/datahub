@@ -608,6 +608,9 @@ class _ControlFlowTracker(BaseModel):
             if all(other.variables.get(name) == value for other in rest)
         }
         set_anywhere = {name for outcome in outcomes for name in outcome.variables}
+        if self.loops:
+            # Like a variable set in the loop, it holds the app's value after.
+            self.loops[-1].update(set_anywhere - variables.keys())
         self.state = _BranchState(
             connection=first.connection
             if all(other.connection == first.connection for other in rest)
