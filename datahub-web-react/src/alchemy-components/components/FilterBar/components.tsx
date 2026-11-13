@@ -11,6 +11,7 @@ import React, {
 import { createPortal } from 'react-dom';
 import styled from 'styled-components';
 
+import { TabButtons } from '@components/components/ButtonTabs';
 import {
     MenuPlacement,
     PopoverPlacement,
@@ -40,13 +41,6 @@ export const GroupContainer = styled.div<{ $nested: boolean }>`
     background: ${(props) => (props.$nested ? props.theme.colors.bgSurface : 'transparent')};
 `;
 
-export const GroupHeader = styled.div`
-    display: flex;
-    min-height: 24px;
-    align-items: center;
-    justify-content: space-between;
-`;
-
 export const FiltersRow = styled.div`
     display: flex;
     flex-wrap: wrap;
@@ -60,12 +54,19 @@ export const GroupActions = styled.div`
     gap: ${spacing.xxsm};
 `;
 
-export const MatchControls = styled.div`
-    display: flex;
+/** The all/any switch, sized to sit in the rule row beside the chips. */
+export const MatchTabs = styled(TabButtons)`
+    height: 32px;
     align-items: center;
-    gap: ${spacing.xxsm};
-    color: ${(props) => props.theme.colors.textSecondary};
-    font-size: ${typography.fontSizes.sm};
+    border: 1px solid ${(props) => props.theme.colors.border};
+    border-radius: ${radius.md};
+
+    && button {
+        height: 26px;
+        min-height: 0;
+        padding: 0 ${spacing.xsm};
+        font-size: ${typography.fontSizes.md};
+    }
 `;
 
 /** Shared reset for the inline text affordances: no button chrome, just a hit target. */
@@ -74,18 +75,6 @@ const inlineTrigger = `
     background: transparent;
     font: inherit;
     cursor: pointer;
-`;
-
-export const MatchButton = styled.button`
-    ${inlineTrigger}
-    padding: 2px ${spacing.xxsm};
-    border-radius: ${radius.sm};
-    color: ${(props) => props.theme.colors.text};
-    font-weight: ${typography.fontWeights.semiBold};
-
-    &:hover {
-        background: ${(props) => props.theme.colors.bgHover};
-    }
 `;
 
 export const GhostTrigger = styled.button`
@@ -241,6 +230,13 @@ export const RemoveButton = styled.button`
         background: ${(props) => props.theme.colors.bgHover};
         color: ${(props) => props.theme.colors.iconError};
     }
+`;
+
+/** A nested group's remove button, at the end of its rule row. */
+export const GroupRemoveButton = styled(RemoveButton)`
+    margin-left: auto;
+    border-left: 0;
+    border-radius: ${radius.md};
 `;
 
 export const PopoverAnchor = styled.div<{ $shrinkable: boolean }>`

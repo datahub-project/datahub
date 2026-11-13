@@ -21,9 +21,8 @@ import {
     GhostTrigger,
     GroupActions,
     GroupContainer,
-    GroupHeader,
-    MatchButton,
-    MatchControls,
+    GroupRemoveButton,
+    MatchTabs,
     MenuAnchorContext,
     MenuOpenContext,
     MenuPlacementContext,
@@ -996,33 +995,25 @@ function FilterGroupView({
     const addFilterPicker = <AddFilterPicker fields={fields} labels={labels} onUpsert={upsertFilter} />;
     const addFilterInline = addFilterPlacement === 'inline' || depth > 0;
     const hasRules = !!group.filters.length || !!group.groups?.length;
+    const showMatch = depth > 0 || showConnector;
 
     return (
         <GroupContainer $nested={depth > 0}>
-            {(depth > 0 || showConnector) && (
-                <GroupHeader>
-                    <MatchControls>
-                        {labels.where}
-                        <MatchButton
-                            type="button"
+            {(addFilterInline || !!group.filters.length || showMatch) && (
+                <FiltersRow data-testid="filter-bar-rules">
+                    {showMatch && (
+                        <MatchTabs
+                            tabs={[
+                                { key: 'all', label: labels.all, dataTestId: 'filter-bar-match-all' },
+                                { key: 'any', label: labels.any, dataTestId: 'filter-bar-match-any' },
+                            ]}
+                            activeTab={group.match}
+                            onTabClick={(key) => updateMatch(key as FilterMatchMode)}
+                            fit="hug"
                             data-testid="filter-bar-match"
                             aria-label={`${labels.where} ${labels.all} or ${labels.any}`}
-                            onClick={() => updateMatch(group.match === 'all' ? 'any' : 'all')}
-                        >
-                            {group.match === 'all' ? labels.all : labels.any}
-                        </MatchButton>
-                        {depth > 0 && <span>:</span>}
-                    </MatchControls>
-                    {onRemove && (
-                        <RemoveButton type="button" aria-label={labels.removeGroup} onClick={onRemove}>
-                            <X size={14} />
-                        </RemoveButton>
+                        />
                     )}
-                </GroupHeader>
-            )}
-
-            {(addFilterInline || !!group.filters.length) && (
-                <FiltersRow data-testid="filter-bar-rules">
                     {group.filters.map((rule, index) => {
                         const field = fields.find((candidate) => candidate.field === rule.field);
                         if (!field) return null;
@@ -1048,6 +1039,11 @@ function FilterGroupView({
                     })}
 
                     {addFilterInline && addFilterPicker}
+                    {onRemove && (
+                        <GroupRemoveButton type="button" aria-label={labels.removeGroup} onClick={onRemove}>
+                            <X size={14} />
+                        </GroupRemoveButton>
+                    )}
                 </FiltersRow>
             )}
 

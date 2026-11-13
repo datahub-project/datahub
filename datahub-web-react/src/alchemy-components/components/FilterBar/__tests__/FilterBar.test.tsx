@@ -180,7 +180,7 @@ describe('FilterBar', () => {
         const onChange = vi.fn();
         renderFilterBar(onChange);
 
-        fireEvent.click(screen.getByLabelText('Where all or any'));
+        fireEvent.click(screen.getByRole('tab', { name: 'any' }));
 
         expect(onChange).toHaveBeenCalledWith({
             ...value,
