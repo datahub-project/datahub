@@ -98,7 +98,7 @@ def parse_run_restli_response(response: requests.Response) -> dict:
 
     if not isinstance(response_json, dict):
         click.echo(
-            f"Received error, please check your {config_utils.CONDENSED_DATAHUB_CONFIG_PATH}"
+            f"Received error, please check your {config_utils.resolve_profile().path}"
         )
         click.echo()
         click.echo(response_json)
@@ -107,7 +107,7 @@ def parse_run_restli_response(response: requests.Response) -> dict:
     summary = response_json.get("value")
     if not isinstance(summary, dict):
         click.echo(
-            f"Received error, please check your {config_utils.CONDENSED_DATAHUB_CONFIG_PATH}"
+            f"Received error, please check your {config_utils.resolve_profile().path}"
         )
         click.echo()
         click.echo(response_json)
@@ -514,6 +514,9 @@ def enable_auto_decorators(main_group: click.Group) -> None:
     def wrap_command_callback(command_obj):
         """Wrap a command's callback function to add decorators"""
         if hasattr(command_obj, "callback") and command_obj.callback:
+            from datahub.cli.profile_cli import announce_profile_target
+
+            announce_profile_target(command_obj)
             original_callback = command_obj.callback
 
             # Import here to avoid circular imports
