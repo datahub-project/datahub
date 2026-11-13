@@ -380,6 +380,11 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         if self._resolved_source_id_urns.get(dir_source_id):
             doc = Document(urn=DocumentUrn(doc_id))
             self._attach_platform_instance(doc, owner_repo)
+            # Nothing is loaded on this bare document, so start from the stored Status:
+            # removed is cleared below without disturbing the lifecycle stage.
+            stored = self._get_stored_status(str(doc.urn))
+            if stored is not None:
+                doc._set_aspect(stored)
         else:
             doc = self._build_document(
                 doc_id=doc_id,
@@ -398,7 +403,8 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                     PROP_IMPORT_SOURCE_ID: dir_source_id,
                 },
             )
-        doc._set_aspect(StatusClass(removed=False))
+        # Clear removed in place: replacing the aspect would drop the lifecycle stage.
+        doc._setdefault_aspect(StatusClass(removed=False)).removed = False
         self._register_hierarchy(
             dir_source_id, title, parent_source_id=parent_source_id
         )
@@ -531,7 +537,8 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         # Status.removed so a previously soft-deleted DataHub doc is resurrected.
         # The unchanged-file short-circuit above resurrects too, so this does not
         # depend on whether the content happened to change.
-        doc._set_aspect(StatusClass(removed=False))
+        # Clear removed in place: replacing the aspect would drop the lifecycle stage.
+        doc._setdefault_aspect(StatusClass(removed=False)).removed = False
         if okf_mapping is not None:
             for aspect in okf_mapping.aspects:
                 doc._set_aspect(aspect)
@@ -1001,9 +1008,19 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         if document_urn not in self._soft_deleted_urns(owner_repo):
             return
         self.report.documents_resurrected += 1
+        # Re-emit the stored Status with removed cleared so the lifecycle stage survives.
+        status = self._get_stored_status(document_urn) or StatusClass(removed=False)
+        status.removed = False
         yield MetadataChangeProposalWrapper(
-            entityUrn=document_urn, aspect=StatusClass(removed=False)
+            entityUrn=document_urn, aspect=status
         ).as_workunit()
+
+    def _get_stored_status(self, document_urn: str) -> Optional[StatusClass]:
+        """The document's stored Status aspect, or None if absent or there is no graph."""
+        if not self.ctx.graph:
+            return None
+        stored = self.ctx.graph.get_aspect(document_urn, StatusClass)
+        return stored if isinstance(stored, StatusClass) else None
 
     def _attach_platform_instance(self, doc: Document, owner_repo: str) -> None:
         doc._set_aspect(

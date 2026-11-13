@@ -1178,12 +1178,94 @@ def test_unchanged_file_not_soft_deleted_emits_nothing(
 
     assert source.report.files_skipped_unchanged == 1
     assert source.report.documents_resurrected == 0
+    # The skipped file itself must produce no work unit at all (no DocumentInfo, no
+    # Status). Folder / repo-root documents are emitted separately and are not the
+    # subject of the short-circuit.
+    file_urn = f"urn:li:document:{normalize_document_id(make_file_source_id('acme/docs', 'docs/readme.md'))}"
     assert not [
         wu
         for wu in workunits
-        if isinstance(wu, MetadataWorkUnit)
-        and wu.get_aspect_of_type(StatusClass) is not None
+        if isinstance(wu, MetadataWorkUnit) and wu.get_urn() == file_urn
     ]
+
+
+DRAFT_STAGE_URN = "urn:li:lifecycleStageType:DRAFT"
+
+
+def test_resurrect_preserves_stored_lifecycle_stage(
+    source: GitHubDocumentsSource,
+) -> None:
+    """Un-deleting a document re-emits its stored Status, so a DRAFT stage survives."""
+    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    canonical_urn = f"urn:li:document:{normalize_document_id(source_id)}"
+    content = "# Hello"
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        file_content=content,
+    )
+    source.ctx.graph = MagicMock()
+    existing_info = MagicMock()
+    existing_info.customProperties = {
+        "source_content_hash": compute_file_content_hash(content)
+    }
+
+    def get_aspect(urn: str, aspect_type: object) -> object:
+        if aspect_type is StatusClass:
+            return StatusClass(removed=True, lifecycleStage=DRAFT_STAGE_URN)
+        return existing_info
+
+    source.ctx.graph.get_aspect.side_effect = get_aspect
+
+    def urns_by_filter(**kwargs):  # type: ignore[no-untyped-def]
+        if kwargs.get("status") == RemovedStatusFilter.ONLY_SOFT_DELETED:
+            return [canonical_urn]
+        return []
+
+    source.ctx.graph.get_urns_by_filter.side_effect = urns_by_filter
+
+    workunits = list(source.get_workunits_internal())
+
+    statuses = [
+        status
+        for wu in workunits
+        if isinstance(wu, MetadataWorkUnit) and wu.get_urn() == canonical_urn
+        for status in [wu.get_aspect_of_type(StatusClass)]
+        if status is not None
+    ]
+    assert len(statuses) == 1
+    assert statuses[0].removed is False
+    assert statuses[0].lifecycleStage == DRAFT_STAGE_URN
+
+
+def test_changed_file_status_carries_published_lifecycle_stage(
+    source: GitHubDocumentsSource,
+) -> None:
+    """Imported files are PUBLISHED; the Status aspect must agree with DocumentInfo."""
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+        file_content="# Hello",
+    )
+    source.ctx.graph = MagicMock()
+    source.ctx.graph.get_urns_by_filter.return_value = []
+    source.ctx.graph.get_aspect.return_value = None
+
+    workunits = list(source.get_workunits_internal())
+    file_urns = _file_document_urns(workunits, "docs/readme.md")
+    statuses = [
+        status
+        for wu in workunits
+        if isinstance(wu, MetadataWorkUnit) and wu.get_urn() in file_urns
+        for status in [wu.get_aspect_of_type(StatusClass)]
+        if status is not None
+    ]
+    assert statuses
+    assert all(
+        status.removed is False
+        and status.lifecycleStage == "urn:li:lifecycleStageType:PUBLISHED"
+        for status in statuses
+    )
 
 
 def test_folder_identity_fallback_queries_directory_path(
@@ -1309,10 +1391,12 @@ def test_existing_folder_document_does_not_overwrite_body(
     existing_info.contents = MagicMock()
     existing_info.contents.text = "rich body"
 
-    def get_aspect(urn: str, _aspect: object) -> object:
-        if urn == existing_urn:
-            return existing_info
-        return None
+    def get_aspect(urn: str, aspect_type: object) -> object:
+        if urn != existing_urn:
+            return None
+        if aspect_type is StatusClass:
+            return StatusClass(removed=True, lifecycleStage=DRAFT_STAGE_URN)
+        return existing_info
 
     source.ctx.graph.get_aspect.side_effect = get_aspect
 
@@ -1334,11 +1418,18 @@ def test_existing_folder_document_does_not_overwrite_body(
     folder_infos = [info for info in folder_infos if info is not None]
     assert folder_infos == []
     statuses = [
-        wu.get_aspect_of_type(StatusClass)
+        status
         for wu in workunits
         if isinstance(wu, MetadataWorkUnit) and wu.get_urn() == existing_urn
+        for status in [wu.get_aspect_of_type(StatusClass)]
+        if status is not None
     ]
-    assert any(status is not None and status.removed is False for status in statuses)
+    assert statuses
+    # The stored lifecycle stage survives while removed is cleared.
+    assert all(
+        status.removed is False and status.lifecycleStage == DRAFT_STAGE_URN
+        for status in statuses
+    )
 
 
 @pytest.fixture
