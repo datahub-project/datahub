@@ -598,10 +598,13 @@ def _expand_variables(statement: str, variables: Dict[str, str]) -> str:
 
 def unquoted_values(variables: Dict[str, str]) -> Dict[str, str]:
     """A variable set with SET keeps the quotes around its value, which a path
-    built from it, such as $(vFolder)orders.qvd, must not hold."""
+    built from it, such as $(vFolder)orders.qvd, must not hold. A value that
+    starts with `=` is an expression Qlik evaluates, so it is left out."""
     unquoted = {}
     for name, value in variables.items():
         value = value.strip()
+        if value.startswith("="):
+            continue
         if len(value) > 1 and value[0] in ("'", '"') and value[-1] == value[0]:
             value = value[1:-1]
         unquoted[name] = value

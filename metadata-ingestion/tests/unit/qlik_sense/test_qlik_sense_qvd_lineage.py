@@ -663,3 +663,12 @@ def test_qvd_named_only_by_a_variable_is_a_qvd_load() -> None:
 
     [load] = parsed.qvd_loads
     assert load.file == QvdReference(connection="QVD Data", path="raw/orders.qvd")
+
+
+def test_expression_variable_is_not_expanded_in_a_qvd_path() -> None:
+    parsed = parse_script(
+        "Orders: LOAD id FROM [lib://QVD Data/$(vDir)/orders.qvd] (qvd);",
+        app_variables={"vDir": "=Year(Today())"},
+    )
+    assert not parsed.qvd_loads
+    assert parsed.unresolved_qvd_paths == ["lib://QVD Data/$(vDir)/orders.qvd"]
