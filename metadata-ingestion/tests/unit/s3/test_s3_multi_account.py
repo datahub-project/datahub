@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import BucketKey
+from datahub.emitter.mcp_builder import AwsAccountKey, BucketKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import aws_common
@@ -20,7 +20,7 @@ from datahub.ingestion.source.aws.aws_common import (
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.s3_probe import s3_probe_refusal
-from datahub.ingestion.source.s3.source import AwsAccountKey, S3Source
+from datahub.ingestion.source.s3.source import S3Source
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     ContainerClass,

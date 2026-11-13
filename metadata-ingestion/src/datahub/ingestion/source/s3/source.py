@@ -31,7 +31,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import ContainerKey, gen_containers
+from datahub.emitter.mcp_builder import AwsAccountKey, ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -210,10 +210,6 @@ class TableData:
     content_type: Optional[str] = None
 
 
-class AwsAccountKey(ContainerKey):
-    account_id: str
-
-
 @platform_name("S3 / Local Files", id="s3")
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.GA)
@@ -344,7 +340,7 @@ class S3Source(StatefulIngestionSourceBase):
             bucket_parent_key=bucket_parent_key,
         )
 
-    def _account_key(self, account: S3AccountConfig) -> "AwsAccountKey":
+    def _account_key(self, account: S3AccountConfig) -> AwsAccountKey:
         # Keyed like BucketKey, so accounts and their buckets split by env and
         # platform_instance the same way.
         return AwsAccountKey(
