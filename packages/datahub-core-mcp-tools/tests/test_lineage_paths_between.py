@@ -826,6 +826,9 @@ class FakeBackend:
     def tags_named(self, name: str, count: int) -> list[JsonObject]:
         return []
 
+    def description_sources(self, urn: str) -> dict | None:
+        return None
+
     def ownership_types_named(self, name: str, count: int) -> list[JsonObject]:
         return []
 

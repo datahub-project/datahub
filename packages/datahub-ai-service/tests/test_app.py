@@ -173,6 +173,7 @@ async def test_legacy_and_modern_clients(gms: FakeGms, protocol: str) -> None:
         "remove_domains",
         "add_owners",
         "remove_owners",
+        "update_description",
     ]
     assert result.data["data"]["corpUser"]["urn"] == "urn:li:corpuser:bob"
 

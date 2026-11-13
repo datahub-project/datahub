@@ -139,6 +139,19 @@ class ReadBackend(Protocol):
         ``owners.gql``). Search matches loosely: the caller compares names."""
         ...
 
+    def description_sources(self, urn: str) -> JsonObject | None:
+        """The entity's ``type`` and every description it has, edited in DataHub
+        and from the source system, for it and its columns
+        (``getDescriptionSources`` in ``descriptions.gql``); None when GMS
+        returns no entity.
+
+        A dataset with siblings also carries their documentation-bearing parts
+        under ``siblingsSearch`` for sibling_merge, as ``entity`` does. Unlike
+        there, a failed sibling read raises: the caller builds a write on the
+        merged text.
+        """
+        ...
+
 
 @dataclass(frozen=True)
 class ReadBackendBinding:
@@ -179,28 +192,34 @@ class GraphQLReadBackend:
             )["entity"],
         )
         # Read here rather than in the tools, so every backend that wraps this one
-        # returns siblings too. GetEntity selects `siblings` only to learn whether
-        # there are any, so only datasets with siblings pay for this second query.
-        if (
-            entity is not None
-            and entity.get(SIBLINGS_KEY) is not None
-            and sibling_merge_enabled()
-        ):
+        # returns siblings too.
+        if entity is not None and self._has_siblings(entity):
             try:
-                siblings = graphql_helpers.execute_graphql(
-                    self.graph,
-                    query=graphql_helpers.load_gql_document("entity_details.gql"),
-                    variables={"urn": urn},
-                    operation_name="GetEntitySiblings",
-                )["entity"]
+                siblings = self._sibling_search(urn)
             except Exception as e:
                 # The entity's own metadata still answers the call.
                 logger.warning(
                     f"Sibling read failed for {urn}; returning its own metadata: {e}"
                 )
             else:
-                entity[SIBLINGS_SEARCH_KEY] = (siblings or {}).get(SIBLINGS_SEARCH_KEY)
+                entity[SIBLINGS_SEARCH_KEY] = siblings
         return entity
+
+    @staticmethod
+    def _has_siblings(entity: JsonObject) -> bool:
+        # GetEntity and getDescriptionSources select `siblings` only to learn
+        # whether there are any, so only datasets with siblings pay for the
+        # sibling query.
+        return entity.get(SIBLINGS_KEY) is not None and sibling_merge_enabled()
+
+    def _sibling_search(self, urn: str) -> JsonValue:
+        siblings = graphql_helpers.execute_graphql(
+            self.graph,
+            query=graphql_helpers.load_gql_document("entity_details.gql"),
+            variables={"urn": urn},
+            operation_name="GetEntitySiblings",
+        )["entity"]
+        return cast(JsonValue, (siblings or {}).get(SIBLINGS_SEARCH_KEY))
 
     def document_contents(self, urns: list[str]) -> list[JsonObject | None]:
         entities = cast(
@@ -399,6 +418,20 @@ class GraphQLReadBackend:
         )
         found = (result.get("listOwnershipTypes") or {}).get("ownershipTypes") or []
         return [cast(JsonObject, t) for t in found if isinstance(t, dict)]
+
+    def description_sources(self, urn: str) -> JsonObject | None:
+        entity = cast(
+            JsonObject | None,
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document("descriptions.gql"),
+                variables={"urn": urn},
+                operation_name="getDescriptionSources",
+            ).get("entity"),
+        )
+        if entity is not None and self._has_siblings(entity):
+            entity[SIBLINGS_SEARCH_KEY] = self._sibling_search(urn)
+        return entity
 
 
 def get_read_backend() -> ReadBackend:
