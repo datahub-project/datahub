@@ -1526,7 +1526,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             urn, known = self._resolve_source(source_qri, dataset_urn, own_app_id)
             if not known:
                 resolved.complete = False
-            elif urn and urn not in resolved.urns:
+            if urn and urn not in resolved.urns:
                 resolved.urns.append(urn)
         return resolved
 
@@ -1534,14 +1534,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self, table_qri: str, dataset_urn: str, own_app_id: Optional[str]
     ) -> Tuple[Optional[str], bool]:
         """The URN of a source table node, if this run ingests it, and whether
-        that could be told this run."""
+        every source could be told this run. An unknown source may still have
+        a URN, which is only added."""
         app_id = _qlik_app_id(table_qri)
         if app_id is not None:
             if own_app_id is not None and app_id != own_app_id:
                 return None, True
-            if not self._app_tables_known(app_id):
-                return None, False
             urn = self._app_table_urns_by_qri.get(table_qri)
+            if not self._app_tables_known(app_id):
+                # A table the graph names this run is still added, but the
+                # app's other tables are unknown.
+                return (urn if urn != dataset_urn else None), False
         else:
             # Data files, and files Qlik catalogued on a data connection such
             # as ADLS, are datasets. Other sources, such as database tables,
