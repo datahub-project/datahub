@@ -14,10 +14,10 @@ from datahub_ai_service.mcp.client_factory import CallerClientFactory
 from datahub_core_mcp_tools.gms_server_info import GmsServerInfo
 
 
-def rejected_token_error() -> Exception:
+def rejected_token_error(status: int = 401) -> Exception:
     # How the SDK reports a GMS 401: an OperationalError chained from requests'.
     response = requests.Response()
-    response.status_code = 401
+    response.status_code = status
     try:
         raise OperationalError("Unable to get metadata from DataHub") from (
             requests.HTTPError(response=response)
@@ -46,6 +46,15 @@ class FakeGms:
     # When set, every getMe call waits here, so concurrent calls overlap.
     get_me_barrier: Optional[threading.Barrier] = None
     get_me_seconds: float = 0.0
+    mcp_settings: Any = dataclasses.field(
+        default_factory=lambda: {"enabled": True, "defaultMcpServerOverrides": None}
+    )
+    """What GraphQL mcpSettings returns."""
+    settings_error: Optional[Exception] = None
+    """Raised by every mcpSettings read when set."""
+    settings_denied_tokens: set[str] = dataclasses.field(default_factory=set)
+    """Callers GMS refuses the settings to, with a 403."""
+    settings_calls: int = 0
 
     def server_info(self) -> GmsServerInfo:
         if self.down:
@@ -67,6 +76,13 @@ class FakeGms:
             token = None
         elif token not in self.users:
             raise rejected_token_error()
+        if operation_name == "getMcpSettings":
+            self.settings_calls += 1
+            if self.settings_error is not None:
+                raise self.settings_error
+            if token in self.settings_denied_tokens:
+                raise rejected_token_error(403)
+            return {"mcpSettings": self.mcp_settings}
         self.me_calls += 1
         if operation_name == "getMe" and self.get_me_barrier:
             self.get_me_barrier.wait()
