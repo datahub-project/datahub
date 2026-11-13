@@ -380,6 +380,54 @@ def test_qvd_no_app_writes_any_more_loses_its_old_writer() -> None:
     assert _upstreams(aspects, CLEAN, "remove") == [old_writer]
 
 
+@pytest.mark.parametrize(
+    "store",
+    [
+        pytest.param(
+            "STORE Orders INTO [lib://QVD Data/$(vDir)/x.qvd] (qvd);", id="variable"
+        ),
+        pytest.param("STORE Orders INTO [lib://Unknown/x.qvd] (qvd);", id="connection"),
+    ],
+)
+def test_app_with_an_unresolved_store_keeps_its_qvd_edges(store: str) -> None:
+    old_writer = _urn("report-app.orders")
+    source, aspects = _run(
+        [
+            _app(
+                "report-app",
+                REPORT_SCRIPT + "Orders: LOAD 1 AS id AUTOGENERATE 1;\n" + store,
+            )
+        ],
+        current=UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(dataset=old_writer, type=DatasetLineageTypeClass.COPY)
+            ]
+        ),
+    )
+    # The STORE may still write the QVD the edge comes from.
+    assert source._apps_qvds_unknown == {
+        "report-app": "a STORE path could not be resolved"
+    }
+    assert not _upstreams(aspects, CLEAN, "remove")
+
+
+def test_qvd_written_by_an_unread_app_keeps_its_schema() -> None:
+    # The writer is outside this run, such as in a stream the recipe leaves out.
+    _, aspects = _run(
+        [_app("report-app", REPORT_SCRIPT)],
+        current=UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    dataset=_urn("etl-app.orders"), type=DatasetLineageTypeClass.COPY
+                )
+            ]
+        ),
+    )
+    # The fields the reporting app reads are only a subset.
+    assert "SchemaMetadataClass" not in aspects[CLEAN]
+    assert not _upstreams(aspects, CLEAN, "remove")
+
+
 def test_qvd_writers_are_kept_when_data_connections_could_not_be_listed() -> None:
     old_writer = _urn("report-app.orders")
     source, aspects = _run(
@@ -591,6 +639,7 @@ def test_unset_variable_in_a_connection_name_expands_to_nothing() -> None:
             QvdReference(connection="QVD Data", path="raw/orders.qvd"),
         ),
         ("'//nas/qvd/raw/'", QvdReference(path="//nas/qvd/raw/orders.qvd")),
+        ("'//nas/o'brien/'", QvdReference(path="//nas/o'brien/orders.qvd")),
     ],
 )
 def test_path_from_a_quoted_variable_drops_its_quotes(
