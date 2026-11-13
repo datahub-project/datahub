@@ -5,8 +5,11 @@ import { GetSiblingGroupsQuery, useGetSiblingGroupsQuery } from '@graphql/siblin
 /** Siblings listed under each search result before "+ N more". */
 export const SIBLINGS_SHOWN_INLINE = 5;
 
-/** The siblingGroups query accepts at most this many urns per call. */
-export const MAX_URNS_PER_REQUEST = 50;
+/**
+ * The siblingGroups query's default urn limit (GRAPHQL_QUERY_MAX_SIBLING_GROUP_URNS), which matches
+ * the largest search page size.
+ */
+export const MAX_URNS_PER_REQUEST = 30;
 
 type RawSiblingGroup = GetSiblingGroupsQuery['siblingGroups'][number];
 type RawSiblingMember = RawSiblingGroup['members'][number];
