@@ -16,7 +16,18 @@ requests addressed to an allowed host (`DATAHUB_AI_ALLOWED_HOSTS`) and, when the
 reaching `/mcp` through DNS rebinding; it is not authentication. Behind the DataHub frontend, set
 `DATAHUB_AI_TRUSTED_PROXIES` to the frontend so its `X-Forwarded-Host` is believed.
 
-`/health` reports the auth mode it last saw, for status pages and debugging.
+The settings page (**Settings > Platform > AI > MCP Servers**) controls `/mcp`: its master switch
+and the Default server's switch (off: `/mcp` answers 404), the Default server's tool selection
+(filters both the tool list and direct calls) and its instructions. The service reads GraphQL
+`mcpSettings` with the caller's token and shares the validated result with every caller for up to
+60 seconds. If the settings can't be read, or don't validate, `/mcp` answers 503 rather than fall
+back to defaults the settings may have overridden. Only two answers mean defaults (MCP on, every
+tool, Large instructions): GMS returning no settings, and a GMS whose schema has no `mcpSettings`
+query. `TOOLS_IS_MUTATION_ENABLED=false` always wins over the selection.
+
+`/health` reports the auth mode and settings state (`unknown` until the first caller's request
+reads them, then `enabled`, `disabled` or `unavailable`) it last saw, for status pages and
+debugging. It never shows the settings themselves.
 
 ## Run
 

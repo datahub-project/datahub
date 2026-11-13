@@ -325,6 +325,7 @@ async def test_auth_off_needs_no_token_and_runs_as_the_system_user(
         "enabled": True,
         "authMode": "auto",
         "gmsAuth": "off",
+        "settings": "enabled",
         "available": True,
     }
 

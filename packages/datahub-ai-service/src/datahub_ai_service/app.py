@@ -25,7 +25,9 @@ from .mcp.auth_mode import GmsAuth, GmsAuthDetector
 from .mcp.client_factory import CallerClientFactory
 from .mcp.feature_gate import McpFeatureGate
 from .mcp.host_guard import HostGuard
+from .mcp.policy import McpSettingsGate
 from .mcp.server import build_mcp_server
+from .mcp.settings import McpPolicyCache, SettingsState
 from .mcp.telemetry import ToolCallObserver, ping_service_start, product_ping
 from .metrics import METRICS_PATH, ServiceMetrics
 from .usage_events import UsageEventPost, UsageEventSender
@@ -41,6 +43,7 @@ def create_app(
     observers: Sequence[ToolCallObserver] = (),
     telemetry_ping: Ping = sdk_ping,
     usage_event_post: Optional[UsageEventPost] = None,
+    policy_cache: Optional[McpPolicyCache] = None,
 ) -> Starlette:
     """The service's ASGI app.
 
@@ -61,14 +64,21 @@ def create_app(
     detector = GmsAuthDetector(
         config.gms_url, server_info, timeout_seconds=config.gms_timeout_seconds
     )
+    policy_cache = policy_cache or McpPolicyCache()
 
     async def health(request: Request) -> JSONResponse:
         # Unauthenticated and never waits on GMS, so container runtimes can probe
-        # the process without a credential. Reports the last auth mode seen.
+        # the process without a credential. Reports the last auth mode and
+        # settings state seen, never the settings themselves.
         gms_auth = detector.last
-        available = config.mcp_enabled and (
-            gms_auth is GmsAuth.ON
-            or (gms_auth is GmsAuth.OFF and config.auth_mode == "auto")
+        settings = policy_cache.state
+        available = (
+            config.mcp_enabled
+            and (
+                gms_auth is GmsAuth.ON
+                or (gms_auth is GmsAuth.OFF and config.auth_mode == "auto")
+            )
+            and settings in (SettingsState.ENABLED, SettingsState.UNKNOWN)
         )
         return JSONResponse(
             {
@@ -77,6 +87,7 @@ def create_app(
                     "enabled": config.mcp_enabled,
                     "authMode": config.auth_mode,
                     "gmsAuth": gms_auth.value,
+                    "settings": settings.value,
                     "available": available,
                 },
             }
@@ -121,7 +132,15 @@ def create_app(
             Mount(
                 "/",
                 app=McpAuthMiddleware(
-                    mcp_app,
+                    McpSettingsGate(
+                        mcp_app,
+                        policy_cache,
+                        client_factory,
+                        server_info,
+                        gms_url=config.gms_url,
+                        on_token_rejected=verifier.invalidate,
+                        metrics=metrics,
+                    ),
                     verifier,
                     detector,
                     HostGuard(
