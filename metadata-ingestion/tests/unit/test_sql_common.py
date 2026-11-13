@@ -1244,6 +1244,19 @@ def test_unexpected_procedure_failure_is_a_failure(sqlite_db: str) -> None:
             {"sqlalchemy_uri": "mysql+pymysql://my_user:Str0ng%21Pass%232024@my-host/"},
             id="sqlalchemy_uri",
         ),
+        pytest.param(
+            {
+                "sqlalchemy_uri": "mysql+pymysql://my_user@my-host/?password=Str0ng%2fPass%3A1"
+            },
+            id="query_param_mixed_hex_case",
+        ),
+        pytest.param(
+            {
+                "sqlalchemy_uri": "mssql+pyodbc:///?odbc_connect="
+                "DRIVER%3D%7BMy+Driver%7D%3BPWD%3DStr0ng%2BPass%2525x"
+            },
+            id="odbc_connect_pwd_with_plus_and_percent",
+        ),
     ],
 )
 def test_shared_debug_connection_url_log_masks_the_password(

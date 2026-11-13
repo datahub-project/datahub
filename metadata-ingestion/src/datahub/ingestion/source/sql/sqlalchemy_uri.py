@@ -1,7 +1,7 @@
 import logging
 import re
 import urllib.parse
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ArgumentError
@@ -16,6 +16,15 @@ _ODBC_CONNECT_PARAM = "odbc_connect"
 # ODBC lets a value hold ";" when it is wrapped in braces: PWD={pa;ss}.
 _ODBC_PASSWORD = re.compile(
     r"(?:^|;)\s*(?:PWD|PASSWORD)\s*=\s*(?:\{(?P<braced>[^}]*)\}|(?P<plain>[^;]*))",
+    re.IGNORECASE,
+)
+# The same, read from the connect string as written in the URI, where its
+# separators may be percent-encoded (";" as %3B, "=" as %3D, braces as %7B/%7D)
+# and spaces form-encoded.
+_ODBC_SPACE = r"(?:\s|\+|%20)*"
+_ODBC_PASSWORD_AS_WRITTEN = re.compile(
+    rf"(?:^|;|%3B){_ODBC_SPACE}(?:PWD|PASSWORD){_ODBC_SPACE}(?:=|%3D){_ODBC_SPACE}"
+    r"(?:(?:\{|%7B)(?P<braced>.*?)(?:\}|%7D)|(?P<plain>.*?)(?=;|%3B|$))",
     re.IGNORECASE,
 )
 # The userinfo password exactly as written in the URI. Bounded by the last "@"
@@ -92,18 +101,23 @@ def make_sqlalchemy_uri(
 
 def sqlalchemy_uri_secrets(url: str) -> Dict[str, str]:
     """Passwords embedded in a SQLAlchemy URL, keyed by a name for the secret
-    registry: the userinfo password both exactly as written and decoded,
-    password-like query parameters, and the PWD of an ODBC connect string.
+    registry: the userinfo password, password-like query parameters and the
+    PWD of an ODBC connect string, each both exactly as written and decoded.
 
     The as-written form matters because sources log the URI verbatim, in
     whatever encoding the user chose; the decoded form covers the URL that
-    SQLAlchemy renders from it. Neither depends on the URI being valid."""
+    SQLAlchemy renders from it. The as-written forms are read from the raw
+    string, so they don't depend on the URI being valid."""
     secrets: Dict[str, str] = {}
     verbatim = _VERBATIM_USERINFO_PASSWORD.match(url)
     if verbatim and verbatim.group("password"):
         secrets["sqlalchemy_uri.userinfo_password.verbatim"] = verbatim.group(
             "password"
         )
+    raw_query = _raw_query_passwords(url, start=verbatim.end() if verbatim else 0)
+    for key, passwords in raw_query.items():
+        for index, password in enumerate(passwords):
+            secrets[f"sqlalchemy_uri.query.{key}.{index}.verbatim"] = password
     try:
         parsed = make_url(url)
     except (ArgumentError, ValueError):
@@ -122,20 +136,48 @@ def sqlalchemy_uri_secrets(url: str) -> Dict[str, str]:
     ):
         secrets["sqlalchemy_uri.userinfo_password"] = str(parsed.password)
     for key, value in parsed.query.items():
+        # make_url has already decoded the values; don't decode them again.
         values = (value,) if isinstance(value, str) else tuple(value)
-        if key.lower() in _PASSWORD_QUERY_PARAMS:
-            passwords = list(values)
-        elif key.lower() == _ODBC_CONNECT_PARAM:
-            passwords = [
-                match.group("braced") or match.group("plain")
-                for item in values
-                for match in _ODBC_PASSWORD.finditer(urllib.parse.unquote_plus(item))
-            ]
-        else:
-            continue
-        for index, password in enumerate(passwords):
+        for index, password in enumerate(_query_passwords(key, values, _ODBC_PASSWORD)):
             secrets[f"sqlalchemy_uri.query.{key}.{index}"] = password
     return secrets
+
+
+def _raw_query_passwords(url: str, start: int) -> Dict[str, List[str]]:
+    """Password-like query values exactly as written, by key."""
+    query_start = url.find("?", start)
+    if query_start < 0:
+        return {}
+    values_by_key: Dict[str, List[str]] = {}
+    for pair in url[query_start + 1 :].split("&"):
+        raw_key, separator, raw_value = pair.partition("=")
+        if separator:
+            key = urllib.parse.unquote_plus(raw_key)
+            values_by_key.setdefault(key, []).append(raw_value)
+    passwords_by_key: Dict[str, List[str]] = {}
+    for key, values in values_by_key.items():
+        passwords = _query_passwords(key, values, _ODBC_PASSWORD_AS_WRITTEN)
+        if passwords:
+            passwords_by_key[key] = passwords
+    return passwords_by_key
+
+
+def _query_passwords(
+    key: str, values: Sequence[str], odbc_password: "re.Pattern[str]"
+) -> List[str]:
+    """The passwords one query parameter carries: its values when the key names
+    a password, the PWD of each value when it is an ODBC connect string."""
+    if key.lower() in _PASSWORD_QUERY_PARAMS:
+        return [value for value in values if value]
+    if key.lower() != _ODBC_CONNECT_PARAM:
+        return []
+    passwords: List[str] = []
+    for value in values:
+        for match in odbc_password.finditer(value):
+            password = match.group("braced") or match.group("plain")
+            if password:
+                passwords.append(password)
+    return passwords
 
 
 def url_dialect_and_driver(url: str) -> Tuple[str, str]:
