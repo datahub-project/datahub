@@ -242,21 +242,74 @@ def test_get_workunits_emits_folder_then_file(source: GitHubDocumentsSource) -> 
     assert source.report.files_processed == 1
 
 
-def test_get_workunits_reports_truncated_tree(source: GitHubDocumentsSource) -> None:
-    source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
-        return_value=([RepositoryFileInfo(path="docs/readme.md", size=12)], True)
+@pytest.mark.parametrize(
+    ("tree_truncated", "max_files", "warning_title"),
+    [
+        pytest.param(True, 100, "github-tree-truncated", id="truncated tree"),
+        pytest.param(False, 1, "github-files-truncated", id="max_files cutoff"),
+    ],
+)
+def test_partial_listing_keeps_previous_documents(
+    tree_truncated: bool, max_files: int, warning_title: str
+) -> None:
+    source = GitHubDocumentsSource(
+        GitHubDocumentsSourceConfig(
+            github_token=SecretStr("ghp_test"),
+            repository="acme/docs",
+            max_files=max_files,
+        ),
+        PipelineContext(run_id="test-run"),
     )
-    source.client.get_latest_commit_sha = MagicMock(  # type: ignore[method-assign]
-        return_value="abc123"
+    _mock_github_client(
+        source,
+        files=[
+            RepositoryFileInfo(path="docs/a.md", size=12),
+            RepositoryFileInfo(path="docs/b.md", size=12),
+        ],
+        tree_truncated=tree_truncated,
     )
-    source.client.fetch_file_content = MagicMock(  # type: ignore[method-assign]
-        return_value="# Hello"
+    previous_urn = "urn:li:document:not-listed"
+    handler = source.stale_entity_removal_handler
+    handler.checkpointing_enabled = True
+    handler.add_entity_to_state = MagicMock()  # type: ignore[method-assign]
+    source.state_provider.get_last_checkpoint = MagicMock(  # type: ignore[method-assign]
+        return_value=MagicMock(state=MagicMock(urns=[previous_urn]))
     )
 
-    list(source.get_workunits())
-    assert source.report.tree_truncated is True
-    # A failure, so stale removal does not delete files the listing missed.
-    assert "github-tree-truncated" in {entry.title for entry in source.report.failures}
+    list(source.get_workunits_internal())
+
+    # Kept rather than soft-deleted, without failing the run.
+    handler.add_entity_to_state.assert_any_call("", previous_urn)
+    assert warning_title in {entry.title for entry in source.report.warnings}
+    assert not source.report.failures
+
+
+@pytest.mark.parametrize("previously_imported", [True, False])
+def test_failed_download_keeps_only_a_previous_import(
+    source: GitHubDocumentsSource, previously_imported: bool
+) -> None:
+    _mock_github_client(
+        source,
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
+        file_content=None,
+    )
+    source.client._last_api_error = "HTTP 502"
+    existing_urn = "urn:li:document:native-uuid-1234"
+    source.ctx.graph = MagicMock()
+    source.ctx.graph.get_aspect.return_value = None
+    source.ctx.graph.get_urns_by_filter.return_value = (
+        [existing_urn] if previously_imported else []
+    )
+    source.stale_entity_removal_handler.add_entity_to_state = MagicMock()  # type: ignore[method-assign]
+
+    list(source.get_workunits_internal())
+
+    registered = [
+        call.args[1]
+        for call in source.stale_entity_removal_handler.add_entity_to_state.call_args_list
+    ]
+    assert registered == ([existing_urn] if previously_imported else [])
+    assert "github-file-not-read" in {entry.title for entry in source.report.warnings}
 
 
 def test_get_workunits_truncates_files_at_max_files_limit() -> None:

@@ -20,11 +20,16 @@ from datahub.ingestion.source.repository_documents.config import (
     RepositoryDocumentsSourceConfigBase,
 )
 from datahub.ingestion.source.repository_documents.source import (
+    EXTRACTION_ALGO_VERSION as EXTRACTION_ALGO_VERSION,
     LAST_EXPORTED_CONTENT_HASH_KEY as LAST_EXPORTED_CONTENT_HASH_KEY,
+    PROP_IMPORT_SOURCE_ID as PROP_IMPORT_SOURCE_ID,
     RepositoryDocumentsSourceBase,
     compute_file_content_hash as compute_file_content_hash,
     compute_source_hash as compute_source_hash,
 )
+
+PROP_GITHUB_FILE_PATH = "github_file_path"
+PROP_GITHUB_DIRECTORY_PATH = "github_directory_path"
 
 
 @platform_name("GitHub")
