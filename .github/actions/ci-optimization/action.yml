@@ -51,6 +51,9 @@ outputs:
   playwright-change:
     description: "Playwright E2E test code has changed"
     value: ${{ steps.filter.outputs.playwright-test == 'true' || steps.trigger.outputs.trigger == 'manual' }}
+  pytest-workflow-change:
+    description: "Pytest job wiring has changed (docker-unified.yml or an action pytest_tests uses)"
+    value: ${{ steps.filter.outputs.pytest-workflow == 'true' }}
   embedding-ai-change:
     description: "Local embedding provider / semantic search code has changed"
     value: ${{ steps.filter.outputs.embedding-ai == 'true' || steps.trigger.outputs.trigger == 'manual' }}
@@ -144,6 +147,20 @@ runs:
             - "metadata-models/**"
           playwright-test:
             - "e2e-test/ui/playwright/**"
+          # Wiring for the pytest smoke jobs. smoke_test_matrix opens the
+          # active-mode canary on this; it is not a product change.
+          pytest-workflow:
+            - ".github/workflows/docker-unified.yml"
+            - ".github/actions/ci-optimization/**"
+            - ".github/actions/smoke-test-retry/**"
+            - ".github/actions/restore-dependency-caches/**"
+            - ".github/actions/free-disk-space/**"
+            - ".github/actions/setup-uv-credentials/**"
+            - ".github/actions/scoped-depot-pull/**"
+            - ".github/actions/configure-fast-apt-mirror/**"
+            - ".github/actions/report-test-results/**"
+            # Classifier, taxonomy, selection and batch planning.
+            - ".github/smart-testing/**"
           embedding-ai:
             - "metadata-io/src/main/java/com/linkedin/metadata/search/embedding/Local*"
             - "metadata-io/src/main/java/com/linkedin/metadata/search/embedding/Classical*"

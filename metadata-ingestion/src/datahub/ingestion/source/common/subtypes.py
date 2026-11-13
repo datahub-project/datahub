@@ -130,6 +130,8 @@ class BIContainerSubTypes(StrEnum):
     TABLEAU_SITE = "Site"
     TABLEAU_PROJECT = "Project"
     TABLEAU_WORKBOOK = "Workbook"
+    # A BI platform's container of dashboards, such as a Qlik app's sheets.
+    WORKBOOK = "Workbook"
     POWERBI_WORKSPACE = "Workspace"
     POWERBI_DATASET = "Semantic Model"
     POWERBI_DATASET_TABLE = "Table"
@@ -189,6 +191,10 @@ class BIAssetSubTypes(StrEnum):
     POWERBI_TILE = "PowerBI Tile"
     POWERBI_PAGE = "PowerBI Page"
     POWERBI_APP = "App"
+    # Qlik Sense, in Qlik's own terms: an app as a lineage node (its container
+    # is the "Qlik App"), and a sheet of an app.
+    QLIK_APP_DASHBOARD = "App"
+    QLIK_SHEET = "Sheet"
     POWERBI_PAGINATED_REPORT = "PaginatedReport"
 
     # Mode

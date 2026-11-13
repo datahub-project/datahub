@@ -323,6 +323,13 @@ class AppField(BaseModel):
     field: SchemaField
 
 
+class ChartInputs(BaseModel):
+    """The app fields a chart reads and the tables it takes them from."""
+
+    fields: List[AppField]
+    tables: List[str]
+
+
 class AppFieldIndex(BaseModel):
     """Chart field lookup. Qlik field names are case-sensitive, but the SQL
     parser may change the case of script table columns, so only those also
@@ -381,14 +388,21 @@ class App(Item):
     data_model_tables: List[DataModelTable] = []
     # Variable definitions by name, used to expand $(name) in chart expressions.
     variables: Dict[str, str] = {}
+    variables_read_failed: bool = False
     script: Optional[str] = None
     fingerprint: Optional[str] = None
     script_read_failed: bool = False
     # The data model or the load script could not be read, so the app's tables,
     # and with them the chart inputs, are unknown.
     tables_read_failed: bool = False
+    # The app was opened without its data after loading it failed, so the next
+    # run must try again rather than skip it as unchanged.
+    data_load_failed: bool = False
     # Engine reads of this app that failed, so its metadata is only partly read.
     read_errors: List[str] = []
+    # Every sheet of the app was read, even if other parts of the app were not.
+    # Off until a read says so, as it lets the app's sheet edges be replaced.
+    sheets_complete: bool = False
     # Batch Engine reads that fell back to slower per-object reads.
     read_fallbacks: List[str] = []
 

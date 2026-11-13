@@ -301,12 +301,13 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Qlik App"
+                "Qlik App",
+                "Workbook"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1794484938464,
+        "lastObserved": 1794506388842,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -360,6 +361,22 @@
 },
 {
     "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(qlik-sense,f0714ca7-7093-49e4-8b58-47bb38563647)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794491590016,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(qlik-sense,f4f57386-263a-4ec9-b40c-abcd2467f423)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -370,6 +387,67 @@
     },
     "systemMetadata": {
         "lastObserved": 1794484938464,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(qlik-sense,f0714ca7-7093-49e4-8b58-47bb38563647)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "App"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794508941508,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(qlik-sense,f0714ca7-7093-49e4-8b58-47bb38563647)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "qri": "qri:app:sense://f0714ca7-7093-49e4-8b58-47bb38563647"
+            },
+            "title": "IPL_Matches_2022",
+            "description": "",
+            "charts": [],
+            "datasets": [],
+            "datasetEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,f0714ca7-7093-49e4-8b58-47bb38563647.test_table,PROD)"
+                }
+            ],
+            "dashboards": [
+                {
+                    "destinationUrn": "urn:li:dashboard:(qlik-sense,f4f57386-263a-4ec9-b40c-abcd2467f423)"
+                }
+            ],
+            "lastModified": {
+                "created": {
+                    "time": 1704823536545,
+                    "actor": "urn:li:corpuser:657b5abe656297cec3d8b205"
+                },
+                "lastModified": {
+                    "time": 1705316820333,
+                    "actor": "urn:li:corpuser:657b5abe656297cec3d8b205"
+                }
+            },
+            "dashboardUrl": "https://iq37k6byr9lgam8.us.qlikcloud.com/sense/app/f0714ca7-7093-49e4-8b58-47bb38563647/overview"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794491590017,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -412,6 +490,32 @@
 },
 {
     "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(qlik-sense,f0714ca7-7093-49e4-8b58-47bb38563647)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:john doe",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794491590017,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(qlik-sense,f4f57386-263a-4ec9-b40c-abcd2467f423)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -422,6 +526,65 @@
     },
     "systemMetadata": {
         "lastObserved": 1794484938465,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(qlik-sense,f0714ca7-7093-49e4-8b58-47bb38563647)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:43defedfcb41b246659c449a6f3ea8ac"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794506388853,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(qlik-sense,f4f57386-263a-4ec9-b40c-abcd2467f423)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Sheet"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794508941510,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(qlik-sense,f0714ca7-7093-49e4-8b58-47bb38563647)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704",
+                    "urn": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704"
+                },
+                {
+                    "id": "urn:li:container:43defedfcb41b246659c449a6f3ea8ac",
+                    "urn": "urn:li:container:43defedfcb41b246659c449a6f3ea8ac"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794506388857,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
