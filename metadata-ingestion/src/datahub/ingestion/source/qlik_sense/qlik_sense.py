@@ -1049,11 +1049,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             lastModified=self._get_audit_stamp(app.updatedAt, app.ownerId),
         )
         dashboard_url = f"https://{self.ui_host}/sense/app/{app.id}/overview"
+        if table_urns is None and not self.config.include_sheets_and_charts:
+            # The app's tables reached it through sheets that are no longer
+            # ingested, so the tables known for it are linked directly.
+            dataset_urns: List[str] = self._last_known_table_urns(app)
+        else:
+            dataset_urns = table_urns or []
         info = DashboardInfoClass(
             title=app.qTitle,
             description=app.description or "",
             dashboards=[EdgeClass(destinationUrn=urn) for urn in sheet_urns],
-            datasetEdges=[EdgeClass(destinationUrn=urn) for urn in table_urns or []],
+            datasetEdges=[EdgeClass(destinationUrn=urn) for urn in dataset_urns],
             lastModified=last_modified,
             customProperties={Constant.QRI: app.qri},
             dashboardUrl=dashboard_url,
@@ -1091,6 +1097,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             yield dpi_aspect
         if self.config.ingest_owner and owner_username:
             yield self._gen_entity_owner_aspect(dashboard_urn, owner_username)
+
+    def _last_known_table_urns(self, app: App) -> List[str]:
+        """The app's tables this run registered, such as those its lineage
+        graph names, and those its last read recorded."""
+        urns = dict.fromkeys(self._app_table_urns(app).values())
+        previous = self._usable_checkpoint(app.id, [])
+        if previous is not None and previous.table_urns_by_qri:
+            urns.update(dict.fromkeys(previous.table_urns_by_qri.values()))
+        return list(urns)
 
     def _gen_stale_sheet_edge_removals(
         self, dashboard_urn: str, sheet_urns: List[str]
