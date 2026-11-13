@@ -274,6 +274,32 @@ def test_qvd_lineage_links_apps_through_datasets(mock_api_cls: MagicMock) -> Non
     assert not source.reporter.failures
 
 
+@pytest.mark.parametrize(
+    "unlisted, written_whole",
+    [
+        # Qlik traces QVDs, so one without a QRI may be the source.
+        pytest.param("other.qvd", False, id="QVD without a QRI"),
+        # A file Qlik doesn't trace is never in the graph.
+        pytest.param("notes.txt", True, id="untraced file"),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_app_table_lineage_is_only_added_to_when_a_qvd_has_no_qri(
+    mock_api_cls: MagicMock, unlisted: str, written_whole: bool
+) -> None:
+    # The source QVD isn't matched, and another dataset was listed without a
+    # secure QRI.
+    datasets = [
+        ListedDataset(space_id="space-1", name=unlisted),
+        *DATASETS[1:],
+    ]
+    _, written, _ = _run(mock_api_cls, datasets)
+
+    # When it may be the source, the table's earlier edge is kept rather than
+    # replaced away.
+    assert (_urn("etl-app.curve") in written) is written_whole
+
+
 ORACLE_PRICES = make_dataset_urn("oracle", "erp.prices")
 
 
@@ -614,6 +640,7 @@ def test_datasets_are_listed(requests_mock: requests_mock_module.Mocker) -> None
 
     assert api.list_datasets() == [
         ListedDataset(space_id="space-1", name="src.qvd", secure_qri=SOURCE_QVD),
+        ListedDataset(space_id="space-1", name="notes.txt"),
         ListedDataset(
             space_id="personal-space-id", name="mine.qvd", secure_qri=STORED_QVD
         ),
