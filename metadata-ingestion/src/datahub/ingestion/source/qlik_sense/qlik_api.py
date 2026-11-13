@@ -204,15 +204,14 @@ class QlikAPI(QlikBaseAPI):
                 secure_qri = (item.get(Constant.RESOURCEATTRIBUTES) or {}).get(
                     Constant.SECUREQRI
                 )
-                if secure_qri:
-                    datasets.append(
-                        ListedDataset(
-                            space_id=item.get(Constant.SPACEID)
-                            or Constant.PERSONAL_SPACE_ID,
-                            name=item[Constant.NAME],
-                            secure_qri=secure_qri,
-                        )
+                datasets.append(
+                    ListedDataset(
+                        space_id=item.get(Constant.SPACEID)
+                        or Constant.PERSONAL_SPACE_ID,
+                        name=item[Constant.NAME],
+                        secure_qri=secure_qri or None,
                     )
+                )
         except Exception as e:
             # Only lineage needs the list, and it falls back to adding edges,
             # so this is not a failed read of the run's entities.
