@@ -23,6 +23,7 @@ from .progress_heartbeat import with_progress_heartbeat
 from .result_policy import trust_label_tags
 from .schema_matching import SchemaFieldMatcher
 from .tool_context import BackgroundExecution
+from .tools.dataset_queries import get_dataset_queries
 from .tools.documents import grep_documents, search_documents
 from .tools.entities import (
     SchemaFieldsTool,
@@ -197,6 +198,7 @@ def register_tools(
     )
     # A multi-hop walk over a large graph can take a while.
     add("get_lineage", get_lineage, ToolType.SEARCH, slow=True)
+    add("get_dataset_queries", get_dataset_queries, ToolType.SEARCH)
     schema_tools = (
         SchemaFieldsTool(matcher=schema_field_matcher)
         if schema_field_matcher is not None

@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from typing import Protocol, cast
 
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.urns import SchemaFieldUrn
+from fastmcp.exceptions import ToolError
 from loguru import logger
 from pydantic import JsonValue
 
@@ -74,6 +76,10 @@ class ReadBackend(Protocol):
         """``searchAcrossLineage`` for the ``input`` of ``lineage_paths.gql``: each
         node's urn and type, its paths, and whether GMS cut the traversal short
         (``isPartial``)."""
+        ...
+
+    def list_queries(self, variables: JsonObject) -> JsonObject:
+        """``listQueries`` for the ``input`` of ``queries.gql``."""
         ...
 
 
@@ -228,6 +234,17 @@ class GraphQLReadBackend:
             )["searchAcrossLineage"],
         )
 
+    def list_queries(self, variables: JsonObject) -> JsonObject:
+        return cast(
+            JsonObject,
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document("queries.gql"),
+                variables={"input": variables},
+                operation_name="listQueries",
+            )["listQueries"],
+        )
+
 
 def get_read_backend() -> ReadBackend:
     """The backend bound for this request, or the caller's DataHub."""
@@ -236,3 +253,17 @@ def get_read_backend() -> ReadBackend:
     if isinstance(binding, ReadBackendBinding):
         return binding.backend
     return GraphQLReadBackend(context.client._graph)
+
+
+def require_existing(backend: ReadBackend, urn: str) -> None:
+    """Raise a ToolError unless ``urn`` exists.
+
+    For tools whose search returns nothing for a URN that does not exist, which
+    would read as "no lineage" or "no queries". A schemaField has no key aspect of
+    its own, so exists() is false for real columns: its dataset is checked instead.
+    """
+    existence_urn = urn
+    if urn.startswith("urn:li:schemaField:"):
+        existence_urn = str(SchemaFieldUrn.from_string(urn).parent)
+    if not backend.exists(existence_urn):
+        raise ToolError(f"Entity {existence_urn} not found")
