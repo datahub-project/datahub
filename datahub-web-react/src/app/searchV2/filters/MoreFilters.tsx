@@ -1,5 +1,5 @@
 import { Menu } from '@components';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ItemType } from '@components/components/Menu/types';
@@ -9,10 +9,11 @@ import MoreFilterOption from '@app/searchV2/filters/MoreFilterOption';
 import { SearchFilterBase } from '@app/searchV2/filters/SearchFilterBase';
 import { FilterScenarioType } from '@app/searchV2/filters/render/types';
 import { useFilterRendererRegistry } from '@app/searchV2/filters/render/useFilterRenderer';
+import { mergeFilterChanges } from '@app/searchV2/filters/mergeFilterChanges';
 import { FilterPredicate } from '@app/searchV2/filters/types';
 import { useFilterMenuOverlay } from '@app/searchV2/filters/useFilterMenuOverlay';
 import useSearchFilterAnalytics from '@app/searchV2/filters/useSearchFilterAnalytics';
-import { CloseFilterMenuProvider } from '@app/searchV2/filters/value/CloseFilterMenuContext';
+import { FilterMenuProvider, useFilterMenuCommits } from '@app/searchV2/filters/value/FilterMenuContext';
 import { getNumActiveFiltersForGroupOfFilters, useGetFilterDisplayName } from '@app/searchV2/filters/utils';
 import { useAppConfig } from '@src/app/useAppConfig';
 
@@ -34,23 +35,51 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
     const filterRendererRegistry = useFilterRendererRegistry();
     const { config } = useAppConfig();
 
-    const closeMenu = useCallback(() => setIsMenuOpen(false), []);
+    const { registerCommit, commitAll } = useFilterMenuCommits();
+    // While the submenus commit together, their changes are merged here and applied once.
+    const pendingFiltersRef = useRef<FacetFilterInput[] | null>(null);
 
-    // Boolean renderers apply on click, so they close the menu with it. Value submenus apply when
-    // they hide, which includes moving to another item, so they close only on explicit commits.
-    const updateFiltersAndClose = useCallback(
+    const applyFilters = useCallback(
         (newFilters: FacetFilterInput[]) => {
-            onChangeFilters(newFilters);
-            closeMenu();
+            if (pendingFiltersRef.current) {
+                pendingFiltersRef.current = mergeFilterChanges(activeFilters, pendingFiltersRef.current, newFilters);
+            } else {
+                onChangeFilters(newFilters);
+            }
         },
-        [onChangeFilters, closeMenu],
+        [activeFilters, onChangeFilters],
     );
 
-    // The menu is controlled so that applying a filter can close it; antd handles outside clicks,
-    // including clicks inside the portaled submenus.
+    const commitAndClose = useCallback(
+        (applyNow?: () => void) => {
+            pendingFiltersRef.current = activeFilters;
+            applyNow?.();
+            commitAll();
+            const pendingFilters = pendingFiltersRef.current;
+            pendingFiltersRef.current = null;
+            if (pendingFilters !== activeFilters) onChangeFilters(pendingFilters);
+            setIsMenuOpen(false);
+        },
+        [activeFilters, commitAll, onChangeFilters],
+    );
+
+    const filterMenu = useMemo(() => ({ registerCommit, commitAndClose }), [registerCommit, commitAndClose]);
+
+    // Boolean renderers apply on click, so they close the menu with it.
+    const updateFiltersAndClose = useCallback(
+        (newFilters: FacetFilterInput[]) => commitAndClose(() => applyFilters(newFilters)),
+        [commitAndClose, applyFilters],
+    );
+
+    // Value submenus stage their selection until the menu closes, by any route: an outside click,
+    // Escape, or the trigger. antd reports all of them here.
     const onOpenChange = (open: boolean) => {
-        if (open && !isMenuOpen) trackShowMoreEvent(activeFilters.length, filters.length);
-        setIsMenuOpen(open);
+        if (open) {
+            if (!isMenuOpen) trackShowMoreEvent(activeFilters.length, filters.length);
+            setIsMenuOpen(true);
+        } else {
+            commitAndClose();
+        }
     };
 
     const getFilterDisplayName = useGetFilterDisplayName();
@@ -98,7 +127,7 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
                                         filter={filter}
                                         activeFilters={activeFilters}
                                         filterPredicates={filterPredicates}
-                                        onChangeFilters={onChangeFilters}
+                                        onChangeFilters={applyFilters}
                                     />
                                 );
                             },
@@ -112,14 +141,14 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
             getFilterDisplayName,
             activeFilters,
             filterPredicates,
-            onChangeFilters,
+            applyFilters,
             updateFiltersAndClose,
             config,
         ],
     );
 
     return (
-        <CloseFilterMenuProvider value={closeMenu}>
+        <FilterMenuProvider value={filterMenu}>
             <Menu
                 items={menuItems}
                 open={isMenuOpen}
@@ -136,6 +165,6 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
                     {t('filters.moreCount', { count: numActiveFilters })}
                 </SearchFilterBase>
             </Menu>
-        </CloseFilterMenuProvider>
+        </FilterMenuProvider>
     );
 }

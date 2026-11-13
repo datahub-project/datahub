@@ -1,7 +1,7 @@
 /* eslint-disable import/no-cycle */
 import { Button, Icon, Menu } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -11,6 +11,7 @@ import { renderFilterMenuItem } from '@app/searchV2/filters/FilterMenuItem';
 import { DEFAULT_FILTER_FIELDS } from '@app/searchV2/filters/field/fields';
 import { FilterField, FilterPredicate } from '@app/searchV2/filters/types';
 import { useFilterMenuOverlay } from '@app/searchV2/filters/useFilterMenuOverlay';
+import { FilterMenuProvider, useFilterMenuCommits } from '@app/searchV2/filters/value/FilterMenuContext';
 import ValueMenu from '@app/searchV2/filters/value/ValueMenu';
 import { getDefaultFieldOperatorType } from '@app/searchV2/filters/value/utils';
 import { PARENT_DOCUMENT_FILTER_NAME } from '@app/searchV2/utils/constants';
@@ -29,29 +30,48 @@ const TriggerAnchor = styled.span`
 
 interface Props {
     fields?: FilterField[];
-    onAddFilter: (predicate: FilterPredicate) => void;
+    onAddFilters: (predicates: FilterPredicate[]) => void;
     includeCount?: boolean;
 }
 
-export default function AddFilterDropdown({ fields = DEFAULT_FILTER_FIELDS, onAddFilter, includeCount }: Props) {
+export default function AddFilterDropdown({ fields = DEFAULT_FILTER_FIELDS, onAddFilters, includeCount }: Props) {
     const { t } = useTranslation('search');
     const isContextDocumentsEnabled = useIsContextDocumentsEnabled();
     const [isOpen, setIsOpen] = useState(false);
     const { triggerRef, overlayClassName, overlayStyle } = useFilterMenuOverlay<HTMLSpanElement>(isOpen);
 
-    const handleAddFilter = useCallback(
-        (field: FilterField, values: any[]) => {
-            onAddFilter({
-                field,
-                operator: getDefaultFieldOperatorType(field),
-                values,
-                defaultValueOptions: [],
-            });
-            // The new filter's pill moves this button, and an open menu would jump with it.
+    const { registerCommit, commitAll } = useFilterMenuCommits();
+    // Submenus commit only while the menu closes; their new filters are collected and added at once.
+    const pendingPredicatesRef = useRef<FilterPredicate[]>([]);
+
+    const handleAddFilter = useCallback((field: FilterField, values: any[]) => {
+        pendingPredicatesRef.current.push({
+            field,
+            operator: getDefaultFieldOperatorType(field),
+            values,
+            defaultValueOptions: [],
+        });
+    }, []);
+
+    const commitAndClose = useCallback(
+        (applyNow?: () => void) => {
+            pendingPredicatesRef.current = [];
+            applyNow?.();
+            commitAll();
+            const predicates = pendingPredicatesRef.current;
+            pendingPredicatesRef.current = [];
+            if (predicates.length) onAddFilters(predicates);
             setIsOpen(false);
         },
-        [onAddFilter],
+        [commitAll, onAddFilters],
     );
+
+    const filterMenu = useMemo(() => ({ registerCommit, commitAndClose }), [registerCommit, commitAndClose]);
+
+    const onOpenChange = (open: boolean) => {
+        if (open) setIsOpen(true);
+        else commitAndClose();
+    };
 
     const items: ItemType[] = useMemo(() => {
         return fields
@@ -83,19 +103,21 @@ export default function AddFilterDropdown({ fields = DEFAULT_FILTER_FIELDS, onAd
     }, [fields, includeCount, handleAddFilter, isContextDocumentsEnabled]);
 
     return (
-        <Menu
-            items={items}
-            open={isOpen}
-            onOpenChange={setIsOpen}
-            overlayClassName={overlayClassName}
-            overlayStyle={overlayStyle}
-        >
-            <TriggerAnchor ref={triggerRef}>
-                <AddFilterButton variant="text">
-                    <Icon icon={Plus} size="md" />
-                    {t('filters.addFilter')}
-                </AddFilterButton>
-            </TriggerAnchor>
-        </Menu>
+        <FilterMenuProvider value={filterMenu}>
+            <Menu
+                items={items}
+                open={isOpen}
+                onOpenChange={onOpenChange}
+                overlayClassName={overlayClassName}
+                overlayStyle={overlayStyle}
+            >
+                <TriggerAnchor ref={triggerRef}>
+                    <AddFilterButton variant="text">
+                        <Icon icon={Plus} size="md" />
+                        {t('filters.addFilter')}
+                    </AddFilterButton>
+                </TriggerAnchor>
+            </Menu>
+        </FilterMenuProvider>
     );
 }

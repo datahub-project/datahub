@@ -31,6 +31,11 @@ export const SearchFilterLabel = styled.div<{ $isOpen?: boolean; $isActive: bool
         box-shadow: ${(props) => props.theme.colors.shadowSm};
     }
 
+    &:focus-visible {
+        outline: 2px solid ${(props) => props.theme.colors.borderBrandFocused};
+        outline-offset: 1px;
+    }
+
     ${(props) =>
         props.$isActive &&
         `

@@ -245,7 +245,7 @@ export class SearchPage extends BasePage {
    */
   private async waitForFilterOptions(): Promise<void> {
     await this.filterOptions
-      .or(this.filterDropdownMenu.getByTestId('search-input'))
+      .or(this.filterDropdownMenu.getByTestId('dropdown-search-input'))
       .first()
       .waitFor({ state: 'attached', timeout: 10_000 })
       .catch(() => {
@@ -283,9 +283,9 @@ export class SearchPage extends BasePage {
 
     // Second pass: type in the dropdown search bar to narrow the list, then
     // re-try checkbox (Platform, Glossary Term, Tag options).
-    // The dropdown search input carries data-testid="search-input"; use .last()
-    // to avoid matching the AntD Select combobox that shares the same testid.
-    const dropdownSearchInput = dropdownMenu.getByTestId('search-input').last();
+    // The dropdown search input carries data-testid="dropdown-search-input"; use .last()
+    // to avoid matching any other search bar rendered inside the same menu.
+    const dropdownSearchInput = dropdownMenu.getByTestId('dropdown-search-input').last();
     if (await dropdownSearchInput.isVisible()) {
       await dropdownSearchInput.fill(optionLabel);
       // The narrowed list can arrive via a GraphQL call; give the option a chance to render.

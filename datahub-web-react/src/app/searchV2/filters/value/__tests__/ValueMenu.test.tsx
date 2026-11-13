@@ -4,7 +4,7 @@ import { ThemeProvider } from 'styled-components';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FieldType, FilterField, FilterValue } from '@app/searchV2/filters/types';
-import { CloseFilterMenuProvider } from '@app/searchV2/filters/value/CloseFilterMenuContext';
+import { FilterMenuProvider, useFilterMenuCommits } from '@app/searchV2/filters/value/FilterMenuContext';
 import ValueMenu from '@app/searchV2/filters/value/ValueMenu';
 import themeV2 from '@conf/theme/themeV2';
 
@@ -16,12 +16,30 @@ vi.mock('@app/searchV2/filters/value/useIsRendered', () => ({
 
 const field: FilterField = { field: 'description', displayName: 'Description', type: FieldType.TEXT };
 
-function renderMenu(values: FilterValue[], onChangeValues: (v: FilterValue[]) => void, closeMenu = vi.fn()) {
+function renderPopoverMenu(values: FilterValue[], onChangeValues: (v: FilterValue[]) => void) {
     return (
         <ThemeProvider theme={themeV2}>
-            <CloseFilterMenuProvider value={closeMenu}>
-                <ValueMenu field={field} values={values} defaultOptions={[]} onChangeValues={onChangeValues} />
-            </CloseFilterMenuProvider>
+            <ValueMenu field={field} values={values} defaultOptions={[]} onChangeValues={onChangeValues} />
+        </ThemeProvider>
+    );
+}
+
+// Stands in for Add filter or More: closing the parent menu commits its submenus.
+function ParentMenu({ onChangeValues, onClose }: { onChangeValues: (v: FilterValue[]) => void; onClose: () => void }) {
+    const { registerCommit, commitAll } = useFilterMenuCommits();
+    const commitAndClose = (applyNow?: () => void) => {
+        applyNow?.();
+        commitAll();
+        onClose();
+    };
+    return (
+        <ThemeProvider theme={themeV2}>
+            <FilterMenuProvider value={{ registerCommit, commitAndClose }}>
+                <ValueMenu field={field} values={[]} defaultOptions={[]} onChangeValues={onChangeValues} />
+                <button type="button" onClick={() => commitAndClose()}>
+                    close parent
+                </button>
+            </FilterMenuProvider>
         </ThemeProvider>
     );
 }
@@ -31,44 +49,60 @@ describe('ValueMenu', () => {
         renderState.isRendered = true;
     });
 
-    it('commits on Enter and closes the menu', () => {
-        const onChangeValues = vi.fn();
-        const closeMenu = vi.fn();
-        render(renderMenu([], onChangeValues, closeMenu));
+    describe('in a popover', () => {
+        it('commits staged values when the menu hides', () => {
+            const onChangeValues = vi.fn();
+            const { rerender } = render(renderPopoverMenu([], onChangeValues));
 
-        const input = screen.getByRole('textbox');
-        fireEvent.change(input, { target: { value: 'orders' } });
-        fireEvent.keyDown(input, { key: 'Enter' });
+            fireEvent.change(screen.getByRole('textbox'), { target: { value: 'orders' } });
+            renderState.isRendered = false;
+            rerender(renderPopoverMenu([], onChangeValues));
 
-        expect(onChangeValues).toHaveBeenCalledTimes(1);
-        expect(onChangeValues).toHaveBeenCalledWith([{ value: 'orders', entity: null }]);
-        expect(closeMenu).toHaveBeenCalled();
+            expect(onChangeValues).toHaveBeenCalledWith([{ value: 'orders', entity: null }]);
+        });
+
+        it('does not write the previous values back when the menu hides as the committed values arrive', () => {
+            const onChangeValues = vi.fn();
+            const { rerender } = render(renderPopoverMenu([], onChangeValues));
+
+            const input = screen.getByRole('textbox');
+            fireEvent.change(input, { target: { value: 'orders' } });
+            fireEvent.keyDown(input, { key: 'Enter' });
+
+            renderState.isRendered = false;
+            rerender(renderPopoverMenu([{ value: 'orders', entity: null }], onChangeValues));
+
+            expect(onChangeValues).toHaveBeenCalledTimes(1);
+        });
     });
 
-    it('does not write the previous values back when the menu hides as the committed values arrive', () => {
-        const onChangeValues = vi.fn();
-        const { rerender } = render(renderMenu([], onChangeValues));
+    describe('in a submenu', () => {
+        it('keeps staged values when the submenu hides, and commits them when the parent closes', () => {
+            const onChangeValues = vi.fn();
+            const onClose = vi.fn();
+            const { rerender } = render(<ParentMenu onChangeValues={onChangeValues} onClose={onClose} />);
 
-        const input = screen.getByRole('textbox');
-        fireEvent.change(input, { target: { value: 'orders' } });
-        fireEvent.keyDown(input, { key: 'Enter' });
+            fireEvent.change(screen.getByRole('textbox'), { target: { value: 'orders' } });
+            renderState.isRendered = false;
+            rerender(<ParentMenu onChangeValues={onChangeValues} onClose={onClose} />);
+            expect(onChangeValues).not.toHaveBeenCalled();
 
-        renderState.isRendered = false;
-        rerender(renderMenu([{ value: 'orders', entity: null }], onChangeValues));
+            fireEvent.click(screen.getByRole('button', { name: 'close parent' }));
+            expect(onChangeValues).toHaveBeenCalledTimes(1);
+            expect(onChangeValues).toHaveBeenCalledWith([{ value: 'orders', entity: null }]);
+        });
 
-        expect(onChangeValues).toHaveBeenCalledTimes(1);
-    });
+        it('commits once on Enter and closes the parent menu', () => {
+            const onChangeValues = vi.fn();
+            const onClose = vi.fn();
+            render(<ParentMenu onChangeValues={onChangeValues} onClose={onClose} />);
 
-    it('commits staged values when the menu hides, without closing it', () => {
-        const onChangeValues = vi.fn();
-        const closeMenu = vi.fn();
-        const { rerender } = render(renderMenu([], onChangeValues, closeMenu));
+            const input = screen.getByRole('textbox');
+            fireEvent.change(input, { target: { value: 'orders' } });
+            fireEvent.keyDown(input, { key: 'Enter' });
 
-        fireEvent.change(screen.getByRole('textbox'), { target: { value: 'orders' } });
-        renderState.isRendered = false;
-        rerender(renderMenu([], onChangeValues, closeMenu));
-
-        expect(onChangeValues).toHaveBeenCalledWith([{ value: 'orders', entity: null }]);
-        expect(closeMenu).not.toHaveBeenCalled();
+            expect(onChangeValues).toHaveBeenCalledTimes(1);
+            expect(onClose).toHaveBeenCalled();
+        });
     });
 });
