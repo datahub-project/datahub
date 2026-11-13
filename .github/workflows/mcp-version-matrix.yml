@@ -1,0 +1,105 @@
+name: MCP Version Matrix
+# Runs the MCP smoke tests (smoke-test/tests/e2e/mcp) with the current frontend and
+# datahub-ai-service in front of older GMS versions, the way a deployment that upgrades
+# datahub-ai-service ahead of GMS runs. datahub-ai-service supports GMS v1.7.0 and later.
+#
+# What each leg runs:
+#   - frontend, datahub-ai-service, datahub-actions: the latest master images (tag
+#     `quickstart`, which master gets only after a full smoke pass).
+#   - GMS, system-update (datahub-upgrade) and the MAE / MCE consumers: pinned to the
+#     matrix's GMS version. They share storage and must move together.
+#
+# It pulls published images and builds nothing, so it runs nightly and on demand, never
+# on pull requests.
+on:
+  schedule:
+    - cron: "41 4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  mcp-smoke:
+    name: MCP smoke (GMS ${{ matrix.gms }})
+    if: github.repository == 'datahub-project/datahub' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        # v1.7.0: the oldest GMS datahub-ai-service supports.
+        # latest-release: resolved below to the newest published release tag.
+        # quickstart: master.
+        gms: ["v1.7.0", "latest-release", "quickstart"]
+    env:
+      # Images other than the pinned GMS set come from master.
+      DATAHUB_VERSION: quickstart
+      PROFILE_NAME: quickstart-consumers
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+
+      - name: Resolve the GMS version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GMS: ${{ matrix.gms }}
+        run: |
+          if [[ "$GMS" == "latest-release" ]]; then
+            GMS=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          fi
+          echo "GMS, system-update and consumers: ${GMS}" | tee -a "$GITHUB_STEP_SUMMARY"
+          {
+            echo "DATAHUB_GMS_VERSION=${GMS}"
+            echo "DATAHUB_UPDATE_VERSION=${GMS}"
+            echo "DATAHUB_MAE_VERSION=${GMS}"
+            echo "DATAHUB_MCE_VERSION=${GMS}"
+          } >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+
+      # smoke-test/requirements.txt installs ../metadata-ingestion as an editable
+      # package, which needs its generated code.
+      - name: Build datahub cli
+        run: ./gradlew :metadata-ingestion:install
+
+      - name: Start DataHub
+        run: |
+          # The smoke tests log in as datahub; run-quickstart.sh adds test_user.
+          mkdir -p ~/.datahub/plugins/frontend/auth/
+          echo "datahub:datahub" > ~/.datahub/plugins/frontend/auth/user.props
+          ./smoke-test/run-quickstart.sh
+
+      - name: Run MCP smoke tests
+        working-directory: smoke-test
+        run: |
+          source venv/bin/activate
+          source ./set-test-env-vars.sh
+          pytest tests/e2e/mcp -v --junit-xml=junit.mcp.xml
+
+      - name: Store logs
+        if: failure()
+        env:
+          TARGET_DIR: docker_logs/gms-${{ matrix.gms }}
+        run: |
+          docker ps -a
+          . .github/scripts/docker_logs.sh
+
+      - name: Upload logs
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: failure()
+        with:
+          name: docker-logs-mcp-gms-${{ matrix.gms }}
+          path: docker_logs/gms-${{ matrix.gms }}/
+          retention-days: 5
