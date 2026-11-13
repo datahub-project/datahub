@@ -1767,9 +1767,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             ]
             if named:
                 references.extend(named)
-            else:
-                # A wildcard reads files the graph names one by one, which
-                # this path can't be matched against.
+            if not named or any("*" in path or "?" in path for path in candidates):
+                # A wildcard reads files the graph names one by one, which no
+                # path can be matched against, and either spelling may be the
+                # one the last reload read.
                 unnamed.append(load.expanded)
         if unnamed and self.config.on_prem is None:
             # On-prem apps have no lineage graph files to match.
@@ -3124,9 +3125,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if self.qlik_api.opened_without_data:
             self.reporter.warning(
                 title="Qlik apps read without their data",
-                message="Opening these apps with their data was denied, as with "
-                "section access, or timed out, so they were read without it: "
-                "their tables have no field types.",
+                message="Opening these apps with their data, or reading their "
+                "data model, was denied, as with section access, or timed out, so "
+                "they were read without it: their tables have no field types, and "
+                "the next run reads them again.",
                 context=_bounded_list(self.qlik_api.opened_without_data),
             )
         if self.qlik_api.field_lineage_failures:

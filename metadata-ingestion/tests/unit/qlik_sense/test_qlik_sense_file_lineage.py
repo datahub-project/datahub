@@ -517,6 +517,32 @@ def test_file_list_loop_load_is_not_named_by_the_last_value(
     assert app.id in source._apps_file_paths_unknown
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_load_with_a_wildcard_spelling_marks_the_app_incomplete(
+    mock_api_cls: MagicMock,
+) -> None:
+    source = _source({}, {})
+    app = App.model_validate(
+        {
+            "id": "app-8",
+            "qTitle": "Sales",
+            "createdDate": "2024-01-09T18:05:36.000Z",
+            "modifiedDate": "2024-01-09T18:05:36.000Z",
+            "spaceId": "space-1",
+            # The last reload read every file of the folder.
+            "variables": {"vFile": "*.csv"},
+        }
+    )
+    parsed = parse_script(
+        "SET vFile = 'orders.csv';\nX: LOAD * FROM [lib://Lake/$(vFile)] (txt);\n"
+    )
+    resolver = source._file_source_resolver(app, parsed)
+
+    # The concrete spelling is still a reference, but the app is incomplete.
+    assert resolver.candidates(_file_qri("adls", "x", "orders.csv")).references
+    assert app.id in source._apps_file_paths_unknown
+
+
 RATES_QRI = "qri:qdf:space://AbC#Rates"
 RATES = make_dataset_urn("qlik-sense", "space-1.rates.qvd")
 
