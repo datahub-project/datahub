@@ -1928,6 +1928,37 @@ def test_resource_link_column_lineage_keeps_brackets_and_dots_in_column_names() 
     assert source.report.num_column_lineage_empty_field_path == 0
 
 
+def _schema_with_fields(
+    fields: List[models.SchemaFieldClass],
+) -> models.SchemaMetadataClass:
+    return models.SchemaMetadataClass(
+        schemaName="t",
+        platform="urn:li:dataPlatform:glue",
+        version=0,
+        hash="",
+        platformSchema=models.OtherSchemaClass(rawSchema=""),
+        fields=fields,
+    )
+
+
+def _glue_schema(column_names: List[str]) -> models.SchemaMetadataClass:
+    return _schema_with_fields(
+        [
+            field
+            for name in column_names
+            for field in get_schema_fields_for_hive_column(name, "string")
+        ]
+    )
+
+
+def _fine_grained_edges(
+    lineages: List[models.FineGrainedLineageClass],
+) -> Set[ColumnEdge]:
+    return {
+        (tuple(fgl.upstreams or []), tuple(fgl.downstreams or [])) for fgl in lineages
+    }
+
+
 def test_column_lineage_skips_and_warns_on_empty_field_path() -> None:
     # Glue itself rejects empty column names, but a schema read from DataHub (e.g. a
     # resource link's resolved owner schema) is not bound by that.
@@ -1935,28 +1966,46 @@ def test_column_lineage_skips_and_warns_on_empty_field_path() -> None:
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(aws_region="us-east-1"),
     )
-    schema = models.SchemaMetadataClass(
-        schemaName="t",
-        platform="urn:li:dataPlatform:glue",
-        version=0,
-        hash="",
-        platformSchema=models.OtherSchemaClass(rawSchema=""),
-        fields=[
-            field
-            for name in ["", "id"]
-            for field in get_schema_fields_for_hive_column(name, "string")
-        ],
-    )
+    schema = _glue_schema(["", "id"])
 
     lineages = source.get_fine_grained_lineages(
         DB_LINK_URN, OWNER_TABLE_URN, schema, schema
     )
 
-    assert {
-        (tuple(fgl.upstreams or []), tuple(fgl.downstreams or [])) for fgl in lineages
-    } == _same_name_column_edges(OWNER_TABLE_URN, DB_LINK_URN, ["id"])
+    assert _fine_grained_edges(lineages) == _same_name_column_edges(
+        OWNER_TABLE_URN, DB_LINK_URN, ["id"]
+    )
     assert source.report.num_column_lineage_empty_field_path == 1
     assert len(source.report.warnings) == 1
+
+
+def test_storage_column_lineage_matches_v1_upstream_paths() -> None:
+    # Storage lineage matches the table's v2 field paths against the S3 dataset's schema
+    # from DataHub, whose field paths are plain v1 column names.
+    columns = ["[col_a]", "col b (from [col_a] 3)", "col.c", "id"]
+    s3_urn = make_s3_urn_for_lineage("s3://test-bucket/test-table", "PROD")
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(aws_region="us-east-1"),
+    )
+    s3_schema = _schema_with_fields(
+        [
+            models.SchemaFieldClass(
+                fieldPath=name,
+                type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                nativeDataType="string",
+            )
+            for name in columns
+        ]
+    )
+
+    lineages = source.get_fine_grained_lineages(
+        DB_LINK_URN, s3_urn, _glue_schema(columns), s3_schema
+    )
+
+    assert _fine_grained_edges(lineages) == _same_name_column_edges(
+        s3_urn, DB_LINK_URN, columns
+    )
 
 
 @pytest.mark.parametrize(

@@ -199,7 +199,9 @@ GLUE_CATALOG_ARN_PATTERN = re.compile(r"^arn:aws[a-z-]*:glue:([^:\s]+):\d{12}$")
 FIELD_PATH_V2_PREFIX = "[version=2.0]"
 # Only the annotations a v2 field path adds, each a whole "."-separated segment. Glue
 # column names may themselves contain brackets and dots (e.g. "[col_a]", "col.b",
-# "a[type=x]b"), so stripping every [...] and "." would mangle them.
+# "a[type=x]b"), so stripping every [...] and "." would mangle them. A column whose
+# name starts with an annotation-like segment followed by "." (e.g. "[type=x].y") is
+# indistinguishable from an annotation and still simplifies to "y".
 FIELD_PATH_V2_ANNOTATION_PATTERN = re.compile(
     r"(?<![^.])\[(?:version|type|key)=[^\]]*\]\."
 )
@@ -737,6 +739,8 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     num_view_schema_from_view_definition: int = 0
     num_view_placeholder_schema_unresolved: int = 0
     num_view_columns_type_unresolved: int = 0
+    # Counts skipped column edges, not columns: a table with both storage and
+    # resource-link lineage skips (and warns about) the same column once per upstream.
     num_column_lineage_empty_field_path: int = 0
 
     def report_table_scanned(self) -> None:
