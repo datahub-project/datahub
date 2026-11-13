@@ -96,7 +96,7 @@ def create_app(
 
     routes: list[BaseRoute] = [Route("/health", health, methods=["GET"])]
     if metrics is not None:
-        # Unauthenticated, like /health; the frontend proxies only /mcp.
+        # Unauthenticated, like /health; the frontend doesn't proxy it.
         routes.append(Route(METRICS_PATH, metrics.endpoint, methods=["GET"]))
     mcp_app = None
     usage_events = (

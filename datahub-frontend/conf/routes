@@ -48,6 +48,8 @@ GET           /mcp/*path                                                       c
 POST          /mcp/*path                                                       controllers.AiServiceController.proxyMcp(path: String, request: Request)
 DELETE        /mcp/*path                                                       controllers.AiServiceController.proxyMcp(path: String, request: Request)
 OPTIONS       /mcp/*path                                                       controllers.AiServiceController.rejectPreflight(path: String)
+# The settings page's MCP tool picker, from datahub-ai-service. Needs a DataHub session.
+GET           /ai/catalog/tools                                                controllers.AiServiceController.toolCatalog(request: Request)
 
 GET           /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
 POST          /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)

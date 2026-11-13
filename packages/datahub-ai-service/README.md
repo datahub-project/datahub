@@ -100,8 +100,8 @@ so they never slow or fail a call.
 ## Metrics
 
 `/metrics` serves Prometheus metrics without authentication, like `/health`; the frontend
-proxies only `/mcp`, so it is reachable only where the service's own port is. Besides the
-process metrics:
+doesn't proxy it (only `/mcp` and the tool catalog), so it is reachable only where the service's
+own port is. Besides the process metrics:
 
 | Metric                                      | Labels             | Meaning                                                       |
 | ------------------------------------------- | ------------------ | ------------------------------------------------------------- |

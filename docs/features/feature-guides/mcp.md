@@ -755,6 +755,8 @@ How the service applies these settings:
 - The tool selection filters both the tool list and direct calls: a tool that isn't selected can't be called by name either.
 - If the service can't read the settings, `/mcp` fails closed with a 503 rather than serving tools the settings might have turned off.
 - `TOOLS_IS_MUTATION_ENABLED=false` on the service always wins: the settings page can't turn write tools back on.
+- The tool picker offers the tools the service serves and the connected GMS can run, from `/ai/catalog/tools` on the frontend (signed-in users only).
+- `GET /health` on the service reports the settings state (`enabled`, `disabled`, `unavailable`, or `unknown` before the first request), never the settings themselves.
 - Against a GMS that has no MCP settings API (one older than the service), the defaults apply: MCP on, every tool, default instructions.
 
 ### Write Tools {#self-hosted-write-tools}
@@ -796,7 +798,7 @@ The frontend waits up to `DATAHUB_AI_PROXY_TIMEOUT_SECONDS` (600) for the servic
 
 - **Anonymous telemetry.** Like the DataHub CLI, the service sends anonymous usage telemetry to DataHub's product analytics (Mixpanel): one event when it starts and one per tool call, with the tool's name, the MCP client's name and version, timings, the result's size, the error's class when a call fails, and the GMS version. Events never include tool arguments, results, error messages, or who called. Turn them off with `DATAHUB_TELEMETRY_ENABLED=false`. See [DataHub Telemetry](../../deploy/telemetry.md).
 - **Usage events in DataHub.** Each tool call is recorded in DataHub's own usage analytics, attributed to the caller: the tool, its group (`read` or `write`), the MCP client, the duration, the result size and the error's class, never its arguments or results. Turn this off with `DATAHUB_AI_USAGE_EVENTS_ENABLED=false`.
-- **Prometheus metrics.** The service serves metrics at `/metrics` on its own port (9005), without authentication, like `/health`. The frontend proxies only `/mcp`, so `/metrics` is reachable only where port 9005 is. Turn it off with `DATAHUB_AI_METRICS_ENABLED=false`.
+- **Prometheus metrics.** The service serves metrics at `/metrics` on its own port (9005), without authentication, like `/health`. The frontend doesn't proxy it, so `/metrics` is reachable only where port 9005 is. Turn it off with `DATAHUB_AI_METRICS_ENABLED=false`.
 
 <details>
   <summary>datahub-ai-service configuration reference</summary>

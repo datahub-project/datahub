@@ -1,5 +1,7 @@
 package controllers;
 
+import auth.AuthUtils;
+import auth.Authenticator;
 import com.typesafe.config.Config;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -31,6 +33,7 @@ import play.mvc.Http;
 import play.mvc.ResponseHeader;
 import play.mvc.Result;
 import play.mvc.Results;
+import play.mvc.Security;
 
 /**
  * Serves MCP at {@code /mcp} on the DataHub UI host by proxying to the datahub-ai-service.
@@ -48,6 +51,9 @@ import play.mvc.Results;
  * <p>Responses stream through a non-blocking publisher, so a slow tool call holds no thread from
  * the shared blocking-I/O pool. /mcp has its own admission limit, held until the response finishes
  * streaming, so long MCP calls can't crowd out the UI.
+ *
+ * <p>It also serves the settings page's tool picker at {@code /ai/catalog/tools}, from the
+ * service's {@code /catalog/tools}, to signed-in users only.
  */
 public class AiServiceController extends Controller {
 
@@ -82,6 +88,11 @@ public class AiServiceController extends Controller {
   private static final String TOKEN_QUERY_PARAM_BODY =
       "{\"error\":\"invalid_request\",\"error_description\":\"Send the token in the"
           + " 'Authorization: Bearer <token>' header, not in the URL.\"}";
+
+  private static final Duration CATALOG_TIMEOUT = Duration.ofSeconds(10);
+  private static final String CATALOG_UNAVAILABLE_BODY =
+      "{\"error\":\"unavailable\",\"error_description\":\"DataHub's AI service is"
+          + " unavailable. Try again shortly.\"}";
 
   private static final String UNAVAILABLE_BODY =
       "{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":-32000,"
@@ -168,6 +179,48 @@ public class AiServiceController extends Controller {
       release.run();
       throw e;
     }
+  }
+
+  /**
+   * {@code GET /ai/catalog/tools} → datahub-ai-service's {@code /catalog/tools}: the tools the
+   * settings page can select.
+   *
+   * <p>Needs a DataHub session. {@link Authenticator} also lets through any request with an
+   * Authorization header, for GMS to check, but this request never reaches GMS, so a header alone
+   * proves nothing here. Nothing from the caller is forwarded: the service needs no credential for
+   * tool metadata.
+   */
+  @Security.Authenticated(Authenticator.class)
+  public CompletionStage<Result> toolCatalog(Http.Request request) {
+    if (!AuthUtils.hasValidSessionCookie(request)) {
+      return CompletableFuture.completedFuture(unauthorized());
+    }
+    if (baseUri == null) {
+      return CompletableFuture.completedFuture(notFound());
+    }
+    HttpRequest upstream =
+        HttpRequest.newBuilder(URI.create(baseUri + "/catalog/tools"))
+            .timeout(CATALOG_TIMEOUT)
+            .header(Http.HeaderNames.ACCEPT, Http.MimeTypes.JSON)
+            .GET()
+            .build();
+    return httpClient
+        .sendAsync(upstream, HttpResponse.BodyHandlers.ofByteArray())
+        .handle(
+            (response, error) -> {
+              if (error != null) {
+                log.warn("datahub-ai-service is unreachable: {}", error.toString());
+                return Results.status(SERVICE_UNAVAILABLE, CATALOG_UNAVAILABLE_BODY)
+                    .as(Http.MimeTypes.JSON);
+              }
+              return Results.status(response.statusCode(), response.body())
+                  .as(
+                      response
+                          .headers()
+                          .firstValue(Http.HeaderNames.CONTENT_TYPE)
+                          .orElse(Http.MimeTypes.JSON))
+                  .withHeader(Http.HeaderNames.CACHE_CONTROL, "no-store");
+            });
   }
 
   private Runnable releaseOnce() {
