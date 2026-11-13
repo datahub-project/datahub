@@ -1719,7 +1719,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 self.reporter.warning(
                     title="Qlik app loads files from an included script",
                     message="Files loaded in scripts brought in with $(Include) "
-                    "or $(Must_Include) are not read, so a file in the app's "
+                    "or $(Must_Include), or in a SUB the script calls but does "
+                    "not define, are not read, so a file in the app's "
                     "lineage graph that its own script does not load only adds "
                     "to the table's lineage.",
                     context=app_id,
@@ -1807,6 +1808,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # other connection the script reads the same path through could hold it.
         confirmed: Set[str] = set()
         unconfirmed: Set[str] = set()
+        # Unconfirmed URNs whose storage location hashes to the QRI's part.
+        likely: Set[str] = set()
         unknown = False
         for reference in candidates.references:
             storage, detail = self._file_storage(reference.connection, space_id)
@@ -1841,10 +1844,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 lowercase=detail.convert_urns_to_lowercase if detail else False,
             )
             (confirmed if storage.qri_connection_id else unconfirmed).add(urn)
+            if storage.likely_qri_connection_id == candidates.connection_id:
+                likely.add(urn)
         if confirmed:
             urns = confirmed
         elif unknown:
             return None
+        elif len(unconfirmed) > 1 and len(likely & unconfirmed) == 1:
+            # Such as the prod and dev branches of an IF, of which only one ran.
+            urns = likely & unconfirmed
         else:
             urns = unconfirmed
         if len(urns) != 1:

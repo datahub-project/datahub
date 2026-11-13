@@ -375,7 +375,8 @@ class ParsedScript(BaseModel):
     unlabelled_qvd_loads: List[str] = []
     # Every file a LOAD reads, in any format.
     file_loads: List[FileLoad] = []
-    # The script includes other scripts, whose loads are not read.
+    # The script includes other scripts, or calls a SUB it doesn't define,
+    # whose loads are not read.
     has_includes: bool = False
 
 
@@ -829,7 +830,9 @@ class _ScriptParser(BaseModel):
     def _call(self, name: str, args: Optional[str]) -> None:
         sub = self.subs.get(name.lower())
         if sub is None or name.lower() in self.calling:
-            # The SUB may come from an include, so it could have set anything.
+            # The SUB may come from an include, so it could have set or loaded
+            # anything.
+            self.has_includes = self.has_includes or sub is None
             self._forget()
             return
         # The body runs with the connection and variables in effect here, and

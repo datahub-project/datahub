@@ -216,7 +216,11 @@ def test_file_storage_of_connection(
     ],
 )
 def test_file_storage_of_uri(uri: str, expected: Optional[FileStorage]) -> None:
-    assert file_storage_of_uri(uri) == expected
+    storage = file_storage_of_uri(uri)
+    if storage is not None:
+        # Only used to tell candidates apart; covered by the branch test.
+        storage.likely_qri_connection_id = None
+    assert storage == expected
 
 
 def test_unsupported_storage_uri_is_rejected() -> None:
@@ -423,6 +427,52 @@ def test_prod_file_is_not_linked_when_dev_reads_the_same_path(
 
     assert (
         source._resolve_file_source("app-1", _file_qri("s3", "eu/dev", "x.csv")) is None
+    )
+
+
+@pytest.mark.parametrize(
+    "connection_part, expected",
+    [
+        pytest.param("lake/prod", "lake/prod/x.csv", id="matches one storage"),
+        pytest.param("lake-prod", None, id="matches neither"),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_branch_loads_are_told_apart_by_the_storage_location(
+    mock_api_cls: MagicMock, connection_part: str, expected: Optional[str]
+) -> None:
+    source = _source(
+        {
+            "Prod": {"storage_uri": "abfss://lake@account.dfs.core.windows.net/prod"},
+            "Dev": {"storage_uri": "abfss://lake@account.dfs.core.windows.net/dev"},
+        },
+        {},
+    )
+    source._file_sources_by_app["app-1"] = source._file_source_resolver(
+        App.model_validate(
+            {
+                "id": "app-1",
+                "qTitle": "Sales",
+                "createdDate": "2024-01-09T18:05:36.000Z",
+                "modifiedDate": "2024-01-09T18:05:36.000Z",
+                "spaceId": "space-1",
+            }
+        ),
+        parse_script(
+            "IF vEnv = 'prod' THEN\nA: LOAD * FROM [lib://Prod/x.csv] (txt);\n"
+            "ELSE\nA: LOAD * FROM [lib://Dev/x.csv] (txt);\nEND IF;\n"
+        ),
+    )
+    source._app_space_ids["app-1"] = "space-1"
+
+    resolved = source._resolve_file_source(
+        "app-1", _file_qri("adls", connection_part, "x.csv")
+    )
+    # Without a match, either branch may have run, so neither is linked.
+    assert resolved == (
+        f"urn:li:dataset:(urn:li:dataPlatform:abs,{expected},PROD)"
+        if expected
+        else None
     )
 
 
@@ -639,6 +689,16 @@ def test_unresolved_file_of_an_app_loading_by_wildcard_only_adds(
         [],
         script=SCRIPT + "Daily:\nLOAD * FROM [lib://Lake/daily/*.csv] (txt);\n",
     )
+
+    assert writes[ORDERS] == f"patch:{RATES}"
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unresolved_file_of_an_app_calling_an_undefined_sub_only_adds(
+    mock_api_cls: MagicMock,
+) -> None:
+    # The SUB, such as one from an include, may load the file.
+    writes = _graph_app_run(mock_api_cls, {}, [], script=SCRIPT + "CALL LoadRates;\n")
 
     assert writes[ORDERS] == f"patch:{RATES}"
 
