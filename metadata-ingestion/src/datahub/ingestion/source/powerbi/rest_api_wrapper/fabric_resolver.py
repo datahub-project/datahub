@@ -288,8 +288,14 @@ class FabricDefinitionResolver:
         if definition_format:
             params[KEY_FORMAT] = definition_format
 
+        # A synchronous 200 carries the whole definition, so this request and
+        # the result download get the scan_timeout budget, not the session's
+        # short default, which a large model's payload can exceed.
         response = self._request_session.post(
-            url, headers=self._headers(), params=params
+            url,
+            headers=self._headers(),
+            params=params,
+            timeout=self._download_timeout_seconds(),
         )
         response.raise_for_status()
 
@@ -335,10 +341,18 @@ class FabricDefinitionResolver:
             delay = self._retry_after_seconds(poll)
 
         result = self._request_session.get(
-            f"{location}/result", headers=self._headers()
+            f"{location}/result",
+            headers=self._headers(),
+            timeout=self._download_timeout_seconds(),
         )
         result.raise_for_status()
         return result.json()
+
+    def _download_timeout_seconds(self) -> float:
+        session_timeout = getattr(self._request_session, "timeout", None)
+        if isinstance(session_timeout, (int, float)):
+            return max(session_timeout, self._lro_timeout_seconds)
+        return self._lro_timeout_seconds
 
     @staticmethod
     def _retry_after_seconds(response: requests.Response) -> float:

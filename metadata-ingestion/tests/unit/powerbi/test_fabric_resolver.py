@@ -128,6 +128,11 @@ def test_get_definition_polls_lro_until_succeeded(
     assert [p.path for p in definition.parts] == ["definition/tables/Policies.tmdl"]
     # First wait honours the 202's Retry-After, the second the poll's.
     assert sleeps == [3.0, 1.0]
+    # The definition request and the result download get the scan_timeout
+    # budget rather than the session's short default.
+    timeouts = {r.url.split("?")[0]: r.timeout for r in m.request_history}
+    assert timeouts[DEFINITION_URL] == 10
+    assert timeouts[f"{LOCATION}/result"] == 10
 
 
 def test_get_definition_lro_failure_raises(
