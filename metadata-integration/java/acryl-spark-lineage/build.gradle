@@ -803,6 +803,12 @@ publishing {
       }
       url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
     }
+    // Local staging repository for GA releases: jreleaserDeploy bundles everything staged here
+    // into a single Central Portal deployment (see gradle/publishing/jreleaser.gradle).
+    maven {
+      name = 'centralStaging'
+      url = rootProject.layout.buildDirectory.dir('central-staging')
+    }
   }
 }
 
