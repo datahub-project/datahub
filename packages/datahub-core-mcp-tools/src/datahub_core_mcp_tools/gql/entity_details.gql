@@ -2057,3 +2057,44 @@ query GetEntitySiblings($urn: String!) {
         }
     }
 }
+
+# get_lineage: one direction of an entity's lineage, each node read with the same
+# preview get_entities returns. For column lineage (a schemaField input) the nodes
+# are datasets and `paths` holds the column chains that reach them.
+query GetEntityLineage($input: SearchAcrossLineageInput!) {
+    searchAcrossLineage(input: $input) {
+        total
+        facets {
+            field
+            displayName
+            aggregations {
+                value
+                count
+                entity {
+                    urn
+                }
+            }
+        }
+        searchResults {
+            entity {
+                urn
+                type
+                ...entityPreview
+            }
+            paths {
+                path {
+                    urn
+                    type
+                    ... on SchemaFieldEntity {
+                        fieldPath
+                        parent {
+                            urn
+                            type
+                        }
+                    }
+                }
+            }
+            degree
+        }
+    }
+}
