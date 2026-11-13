@@ -6,6 +6,7 @@ import { OverflowText } from '@components/components/OverflowText/OverflowText';
 import { Container, SubTitle, Title } from '@components/components/PageTitle/components';
 import { PageTitleProps } from '@components/components/PageTitle/types';
 import { Pill } from '@components/components/Pills';
+import { Tooltip } from '@components/components/Tooltip';
 
 const Wrapper = styled.div`
     display: flex;
@@ -33,11 +34,25 @@ export const PageTitle = ({
 
                 {subTitle ? <SubTitle variant={variant}>{subTitle}</SubTitle> : null}
             </Container>
-            {actionButton ? (
-                <Button size="md" {...actionButton}>
-                    {actionButton.label}
-                </Button>
-            ) : null}
+            {actionButton ? <ActionButton {...actionButton} /> : null}
         </Wrapper>
     );
 };
+
+function ActionButton({ label, tooltip, ...buttonProps }: NonNullable<PageTitleProps['actionButton']>) {
+    const button = (
+        <Button size="md" {...buttonProps}>
+            {label}
+        </Button>
+    );
+
+    if (!tooltip) {
+        return button;
+    }
+
+    return (
+        <Tooltip title={tooltip} showArrow={false}>
+            <span>{button}</span>
+        </Tooltip>
+    );
+}

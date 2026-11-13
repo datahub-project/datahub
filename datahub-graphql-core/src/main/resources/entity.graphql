@@ -14026,9 +14026,10 @@ input CreateDataProductInput {
   properties: CreateDataProductPropertiesInput!
 
   """
-  The primary key of the Domain
+  The urn of the Domain to create the Data Product in. Optional: when omitted, the
+  Data Product is created without a Domain.
   """
-  domainUrn: String!
+  domainUrn: String
   """
   An optional id for the new data product
   """

@@ -29,22 +29,22 @@ Data Products can be easily published to the DataHub catalog, allowing other tea
 
 Data Product operations use **two different privileges** depending on whether you are acting from the **asset** or from the **Data Product** itself.
 
-| What you're doing                                       | Where in the UI / API                                                                      | Required privilege        | Policy resource                                  |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------- | ------------------------------------------------ |
-| Create from Data Product sidebar                        | Data Product → Create; `createDataProduct`                                                 | **Manage Data Products**  | The Domain selected on create                    |
-| Browse from Data Product sidebar, open product profiles | Govern → Data Product; `dataproduct`                                                       | **View Entity** (default) | Data Products the actor can see                  |
-| Move / nest / detach a product                          | Profile menu → Move; `moveDataProduct`                                                     | **Manage Data Products**  | The data product's own Domain (not the parent's) |
-| Add or remove assets from a Data Product page           | Data Product → Add Assets; `batchSetDataProduct`                                           | **Manage Data Products**  | **At least one** Domain on the product           |
-| Link or unlink a Data Product from an asset profile     | Asset sidebar → Set Data Product; `batchAddToDataProducts` / `batchRemoveFromDataProducts` | **Edit Data Product**     | The **asset** being updated                      |
-| Create, update, or delete a Data Product from Domain    | Domain → Data Products tab; `createDataProduct`, `updateDataProduct`, `deleteDataProduct`  | **Manage Data Products**  | Each **Domain** associated with the product      |
+| What you're doing                                       | Where in the UI / API                                                                      | Required privilege           | Policy resource                                  |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------- | ------------------------------------------------ |
+| Create from the Data Products page                      | Data Products page → Create (sidebar "+", header button, empty state)                      | **Manage All Data Products** | The platform                                     |
+| Browse from Data Product sidebar, open product profiles | Govern → Data Product; `dataproduct`                                                       | **View Entity** (default)    | Data Products the actor can see                  |
+| Move / nest / detach a product                          | Profile menu → Move; `moveDataProduct`                                                     | **Manage Data Products**     | The data product's own Domain (not the parent's) |
+| Add or remove assets from a Data Product page           | Data Product → Add Assets; `batchSetDataProduct`                                           | **Manage Data Products**     | **At least one** Domain on the product           |
+| Link or unlink a Data Product from an asset profile     | Asset sidebar → Set Data Product; `batchAddToDataProducts` / `batchRemoveFromDataProducts` | **Edit Data Product**        | The **asset** being updated                      |
+| Create, update, or delete a Data Product from Domain    | Domain → Data Products tab; `createDataProduct`, `updateDataProduct`, `deleteDataProduct`  | **Manage Data Products**     | Each **Domain** associated with the product      |
 
 Grant these via [Metadata Policies](./authorization/policies.md).
 
 :::note Domain-scoped manage privilege
 
-**Manage Data Products** is a **Domain** privilege, not a Data Product entity privilege. To change membership from the product side, the actor must hold **Manage Data Products** on at least one Domain associated with the Data Product. The product and assets do **not** need to share a Domain — product-side manage access is evaluated independently from asset-side **Edit Data Product** checks. If the product has no Domain associations, product-side manage operations are denied (fail-closed); asset-side authorization may still allow the change when the actor has **Edit Data Product** on every changed asset.
+**Manage Data Products** is a **Domain** privilege, not a Data Product entity privilege. To change membership from the product side, the actor must hold **Manage Data Products** on at least one Domain associated with the Data Product. The product and assets do **not** need to share a Domain — product-side manage access is evaluated independently from asset-side **Edit Data Product** checks. **Manage All Data Products** is a platform privilege that allows these operations in any Domain, and is required to create a Data Product with no Domain. The create buttons on the Data Products page are enabled only with **Manage All Data Products**; without it they are disabled, with a tooltip pointing to a Domain's Data Products tab. The `createDataProduct` API itself also accepts **Manage Data Products** on the chosen Domain when a Domain is given, and only **Manage All Data Products** when no Domain is given. If the product has no Domain associations, product-side manage operations are denied (fail-closed) unless the actor holds **Manage All Data Products**, **Edit Entity** on the product, or **Manage Domains**; asset-side authorization may still allow the change when the actor has **Edit Data Product** on every changed asset.
 
-In normal operation each Data Product belongs to a single Domain. The UI and `createDataProduct` enforce this. Authorization still evaluates the full set of unique Domains on the product's `domains` aspect (preferring `domainAssociations`, falling back to the legacy `domains` array) so misconfigured metadata cannot bypass checks.
+A Data Product belongs to at most one Domain; the Domain is optional when creating a product. Authorization still evaluates the full set of unique Domains on the product's `domains` aspect (preferring `domainAssociations`, falling back to the legacy `domains` array) so misconfigured metadata cannot bypass checks.
 
 Renaming a Data Product via `updateName` additionally allows **Edit Entity** on the Data Product URN itself as an alternative to domain-level manage access.
 :::
@@ -73,7 +73,7 @@ Data Products can be created using the UI or via a YAML file that is managed usi
 
 1. Open **Govern → Data Product**
 2. Click **Create Data Product**
-3. Choose the **Domain** the product belongs to (required)
+3. Choose the **Domain** the product belongs to (optional)
 4. Provide a **Name** for the data product (required)
 5. Optionally provide a **Description** (recommended)
 6. Optionally choose a **Parent Data Product**

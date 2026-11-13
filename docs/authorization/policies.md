@@ -530,11 +530,12 @@ These privileges are for DataHub operators to access & manage the administrative
 
 #### Entity Management
 
-| Platform Privileges | Description                                               |
-| ------------------- | --------------------------------------------------------- |
-| Manage Domains      | Allow actor to create and remove Asset Domains.           |
-| Manage Glossaries   | Allow actor to create, edit, and remove Glossary Entities |
-| Manage Tags         | Allow actor to create and remove Tags.                    |
+| Platform Privileges      | Description                                                          |
+| ------------------------ | -------------------------------------------------------------------- |
+| Manage Domains           | Allow actor to create and remove Asset Domains.                      |
+| Manage All Data Products | Allow actor to create, edit, and remove Data Products in any Domain. |
+| Manage Glossaries        | Allow actor to create, edit, and remove Glossary Entities            |
+| Manage Tags              | Allow actor to create and remove Tags.                               |
 
 #### System Management
 
@@ -639,14 +640,15 @@ can always delete their own documents.
 
 | Operation                                                                             | Privilege evaluated                                                                                | Resource                                        |
 | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Create Data Product                                                                   | **Manage Data Products**                                                                           | Domain from create input                        |
+| Create Data Product                                                                   | **Manage Data Products** or **Manage All Data Products**                                           | Domain from create input                        |
+| Create Data Product with no Domain                                                    | **Manage All Data Products**                                                                       | Platform                                        |
 | Update / delete Data Product                                                          | **Manage Data Products**                                                                           | **At least one** Domain on the product          |
 | Change `dataProductProperties.assets` (MCP / ingestion)                               | **Manage Data Products** on any product Domain **or** **Edit Data Product** on every changed asset | Product Domain(s) and/or each changed **asset** |
 | Change `dataProductProperties.assets` (product page / `batchSetDataProduct` with urn) | **Manage Data Products**                                                                           | **At least one** Domain on the product          |
 | Add/remove Data Product from asset profile                                            | **Edit Data Product**                                                                              | Target **asset**                                |
 | Rename Data Product (`updateName`)                                                    | **Manage Data Products** on any Domain **or** **Edit Entity** on the Data Product                  | Domains and/or product URN                      |
 
-Domain URNs are read from the product's `domains` aspect, preferring `domainAssociations` and falling back to the legacy `domains` array. Duplicate entries are deduplicated. Products with no Domain associations are denied for product-side manage operations. Product and asset Domains do not need to match — authorization succeeds when either product-side manage or asset-side edit checks pass.
+Domain URNs are read from the product's `domains` aspect, preferring `domainAssociations` and falling back to the legacy `domains` array. Duplicate entries are deduplicated. **Manage All Data Products** is a platform privilege that allows the product-side operations above (create, update, rename, delete, and changing a product's assets from the product page) on any Data Product, with or without a Domain. It does not affect the asset-profile row, which still requires **Edit Data Product** on the asset. Without it, products with no Domain associations are denied for product-side manage operations, except that **Edit Entity** on the product or **Manage Domains** also allows managing a product that has no Domain. Product and asset Domains do not need to match — authorization succeeds when either product-side manage or asset-side edit checks pass.
 
 **Known issue:** Domain alignment is not enforced after membership is written. Changing a product's or asset's `domains` aspect does not re-validate or prune existing `assets` links.
 

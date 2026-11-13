@@ -82,6 +82,7 @@ export default function MarketplaceSidebar({ isCollapsed, onToggleCollapsed, onE
         entityData,
         optimisticDataProducts,
         openCreateModal,
+        canCreateDataProduct,
         syncOptimisticWithIndexed,
     } = useMarketplaceEntityContext();
 
@@ -299,13 +300,18 @@ export default function MarketplaceSidebar({ isCollapsed, onToggleCollapsed, onE
     }, [isSectionExpanded, visibleProducts, collapseAllExpanded, expandAllDataProducts]);
 
     const headerActions = (
-        <Tooltip title={t('marketplace.createTooltip')} placement="bottom" showArrow={false}>
+        <Tooltip
+            title={canCreateDataProduct ? t('marketplace.createTooltip') : t('marketplace.createUnauthorized')}
+            placement="bottom"
+            showArrow={false}
+        >
             <SidebarCreateButton
                 variant="filled"
                 color="primary"
                 isCircle
                 icon={{ icon: Plus }}
                 onClick={openCreateModal}
+                disabled={!canCreateDataProduct}
                 data-testid="create-marketplace-data-product-button"
             />
         </Tooltip>
