@@ -1,0 +1,1971 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "vertexai",
+                "env": "PROD",
+                "project_id": "test-project-id"
+            },
+            "name": "test-project-id",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735276,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735276,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735276,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735277,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735277,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735277,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "vertexai",
+                "env": "PROD",
+                "project_id": "test-project-id",
+                "category": "Models"
+            },
+            "name": "Models",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735277,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735278,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735278,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735278,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735279,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cb9bc68bf340ebe5e0094466adf12aa7",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735279,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cb9bc68bf340ebe5e0094466adf12aa7",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "vertexai",
+                "env": "PROD",
+                "project_id": "test-project-id",
+                "category": "Training Jobs"
+            },
+            "name": "Training Jobs",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735279,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cb9bc68bf340ebe5e0094466adf12aa7",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735280,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cb9bc68bf340ebe5e0094466adf12aa7",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735280,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cb9bc68bf340ebe5e0094466adf12aa7",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735280,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cb9bc68bf340ebe5e0094466adf12aa7",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735280,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c6dbf9d132a9cd66c540f875ffbebc17",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735281,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c6dbf9d132a9cd66c540f875ffbebc17",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "vertexai",
+                "env": "PROD",
+                "project_id": "test-project-id",
+                "category": "Datasets"
+            },
+            "name": "Datasets",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735281,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c6dbf9d132a9cd66c540f875ffbebc17",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735281,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c6dbf9d132a9cd66c540f875ffbebc17",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735281,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c6dbf9d132a9cd66c540f875ffbebc17",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735281,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c6dbf9d132a9cd66c540f875ffbebc17",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735282,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ea3c5c2d5a9921e90acf154a507f570",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735282,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ea3c5c2d5a9921e90acf154a507f570",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "vertexai",
+                "env": "PROD",
+                "project_id": "test-project-id",
+                "category": "Endpoints"
+            },
+            "name": "Endpoints",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735282,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ea3c5c2d5a9921e90acf154a507f570",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735282,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ea3c5c2d5a9921e90acf154a507f570",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735283,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ea3c5c2d5a9921e90acf154a507f570",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735283,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ea3c5c2d5a9921e90acf154a507f570",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735283,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1f16c00952f79966aa7222f9937f884b",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735283,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1f16c00952f79966aa7222f9937f884b",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "vertexai",
+                "env": "PROD",
+                "project_id": "test-project-id",
+                "category": "Pipelines"
+            },
+            "name": "Pipelines",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735283,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1f16c00952f79966aa7222f9937f884b",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735284,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1f16c00952f79966aa7222f9937f884b",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735284,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1f16c00952f79966aa7222f9937f884b",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735284,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1f16c00952f79966aa7222f9937f884b",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735284,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0131dde3f09a858b9c944b2f6fcf9d1d",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735285,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0131dde3f09a858b9c944b2f6fcf9d1d",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "vertexai",
+                "env": "PROD",
+                "project_id": "test-project-id",
+                "category": "Experiments"
+            },
+            "name": "Experiments",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735285,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0131dde3f09a858b9c944b2f6fcf9d1d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735285,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0131dde3f09a858b9c944b2f6fcf9d1d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735285,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0131dde3f09a858b9c944b2f6fcf9d1d",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735285,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0131dde3f09a858b9c944b2f6fcf9d1d",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735286,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f000432009c15836a11623aed62c0382",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735286,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f000432009c15836a11623aed62c0382",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "vertexai",
+                "env": "PROD",
+                "project_id": "test-project-id",
+                "category": "Evaluations"
+            },
+            "name": "Evaluations",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735286,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f000432009c15836a11623aed62c0382",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735286,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f000432009c15836a11623aed62c0382",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735286,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f000432009c15836a11623aed62c0382",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735287,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f000432009c15836a11623aed62c0382",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735287,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1a2660749ba479c40a56e4635029605d",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735289,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1a2660749ba479c40a56e4635029605d",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "vertexai",
+                "env": "PROD",
+                "project_id": "test-project-id",
+                "model_group_name": "test-project-id.model_group.mock_prediction_model_1"
+            },
+            "name": "mock_prediction_model_1_display_name",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735289,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1a2660749ba479c40a56e4635029605d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735290,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1a2660749ba479c40a56e4635029605d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735290,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1a2660749ba479c40a56e4635029605d",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735290,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1a2660749ba479c40a56e4635029605d",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                },
+                {
+                    "id": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e",
+                    "urn": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735290,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1c023526f3031c0f10b173343dd8f8bb",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735291,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1c023526f3031c0f10b173343dd8f8bb",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "vertexai",
+                "env": "PROD",
+                "project_id": "test-project-id",
+                "model_group_name": "test-project-id.model_group.mock_prediction_model_2"
+            },
+            "name": "mock_prediction_model_2_display_name",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735292,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1c023526f3031c0f10b173343dd8f8bb",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735292,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1c023526f3031c0f10b173343dd8f8bb",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735292,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1c023526f3031c0f10b173343dd8f8bb",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735292,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1c023526f3031c0f10b173343dd8f8bb",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                },
+                {
+                    "id": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e",
+                    "urn": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735292,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8230e132a3f784d32b36f3e9b8805ccc",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735293,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8230e132a3f784d32b36f3e9b8805ccc",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "vertexai",
+                "env": "PROD",
+                "project_id": "test-project-id",
+                "model_group_name": "test-project-id.model_group.mock_prediction_model_3"
+            },
+            "name": "mock_prediction_model_3_display_name",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735293,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8230e132a3f784d32b36f3e9b8805ccc",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735293,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8230e132a3f784d32b36f3e9b8805ccc",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735293,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8230e132a3f784d32b36f3e9b8805ccc",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735293,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8230e132a3f784d32b36f3e9b8805ccc",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                },
+                {
+                    "id": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e",
+                    "urn": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735293,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:vertexai,test-project-id.model.mock_prediction_model_3_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "versionId": "3",
+                "resourceName": "projects/123/locations/us-central1/models/456"
+            },
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/models/locations/europe-west4/models/mock_prediction_model_3/versions/3?project=test-project-id",
+            "name": "mock_prediction_model_3_display_name_3",
+            "description": "test version",
+            "created": {
+                "time": 1647878400000
+            },
+            "lastModified": {
+                "time": 1647878500000
+            },
+            "version": {
+                "versionTag": "3"
+            },
+            "type": "ML Model",
+            "tags": [],
+            "deployments": [],
+            "groups": [
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,test-project-id.model_group.mock_prediction_model_3,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735294,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:vertexai,test-project-id.model.mock_prediction_model_3_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:8230e132a3f784d32b36f3e9b8805ccc"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735294,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:vertexai,test-project-id.model.mock_prediction_model_3_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "ML Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735294,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:vertexai,test-project-id.model.mock_prediction_model_3_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735294,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:vertexai,test-project-id.model.mock_prediction_model_3_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "versionProperties",
+    "aspect": {
+        "json": {
+            "versionSet": "urn:li:versionSet:(5e377e763d03119521099a5dc9c88f89,mlModel)",
+            "version": {
+                "versionTag": "3",
+                "metadataAttribution": {
+                    "time": 1647878400000,
+                    "actor": "urn:li:corpuser:unknown",
+                    "sourceDetail": {}
+                }
+            },
+            "aliases": [],
+            "sortId": "0000000003",
+            "versioningScheme": "LEXICOGRAPHIC_STRING"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735295,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:vertexai,test-project-id.model.mock_prediction_model_3_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                },
+                {
+                    "id": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e",
+                    "urn": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+                },
+                {
+                    "id": "urn:li:container:8230e132a3f784d32b36f3e9b8805ccc",
+                    "urn": "urn:li:container:8230e132a3f784d32b36f3e9b8805ccc"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735295,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,test-project-id.model_group.mock_prediction_model_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelGroupProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/models/locations/europe-west4/models/mock_prediction_model_3?project=test-project-id",
+            "name": "mock_prediction_model_3_display_name",
+            "description": "mock_prediction_model_3_description",
+            "created": {
+                "time": 1647878400000
+            },
+            "lastModified": {
+                "time": 1647878500000
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735295,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,test-project-id.model_group.mock_prediction_model_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:8230e132a3f784d32b36f3e9b8805ccc"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735295,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,test-project-id.model_group.mock_prediction_model_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "ML Model Group"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735295,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,test-project-id.model_group.mock_prediction_model_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735296,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,test-project-id.model_group.mock_prediction_model_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                },
+                {
+                    "id": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e",
+                    "urn": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+                },
+                {
+                    "id": "urn:li:container:8230e132a3f784d32b36f3e9b8805ccc",
+                    "urn": "urn:li:container:8230e132a3f784d32b36f3e9b8805ccc"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735296,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:112056bff10583d0bffd2e2a2161d6b3",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735296,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:112056bff10583d0bffd2e2a2161d6b3",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "vertexai",
+                "env": "PROD",
+                "project_id": "test-project-id",
+                "model_group_name": "test-project-id.model_group.mock_prediction_model_4"
+            },
+            "name": "mock_prediction_model_4_display_name",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735296,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:112056bff10583d0bffd2e2a2161d6b3",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735296,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:112056bff10583d0bffd2e2a2161d6b3",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735297,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:112056bff10583d0bffd2e2a2161d6b3",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735297,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:112056bff10583d0bffd2e2a2161d6b3",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                },
+                {
+                    "id": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e",
+                    "urn": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735297,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:vertexai,test-project-id.model.mock_prediction_model_4_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "versionId": "4",
+                "resourceName": "projects/123/locations/us-central1/models/567"
+            },
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/models/locations/europe-west4/models/mock_prediction_model_4/versions/4?project=test-project-id",
+            "name": "mock_prediction_model_4_display_name_4",
+            "description": "test version",
+            "created": {
+                "time": 1647878400000
+            },
+            "lastModified": {
+                "time": 1647878500000
+            },
+            "version": {
+                "versionTag": "4"
+            },
+            "type": "ML Model",
+            "tags": [],
+            "deployments": [],
+            "groups": [
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,test-project-id.model_group.mock_prediction_model_4,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735297,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:vertexai,test-project-id.model.mock_prediction_model_4_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:112056bff10583d0bffd2e2a2161d6b3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735297,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:vertexai,test-project-id.model.mock_prediction_model_4_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "ML Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735298,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:vertexai,test-project-id.model.mock_prediction_model_4_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735298,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:vertexai,test-project-id.model.mock_prediction_model_4_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "versionProperties",
+    "aspect": {
+        "json": {
+            "versionSet": "urn:li:versionSet:(6efc0a2bab84b9e999baf7449047ec90,mlModel)",
+            "version": {
+                "versionTag": "4",
+                "metadataAttribution": {
+                    "time": 1647878400000,
+                    "actor": "urn:li:corpuser:unknown",
+                    "sourceDetail": {}
+                }
+            },
+            "aliases": [],
+            "sortId": "0000000004",
+            "versioningScheme": "LEXICOGRAPHIC_STRING"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735298,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:vertexai,test-project-id.model.mock_prediction_model_4_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                },
+                {
+                    "id": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e",
+                    "urn": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+                },
+                {
+                    "id": "urn:li:container:112056bff10583d0bffd2e2a2161d6b3",
+                    "urn": "urn:li:container:112056bff10583d0bffd2e2a2161d6b3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735298,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,test-project-id.model_group.mock_prediction_model_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelGroupProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "https://console.cloud.google.com/vertex-ai/models/locations/europe-west4/models/mock_prediction_model_4?project=test-project-id",
+            "name": "mock_prediction_model_4_display_name",
+            "description": "mock_prediction_model_4_description",
+            "created": {
+                "time": 1647878400000
+            },
+            "lastModified": {
+                "time": 1647878500000
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735298,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,test-project-id.model_group.mock_prediction_model_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:112056bff10583d0bffd2e2a2161d6b3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735299,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,test-project-id.model_group.mock_prediction_model_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "ML Model Group"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735299,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,test-project-id.model_group.mock_prediction_model_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735299,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,test-project-id.model_group.mock_prediction_model_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:29746a9030349f4340ed74b46913dab6",
+                    "urn": "urn:li:container:29746a9030349f4340ed74b46913dab6"
+                },
+                {
+                    "id": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e",
+                    "urn": "urn:li:container:263ca39532cd3e5b3ae780378a251f0e"
+                },
+                {
+                    "id": "urn:li:container:112056bff10583d0bffd2e2a2161d6b3",
+                    "urn": "urn:li:container:112056bff10583d0bffd2e2a2161d6b3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735299,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:vertexai,test-project-id.model.mock_prediction_model_3_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735299,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:vertexai,test-project-id.model.mock_prediction_model_4_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735299,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,test-project-id.model_group.mock_prediction_model_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735300,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,test-project-id.model_group.mock_prediction_model_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794393735300,
+        "runId": "vertexai-failure-scope-run2",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "vertexai-failure-scope"
+    }
+}
+]

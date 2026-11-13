@@ -2,6 +2,7 @@ import logging
 import types
 from contextlib import AbstractContextManager, nullcontext
 from datetime import timedelta
+from functools import partial
 from typing import (
     Callable,
     Dict,
@@ -33,6 +34,7 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     KUBEFLOW_TIMESTAMP_SUFFIX_PATTERN,
     ORDER_BY_UPDATE_TIME_DESC,
     DateTimeFormat,
+    DetailCalls,
     DurationUnit,
     LabelFormat,
     ResourceCategory,
@@ -48,9 +50,17 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     PipelineTaskProperties,
     YieldCommonAspectsProtocol,
 )
+from datahub.ingestion.source.vertexai.vertexai_report import VertexAISourceReport
 from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     get_pipeline_task_result_status,
     is_status_for_run_event_class,
+)
+from datahub.ingestion.source.vertexai.vertexai_scope import (
+    CarryForward,
+    DetailReader,
+    DetailResult,
+    Scope,
+    StoppedScopes,
 )
 from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.ingestion.source.vertexai.vertexai_utils import (
@@ -101,6 +111,10 @@ class VertexAIPipelineExtractor:
         model_usage_tracker: ModelUsageTracker,
         platform: str,
         state_handler: VertexAIStateHandler,
+        report: VertexAISourceReport,
+        get_scope_fn: Callable[[], Scope],
+        stopped_scopes: StoppedScopes,
+        carry_forward: CarryForward,
         rate_limiter: Union[RateLimiter, AbstractContextManager[None]] = nullcontext(),
     ):
         self.config = config
@@ -114,6 +128,11 @@ class VertexAIPipelineExtractor:
         self.model_usage_tracker = model_usage_tracker
         self.platform = platform
         self.state_handler = state_handler
+        self.report = report
+        self._get_scope = get_scope_fn
+        self._stopped = stopped_scopes
+        self._carry = carry_forward
+        self._read_detail = DetailReader(report, stopped_scopes, get_scope_fn)
         self.rate_limiter = rate_limiter
         self._emitted_pipeline_urns: Set[str] = set()
         self._emitted_task_urns: Set[str] = set()
@@ -134,6 +153,23 @@ class VertexAIPipelineExtractor:
 
         name = pipeline.display_name or pipeline.name
         return KUBEFLOW_TIMESTAMP_SUFFIX_PATTERN.sub("", name)
+
+    def _flow_urn(self, pipeline: PipelineJob) -> DataFlowUrn:
+        return DataFlowUrn.create_from_ids(
+            orchestrator=self.platform,
+            env=self.config.env,
+            flow_id=self._get_stable_pipeline_id(pipeline),
+            platform_instance=self.config.platform_instance,
+        )
+
+    def _read_pipeline_task_details(
+        self, pipeline: PipelineJob
+    ) -> DetailResult[List[PipelineTaskDetail]]:
+        # The list response lacks job_detail; task_details fetches the job.
+        def read() -> List[PipelineTaskDetail]:
+            return list(pipeline.task_details)
+
+        return self._read_detail(DetailCalls.PIPELINE_LOOKUP, read, item=pipeline.name)
 
     def _get_pipeline_container(self, pipeline_name: str) -> PipelineContainerKey:
         return PipelineContainerKey(
@@ -167,7 +203,7 @@ class VertexAIPipelineExtractor:
         if last_checkpoint_millis:
             log_checkpoint_time(last_checkpoint_millis, "PipelineJob")
 
-        pipeline_jobs = rate_limited_gapic_list(
+        pipeline_jobs: List[PipelineJob] = rate_limited_gapic_list(
             self.client.PipelineJob,
             self.rate_limiter,
             order_by=ORDER_BY_UPDATE_TIME_DESC,
@@ -175,7 +211,9 @@ class VertexAIPipelineExtractor:
 
         for job_count, pipeline in enumerate(pipeline_jobs, start=1):
             if last_checkpoint_millis:
-                job_update_millis = int(pipeline.update_time.timestamp() * 1000)
+                job_update_millis = int(
+                    pipeline.gca_resource.update_time.timestamp() * 1000
+                )
                 if job_update_millis <= last_checkpoint_millis:
                     logger.info(
                         f"Reached checkpoint timestamp for PipelineJobs, stopping early (processed {job_count - 1} new jobs)"
@@ -189,7 +227,16 @@ class VertexAIPipelineExtractor:
             log_progress(job_count, None, f"{ResourceTypes.PIPELINE_JOB}s")
 
             logger.debug(f"Fetching pipeline ({pipeline.name})")
-            pipeline_meta = self._get_pipeline_metadata(pipeline)
+            details = self._read_pipeline_task_details(pipeline)
+            if details.keep_previous:
+                self._carry.keep_flow(str(self._flow_urn(pipeline)))
+                self._carry.keep_urn(
+                    self._get_pipeline_container(
+                        self._get_stable_pipeline_id(pipeline)
+                    ).as_urn()
+                )
+                continue
+            pipeline_meta = self._get_pipeline_metadata(pipeline, details.value or [])
             yield from self._get_pipeline_workunits(pipeline, pipeline_meta)
 
     def _get_pipeline_workunits(
@@ -454,87 +501,85 @@ class VertexAIPipelineExtractor:
                 ),
             ).as_workunit()
 
+    def _extract_pipeline_task_artifacts(
+        self,
+        task_detail: PipelineTaskDetail,
+        task_urn: str,
+    ) -> PipelineTaskArtifacts:
+        inputs = self._extract_pipeline_task_inputs(task_detail, task_urn)
+        outputs = self._extract_pipeline_task_outputs(task_detail, task_urn)
+        return PipelineTaskArtifacts(
+            input_dataset_urns=inputs.input_dataset_urns,
+            output_dataset_urns=outputs.output_dataset_urns,
+            output_model_resource_names=outputs.output_model_resource_names,
+        )
+
     def _extract_pipeline_task_inputs(
-        self, task_detail: PipelineTaskDetail, task_name: str, task_urn: str
+        self, task_detail: PipelineTaskDetail, task_urn: str
     ) -> PipelineTaskArtifacts:
         if not task_detail.inputs:
             return PipelineTaskArtifacts()
 
         input_dataset_urns: List[str] = []
-        try:
-            for input_entry in task_detail.inputs.values():
-                if input_entry.artifacts:
-                    for artifact in input_entry.artifacts:
-                        if artifact.uri:
-                            if self.uri_parser._is_model_uri(artifact.uri):
-                                # Track by resource name, to be resolved later when we process the model
-                                self.model_usage_tracker.track_resource_usage(
-                                    artifact.uri, task_urn
+        for input_entry in task_detail.inputs.values():
+            if input_entry.artifacts:
+                for artifact in input_entry.artifacts:
+                    if artifact.uri:
+                        if self.uri_parser._is_model_uri(artifact.uri):
+                            # Track by resource name, to be resolved later when we process the model
+                            self.model_usage_tracker.track_resource_usage(
+                                artifact.uri, task_urn
+                            )
+                        else:
+                            input_dataset_urns.extend(
+                                self.uri_parser.dataset_urns_from_artifact_uri(
+                                    artifact.uri
                                 )
-                            else:
-                                input_dataset_urns.extend(
-                                    self.uri_parser.dataset_urns_from_artifact_uri(
-                                        artifact.uri
-                                    )
-                                )
-            return PipelineTaskArtifacts(
-                input_dataset_urns=input_dataset_urns if input_dataset_urns else None,
-            )
-        except (AttributeError, TypeError, KeyError) as e:
-            logger.debug(
-                f"Failed to extract input artifacts for task {task_name}: {e}",
-                exc_info=True,
-            )
-            return PipelineTaskArtifacts()
+                            )
+        return PipelineTaskArtifacts(
+            input_dataset_urns=input_dataset_urns,
+        )
 
     def _extract_pipeline_task_outputs(
-        self, task_detail: PipelineTaskDetail, task_name: str, task_urn: str
+        self, task_detail: PipelineTaskDetail, task_urn: str
     ) -> PipelineTaskArtifacts:
         if not task_detail.outputs:
             return PipelineTaskArtifacts()
 
         output_dataset_urns: List[str] = []
         output_model_resource_names: List[str] = []
-        try:
-            for output_entry in task_detail.outputs.values():
-                if output_entry.artifacts:
-                    for artifact in output_entry.artifacts:
-                        if artifact.uri:
-                            # Check if this is a model resource
-                            if self.uri_parser._is_model_uri(artifact.uri):
-                                # Store resource name for later resolution
-                                output_model_resource_names.append(artifact.uri)
-                                # Also track for downstream lineage (will be resolved when model is processed)
-                                self.model_usage_tracker.track_resource_usage(
-                                    artifact.uri, task_urn
+        for output_entry in task_detail.outputs.values():
+            if output_entry.artifacts:
+                for artifact in output_entry.artifacts:
+                    if artifact.uri:
+                        # Check if this is a model resource
+                        if self.uri_parser._is_model_uri(artifact.uri):
+                            # Store resource name for later resolution
+                            output_model_resource_names.append(artifact.uri)
+                            # Also track for downstream lineage (will be resolved when model is processed)
+                            self.model_usage_tracker.track_resource_usage(
+                                artifact.uri, task_urn
+                            )
+                        else:
+                            output_dataset_urns.extend(
+                                self.uri_parser.dataset_urns_from_artifact_uri(
+                                    artifact.uri
                                 )
-                            else:
-                                output_dataset_urns.extend(
-                                    self.uri_parser.dataset_urns_from_artifact_uri(
-                                        artifact.uri
-                                    )
-                                )
-            return PipelineTaskArtifacts(
-                output_dataset_urns=output_dataset_urns
-                if output_dataset_urns
-                else None,
-                output_model_resource_names=output_model_resource_names
-                if output_model_resource_names
-                else None,
-            )
-        except (AttributeError, TypeError, KeyError) as e:
-            logger.debug(
-                f"Failed to extract output artifacts for task {task_name}: {e}",
-                exc_info=True,
-            )
-            return PipelineTaskArtifacts()
+                            )
+        return PipelineTaskArtifacts(
+            output_dataset_urns=output_dataset_urns,
+            output_model_resource_names=output_model_resource_names,
+        )
 
     def _get_pipeline_tasks_metadata(
-        self, pipeline: PipelineJob, pipeline_urn: DataFlowUrn
+        self,
+        pipeline: PipelineJob,
+        pipeline_urn: DataFlowUrn,
+        task_details: List[PipelineTaskDetail],
     ) -> List[PipelineTaskMetadata]:
         tasks: List[PipelineTaskMetadata] = list()
         task_map: Dict[str, PipelineTaskDetail] = dict()
-        for task in pipeline.task_details:
+        for task in task_details:
             task_map[task.task_name] = task
 
         resource = pipeline.gca_resource
@@ -585,33 +630,34 @@ class VertexAIPipelineExtractor:
                                 * 1000
                             )
 
-                    inputs = self._extract_pipeline_task_inputs(
-                        task_detail, task_name, dpi_urn
+                    read_artifacts = self._read_detail(
+                        DetailCalls.PIPELINE_TASK_ARTIFACTS,
+                        partial(
+                            self._extract_pipeline_task_artifacts,
+                            task_detail,
+                            dpi_urn,
+                        ),
+                        item=f"{pipeline_urn.flow_id}/{pipeline.name}/{task_name}",
                     )
-                    task_meta.input_dataset_urns = inputs.input_dataset_urns
-
-                    outputs = self._extract_pipeline_task_outputs(
-                        task_detail, task_name, dpi_urn
-                    )
-                    task_meta.output_dataset_urns = outputs.output_dataset_urns
+                    artifacts = read_artifacts.value or PipelineTaskArtifacts()
+                    task_meta.input_dataset_urns = artifacts.input_dataset_urns
+                    task_meta.output_dataset_urns = artifacts.output_dataset_urns
                     task_meta.output_model_resource_names = (
-                        outputs.output_model_resource_names
+                        artifacts.output_model_resource_names
                     )
 
                 tasks.append(task_meta)
         return tasks
 
-    def _get_pipeline_metadata(self, pipeline: PipelineJob) -> PipelineMetadata:
+    def _get_pipeline_metadata(
+        self, pipeline: PipelineJob, task_details: List[PipelineTaskDetail]
+    ) -> PipelineMetadata:
         stable_id = self._get_stable_pipeline_id(pipeline)
-
-        dataflow_urn = DataFlowUrn.create_from_ids(
-            orchestrator=self.platform,
-            env=self.config.env,
-            flow_id=stable_id,
-            platform_instance=self.config.platform_instance,
-        )
+        dataflow_urn = self._flow_urn(pipeline)
         tasks = self._get_pipeline_tasks_metadata(
-            pipeline=pipeline, pipeline_urn=dataflow_urn
+            pipeline=pipeline,
+            pipeline_urn=dataflow_urn,
+            task_details=task_details,
         )
 
         pipeline_meta = PipelineMetadata(
@@ -625,10 +671,13 @@ class VertexAIPipelineExtractor:
         pipeline_meta.labels = pipeline.labels
         pipeline_meta.create_time = pipeline.create_time
         pipeline_meta.region = pipeline.location
-        if pipeline.update_time:
-            pipeline_meta.update_time = pipeline.update_time
+        # Read from the listed resource: the SDK's update_time property fetches
+        # the job again.
+        update_time = pipeline.gca_resource.update_time
+        if update_time:
+            pipeline_meta.update_time = update_time
             pipeline_meta.duration = timedelta(
-                milliseconds=datetime_to_ts_millis(pipeline.update_time)
+                milliseconds=datetime_to_ts_millis(update_time)
                 - datetime_to_ts_millis(pipeline.create_time)
             )
         return pipeline_meta
