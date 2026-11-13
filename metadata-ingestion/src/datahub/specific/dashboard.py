@@ -315,6 +315,24 @@ class DashboardPatchBuilder(
         )
         return self
 
+    def remove_dashboard(self, dashboard: Union[str, Urn]) -> "DashboardPatchBuilder":
+        """
+        Removes a dashboard edge from the DashboardPatchBuilder.
+
+        Args:
+            dashboard: The dashboard to remove, specified as a string or Urn object.
+
+        Returns:
+            The DashboardPatchBuilder instance.
+        """
+        self._add_patch(
+            DashboardInfo.ASPECT_NAME,
+            "remove",
+            path=("dashboards", dashboard),
+            value={},
+        )
+        return self
+
     def set_dashboard_url(
         self, dashboard_url: Optional[str]
     ) -> "DashboardPatchBuilder":

@@ -26,8 +26,8 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
-    convert_dashboard_info_to_patch,
     convert_upstream_lineage_to_patch,
+    dashboard_info_patch_builder,
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
@@ -1019,11 +1019,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             lastModified=self._get_audit_stamp(app.updatedAt, app.ownerId),
         )
         dashboard_url = f"https://{self.ui_host}/sense/app/{app.id}/overview"
+        if table_urns is None and not self.config.include_sheets_and_charts:
+            # The app's tables reached it through sheets that are no longer
+            # ingested, so the tables known for it are linked directly.
+            dataset_urns: List[str] = self._last_known_table_urns(app)
+        else:
+            dataset_urns = table_urns or []
         info = DashboardInfoClass(
             title=app.qTitle,
             description=app.description or "",
             dashboards=[EdgeClass(destinationUrn=urn) for urn in sheet_urns],
-            datasetEdges=[EdgeClass(destinationUrn=urn) for urn in table_urns or []],
+            datasetEdges=[EdgeClass(destinationUrn=urn) for urn in dataset_urns],
             lastModified=last_modified,
             customProperties={Constant.QRI: app.qri},
             dashboardUrl=dashboard_url,
@@ -1036,9 +1042,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # Sheets or tables that could not be read this run may still exist,
             # so the edges read are added to the last full read's, while the
             # app's own fields are still set.
-            patch = convert_dashboard_info_to_patch(dashboard_urn, info, None)
-            if patch is not None:
-                yield patch
+            patch = dashboard_info_patch_builder(dashboard_urn, info, None)
+            if app.sheets_complete:
+                # The sheets are all known, so sheet edges this run doesn't
+                # have, such as those of sheets no longer ingested, go, in the
+                # same patch so the two can't be applied to different bases.
+                for urn in self._stale_sheet_edges(dashboard_urn, sheet_urns):
+                    patch.remove_dashboard(urn)
+            for mcp in patch.build():
+                yield MetadataWorkUnit(
+                    id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+                )
         yield MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn,
             aspect=SubTypes(typeNames=[BIAssetSubTypes.QLIK_APP_DASHBOARD]),
@@ -1055,6 +1069,56 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             yield dpi_aspect
         if self.config.ingest_owner and owner_username:
             yield self._gen_entity_owner_aspect(dashboard_urn, owner_username)
+
+    def _last_known_table_urns(self, app: App) -> List[str]:
+        """The app's tables this run registered, such as those its lineage
+        graph names, and those its last read recorded, including on-prem
+        tables, which have no QRI and are named after the app."""
+        urns = dict.fromkeys(self._app_table_urns(app).values())
+        previous = self._usable_checkpoint(app.id, [])
+        if previous is not None:
+            urns.update(dict.fromkeys((previous.table_urns_by_qri or {}).values()))
+            urns.update(
+                dict.fromkeys(
+                    urn for urn in previous.urns if self._is_app_table_urn(urn, app.id)
+                )
+            )
+        return list(urns)
+
+    def _is_app_table_urn(self, urn: str, app_id: str) -> bool:
+        if guess_entity_type(urn) != "dataset":
+            return False
+        try:
+            name = DatasetUrn.from_string(urn).name
+        except Exception:
+            return False
+        instance = self.config.platform_instance
+        if instance and name.startswith(f"{instance}."):
+            name = name[len(instance) + 1 :]
+        return name.startswith(f"{app_id.lower()}.")
+
+    def _stale_sheet_edges(
+        self, dashboard_urn: str, sheet_urns: List[str]
+    ) -> List[str]:
+        graph = self.ctx.graph
+        if graph is None:
+            return []
+        try:
+            current = graph.get_aspect(dashboard_urn, DashboardInfoClass)
+        except Exception as e:
+            self.reporter.warning(
+                title="Unable to read Qlik app dashboard",
+                message="Sheet edges of the app's dashboard that this run did not "
+                "find are kept.",
+                context=dashboard_urn,
+                exc=e,
+            )
+            return []
+        return [
+            edge.destinationUrn
+            for edge in (current.dashboards or [] if current else [])
+            if edge.destinationUrn not in sheet_urns
+        ]
 
     def _gen_sheets_workunit(
         self,

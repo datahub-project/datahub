@@ -8,6 +8,7 @@ import {
     QLIK_DEPLOYMENT,
     QLIK_DEPLOYMENT_CLOUD,
     QLIK_DEPLOYMENT_ON_PREM,
+    QLIK_INCLUDE_SHEETS_AND_CHARTS,
     QLIK_INGEST_OWNER,
     QLIK_ON_PREM_CLIENT_CERT,
     QLIK_ON_PREM_CLIENT_KEY_PASSWORD,
@@ -68,6 +69,9 @@ describe('Qlik Sense recipe form', () => {
         expect(QLIK_ON_PREM_CLIENT_CERT.dynamicRequired?.(onPrem)).toBe(true);
         expect(QLIK_ON_PREM_SKIP_UNCHANGED_APPS.dynamicHidden?.(cloud)).toBe(true);
         expect(QLIK_ON_PREM_READ_DATA_MODEL.dynamicHidden?.(cloud)).toBe(true);
+        // Sheets and charts apply to both deployments and stay on unless turned off.
+        expect(QLIK_INCLUDE_SHEETS_AND_CHARTS.dynamicHidden).toBeUndefined();
+        expect(QLIK_INCLUDE_SHEETS_AND_CHARTS.getValueFromRecipeOverride?.({})).toBe(true);
         // Off unless the recipe turns it on, as in the connector.
         expect(QLIK_ON_PREM_READ_DATA_MODEL.getValueFromRecipeOverride?.({})).toBe(false);
         expect(

@@ -403,6 +403,7 @@ import {
     QLIK_API_KEY,
     QLIK_DATA_CONNECTION_MAP,
     QLIK_DEPLOYMENT,
+    QLIK_INCLUDE_SHEETS_AND_CHARTS,
     QLIK_INGEST_OWNER,
     QLIK_MAX_WORKERS,
     QLIK_ON_PREM_CLIENT_CERT,
@@ -1154,6 +1155,7 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterFields: [QLIK_SPACE_ALLOW, QLIK_SPACE_DENY],
         advancedFields: [
+            QLIK_INCLUDE_SHEETS_AND_CHARTS,
             QLIK_INGEST_OWNER,
             QLIK_ON_PREM_INGEST_UNPUBLISHED_APPS,
             QLIK_ON_PREM_READ_DATA_MODEL,
