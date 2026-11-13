@@ -377,6 +377,8 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
         # delete would strip, so the search must not exclude any of them.
         search = self.mock_graph.get_urns_by_filter.call_args.kwargs
         self.assertEqual(search["status"], RemovedStatusFilter.ALL)
+        # Not among the server's default search types, so it must be named.
+        self.assertIn("dataProcessInstance", search["entity_types"])
         self.assertTrue(search["include_draft"])
         self.assertTrue(search["include_hidden_lifecycle_stages"])
         self.assertEqual(
@@ -442,16 +444,29 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
         for retried in searches[1:]:
             self.assertFalse(retried["include_draft"])
             self.assertTrue(retried["include_hidden_lifecycle_stages"])
+        # includeDraft is missing on every OSS server, so it is not reported.
+        self.assertEqual(len(self.report.infos), 1)
+
+    def test_child_check_reports_a_missing_hidden_stage_flag(self):
+        self._expire_soft_delete()
+
+        def search(**kwargs):
+            if kwargs.get("include_hidden_lifecycle_stages"):
+                raise ValueError(
+                    "SearchFlags.includeHiddenLifecycleStages is not supported by "
+                    "this DataHub server."
+                )
+            return iter([])
+
+        self.mock_graph.get_urns_by_filter.side_effect = search
+
+        self.cleanup.delete_soft_deleted_entity(
+            Urn.from_string("urn:li:container:root")
+        )
+
         self.assertIn(
-            "includeDraft",
-            str(
-                [
-                    i.context
-                    for i in self.report.infos
-                    if i.title
-                    == "Container child check runs without an unsupported search flag"
-                ]
-            ),
+            "includeHiddenLifecycleStages",
+            str([i.context for i in self.report.infos]),
         )
 
     def test_unrelated_search_error_keeps_the_container(self):

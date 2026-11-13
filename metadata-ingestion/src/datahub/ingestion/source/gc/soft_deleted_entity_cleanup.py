@@ -23,6 +23,22 @@ from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)
 
+# Entity types with a `container` aspect in entity-registry.yml. They are listed
+# because an untyped search only covers the server's default search types, which
+# leave out dataProcessInstance. mlModelDeployment also has the aspect but no
+# GraphQL EntityType, so it cannot be searched here.
+_CONTAINER_CHILD_ENTITY_TYPES = [
+    "dataset",
+    "chart",
+    "dashboard",
+    "dataFlow",
+    "dataJob",
+    "dataProcessInstance",
+    "container",
+    "mlModel",
+    "mlModelGroup",
+]
+
 # get_urns_by_filter argument -> the GraphQL SearchFlags field it sets.
 _CHILD_SEARCH_FLAGS = {
     "include_draft": "includeDraft",
@@ -220,6 +236,7 @@ class SoftDeletedEntitiesCleanup:
         # which entities emitted outside ingestion sources often lack.
         search = functools.partial(
             self.graph.get_urns_by_filter,
+            entity_types=_CONTAINER_CHILD_ENTITY_TYPES,
             status=RemovedStatusFilter.ALL,
             batch_size=1,
             extraFilters=[
@@ -257,6 +274,14 @@ class SoftDeletedEntitiesCleanup:
                 if not self._child_search_flags[flag]:
                     continue
                 self._child_search_flags[flag] = False
+                if flag == "include_draft":
+                    # Draft entities only exist in some editions, so a server
+                    # without the flag has no draft children to miss.
+                    logger.debug(
+                        "Container child check runs without includeDraft, "
+                        "which this server does not support"
+                    )
+                    continue
                 self.report.info(
                     title="Container child check runs without an unsupported search flag",
                     message="This DataHub server does not support the search flag, so "
