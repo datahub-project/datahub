@@ -1017,12 +1017,16 @@ jobs:
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
           EXPECT_PR_TAGGED_IMAGES: ${{ needs.setup.outputs.image_built_repos }}
-          # The pytest smoke suite runs with the SQL policy source (opt-in elsewhere), so policy
-          # changes apply before the write returns. Other smoke jobs keep the default. The env file
-          # is read by every DataHub service in docker-compose.gms.yml.
+          # The pytest smoke suite runs with the SQL policy source and the policy change broadcast
+          # (both opt-in elsewhere), so policy changes apply before the write returns, and
+          # system-update creates the policy change topic. Other smoke jobs keep the defaults. The
+          # env file is read by every DataHub service in docker-compose.gms.yml.
           DATAHUB_LOCAL_COMMON_ENV: /tmp/pytest-smoke-common.env
         run: |
-          echo "POLICY_CACHE_SQL_SOURCE_ENABLED=true" > "$DATAHUB_LOCAL_COMMON_ENV"
+          {
+            echo "POLICY_CACHE_SQL_SOURCE_ENABLED=true"
+            echo "POLICY_CACHE_BROADCAST_ENABLED=true"
+          } > "$DATAHUB_LOCAL_COMMON_ENV"
           echo "Using compose profile: $PROFILE_NAME"
           ./smoke-test/run-quickstart.sh
 
