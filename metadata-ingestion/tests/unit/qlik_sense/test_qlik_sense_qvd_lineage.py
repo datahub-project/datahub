@@ -740,3 +740,57 @@ def test_qvd_path_from_a_let_expression_takes_the_reload_value() -> None:
     )
     [load] = parsed.qvd_loads
     assert load.file == QvdReference(connection="QVD Data", path="orders_eu.qvd")
+
+
+@pytest.mark.parametrize(
+    "script, path",
+    [
+        pytest.param(
+            "/* LET vTable = Lower('Old'); */\n"
+            "LET vTable = Lower('Orders' & vRegion);\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+            "Orders.qvd",
+            id="second LET in a comment",
+        ),
+        pytest.param(
+            "SUB Unused\nLET vTable = Lower('Old');\nEND SUB;\n"
+            "LET vTable = Lower('Orders' & vRegion);\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+            "Orders.qvd",
+            id="second LET in a SUB never called",
+        ),
+        pytest.param(
+            "LET vTable = Lower('Orders' & vRegion);\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);\n"
+            "EXIT SCRIPT;\nLET vTable = Lower('Old');",
+            "Orders.qvd",
+            id="second LET after EXIT SCRIPT",
+        ),
+        pytest.param(
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);\n"
+            "LET vTable = Lower('Orders' & vRegion);",
+            "Orders.qvd",
+            id="before the script sets it",
+        ),
+        pytest.param(
+            "FOR EACH vTable IN 'Orders', 'Customers'\nNEXT vTable;\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+            "Orders.qvd",
+            id="after the loop",
+        ),
+        pytest.param(
+            "FOR EACH Year IN 2024, 2025\nNEXT Year;\nSET vTable = Year;\n"
+            "T: LOAD id FROM [lib://QVD Data/$(vTable).qvd] (qvd);",
+            # SET holds text, not an expression that reads Year.
+            "Year.qvd",
+            id="SET value naming a loop variable",
+        ),
+    ],
+)
+def test_qvd_path_from_a_variable_known_at_that_point_resolves(
+    script: str, path: str
+) -> None:
+    # The app keeps a variable's last value, which is also its value before
+    # the script first sets it, as variables persist between reloads.
+    parsed = parse_script(script, app_variables={"vTable": "Orders"})
+    assert [load.file.path for load in parsed.qvd_loads] == [path]

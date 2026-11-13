@@ -3110,9 +3110,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if self.qlik_api.opened_without_data:
             self.reporter.warning(
                 title="Qlik apps read without their data",
-                message="Opening these apps with their data was denied, as with "
-                "section access, or timed out, so they were read without it: "
-                "their tables have no field types.",
+                message="Opening these apps with their data, or reading their "
+                "data model, was denied, as with section access, or timed out, so "
+                "they were read without it: their tables have no field types, and "
+                "the next run reads them again.",
                 context=_bounded_list(self.qlik_api.opened_without_data),
             )
         if self.qlik_api.field_lineage_failures:
