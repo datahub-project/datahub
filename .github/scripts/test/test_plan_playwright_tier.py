@@ -48,6 +48,12 @@ def test_product_only_change_selects_only_p0_tests() -> None:
     assert decision.test_counts == {"ingest/sources.spec.ts": (1, 2)}
 
 
+def test_empty_selection_runs_the_full_suite() -> None:
+    untagged = [test for test in SUITE if "p0" not in test.tags]
+    decision = plan.decide(untagged, [], ["datahub-web-react/src/App.tsx"])
+    assert decision.mode == "full"
+
+
 def test_tests_playwright_reports_as_affected_run_in_full() -> None:
     decision = _decide(
         [f"{TESTS}/search/search.spec.ts", f"{PW}/pages/ingest.page.ts"],

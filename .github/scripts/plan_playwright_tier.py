@@ -182,6 +182,10 @@ def decide(
             test.file,
             "changed" if test.file in changed_specs else "affected by the change",
         )
+    # An empty selection would give playwright_test an empty matrix, which skips the
+    # job, so a PR could merge with no Playwright run at all.
+    if not reasons:
+        return Selection("full", "no @p0 test and no test affected by the change")
 
     totals: dict[str, int] = {}
     p0_lines: dict[str, list[str]] = {}
