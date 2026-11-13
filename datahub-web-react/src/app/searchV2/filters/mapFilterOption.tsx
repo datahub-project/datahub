@@ -5,6 +5,8 @@ import { FilterOptionType } from '@app/searchV2/filters/types';
 import { getFilterIconAndLabel } from '@app/searchV2/filters/utils';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
+import { Entity } from '@types';
+
 interface DisplayedFilterOption {
     key: string;
     label: React.ReactNode;
@@ -20,6 +22,7 @@ interface CreateFilterOptionProps {
     setSelectedFilterOptions: (values: FilterOptionType[]) => void;
     nestedOptions?: FilterOptionType[];
     includeCount?: boolean;
+    containerParents?: Entity[];
 }
 
 export function mapFilterOption({
@@ -29,6 +32,7 @@ export function mapFilterOption({
     setSelectedFilterOptions,
     nestedOptions,
     includeCount = true,
+    containerParents,
 }: CreateFilterOptionProps): DisplayedFilterOption {
     const { label: displayName } = getFilterIconAndLabel(
         filterOption.field,
@@ -48,6 +52,7 @@ export function mapFilterOption({
                 setSelectedFilterOptions={setSelectedFilterOptions}
                 nestedOptions={nestedOptions}
                 includeCount={includeCount}
+                containerParents={containerParents}
             />
         ),
         style: { padding: 0 },

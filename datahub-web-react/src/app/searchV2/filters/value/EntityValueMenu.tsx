@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 
 import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
+import { getContainerDisambiguationParents } from '@app/searchV2/filters/containerDisambiguation';
 import { mapFilterOption } from '@app/searchV2/filters/mapFilterOption';
 import { EntityFilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
 import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
@@ -71,10 +72,16 @@ export default function EntityValueMenu({
     const finalDefaultOptions = defaultOptions.length ? defaultOptions : searchOptions;
     const finalOptions = searchQuery ? finalSearchOptions : finalDefaultOptions;
 
+    // Same-named containers (a "store" schema in two databases) get the parents that tell them apart.
+    const containerParents = getContainerDisambiguationParents(finalOptions, (entity) =>
+        entityRegistry.getDisplayName(entity.type, entity),
+    );
+
     // Finally, create the option set.
     // TODO: Add an option set for "no x".
     const filterMenuOptions = finalOptions.map((option) =>
         mapFilterOption({
+            containerParents: containerParents.get(option.value),
             filterOption: {
                 field: field.field,
                 value: option.value,
