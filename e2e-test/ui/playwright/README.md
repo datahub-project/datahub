@@ -219,9 +219,10 @@ GMS, one test per type. Every entry is its own seeded entity (`tests/catalog-mat
 so the per-type tests can run in parallel without racing when more than one worker is configured, and
 a test rewrites the aspect it mutates before it starts. To cover another entity type, add its key to
 `CoreEntityKey`, a row to the table and its MCPs to the seed file; to cover another flow, add a spec
-that loops the table. Page objects for these specs locate by test id wherever the app renders one.
-Each spec calls `expectNoRawIdentifiers` (`helpers/raw-identifier-helper.ts`) after a page renders or
-a modal opens, so a URN, GUID or URL escape shown where a name belongs fails the test.
+that loops the table. Page objects for these specs locate by test id wherever the app renders one,
+with any exception justified inline next to its `eslint-disable` comment. Each spec calls
+`expectNoRawIdentifiers` (`helpers/raw-identifier-helper.ts`) after a page renders or a modal opens,
+so a URN, GUID or URL escape shown where a name belongs fails the test.
 
 ### What runs on a PR (P0 tier)
 
