@@ -388,7 +388,9 @@ class Mapper:
                 platform_name = (
                     upstream_dpt.data_platform_pair.powerbi_data_platform_name
                 )
-                if not self.__config.is_platform_in_dataset_type_mapping(platform_name):
+                if not self.__config.is_upstream_platform_in_dataset_type_mapping(
+                    platform_name
+                ):
                     logger.debug(
                         f"Skipping upstream table for {ds_urn}. The platform {platform_name} is not part of dataset_type_mapping",
                     )
@@ -2155,6 +2157,35 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 # Fully emitted and never revisited; drop it to free its
                 # scan_result and parsed children.
                 del workspaces[workspace_id]
+
+        self._report_unmatched_athena_table_platform_overrides()
+
+    def _report_unmatched_athena_table_platform_overrides(self) -> None:
+        # A typo in an override silently leaves lineage on Athena, so surface every
+        # configured override that never matched an upstream during the run.
+        # Without lineage extraction no override can ever match, so stay silent.
+        # Info, not a warning: a correct override's table is often not processed
+        # in a run (modified_since, workspace filters, unused datasets, skipped
+        # or unparsed expressions), which the source cannot tell from a typo.
+        if not self.source_config.extract_lineage:
+            return
+        for override in self.reporter.unmatched_athena_overrides(
+            self.source_config.athena_table_platform_override
+        ):
+            self.reporter.info(
+                title="Athena table platform override never matched",
+                message=(
+                    "No upstream processed in this run matched this "
+                    "athena_table_platform_override entry. Overrides apply only to "
+                    "Athena reached over ODBC, not to AmazonAthena.Databases sources. "
+                    "If that table was processed in this run, check the database, "
+                    "table and dsn values for typos."
+                ),
+                context=(
+                    f"database={override.database}, table={override.table}, "
+                    f"dsn={override.dsn}, platform={override.platform}"
+                ),
+            )
 
     def get_report(self) -> SourceReport:
         return self.reporter

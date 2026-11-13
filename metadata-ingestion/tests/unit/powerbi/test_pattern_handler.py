@@ -8,7 +8,7 @@ end-to-end coverage lives in ``tests/integration/powerbi/test_m_parser.py``.
 """
 
 from contextlib import AbstractContextManager
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -17,12 +17,15 @@ import sqlglot.errors
 from datahub.configuration.source_common import PlatformDetail
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
+    AthenaPlatformOverride,
     Constant,
+    DataBricksPlatformDetail,
     DataPlatformPair,
     OraclePlatformDetail,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
     PowerBIPlatformDetail,
+    SupportedDataPlatform,
 )
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
@@ -39,6 +42,7 @@ from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
     OdbcLineage,
     OracleLineage,
     _get_data_source_tokens,
+    _lookup_dsn,
     _remap_column_lineage_to_pbi_fields,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
@@ -797,16 +801,19 @@ def test_remap_column_lineage_empty_inputs():
 # ---------------------------------------------------------------------------
 
 
-def _build_odbc_lineage() -> OdbcLineage:
+def _build_odbc_lineage(
+    *, platform_detail: Optional[PlatformDetail] = None, **config_overrides: object
+) -> OdbcLineage:
     """OdbcLineage with a column-less table (so create_table_column_lineage is a
-    no-op) and a resolver that returns a plain PlatformDetail (no instance)."""
+    no-op) and a resolver that returns the given PlatformDetail (a plain, no-instance
+    PlatformDetail by default)."""
     table = Table(columns=None, measures=[], expression="", name="t", full_name="ds.t")
     resolver = MagicMock(spec=AbstractDataPlatformInstanceResolver)
-    resolver.get_platform_instance.return_value = PlatformDetail()
+    resolver.get_platform_instance.return_value = platform_detail or PlatformDetail()
     return OdbcLineage(
         ctx=MagicMock(spec=PipelineContext),
         table=table,
-        config=_build_config(),
+        config=_build_config(**config_overrides),
         reporter=PowerBiDashboardSourceReport(),
         platform_instance_resolver=resolver,
     )
@@ -843,7 +850,9 @@ def test_odbc_two_tier_platform_drops_pseudo_catalog():
         powerbi_data_platform_name="Hive", datahub_data_platform_name="hive"
     )
 
-    result = instance.expression_lineage(detail, "hive", pair, server_name="dsn")
+    result = instance.expression_lineage(
+        detail, "hive", pair, server_name="dsn", dsn=""
+    )
 
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.vg_a1_user_profile,PROD)"
@@ -869,7 +878,9 @@ def test_odbc_three_tier_platform_keeps_database():
         datahub_data_platform_name="bigquery",
     )
 
-    result = instance.expression_lineage(detail, "bigquery", pair, server_name="dsn")
+    result = instance.expression_lineage(
+        detail, "bigquery", pair, server_name="dsn", dsn=""
+    )
 
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,myproject.mydataset.mytable,PROD)"
@@ -878,9 +889,10 @@ def test_odbc_three_tier_platform_keeps_database():
 
 def test_odbc_two_tier_platform_with_no_schema():
     """A two-tier platform navigated as Database (pseudo-catalog) + Table with no
-    Schema level must NOT fall through to ``database.table`` — that pseudo-catalog
-    (e.g. "HIVE") is not a real schema and would yield a dangling URN. The lineage
-    must be skipped with a warning instead."""
+    Schema level, and no dsn_to_database_schema mapping to supply one, must NOT fall
+    through to ``database.table`` — that pseudo-catalog (e.g. "HIVE") is not a real
+    schema and would yield a dangling URN. The lineage must be skipped with a
+    warning instead."""
     instance = _build_odbc_lineage()
     detail = DataAccessFunctionDetail(
         arg_list={},
@@ -895,12 +907,1187 @@ def test_odbc_two_tier_platform_with_no_schema():
         powerbi_data_platform_name="Hive", datahub_data_platform_name="hive"
     )
 
-    result = instance.expression_lineage(detail, "hive", pair, server_name="dsn")
+    result = instance.expression_lineage(
+        detail, "hive", pair, server_name="dsn", dsn=""
+    )
 
     assert result.upstreams == []
     assert any(
         w.title == "Cannot build two-tier ODBC table name"
         for w in instance.reporter.warnings
+    )
+
+
+def test_odbc_three_tier_database_table_backfills_schema_from_dsn_mapping():
+    """Three-tier nav that supplies Database + Table but omits Schema must backfill
+    the missing schema from dsn_to_database_schema (the nav-supplied database wins
+    over the mapping's first segment), yielding database.schema.table rather than
+    warning and dropping lineage.
+    """
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"snow_dsn": "OTHER_DB.PUBLIC"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "ANALYTICS"),
+            ("Table", "ORDERS"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Snowflake",
+        datahub_data_platform_name="snowflake",
+    )
+
+    result = instance.expression_lineage(
+        detail, "snowflake", pair, server_name="dsn", dsn="snow_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.orders,PROD)"
+    ]
+
+
+def test_odbc_dsn_mapping_matches_dsn_case_insensitively():
+    """Windows ODBC DSNs are case-insensitive, so a connect string's DSN=BQ_Prod
+    must still pick up a dsn_to_database_schema key written as bq_prod."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"bq_prod": "my_project"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "my_dataset"),
+            ("Table", "orders"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Google BigQuery",
+        datahub_data_platform_name="bigquery",
+    )
+
+    result = instance.expression_lineage(
+        detail, "bigquery", pair, server_name="dsn", dsn="BQ_Prod"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.orders,PROD)"
+    ]
+
+
+@pytest.mark.parametrize(
+    "key, dsn",
+    [
+        ("Sales_DSN", "SALES_dsn"),
+        # casefold() would match "Straße" to "STRASSE"; lower() does not.
+        ("STRASSE", "Straße"),
+    ],
+)
+def test_lookup_dsn_folds_like_server_to_platform_instance(key: str, dsn: str) -> None:
+    """For a DSN-only connect string the DSN is also the server_to_platform_instance
+    key, so both lookups must fold case the same way or one DSN could get its
+    dsn_* entries but silently miss its platform_instance."""
+    config = _build_config(
+        server_to_platform_instance={key: {"platform_instance": "inst"}}
+    )
+    resolved = ResolvePlatformInstanceFromServerToPlatformInstance(
+        config
+    ).get_platform_instance(
+        PowerBIPlatformDetail(
+            data_platform_pair=SupportedDataPlatform.AMAZON_ATHENA.value,
+            data_platform_server=dsn,
+        )
+    )
+
+    assert (_lookup_dsn({key: "athena"}, dsn) is not None) == (
+        resolved.platform_instance == "inst"
+    )
+
+
+def test_lookup_dsn_matches_case_insensitively():
+    mapping = {"BQ_Prod": "project_b"}
+
+    assert _lookup_dsn(mapping, "bq_prod") == "project_b"
+    assert _lookup_dsn(mapping, "other") is None
+
+
+@pytest.mark.parametrize(
+    "catalog, dsn_mapping, expected",
+    [
+        ("SPARK", {}, None),
+        # SPARK is a missing catalog, so the mapping supplies the real one.
+        ("SPARK", {"d": "hive_metastore"}, "hive_metastore.default.orders"),
+        # A real Unity Catalog catalog named "spark" is lowercase and kept.
+        ("spark", {}, "spark.default.orders"),
+        ("hive_metastore", {"d": "main"}, "hive_metastore.default.orders"),
+    ],
+)
+def test_odbc_databricks_spark_pseudo_catalog(
+    catalog: str, dsn_mapping: Dict[str, str], expected: Optional[str]
+) -> None:
+    instance = _build_odbc_lineage(dsn_to_database_schema=dsn_mapping)
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", catalog),
+            ("Schema", "default"),
+            ("Table", "orders"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Databricks",
+        datahub_data_platform_name="databricks",
+    )
+
+    result = instance.expression_lineage(
+        detail, "databricks", pair, server_name="dsn", dsn="d"
+    )
+
+    titles = [w.title for w in instance.reporter.warnings]
+    if expected is None:
+        assert result.upstreams == []
+        assert titles == ["Cannot map Spark ODBC catalog to Databricks"]
+    else:
+        assert [u.urn for u in result.upstreams] == [
+            f"urn:li:dataset:(urn:li:dataPlatform:databricks,{expected},PROD)"
+        ]
+        assert titles == []
+
+
+def test_odbc_databricks_nav_prepends_metastore() -> None:
+    """Like Databricks.Catalogs navigation, a metastore configured for the server
+    prefixes the catalog so both paths emit the same URN."""
+    instance = _build_odbc_lineage(
+        platform_detail=DataBricksPlatformDetail(
+            platform_instance="dbx", metastore="my_ms"
+        )
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "main"),
+            ("Schema", "sales"),
+            ("Table", "orders"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Databricks",
+        datahub_data_platform_name="databricks",
+    )
+
+    result = instance.expression_lineage(
+        detail, "databricks", pair, server_name="dsn", dsn="d"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,dbx.my_ms.main.sales.orders,PROD)"
+    ]
+
+
+# Spelled out rather than derived from ODBC_THREE_TIER_PLATFORMS, so dropping a
+# platform from the set fails its case instead of silently removing it.
+@pytest.mark.parametrize(
+    "platform",
+    ["bigquery", "databricks", "db2", "mssql", "postgres", "redshift", "snowflake"],
+)
+def test_odbc_three_tier_database_table_without_schema_warns_and_skips(
+    platform: str,
+) -> None:
+    """Every three-tier platform must skip Database + Table navigation instead of
+    emitting a truncated database.table."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(("Database", "mydb"), ("Table", "orders")),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name=platform, datahub_data_platform_name=platform
+    )
+
+    result = instance.expression_lineage(
+        detail, platform, pair, server_name="dsn", dsn="d"
+    )
+
+    assert result.upstreams == []
+    assert [w.title for w in instance.reporter.warnings] == [
+        "Can not determine qualified table name"
+    ]
+
+
+@pytest.mark.parametrize(
+    "powerbi_platform, platform, expected",
+    [
+        ("Oracle", "oracle", "sales.orders"),
+        ("Hive", "hive", "sales.orders"),
+        ("Amazon Athena", "athena", "sales.orders"),
+    ],
+)
+def test_odbc_navigation_schema_wins_over_two_part_dsn_mapping(
+    powerbi_platform: str, platform: str, expected: str
+) -> None:
+    """A navigation Schema must beat the schema segment of a two-part mapping."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"d": "other_db.other_schema"}
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(("Schema", "SALES"), ("Table", "ORDERS")),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name=powerbi_platform,
+        datahub_data_platform_name=platform,
+    )
+
+    result = instance.expression_lineage(
+        detail, platform, pair, server_name="dsn", dsn="d"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        f"urn:li:dataset:(urn:li:dataPlatform:{platform},{expected},PROD)"
+    ]
+
+
+@pytest.mark.parametrize(
+    "navigation, expected_urns, expected_titles",
+    [
+        # An empty Database name is absent, so the Schema is the database.
+        (
+            [("Database", ""), ("Schema", "sales"), ("Table", "orders")],
+            ["urn:li:dataset:(urn:li:dataPlatform:mysql,sales.orders,PROD)"],
+            [],
+        ),
+        # An empty Table name is no table, not a "db." URN.
+        (
+            [("Database", "sales"), ("Table", "")],
+            [],
+            ["ODBC navigation has no table"],
+        ),
+    ],
+    ids=["empty-database", "empty-table"],
+)
+def test_odbc_navigation_treats_empty_names_as_missing(
+    navigation: List[Tuple[str, str]],
+    expected_urns: List[str],
+    expected_titles: List[str],
+) -> None:
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(*navigation),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="MySQL", datahub_data_platform_name="mysql"
+    )
+
+    result = instance.expression_lineage(
+        detail, "mysql", pair, server_name="dsn", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == expected_urns
+    assert [w.title for w in instance.reporter.warnings] == expected_titles
+
+
+@pytest.mark.parametrize(
+    "navigation",
+    [
+        # Navigation stops before a Table/View leaf.
+        _nav_accessor(("Database", "DB"), ("Schema", "S")),
+        # Leaf addressed with Item= and no Kind.
+        IdentifierAccessor(
+            identifier="db",
+            items={"Kind": "Database", "Name": "db"},
+            next=IdentifierAccessor(
+                identifier="t", items={"Item": "orders"}, next=None
+            ),
+        ),
+    ],
+    ids=["no-leaf", "item-without-kind"],
+)
+def test_odbc_navigation_without_table_reports_its_own_warning(
+    navigation: IdentifierAccessor,
+) -> None:
+    """dsn_to_database_schema cannot supply a table, so a missing leaf must not
+    point users at it; the warning carries the navigation items instead."""
+    instance = _build_odbc_lineage(dsn_to_database_schema={"d": "DB.S"})
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=navigation,
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Snowflake",
+        datahub_data_platform_name="snowflake",
+    )
+
+    result = instance.expression_lineage(
+        detail, "snowflake", pair, server_name="dsn", dsn="d"
+    )
+
+    assert result.upstreams == []
+    titles = [w.title for w in instance.reporter.warnings]
+    assert titles == ["ODBC navigation has no table"]
+    assert "navigation=" in str(instance.reporter.warnings[0].context)
+
+
+@pytest.mark.parametrize(
+    "powerbi_platform, platform",
+    [("MySQL", "mysql"), ("Teradata", "teradata")],
+)
+def test_odbc_two_part_platform_allows_database_table_fallback(
+    powerbi_platform: str, platform: str
+) -> None:
+    """Two-part platforms keep database.table. Teradata guards that the two-part
+    set covers more than MySQL."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "finance"),
+            ("Table", "accounts"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name=powerbi_platform,
+        datahub_data_platform_name=platform,
+    )
+
+    result = instance.expression_lineage(
+        detail, platform, pair, server_name="dsn", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        f"urn:li:dataset:(urn:li:dataPlatform:{platform},finance.accounts,PROD)"
+    ]
+
+
+def test_odbc_two_part_mysql_schema_nav_wins_over_dsn_mapping():
+    """A two-part platform must never emit database.schema.table, and a
+    dsn_to_database_schema value must never override a level navigation supplied.
+    MySQL navigation Schema + Table (no Database) means the schema is the
+    database, so the mapping is ignored."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"mysql_dsn": "employees"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "sales"),
+            ("Table", "orders"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="MySQL", datahub_data_platform_name="mysql"
+    )
+
+    result = instance.expression_lineage(
+        detail, "mysql", pair, server_name="dsn", dsn="mysql_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,sales.orders,PROD)"
+    ]
+
+
+@pytest.mark.parametrize("dsn_mapping", [None, {"td_dsn": "sales_db"}])
+def test_odbc_teradata_schema_nav_is_database_and_wins_over_dsn_mapping(
+    dsn_mapping: Optional[Dict[str, str]],
+) -> None:
+    """Teradata ODBC navigation is Schema -> Table, where the "schema" is the
+    database. It must emit schema.table with or without a dsn_to_database_schema
+    mapping; the mapping must not replace the navigation-supplied level (a DSN
+    serving several databases would otherwise collapse onto one)."""
+    instance = _build_odbc_lineage(dsn_to_database_schema=dsn_mapping or {})
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "other_db"),
+            ("Table", "orders"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Teradata",
+        datahub_data_platform_name="teradata",
+    )
+
+    result = instance.expression_lineage(
+        detail, "teradata", pair, server_name="dsn", dsn="td_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:teradata,other_db.orders,PROD)"
+    ]
+    assert [w.title for w in instance.reporter.warnings] == []
+
+
+@pytest.mark.parametrize("platform", ["mysql", "teradata"])
+@pytest.mark.parametrize(
+    "schema, expected_urns, expected_warnings",
+    [
+        # database.table cannot hold a second level, and dropping it would merge
+        # finance.s1.accounts and finance.s2.accounts into one upstream.
+        ("reporting", [], ["Cannot map ODBC navigation schema level"]),
+        # A schema level that repeats the database adds nothing.
+        ("FINANCE", ["finance.accounts"], []),
+    ],
+    ids=["different-schema-skips", "schema-repeats-database"],
+)
+def test_odbc_database_table_platform_with_database_and_schema(
+    platform: str,
+    schema: str,
+    expected_urns: List[str],
+    expected_warnings: List[str],
+) -> None:
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "finance"),
+            ("Schema", schema),
+            ("Table", "accounts"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name=platform, datahub_data_platform_name=platform
+    )
+
+    result = instance.expression_lineage(
+        detail, platform, pair, server_name="dsn", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        f"urn:li:dataset:(urn:li:dataPlatform:{platform},{name},PROD)"
+        for name in expected_urns
+    ]
+    assert [w.title for w in instance.reporter.warnings] == expected_warnings
+
+
+@pytest.mark.parametrize(
+    "navigation, dsn_mapping, expected_names, expected_warnings",
+    [
+        ((("Database", "db"), ("Table", "orders")), {}, ["db.orders"], []),
+        # The mapping backfills the database but never splices in its schema.
+        ((("Table", "orders"),), {"d": "db.sch"}, ["db.orders"], []),
+        (
+            (("Table", "orders"),),
+            {},
+            [],
+            ["Can not determine qualified table name"],
+        ),
+    ],
+    ids=["database-table", "mapping-database-only", "no-database-skips"],
+)
+def test_odbc_unknown_platform_backfills_only_the_database(
+    navigation: Tuple[Tuple[str, str], ...],
+    dsn_mapping: Dict[str, str],
+    expected_names: List[str],
+    expected_warnings: List[str],
+) -> None:
+    instance = _build_odbc_lineage(dsn_to_database_schema=dsn_mapping)
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(*navigation),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="SAP Sybase", datahub_data_platform_name="sybase"
+    )
+
+    result = instance.expression_lineage(
+        detail, "sybase", pair, server_name="dsn", dsn="d"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        f"urn:li:dataset:(urn:li:dataPlatform:sybase,{name},PROD)"
+        for name in expected_names
+    ]
+    assert [w.title for w in instance.reporter.warnings] == expected_warnings
+
+
+def test_odbc_navigation_unresolved_name_skips_with_warning() -> None:
+    """A Name built from a parameter or expression is left out of the navigation
+    items; that level must not be guessed from the mapping."""
+    instance = _build_odbc_lineage(dsn_to_database_schema={"d": "db"})
+    table_step = IdentifierAccessor(
+        identifier="orders", items={"Kind": "Table", "Name": "orders"}, next=None
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=IdentifierAccessor(
+            identifier="db_param", items={"Kind": "Database"}, next=table_step
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="MySQL", datahub_data_platform_name="mysql"
+    )
+
+    result = instance.expression_lineage(
+        detail, "mysql", pair, server_name="dsn", dsn="d"
+    )
+
+    assert result.upstreams == []
+    assert [w.title for w in instance.reporter.warnings] == [
+        "ODBC navigation name not resolved"
+    ]
+
+
+def test_odbc_unknown_platform_keeps_schema_so_tables_do_not_merge() -> None:
+    """A platform with no standalone connector (Sybase) must keep the navigation
+    Schema: dropping it would merge db.dbo.orders and db.sales.orders into one
+    upstream."""
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="SAP Sybase", datahub_data_platform_name="sybase"
+    )
+    urns: List[str] = []
+    for schema in ("dbo", "sales"):
+        instance = _build_odbc_lineage()
+        detail = DataAccessFunctionDetail(
+            arg_list={},
+            data_access_function_name="Odbc.DataSource",
+            identifier_accessor=_nav_accessor(
+                ("Database", "db"),
+                ("Schema", schema),
+                ("Table", "orders"),
+            ),
+            node_map={},
+        )
+        result = instance.expression_lineage(
+            detail, "sybase", pair, server_name="dsn", dsn=""
+        )
+        urns.extend(u.urn for u in result.upstreams)
+        assert instance.reporter.warnings == []
+
+    assert urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:sybase,db.dbo.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:sybase,db.sales.orders,PROD)",
+    ]
+
+
+@pytest.mark.parametrize(
+    "navigation, expected_urns, expected_warnings",
+    [
+        (
+            (("Database", "stores"), ("Schema", "informix"), ("Table", "customer")),
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:informix,stores.informix.customer,PROD)"
+            ],
+            [],
+        ),
+        # Without an owner level a database.table URN never matches standalone
+        # Informix, so it is skipped rather than emitted.
+        (
+            (("Database", "stores"), ("Table", "customer")),
+            [],
+            ["Can not determine qualified table name"],
+        ),
+    ],
+    ids=["full-navigation", "missing-owner-skips"],
+)
+def test_odbc_informix_is_three_tier(
+    navigation: Tuple[Tuple[str, str], ...],
+    expected_urns: List[str],
+    expected_warnings: List[str],
+) -> None:
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(*navigation),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="IBM Informix",
+        datahub_data_platform_name="informix",
+    )
+
+    result = instance.expression_lineage(
+        detail, "informix", pair, server_name="dsn", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == expected_urns
+    assert [w.title for w in instance.reporter.warnings] == expected_warnings
+
+
+@pytest.mark.parametrize(
+    "platform_detail, expected_name",
+    [
+        # Without default_database Oracle URNs are schema.table, so the mapping's
+        # database is unused.
+        (PlatformDetail(), "hr.employees"),
+        # Within the default_database opt-in a one-part mapping value is the
+        # database and wins over the per-server default.
+        (OraclePlatformDetail(default_database="DEFAULTDB"), "orcl.hr.employees"),
+    ],
+)
+def test_odbc_oracle_one_part_dsn_value_with_schema_navigation(
+    platform_detail: PlatformDetail, expected_name: str
+) -> None:
+    instance = _build_odbc_lineage(
+        platform_detail=platform_detail,
+        dsn_to_database_schema={"oracle_dsn": "ORCL"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "HR"),
+            ("Table", "EMPLOYEES"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    result = instance.expression_lineage(
+        detail, "oracle", pair, server_name="dsn", dsn="oracle_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        f"urn:li:dataset:(urn:li:dataPlatform:oracle,{expected_name},PROD)"
+    ]
+
+
+def test_odbc_oracle_one_part_dsn_value_is_not_promoted_to_schema():
+    """Unlike Hive, a one-part dsn_to_database_schema value (a database) must NOT
+    be used as the Oracle schema — Oracle has real schemas and a dedicated
+    database-tier knob (default_database). With no navigation schema, Oracle must
+    warn and skip rather than emit database-as-schema. Any Kind=Database node is
+    likewise not a schema and is dropped."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"oracle_dsn": "ORCL"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "ORCLPDB"),
+            ("Table", "EMPLOYEES"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    result = instance.expression_lineage(
+        detail, "oracle", pair, server_name="dsn", dsn="oracle_dsn"
+    )
+
+    assert result.upstreams == []
+    assert any(
+        w.title == "Cannot build two-tier ODBC table name"
+        for w in instance.reporter.warnings
+    )
+
+
+def test_odbc_oracle_nav_database_dropped_for_two_part_urn():
+    """Even when Kind=Database is present, default Oracle URNs are schema.table
+    (add_database_name_to_urn defaults to false). Drop the database tier."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "ORCL"),
+            ("Schema", "HR"),
+            ("Table", "EMPLOYEES"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    result = instance.expression_lineage(
+        detail, "oracle", pair, server_name="dsn", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+    ]
+
+
+@pytest.mark.parametrize(
+    "platform_detail, expected_name",
+    [
+        # Without the default_database opt-in Oracle URNs are schema.table, so the
+        # mapping's database segment is unused.
+        (PlatformDetail(), "hr.employees"),
+        # Within the opt-in the per-DSN mapping wins over the per-server default.
+        (OraclePlatformDetail(default_database="DEFAULTDB"), "orcl.hr.employees"),
+    ],
+)
+def test_odbc_oracle_two_part_dsn_mapping_table_only_nav(
+    platform_detail: PlatformDetail, expected_name: str
+) -> None:
+    """A '<database>.<schema>' dsn_to_database_schema value with Table-only Oracle
+    navigation supplies the schema, and the database too when default_database
+    opts into three-part URNs."""
+    instance = _build_odbc_lineage(
+        platform_detail=platform_detail,
+        dsn_to_database_schema={"oracle_dsn": "ORCL.HR"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(("Table", "EMPLOYEES")),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    result = instance.expression_lineage(
+        detail, "oracle", pair, server_name="oracle_server", dsn="oracle_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        f"urn:li:dataset:(urn:li:dataPlatform:oracle,{expected_name},PROD)"
+    ]
+
+
+def test_odbc_oracle_nav_database_wins_over_default_database():
+    """When a navigation Database, a dsn_to_database_schema database and
+    default_database are all present, the navigation-supplied database wins.
+    Mirrors OracleLineage's effective_db precedence and the 'navigation always
+    wins' contract."""
+    instance = _build_odbc_lineage(
+        platform_detail=OraclePlatformDetail(default_database="MYDB"),
+        dsn_to_database_schema={"d": "OTHERDB.HR"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "ORCLPDB"),
+            ("Schema", "HR"),
+            ("Table", "EMPLOYEES"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    result = instance.expression_lineage(
+        detail, "oracle", pair, server_name="oracle_server", dsn="d"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,orclpdb.hr.employees,PROD)"
+    ]
+
+
+def test_odbc_hive_ignores_oracle_default_database():
+    """The server resolver keys only on the server name, so a Hive server that
+    happens to map to an OraclePlatformDetail must NOT gain a database tier —
+    Hive stays two-tier schema.table. The default_database opt-in is gated on the
+    Oracle platform to guarantee this."""
+    instance = _build_odbc_lineage(
+        platform_detail=OraclePlatformDetail(default_database="ORCL")
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "analytics"),
+            ("Table", "events"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Hive", datahub_data_platform_name="hive"
+    )
+
+    result = instance.expression_lineage(
+        detail, "hive", pair, server_name="hive_server", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.events,PROD)"
+    ]
+
+
+def test_odbc_athena_two_part_dsn_mapping_supplies_database():
+    """With Table-only Athena navigation, a '<catalog>.<database>' mapping supplies
+    the database from its second segment, giving the standalone Athena connector's
+    database.table; the catalog segment is never used."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"athena_dsn": "awsdatacatalog.mydb"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(("Table", "accounts")),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:athena,mydb.accounts,PROD)"
+    ]
+
+
+def test_odbc_athena_nav_catalog_without_schema_warns_and_skips():
+    """Athena's Kind=Database node is only the strippable catalog; with no schema
+    (Athena's real database) and no dsn_to_database_schema mapping to supply one,
+    the connector must not emit catalog.table — that leading catalog would
+    masquerade as the database and point at the wrong dataset. Warn and skip."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "awsdatacatalog"),
+            ("Table", "accounts"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert result.upstreams == []
+    assert any(
+        w.title == "Can not determine qualified table name"
+        for w in instance.reporter.warnings
+    )
+
+
+def test_odbc_athena_nav_catalog_one_part_dsn_backfills_database():
+    """When Athena navigation exposes a Kind=Database catalog + Table but no
+    schema, a one-part dsn_to_database_schema value supplies the missing database
+    (schema slot). The nav catalog is stripped, so the URN is database.table —
+    matching the SQL path, which also builds database.table from a one-part DSN."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"athena_dsn": "mydb"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "awsdatacatalog"),
+            ("Table", "accounts"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:athena,mydb.accounts,PROD)"
+    ]
+
+
+def test_odbc_athena_nav_schema_table_without_catalog_emits_database_table():
+    """Athena navigation exposing Schema + Table but no catalog already carries
+    Athena's real database in the schema slot, so a valid database.table URN must
+    be emitted rather than dropped."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "mydb"),
+            ("Table", "accounts"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:athena,mydb.accounts,PROD)"
+    ]
+
+
+def test_odbc_athena_nav_applies_table_platform_override():
+    """The navigation path must apply athena_table_platform_override end to end:
+    resolve the Athena platform_instance, split that prefix off the URN, match the
+    override, and re-point to the federated platform without the Athena instance."""
+    instance = _build_odbc_lineage(
+        platform_detail=PlatformDetail(platform_instance="athena_inst"),
+        athena_table_platform_override=[
+            AthenaPlatformOverride(
+                database="my_schema", table="my_table", platform="mysql"
+            )
+        ],
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "my_schema"),
+            ("Table", "my_table"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,my_schema.my_table,PROD)"
+    ]
+
+
+@pytest.mark.parametrize(
+    "override_env, expected_env",
+    [
+        pytest.param(None, "DEV", id="unset-keeps-athena-env"),
+        pytest.param("PROD", "PROD", id="override-env-wins"),
+    ],
+)
+def test_odbc_athena_override_env(
+    override_env: Optional[str], expected_env: str
+) -> None:
+    """The federated source may be ingested under another env than the Athena
+    server; the override's env must then replace Athena's in the rewritten URN."""
+    instance = _build_odbc_lineage(
+        platform_detail=PlatformDetail(platform_instance="athena_inst", env="DEV"),
+        athena_table_platform_override=[
+            AthenaPlatformOverride(
+                database="my_schema",
+                table="my_table",
+                platform="mysql",
+                env=override_env,
+            )
+        ],
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "my_schema"),
+            ("Table", "my_table"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        f"urn:li:dataset:(urn:li:dataPlatform:mysql,my_schema.my_table,{expected_env})"
+    ]
+
+
+@pytest.mark.parametrize(
+    "overrides, expected_platform, expected_unmatched",
+    [
+        # A DSN-scoped entry wins over a global one listed before it.
+        (
+            [
+                {"database": "mydb", "table": "orders", "platform": "hive"},
+                {
+                    "dsn": "d",
+                    "database": "mydb",
+                    "table": "orders",
+                    "platform": "mysql",
+                },
+            ],
+            "mysql",
+            [],
+        ),
+        # ...and over one listed after it.
+        (
+            [
+                {
+                    "dsn": "d",
+                    "database": "mydb",
+                    "table": "orders",
+                    "platform": "mysql",
+                },
+                {"database": "mydb", "table": "orders", "platform": "hive"},
+            ],
+            "mysql",
+            [],
+        ),
+        # An entry scoped to another DSN did not match this upstream.
+        (
+            [
+                {
+                    "dsn": "other",
+                    "database": "mydb",
+                    "table": "orders",
+                    "platform": "hive",
+                },
+                {"database": "mydb", "table": "orders", "platform": "mysql"},
+            ],
+            "mysql",
+            [0],
+        ),
+    ],
+    ids=[
+        "dsn-scoped-beats-earlier-global",
+        "dsn-scoped-beats-later-global",
+        "other-dsn-scope-not-matched",
+    ],
+)
+def test_odbc_athena_override_priority(
+    overrides: List[Dict[str, str]],
+    expected_platform: str,
+    expected_unmatched: List[int],
+) -> None:
+    """Also pins which entries count as matched: a global entry outranked by a
+    DSN-scoped one still matched, so it must not get the "never matched" warning."""
+    instance = _build_odbc_lineage(
+        athena_table_platform_override=[AthenaPlatformOverride(**o) for o in overrides]
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(("Schema", "mydb"), ("Table", "orders")),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="d"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        f"urn:li:dataset:(urn:li:dataPlatform:{expected_platform},mydb.orders,PROD)"
+    ]
+    configured = instance.config.athena_table_platform_override
+    assert instance.reporter.unmatched_athena_overrides(configured) == [
+        configured[index] for index in expected_unmatched
+    ]
+
+
+def test_odbc_athena_post_processing_keeps_unparseable_urn_and_warns() -> None:
+    """A malformed upstream URN must not crash the table: both the catalog strip
+    and the platform override leave it unchanged and report a warning."""
+    instance = _build_odbc_lineage(
+        athena_table_platform_override=[
+            AthenaPlatformOverride(database="mydb", table="orders", platform="mysql")
+        ]
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+    lineage = Lineage(
+        upstreams=[DataPlatformTable(data_platform_pair=pair, urn="not-a-urn")],
+        column_lineage=[],
+    )
+
+    stripped = instance._strip_athena_catalog_from_lineage(
+        lineage, platform_instance=None
+    )
+    overridden = instance._apply_table_platform_override(
+        lineage, dsn="d", platform_instance=None
+    )
+
+    assert [u.urn for u in stripped.upstreams] == ["not-a-urn"]
+    assert [u.urn for u in overridden.upstreams] == ["not-a-urn"]
+    assert len(instance.reporter.warnings) == 2
+
+
+def test_odbc_athena_nav_override_matches_case_insensitively():
+    """make_urn lowercases names by default, while users copy mixed-case names
+    from the Power Query navigator into the override; it must still match. The
+    override's dsn is compared case-insensitively too (Windows ODBC DSNs are)."""
+    instance = _build_odbc_lineage(
+        athena_table_platform_override=[
+            AthenaPlatformOverride(
+                database="SalesDb", table="Orders", platform="mysql", dsn="ATHENA_DSN"
+            )
+        ],
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "AwsDataCatalog"),
+            ("Schema", "SalesDb"),
+            ("Table", "Orders"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,salesdb.orders,PROD)"
+    ]
+    assert (
+        instance.reporter.unmatched_athena_overrides(
+            instance.config.athena_table_platform_override
+        )
+        == []
+    )
+    assert "athena_table_platform_overrides_matched" not in str(
+        instance.reporter.as_obj()
     )
 
 
@@ -998,7 +2185,9 @@ def test_odbc_view_leaf_resolves_like_table():
         datahub_data_platform_name="bigquery",
     )
 
-    result = instance.expression_lineage(detail, "bigquery", pair, server_name="dsn")
+    result = instance.expression_lineage(
+        detail, "bigquery", pair, server_name="dsn", dsn=""
+    )
 
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.my_view,PROD)"

@@ -1932,6 +1932,58 @@ def test_fill_dashboards_wires_tile_dataset_via_registry_and_report_via_workspac
     assert "Missing Report Lineage For Tile" in info_titles
 
 
+def _make_scanned_workspace(ws_id: str) -> Workspace:
+    workspace = _make_workspace(ws_id)
+    workspace.scan_result = {Constant.ID: ws_id}
+    return workspace
+
+
+def test_get_workunits_internal_reports_each_unmatched_athena_override_as_info():
+    """Overrides that never rewrote a URN during the run are each reported, so a
+    typo in database/table/dsn is visible; applied overrides stay silent. Info,
+    not a warning: a correct override's table may simply not be processed in a
+    run, which the source cannot tell from a typo."""
+    source = _make_source(
+        workspaces_to_return=[_make_scanned_workspace("WS-A")],
+        excluded_ids=set(),
+        athena_table_platform_override=[
+            {"database": "sales", "table": "orders", "platform": "mysql"},
+            {"database": "sales", "table": "ordres", "platform": "mysql"},
+        ],
+    )
+    source.reporter.report_athena_overrides_matched([0])
+
+    list(source.get_workunits_internal())
+
+    title = "Athena table platform override never matched"
+    unmatched = [i for i in source.reporter.infos if i.title == title]
+    # Same-title entries are merged into one, so also check the applied
+    # override's context was never added.
+    assert len(unmatched) == 1
+    assert "table=ordres" in str(unmatched[0].context)
+    assert "table=orders" not in str(unmatched[0].context)
+    assert title not in [w.title for w in source.reporter.warnings]
+
+
+def test_get_workunits_internal_skips_unmatched_override_report_without_lineage():
+    """With extract_lineage off no override can match, so none is reported."""
+    source = _make_source(
+        workspaces_to_return=[_make_scanned_workspace("WS-A")],
+        excluded_ids=set(),
+        extract_lineage=False,
+        extract_column_level_lineage=False,
+        athena_table_platform_override=[
+            {"database": "sales", "table": "orders", "platform": "mysql"},
+        ],
+    )
+
+    list(source.get_workunits_internal())
+
+    title = "Athena table platform override never matched"
+    assert title not in [w.title for w in source.reporter.warnings]
+    assert title not in [i.title for i in source.reporter.infos]
+
+
 def test_get_workunits_internal_phase2_failure_skips_only_that_workspace():
     """A per-workspace detail fetch failure must be reported and must not
     stop the remaining workspaces from being emitted."""

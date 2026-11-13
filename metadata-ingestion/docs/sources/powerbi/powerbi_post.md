@@ -87,6 +87,54 @@ PowerBI Source will extract lineage for the below listed PowerBI Data Sources:
 
 Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, `Oracle`, and ODBC data sources.
 
+#### ODBC Hierarchical Navigation
+
+When a table navigates an ODBC source (`Odbc.DataSource(..., [HierarchicalNavigation=true])`), the upstream URN is built from the navigation levels in the shape that platform's own source plugin emits:
+
+| Platform                                                                  | URN shape                      |
+| ------------------------------------------------------------------------- | ------------------------------ |
+| Oracle, Hive                                                              | `schema.table`                 |
+| BigQuery, Snowflake, Postgres, MSSQL, Redshift, Databricks, Db2, Informix | `database.schema.table`        |
+| Athena                                                                    | `database.table`               |
+| MySQL, Teradata                                                           | `database.table`               |
+| Other platforms (Sybase, Firebird, ...)                                   | every level navigation exposes |
+
+MSSQL, Db2, Informix, Teradata and the other platforms in the last row have no `dataset_type_mapping` key for their ODBC driver, so their ODBC lineage is emitted while `dataset_type_mapping` includes `Odbc` (the default). The other platforms in the table follow their own key, for example `MySQL` or `Snowflake`.
+
+For MySQL and Teradata, navigation with a Schema but no Database level emits `schema.table`: the schema is the database. Navigation with both levels is skipped with a warning unless the two names match, since `database.table` cannot keep a second level without merging tables from different schemas.
+
+If navigation does not expose every level, for example a driver that reports no catalog so the navigation starts at the schema, supply the missing levels per DSN with `dsn_to_database_schema`. Navigation always wins: the mapping only fills levels that navigation did not supply, and only levels the platform's URN shape uses. Three-tier platforms use both parts. MySQL, Teradata and the other platforms in the last table row use only the database part. Hive uses a one-part value as the schema, Athena uses the second part (or a one-part value) as its database, and Oracle never uses a one-part value as the schema.
+
+```yaml
+source:
+  type: powerbi
+  config:
+    dsn_to_database_schema:
+      bq_analytics: my_project # BigQuery: supplies the project
+      snow_dsn: ANALYTICS.PUBLIC # Snowflake: database.schema
+      hive_prod: product_analytics # Hive: a one-part value is the schema
+      oracle_dsn: ORCL.HR # Oracle: database.schema; the database is used only with default_database (below)
+```
+
+If a required level still cannot be resolved (for other platforms, the database), lineage for that table is skipped with a `Can not determine qualified table name` warning (`Cannot build two-tier ODBC table name` for Oracle and Hive) that names the DSN.
+
+Oracle over ODBC emits `schema.table` by default. If your Oracle ingestion uses `add_database_name_to_urn: true`, set `default_database` under `server_to_platform_instance`. For a DSN-only connection string the key is the DSN name, not a TNS alias. The database then comes from navigation, then the `dsn_to_database_schema` value, then `default_database`:
+
+```yaml
+source:
+  type: powerbi
+  config:
+    server_to_platform_instance:
+      oracle_dsn:
+        default_database: ORCL # emits orcl.hr.employees instead of hr.employees
+```
+
+Databricks navigation through the constant `SPARK` catalog of the Simba Spark driver treats the catalog as missing, because `spark.<schema>.<table>` never matches a Databricks catalog. Supply the real catalog with `dsn_to_database_schema`, for example `spark_dsn: hive_metastore`; without it the table is skipped with a warning. A `metastore` set for the Databricks server under `server_to_platform_instance` prefixes the catalog, as it does for `Databricks.Catalogs`.
+
+DSN names in `dsn_to_platform_name` and `dsn_to_database_schema` are matched case-insensitively. A recipe may list the same DSN under keys that differ only in case, but they must map to the same target (the same platform, or the same database and schema, compared case-insensitively unless `convert_lineage_urns_to_lowercase` is off); conflicting values fail config validation.
+
+ODBC SQL queries (`Odbc.Query`) are parsed as SQL and keep their own URN shapes: the per-platform rules above apply only to hierarchical navigation. Oracle queries follow the same `default_database` rule as navigation, so both paths emit the same URN. For Athena both paths drop the leading catalog, keep the server's `platform_instance`, and apply `athena_table_platform_override`.
+
 #### Oracle TNS Aliases and Inline Native Queries
 
 PowerBI users can connect to Oracle via a TNS alias (any `tnsnames.ora`-based deployment) and embed SQL inline using a `Query=` argument:
@@ -191,7 +239,9 @@ and empty resolutions are reported as warnings under `SQL Parsing Failure`.
 
 #### Athena Federated Query Platform Override
 
-When using Amazon Athena via ODBC that queries federated data sources (e.g., Athena querying MySQL or PostgreSQL via federated connectors), the lineage URNs will default to the Athena platform. Use `athena_table_platform_override` to point lineage to the actual source platform instead of Athena.
+When using Amazon Athena via ODBC that queries federated data sources (e.g., Athena querying MySQL via a federated connector), the lineage URNs will default to the Athena platform. Use `athena_table_platform_override` to point lineage to the actual source platform instead of Athena.
+
+The rewritten URN keeps Athena's `database.table` name, so it only matches a target whose own source plugin emits two-part names, such as MySQL. A three-tier target such as Postgres emits `database.schema.table`, so an override to it never connects.
 
 **Configuration:**
 
@@ -203,18 +253,27 @@ source:
     dsn_to_platform_name:
       MyAthenaDSN: athena
     athena_table_platform_override:
-      # DSN-scoped key (takes precedence)
-      "MyAthenaDSN:analytics.users": mysql
-      # Global key (fallback for any DSN)
-      "reporting.orders": postgres
+      # DSN-scoped entry (takes precedence)
+      - dsn: MyAthenaDSN
+        database: analytics
+        table: users
+        platform: mysql
+        platform_instance: mysql_prod # optional; see below
+      # Global entry (fallback for any DSN)
+      - database: reporting
+        table: orders
+        platform: mysql
 ```
 
-**Key format:**
+**Fields:**
 
-- **DSN-scoped**: `"DSN_NAME:database.table"` - applies only to specific DSN
-- **Global**: `"database.table"` - applies to all DSNs
+- `database`, `table`: the Athena `database.table` after the catalog is stripped. Matched case-insensitively.
+- `platform`: the DataHub platform of the federated source.
+- `dsn` (optional): limits the entry to one DSN. DSN-scoped entries take precedence over global ones, so the same table name can map differently across Athena data sources.
+- `platform_instance` (optional): set this when the federated source is ingested under a platform instance, so the URN matches that source's entities. Athena's own platform instance is never carried over.
+- `env` (optional): the env the federated source is ingested under, such as `PROD`. Defaults to the Athena server's env.
 
-DSN-scoped keys take precedence over global keys, allowing different overrides for the same table name across different Athena data sources.
+An entry that matches no Athena upstream during a run is reported as `Athena table platform override never matched` at info level. It is not a warning because a correct entry's table may not be processed in every run, for example with `modified_since` or workspace filters.
 
 **Note:** This override only applies to Athena ODBC connections. For other ODBC platforms, lineage will use the platform determined from the DSN configuration.
 

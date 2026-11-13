@@ -5,7 +5,7 @@ containers, ownership, profiling, dashboard/report/app emission) without
 any HTTP: the mapper is driven from hand-built data classes.
 """
 
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 from unittest import mock
 
 import pytest
@@ -452,6 +452,104 @@ def test_extract_lineage_skips_platforms_outside_dataset_type_mapping() -> None:
     workspace = make_workspace()
     mapper = make_mapper(config, workspace)
     dataset = _dataset(expression=_MSSQL_M_QUERY)
+
+    assert (
+        mapper.extract_lineage(dataset.tables[0], "urn:li:dataset:x", workspace) == []
+    )
+
+
+def _odbc_navigation_m_query(driver: str, levels: List[Tuple[str, str]]) -> str:
+    steps = [
+        f'Source = Odbc.DataSource("driver={{{driver}}};server=db-host;dsn=sales_dsn", '
+        "[HierarchicalNavigation=true])"
+    ]
+    previous = "Source"
+    for index, (name, kind) in enumerate(levels):
+        step = f"Step{index}"
+        steps.append(f'{step} = {previous}{{[Name="{name}",Kind="{kind}"]}}[Data]')
+        previous = step
+    return "let\n " + ",\n ".join(steps) + f"\nin\n {previous}"
+
+
+_DATABASE_SCHEMA_TABLE = [
+    ("SalesDB", "Database"),
+    ("dbo", "Schema"),
+    ("orders", "Table"),
+]
+
+
+@pytest.mark.parametrize(
+    "driver, levels, expected_upstream",
+    [
+        pytest.param(
+            "PostgreSQL Unicode",
+            _DATABASE_SCHEMA_TABLE,
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,salesdb.dbo.orders,PROD)",
+            id="postgres",
+        ),
+        pytest.param(
+            "ODBC Driver 17 for SQL Server",
+            _DATABASE_SCHEMA_TABLE,
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,salesdb.dbo.orders,PROD)",
+            id="mssql",
+        ),
+        pytest.param(
+            "IBM DB2 ODBC DRIVER",
+            _DATABASE_SCHEMA_TABLE,
+            "urn:li:dataset:(urn:li:dataPlatform:db2,salesdb.dbo.orders,PROD)",
+            id="db2",
+        ),
+        pytest.param(
+            "IBM INFORMIX ODBC DRIVER",
+            _DATABASE_SCHEMA_TABLE,
+            "urn:li:dataset:(urn:li:dataPlatform:informix,salesdb.dbo.orders,PROD)",
+            id="informix",
+        ),
+        pytest.param(
+            "Teradata Database ODBC Driver 17.20",
+            [("SalesDB", "Database"), ("orders", "Table")],
+            "urn:li:dataset:(urn:li:dataPlatform:teradata,salesdb.orders,PROD)",
+            id="teradata",
+        ),
+        pytest.param(
+            "Sybase ASE ODBC Driver",
+            _DATABASE_SCHEMA_TABLE,
+            "urn:li:dataset:(urn:li:dataPlatform:sybase,salesdb.dbo.orders,PROD)",
+            id="sybase",
+        ),
+    ],
+)
+def test_extract_lineage_emits_odbc_navigation_upstream(
+    driver: str, levels: List[Tuple[str, str]], expected_upstream: str
+) -> None:
+    """ODBC-only platforms ("SQL Server", "IBM DB2", "Teradata", ...) have no
+    dataset_type_mapping key of their own, so the upstream must not be dropped
+    by the dataset_type_mapping filter."""
+    config = powerbi_config(extract_column_level_lineage=False)
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
+    dataset = _dataset(expression=_odbc_navigation_m_query(driver, levels))
+
+    mcps = mapper.extract_lineage(dataset.tables[0], "urn:li:dataset:x", workspace)
+
+    lineage = _aspects(mcps, UpstreamLineageClass)
+    assert [u.dataset for item in lineage for u in item.upstreams] == [
+        expected_upstream
+    ]
+
+
+def test_extract_lineage_skips_odbc_only_platform_when_odbc_is_not_mapped() -> None:
+    config = powerbi_config(
+        dataset_type_mapping={"PostgreSQL": "postgres"},
+        extract_column_level_lineage=False,
+    )
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
+    dataset = _dataset(
+        expression=_odbc_navigation_m_query(
+            "ODBC Driver 17 for SQL Server", _DATABASE_SCHEMA_TABLE
+        )
+    )
 
     assert (
         mapper.extract_lineage(dataset.tables[0], "urn:li:dataset:x", workspace) == []

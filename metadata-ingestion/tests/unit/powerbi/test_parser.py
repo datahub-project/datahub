@@ -1,3 +1,4 @@
+from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -6,6 +7,7 @@ from datahub.configuration.source_common import PlatformDetail
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
     AthenaPlatformOverride,
+    DataPlatformPair,
     OraclePlatformDetail,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
@@ -18,11 +20,14 @@ from datahub.ingestion.source.powerbi.m_query import parser as mquery_parser
 from datahub.ingestion.source.powerbi.m_query._bridge import MQueryParseError
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataAccessFunctionDetail,
+    DataPlatformTable,
     IdentifierAccessor,
+    Lineage,
 )
 from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
     AmazonAthenaLineage,
     MSSqlLineage,
+    OdbcLineage,
     OracleLineage,
     _remap_column_lineage_to_pbi_fields,
 )
@@ -598,7 +603,9 @@ def test_odbc_strip_athena_catalog_from_upstreams(odbc_lineage):
         column_lineage=[],
     )
 
-    stripped_lineage = odbc_lineage._strip_athena_catalog_from_lineage(original_lineage)
+    stripped_lineage = odbc_lineage._strip_athena_catalog_from_lineage(
+        original_lineage, platform_instance=None
+    )
 
     assert len(stripped_lineage.upstreams) == 1
     # Catalog should be stripped
@@ -608,6 +615,72 @@ def test_odbc_strip_athena_catalog_from_upstreams(odbc_lineage):
     )
     # Original prefix should not be present
     assert "awsdatacatalog" not in stripped_lineage.upstreams[0].urn
+
+
+# sqlglot lowercases the whole URN (instance included) for Athena, so a
+# mixed-case configured instance must still match its lowercased prefix, and the
+# rebuilt URN carries the configured casing.
+@pytest.mark.parametrize("platform_instance", ["my_instance", "My_Instance"])
+def test_odbc_strip_athena_catalog_preserves_platform_instance(
+    odbc_lineage: OdbcLineage, platform_instance: str
+) -> None:
+    """Catalog stripping must not eat the platform_instance prefix that
+    make_dataset_urn_with_platform_instance embeds as the leading name segment."""
+
+    platform_pair = DataPlatformPair(
+        datahub_data_platform_name="athena",
+        powerbi_data_platform_name="Amazon Athena",
+    )
+
+    # URN name is instance.catalog.database.table
+    original_lineage = Lineage(
+        upstreams=[
+            DataPlatformTable(
+                data_platform_pair=platform_pair,
+                urn="urn:li:dataset:(urn:li:dataPlatform:athena,my_instance.awsdatacatalog.mydb.mytable,PROD)",
+            )
+        ],
+        column_lineage=[],
+    )
+
+    stripped_lineage = odbc_lineage._strip_athena_catalog_from_lineage(
+        original_lineage, platform_instance=platform_instance
+    )
+
+    # Catalog stripped, instance preserved -> instance.database.table
+    assert (
+        stripped_lineage.upstreams[0].urn
+        == f"urn:li:dataset:(urn:li:dataPlatform:athena,{platform_instance}.mydb.mytable,PROD)"
+    )
+
+
+def test_odbc_strip_athena_catalog_instance_only_two_part_unchanged(odbc_lineage):
+    """With an instance prefix and an already-2-part table name, there is no
+    catalog to strip; the URN (including instance) must stay intact."""
+
+    platform_pair = DataPlatformPair(
+        datahub_data_platform_name="athena",
+        powerbi_data_platform_name="Amazon Athena",
+    )
+
+    original_lineage = Lineage(
+        upstreams=[
+            DataPlatformTable(
+                data_platform_pair=platform_pair,
+                urn="urn:li:dataset:(urn:li:dataPlatform:athena,my_instance.mydb.mytable,PROD)",
+            )
+        ],
+        column_lineage=[],
+    )
+
+    stripped_lineage = odbc_lineage._strip_athena_catalog_from_lineage(
+        original_lineage, platform_instance="my_instance"
+    )
+
+    assert (
+        stripped_lineage.upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,my_instance.mydb.mytable,PROD)"
+    )
 
 
 def test_odbc_strip_athena_catalog_from_column_lineage(odbc_lineage):
@@ -658,7 +731,9 @@ def test_odbc_strip_athena_catalog_from_column_lineage(odbc_lineage):
         ],
     )
 
-    stripped_lineage = odbc_lineage._strip_athena_catalog_from_lineage(original_lineage)
+    stripped_lineage = odbc_lineage._strip_athena_catalog_from_lineage(
+        original_lineage, platform_instance=None
+    )
 
     # Check upstream URN is stripped
     assert (
@@ -701,7 +776,9 @@ def test_odbc_strip_athena_catalog_preserves_non_catalog_urns(odbc_lineage):
         column_lineage=[],
     )
 
-    stripped_lineage = odbc_lineage._strip_athena_catalog_from_lineage(original_lineage)
+    stripped_lineage = odbc_lineage._strip_athena_catalog_from_lineage(
+        original_lineage, platform_instance=None
+    )
 
     # URN should remain unchanged
     assert (
@@ -734,7 +811,9 @@ def test_odbc_strip_athena_3part_catalog_from_upstreams(odbc_lineage):
         column_lineage=[],
     )
 
-    stripped_lineage = odbc_lineage._strip_athena_catalog_from_lineage(original_lineage)
+    stripped_lineage = odbc_lineage._strip_athena_catalog_from_lineage(
+        original_lineage, platform_instance=None
+    )
 
     assert len(stripped_lineage.upstreams) == 1
     # First part should be stripped, leaving database.table format
@@ -801,7 +880,7 @@ def test_athena_table_platform_override():
     )
 
     overridden_lineage = odbc._apply_table_platform_override(
-        original_lineage, dsn="TestDSN"
+        original_lineage, dsn="TestDSN", platform_instance=None
     )
 
     assert len(overridden_lineage.upstreams) == 1
@@ -809,6 +888,74 @@ def test_athena_table_platform_override():
     assert (
         overridden_lineage.upstreams[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:mysql,my_schema.my_table,PROD)"
+    )
+
+
+@pytest.mark.parametrize("athena_platform_instance", ["my_instance", "My_Instance"])
+@pytest.mark.parametrize(
+    "target_platform_instance, expected_name",
+    [
+        (None, "my_schema.my_table"),
+        ("mysql_prod", "mysql_prod.my_schema.my_table"),
+    ],
+)
+def test_athena_table_platform_override_replaces_platform_instance(
+    target_platform_instance: Optional[str],
+    expected_name: str,
+    athena_platform_instance: str,
+) -> None:
+    """Override matching must skip the embedded Athena platform_instance prefix so
+    the 3-part name passes the 2-part check, then drop it from the rewritten URN:
+    a platform change (athena -> mysql) hands the entity to the source connector,
+    which uses its own instance (the override's platform_instance, or none) —
+    never Athena's."""
+
+    config = PowerBiDashboardSourceConfig(
+        tenant_id="test-tenant-id",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+        athena_table_platform_override=[
+            AthenaPlatformOverride(
+                database="my_schema",
+                table="my_table",
+                platform="mysql",
+                platform_instance=target_platform_instance,
+            ),
+        ],
+    )
+
+    odbc = OdbcLineage(
+        ctx=PipelineContext(run_id="test-run-id"),
+        table=Table(name="test_table", full_name="test_table"),
+        reporter=PowerBiDashboardSourceReport(),
+        config=config,
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+    )
+
+    platform_pair = DataPlatformPair(
+        datahub_data_platform_name="athena",
+        powerbi_data_platform_name="Amazon Athena",
+    )
+
+    original_lineage = Lineage(
+        upstreams=[
+            DataPlatformTable(
+                data_platform_pair=platform_pair,
+                urn="urn:li:dataset:(urn:li:dataPlatform:athena,my_instance.my_schema.my_table,PROD)",
+            )
+        ],
+        column_lineage=[],
+    )
+
+    overridden_lineage = odbc._apply_table_platform_override(
+        original_lineage, dsn="TestDSN", platform_instance=athena_platform_instance
+    )
+
+    assert (
+        overridden_lineage.upstreams[0].urn
+        == f"urn:li:dataset:(urn:li:dataPlatform:mysql,{expected_name},PROD)"
     )
 
 
@@ -869,7 +1016,7 @@ def test_athena_table_platform_override_no_match():
     )
 
     overridden_lineage = odbc._apply_table_platform_override(
-        original_lineage, dsn="TestDSN"
+        original_lineage, dsn="TestDSN", platform_instance=None
     )
 
     assert len(overridden_lineage.upstreams) == 1
@@ -946,7 +1093,7 @@ def test_athena_table_platform_override_dsn_scoped():
 
     # Test DSN-scoped key for ProdDSN -> mysql
     overridden_lineage = odbc._apply_table_platform_override(
-        original_lineage, dsn="ProdDSN"
+        original_lineage, dsn="ProdDSN", platform_instance=None
     )
     assert (
         overridden_lineage.upstreams[0].urn
@@ -955,7 +1102,7 @@ def test_athena_table_platform_override_dsn_scoped():
 
     # Test DSN-scoped key for DevDSN -> postgres
     overridden_lineage = odbc._apply_table_platform_override(
-        original_lineage, dsn="DevDSN"
+        original_lineage, dsn="DevDSN", platform_instance=None
     )
     assert (
         overridden_lineage.upstreams[0].urn
@@ -964,7 +1111,7 @@ def test_athena_table_platform_override_dsn_scoped():
 
     # Test fallback to global key for unknown DSN -> oracle
     overridden_lineage = odbc._apply_table_platform_override(
-        original_lineage, dsn="UnknownDSN"
+        original_lineage, dsn="UnknownDSN", platform_instance=None
     )
     assert (
         overridden_lineage.upstreams[0].urn
@@ -1051,7 +1198,7 @@ def test_athena_table_platform_override_column_lineage():
     )
 
     overridden_lineage = odbc._apply_table_platform_override(
-        original_lineage, dsn="TestDSN"
+        original_lineage, dsn="TestDSN", platform_instance=None
     )
 
     # Upstream URN should be overridden
@@ -1127,7 +1274,7 @@ def test_athena_table_platform_override_dsn_with_special_chars():
 
     # DSN with space should match
     overridden_lineage = odbc._apply_table_platform_override(
-        original_lineage, dsn="RDS MYSQL"
+        original_lineage, dsn="RDS MYSQL", platform_instance=None
     )
     assert (
         overridden_lineage.upstreams[0].urn

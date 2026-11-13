@@ -430,9 +430,7 @@ def test_odbc_datasource_without_table_step_warns() -> None:
         ' db = Source{[Name="employees",Kind="Database"]}[Data]\nin\n db'
     )
     assert lineages == []
-    assert any(
-        w.title == "Can not determine qualified table name" for w in reporter.warnings
-    )
+    assert any(w.title == "ODBC navigation has no table" for w in reporter.warnings)
 
 
 def test_odbc_query_applies_dsn_database_and_schema_defaults() -> None:
