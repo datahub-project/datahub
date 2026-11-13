@@ -13,6 +13,7 @@ from datahub.configuration.common import PipelineExecutionError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
 from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.datahub_rest import (
     DatahubRestSink,
     DatahubRestSinkConfig,
@@ -518,8 +519,6 @@ def test_rest_sink_config_accepts_client_config_dump():
 @pytest.mark.parametrize("mode", [RestSinkMode.SYNC, RestSinkMode.ASYNC_BATCH])
 def test_rejected_write_fails_pipeline(requests_mock, tmp_path, mode):
     """A write GMS rejects must count as a sink failure in every mode."""
-    from datahub.ingestion.run.pipeline import Pipeline
-
     requests_mock.get(f"{MOCK_GMS_ENDPOINT}/config", json={"noCode": "true"})
     requests_mock.post(
         f"{MOCK_GMS_ENDPOINT}/aspects?action=ingestProposal",
