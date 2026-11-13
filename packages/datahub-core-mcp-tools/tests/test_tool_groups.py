@@ -93,6 +93,7 @@ WRITE_TOOLS = {
     "remove_terms",
     "create_glossary_term",
     "add_related_terms",
+    "create_domain",
     "set_domains",
     "remove_domains",
 }
