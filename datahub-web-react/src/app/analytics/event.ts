@@ -328,6 +328,8 @@ export interface SearchResultClickEvent extends BaseEvent {
     index: number;
     total: number;
     pageNumber: number;
+    /** Set when the click was on a sibling listed under a result ("Show siblings"): that result's urn. */
+    siblingOf?: string;
 }
 
 export interface SearchFiltersClearAllEvent extends BaseEvent {

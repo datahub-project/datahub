@@ -1,5 +1,6 @@
 import { Checkbox, Divider, List, ListProps } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -8,6 +9,12 @@ import { EntityAndType } from '@app/entityV2/shared/types';
 import { useSearchContext } from '@app/search/context/SearchContext';
 import EmptySearchResults from '@app/searchV2/EmptySearchResults';
 import { MatchContextContainer } from '@app/searchV2/matches/MatchContextContainer';
+import SearchResultSiblings, {
+    SIBLINGS_LIST_CLASS_NAME,
+    SiblingsLinkButton,
+} from '@app/searchV2/siblings/SearchResultSiblings';
+import { useShowSiblings } from '@app/searchV2/siblings/useShowSiblings';
+import { SiblingMemberData, useSiblingGroups } from '@app/searchV2/siblings/useSiblingGroups';
 import { useIsSearchV2 } from '@app/searchV2/useSearchAndBrowseVersion';
 import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearchResults';
 import { SEARCH_BAR_CLASS_NAME } from '@app/searchV2/utils/constants';
@@ -16,7 +23,7 @@ import { PAGE_GAP_PX } from '@app/sharedV2/layouts/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
-import { SearchResult, SearchSuggestion } from '@types';
+import { EntityType, SearchResult, SearchSuggestion } from '@types';
 
 export const MATCHES_CONTAINER_HEIGHT = 52;
 /** Room around the result cards for their 1px hover / selected outline. */
@@ -100,6 +107,11 @@ const ResultWrapper = styled.div<{
     `}
 `;
 
+const SiblingsError = styled.div`
+    margin: 8px 0 0 ${PAGE_GAP_PX}px;
+    color: ${(props) => props.theme.colors.textError};
+`;
+
 const ListItem = styled.div<{ isSelectMode: boolean }>`
     display: flex;
     align-items: center;
@@ -121,6 +133,13 @@ function useSearchKeyboardControls(
                 target.tagName === 'INPUT' ||
                 target.tagName === 'TEXTAREA' ||
                 target.isContentEditable
+            ) {
+                return null;
+            }
+            // Arrows inside an expanded sibling list scroll that list instead of moving the highlight.
+            if (
+                (event.key === 'ArrowDown' || event.key === 'ArrowUp') &&
+                target.closest(`.${SIBLINGS_LIST_CLASS_NAME}`)
             ) {
                 return null;
             }
@@ -177,6 +196,7 @@ export const SearchResultList = ({
     pageNumber,
     setAreAllEntitiesSelected,
 }: Props) => {
+    const { t } = useTranslation('search');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
@@ -225,6 +245,21 @@ export const SearchResultList = ({
         setHighlightedIndex(index);
     };
 
+    // Logged as a result click at the parent's position, with siblingOf so these clicks can be told
+    // apart from clicks on ranked results.
+    const onClickSibling = (sibling: SiblingMemberData, parentIndex: number, parentUrn: string) => {
+        analytics.event({
+            type: EventType.SearchResultClickEvent,
+            query,
+            entityUrn: sibling.entity.urn,
+            entityType: sibling.entity.type,
+            index: parentIndex,
+            total: totalResultCount,
+            pageNumber,
+            siblingOf: parentUrn,
+        });
+    };
+
     /**
      * Invoked when a new entity is selected. Simply updates the state of the list of selected entities.
      */
@@ -242,65 +277,104 @@ export const SearchResultList = ({
     useInitializeSearchResultCards(searchResults, setUrnToExpandedSection);
     const { isFullViewCard } = useSearchContext();
 
+    // "Show siblings": one extra request for the dataset results on this page; the search request,
+    // its counts and its paging are unchanged.
+    const [showSiblings] = useShowSiblings();
+    const datasetUrns = useMemo(
+        () =>
+            searchResults
+                .filter((result) => result.entity.type === EntityType.Dataset)
+                .map((result) => result.entity.urn),
+        [searchResults],
+    );
+    const {
+        groups: siblingGroups,
+        error: siblingsError,
+        retry: retrySiblings,
+    } = useSiblingGroups(datasetUrns, showSiblings);
+
     return (
-        <ResultList<React.FC<ListProps<CombinedSearchResult>>>
-            id="search-result-list"
-            $isShowNavBarRedesign={isShowNavBarRedesign}
-            dataSource={searchResults}
-            split={false}
-            locale={{ emptyText: (!loading && <EmptySearchResults suggestions={suggestions} />) || <></> }}
-            renderItem={(item, index) => {
-                const expandedSection = isFullViewCard ? urnToExpandedSection[item.entity.urn] : undefined;
-                return (
-                    <div style={{ position: 'relative' }}>
-                        <MatchContextContainer
-                            item={item}
-                            selected={highlightedIndex === index}
-                            onClick={() => onClickResult(item, index)}
-                            urnToExpandedSection={urnToExpandedSection}
-                            setUrnToExpandedSection={setUrnToExpandedSection}
-                        >
-                            <ResultWrapper
-                                showUpdatedStyles={showSearchFiltersV2}
-                                className={`entityUrn-${item.entity.urn}`}
-                                selected={highlightedIndex === index}
-                                areMatchesExpanded={!!expandedSection}
-                                onClick={() => onClickResult(item, index)}
-                                ref={refs[index]}
-                                isFullViewCard={isFullViewCard}
-                                $isShowNavBarRedesign={isShowNavBarRedesign}
-                            >
-                                <ListItem
-                                    isSelectMode={isSelectMode}
-                                    // class name for counting in test purposes only
-                                    className="test-search-result"
-                                    data-testid="search-result-item"
+        <>
+            {showSiblings && siblingsError && (
+                <SiblingsError role="alert">
+                    {t('siblings.loadError')}{' '}
+                    <SiblingsLinkButton type="button" onClick={retrySiblings}>
+                        {t('siblings.retry')}
+                    </SiblingsLinkButton>
+                </SiblingsError>
+            )}
+            <ResultList<React.FC<ListProps<CombinedSearchResult>>>
+                id="search-result-list"
+                $isShowNavBarRedesign={isShowNavBarRedesign}
+                dataSource={searchResults}
+                split={false}
+                locale={{ emptyText: (!loading && <EmptySearchResults suggestions={suggestions} />) || <></> }}
+                renderItem={(item, index) => {
+                    const expandedSection = isFullViewCard ? urnToExpandedSection[item.entity.urn] : undefined;
+                    const siblingGroup = showSiblings ? siblingGroups.get(item.entity.urn) : undefined;
+                    return (
+                        <div>
+                            <div style={{ position: 'relative' }}>
+                                <MatchContextContainer
+                                    item={item}
+                                    selected={highlightedIndex === index}
+                                    onClick={() => onClickResult(item, index)}
+                                    urnToExpandedSection={urnToExpandedSection}
+                                    setUrnToExpandedSection={setUrnToExpandedSection}
                                 >
-                                    {isSelectMode && (
-                                        <StyledCheckbox
-                                            checked={selectedEntityUrns.indexOf(item.entity.urn) >= 0}
-                                            onChange={(e) =>
-                                                onSelectEntity(
-                                                    {
-                                                        urn: item.entity.urn,
-                                                        type: item.entity.type,
-                                                    },
-                                                    e.target.checked,
-                                                )
-                                            }
-                                            onClick={(e) => e.stopPropagation()}
-                                        />
-                                    )}
-                                    {entityRegistry.renderSearchResult(item.entity.type, item)}
-                                </ListItem>
-                                {/* an entity is always going to be inserted in the sibling group, so if the sibling group is just one do not
+                                    <ResultWrapper
+                                        showUpdatedStyles={showSearchFiltersV2}
+                                        className={`entityUrn-${item.entity.urn}`}
+                                        selected={highlightedIndex === index}
+                                        areMatchesExpanded={!!expandedSection}
+                                        onClick={() => onClickResult(item, index)}
+                                        ref={refs[index]}
+                                        isFullViewCard={isFullViewCard}
+                                        $isShowNavBarRedesign={isShowNavBarRedesign}
+                                    >
+                                        <ListItem
+                                            isSelectMode={isSelectMode}
+                                            // class name for counting in test purposes only
+                                            className="test-search-result"
+                                            data-testid="search-result-item"
+                                        >
+                                            {isSelectMode && (
+                                                <StyledCheckbox
+                                                    checked={selectedEntityUrns.indexOf(item.entity.urn) >= 0}
+                                                    onChange={(e) =>
+                                                        onSelectEntity(
+                                                            {
+                                                                urn: item.entity.urn,
+                                                                type: item.entity.type,
+                                                            },
+                                                            e.target.checked,
+                                                        )
+                                                    }
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                            )}
+                                            {entityRegistry.renderSearchResult(item.entity.type, item)}
+                                        </ListItem>
+                                        {/* an entity is always going to be inserted in the sibling group, so if the sibling group is just one do not
                         render. */}
-                                {!showSearchFiltersV2 && <ThinDivider />}
-                            </ResultWrapper>
-                        </MatchContextContainer>
-                    </div>
-                );
-            }}
-        />
+                                        {!showSearchFiltersV2 && <ThinDivider />}
+                                    </ResultWrapper>
+                                </MatchContextContainer>
+                            </div>
+                            {siblingGroup && (
+                                <SearchResultSiblings
+                                    // keyed by urn so expanded state never carries over to another result
+                                    key={item.entity.urn}
+                                    urn={item.entity.urn}
+                                    resultName={entityRegistry.getDisplayName(item.entity.type, item.entity)}
+                                    group={siblingGroup}
+                                    onSiblingClick={(sibling) => onClickSibling(sibling, index, item.entity.urn)}
+                                />
+                            )}
+                        </div>
+                    );
+                }}
+            />
+        </>
     );
 };

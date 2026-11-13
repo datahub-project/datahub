@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { decodeComma } from '@app/entityV2/shared/utils';
 import { ENTITY_FILTER_NAME, FILTER_URL_PREFIX, LEGACY_ENTITY_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { URL_PARAM_SEPARATOR } from '@app/searchV2/utils/filtersToQueryStringParams';
+import { useStableValue } from '@app/sharedV2/hooks/useStableValue';
 
 import { FacetFilterInput, FilterOperator } from '@types';
 
@@ -14,8 +15,12 @@ function ifLegacyFieldNameTranslate(fieldName) {
     return fieldName;
 }
 
+/**
+ * The filters in the URL's `filter_` params. The array keeps its identity while they are unchanged,
+ * so a change to another param (page, sort, "Show siblings", ...) doesn't look like a filter change.
+ */
 export default function useFilters(params: QueryString.ParsedQuery<string>): Array<FacetFilterInput> {
-    return useMemo(() => {
+    const filters = useMemo(() => {
         return (
             Object.entries(params)
                 // select only the ones with the `filter_` prefix
@@ -43,4 +48,5 @@ export default function useFilters(params: QueryString.ParsedQuery<string>): Arr
                 .filter((val) => !!val) as Array<FacetFilterInput>
         );
     }, [params]);
+    return useStableValue(filters);
 }

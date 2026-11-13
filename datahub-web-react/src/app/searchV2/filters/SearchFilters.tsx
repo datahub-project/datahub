@@ -14,6 +14,8 @@ import SearchFilterOptions from '@app/searchV2/filters/SearchFilterOptions';
 import SelectedSearchFilters from '@app/searchV2/filters/SelectedSearchFilters';
 import { RecommendedFilters } from '@app/searchV2/recommendation/RecommendedFilters';
 import { useGetRecommendedFilters } from '@app/searchV2/recommendation/useGetRecommendedFilters';
+import ShowSiblingsToggle from '@app/searchV2/siblings/ShowSiblingsToggle';
+import { useIsShowSiblingsAvailable } from '@app/searchV2/siblings/useShowSiblings';
 import SearchSortSelect from '@app/searchV2/sorting/SearchSortSelect';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
@@ -81,6 +83,15 @@ const FILTERS_TO_REMOVE = [
     PROPOSED_SCHEMA_TAGS_FILTER_NAME,
 ];
 
+const FilterOptionsContainer = styled.div`
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+`;
+
 const ControlsContainer = styled.div`
     display: flex;
     align-items: center;
@@ -107,6 +118,8 @@ interface Props {
     totalResults?: number;
     setShowSelectMode?: (showSelectMode: boolean) => any;
     downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
+    /** Show the "Show siblings" switch after the filters (the main search page only). */
+    showSiblingsToggle?: boolean;
 }
 
 export default function SearchFilters({
@@ -123,6 +136,7 @@ export default function SearchFilters({
     totalResults,
     setShowSelectMode,
     downloadSearchResults,
+    showSiblingsToggle = false,
 }: Props) {
     const { t } = useTranslation('search');
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -131,6 +145,9 @@ export default function SearchFilters({
     const filteredFilters = (availableFilters || []).filter((f) => !FILTERS_TO_REMOVE.includes(f.field));
     const filters = basicFilters ? filteredFilters : availableFilters;
     const recommendedFilters = useGetRecommendedFilters(filters, activeFilters);
+    // "Show siblings" only applies where siblings are separate results and the server has it on.
+    const isShowSiblingsAvailable = useIsShowSiblingsAvailable();
+    const showSiblingsSwitch = showSiblingsToggle && isShowSiblingsAvailable;
 
     const viewTabs: TabButtonItem[] = useMemo(
         () => [
@@ -156,16 +173,24 @@ export default function SearchFilters({
         [t],
     );
 
+    const filterOptions = (
+        <SearchFilterOptions
+            loading={loading}
+            availableFilters={filters}
+            activeFilters={activeFilters}
+            unionType={unionType}
+            onChangeFilters={onChangeFilters}
+        />
+    );
+
     return (
         <Container id={SEARCH_RESULTS_FILTERS_ID} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <FiltersContainerTop>
-                <SearchFilterOptions
-                    loading={loading}
-                    availableFilters={filters}
-                    activeFilters={activeFilters}
-                    unionType={unionType}
-                    onChangeFilters={onChangeFilters}
-                />
+                {/* Always wrapped, so the filter options don't remount when app config loads. */}
+                <FilterOptionsContainer>
+                    {filterOptions}
+                    {showSiblingsSwitch && <ShowSiblingsToggle />}
+                </FilterOptionsContainer>
                 <ControlsContainer>
                     <SearchSortSelect
                         selectedSortOption={selectedSortOption}

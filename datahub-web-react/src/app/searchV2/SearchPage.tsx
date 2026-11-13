@@ -251,6 +251,7 @@ export const SearchPage = () => {
                 totalResults={total}
                 setShowSelectMode={setIsSelectMode}
                 downloadSearchResults={downloadSearchResults}
+                showSiblingsToggle
             />
             <SearchResults
                 page={page}

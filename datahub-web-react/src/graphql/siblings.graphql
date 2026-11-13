@@ -1,0 +1,31 @@
+# Sibling groups for search results. Kept out of search.graphql, whose result query is at the
+# GraphQL complexity cap; the search page sends this separately, only when "Show siblings" is on.
+query getSiblingGroups($input: SiblingGroupsInput!) {
+    siblingGroups(input: $input) {
+        urn
+        total
+        truncated
+        members {
+            isPrimary
+            entity {
+                urn
+                type
+                ... on Dataset {
+                    name
+                    platform {
+                        ...platformFields
+                    }
+                    properties {
+                        name
+                    }
+                    container {
+                        urn
+                        properties {
+                            name
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
