@@ -6,7 +6,6 @@ from typing import (
     ClassVar,
     Dict,
     Final,
-    FrozenSet,
     Iterable,
     List,
     Optional,
@@ -17,11 +16,16 @@ from typing import (
 from sqlalchemy.engine.url import make_url
 from typing_extensions import LiteralString
 
+from datahub.ingestion.source.common.jdbc import (
+    JDBC_PREFIX,
+    JDBC_PROTOCOL_PLATFORM_FALLBACK,
+    normalize_jdbc_url,
+    validate_jdbc_url,
+)
 from datahub.ingestion.source.kafka_connect.common import (
     CLOUD_JDBC_SOURCE_CLASSES,
     CONNECTOR_CLASS,
     DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER,
-    JDBC_PREFIX,
     KAFKA,
     KNOWN_TOPIC_ROUTING_TRANSFORMS,
     MYSQL_CDC_SOURCE_V2_CLOUD,
@@ -34,11 +38,9 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectLineage,
     get_dataset_name,
     has_three_level_hierarchy,
-    normalize_jdbc_url,
     parse_comma_separated_list,
     remove_prefix,
     unquote,
-    validate_jdbc_url,
 )
 from datahub.ingestion.source.kafka_connect.config_constants import (
     ConnectorConfigKeys,
@@ -60,13 +62,6 @@ from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
 )
 
 logger = logging.getLogger(__name__)
-
-# JDBC subprotocols the SQLAlchemy mapper does not recognize but that are real
-# DataHub platforms. Anything else falls through as "unknown" so a mistyped URL
-# cannot invent a lineage platform.
-_JDBC_PROTOCOL_PLATFORM_FALLBACK: Final[FrozenSet[str]] = frozenset(
-    {"db2", "teradata", "cassandra"}
-)
 
 
 @dataclass(frozen=True)
@@ -1738,7 +1733,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             protocol = normalized[:protocol_end].lower()
             if protocol == "postgresql":
                 return "postgres"
-            if protocol in _JDBC_PROTOCOL_PLATFORM_FALLBACK:
+            if protocol in JDBC_PROTOCOL_PLATFORM_FALLBACK:
                 return protocol
             return "unknown"
         except Exception:
