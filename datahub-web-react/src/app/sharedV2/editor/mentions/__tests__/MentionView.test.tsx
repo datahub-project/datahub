@@ -25,12 +25,13 @@ vi.mock('@src/app/recommendations/renderer/component/HoverEntityTooltip', () => 
 }));
 
 function renderNode(result: { data?: unknown; loading: boolean }, batch: MentionEntities | null = null) {
+    const mentions = batch && { ready: true, observe: () => () => {}, batch };
     vi.mocked(useGetEntityMentionNodeQuery).mockReturnValue(
         result as unknown as ReturnType<typeof useGetEntityMentionNodeQuery>,
     );
     return render(
         <ThemeProvider theme={themeV2}>
-            <MentionEntitiesContext.Provider value={batch}>
+            <MentionEntitiesContext.Provider value={mentions}>
                 <MentionView urn="urn:li:corpuser:alice" name="Alice" />
             </MentionEntitiesContext.Provider>
         </ThemeProvider>,
