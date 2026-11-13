@@ -9,6 +9,9 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
+    default_engine_request_timeout,
+)
 from datahub.ingestion.source.fivetran.config import (
     DISABLE_COL_LINEAGE_FOR_CONNECTOR_TYPES,
     MAX_COLUMN_LINEAGE_PER_CONNECTOR_DEFAULT,
@@ -197,6 +200,8 @@ class FivetranLogDbReader:
                     bigquery_destination_config.get_bigquery_client()
                 )
             engine = create_engine(bq_url, connect_args=bq_connect_args)
+            if "client" not in bq_connect_args:
+                default_engine_request_timeout(engine)
             fivetran_log_query.set_schema(bigquery_destination_config.dataset)
 
             # The "database" should be the BigQuery project name.

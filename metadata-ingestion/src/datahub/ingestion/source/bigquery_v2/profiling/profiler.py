@@ -19,6 +19,9 @@ if TYPE_CHECKING:
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
+    default_engine_request_timeout,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     RANGE_PARTITION_NAME,
@@ -204,6 +207,8 @@ class BigqueryProfiler(GenericProfiler):
         logger.debug(f"sql_alchemy_url={url}")
 
         engine = create_engine(url, connect_args=connect_args, **self.config.options)
+        if "client" not in connect_args:
+            default_engine_request_timeout(engine)
         with engine.connect() as conn:
             inspector = inspect(conn)
 
