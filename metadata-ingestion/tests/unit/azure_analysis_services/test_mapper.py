@@ -34,6 +34,7 @@ from datahub.metadata.schema_classes import (
     MetricUpstreamsClass,
     NullTypeClass,
     NumberTypeClass,
+    SchemaMetadataClass,
     SemanticFieldAnnotationClass,
     SemanticFieldTypeClass,
     SemanticModelInfoClass,
@@ -78,7 +79,9 @@ def test_convert_urns_to_lowercase_folds_dataset_urns() -> None:
 
 
 def test_semantic_model_lists_tables_and_replaces_cube_dataset() -> None:
-    mapper = _mapper(table_pattern={"deny": ["Ignored"]})
+    mapper = _mapper(
+        emit_semantic_model={"enabled": True}, table_pattern={"deny": ["Ignored"]}
+    )
     model = AasTabularModel(
         catalog="SalesModel",
         name="Model",
@@ -161,11 +164,122 @@ def test_semantic_model_lists_tables_and_replaces_cube_dataset() -> None:
     )
     assert sales_subtypes.typeNames[0] == DatasetSubTypes.SEMANTIC_MODEL_DATASET
     catalog_dataset = builder.make_dataset_urn("azure-analysis-services", "SalesModel")
-    assert not any(u == catalog_dataset for u, _ in aspects)
+    assert any(u == catalog_dataset for u, _ in aspects)
+
+
+def test_cube_lists_visible_fields_and_links_directly_to_physical_tables() -> None:
+    mapper = _mapper()
+    model = AasTabularModel(
+        catalog="SalesModel",
+        name="Model",
+        tables=[
+            AasTable(
+                name="FactTable",
+                columns=[
+                    AasColumn(name="Amount", datahub_data_type=NullTypeClass()),
+                    AasColumn(
+                        name="RowId",
+                        datahub_data_type=NullTypeClass(),
+                        is_hidden=True,
+                    ),
+                ],
+                measures=[
+                    AasMeasure(name="Total", expression="SUM(FactTable[Amount])"),
+                    AasMeasure(name="Internal", expression="1", is_hidden=True),
+                ],
+                partitions=[
+                    AasPartition(
+                        name="p",
+                        query_definition="SELECT Amount FROM FactTable",
+                        databricks_catalog="prod",
+                        databricks_schema="sales",
+                    )
+                ],
+            )
+        ],
+    )
+    aspects = [
+        (wu.get_urn(), getattr(wu.metadata, "aspect", None))
+        for wu in mapper.map_model(model)
+    ]
+    cube_urn = mapper._cube_dataset_urn("SalesModel")
+    schema = next(
+        a for u, a in aspects if u == cube_urn and isinstance(a, SchemaMetadataClass)
+    )
+    assert [field.fieldPath for field in schema.fields] == [
+        "FactTable.Amount",
+        "FactTable.Total",
+    ]
+    subtypes = next(
+        a for u, a in aspects if u == cube_urn and isinstance(a, SubTypesClass)
+    )
+    assert subtypes.typeNames == [DatasetSubTypes.CUBE]
+    lineage = next(
+        a for u, a in aspects if u == cube_urn and isinstance(a, UpstreamLineageClass)
+    )
+    table_urn = mapper._table_dataset_urn("SalesModel", "FactTable")
+    assert [edge.dataset for edge in lineage.upstreams] == [
+        builder.make_dataset_urn("databricks", "prod.sales.facttable")
+    ]
+    assert table_urn not in [edge.dataset for edge in lineage.upstreams]
+    assert not any(u.startswith("urn:li:semanticModel:") for u, _ in aspects)
+    assert not any(u.startswith("urn:li:metric:") for u, _ in aspects)
+
+
+def test_hidden_measures_reach_cube_only_when_semantic_model_and_ingest_enabled() -> (
+    None
+):
+    model = AasTabularModel(
+        catalog="SalesModel",
+        name="Model",
+        tables=[
+            AasTable(
+                name="FactTable",
+                columns=[AasColumn(name="Amount", datahub_data_type=NullTypeClass())],
+                measures=[AasMeasure(name="Internal", expression="1", is_hidden=True)],
+                partitions=[
+                    AasPartition(
+                        name="p",
+                        query_definition="SELECT Amount FROM FactTable",
+                        databricks_catalog="prod",
+                        databricks_schema="sales",
+                    )
+                ],
+            )
+        ],
+    )
+
+    def cube_field_paths(mapper: AasMapper) -> List[str]:
+        cube_urn = mapper._cube_dataset_urn("SalesModel")
+        aspects = [
+            (wu.get_urn(), getattr(wu.metadata, "aspect", None))
+            for wu in mapper.map_model(model)
+        ]
+        schema = next(
+            a
+            for u, a in aspects
+            if u == cube_urn and isinstance(a, SchemaMetadataClass)
+        )
+        return [field.fieldPath for field in schema.fields]
+
+    both_on = _mapper(
+        emit_semantic_model={
+            "enabled": True,
+            "ingest_hidden_metrics": {"enabled": True},
+        }
+    )
+    assert cube_field_paths(both_on) == ["FactTable.Amount", "FactTable.Internal"]
+
+    semantic_off = _mapper(
+        emit_semantic_model={"ingest_hidden_metrics": {"enabled": True}}
+    )
+    assert cube_field_paths(semantic_off) == ["FactTable.Amount"]
 
 
 def test_visible_columns_are_dimensions_and_measures_are_metrics() -> None:
-    mapper = _mapper(table_pattern={"deny": ["Ignored"]})
+    mapper = _mapper(
+        emit_semantic_model={"enabled": True}, table_pattern={"deny": ["Ignored"]}
+    )
     model = AasTabularModel(
         catalog="SalesModel",
         name="Model",
@@ -279,7 +393,7 @@ def test_visible_columns_are_dimensions_and_measures_are_metrics() -> None:
             for u, a in aspects
             if u == metric_urn(metric_id) and isinstance(a, MetricUpstreamsClass)
         )
-        return [edge.destinationUrn for edge in aspect.datasetUpstreams]
+        return [edge.destinationUrn for edge in aspect.datasetUpstreams or []]
 
     assert upstreams("Total Sales") == [sales_urn]
     assert upstreams("Ratio") == [sales_urn, product_urn]
@@ -289,10 +403,13 @@ def test_visible_columns_are_dimensions_and_measures_are_metrics() -> None:
 
 def test_ingest_hidden_metrics_tags_only_the_hidden_ones() -> None:
     mapper = _mapper(
-        ingest_hidden_metrics={
+        emit_semantic_model={
             "enabled": True,
-            "tag_hidden_metrics": True,
-            "hidden_metric_tag": "Internal",
+            "ingest_hidden_metrics": {
+                "enabled": True,
+                "tag_hidden_metrics": True,
+                "hidden_metric_tag": "Internal",
+            },
         },
     )
     model = AasTabularModel(
@@ -357,7 +474,7 @@ def test_semantic_model_urn_follows_lowercase_and_platform_instance() -> None:
 
 
 def test_subtypes_query_table_is_view() -> None:
-    mapper = _mapper()
+    mapper = _mapper(emit_semantic_model={"enabled": True})
     table = AasTable(
         name="Sales",
         partitions=[
@@ -371,7 +488,7 @@ def test_subtypes_query_table_is_view() -> None:
 
 
 def test_subtypes_calculated_table() -> None:
-    mapper = _mapper()
+    mapper = _mapper(emit_semantic_model={"enabled": True})
     table = AasTable(
         name="SalesSummary",
         is_calculated=True,
@@ -386,7 +503,9 @@ def test_subtypes_calculated_table() -> None:
 def test_subtypes_import_table_without_expression() -> None:
     mapper = _mapper()
     table = AasTable(name="Static")
-    assert mapper._table_subtypes(table) == [DatasetSubTypes.SEMANTIC_MODEL_DATASET]
+    assert mapper._table_subtypes(table) == [DatasetSubTypes.TABLE]
+    semantic = _mapper(emit_semantic_model={"enabled": True})
+    assert semantic._table_subtypes(table) == [DatasetSubTypes.SEMANTIC_MODEL_DATASET]
 
 
 def test_view_properties_language() -> None:
@@ -631,7 +750,7 @@ def test_map_model_does_not_swallow_consumer_errors() -> None:
 
 
 def test_model_named_by_catalog_and_dax_edges_get_dataset_upstreams() -> None:
-    mapper = _mapper()
+    mapper = _mapper(emit_semantic_model={"enabled": True})
     model = AasTabularModel(
         catalog="SalesModel",
         name="Model",

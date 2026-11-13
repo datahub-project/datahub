@@ -197,9 +197,33 @@ export const AAS_EXTRACT_COLUMN_LINEAGE: RecipeField = {
     rules: null,
 };
 
-const ingestHiddenMetricsPath = 'source.config.ingest_hidden_metrics.enabled';
+const emitSemanticModelPath = 'source.config.emit_semantic_model.enabled';
+export const AAS_EMIT_SEMANTIC_MODEL: RecipeField = {
+    name: 'emit_semantic_model.enabled',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.emitSemanticModel.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.emitSemanticModel.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.emitSemanticModel.tooltip');
+    },
+    type: FieldType.BOOLEAN,
+    fieldPath: emitSemanticModelPath,
+    getValueFromRecipeOverride: (recipe: any) => {
+        const value = get(recipe, emitSemanticModelPath);
+        if (value !== undefined && value !== null) {
+            return value;
+        }
+        return false;
+    },
+    rules: null,
+};
+
+const ingestHiddenMetricsPath = 'source.config.emit_semantic_model.ingest_hidden_metrics.enabled';
 export const AAS_INGEST_HIDDEN_METRICS: RecipeField = {
-    name: 'ingest_hidden_metrics.enabled',
+    name: 'emit_semantic_model.ingest_hidden_metrics.enabled',
     get label() {
         return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.ingestHiddenMetrics.label');
     },
@@ -221,9 +245,9 @@ export const AAS_INGEST_HIDDEN_METRICS: RecipeField = {
     rules: null,
 };
 
-const tagHiddenMetricsPath = 'source.config.ingest_hidden_metrics.tag_hidden_metrics';
+const tagHiddenMetricsPath = 'source.config.emit_semantic_model.ingest_hidden_metrics.tag_hidden_metrics';
 export const AAS_TAG_HIDDEN_METRICS: RecipeField = {
-    name: 'ingest_hidden_metrics.tag_hidden_metrics',
+    name: 'emit_semantic_model.ingest_hidden_metrics.tag_hidden_metrics',
     get label() {
         return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.tagHiddenMetrics.label');
     },
@@ -245,9 +269,9 @@ export const AAS_TAG_HIDDEN_METRICS: RecipeField = {
     rules: null,
 };
 
-const hiddenMetricTagPath = 'source.config.ingest_hidden_metrics.hidden_metric_tag';
+const hiddenMetricTagPath = 'source.config.emit_semantic_model.ingest_hidden_metrics.hidden_metric_tag';
 export const AAS_HIDDEN_METRIC_TAG: RecipeField = {
-    name: 'ingest_hidden_metrics.hidden_metric_tag',
+    name: 'emit_semantic_model.ingest_hidden_metrics.hidden_metric_tag',
     get label() {
         return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.hiddenMetricTag.label');
     },

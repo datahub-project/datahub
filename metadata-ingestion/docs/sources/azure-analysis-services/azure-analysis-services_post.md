@@ -20,18 +20,26 @@ With `extract_column_level_lineage` enabled, the connector additionally emits in
 column-level lineage for DAX measures and calculated columns, derived from
 `DISCOVER_CALC_DEPENDENCY`.
 
+#### Cube dataset
+
+The catalog is always a dataset with subtype `Cube`. Its schema lists each visible column and each
+measure as `Table.Name`. A column or measure is left off when it, or its table, is marked hidden.
+Hidden measures are included when `emit_semantic_model.ingest_hidden_metrics.enabled` is set, which also requires `emit_semantic_model.enabled`. The cube's upstream
+lineage points at the physical tables its partitions read, such as Databricks tables, and does not
+pass through the model's own table datasets.
+
 #### Semantic model
 
-The catalog is a semantic model entity. Its summary lists the tables, and the active relationships
+`emit_semantic_model.enabled` (default false) also emits the catalog as a semantic model entity. Its summary lists the tables, and the active relationships
 between them. Each table is a dataset with subtype `Semantic Model Dataset`; its columns and
 measures stay on that dataset as schema fields.
 
 Each measure that is not hidden is also a metric of the semantic model. The metric carries the
 DAX expression and is linked to its table. When column-level lineage is enabled, it is also
-linked to the other tables its DAX reads. `ingest_hidden_metrics.enabled` (default false) also
+linked to the other tables its DAX reads. `emit_semantic_model.ingest_hidden_metrics.enabled` (default false) also
 emits measures that are hidden, or that sit on a hidden table. With
-`ingest_hidden_metrics.tag_hidden_metrics`, those metrics get the tag named by
-`ingest_hidden_metrics.hidden_metric_tag` (default `hidden_metric`). Visible metrics are not
+`emit_semantic_model.ingest_hidden_metrics.tag_hidden_metrics`, those metrics get the tag named by
+`emit_semantic_model.ingest_hidden_metrics.hidden_metric_tag` (default `hidden_metric`). Visible metrics are not
 tagged. A column that is not hidden, and whose table is not hidden, is a dimension of the
 model. A date/time column is flagged as a time dimension. Metric
 ids are the measure names, with `,`, `(` and `)` replaced by `_`. DAX is recorded with the

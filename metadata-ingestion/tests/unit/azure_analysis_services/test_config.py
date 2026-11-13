@@ -37,42 +37,64 @@ def test_service_principal_valid():
     assert config.convert_urns_to_lowercase is False
 
 
-def test_hidden_metrics_are_off_by_default():
+def test_semantic_model_is_off_by_default():
     config = AzureAnalysisServicesConfig.model_validate(_service_principal())
-    assert config.ingest_hidden_metrics.enabled is False
-    assert config.ingest_hidden_metrics.tag_hidden_metrics is False
-    assert config.ingest_hidden_metrics.hidden_metric_tag == "hidden_metric"
+    assert config.emit_semantic_model.enabled is False
+    assert config.emit_semantic_model.ingest_hidden_metrics.enabled is False
+
+
+def test_hidden_metrics_are_off_by_default():
+    hidden = AzureAnalysisServicesConfig.model_validate(
+        _service_principal()
+    ).emit_semantic_model.ingest_hidden_metrics
+    assert hidden.enabled is False
+    assert hidden.tag_hidden_metrics is False
+    assert hidden.hidden_metric_tag == "hidden_metric"
 
 
 def test_disabled_hidden_metrics_accepts_tagging_options():
-    disabled = AzureAnalysisServicesConfig.model_validate(
-        _service_principal(
-            ingest_hidden_metrics={"enabled": False, "tag_hidden_metrics": True},
-        )
-    )
-    assert disabled.ingest_hidden_metrics.enabled is False
-    assert disabled.ingest_hidden_metrics.tag_hidden_metrics is True
-    with pytest.raises(ValidationError):
-        AzureAnalysisServicesConfig.model_validate(
-            _service_principal(
-                ingest_hidden_metrics={
-                    "enabled": True,
-                    "tag_hidden_metrics": True,
-                    "hidden_metric_tag": "  ",
-                },
-            )
-        )
     config = AzureAnalysisServicesConfig.model_validate(
         _service_principal(
-            ingest_hidden_metrics={
-                "enabled": True,
-                "tag_hidden_metrics": True,
-                "hidden_metric_tag": "Internal",
+            emit_semantic_model={
+                "ingest_hidden_metrics": {"enabled": False, "tag_hidden_metrics": True},
             },
         )
     )
-    assert config.ingest_hidden_metrics.enabled is True
-    assert config.ingest_hidden_metrics.hidden_metric_tag == "Internal"
+    hidden = config.emit_semantic_model.ingest_hidden_metrics
+    assert hidden.enabled is False
+    assert hidden.tag_hidden_metrics is True
+
+
+def test_tagging_hidden_metrics_requires_ingestion_and_a_name():
+    with pytest.raises(ValidationError):
+        AzureAnalysisServicesConfig.model_validate(
+            _service_principal(
+                emit_semantic_model={
+                    "ingest_hidden_metrics": {
+                        "enabled": True,
+                        "tag_hidden_metrics": True,
+                        "hidden_metric_tag": "  ",
+                    },
+                },
+            )
+        )
+
+    config = AzureAnalysisServicesConfig.model_validate(
+        _service_principal(
+            emit_semantic_model={
+                "enabled": True,
+                "ingest_hidden_metrics": {
+                    "enabled": True,
+                    "tag_hidden_metrics": True,
+                    "hidden_metric_tag": "Internal",
+                },
+            },
+        )
+    )
+    hidden = config.emit_semantic_model.ingest_hidden_metrics
+    assert config.emit_semantic_model.enabled is True
+    assert hidden.enabled is True
+    assert hidden.hidden_metric_tag == "Internal"
 
 
 def test_convert_urns_to_lowercase_is_accepted():

@@ -61,10 +61,30 @@ class IngestHiddenMetricsConfig(ConfigModel):
             return self
         if not self.hidden_metric_tag.strip():
             raise ValueError(
-                "ingest_hidden_metrics.tag_hidden_metrics requires "
-                "ingest_hidden_metrics.hidden_metric_tag to be a non-empty tag name"
+                "emit_semantic_model.ingest_hidden_metrics.tag_hidden_metrics requires "
+                "emit_semantic_model.ingest_hidden_metrics.hidden_metric_tag to be a "
+                "non-empty tag name"
             )
         return self
+
+
+class EmitSemanticModelConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "Also emit a semantic model for the catalog: tables become semantic "
+            "model datasets, visible columns are annotated as dimensions, and "
+            "measures are emitted as metrics. The cube dataset and its direct "
+            "upstream lineage are always emitted."
+        ),
+    )
+    ingest_hidden_metrics: IngestHiddenMetricsConfig = Field(
+        default_factory=IngestHiddenMetricsConfig,
+        description=(
+            "Hidden measures, and measures on hidden tables, as metrics and as cube "
+            "fields. Only applies when ``enabled`` is true."
+        ),
+    )
 
 
 class AzureAnalysisServicesConfig(
@@ -158,17 +178,17 @@ class AzureAnalysisServicesConfig(
     )
     extract_model_definition: bool = Field(
         default=True,
-        description="Attach the full TMSL model definition to the semantic model.",
+        description=(
+            "Attach the full TMSL model definition to the cube dataset, and to "
+            "the semantic model when emit_semantic_model.enabled is true."
+        ),
+    )
+    emit_semantic_model: EmitSemanticModelConfig = Field(
+        default_factory=EmitSemanticModelConfig,
+        description="Semantic model, dimension, and metric output. See ``EmitSemanticModelConfig``.",
     )
     extract_roles: bool = Field(
         default=True, description="Extract security roles as custom properties."
-    )
-    ingest_hidden_metrics: IngestHiddenMetricsConfig = Field(
-        default_factory=IngestHiddenMetricsConfig,
-        description=(
-            "Whether to ingest hidden measures as metrics, and optionally tag them. "
-            "See ``IngestHiddenMetricsConfig``."
-        ),
     )
 
     # Shared M-Query engine surface (MQueryLineageConfig protocol)

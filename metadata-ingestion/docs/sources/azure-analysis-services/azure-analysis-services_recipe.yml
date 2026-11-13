@@ -18,13 +18,18 @@ source:
       deny:
         - ".*_staging"
 
-    # Hidden measures are skipped as metrics unless enabled. They still appear as
-    # schema fields on their table. tag_hidden_metrics applies hidden_metric_tag
-    # to those metrics only. Tagging is ignored when enabled is false.
-    # ingest_hidden_metrics:
-    #   enabled: true
-    #   tag_hidden_metrics: true
-    #   hidden_metric_tag: "hidden_metric"
+    # The cube dataset is always emitted. Set enabled to also emit a semantic
+    # model, dimension annotations, and metrics. Default false.
+    emit_semantic_model:
+      enabled: false
+      # Hidden measures are skipped as metrics and cube fields unless enabled.
+      # They still appear as schema fields on their table. tag_hidden_metrics
+      # applies hidden_metric_tag to those metrics only. Tagging is ignored when
+      # enabled is false. Only applies when emit_semantic_model.enabled is true.
+      ingest_hidden_metrics:
+        enabled: false
+        tag_hidden_metrics: false
+        hidden_metric_tag: "hidden_metric"
 
     # Lineage feature toggles.
     extract_lineage: true

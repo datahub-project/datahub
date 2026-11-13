@@ -234,6 +234,9 @@ class AasMapper:
         # upstream (M/Power Query) lineage written for the same entity.
         intra_model_fgl = self._intra_model_fgl_by_dataset(model, dataset_urn_by_table)
 
+        # Physical upstreams (for example Databricks tables) collected while
+        # mapping each table, so the cube can point at them directly.
+        physical_upstreams: List[str] = []
         emitted_keys: Set[str] = set()
         for table in model.tables:
             if not self.config.table_pattern.allowed(table.name):
@@ -254,7 +257,12 @@ class AasMapper:
                 # remaining work units for this table.
                 workunits = list(
                     self._map_table(
-                        model, table, model_key, dataset_urn_by_table, intra_model_fgl
+                        model,
+                        table,
+                        model_key,
+                        dataset_urn_by_table,
+                        intra_model_fgl,
+                        physical_upstreams,
                     )
                 )
             except Exception as e:
@@ -268,11 +276,22 @@ class AasMapper:
                 continue
             yield from workunits
 
-        # The catalog is the semantic model. Its summary lists the tables.
-        yield from self._map_semantic_model(model)
-        yield from self._map_metrics(model, dataset_urn_by_table)
+        # The cube is always emitted. The semantic model and its metrics are opt-in.
+        if self.config.emit_semantic_model.enabled:
+            yield from self._map_semantic_model(model)
+            yield from self._map_metrics(model, dataset_urn_by_table)
+        yield from self._map_cube_dataset(model, model_key, physical_upstreams)
 
     # Model container properties
+
+    @property
+    def _ingest_hidden_measures(self) -> bool:
+        # Hidden measures reach the cube and metrics only when the semantic model
+        # switch and its hidden-metrics option are both on.
+        return (
+            self.config.emit_semantic_model.enabled
+            and self.config.emit_semantic_model.ingest_hidden_metrics.enabled
+        )
 
     def _allowed_tables(self, model: AasTabularModel) -> List[AasTable]:
         # table_pattern gates what is emitted; container counts must reflect the
@@ -302,6 +321,7 @@ class AasMapper:
         model_key: AasModelContainerKey,
         dataset_urn_by_table: Dict[str, str],
         intra_model_fgl: Dict[str, List[FineGrainedLineageClass]],
+        physical_upstreams: List[str],
     ) -> Iterable[MetadataWorkUnit]:
         dataset_urn = dataset_urn_by_table[table.name.lower()]
         self.report.tables_scanned += 1
@@ -340,17 +360,17 @@ class AasMapper:
         ).as_workunit()
 
         yield from add_dataset_to_container(model_key, dataset_urn)
-        yield from self._dimension_annotations(table, dataset_urn)
-
-        # Membership is stored on the table, not on the semantic model. The
-        # alias is the table name the model's relationships use.
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=SemanticModelPropertiesClass(
-                alias=table.name,
-                semanticModel=self._semantic_model_urn(model.catalog),
-            ),
-        ).as_workunit()
+        if self.config.emit_semantic_model.enabled:
+            yield from self._dimension_annotations(table, dataset_urn)
+            # Membership is stored on the table, not on the semantic model. The
+            # alias is the table name the model's relationships use.
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=SemanticModelPropertiesClass(
+                    alias=table.name,
+                    semanticModel=self._semantic_model_urn(model.catalog),
+                ),
+            ).as_workunit()
 
         upstream = self.lineage_extractor.extract_upstream_for_table(table, dataset_urn)
         intra_model = intra_model_fgl.get(dataset_urn, [])
@@ -374,6 +394,15 @@ class AasMapper:
                             type=DatasetLineageTypeClass.TRANSFORMED,
                         )
                     )
+        # The cube's lineage skips this model's own datasets and keeps only the
+        # physical upstreams, such as the Databricks tables a partition reads.
+        model_dataset_urns = set(dataset_urn_by_table.values())
+        for lineage_edge in upstreams:
+            if (
+                lineage_edge.dataset not in model_dataset_urns
+                and lineage_edge.dataset not in physical_upstreams
+            ):
+                physical_upstreams.append(lineage_edge.dataset)
         if upstreams or fine_grained:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
@@ -390,14 +419,18 @@ class AasMapper:
         }
 
     def _table_subtypes(self, table: AasTable) -> List[str]:
-        # Each table is a logical dataset of the model's semantic model. A
-        # calculated table additionally carries Calculated Table; a table backed
-        # by an M/Power Query partition additionally carries View.
-        subtypes: List[str] = [DatasetSubTypes.SEMANTIC_MODEL_DATASET]
+        # Semantic Model Dataset is only applied when the semantic model is
+        # emitted. A calculated table carries Calculated Table; a table backed
+        # by an M/Power Query partition carries View.
+        subtypes: List[str] = []
+        if self.config.emit_semantic_model.enabled:
+            subtypes.append(DatasetSubTypes.SEMANTIC_MODEL_DATASET)
         if table.is_calculated:
             subtypes.append(DatasetSubTypes.CALCULATED_TABLE)
         elif table.expression:
             subtypes.append(DatasetSubTypes.VIEW)
+        if not subtypes:
+            subtypes.append(DatasetSubTypes.TABLE)
         return subtypes
 
     def _table_view_properties(self, table: AasTable) -> Optional[ViewPropertiesClass]:
@@ -541,6 +574,85 @@ class AasMapper:
             )
         return constraints
 
+    def _cube_dataset_urn(self, catalog: str) -> str:
+        return self._dataset_urn(catalog)
+
+    def _map_cube_dataset(
+        self,
+        model: AasTabularModel,
+        model_key: AasModelContainerKey,
+        physical_upstreams: List[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        dataset_urn = self._cube_dataset_urn(model.catalog)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DatasetPropertiesClass(
+                name=model.catalog,
+                description=model.description,
+                customProperties=self._model_container_properties(model),
+            ),
+        ).as_workunit()
+        yield self._status_wu(dataset_urn)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SubTypesClass(typeNames=[DatasetSubTypes.CUBE]),
+        ).as_workunit()
+        yield from self._platform_instance_wus(dataset_urn)
+        if self.config.extract_model_definition and model.definition:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=ViewPropertiesClass(
+                    materialized=False,
+                    viewLogic=model.definition,
+                    viewLanguage=constants.VIEW_LANGUAGE_TMSL,
+                ),
+            ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=self._cube_schema_metadata(model),
+        ).as_workunit()
+        yield from add_dataset_to_container(model_key, dataset_urn)
+        if physical_upstreams:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=UpstreamLineageClass(
+                    upstreams=[
+                        UpstreamClass(
+                            dataset=urn,
+                            type=DatasetLineageTypeClass.TRANSFORMED,
+                        )
+                        for urn in physical_upstreams
+                    ]
+                ),
+            ).as_workunit()
+
+    def _cube_schema_metadata(self, model: AasTabularModel) -> SchemaMetadataClass:
+        # The cube exposes the model's visible columns as dimensions and its
+        # measures as measures, qualified by table so names stay unique.
+        fields: List[SchemaFieldClass] = []
+        for table in self._allowed_tables(model):
+            for column in table.columns:
+                if not self._is_exposed(table, column.is_hidden):
+                    continue
+                field = self._field_for_column(column)
+                field.fieldPath = f"{table.name}.{column.name}"
+                fields.append(field)
+            for measure in table.measures:
+                hidden = not self._is_exposed(table, measure.is_hidden)
+                if hidden and not self._ingest_hidden_measures:
+                    continue
+                field = self._field_for_measure(measure)
+                field.fieldPath = f"{table.name}.{measure.name}"
+                fields.append(field)
+        return SchemaMetadataClass(
+            schemaName=model.catalog,
+            platform=builder.make_data_platform_urn(self.config.platform),
+            version=0,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+            fields=fields,
+        )
+
     def _map_semantic_model(self, model: AasTabularModel) -> Iterable[MetadataWorkUnit]:
         model_urn = self._semantic_model_urn(model.catalog)
         # The key aspect is what makes the semantic model exist and be searchable;
@@ -633,7 +745,7 @@ class AasMapper:
     ) -> Iterable[MetadataWorkUnit]:
         model_urn = self._semantic_model_urn(model.catalog)
         path, model_id = self._semantic_model_path_and_id(model.catalog)
-        hidden_metrics = self.config.ingest_hidden_metrics
+        hidden_metrics = self.config.emit_semantic_model.ingest_hidden_metrics
         seen_ids: Set[str] = set()
         for table in self._allowed_tables(model):
             if table.name.lower() not in dataset_urn_by_table:

@@ -163,6 +163,7 @@ NATIVE_TYPE_CALCULATED_COLUMN = "calculated_column"
 
 VIEW_LANGUAGE_M = "M"
 VIEW_LANGUAGE_DAX = "DAX"
+VIEW_LANGUAGE_TMSL = "TMSL"
 # Fallback field name for an unnamed query partition when multiple partitions are
 # wrapped into a single M record literal for the stored view definition.
 PARTITION_FIELD_NAME_PREFIX = "Partition"

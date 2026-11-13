@@ -206,8 +206,10 @@ class AasLineageExtractor:
             seen_queries.add(partition.query_definition)
             # Query partitions store Spark SQL, not M. The Databricks catalog
             # and schema come from that partition's data source connection.
-            if partition.databricks_catalog and _is_bare_sql(
-                partition.query_definition
+            if (
+                partition.databricks_catalog
+                and partition.query_definition
+                and _is_bare_sql(partition.query_definition)
             ):
                 for urn in self._databricks_urns_from_sql(partition, table.full_name):
                     urn = self._lineage_urn_to_lowercase(urn)
