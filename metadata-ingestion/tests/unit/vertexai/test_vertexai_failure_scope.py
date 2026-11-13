@@ -40,6 +40,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.vertexai.vertexai import VertexAIConfig, VertexAISource
+from datahub.ingestion.source.vertexai.vertexai_builder import VertexAIURIParser
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     PLATFORM,
     DetailCalls,
@@ -87,6 +88,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 from datahub.utilities.urns.urn import guess_entity_type
 from tests.integration.vertexai.mock_vertexai import (
+    MOCK_CREATE_TIME,
     gen_mock_dataset,
     gen_mock_endpoint,
     gen_mock_experiment,
@@ -480,6 +482,29 @@ def test_any_project_error_fails_only_a_listed_project(
         )
     source._carry.keep_project.assert_called_once_with("proj-one")
     assert source.report.lost_reads["proj-one"]
+
+
+def test_a_project_without_regions_is_not_read() -> None:
+    source = _make_source(project_ids=["proj-one", "proj-two"])
+    source._carry = MagicMock()
+    read: List[str] = []
+
+    def read_project(project_id: str) -> Iterator[MetadataWorkUnit]:
+        read.append(project_id)
+        return iter([])
+
+    # Region discovery already reported proj-one, so nothing is left to read.
+    with (
+        patch.object(
+            source,
+            "_resolve_project_regions",
+            return_value={"proj-one": [], "proj-two": [REGION]},
+        ),
+        patch.object(source, "_gen_workunits_for_project", side_effect=read_project),
+    ):
+        list(source.get_workunits_internal())
+
+    assert read == ["proj-two"]
 
 
 def test_project_failure_still_reads_later_projects() -> None:
@@ -964,6 +989,17 @@ def test_region_empty_healthy_project_still_emits_containers() -> None:
     assert not source.report.failures
     assert not source.report.warnings
     assert run.workunits
+
+
+def test_primitives_carry_forward_ignores_an_unreadable_task_urn() -> None:
+    flow = _flow_urn("pipeline-a")
+    carry, current, _ = _carry_forward([flow, "urn:li:dataJob:not-a-task"])
+
+    carry.keep_flow(flow)
+    carry.flush()
+
+    # A malformed checkpoint entry neither breaks the run nor is kept by a flow.
+    assert current.urns == [flow]
 
 
 def test_region_carry_forward_keep_all_flows_keeps_flows_and_tasks_only() -> None:
@@ -1919,6 +1955,23 @@ def test_model_evaluation_of_kept_model_writes_no_model_version() -> None:
     assert not any(urn.startswith("urn:li:mlModel:") for urn in urns)
 
 
+def test_model_incremental_run_skips_evaluations_older_than_the_checkpoint() -> None:
+    source = _model_source(include_models=False, include_evaluations=True)
+    old, new = gen_mock_model_evaluation(1), gen_mock_model_evaluation(2)
+    _mock(new).create_time = MOCK_CREATE_TIME + timedelta(days=1)
+    checkpoint = int((MOCK_CREATE_TIME + timedelta(hours=1)).timestamp() * 1000)
+
+    with patch.object(
+        source.model_extractor.state_handler,
+        "get_last_update_time",
+        return_value=checkpoint,
+    ):
+        workunits = _read_models(source, [gen_mock_model(1)], evaluations=[old, new])
+
+    (evaluation,) = [u for u in _written(workunits) if ".model_evaluation." in u]
+    assert evaluation.endswith("evaluations/2,PROD)")
+
+
 def test_model_evaluation_list_failure_keeps_evaluation_kind() -> None:
     source = _model_source(include_evaluations=True)
 
@@ -2219,6 +2272,37 @@ def test_m1_ml_metadata_lost_artifacts_cost_only_the_links(error: Exception) -> 
     assert not result.value.input_urns and not result.value.output_urns
     (context,) = [c for w in helper.report.warnings for c in w.context]
     assert "resource=ml_metadata_artifacts" in context
+
+
+def test_m1_ml_metadata_artifact_without_a_uri_gives_no_link() -> None:
+    client = MagicMock()
+    client.list_executions.return_value = [_m1_execution()]
+    events, artifacts = [], []
+    for name, uri in (("a-1", ""), ("a-2", "gs://bucket/data")):
+        event = MagicMock(artifact=name)
+        event.type_.name = "INPUT"
+        artifact = MagicMock(uri=uri)
+        artifact.name = name
+        events.append(event)
+        artifacts.append(artifact)
+    client.query_execution_inputs_and_outputs.return_value = MagicMock(
+        events=events, artifacts=artifacts
+    )
+    helper = MLMetadataHelper(
+        metadata_client=client,
+        config=MLMetadataConfig(project_id="proj-one", region=REGION),
+        uri_parser=VertexAIURIParser(env=ENV, platform=PLATFORM),
+        report=VertexAISourceReport(),
+        stopped_scopes=StoppedScopes(),
+        scope=lambda: Scope("proj-one", REGION),
+    )
+
+    result = helper.get_job_lineage_metadata(MagicMock(display_name="job"))
+
+    # The URI parser gives no dataset for an empty URI.
+    assert result.value is not None
+    (urn,) = result.value.input_urns
+    assert "bucket/data" in urn
 
 
 def test_m1_ml_metadata_throttled_artifacts_keep_the_job() -> None:
@@ -2579,6 +2663,36 @@ def test_experiment_run_with_logged_custom_job_links_it_upstream() -> None:
     assert not source.report.warnings
 
 
+def test_experiment_execution_with_throttled_artifacts_is_kept() -> None:
+    source = _experiment_source()
+    run = gen_mock_experiment_run()
+    execution = MagicMock()
+    execution.name = "exec-1"
+    execution.get_input_artifacts.side_effect = _throttled()
+    _mock(run.get_executions).return_value = [execution]
+
+    workunits = _read_experiment_runs(source, [run])
+
+    # The run is written; the execution keeps its previous version.
+    urns = _written(workunits)
+    assert any(".experiment_run." in urn for urn in urns)
+    assert not any("exec-1" in urn for urn in urns)
+    assert any(
+        "resource=experiment_run_artifacts" in c for c in _warning_contexts(source)
+    )
+
+
+def test_experiment_run_with_throttled_state_is_kept() -> None:
+    source = _experiment_source()
+    run = gen_mock_experiment_run()
+    _mock(run.get_state).side_effect = _throttled()
+
+    workunits = _read_experiment_runs(source, [run])
+
+    assert workunits == []
+    assert any("resource=experiment_run_detail" in c for c in _warning_contexts(source))
+
+
 def test_experiment_artifact_failure_context_names_the_execution() -> None:
     source = _experiment_source()
     run = gen_mock_experiment_run()
@@ -2716,6 +2830,23 @@ def test_pipeline_flow_of_failed_project_stays_in_checkpoint() -> None:
 
     assert _MOCK_FLOW_URN in {wu.get_urn() for wu in workunits}
     assert set(current.urns) >= {_MOCK_FLOW_URN, _MOCK_JOB_URN}
+
+
+def test_pipeline_task_dataset_artifacts_become_its_inputs_and_outputs() -> None:
+    source = _region_source()
+    source._current_project_id = "proj-one"
+    task = MagicMock()
+    task.inputs = {"data": MagicMock(artifacts=[MagicMock(uri="gs://bucket/in")])}
+    task.outputs = {"table": MagicMock(artifacts=[MagicMock(uri="bq://p.ds.out")])}
+
+    artifacts = source.pipeline_extractor._extract_pipeline_task_artifacts(
+        task, "urn:li:dataProcessInstance:task-1"
+    )
+
+    (input_urn,) = artifacts.input_dataset_urns
+    (output_urn,) = artifacts.output_dataset_urns
+    assert "gcs,bucket/in" in input_urn
+    assert "bigquery,p.ds.out" in output_urn
 
 
 def test_pipeline_lookup_stop_keeps_that_pipelines_container() -> None:

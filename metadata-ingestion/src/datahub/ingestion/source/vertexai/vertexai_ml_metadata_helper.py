@@ -293,9 +293,6 @@ class MLMetadataHelper:
             artifact_events[event.artifact] = event.type_.name
 
         for artifact in response.artifacts:
-            if not artifact.uri:
-                continue
-
             event_type = artifact_events.get(artifact.name, "")
             dataset_urns = self.uri_parser.dataset_urns_from_artifact_uri(artifact.uri)
 
