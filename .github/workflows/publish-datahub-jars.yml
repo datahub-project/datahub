@@ -130,12 +130,15 @@ jobs:
         run: |
           ./gradlew --stop
           ./gradlew -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=384m" -PreleaseVersion=${{ needs.setup.outputs.tag }} jreleaserDeploy
+  # Runs in parallel with `publish`: datahub-client-java8 is its own artifactId and its own Central Portal
+  # deployment (tracked by deployment id), so it neither waits for nor blocks the main bundle, and a failed
+  # one can be re-run on its own. (The nexus-staging jobs below must stay sequential, see #12120.)
   publish-java8:
     runs-on: ubuntu-24.04
     permissions:
       id-token: write
       contents: read
-    needs: ["check-secret", "setup", "publish"]
+    needs: ["check-secret", "setup"]
     if: ${{ needs.check-secret.outputs.publish-enabled == 'true' && ((github.event_name == 'release' && !github.event.release.prerelease) || (github.event_name == 'workflow_dispatch' && inputs.publisher == 'jreleaser' && inputs.tag != '')) }}
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
