@@ -1,3 +1,4 @@
+import contextlib
 import dataclasses
 import functools
 import io
@@ -8,9 +9,20 @@ import re
 import time
 from datetime import datetime
 from pathlib import PurePath
-from typing import IO, TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+)
 
 import smart_open.compression as so_compression
+from botocore.exceptions import BotoCoreError, ClientError
 from smart_open import open as smart_open
 
 from datahub.emitter.mce_builder import (
@@ -19,6 +31,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import AwsAccountKey, ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -39,7 +52,10 @@ from datahub.ingestion.source.aws.s3_util import (
     get_key_prefix,
     strip_s3_prefix,
 )
-from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.data_lake_common.data_lake_utils import (
     ContainerWUCreator,
     add_partition_columns_to_schema,
@@ -62,7 +78,7 @@ from datahub.ingestion.source.data_lake_common.zip_utils import (
     is_zip_path,
     read_first_supported_zip_entry,
 )
-from datahub.ingestion.source.s3.config import DataLakeSourceConfig
+from datahub.ingestion.source.s3.config import DataLakeSourceConfig, S3AccountConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
 from datahub.ingestion.source.schema_inference.base import SchemaInferenceBase
@@ -230,11 +246,7 @@ class S3Source(StatefulIngestionSourceBase):
         self.source_config = config
         self.report = DataLakeSourceReport()
         self.profiling_times_taken = []
-        self.container_WU_creator = ContainerWUCreator(
-            self.source_config.platform,
-            self.source_config.platform_instance,
-            self.source_config.env,
-        )
+        self.container_WU_creator = self._new_container_wu_creator()
 
         # Create an object store adapter for handling external URLs and paths
         if self.is_s3_platform():
@@ -317,6 +329,37 @@ class S3Source(StatefulIngestionSourceBase):
                     "S3/GCS profiling. Please install with profiling support: "
                     "pip install 'acryl-datahub[s3]' or 'acryl-datahub[gcs]'"
                 ) from e
+
+    def _new_container_wu_creator(
+        self, bucket_parent_key: Optional[ContainerKey] = None
+    ) -> ContainerWUCreator:
+        return ContainerWUCreator(
+            self.source_config.platform,
+            self.source_config.platform_instance,
+            self.source_config.env,
+            bucket_parent_key=bucket_parent_key,
+        )
+
+    def _account_key(self, account: S3AccountConfig) -> AwsAccountKey:
+        # Keyed like BucketKey, so accounts and their buckets split by env and
+        # platform_instance the same way.
+        return AwsAccountKey(
+            platform=self.source_config.platform,
+            instance=self.source_config.platform_instance,
+            env=self.source_config.env,
+            backcompat_env_as_instance=True,
+            account_id=account.account_id,
+        )
+
+    def _account_container(
+        self, account: S3AccountConfig
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from gen_containers(
+            container_key=self._account_key(account),
+            name=account.name or account.account_id,
+            sub_types=[DatasetContainerSubTypes.AWS_ACCOUNT],
+            extra_properties={"account_id": account.account_id},
+        )
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -1170,58 +1213,153 @@ class S3Source(StatefulIngestionSourceBase):
                         partitions=[],
                     )
 
+    @contextlib.contextmanager
+    def _account_scope(self, account: S3AccountConfig) -> Iterator[None]:
+        """Point the source at one account for the duration of the block.
+
+        The listing, tagging and profiling helpers all read self.source_config,
+        so the account's config is swapped in rather than threaded through them.
+        """
+        recipe_config = self.source_config
+        recipe_container_wu_creator = self.container_WU_creator
+        profiling = recipe_config.is_profiling_enabled()
+        recipe_profiler_aws_config = self.profiler.aws_config if profiling else None
+        account_aws_config = recipe_config.aws_config_for_account(account)
+        try:
+            self.source_config = recipe_config.model_copy(
+                update={
+                    "aws_config": account_aws_config,
+                    "aws_accounts": [],
+                }
+            )
+            self.container_WU_creator = self._new_container_wu_creator(
+                bucket_parent_key=self._account_key(account)
+            )
+            if profiling:
+                self.profiler.aws_config = account_aws_config
+            yield
+        finally:
+            account_aws_config.close_cached_s3_clients()
+            self.source_config = recipe_config
+            self.container_WU_creator = recipe_container_wu_creator
+            if profiling:
+                self.profiler.aws_config = recipe_profiler_aws_config
+
+    def _ingest_account(self, account: S3AccountConfig) -> Iterable[MetadataWorkUnit]:
+        # A failure is reported and the next path spec or account carries on. Any
+        # reported failure also keeps stale-entity removal from running, so no
+        # account's existing metadata is soft-deleted after a partial run.
+        context = f"account={account.account_id}, role={account.aws_role.RoleArn}"
+        failed = False
+        emitted = 0
+        try:
+            with self._account_scope(account):
+                for path_spec in self.source_config.path_specs:
+                    spec_context = f"{context}, path_spec={path_spec.include}"
+                    try:
+                        for wu in self._ingest_path_spec(path_spec):
+                            if not emitted:
+                                # Only once the role has worked, so a denied account
+                                # does not appear as an empty container.
+                                yield from self._account_container(account)
+                            emitted += 1
+                            yield wu
+                    except (BotoCoreError, ClientError) as e:
+                        failed = True
+                        self.report.failure(
+                            title="Failed to read an AWS account",
+                            message="Could not assume the account's role or list its "
+                            "S3 data. Check the role's trust policy and S3 permissions.",
+                            context=spec_context,
+                            exc=e,
+                        )
+                    except Exception as e:
+                        failed = True
+                        self.report.failure(
+                            title="Unexpected error while ingesting an AWS account",
+                            message="Ingestion of this path spec stopped for the account.",
+                            context=spec_context,
+                            exc=e,
+                        )
+        except Exception as e:
+            failed = True
+            self.report.failure(
+                title="Could not set up AWS account",
+                message="The account's AWS configuration could not be built.",
+                context=context,
+                exc=e,
+            )
+
+        if failed:
+            self.report.aws_accounts_failed.append(account.account_id)
+            stateful = self.source_config.stateful_ingestion
+            if stateful and stateful.enabled and stateful.remove_stale_metadata:
+                self.report.stale_removal_skipped_due_to_account_failures = True
+            return
+        self.report.aws_accounts_ingested += 1
+        if not emitted:
+            self.report.warning(
+                title="AWS account produced no metadata",
+                message="The account's role worked but nothing matched the path specs. "
+                "Check the role belongs to the intended account.",
+                context=context,
+            )
+
+    def _ingest_path_specs(self) -> Iterable[MetadataWorkUnit]:
+        assert self.source_config.path_specs
+        for path_spec in self.source_config.path_specs:
+            yield from self._ingest_path_spec(path_spec)
+
+    def _ingest_path_spec(self, path_spec: PathSpec) -> Iterable[MetadataWorkUnit]:
+        if path_spec.emit_folders_only:
+            yield from self._process_folders(path_spec)
+            return
+
+        file_browser = (
+            self.s3_browser(path_spec, self.source_config.number_of_files_to_sample)
+            if self.is_s3_platform()
+            else self.local_browser(path_spec)
+        )
+        table_dict: Dict[str, TableData] = {}
+        for browse_path in file_browser:
+            # Normalize URI for pattern matching
+            normalized_file_path = self._normalize_uri_for_pattern_matching(
+                browse_path.file
+            )
+
+            if not path_spec.allowed(
+                normalized_file_path,
+                ignore_ext=self.is_s3_platform()
+                and self.source_config.use_s3_content_type,
+            ):
+                continue
+            table_data = self.extract_table_data(path_spec, browse_path)
+            if table_data.table_path not in table_dict:
+                table_dict[table_data.table_path] = table_data
+            else:
+                table_dict[table_data.table_path].number_of_files = (
+                    table_dict[table_data.table_path].number_of_files + 1
+                )
+                table_dict[table_data.table_path].size_in_bytes = (
+                    table_dict[table_data.table_path].size_in_bytes
+                    + table_data.size_in_bytes
+                )
+                if (
+                    table_dict[table_data.table_path].timestamp < table_data.timestamp
+                ) and (table_data.size_in_bytes > 0):
+                    table_dict[table_data.table_path].full_path = table_data.full_path
+                    table_dict[table_data.table_path].timestamp = table_data.timestamp
+
+        for _, table_data in table_dict.items():
+            yield from self.ingest_table(table_data, path_spec)
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         with PerfTimer() as timer:
-            assert self.source_config.path_specs
-            for path_spec in self.source_config.path_specs:
-                if path_spec.emit_folders_only:
-                    yield from self._process_folders(path_spec)
-                    continue
-
-                file_browser = (
-                    self.s3_browser(
-                        path_spec, self.source_config.number_of_files_to_sample
-                    )
-                    if self.is_s3_platform()
-                    else self.local_browser(path_spec)
-                )
-                table_dict: Dict[str, TableData] = {}
-                for browse_path in file_browser:
-                    # Normalize URI for pattern matching
-                    normalized_file_path = self._normalize_uri_for_pattern_matching(
-                        browse_path.file
-                    )
-
-                    if not path_spec.allowed(
-                        normalized_file_path,
-                        ignore_ext=self.is_s3_platform()
-                        and self.source_config.use_s3_content_type,
-                    ):
-                        continue
-                    table_data = self.extract_table_data(path_spec, browse_path)
-                    if table_data.table_path not in table_dict:
-                        table_dict[table_data.table_path] = table_data
-                    else:
-                        table_dict[table_data.table_path].number_of_files = (
-                            table_dict[table_data.table_path].number_of_files + 1
-                        )
-                        table_dict[table_data.table_path].size_in_bytes = (
-                            table_dict[table_data.table_path].size_in_bytes
-                            + table_data.size_in_bytes
-                        )
-                        if (
-                            table_dict[table_data.table_path].timestamp
-                            < table_data.timestamp
-                        ) and (table_data.size_in_bytes > 0):
-                            table_dict[
-                                table_data.table_path
-                            ].full_path = table_data.full_path
-                            table_dict[
-                                table_data.table_path
-                            ].timestamp = table_data.timestamp
-
-                for _, table_data in table_dict.items():
-                    yield from self.ingest_table(table_data, path_spec)
+            if self.source_config.aws_accounts:
+                for account in self.source_config.aws_accounts:
+                    yield from self._ingest_account(account)
+            else:
+                yield from self._ingest_path_specs()
 
             if not self.source_config.is_profiling_enabled():
                 return
