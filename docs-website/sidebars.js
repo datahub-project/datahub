@@ -104,298 +104,103 @@ module.exports = {
           ],
         },
         {
-          label: "Agent Context Kit",
+          label: "Ingestion",
           type: "category",
+          collapsed: true,
           link: {
             type: "doc",
-            id: "docs/dev-guides/agent-context/agent-context",
+            id: "docs/ui-ingestion",
           },
           items: [
             {
-              label: "DataHub Skills",
+              label: "Security",
               type: "doc",
-              id: "docs/dev-guides/agent-context/skills",
-            },
-            {
-              label: "DataHub Cloud Plugins",
-              type: "doc",
-              id: "docs/dev-guides/agent-context/plugins",
-            },
-            {
-              label: "Snowflake",
-              type: "category",
-              collapsible: true,
-              collapsed: true,
-              items: [
-                {
-                  label: "Cortex Agents",
-                  type: "doc",
-                  id: "docs/dev-guides/agent-context/snowflake",
-                },
-                {
-                  label: "Cortex Code",
-                  type: "doc",
-                  id: "docs/dev-guides/agent-context/snowflake-cortex-code",
-                },
-              ],
-            },
-            {
-              label: "Google",
-              type: "category",
-              collapsible: true,
-              collapsed: true,
-              items: [
-                {
-                  label: "Gemini CLI",
-                  type: "doc",
-                  id: "docs/dev-guides/agent-context/gemini-cli",
-                },
-                {
-                  label: "Agent Development Kit (ADK)",
-                  type: "doc",
-                  id: "docs/dev-guides/agent-context/google-adk",
-                },
-                {
-                  label: "Vertex AI",
-                  type: "doc",
-                  id: "docs/dev-guides/agent-context/google-vertex-ai",
-                },
-              ],
-            },
-            {
-              label: "Databricks",
-              type: "category",
-              collapsible: true,
-              collapsed: true,
-              items: [
-                {
-                  label: "Genie Code",
-                  type: "doc",
-                  id: "docs/dev-guides/agent-context/databricks-genie-code",
-                },
-                {
-                  label: "Agent Bricks",
-                  type: "doc",
-                  id: "docs/dev-guides/agent-context/databricks-agent-bricks",
-                },
-              ],
-            },
-            {
-              label: "LangChain",
-              type: "doc",
-              id: "docs/dev-guides/agent-context/langchain",
-            },
-            {
-              label: "Cursor",
-              type: "doc",
-              id: "docs/dev-guides/agent-context/cursor",
-            },
-            {
-              label: "GitHub Copilot",
-              type: "doc",
-              id: "docs/dev-guides/agent-context/github-copilot",
-            },
-            {
-              label: "Claude",
-              type: "doc",
-              id: "docs/dev-guides/agent-context/claude",
-            },
-            {
-              label: "Microsoft Copilot Studio",
-              type: "doc",
-              id: "docs/dev-guides/agent-context/copilot-studio",
+              id: "docs/metadata-ingestion-security",
             },
           ],
         },
         {
-          label: "Analytics Agent",
-          type: "doc",
-          id: "docs/features/feature-guides/analytics-agent",
-        },
-        {
-          label: "Agent Registry",
-          type: "doc",
-          id: "docs/features/feature-guides/agent-registry",
-          className: "saasOnly",
-        },
-        {
-          label: "Assertions (Data Quality)",
+          label: "Asset Profiles",
           type: "category",
+          collapsed: true,
           link: {
             type: "doc",
-            id: "docs/managed-datahub/observe/assertions",
+            id: "docs/features/feature-guides/asset-profiles",
           },
           items: [
             {
-              label: "Overview",
+              label: "Asset Summaries",
               type: "doc",
-              id: "docs/managed-datahub/observe/assertions",
+              id: "docs/features/feature-guides/custom-asset-summaries",
             },
             {
-              label: "Column Assertions",
+              label: "Dataset Usage and Query History",
               type: "doc",
-              id: "docs/managed-datahub/observe/column-assertions",
-              className: "saasOnly",
+              id: "docs/features/dataset-usage-and-query-history",
             },
             {
-              label: "Custom SQL Assertions",
+              label: "Sync Status",
               type: "doc",
-              id: "docs/managed-datahub/observe/custom-sql-assertions",
-              className: "saasOnly",
-            },
-            {
-              label: "Freshness Assertions",
-              type: "doc",
-              id: "docs/managed-datahub/observe/freshness-assertions",
-              className: "saasOnly",
-            },
-            {
-              label: "Schema Assertions",
-              type: "doc",
-              id: "docs/managed-datahub/observe/schema-assertions",
-              className: "saasOnly",
-            },
-            {
-              label: "Volume Assertions",
-              type: "doc",
-              id: "docs/managed-datahub/observe/volume-assertions",
-              className: "saasOnly",
-            },
-            {
-              label: "Anomaly Detection ⚡",
-              type: "doc",
-              id: "docs/managed-datahub/observe/anomaly-detection",
-              className: "saasOnly",
-            },
-            {
-              label: "Backfill Assertion History",
-              type: "doc",
-              id: "docs/managed-datahub/observe/assertion-backfill",
-              className: "saasOnly",
-            },
-            {
-              label: "Adding Notes to Assertions",
-              type: "doc",
-              id: "docs/managed-datahub/observe/assertion-notes",
-              className: "saasOnly",
-            },
-            {
-              label: "Assertion Query Attribution",
-              type: "doc",
-              id: "docs/managed-datahub/observe/assertion-query-attribution",
-              className: "saasOnly",
-            },
-            {
-              label: "Open Assertions Specification",
-              type: "category",
-              link: {
-                type: "doc",
-                id: "docs/assertions/open-assertions-spec",
-              },
-              items: [
-                {
-                  label: "Snowflake",
-                  type: "doc",
-                  id: "docs/assertions/snowflake/snowflake_dmfs",
-                },
-              ],
+              id: "docs/sync-status",
             },
           ],
         },
         {
-          label: "Workflows",
+          label: "Lineage",
           type: "category",
-          collapsed: true,
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/lineage",
+          },
           items: [
             {
-              label: "Data Access Workflows",
+              label: "Automatic Lineage Extraction",
               type: "doc",
-              id: "docs/managed-datahub/workflows/access-workflows",
+              id: "docs/generated/lineage/automatic-lineage-extraction",
             },
             {
-              label: "Action Workflows",
+              label: "Lineage Impact Analysis",
               type: "doc",
-              id: "docs/managed-datahub/workflows/action-workflows",
+              id: "docs/act-on-metadata/impact-analysis",
             },
             {
-              label: "Workflow Tutorial",
+              label: "Managing Lineage via UI",
               type: "doc",
-              id: "docs/managed-datahub/workflows/action-workflows-tutorial",
+              id: "docs/features/feature-guides/ui-lineage",
             },
             {
-              label: "Workflow Reference",
               type: "doc",
-              id: "docs/managed-datahub/workflows/action-workflows-reference",
+              id: "docs/lineage/openlineage",
+              label: "OpenLineage",
             },
           ],
         },
         {
-          label: "Data Access Roles",
-          type: "doc",
-          id: "docs/features/feature-guides/access-roles",
-        },
-        {
-          label: "Applications",
-          type: "doc",
-          id: "docs/features/feature-guides/applications",
-        },
-        {
-          label: "Service Catalog",
-          type: "doc",
-          id: "docs/features/feature-guides/service-catalog",
-          className: "saasOnly",
-        },
-        {
-          label: "Automations",
+          label: "Search",
           type: "category",
           collapsed: true,
+          link: {
+            type: "doc",
+            id: "docs/how/search",
+          },
           items: [
             {
-              label: "Documentation Propagation",
+              label: "Access Controls",
               type: "doc",
-              id: "docs/automations/docs-propagation",
-            },
-            {
-              label: "Glossary Term Propagation",
-              type: "doc",
-              id: "docs/automations/glossary-term-propagation",
-            },
-            {
-              label: "BigQuery Metadata Sync",
-              type: "doc",
-              id: "docs/automations/bigquery-metadata-sync",
-              className: "saasOnly",
-            },
-            {
-              label: "Google Cloud Knowledge Catalog (Dataplex) Metadata Sync",
-              type: "doc",
-              id: "docs/automations/knowledge-catalog-metadata-sync",
-              className: "saasOnly",
-            },
-            {
-              label: "Databricks Metadata Sync",
-              type: "doc",
-              id: "docs/automations/databricks-metadata-sync",
-              className: "saasOnly",
-            },
-            {
-              label: "Snowflake Metadata Sync",
-              type: "doc",
-              id: "docs/automations/snowflake-metadata-sync",
-              className: "saasOnly",
-            },
-            {
-              label: "AI Documentation",
-              type: "doc",
-              id: "docs/automations/ai-docs",
+              id: "docs/features/feature-guides/search-access-controls",
               className: "saasOnly",
             },
           ],
         },
         {
-          label: "Business Attributes",
+          label: "Domains",
           type: "doc",
-          id: "docs/businessattributes",
+          id: "docs/domains",
+        },
+        {
+          label: "Ownership",
+          type: "doc",
+          id: "docs/ownership/ownership-types",
         },
         {
           label: "Business Glossary",
@@ -403,29 +208,9 @@ module.exports = {
           id: "docs/glossary/business-glossary",
         },
         {
-          label: "Compliance Forms",
-          type: "category",
-          collapsed: true,
-          items: [
-            {
-              label: "Overview",
-              type: "doc",
-              id: "docs/features/feature-guides/compliance-forms/overview",
-            },
-            {
-              type: "doc",
-              id: "docs/features/feature-guides/compliance-forms/create-a-form",
-            },
-            {
-              type: "doc",
-              id: "docs/features/feature-guides/compliance-forms/complete-a-form",
-            },
-            {
-              type: "doc",
-              id: "docs/features/feature-guides/compliance-forms/analytics",
-              className: "saasOnly",
-            },
-          ],
+          label: "Data Products",
+          type: "doc",
+          id: "docs/dataproducts",
         },
         {
           label: "Context",
@@ -607,142 +392,120 @@ module.exports = {
           ],
         },
         {
-          label: "Analytics Dashboards",
-          type: "doc",
-          id: "docs/features/feature-guides/analytics-dashboards",
-        },
-        {
-          label: "Asset Summaries",
-          type: "doc",
-          id: "docs/features/feature-guides/custom-asset-summaries",
-        },
-        {
-          label: "Home Page",
-          type: "doc",
-          id: "docs/features/feature-guides/custom-home-page",
-        },
-        {
-          label: "Data Contract",
-          type: "doc",
-          id: "docs/managed-datahub/observe/data-contract",
-        },
-        {
-          label: "Data Health Dashboard",
-          type: "doc",
-          id: "docs/managed-datahub/observe/data-health-dashboard",
-          className: "saasOnly",
-        },
-        {
-          label: "Data Products",
-          type: "doc",
-          id: "docs/dataproducts",
-        },
-        {
-          label: "Dataset Usage and Query History",
-          type: "doc",
-          id: "docs/features/dataset-usage-and-query-history",
-        },
-        {
-          label: "Domains",
-          type: "doc",
-          id: "docs/domains",
-        },
-        {
-          label: "File Upload and Download in Documentation",
-          type: "doc",
-          id: "docs/features/feature-guides/file-upload-download",
-        },
-        {
-          label: "Incidents",
-          type: "doc",
-          id: "docs/incidents/incidents",
-        },
-        {
-          label: "Ingestion",
-          type: "doc",
-          id: "docs/ui-ingestion",
-        },
-        {
-          label: "Ingestion Security",
-          type: "doc",
-          id: "docs/metadata-ingestion-security",
-        },
-        {
-          label: "Lineage",
+          label: "Observe",
           type: "category",
+          collapsed: true,
           link: {
             type: "doc",
-            id: "docs/features/feature-guides/lineage",
+            id: "docs/managed-datahub/observe/overview",
           },
           items: [
             {
-              label: "Automatic Lineage Extraction",
-              type: "doc",
-              id: "docs/generated/lineage/automatic-lineage-extraction",
+              label: "Assertions",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "docs/managed-datahub/observe/assertions",
+              },
+              items: [
+                {
+                  label: "Overview",
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/assertions",
+                },
+                {
+                  label: "Column Assertions",
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/column-assertions",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Custom SQL Assertions",
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/custom-sql-assertions",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Freshness Assertions",
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/freshness-assertions",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Schema Assertions",
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/schema-assertions",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Volume Assertions",
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/volume-assertions",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Anomaly Detection ⚡",
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/anomaly-detection",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Backfill Assertion History",
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/assertion-backfill",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Adding Notes to Assertions",
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/assertion-notes",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Assertion Query Attribution",
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/assertion-query-attribution",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Open Assertions Specification",
+                  type: "category",
+                  link: {
+                    type: "doc",
+                    id: "docs/assertions/open-assertions-spec",
+                  },
+                  items: [
+                    {
+                      label: "Snowflake",
+                      type: "doc",
+                      id: "docs/assertions/snowflake/snowflake_dmfs",
+                    },
+                  ],
+                },
+              ],
             },
             {
-              label: "Lineage Impact Analysis",
+              label: "Incidents",
               type: "doc",
-              id: "docs/act-on-metadata/impact-analysis",
+              id: "docs/incidents/incidents",
             },
             {
-              label: "Managing Lineage via UI",
+              label: "Data Health Dashboard",
               type: "doc",
-              id: "docs/features/feature-guides/ui-lineage",
-            },
-            {
-              type: "doc",
-              id: "docs/lineage/openlineage",
-              label: "OpenLineage",
-            },
-          ],
-        },
-        {
-          label: "Logical Models",
-          type: "category",
-          link: {
-            type: "doc",
-            id: "docs/features/feature-guides/logical-models/overview",
-          },
-          items: [
-            {
-              label: "Overview",
-              type: "doc",
-              id: "docs/features/feature-guides/logical-models/overview",
-            },
-            {
-              label: "Centralized Management",
-              type: "doc",
-              id: "docs/features/feature-guides/logical-models/centralized-management",
+              id: "docs/managed-datahub/observe/data-health-dashboard",
               className: "saasOnly",
             },
+            {
+              label: "Data Contracts",
+              type: "doc",
+              id: "docs/managed-datahub/observe/data-contract",
+            },
           ],
         },
         {
-          label: "Metadata Tests",
+          label: "Views",
           type: "doc",
-          id: "docs/tests/metadata-tests",
-          className: "saasOnly",
-        },
-        {
-          label: "Metrics & Semantic Models",
-          type: "category",
-          link: {
-            type: "doc",
-            id: "docs/features/feature-guides/metrics-and-semantic-models",
-          },
-          items: [
-            {
-              label: "Best Practices",
-              type: "doc",
-              id: "docs/features/feature-guides/metrics-and-semantic-models-best-practices",
-            },
-            {
-              label: "Ossie Compatibility",
-              type: "doc",
-              id: "docs/features/feature-guides/ossie-compatibility",
-            },
-          ],
+          id: "docs/features/feature-guides/views/overview",
         },
         {
           label: "MCP Server",
@@ -750,61 +513,108 @@ module.exports = {
           id: "docs/features/feature-guides/mcp",
         },
         {
-          label: "Multi-Language Support",
-          type: "doc",
-          id: "docs/features/feature-guides/multi-language-support",
-        },
-        {
-          label: "Ownership",
-          type: "doc",
-          id: "docs/ownership/ownership-types",
-        },
-        {
-          label: "Policies",
-          type: "doc",
-          id: "docs/authorization/access-policies-guide",
-        },
-        {
-          label: "Posts",
-          type: "doc",
-          id: "docs/posts",
-        },
-        {
-          label: "Properties",
+          label: "Agent Context Kit",
           type: "category",
-          collapsed: true,
+          link: {
+            type: "doc",
+            id: "docs/dev-guides/agent-context/agent-context",
+          },
           items: [
             {
-              label: "Overview",
+              label: "DataHub Skills",
               type: "doc",
-              id: "docs/features/feature-guides/properties/overview",
+              id: "docs/dev-guides/agent-context/skills",
             },
             {
+              label: "DataHub Cloud Plugins",
               type: "doc",
-              id: "docs/features/feature-guides/properties/create-a-property",
+              id: "docs/dev-guides/agent-context/plugins",
+            },
+            {
+              label: "Snowflake",
+              type: "category",
+              collapsible: true,
+              collapsed: true,
+              items: [
+                {
+                  label: "Cortex Agents",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/snowflake",
+                },
+                {
+                  label: "Cortex Code",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/snowflake-cortex-code",
+                },
+              ],
+            },
+            {
+              label: "Google",
+              type: "category",
+              collapsible: true,
+              collapsed: true,
+              items: [
+                {
+                  label: "Gemini CLI",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/gemini-cli",
+                },
+                {
+                  label: "Agent Development Kit (ADK)",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/google-adk",
+                },
+                {
+                  label: "Vertex AI",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/google-vertex-ai",
+                },
+              ],
+            },
+            {
+              label: "Databricks",
+              type: "category",
+              collapsible: true,
+              collapsed: true,
+              items: [
+                {
+                  label: "Genie Code",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/databricks-genie-code",
+                },
+                {
+                  label: "Agent Bricks",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/databricks-agent-bricks",
+                },
+              ],
+            },
+            {
+              label: "LangChain",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/langchain",
+            },
+            {
+              label: "Cursor",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/cursor",
+            },
+            {
+              label: "GitHub Copilot",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/github-copilot",
+            },
+            {
+              label: "Claude",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/claude",
+            },
+            {
+              label: "Microsoft Copilot Studio",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/copilot-studio",
             },
           ],
-        },
-        {
-          label: "Schema history",
-          type: "doc",
-          id: "docs/schema-history",
-        },
-        {
-          label: "Search",
-          type: "doc",
-          id: "docs/how/search",
-        },
-        {
-          label: "Search Access Controls",
-          type: "doc",
-          id: "docs/features/feature-guides/search-access-controls",
-          className: "saasOnly",
-        },
-        {
-          label: "Service Accounts",
-          type: "doc",
-          id: "docs/features/feature-guides/service-accounts",
         },
         {
           label: "Subscriptions & Notifications",
@@ -824,19 +634,248 @@ module.exports = {
           ],
         },
         {
-          label: "Sync Status",
-          type: "doc",
-          id: "docs/sync-status",
-        },
-        {
           label: "Tags",
           type: "doc",
           id: "docs/tags",
         },
         {
-          label: "Views",
-          type: "doc",
-          id: "docs/features/feature-guides/views/overview",
+          label: "Advanced",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              label: "Service Accounts",
+              type: "doc",
+              id: "docs/features/feature-guides/service-accounts",
+            },
+            {
+              label: "Structured Properties",
+              type: "category",
+              collapsed: true,
+              items: [
+                {
+                  label: "Overview",
+                  type: "doc",
+                  id: "docs/features/feature-guides/properties/overview",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/properties/create-a-property",
+                },
+              ],
+            },
+            {
+              label: "Metadata Tests",
+              type: "doc",
+              id: "docs/tests/metadata-tests",
+              className: "saasOnly",
+            },
+            {
+              label: "Compliance Forms",
+              type: "category",
+              collapsed: true,
+              items: [
+                {
+                  label: "Overview",
+                  type: "doc",
+                  id: "docs/features/feature-guides/compliance-forms/overview",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/compliance-forms/create-a-form",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/compliance-forms/complete-a-form",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/compliance-forms/analytics",
+                  className: "saasOnly",
+                },
+              ],
+            },
+            {
+              label: "Schema history",
+              type: "doc",
+              id: "docs/schema-history",
+            },
+            {
+              label: "Workflows",
+              type: "category",
+              collapsed: true,
+              items: [
+                {
+                  label: "Data Access Workflows",
+                  type: "doc",
+                  id: "docs/managed-datahub/workflows/access-workflows",
+                },
+                {
+                  label: "Action Workflows",
+                  type: "doc",
+                  id: "docs/managed-datahub/workflows/action-workflows",
+                },
+                {
+                  label: "Workflow Tutorial",
+                  type: "doc",
+                  id: "docs/managed-datahub/workflows/action-workflows-tutorial",
+                },
+                {
+                  label: "Workflow Reference",
+                  type: "doc",
+                  id: "docs/managed-datahub/workflows/action-workflows-reference",
+                },
+              ],
+            },
+            {
+              label: "Automations",
+              type: "category",
+              collapsed: true,
+              items: [
+                {
+                  label: "Documentation Propagation",
+                  type: "doc",
+                  id: "docs/automations/docs-propagation",
+                },
+                {
+                  label: "Glossary Term Propagation",
+                  type: "doc",
+                  id: "docs/automations/glossary-term-propagation",
+                },
+                {
+                  label: "BigQuery Metadata Sync",
+                  type: "doc",
+                  id: "docs/automations/bigquery-metadata-sync",
+                  className: "saasOnly",
+                },
+                {
+                  label:
+                    "Google Cloud Knowledge Catalog (Dataplex) Metadata Sync",
+                  type: "doc",
+                  id: "docs/automations/knowledge-catalog-metadata-sync",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Databricks Metadata Sync",
+                  type: "doc",
+                  id: "docs/automations/databricks-metadata-sync",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Snowflake Metadata Sync",
+                  type: "doc",
+                  id: "docs/automations/snowflake-metadata-sync",
+                  className: "saasOnly",
+                },
+                {
+                  label: "AI Documentation",
+                  type: "doc",
+                  id: "docs/automations/ai-docs",
+                  className: "saasOnly",
+                },
+              ],
+            },
+            {
+              label: "Data Access Roles",
+              type: "doc",
+              id: "docs/features/feature-guides/access-roles",
+            },
+            {
+              label: "Policies",
+              type: "doc",
+              id: "docs/authorization/access-policies-guide",
+            },
+            {
+              label: "Home Page",
+              type: "doc",
+              id: "docs/features/feature-guides/custom-home-page",
+            },
+            {
+              label: "Service Catalog",
+              type: "doc",
+              id: "docs/features/feature-guides/service-catalog",
+              className: "saasOnly",
+            },
+            {
+              label: "Agent Registry",
+              type: "doc",
+              id: "docs/features/feature-guides/agent-registry",
+              className: "saasOnly",
+            },
+            {
+              label: "Logical Models",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "docs/features/feature-guides/logical-models/overview",
+              },
+              items: [
+                {
+                  label: "Overview",
+                  type: "doc",
+                  id: "docs/features/feature-guides/logical-models/overview",
+                },
+                {
+                  label: "Centralized Management",
+                  type: "doc",
+                  id: "docs/features/feature-guides/logical-models/centralized-management",
+                  className: "saasOnly",
+                },
+              ],
+            },
+            {
+              label: "Analytics",
+              type: "doc",
+              id: "docs/features/feature-guides/analytics-dashboards",
+            },
+            {
+              label: "Metrics & Semantic Models",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "docs/features/feature-guides/metrics-and-semantic-models",
+              },
+              items: [
+                {
+                  label: "Best Practices",
+                  type: "doc",
+                  id: "docs/features/feature-guides/metrics-and-semantic-models-best-practices",
+                },
+                {
+                  label: "Ossie Compatibility",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ossie-compatibility",
+                },
+              ],
+            },
+            {
+              label: "Internationalization",
+              type: "doc",
+              id: "docs/features/feature-guides/multi-language-support",
+            },
+          ],
+        },
+        {
+          label: "Legacy & Deprecated",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              label: "Business Attributes",
+              type: "doc",
+              id: "docs/businessattributes",
+            },
+            {
+              label: "Applications",
+              type: "doc",
+              id: "docs/features/feature-guides/applications",
+            },
+            {
+              label: "Iceberg REST Catalog",
+              type: "doc",
+              id: "docs/iceberg-catalog",
+            },
+          ],
         },
       ],
     },
@@ -1205,7 +1244,6 @@ module.exports = {
         "metadata-ingestion/docs/dev_guides/profiling_ingestions",
         "metadata-ingestion/docs/dev_guides/lineage_urn_casing",
         "metadata-ingestion/docs/dev_guides/probe_interface",
-        "docs/iceberg-catalog",
       ],
     },
     // APIs & SDKs.
@@ -1566,6 +1604,11 @@ module.exports = {
         },
         "docs/api/tutorials/sdk/search_client",
       ],
+    },
+    {
+      label: "Analytics Agent",
+      type: "doc",
+      id: "docs/features/feature-guides/analytics-agent",
     },
     // Admin.
     {

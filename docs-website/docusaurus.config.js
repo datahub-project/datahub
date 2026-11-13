@@ -411,6 +411,14 @@ module.exports = {
             to: '/docs/managed-datahub/observe/overview',
           },
           {
+            from: '/docs/features/feature-guides/file-upload-download',
+            to: '/docs/features/feature-guides/asset-profiles',
+          },
+          {
+            from: '/docs/posts',
+            to: '/docs/features/feature-guides/custom-home-page',
+          },
+          {
             from: '/docs/managed-datahub/context/overview',
             to: '/docs/managed-datahub/build-a-data-agent/overview',
           },
