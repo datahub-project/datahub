@@ -121,7 +121,18 @@ Conflicts are loud, never silent:
 
 A profile selects a server together with its credential. This is deliberately stronger than `AWS_PROFILE`, which exported AWS credentials can still override: `DATAHUB_PROFILE` outranks `DATAHUB_GMS_URL` and `DATAHUB_GMS_TOKEN`. AWS signs requests per region and endpoint; DataHub sends a bearer token, so pairing one instance's server with another's token would leak the token. Every consumer of the connection follows the same pairing (see Implementation).
 
-`datahub profile current` reports the source, e.g. `acme  https://acme.example.com/gms  (from DATAHUB_PROFILE)`. When the machine pointer chose the profile, the line says so explicitly (`from current-profile, the machine-wide default set by datahub profile use`), so a change made from another terminal is visible before a write. The same line goes to stderr from commands that write metadata (`put`, `delete`, `ingest`, upserts) when the resolved profile is not `default`.
+`datahub profile current` reports the source, e.g. `acme  https://acme.example.com/gms  (from DATAHUB_PROFILE)`. When the machine pointer chose the profile, the line says so explicitly (`from current-profile, the machine-wide default set by datahub profile use`), so a change made from another terminal is visible before a write. The same line goes to stderr from commands that write through the CLI connection (`put`, `delete`, `ingest deploy`/`mcps`/`rollback`, upserts) when the resolved profile is not `default`. The announcement never fails a command: a stale pointer is reported by the command only if it actually reads the connection.
+
+`datahub ingest run` and `ingest replay --live-sink` write through the recipe's sink, not necessarily the selected profile, so announcing the profile would confirm the wrong target. They check the loaded recipe after `${VAR}` substitution instead:
+
+| Recipe sink                                    | No named profile | `DATAHUB_PROFILE` or pointer      | Explicit `--profile`          |
+| ---------------------------------------------- | ---------------- | --------------------------------- | ----------------------------- |
+| none (default sink)                            | unchanged        | announces the profile             | announces the profile         |
+| `datahub-rest` on the profile's server         | unchanged        | announces it                      | announces it                  |
+| `datahub-rest` on another server               | unchanged        | warns naming both; recipe wins    | error naming both; nothing runs |
+| other sink types (file, Kafka)                 | unchanged        | notes the recipe decides          | notes the recipe decides      |
+
+An explicit `--profile` is a direct statement of intent, and it is new, so refusing a contradiction breaks no existing invocation. `DATAHUB_PROFILE` and the pointer are session-wide, so a refusal there would fail every recipe with its own sink; they warn. The motivating case: `--profile staging` with a recipe sink of `${DATAHUB_GMS_URL}` while `DATAHUB_GMS_URL` is exported for prod. Recipe substitution for `datahub ingest` stays environment-only, since executors depend on it; the check compares the substituted server. A recipe's separate `datahub_api` (stateful-ingestion) server is not checked yet.
 
 Where `datahub init` writes: with `--profile`, that profile. Without it, the profile resolved from sources 1, 2, 4 and 5, printed in the success message. `DATAHUB_GMS_URL` is an input to init, not a destination.
 
@@ -144,8 +155,9 @@ To overwrite anyway, add --force.
 ```
 
 3. `profile use` needs `--yes` when non-interactive.
-4. Writes announce their target on stderr.
-5. "No config" and "unknown profile" errors list available profiles and servers.
+4. Writes announce their target on stderr; `ingest run` announces the recipe's real destination.
+5. An ingest recipe whose sink contradicts an explicit `--profile` is refused before the pipeline starts.
+6. "No config" and "unknown profile" errors list available profiles and servers.
 
 ### Security
 
@@ -158,14 +170,15 @@ To overwrite anyway, add --force.
 
 ### Implementation
 
-1. `cli/config_utils.py`: replace the import-time constant `DATAHUB_CONFIG_PATH` with `resolve_profile() -> ResolvedProfile` (dataclass: name, path, source, server), cached per process and resettable for tests. `get_raw_client_config`, `persist_raw_datahub_config`, `_ensure_datahub_config` and `refresh_oauth_token_if_needed` take the resolved path. Keep `DATAHUB_CONFIG_PATH`/`CONDENSED_DATAHUB_CONFIG_PATH` importable for compatibility (other modules import them) but stop using them for reads/writes.
+1. `cli/config_utils.py`: replace the import-time constant `DATAHUB_CONFIG_PATH` with `resolve_profile() -> ResolvedProfile` (dataclass: name, path, source, server), cached per process and resettable for tests. `get_raw_client_config`, `persist_raw_datahub_config`, `_ensure_datahub_config` and `refresh_oauth_token_if_needed` take the resolved path. Keep `DATAHUB_CONFIG_PATH`/`CONDENSED_DATAHUB_CONFIG_PATH` importable for compatibility (other modules import them) but stop using them for reads/writes. Resolve the home directory with `os.path.expanduser`, not `Path.home()`, which raises when `HOME` is unset and the UID has no passwd entry (arbitrary-UID containers).
 2. `load_client_config(profile: Optional[str] = None)`: insert resolution at the positions above. This covers the SDK, `DataHubGraph` and the REST sink. Code that reads env vars or `~/.datahubenv` before calling it must follow the selected profile too, so the server and token never come from different instances: `chunking_config.py` loads both defaults from one `load_client_config()` call (localhost only when nothing is configured), and the recipe secret resolver answers `${DATAHUB_GMS_URL}`/`${DATAHUB_GMS_TOKEN}` from a profile chosen by name (sources 1, 2, 4) ahead of the environment, leaving a field the profile lacks unresolved rather than taking it from the environment. Other recipe variables keep environment precedence.
 3. `entrypoints.py`: global `--profile` on the `datahub` group, stored on the Click context and in the resolver, and exported as `DATAHUB_PROFILE` for the command's duration so worker threads, spawned processes and child `datahub` commands target the same profile. An argv pre-pass in `main()` lifts `--profile X` / `--profile=X` from after the subcommand (stop at `--`). No subcommand defines `--profile`, including `init` (`docker_cli.py` only passes it to docker compose as a subprocess argument).
 4. `init`: reads the global profile, adds `--description`; non-TTY same-server check replaces the silent overwrite; success messages name the profile.
 5. New `cli/profile_cli.py` with list/current/use/save/show/remove/rename/doctor, using the existing agent-aware help command class in `entrypoints.py`.
 6. Resources: rewrite `INIT_AGENT_CONTEXT.md`, add `PROFILE_AGENT_CONTEXT.md`.
-7. Replace hardcoded `~/.datahubenv` strings in `cli_utils.py` and `ingest_cli.py` error messages with the resolved path.
-8. Tests in `tests/unit/cli/`: resolution order and each conflict, non-TTY repoint refusal and same-server refresh, unknown profile errors, `profile save` ignoring env vars, OAuth refresh target file, file permissions, argv pre-pass.
+7. Announce write targets from a hook on each command's `invoke`, installed by `enable_auto_decorators`, rather than by replacing callbacks: telemetry detects its own wrappers by walking the callback, and an instrumented callback must stay the same object. `ingest_cli.py` runs the recipe sink check above.
+8. Replace hardcoded `~/.datahubenv` strings in `cli_utils.py` and `ingest_cli.py` error messages with the resolved path.
+9. Tests in `tests/unit/cli/`: resolution order and each conflict, non-TTY repoint refusal and same-server refresh, unknown profile errors, `profile save` ignoring env vars, OAuth refresh target file, file permissions, argv pre-pass.
 
 ## How we teach this
 
