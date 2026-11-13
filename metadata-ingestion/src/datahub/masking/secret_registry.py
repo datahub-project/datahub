@@ -56,24 +56,23 @@ def _url_encoded_renderings(value: str) -> List[str]:
     userinfo encoding (`quote(safe=" +")`), strict encoding (`quote(safe="")`),
     form/query encoding (`quote_plus`) and the `: @ /`-only form of SQLAlchemy
     1.x, each with upper- and lowercase hex digits (RFC 3986 treats `%2F` and
-    `%2f` as equivalent, and some encoders emit the latter)."""
-    candidates = (
+    `%2f` as equivalent, and some encoders emit the latter). May repeat forms
+    and include the value itself; callers deduplicate."""
+    encoded_forms = (
         quote(value, safe=" +"),
         quote(value, safe=""),
         quote_plus(value, safe=""),
-        _legacy_url_encoded(value) or value,
+        _legacy_url_encoded(value),
     )
-    renderings: List[str] = []
-    for encoded in candidates:
-        for variant in (encoded, _PERCENT_ESCAPE.sub(_lowercase_escape, encoded)):
-            if variant != value and variant not in renderings:
-                renderings.append(variant)
-    return renderings
+    return [
+        variant
+        for encoded in encoded_forms
+        for variant in (encoded, _PERCENT_ESCAPE.sub(_lowercase_escape, encoded))
+    ]
 
 
-def _legacy_url_encoded(value: str) -> Optional[str]:
-    encoded = value.replace(":", "%3A").replace("@", "%40").replace("/", "%2F")
-    return encoded if encoded != value else None
+def _legacy_url_encoded(value: str) -> str:
+    return value.replace(":", "%3A").replace("@", "%40").replace("/", "%2F")
 
 
 def _lowercase_escape(match: "re.Match[str]") -> str:
@@ -96,12 +95,13 @@ def _line_fragments(value: str) -> List[str]:
 
 
 def maskable_renderings(value: str) -> List[str]:
-    """All forms of a secret worth matching: the value itself with its escaped
-    and URL-encoded variants, and each substantial line of a multi-line value
-    with its escaped variant and the `: @ /`-encoded form. A single line of a
-    PEM key is not embedded in a URL on its own, so lines skip the full set of
-    URL encodings, which would otherwise multiply the registry size of every
-    large key."""
+    """All forms of a secret worth matching: the value itself, each substantial
+    line of a multi-line value, and the escaped and URL-encoded variants of each.
+
+    Only a single-line value gets the full set of URL encodings. A URL can't
+    carry a newline, so a multi-line value (a PEM key) or one of its lines is
+    never embedded in one whole; they keep just the `: @ /` form, as before,
+    which bounds the registry size of large keys."""
     renderings: List[str] = []
 
     def add(*candidates: Optional[str]) -> None:
@@ -109,9 +109,12 @@ def maskable_renderings(value: str) -> List[str]:
             if rendering is not None and rendering not in renderings:
                 renderings.append(rendering)
 
-    add(value, _escaped_rendering(value), *_url_encoded_renderings(value))
-    for fragment in _line_fragments(value):
-        add(fragment, _escaped_rendering(fragment), _legacy_url_encoded(fragment))
+    fragments = _line_fragments(value)
+    if fragments:
+        for text in (value, *fragments):
+            add(text, _escaped_rendering(text), _legacy_url_encoded(text))
+    else:
+        add(value, _escaped_rendering(value), *_url_encoded_renderings(value))
     return renderings
 
 

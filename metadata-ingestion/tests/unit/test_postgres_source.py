@@ -1,4 +1,3 @@
-import logging
 from io import StringIO
 from types import SimpleNamespace
 from typing import Any, Dict, Iterator, List
@@ -43,8 +42,7 @@ from datahub.ingestion.source.sql.postgres.source import (
 )
 from datahub.ingestion.source.sql.sql_common import get_column_type
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-from datahub.masking.masking_filter import install_masking_filter
-from datahub.masking.secret_registry import SecretRegistry
+from datahub.masking.constants import REDACTED_PREFIX
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BytesTypeClass,
@@ -57,7 +55,7 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.sqlalchemy_type_converter import (
     get_native_data_type_for_sqlalchemy_type,
 )
-from tests.test_helpers.masking_state_helpers import reset_masking_process_state
+from tests.test_helpers.masking_state_helpers import capture_masked_log
 from tests.unit.conftest import as_mock, log_contexts, single_aspect
 from tests.unit.sql_test_helpers import FakeConnection, FakeResult
 
@@ -878,25 +876,8 @@ _SOURCE_LOGGER = "datahub.ingestion.source.sql.postgres.source"
 
 @pytest.fixture
 def masked_source_log() -> Iterator[StringIO]:
-    """Captures the postgres source's log output with the secret masking filter
-    installed, the way the CLI runs it."""
-    reset_masking_process_state()
-    stream = StringIO()
-    handler = logging.StreamHandler(stream)
-    handler.setFormatter(logging.Formatter("%(message)s"))
-    source_logger = logging.getLogger(_SOURCE_LOGGER)
-    previous_level = source_logger.level
-    source_logger.setLevel(logging.DEBUG)
-    source_logger.addHandler(handler)
-    install_masking_filter(
-        secret_registry=SecretRegistry.get_instance(), install_stdout_wrapper=False
-    )
-    try:
+    with capture_masked_log(_SOURCE_LOGGER) as stream:
         yield stream
-    finally:
-        source_logger.removeHandler(handler)
-        source_logger.setLevel(previous_level)
-        reset_masking_process_state()
 
 
 def _log_connection_url(config_dict: Dict[str, Any]) -> None:
@@ -910,10 +891,13 @@ def _log_connection_url(config_dict: Dict[str, Any]) -> None:
         list(source.get_inspectors())
 
 
-def _assert_password_not_logged(output: str, password: str) -> None:
+def _assert_passwords_masked(output: str, *passwords: str) -> None:
     assert "sql_alchemy_url=" in output, output
-    assert password not in output, output
-    assert quote(password, safe=" +") not in output, output
+    # Masked by the registry, not left out of the line some other way.
+    assert REDACTED_PREFIX in output, output
+    for password in passwords:
+        assert password not in output, output
+        assert quote(password, safe=" +") not in output, output
 
 
 @pytest.mark.parametrize(
@@ -934,31 +918,47 @@ def test_debug_connection_url_log_hides_password(
             "database": "my_db",
         }
     )
-    _assert_password_not_logged(masked_source_log.getvalue(), password)
+    _assert_passwords_masked(masked_source_log.getvalue(), password)
 
 
 @pytest.mark.parametrize(
-    "password, sqlalchemy_uri",
+    "sqlalchemy_uri, passwords",
     [
         pytest.param(
-            "placeholder-uri-secret-42",
             "postgresql+psycopg2://my_user:placeholder-uri-secret-42@my-host:5432/my_db",
+            ["placeholder-uri-secret-42"],
             id="userinfo",
         ),
         pytest.param(
-            "Str0ng!Uri#Secret",
             "postgresql+psycopg2://my_user:Str0ng%21Uri%23Secret@my-host:5432/my_db",
+            ["Str0ng!Uri#Secret"],
             id="userinfo_percent_encoded",
         ),
         pytest.param(
-            "placeholder-query-secret-42",
+            "postgresql+psycopg2://my_user:Str0ng%21Uri#Secret@my-host:5432/my_db",
+            ["Str0ng%21Uri#Secret"],
+            id="userinfo_mixed_encoding",
+        ),
+        pytest.param(
+            "postgresql+psycopg2://my_user:pa%2fss%3Aword@my-host:5432/my_db",
+            ["pa%2fss%3Aword"],
+            id="userinfo_mixed_hex_case",
+        ),
+        pytest.param(
             "postgresql+psycopg2://my_user@my-host:5432/my_db?password=placeholder-query-secret-42",
+            ["placeholder-query-secret-42"],
             id="query_parameter",
+        ),
+        pytest.param(
+            "postgresql+psycopg2://my_user:placeholder-uri-secret-42@my-host:5432/my_db"
+            "?password=placeholder-query-secret-42",
+            ["placeholder-uri-secret-42", "placeholder-query-secret-42"],
+            id="userinfo_and_query_parameter",
         ),
     ],
 )
 def test_debug_connection_url_log_hides_password_in_sqlalchemy_uri(
-    masked_source_log: StringIO, password: str, sqlalchemy_uri: str
+    masked_source_log: StringIO, sqlalchemy_uri: str, passwords: List[str]
 ) -> None:
     _log_connection_url({"sqlalchemy_uri": sqlalchemy_uri, "host_port": "my-host:5432"})
-    _assert_password_not_logged(masked_source_log.getvalue(), password)
+    _assert_passwords_masked(masked_source_log.getvalue(), *passwords)

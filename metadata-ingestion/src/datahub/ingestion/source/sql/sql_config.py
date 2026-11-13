@@ -392,7 +392,7 @@ class SQLAlchemyConnectionConfig(ConfigModel):
     )
 
     @model_validator(mode="after")
-    def _register_sqlalchemy_uri_secrets(self) -> "SQLAlchemyConnectionConfig":
+    def register_sqlalchemy_uri_secrets(self) -> "SQLAlchemyConnectionConfig":
         # sqlalchemy_uri is a plain str, so _register_secret_fields never sees the
         # credentials embedded in it. Register them by hand so they are masked.
         if self.sqlalchemy_uri:

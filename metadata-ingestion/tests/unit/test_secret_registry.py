@@ -211,8 +211,8 @@ class TestUrlEncodedRenderings:
             pytest.param("Str0ng!Pass#2024", "Str0ng%21Pass%232024", id="userinfo"),
             pytest.param("my pass+word", "my%20pass%2Bword", id="strict"),
             pytest.param("my pass+word", "my+pass%2Bword", id="form_encoded"),
-            pytest.param("pa/ss:word", "pa%2Fss%3Aword", id="uppercase_hex"),
-            pytest.param("pa/ss:word", "pa%2fss%3aword", id="lowercase_hex"),
+            pytest.param("pa;ss/word", "pa%3Bss%2Fword", id="uppercase_hex"),
+            pytest.param("pa;ss/word", "pa%3bss%2fword", id="lowercase_hex"),
         ],
     )
     def test_url_encoded_forms_are_registered(self, secret: str, encoded: str) -> None:
@@ -226,17 +226,16 @@ class TestUrlEncodedRenderings:
             "alphanumericpassword123"
         ]
 
-    def test_lines_of_a_multiline_secret_skip_the_full_url_encoding_set(
-        self,
-    ) -> None:
+    def test_multiline_secret_keeps_only_the_legacy_url_encoding(self) -> None:
         line = "abcd+efgh/ijkl"
-        renderings = maskable_renderings(
-            f"-----BEGIN KEY-----\n{line}\n-----END KEY-----"
-        )
+        value = f"-----BEGIN KEY-----\n{line}\n-----END KEY-----"
+
+        renderings = maskable_renderings(value)
 
         assert line in renderings
         assert "abcd+efgh%2Fijkl" in renderings
         assert "abcd%2Befgh%2Fijkl" not in renderings
+        assert not any("%0A" in rendering for rendering in renderings)
 
 
 class TestCapacityFailClosed:

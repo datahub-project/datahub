@@ -1,11 +1,27 @@
+import logging
+import re
+import urllib.parse
 from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ArgumentError
 
+logger = logging.getLogger(__name__)
+
 # Query parameters that carry a password in a connection URL (libpq and most
 # DBAPI drivers accept these as an alternative to the userinfo password).
 _PASSWORD_QUERY_PARAMS = frozenset({"password", "passwd", "pwd", "sslpassword"})
+# An ODBC connection string passed whole as a query parameter (mssql+pyodbc).
+_ODBC_CONNECT_PARAM = "odbc_connect"
+# ODBC lets a value hold ";" when it is wrapped in braces: PWD={pa;ss}.
+_ODBC_PASSWORD = re.compile(
+    r"(?:^|;)\s*(?:PWD|PASSWORD)\s*=\s*(?:\{(?P<braced>[^}]*)\}|(?P<plain>[^;]*))",
+    re.IGNORECASE,
+)
+# The userinfo password exactly as written in the URI. Bounded by the last "@"
+# before the path or query, so an unencoded "@" inside the password -- which
+# SQLAlchemy splits into the host instead -- stays part of it.
+_VERBATIM_USERINFO_PASSWORD = re.compile(r"^[\w+.-]+://[^:/?#@]*:(?P<password>[^/?]*)@")
 
 
 def parse_host_port(
@@ -75,24 +91,50 @@ def make_sqlalchemy_uri(
 
 
 def sqlalchemy_uri_secrets(url: str) -> Dict[str, str]:
-    """Passwords embedded in a SQLAlchemy URL -- the userinfo password and any
-    password-like query parameter -- keyed by a name for the secret registry.
-    Values are decoded, so the registry also covers their percent-encoded
-    forms. A URL that can't be parsed yields nothing."""
+    """Passwords embedded in a SQLAlchemy URL, keyed by a name for the secret
+    registry: the userinfo password both exactly as written and decoded,
+    password-like query parameters, and the PWD of an ODBC connect string.
+
+    The as-written form matters because sources log the URI verbatim, in
+    whatever encoding the user chose; the decoded form covers the URL that
+    SQLAlchemy renders from it. Neither depends on the URI being valid."""
+    secrets: Dict[str, str] = {}
+    verbatim = _VERBATIM_USERINFO_PASSWORD.match(url)
+    if verbatim and verbatim.group("password"):
+        secrets["sqlalchemy_uri.userinfo_password.verbatim"] = verbatim.group(
+            "password"
+        )
     try:
         parsed = make_url(url)
     except (ArgumentError, ValueError):
-        return {}
-    secrets: Dict[str, str] = {}
-    if parsed.password:
-        secrets["sqlalchemy_uri.password"] = str(parsed.password)
+        if not secrets:
+            logger.warning(
+                "sqlalchemy_uri could not be parsed; a password it contains "
+                "may not be masked in logs"
+            )
+        return secrets
+    # When the password holds an unencoded "@", SQLAlchemy splits it into the
+    # host and returns only a prefix; registering that prefix would mask an
+    # unrelated short string everywhere, and the verbatim form already covers it.
+    if parsed.password and (
+        verbatim is None
+        or urllib.parse.unquote(verbatim.group("password")) == parsed.password
+    ):
+        secrets["sqlalchemy_uri.userinfo_password"] = str(parsed.password)
     for key, value in parsed.query.items():
-        if key.lower() not in _PASSWORD_QUERY_PARAMS:
+        values = (value,) if isinstance(value, str) else tuple(value)
+        if key.lower() in _PASSWORD_QUERY_PARAMS:
+            passwords = list(values)
+        elif key.lower() == _ODBC_CONNECT_PARAM:
+            passwords = [
+                match.group("braced") or match.group("plain")
+                for item in values
+                for match in _ODBC_PASSWORD.finditer(urllib.parse.unquote_plus(item))
+            ]
+        else:
             continue
-        values = (value,) if isinstance(value, str) else value
-        for index, item in enumerate(values):
-            suffix = f".{index}" if len(values) > 1 else ""
-            secrets[f"sqlalchemy_uri.{key}{suffix}"] = item
+        for index, password in enumerate(passwords):
+            secrets[f"sqlalchemy_uri.query.{key}.{index}"] = password
     return secrets
 
 
