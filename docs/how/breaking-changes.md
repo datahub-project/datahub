@@ -85,6 +85,14 @@ Requirements:
 
 ### Breaking Changes
 
+- [#21186](https://github.com/datahub-project/datahub/pull/21186) **(Ingestion / Qlik Sense)** A few Qlik datasets get new identities or details, so the first run after upgrading soft-deletes their old versions when stale metadata removal is on:
+
+  - Load script tables that have no label in the script were named `<app id>.table_<n>`. When exactly one table of the app's data model has the same columns, they now take that table's name, which changes their URN; otherwise they keep `table_<n>`. Give such loads a label in the script to keep their name stable.
+  - QVD datasets now have the `QVD` subtype and are shown without the `.qvd` extension. Their URNs are unchanged.
+  - Charts that read no field of the app's tables, such as text objects, no longer list every table of the app as an input.
+
+  **Action:** re-add any tags, terms or descriptions you added in DataHub to unlabelled script tables, as they do not move to the new URNs.
+
 - [#21159](https://github.com/datahub-project/datahub/pull/21159) **(Ingestion / GitHub documents)** OKF import is now off by default. The default-on behavior only shipped in 1.7.0.20 release candidates. Files, including their frontmatter, are imported as plain text unless you opt in. Server support is no longer detected automatically. **Action:** set `enable_okf: true` to import OKF concepts; this requires a DataHub server with the `okfProperties` aspect and fails the run if the server does not support it. Turning OKF off clears previously imported OKF metadata when a graph connection is available.
 
 - [#21095](https://github.com/datahub-project/datahub/pull/21095) **(GMS / Search)** The opt-in setting `ELASTICSEARCH_SEARCH_HIDE_NON_PRIMARY_SIBLINGS` is removed. It was never in an OSS release, but some builds had it. With it on, a search could leave out a whole sibling group, and API, SDK and CLI listings could skip datasets. Search, autocomplete and browse no longer hide non-primary siblings. **Action:** remove the variable if you set it; it is ignored.

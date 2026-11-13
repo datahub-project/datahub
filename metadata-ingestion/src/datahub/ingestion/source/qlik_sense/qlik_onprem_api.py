@@ -9,6 +9,7 @@ from typing import Any, Dict, Iterable, List, Literal, Optional, Union
 
 import requests
 from requests.adapters import DEFAULT_POOLSIZE, HTTPAdapter
+from websocket import WebSocketTimeoutException
 
 from datahub.ingestion.source.qlik_sense.config import (
     QLIK_DATETIME_FORMAT,
@@ -22,15 +23,27 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     UnchangedApp,
 )
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
+    UNREAD_DATA_CONNECTIONS,
     IsUnchanged,
     QlikBaseAPI,
     ReadErrors,
     log_read_error,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import DataConnectionInfo
-from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
+from datahub.ingestion.source.qlik_sense.websocket_connection import (
+    EngineError,
+    WebsocketConnection,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _data_load_failed(e: Exception) -> bool:
+    """Whether opening an app with its data failed on the data itself."""
+    return (isinstance(e, EngineError) and e.access_denied) or isinstance(
+        e, (TimeoutError, WebSocketTimeoutException)
+    )
+
 
 UNPUBLISHED_APPS_ID = "unpublished-apps"
 UNPUBLISHED_APPS_NAME = "Unpublished"
@@ -327,13 +340,22 @@ class QlikOnPremAPI(QlikBaseAPI):
             )
             app.read_errors = errors.messages
             return app
+        with_data = self.on_prem.read_data_model
         try:
-            websocket_connection.websocket_send_request(
-                method="OpenDoc",
-                # Only metadata is read, and loading each app's data into the
-                # Engine takes minutes per app on large sites.
-                params={"qDocName": app.id, "qNoData": True},
-            )
+            try:
+                self._open_doc(websocket_connection, app.id, with_data)
+            except Exception as e:
+                if not (with_data and _data_load_failed(e)):
+                    raise
+                # Section access can deny the data to the service user, and a
+                # large app can time out while its data loads, but the app's
+                # script, sheets and variables are still readable without it.
+                self._close_engine(websocket_connection, app.id)
+                websocket_connection = self._open_engine(app.id)
+                self._open_doc(websocket_connection, app.id, with_data=False)
+                with_data = False
+                app.data_load_failed = True
+                self.opened_without_data.append(f"{app.id}: {e}")
             app.sheets = self._get_app_sheets(
                 websocket_connection,
                 app.id,
@@ -341,10 +363,26 @@ class QlikOnPremAPI(QlikBaseAPI):
                 # Every sheet of an unpublished app is still private.
                 keep_private=app.spaceId == UNPUBLISHED_APPS_ID,
             )
+            variables = self._read_variables(websocket_connection, app.id)
+            app.variables = variables or {}
+            app.variables_read_failed = variables is None
             app.script = self._read_load_script(
                 websocket_connection, app.id, on_error=errors.record
             )
             app.tables_read_failed = app.script is None
+            if with_data:
+                data_model_errors = ReadErrors()
+                app.data_model_tables = self._read_data_model(
+                    websocket_connection, app.id, data_model_errors
+                )
+                if data_model_errors.messages:
+                    # Read as an app opened without its data: the script,
+                    # sheets and QVDs are complete, and the next run tries the
+                    # data model again.
+                    app.data_load_failed = True
+                    self.opened_without_data.extend(
+                        f"{app.id}: {message}" for message in data_model_errors.messages
+                    )
         except Exception as e:
             errors.record(f"Unable to open app {app.id} in the Engine. Exception: {e}")
         finally:
@@ -352,6 +390,17 @@ class QlikOnPremAPI(QlikBaseAPI):
         app.read_errors = errors.messages
         app.read_fallbacks = errors.fallbacks
         return app
+
+    @staticmethod
+    def _open_doc(
+        websocket_connection: WebsocketConnection, app_id: str, with_data: bool
+    ) -> None:
+        websocket_connection.websocket_send_request(
+            method="OpenDoc",
+            # Without its data the app has no data model to read, but it opens
+            # much faster on large sites.
+            params={"qDocName": app_id, "qNoData": not with_data},
+        )
 
     def _read_or_skip_app(
         self,
@@ -420,12 +469,15 @@ class QlikOnPremAPI(QlikBaseAPI):
                 name = connection.get(Constant.NAME)
                 if not name:
                     continue
-                connections[name] = self._infer_connection(
+                info = self._infer_connection(
                     name, connection, (Constant.CONNECTIONSTRING, Constant.TYPE)
                 )
+                if str(connection.get(Constant.TYPE) or "").lower() == "folder":
+                    info.folder_path = connection.get(Constant.CONNECTIONSTRING)
+                connections[name] = info
         except Exception as e:
             self._record_unread(
-                "data connections",
+                UNREAD_DATA_CONNECTIONS,
                 f"Unable to fetch data connections. Exception: {e}",
                 e,
             )

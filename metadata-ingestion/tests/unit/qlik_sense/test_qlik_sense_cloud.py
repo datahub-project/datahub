@@ -1,4 +1,5 @@
 import io
+import ssl
 from functools import partial
 from typing import Dict, List
 from unittest.mock import MagicMock, patch
@@ -131,6 +132,7 @@ def test_partly_read_app_is_marked_incomplete(
     with (
         patch.object(api, "_get_app_sheets", side_effect=unreadable_sheets),
         patch.object(api, "_get_app_used_tables", return_value=[]),
+        patch.object(api, "get_table_lineage", return_value=[]),
         patch.object(api, "_read_load_script", return_value=None),
     ):
         assert api._get_app("app-1") is app
@@ -248,6 +250,33 @@ def test_only_denied_load_script_keeps_app_complete(
     assert app.read_complete is denied
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
+def test_unread_data_model_leaves_tables_unknown(
+    mock_session_cls: MagicMock,
+    mock_websocket_cls: MagicMock,
+    mock_app_cls: MagicMock,
+) -> None:
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    app = _cloud_app()
+    mock_app_cls.model_validate.return_value = app
+    websocket = mock_websocket_cls.for_cloud.return_value
+    websocket.get_script.return_value = "Orders: SQL SELECT * FROM orders;"
+    websocket.get_data_model_tables.side_effect = TimeoutError("timed out")
+
+    with (
+        patch.object(api, "_get_app_sheets", return_value=[]),
+        patch.object(api, "_get_app_used_tables", return_value=[]),
+        patch.object(api, "get_table_lineage", return_value=[]),
+    ):
+        api._get_app("app-1")
+
+    # Unlabelled script tables are named from the data model.
+    assert app.tables_read_failed
+    assert not app.read_complete
+
+
 def _cloud_app(**extra: object) -> App:
     return App.model_validate(
         {
@@ -273,6 +302,9 @@ def test_denied_load_script_is_a_warning(mock_api_cls: MagicMock) -> None:
     ]
     mock_api_cls.return_value.unread_items = []
     mock_api_cls.return_value.failed_user_lookups = {}
+    mock_api_cls.return_value.lineage_read_failures = []
+    mock_api_cls.return_value.field_lineage_failures = []
+    mock_api_cls.return_value.opened_without_data = []
     source = QlikSenseSource(
         QlikSourceConfig.model_validate(CLOUD_CONFIG),
         PipelineContext(run_id="test-cloud"),
@@ -551,6 +583,7 @@ def test_failed_owner_lookup_is_tried_once_and_reported_once(
     base_url = "https://tenant.example.com/api/v1"
     requests_mock.get(f"{base_url}/api-keys", json={})
     users = requests_mock.get(f"{base_url}/users/user-1", status_code=503)
+    requests_mock.get(f"{base_url}/items?resourceType=dataset", json={"data": []})
     with patch(
         "datahub.ingestion.source.qlik_sense.qlik_sense.QlikSenseSource._create_api",
         side_effect=QlikAPI,
@@ -695,3 +728,31 @@ def test_connection_pool_fits_max_workers() -> None:
     adapter = api.session.get_adapter("https://tenant.example.com/api/v1")
     assert isinstance(adapter, HTTPAdapter)
     assert adapter.poolmanager.connection_pool_kw["maxsize"] == 20
+
+
+@pytest.mark.parametrize(
+    "first_error, retried",
+    [
+        (TimeoutError("[Errno 110] Connection timed out"), True),
+        (ConnectionResetError("reset by peer"), True),
+        # An authentication or certificate failure would fail again.
+        (ssl.SSLCertVerificationError("certificate verify failed"), False),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.time.sleep")
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_engine_connection_is_retried_only_on_transient_errors(
+    mock_connect: MagicMock,
+    mock_sleep: MagicMock,
+    first_error: Exception,
+    retried: bool,
+) -> None:
+    mock_connect.side_effect = [first_error, MagicMock()]
+
+    if retried:
+        WebsocketConnection.for_cloud("tenant.example.com", "key", "app-1")
+        assert mock_connect.call_count == 2
+    else:
+        with pytest.raises(ssl.SSLCertVerificationError):
+            WebsocketConnection.for_cloud("tenant.example.com", "key", "app-1")
+        assert mock_connect.call_count == 1

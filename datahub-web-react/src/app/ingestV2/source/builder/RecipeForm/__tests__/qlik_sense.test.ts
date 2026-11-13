@@ -11,6 +11,7 @@ import {
     QLIK_INGEST_OWNER,
     QLIK_ON_PREM_CLIENT_CERT,
     QLIK_ON_PREM_CLIENT_KEY_PASSWORD,
+    QLIK_ON_PREM_READ_DATA_MODEL,
     QLIK_ON_PREM_SERVER,
     QLIK_ON_PREM_SKIP_HOSTNAME_CHECK,
     QLIK_ON_PREM_SKIP_UNCHANGED_APPS,
@@ -66,6 +67,14 @@ describe('Qlik Sense recipe form', () => {
         expect(QLIK_ON_PREM_SERVER.dynamicHidden?.(cloud)).toBe(true);
         expect(QLIK_ON_PREM_CLIENT_CERT.dynamicRequired?.(onPrem)).toBe(true);
         expect(QLIK_ON_PREM_SKIP_UNCHANGED_APPS.dynamicHidden?.(cloud)).toBe(true);
+        expect(QLIK_ON_PREM_READ_DATA_MODEL.dynamicHidden?.(cloud)).toBe(true);
+        // Off unless the recipe turns it on, as in the connector.
+        expect(QLIK_ON_PREM_READ_DATA_MODEL.getValueFromRecipeOverride?.({})).toBe(false);
+        expect(
+            QLIK_ON_PREM_READ_DATA_MODEL.getValueFromRecipeOverride?.({
+                source: { config: { on_prem: { read_data_model: true } } },
+            }),
+        ).toBe(true);
         expect(QLIK_ON_PREM_CLIENT_KEY_PASSWORD.dynamicHidden?.(cloud)).toBe(true);
         expect(QLIK_ON_PREM_CLIENT_KEY_PASSWORD.dynamicHidden?.(onPrem)).toBe(false);
         expect(QLIK_ON_PREM_CLIENT_KEY_PASSWORD.type).toBe(FieldType.SECRET);
