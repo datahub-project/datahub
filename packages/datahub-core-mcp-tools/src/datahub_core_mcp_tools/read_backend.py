@@ -152,6 +152,14 @@ class ReadBackend(Protocol):
         """
         ...
 
+    def structured_property(self, urn: str) -> JsonObject | None:
+        """The entity at ``urn`` with its ``type`` and, for a structured
+        property, ``exists`` and its ``definition`` (qualified name, cardinality,
+        value type;
+        ``getStructuredPropertyDefinition`` in ``structured_properties.gql``);
+        None when GMS returns no entity."""
+        ...
+
 
 @dataclass(frozen=True)
 class ReadBackendBinding:
@@ -432,6 +440,17 @@ class GraphQLReadBackend:
         if entity is not None and self._has_siblings(entity):
             entity[SIBLINGS_SEARCH_KEY] = self._sibling_search(urn)
         return entity
+
+    def structured_property(self, urn: str) -> JsonObject | None:
+        return cast(
+            JsonObject | None,
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document("structured_properties.gql"),
+                variables={"urn": urn},
+                operation_name="getStructuredPropertyDefinition",
+            ).get("entity"),
+        )
 
 
 def get_read_backend() -> ReadBackend:
