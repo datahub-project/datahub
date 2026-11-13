@@ -28,6 +28,7 @@ import React, { ComponentType } from 'react';
 
 import { MentionNode } from '@components/components/Editor/extensions/mentions/MentionNode';
 import { DATAHUB_MENTION_ATTRS } from '@components/components/Editor/extensions/mentions/constants';
+import type { EditorMentionViewProps } from '@components/components/Editor/types';
 
 export { DATAHUB_MENTION_ATTRS };
 
@@ -38,7 +39,7 @@ type DataHubAtomNodeAttributes = ProsemirrorAttributes & {
 
 interface DataHubMentionsOptions {
     /** Renders a mention node; without it a mention renders as `@name`. */
-    mentionNodeView?: Static<ComponentType<NodeViewComponentProps>>;
+    mentionView?: Static<ComponentType<EditorMentionViewProps>>;
     /** Return `KEEP_OPEN` from an `enter` action to consume the key without closing the menu. */
     handleEvents?: Handler<(action: AutocompleteAction) => boolean | typeof KEEP_OPEN>;
     /**
@@ -139,7 +140,7 @@ class DataHubMentionsExtension extends NodeExtension<DataHubMentionsOptions> {
      * Renders a React Component in place of the dom node spec
      */
     ReactComponent: ComponentType<NodeViewComponentProps> = (props) => (
-        <MentionNode {...props} view={this.options.mentionNodeView} />
+        <MentionNode {...props} view={this.options.mentionView} />
     );
 
     createCommands() {
@@ -170,8 +171,8 @@ class DataHubMentionsExtension extends NodeExtension<DataHubMentionsOptions> {
 }
 
 const decoratedExt = extension<DataHubMentionsOptions>({
-    defaultOptions: { mentionNodeView: undefined },
-    staticKeys: ['mentionNodeView'],
+    defaultOptions: { mentionView: undefined },
+    staticKeys: ['mentionView'],
     handlerKeys: ['handleEvents', 'handleKeyDown'],
     customHandlerKeys: [],
 })(DataHubMentionsExtension);

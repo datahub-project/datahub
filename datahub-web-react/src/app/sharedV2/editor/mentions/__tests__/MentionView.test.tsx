@@ -3,7 +3,7 @@ import React from 'react';
 import { ThemeProvider } from 'styled-components';
 import { describe, expect, it, vi } from 'vitest';
 
-import { MentionsNodeView } from '@app/sharedV2/editor/mentions/MentionsNodeView';
+import { MentionView } from '@app/sharedV2/editor/mentions/MentionView';
 import themeV2 from '@conf/theme/themeV2';
 import { useGetEntityMentionNodeQuery } from '@src/graphql/search.generated';
 
@@ -27,15 +27,14 @@ function renderNode(result: { data?: unknown; loading: boolean }) {
     vi.mocked(useGetEntityMentionNodeQuery).mockReturnValue(
         result as unknown as ReturnType<typeof useGetEntityMentionNodeQuery>,
     );
-    const node = { attrs: { urn: 'urn:li:corpuser:alice', name: 'Alice' } };
     return render(
         <ThemeProvider theme={themeV2}>
-            <MentionsNodeView {...({ node } as unknown as React.ComponentProps<typeof MentionsNodeView>)} />
+            <MentionView urn="urn:li:corpuser:alice" name="Alice" />
         </ThemeProvider>,
     );
 }
 
-describe('MentionsNodeView', () => {
+describe('MentionView', () => {
     it('shows the stored name while the entity loads', () => {
         renderNode({ loading: true });
 

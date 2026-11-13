@@ -1,8 +1,8 @@
-import { NodeViewComponentProps } from '@remirror/react';
 import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import type { EditorMentionViewProps } from '@components/components/Editor/types';
 import { Pill } from '@components/components/Pills';
 import { Tooltip } from '@components/components/Tooltip';
 
@@ -54,16 +54,16 @@ const InvalidEntityText = styled.span`
 `;
 
 /**
- * Renders a datahubMention chip in the editor via alchemy {@link Pill} (`squareFilled`)
- * and the same {@link EntityIcon} treatment as the @-mention picker.
+ * Renders a mention chip, in the editor and in read-only documentation, via alchemy {@link Pill}
+ * (`squareFilled`) and the same {@link EntityIcon} treatment as the @-mention picker.
  */
-export const MentionsNodeView = ({ node }: NodeViewComponentProps) => {
+export const MentionView = ({ urn, name }: EditorMentionViewProps) => {
     const { t } = useTranslation('entity.profile.editor');
-    const { urn, name } = node.attrs;
 
     const registry = useEntityRegistry();
     const { data, loading } = useGetEntityMentionNodeQuery({
-        variables: { urn },
+        // A chip needs neither lineage nor siblings; the query fetches both unless skipped.
+        variables: { urn, skipLineage: true, skipSiblingsSearch: true },
         fetchPolicy: 'cache-first',
     });
 
