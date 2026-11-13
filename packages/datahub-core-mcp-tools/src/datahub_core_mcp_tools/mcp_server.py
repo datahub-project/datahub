@@ -27,6 +27,7 @@ from .tools.aspect_history import get_aspect_history
 from .tools.dataset_queries import get_dataset_queries
 from .tools.dataset_usage import get_dataset_usage_history
 from .tools.documents import grep_documents, search_documents
+from .tools.domains import remove_domains, set_domains
 from .tools.entities import (
     SchemaFieldsTool,
     get_entities,
@@ -270,6 +271,8 @@ def register_tools(
         add_related_terms if is_oss else add_related_terms_cloud,
         ToolType.MUTATION,
     )
+    add("set_domains", set_domains, ToolType.MUTATION)
+    add("remove_domains", remove_domains, ToolType.MUTATION)
     if is_entity_versioning_enabled():
         add(
             "create_glossary_term_version",

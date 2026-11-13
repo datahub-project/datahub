@@ -1,0 +1,6 @@
+# Domain writes. All exist on GMS 1.7.0.
+
+# A null domainUrn unsets the domain.
+mutation batchSetDomain($input: BatchSetDomainInput!) {
+  batchSetDomain(input: $input)
+}

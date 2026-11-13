@@ -56,7 +56,7 @@ def _require_label_urns(kind: LabelKind, values: List[str], *, tool: str) -> Lis
     return list(dict.fromkeys(urns))
 
 
-def _require_entity_urns(values: List[str], *, tool: str) -> List[str]:
+def require_entity_urns(values: List[str], *, tool: str) -> List[str]:
     if not values:
         raise ToolError(f"{tool}: `entity_urns` must name at least one asset.")
     urns: List[str] = []
@@ -130,7 +130,7 @@ def batch_modify_labels(
 ) -> dict:
     """Add ``label_urns`` to, or remove them from, every resource in one write."""
     labels = _require_label_urns(kind, label_urns, tool=tool)
-    entities = _require_entity_urns(entity_urns, tool=tool)
+    entities = require_entity_urns(entity_urns, tool=tool)
     resources = _resources(entities, column_paths, tool=tool)
     # Only adding needs the labels to exist. Removing a reference to a label that
     # was since deleted is how that dangling reference gets cleaned up, and GMS
