@@ -1,7 +1,7 @@
 import { waitFor } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 
 import type * as HookModule from '@app/sharedV2/githubStar/useGithubStarCount';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 function mockFetchResponse(body: unknown, ok = true) {
     const fetchMock = vi.fn(() => Promise.resolve({ ok, json: () => Promise.resolve(body) } as Response));

@@ -255,9 +255,10 @@ export const WelcomeToDataHubModal = () => {
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
         // closeTour is stable for the lifetime of an open modal; depending on currentSlide
-        // would re-bind on every slide change without changing behavior.
+        // would re-bind on every slide change without changing behavior. The slide count can
+        // change after opening (the GitHub slide appears once app config loads), so re-bind then.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [shouldShow]);
+    }, [shouldShow, TOTAL_CAROUSEL_SLIDES]);
 
     // Track page view when modal opens
     useEffect(() => {
@@ -410,9 +411,7 @@ export const WelcomeToDataHubModal = () => {
                             <VideoContainer>{tourVideo(3, videoSources.aiDocs, aiDocumentationPoster)}</VideoContainer>
                         </SlideContainer>
                     )}
-                    {isGithubStarSlideEnabled && (
-                        <GithubStarSlide />
-                    )}
+                    {isGithubStarSlideEnabled && <GithubStarSlide />}
                     <SlideContainer>
                         <SlideTitle>{t('welcome.slideReadyTitle')}</SlideTitle>
                         <SlideDescription>{t('welcome.slideReadyDescription')}</SlideDescription>

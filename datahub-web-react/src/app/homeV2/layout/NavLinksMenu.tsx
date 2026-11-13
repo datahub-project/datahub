@@ -15,6 +15,7 @@ import { NavMenuItem, NavSubMenuItem } from '@app/homeV2/layout/types';
 import { HOME_PAGE_INGESTION_ID } from '@app/onboarding/config/HomePageOnboardingConfig';
 import { useHandleOnboardingTour } from '@app/onboarding/useHandleOnboardingTour';
 import { useUpdateEducationStepsAllowList } from '@app/onboarding/useUpdateEducationStepsAllowList';
+import { getThemeMenuItemDescription } from '@app/sharedV2/githubStar/githubStar.utils';
 import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
 import { HelpLinkRoutes, PageRoutes } from '@conf/Global';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
@@ -130,7 +131,7 @@ export function NavLinksMenu(props: Props) {
     // Help menu options
     const HelpContentMenuItems = themeConfig.content.menu.items.map((value) => ({
         title: value.label,
-        description: value.description || '',
+        description: getThemeMenuItemDescription(value, !!config?.featureFlags?.showGithubStarPrompt),
         link: value.path || null,
         isHidden: false,
         target: '_blank',

@@ -297,4 +297,23 @@ describe('WelcomeToDataHubModal GitHub star slide', () => {
         fireEvent.click(starLink);
         expect(eventSpy).toHaveBeenCalledWith({ type: EventType.GithubStarClickEvent, source: 'welcomeModal' });
     });
+
+    it('lets ArrowRight leave the GitHub slide when the flag turns on after the modal opened', () => {
+        const view = renderTour();
+
+        githubStarFlag.enabled = true;
+        view.rerender(
+            <MockedProvider>
+                <TestPageContainer>
+                    <WelcomeToDataHubModal />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+        act(() => {
+            slideChange.current?.(3);
+        });
+        fireEvent.keyDown(document, { key: 'ArrowRight' });
+
+        expect(carouselNext).toHaveBeenCalledTimes(1);
+    });
 });
