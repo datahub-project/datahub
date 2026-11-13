@@ -200,6 +200,7 @@ plugins {
   id 'com.avast.gradle.docker-compose' version '0.17.21'
   id "com.diffplug.spotless" version "7.0.4"
   id 'com.adarshr.test-logger' version '4.0.0'
+  id 'org.jreleaser' version '1.27.0'
   // https://blog.ltgt.net/javax-jakarta-mess-and-gradle-solution/
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
 }
@@ -942,6 +943,7 @@ gitProperties {
 def gitPropertiesGenerated = false
 
 apply from: 'gradle/versioning/versioning-global.gradle'
+apply from: 'gradle/publishing/jreleaser.gradle'
 
 tasks.register("generateGitPropertiesGlobal", com.gorylenko.GenerateGitPropertiesTask) {
   doFirst {

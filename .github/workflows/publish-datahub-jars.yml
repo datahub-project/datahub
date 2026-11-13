@@ -1,20 +1,24 @@
 name: Publish Datahub Java Jars (Client, Spark Lineage, Protobuf, Auth API)
 
+# GA releases (non-prerelease) publish to Maven Central as one Central Portal deployment for the
+# main jars plus one for the java8 datahub-client build, via JReleaser (gradle/publishing/jreleaser.gradle).
+# Prereleases (RCs) are not published.
 on:
-  push:
-    branches:
-      - master
-    paths:
-      - "**"
-      - "!docs/**"
-      - "!**.md"
-      - "!.github/**"
-      - ".github/workflows/publish-datahub-jars.yml"
   release:
     types: [published]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+    inputs:
+      publisher:
+        description: >-
+          nexus-staging: re-run the legacy per-module release (publish + closeAndReleaseRepository) for the
+          dispatched tag. jreleaser: keep the existing manual-run (snapshot) behaviour. Release events always use JReleaser.
+        type: choice
+        options:
+          - jreleaser
+          - nexus-staging
+        default: jreleaser
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
@@ -37,6 +41,12 @@ jobs:
             echo "Skipping publish for repository: ${{ github.repository }}"
             echo "publish=false" >> "$GITHUB_OUTPUT"
           fi
+  # Known issues with snapshot publishing, intentionally left as is for now:
+  # - this `if` skips `setup` on non-tag runs, and `publish`/`publish-java8` need `setup`, so they are
+  #   skipped too and the snapshot steps never run;
+  # - the modules' OSSRH snapshot URL (ossrh-staging-api.central.sonatype.com/content/repositories/snapshots/)
+  #   returns 400. Central Portal snapshots live at https://central.sonatype.com/repository/maven-snapshots/
+  #   and must be enabled per namespace.
   setup:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
@@ -64,7 +74,7 @@ jobs:
       id-token: write
       contents: read
     needs: ["check-secret", "setup"]
-    if: ${{ needs.check-secret.outputs.publish-enabled == 'true' }}
+    if: ${{ needs.check-secret.outputs.publish-enabled == 'true' && !(github.event_name == 'release' && github.event.release.prerelease) }}
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Set up toolchain
@@ -76,7 +86,7 @@ jobs:
           git remote add upstream https://github.com/datahub-project/datahub.git
           git fetch upstream --tags --force --filter=tree:0
       - name: publish datahub-client jar snapshot
-        if: ${{ github.event_name != 'release' }}
+        if: ${{ github.event_name != 'release' && inputs.publisher != 'nexus-staging' }}
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
@@ -86,8 +96,11 @@ jobs:
           echo "signingKey=$SIGNING_KEY" >> gradle.properties
           ./gradlew :metadata-integration:java:datahub-client:printVersion
           ./gradlew :metadata-integration:java:datahub-client:publish
+      # Legacy per-module release (one Central Portal deployment per module), kept only as a fallback for
+      # a manual `workflow_dispatch` with publisher=nexus-staging. Remove it, together with the
+      # nexus-staging plugin, once the JReleaser path below has been proven over a few releases.
       - name: release datahub-client jar
-        if: ${{ github.event_name == 'release' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publisher == 'nexus-staging' }}
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
@@ -98,7 +111,7 @@ jobs:
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:datahub-client:publish
           ./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info
       - name: publish datahub-spark-lineage snapshot jar
-        if: ${{ github.event_name != 'release' }}
+        if: ${{ github.event_name != 'release' && inputs.publisher != 'nexus-staging' }}
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
@@ -109,7 +122,7 @@ jobs:
           ./gradlew :metadata-integration:java:acryl-spark-lineage:printVersion
           ./gradlew :metadata-integration:java:acryl-spark-lineage:publish
       - name: release datahub-spark-lineage jar
-        if: ${{ github.event_name == 'release' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publisher == 'nexus-staging' }}
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
@@ -120,7 +133,7 @@ jobs:
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:acryl-spark-lineage:publish
           ./gradlew :metadata-integration:java:acryl-spark-lineage:closeAndReleaseRepository --info
       - name: publish datahub-protobuf snapshot jar
-        if: ${{ github.event_name != 'release' }}
+        if: ${{ github.event_name != 'release' && inputs.publisher != 'nexus-staging' }}
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
@@ -131,7 +144,7 @@ jobs:
           ./gradlew :metadata-integration:java:datahub-protobuf:printVersion
           ./gradlew :metadata-integration:java:datahub-protobuf:publish
       - name: release datahub-protobuf jar
-        if: ${{ github.event_name == 'release' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publisher == 'nexus-staging' }}
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
@@ -142,7 +155,7 @@ jobs:
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:datahub-protobuf:publish
           ./gradlew :metadata-integration:java:datahub-protobuf:closeAndReleaseRepository --info
       - name: publish datahub-auth-api snapshot jar
-        if: ${{ github.event_name != 'release' }}
+        if: ${{ github.event_name != 'release' && inputs.publisher != 'nexus-staging' }}
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
@@ -153,7 +166,7 @@ jobs:
           ./gradlew :metadata-auth:auth-api:printVersion
           ./gradlew :metadata-auth:auth-api:publish
       - name: release datahub-auth-api jar
-        if: ${{ github.event_name == 'release' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publisher == 'nexus-staging' }}
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
@@ -164,7 +177,7 @@ jobs:
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-auth:auth-api:publish
           ./gradlew :metadata-auth:auth-api:closeAndReleaseRepository --info
       - name: publish datahub-custom-plugin-lib snapshot jar
-        if: ${{ github.event_name != 'release' }}
+        if: ${{ github.event_name != 'release' && inputs.publisher != 'nexus-staging' }}
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
@@ -175,7 +188,7 @@ jobs:
           ./gradlew :metadata-integration:java:custom-plugin-lib:printVersion
           ./gradlew :metadata-integration:java:custom-plugin-lib:publish
       - name: release datahub-custom-plugin-lib jar
-        if: ${{ github.event_name == 'release' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publisher == 'nexus-staging' }}
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
@@ -185,13 +198,37 @@ jobs:
           echo "signingKey=$SIGNING_KEY" >> gradle.properties
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:custom-plugin-lib:publish
           ./gradlew :metadata-integration:java:custom-plugin-lib:closeAndReleaseRepository --info
+      - name: stage release jars for Central Portal
+        if: ${{ github.event_name == 'release' }}
+        env:
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+        run: |
+          echo "signingKey=$SIGNING_KEY" >> gradle.properties
+          ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} \
+            :metadata-integration:java:datahub-client:publishAllPublicationsToCentralStagingRepository \
+            :metadata-integration:java:acryl-spark-lineage:publishAllPublicationsToCentralStagingRepository \
+            :metadata-integration:java:datahub-protobuf:publishAllPublicationsToCentralStagingRepository \
+            :metadata-auth:auth-api:publishAllPublicationsToCentralStagingRepository \
+            :metadata-integration:java:custom-plugin-lib:publishAllPublicationsToCentralStagingRepository
+          # Central only requires .md5/.sha1 checksums; drop the optional sha256/sha512 ones to reduce file count.
+          find build/central-staging -type f \( -name '*.sha256' -o -name '*.sha512' \) -delete
+          find build/central-staging -type f | sort
+          du -sh build/central-staging
+      - name: deploy release jars to Central Portal (single deployment)
+        if: ${{ github.event_name == 'release' }}
+        env:
+          JRELEASER_MAVENCENTRAL_USERNAME: ${{ secrets.RELEASE_USERNAME }}
+          JRELEASER_MAVENCENTRAL_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
+        run: |
+          ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} jreleaserDeploy
   publish-java8:
     runs-on: ubuntu-24.04
     permissions:
       id-token: write
       contents: read
     needs: ["check-secret", "setup", "publish"]
-    if: ${{ needs.check-secret.outputs.publish-enabled == 'true' }}
+    if: ${{ needs.check-secret.outputs.publish-enabled == 'true' && !(github.event_name == 'release' && github.event.release.prerelease) }}
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Set up toolchain
@@ -203,7 +240,7 @@ jobs:
           git remote add upstream https://github.com/datahub-project/datahub.git
           git fetch upstream --tags --force --filter=tree:0
       - name: publish datahub-client jar snapshot
-        if: ${{ github.event_name != 'release' }}
+        if: ${{ github.event_name != 'release' && inputs.publisher != 'nexus-staging' }}
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
@@ -213,8 +250,11 @@ jobs:
           echo "signingKey=$SIGNING_KEY" >> gradle.properties
           ./gradlew :metadata-integration:java:datahub-client:printVersion -PjavaClassVersionDefault=8 -ParchiveAppendix=java8
           ./gradlew :metadata-integration:java:datahub-client:publish -PjavaClassVersionDefault=8 -ParchiveAppendix=java8
+      # Legacy per-module release (one Central Portal deployment per module), kept only as a fallback for
+      # a manual `workflow_dispatch` with publisher=nexus-staging. Remove it, together with the
+      # nexus-staging plugin, once the JReleaser path below has been proven over a few releases.
       - name: release datahub-client jar
-        if: ${{ github.event_name == 'release' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publisher == 'nexus-staging' }}
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
@@ -224,3 +264,23 @@ jobs:
           echo "signingKey=$SIGNING_KEY" >> gradle.properties
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:datahub-client:publish -PjavaClassVersionDefault=8 -ParchiveAppendix=java8
           ./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info -PjavaClassVersionDefault=8 -ParchiveAppendix=java8
+      # Separate job and runner, so its own build/central-staging and its own Central Portal deployment.
+      - name: stage release java8 jar for Central Portal
+        if: ${{ github.event_name == 'release' }}
+        env:
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+        run: |
+          echo "signingKey=$SIGNING_KEY" >> gradle.properties
+          ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:datahub-client:publishAllPublicationsToCentralStagingRepository -PjavaClassVersionDefault=8 -ParchiveAppendix=java8
+          # Central only requires .md5/.sha1 checksums; drop the optional sha256/sha512 ones to reduce file count.
+          find build/central-staging -type f \( -name '*.sha256' -o -name '*.sha512' \) -delete
+          find build/central-staging -type f | sort
+          du -sh build/central-staging
+      - name: deploy release java8 jar to Central Portal (single deployment)
+        if: ${{ github.event_name == 'release' }}
+        env:
+          JRELEASER_MAVENCENTRAL_USERNAME: ${{ secrets.RELEASE_USERNAME }}
+          JRELEASER_MAVENCENTRAL_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
+        run: |
+          ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} jreleaserDeploy -PjavaClassVersionDefault=8 -ParchiveAppendix=java8
