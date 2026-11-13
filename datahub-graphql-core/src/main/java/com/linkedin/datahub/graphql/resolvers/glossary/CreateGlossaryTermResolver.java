@@ -43,6 +43,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
+// Smart-testing shadow probe: do not merge.
 public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture<String>> {
 
   static final String PARENT_NODE_INDEX_FIELD_NAME = "parentNode.keyword";
