@@ -454,6 +454,34 @@ def test_project_service_disabled_discovered_is_warning_and_kept() -> None:
     source._carry.keep_project.assert_called_once_with("proj-one")
 
 
+@pytest.mark.parametrize(
+    "error",
+    [DeadlineExceeded("slow"), ResourceExhausted("quota"), NotFound("gone")],
+    ids=["timeout", "quota", "not_found"],
+)
+@pytest.mark.parametrize("listed", [True, False], ids=["listed", "discovered"])
+def test_any_project_error_fails_only_a_listed_project(
+    error: Exception, listed: bool
+) -> None:
+    source = _make_source(project_ids=["proj-one"])
+    if not listed:
+        source.config.project_ids = []
+    source._carry = MagicMock()
+
+    _run_projects(source, {"proj-one": error})
+
+    # Nobody chose to ingest a discovered project, so no error of it fails the run.
+    if listed:
+        assert any("project=proj-one" in c for c in _failure_contexts(source))
+    else:
+        assert not source.report.failures
+        assert any(
+            "project=proj-one" in c for w in source.report.warnings for c in w.context
+        )
+    source._carry.keep_project.assert_called_once_with("proj-one")
+    assert source.report.lost_reads["proj-one"]
+
+
 def test_project_failure_still_reads_later_projects() -> None:
     source = _make_source()
     workunits, healthy_wu = _run_projects(source, {"proj-one": ValueError("boom")})
@@ -561,15 +589,6 @@ def test_project_discovered_no_role_is_warning_and_kept() -> None:
     assert "project=proj-one" in context
     assert "permission=aiplatform.models.list" in context
     source._carry.keep_project.assert_called_once_with("proj-one")
-
-
-def test_project_discovered_throttled_is_still_failure() -> None:
-    source = _make_source(project_ids=["proj-one"])
-    source.config.project_ids = []
-
-    _run_projects(source, {"proj-one": ResourceExhausted("quota")})
-
-    assert any("project=proj-one" in c for c in _failure_contexts(source))
 
 
 def test_project_region_discovery_refused_discovered_is_warning() -> None:

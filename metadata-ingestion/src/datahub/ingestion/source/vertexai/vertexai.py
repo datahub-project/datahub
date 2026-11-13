@@ -398,8 +398,8 @@ class VertexAISource(StatefulIngestionSourceBase):
 
     def _handle_project_error(self, project_id: str, exc: Exception) -> None:
         # Discovery returns every project the account can see, with no check
-        # that the API is on or that a Vertex AI role is held, so a refusal of
-        # either kind on a discovered project is a warning, not a failure.
+        # that the API is on or that a Vertex AI role is held, so nobody chose
+        # to ingest a discovered project: no error of it fails the run.
         kind = classify_error(exc)
         listed = bool(self.config.project_ids)
         self.report.report_lost_read(
@@ -419,6 +419,22 @@ class VertexAISource(StatefulIngestionSourceBase):
             self.report.warning(
                 title="Project skipped: no Vertex AI access",
                 message="The service account has no Vertex AI role on this project; skipping it. Its earlier entities are kept. Grant a Vertex AI role or exclude the project with project_id_pattern.",
+                context=scope_context(Scope(project=project_id), exc),
+                exc=exc,
+            )
+            self._keep_project_entities(project_id)
+        elif not listed and kind is ErrorKind.TRANSIENT:
+            self.report.warning(
+                title="Project skipped: could not be read",
+                message="This discovered project could not be read because of a temporary error, so it is skipped for this run and read again on the next. Its earlier entities are kept.",
+                context=scope_context(Scope(project=project_id), exc),
+                exc=exc,
+            )
+            self._keep_project_entities(project_id)
+        elif not listed:
+            self.report.warning(
+                title="Project skipped: could not be read",
+                message="This discovered project could not be read, and the error repeats on every run. Its earlier entities are kept. Exclude the project with project_id_pattern if it should not be ingested.",
                 context=scope_context(Scope(project=project_id), exc),
                 exc=exc,
             )

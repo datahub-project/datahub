@@ -5,6 +5,7 @@ import pytest
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.gcp_project_filter import GcpProject
 from datahub.ingestion.source.vertexai.vertexai import VertexAIConfig, VertexAISource
+from datahub.ingestion.source.vertexai.vertexai_builder import VertexAIURIParser
 from datahub.utilities.ratelimiter import RateLimiter
 
 
@@ -243,3 +244,27 @@ def test_platform_instance_map_refuses_an_env_that_does_not_exist() -> None:
                 "platform_instance_map": {"gcs": {"env": "NOT_AN_ENV"}},
             }
         )
+
+
+def test_platform_instance_map_env_case_gives_the_same_dataset_urn() -> None:
+    def upstream_urn(env: str) -> str:
+        config = VertexAIConfig.model_validate(
+            {
+                "region": "us-central1",
+                "project_ids": ["project-1"],
+                "platform_instance_map": {
+                    "gcs": {"env": env, "platform_instance": "my-gcs"}
+                },
+            }
+        )
+        parser = VertexAIURIParser(
+            env=config.env,
+            platform="vertexai",
+            platform_instance_map=config.platform_instance_map,
+        )
+        (urn,) = parser.dataset_urns_from_artifact_uri("gs://my-bucket/path/data")
+        return urn
+
+    # The dataset URN upper-cases env, so the map's case cannot change lineage.
+    assert upstream_urn("prod") == upstream_urn("PROD")
+    assert upstream_urn("prod").endswith(",PROD)")

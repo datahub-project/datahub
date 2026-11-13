@@ -135,11 +135,12 @@ The report keeps only a sample of warnings and failures, so it also lists every 
 
 A project counts as listed only when `project_ids` is set. Projects picked by `project_labels` or `project_id_pattern` without `project_ids` are discovered.
 
-| Project state                                      | Listed in `project_ids` | Discovered                     |
-| -------------------------------------------------- | ----------------------- | ------------------------------ |
-| Vertex AI API turned off, or project deleted       | Failure                 | Warning, earlier entities kept |
-| API on, but no Vertex AI role (every read refused) | Failure                 | Warning, earlier entities kept |
-| One resource type lost to an error on every run    | Failure                 | Warning, earlier entities kept |
+| Project state                                                      | Listed in `project_ids` | Discovered                     |
+| ------------------------------------------------------------------ | ----------------------- | ------------------------------ |
+| Vertex AI API turned off, or project deleted                       | Failure                 | Warning, earlier entities kept |
+| API on, but no Vertex AI role (every read refused)                 | Failure                 | Warning, earlier entities kept |
+| One resource type lost to an error on every run                    | Failure                 | Warning, earlier entities kept |
+| Any other error on the whole project (a timeout, quota, not found) | Failure                 | Warning, earlier entities kept |
 
 To silence a warning for a discovered project you do not want, grant it a Vertex AI role such as `roles/aiplatform.viewer`, or exclude it with `project_id_pattern`. To fix a failure for a listed project, enable the API and grant the role, or remove it from `project_ids`. For one lost resource type, grant the permission the failure names, or set the `switch` it names, such as `include_experiments: false`.
 
