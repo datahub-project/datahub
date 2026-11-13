@@ -1689,6 +1689,32 @@ class TestSkipMarkersAndEmbedAccounting:
         assert profile.get("stateReason") == "EMPTY_TEXT"
         assert "skipReason" not in profile
         assert "skippedAt" not in profile
+        assert all(op["path"] != "/skipReason" for op in payload)
+        assert all(op["path"] != "/skippedAt" for op in payload)
+
+    def test_embed_patch_removes_legacy_skip_fields(
+        self, pipeline_context, chunking_config
+    ):
+        source = self._source(pipeline_context, chunking_config)
+        source.config.embedding._semantic_content_patch_supported = True
+
+        wus = list(
+            source._emit_semantic_content(
+                "urn:li:document:embedded",
+                [{"text": "hello"}],
+                [[0.1, 0.2]],
+            )
+        )
+
+        assert len(wus) == 1
+        payload = json.loads(wus[0].metadata.aspect.value)
+        ops = {(op["op"], op["path"]) for op in payload}
+        assert ("remove", "/skipReason") in ops
+        assert ("remove", "/skippedAt") in ops
+        assert any(
+            op["op"] == "add" and op["path"].startswith("/embeddings/")
+            for op in payload
+        )
 
     def test_skip_marker_read_failure_raises_instead_of_erasing(
         self, pipeline_context, chunking_config

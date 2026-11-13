@@ -67,7 +67,7 @@ public class SemanticContentTemplate implements Template<SemanticContent> {
       if (PatchOperationType.TEST.getValue().equals(op.getString("op", ""))
           && isProfilePrecondition(path)) {
         checkPrecondition(stored, path, op.get("value"));
-      } else {
+      } else if (!isAbsentLegacySkipRemove(op.getString("op", ""), path, stored)) {
         remaining.add(value);
       }
     }
@@ -88,6 +88,21 @@ public class SemanticContentTemplate implements Template<SemanticContent> {
 
   private static boolean isProfilePrecondition(@Nonnull String path) {
     return path.startsWith("/embeddings/") || path.startsWith("/refreshMarker/sources/");
+  }
+
+  /**
+   * A vector write always removes the entity skip marker. JSON Patch rejects a remove of a missing
+   * path, and most documents were never skipped, so that op is dropped and the profile write still
+   * applies.
+   */
+  private static boolean isAbsentLegacySkipRemove(
+      @Nonnull String operation, @Nonnull String path, @Nonnull JsonNode stored) {
+    if (!PatchOperationType.REMOVE.getValue().equals(operation)
+        || (!"/skipReason".equals(path) && !"/skippedAt".equals(path))) {
+      return false;
+    }
+    JsonNode actual = stored.at(JsonPointer.compile(path));
+    return actual.isMissingNode() || actual.isNull();
   }
 
   private static void checkPrecondition(

@@ -641,6 +641,18 @@ def get_processing_config_fingerprint(
     return fingerprint
 
 
+def _semantic_config_field_undefined(error_text: str) -> bool:
+    return "FieldUndefined" in error_text and (
+        "vertexProviderConfig" in error_text
+        or "entityIndexV3" in error_text
+        or "semanticContentPatchSupported" in error_text
+    )
+
+
+def _server_lacks_vertex_or_entity_index_v3(error_text: str) -> bool:
+    return "vertexProviderConfig" in error_text or "entityIndexV3" in error_text
+
+
 def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
     """Fetch server semantic search configuration via AppConfig query.
 
@@ -655,9 +667,11 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
     """
     from datahub.configuration.common import GraphError
 
-    # Full query includes vertexProviderConfig (v0.15+) and entityIndexV3. Older
-    # servers reject unknown fields with FieldUndefined; we fall back to the base
-    # query rather than propagating a confusing schema error.
+    # Full query includes the patch flag, vertexProviderConfig (v0.15+), and
+    # entityIndexV3. Older servers reject unknown fields with FieldUndefined.
+    # When stripping fails, drop only the fields named in the error. A server
+    # that lacks the patch flag still returns Vertex settings and entityIndexV3;
+    # a server that lacks those falls through to the oldest query.
     _QUERY_FULL = """
         query getSemanticSearchConfig {
           appConfig {
@@ -670,6 +684,32 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
                 modelId
                 modelEmbeddingKey
                 semanticContentPatchSupported
+                awsProviderConfig {
+                  region
+                }
+                vertexProviderConfig {
+                  projectId
+                  location
+                }
+              }
+            }
+            entityIndexV3 {
+              enabled
+            }
+          }
+        }
+    """
+    # Same as the full query, without the patch flag. Keeps Vertex and entityIndexV3.
+    _QUERY_WITHOUT_PATCH_FLAG = """
+        query getSemanticSearchConfig {
+          appConfig {
+            semanticSearchConfig {
+              enabled
+              enabledEntities
+              embeddingConfig {
+                provider
+                modelId
+                modelEmbeddingKey
                 awsProviderConfig {
                   region
                 }
@@ -705,6 +745,12 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
         }
     """
 
+    def fetch(query: str) -> Any:
+        return graph.execute_graphql(
+            query=query,
+            operation_name="getSemanticSearchConfig",
+        )
+
     try:
         response = graph.execute_graphql(
             query=_QUERY_FULL,
@@ -713,19 +759,20 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
         )
     except GraphError as e:
         # When graphql-core is absent, strip_unsupported_fields is a no-op and the
-        # full query reaches the server. Retry without the newer fields.
+        # full query reaches the server. Retry without the fields that failed.
         error_text = str(e)
-        if "FieldUndefined" in error_text and (
-            "vertexProviderConfig" in error_text
-            or "entityIndexV3" in error_text
-            or "semanticContentPatchSupported" in error_text
-        ):
-            response = graph.execute_graphql(
-                query=_QUERY_BASE,
-                operation_name="getSemanticSearchConfig",
-            )
-        else:
+        if not _semantic_config_field_undefined(error_text):
             raise
+        if _server_lacks_vertex_or_entity_index_v3(error_text):
+            response = fetch(_QUERY_BASE)
+        else:
+            try:
+                response = fetch(_QUERY_WITHOUT_PATCH_FLAG)
+            except GraphError as retry_error:
+                if _server_lacks_vertex_or_entity_index_v3(str(retry_error)):
+                    response = fetch(_QUERY_BASE)
+                else:
+                    raise
 
     semantic_search_config = response.get("appConfig", {}).get("semanticSearchConfig")
     entity_index_v3 = response.get("appConfig", {}).get("entityIndexV3") or {}

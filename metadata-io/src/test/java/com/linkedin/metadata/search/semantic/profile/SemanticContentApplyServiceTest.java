@@ -80,6 +80,36 @@ public class SemanticContentApplyServiceTest {
   }
 
   @Test
+  public void testAProfileWithNoContentHashAcceptsAResult() {
+    FakeStore store = new FakeStore();
+    SemanticContent stored = content("a", "hash");
+    stored.getEmbeddings().get("a").removeContentHash();
+    store.stored = stored;
+
+    assertEquals(
+        service(store).applyResult(null, URN, "a", profile(), marker(1), "new-hash"),
+        ApplyOutcome.ACCEPTED);
+    EmbeddingModelData written = store.stored.getEmbeddings().get("a");
+    assertEquals(written.getVectorState(), SemanticVectorState.READY);
+    assertEquals(written.getContentHash(), "new-hash");
+  }
+
+  @Test
+  public void testStateOnlyAcceptsAProfileWithNoContentHash() {
+    FakeStore store = new FakeStore();
+    SemanticContent stored = content("a", "hash");
+    stored.getEmbeddings().get("a").removeContentHash();
+    store.stored = stored;
+
+    assertEquals(
+        service(store)
+            .applyStateOnly(
+                null, URN, "a", "model", SemanticWorkState.PENDING, "queued", "new-hash", null),
+        ApplyOutcome.ACCEPTED);
+    assertEquals(store.stored.getEmbeddings().get("a").getWorkState(), SemanticWorkState.PENDING);
+  }
+
+  @Test
   public void testDropsAStaleResult() {
     FakeStore store = new FakeStore();
     SemanticContent content = content("a", "hash");
@@ -186,6 +216,39 @@ public class SemanticContentApplyServiceTest {
   }
 
   @Test
+  public void testAResultClearsALegacySkipMarker() {
+    FakeStore store = new FakeStore();
+    SemanticContent stored = content("a", "hash");
+    stored.setSkipReason("EMPTY_TEXT");
+    stored.setSkippedAt(123L);
+    store.stored = stored;
+
+    assertEquals(
+        service(store).applyResult(null, URN, "a", profile(), marker(1), "hash"),
+        ApplyOutcome.ACCEPTED);
+    assertFalse(store.stored.hasSkipReason());
+    assertFalse(store.stored.hasSkippedAt());
+    assertEquals(store.stored.getEmbeddings().get("a").getVectorState(), SemanticVectorState.READY);
+  }
+
+  @Test
+  public void testASkipRemovalLeavesTheLegacyMarker() {
+    FakeStore store = new FakeStore();
+    SemanticContent stored = content("a", "hash");
+    stored.setSkipReason("EMPTY_TEXT");
+    stored.setSkippedAt(123L);
+    store.stored = stored;
+
+    assertEquals(
+        service(store).applyRemoval(null, URN, "a", "model", Removal.SKIP, "EMPTY_TEXT"),
+        ApplyOutcome.ACCEPTED);
+    assertEquals(store.stored.getSkipReason(), "EMPTY_TEXT");
+    assertEquals(store.stored.getSkippedAt(), Long.valueOf(123L));
+    assertEquals(
+        store.stored.getEmbeddings().get("a").getVectorState(), SemanticVectorState.SKIPPED);
+  }
+
+  @Test
   public void testAResultCoveringTheBoundSourcesIsCurrent() {
     FakeStore store = new FakeStore();
     SemanticContent content = content("a", "hash");
@@ -258,6 +321,36 @@ public class SemanticContentApplyServiceTest {
     assertEquals(written.getWorkState(), SemanticWorkState.PENDING);
     assertEquals(written.getStateReason(), "queued");
     assertEquals(written.getVectorState(), SemanticVectorState.READY);
+  }
+
+  @Test
+  public void testStateOnlyAcceptsAProfileWithNoPolicyVersion() {
+    FakeStore store = new FakeStore();
+    store.stored = content("a", "hash");
+
+    assertEquals(
+        service(store)
+            .applyStateOnly(
+                null, URN, "a", "model", SemanticWorkState.PENDING, "queued", "hash", "policy-1"),
+        ApplyOutcome.ACCEPTED);
+    EmbeddingModelData written = store.stored.getEmbeddings().get("a");
+    assertEquals(written.getWorkState(), SemanticWorkState.PENDING);
+    assertFalse(written.hasPolicyVersion());
+  }
+
+  @Test
+  public void testStateOnlyDropsWhenThePolicyVersionMoved() {
+    FakeStore store = new FakeStore();
+    store.stored = content("a", "hash");
+    store.stored.getEmbeddings().get("a").setPolicyVersion("policy-1");
+
+    assertEquals(
+        service(store)
+            .applyStateOnly(
+                null, URN, "a", "model", SemanticWorkState.PENDING, "queued", "hash", "policy-2"),
+        ApplyOutcome.DROPPED_STALE_WORK);
+    assertEquals(store.stored.getEmbeddings().get("a").getPolicyVersion(), "policy-1");
+    assertFalse(store.stored.getEmbeddings().get("a").hasWorkState());
   }
 
   @Test

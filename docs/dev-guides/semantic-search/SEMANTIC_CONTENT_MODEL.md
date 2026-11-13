@@ -135,7 +135,7 @@ Every `semanticContent` write keeps each `refreshMarker.sources` entry at the ma
 
 ### Connector patch
 
-The ingestion chunking source writes one profile as a JSON Patch at `/embeddings/<key>`. `SemanticContentPatchBuilder` emits it in both Java and Python. A skip writes a complete profile: `modelVersion`, `generatedAt`, `totalChunks` of 0, empty `chunks`, `vectorState` `SKIPPED`, and `stateReason`.
+The ingestion chunking source writes one profile as a JSON Patch at `/embeddings/<key>`. `SemanticContentPatchBuilder` emits it in both Java and Python. A write that stores vectors also removes `/skipReason` and `/skippedAt`. The server drops either remove when that field is already absent, so a document that was never skipped still accepts the profile. A skip writes a complete profile: `modelVersion`, `generatedAt`, `totalChunks` of 0, empty `chunks`, `vectorState` `SKIPPED`, and `stateReason`. It leaves an existing entity skip marker in place.
 
 Connector patches carry no preconditions. The connector owns its key, so the last write wins.
 
@@ -147,7 +147,7 @@ Servers that accept profile patches report `semanticContentPatchSupported` on th
 
 `SemanticContentApplyService` stores the outcome of server-side work for one profile:
 
-- **Result.** Stores vectors. `vectorState` becomes `READY` and `workState` becomes `NONE`. The profile records the part of the entity marker its binding watches. `current` is true when that marker is at least as new as every watch key of the binding that the entity marker has recorded. A watch key with no marker entry has not had a watched-path change, so it does not make the result stale. A write that leaves the watched fields unchanged does not record a marker entry. When the represented marker is older than a recorded source, the vectors are stored with `current` false.
+- **Result.** Stores vectors. `vectorState` becomes `READY` and `workState` becomes `NONE`. The profile records the part of the entity marker its binding watches. `current` is true when that marker is at least as new as every watch key of the binding that the entity marker has recorded. A watch key with no marker entry has not had a watched-path change, so it does not make the result stale. A write that leaves the watched fields unchanged does not record a marker entry. When the represented marker is older than a recorded source, the vectors are stored with `current` false. A result also removes the legacy entity skip fields `/skipReason` and `/skippedAt`.
 - **Removal.** Excludes or skips the profile, or drops the key. Exclusion and skip require a reason. They clear the chunks, set `workState` to `NONE`, and clear the result fields (`current`, `contentHash`, `partial`, `vectorDimension`, and the profile `refreshMarker`). Dropping a key that is already absent does not write.
 - **State only.** Records `workState` and `stateReason` without touching vectors. A retry does not replace a `workState`, a `stateReason` this write sets, or a `generatedAt` that changed after the read.
 

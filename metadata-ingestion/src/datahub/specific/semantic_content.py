@@ -35,3 +35,18 @@ class SemanticContentPatchBuilder(MetadataPatchProposal):
             value=value,
         )
         return self
+
+    def clear_legacy_skip(self) -> Self:
+        """Remove the entity-wide skip marker.
+
+        The server ignores either remove when that field is already absent, so a document
+        that was never skipped still accepts the profile write.
+        """
+        for field in ("skipReason", "skippedAt"):
+            self._add_patch(
+                SemanticContentClass.ASPECT_NAME,
+                "remove",
+                path=(field,),
+                value=None,
+            )
+        return self

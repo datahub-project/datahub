@@ -43,6 +43,18 @@ public class SemanticContentPatchBuilder
     return this;
   }
 
+  /**
+   * Removes the legacy entity-wide skip marker. {@code SemanticContentTemplate} ignores either
+   * remove when that field is already absent, so a document that was never skipped still accepts
+   * the profile write.
+   */
+  @Nonnull
+  public SemanticContentPatchBuilder clearLegacySkip() {
+    pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), "/skipReason", null));
+    pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), "/skippedAt", null));
+    return this;
+  }
+
   /** Moves the entity refresh marker for one watch key forward. */
   @Nonnull
   public SemanticContentPatchBuilder setRefreshSource(@Nonnull String watchKey, long timeMillis) {

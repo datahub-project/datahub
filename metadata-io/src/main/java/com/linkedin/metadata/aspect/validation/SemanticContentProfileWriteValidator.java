@@ -122,6 +122,7 @@ public class SemanticContentProfileWriteValidator extends AspectPayloadValidator
       @Nonnull EmbeddingModelData before, @Nonnull EmbeddingModelData after) {
     return !Objects.equals(before.getChunks(), after.getChunks())
         || !Objects.equals(before.getContentHash(), after.getContentHash())
+        || !Objects.equals(before.getSourceTextSha256(), after.getSourceTextSha256())
         || !Objects.equals(before.getVectorState(), after.getVectorState())
         || !Objects.equals(before.getWorkState(), after.getWorkState())
         || !Objects.equals(before.getStateReason(), after.getStateReason())

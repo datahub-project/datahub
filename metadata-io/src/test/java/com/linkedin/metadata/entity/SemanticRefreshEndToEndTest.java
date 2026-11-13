@@ -45,6 +45,7 @@ import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance;
 import com.linkedin.metadata.search.semantic.profile.ConfiguredSemanticProfileRegistry;
+import com.linkedin.metadata.search.semantic.profile.SemanticProfileRefresh;
 import com.linkedin.metadata.search.semantic.profile.SemanticProfileRegistry;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -151,7 +152,10 @@ public class SemanticRefreshEndToEndTest {
 
     SemanticContent stored = storedContent();
     assertEquals(
-        stored.getRefreshMarker().getSources().get(DOCUMENT_INFO_ASPECT_NAME),
+        stored
+            .getRefreshMarker()
+            .getSources()
+            .get(SemanticProfileRefresh.watchKey(DOCUMENT_INFO_ASPECT_NAME, "contents.text")),
         Long.valueOf(2_000L));
     assertFalse(stored.getEmbeddings().get("documentText").isCurrent());
   }

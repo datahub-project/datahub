@@ -1169,6 +1169,7 @@ class DocumentChunkingSource(Source):
                 id=f"{document_urn}-semanticContent",
                 mcp_raw=SemanticContentPatchBuilder(document_urn)
                 .set_profile(model_key, profile)
+                .clear_legacy_skip()
                 .build()[0],
                 is_primary_source=False,
             )

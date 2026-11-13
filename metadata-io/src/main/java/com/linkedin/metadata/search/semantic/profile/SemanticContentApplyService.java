@@ -80,7 +80,10 @@ public class SemanticContentApplyService {
         urn,
         stored -> {
           EmbeddingModelData existing = profileOf(stored, profileKey);
-          if (existing == null || !expectedPayloadHash.equals(existing.getContentHash())) {
+          // A skip or removal leaves the hash unset. That is not a different payload.
+          if (existing == null
+              || (existing.hasContentHash()
+                  && !expectedPayloadHash.equals(existing.getContentHash()))) {
             return ApplyOutcome.DROPPED_HASH_MISMATCH;
           }
           if (existing.hasRefreshMarker()
@@ -110,7 +113,8 @@ public class SemanticContentApplyService {
               .expectProfileState(profileKey, existing, RESULT_STATE_FIELDS)
               .expectBoundSources(stored, watchKeys)
               .urn(urn)
-              .setProfile(profileKey, toJson(written));
+              .setProfile(profileKey, toJson(written))
+              .clearLegacySkip();
           return write(context, urn, builder);
         });
   }
@@ -205,10 +209,14 @@ public class SemanticContentApplyService {
           builder.expectProfileState(profileKey, existing, workStateFields(reason)).urn(urn);
           if (existing != null) {
             if (expectedPayloadHash != null
+                && existing.hasContentHash()
                 && !expectedPayloadHash.equals(existing.getContentHash())) {
               return ApplyOutcome.DROPPED_STALE_WORK;
             }
+            // A profile that never recorded a policy has not moved. Only a different stored
+            // version is stale, matching the content-hash check above.
             if (expectedPolicyVersion != null
+                && existing.hasPolicyVersion()
                 && !expectedPolicyVersion.equals(existing.getPolicyVersion())) {
               return ApplyOutcome.DROPPED_STALE_WORK;
             }

@@ -168,6 +168,40 @@ public class SemanticContentTemplateTest {
   }
 
   @Test
+  public void testRemovingAnAbsentLegacySkipStillAddsTheProfile() throws Exception {
+    String write =
+        "[{\"op\":\"add\",\"path\":\"/embeddings/profileA\",\"value\":{"
+            + "\"modelVersion\":\"model-profileA\",\"generatedAt\":1,\"totalChunks\":0,\"chunks\":[]}},"
+            + "{\"op\":\"remove\",\"path\":\"/skipReason\"},"
+            + "{\"op\":\"remove\",\"path\":\"/skippedAt\"}]";
+
+    SemanticContent patched =
+        new SemanticContentTemplate().applyPatch(contentWith("profileB"), patch(write));
+
+    assertFalse(patched.hasSkipReason());
+    assertFalse(patched.hasSkippedAt());
+    assertEquals(patched.getEmbeddings().get("profileA").getModelVersion(), "model-profileA");
+    assertEquals(patched.getEmbeddings().get("profileB").getModelVersion(), "model-profileB");
+  }
+
+  @Test
+  public void testRemovingAPresentLegacySkipClearsIt() throws Exception {
+    SemanticContent original = contentWith("profileB");
+    original.setSkipReason("EMPTY_TEXT");
+    original.setSkippedAt(123L);
+    String write =
+        "[{\"op\":\"add\",\"path\":\"/embeddings/profileB/current\",\"value\":true},"
+            + "{\"op\":\"remove\",\"path\":\"/skipReason\"},"
+            + "{\"op\":\"remove\",\"path\":\"/skippedAt\"}]";
+
+    SemanticContent patched = new SemanticContentTemplate().applyPatch(original, patch(write));
+
+    assertFalse(patched.hasSkipReason());
+    assertFalse(patched.hasSkippedAt());
+    assertTrue(patched.getEmbeddings().get("profileB").isCurrent());
+  }
+
+  @Test
   public void testProfileStateExpectationsTreatAMissingFieldAsAbsent() throws Exception {
     SemanticContent read = contentWith("profileA");
     MetadataChangeProposal write =

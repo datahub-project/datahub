@@ -293,6 +293,35 @@ public class SemanticRefreshMarkerHookTest {
   }
 
   @Test
+  public void testALegacyProfileWithNoDigestFollowsWhetherTheTextIsBlank() {
+    SemanticContent blankPrevious = writtenWithoutDigest(true);
+    SemanticContent blankLive = writtenWithoutDigest(true);
+    blankLive.getEmbeddings().get("documentText").setContentHash("rewritten");
+
+    hook()
+        .writeMutation(
+            OperationFingerprint.EMPTY,
+            List.of(semantic(blankLive, blankPrevious)),
+            retriever(Map.of(DOCUMENT_INFO_ASPECT_NAME, document("  "))))
+        .toList();
+
+    assertTrue(blankLive.getEmbeddings().get("documentText").isCurrent());
+
+    SemanticContent textPrevious = writtenWithoutDigest(true);
+    SemanticContent textLive = writtenWithoutDigest(true);
+    textLive.getEmbeddings().get("documentText").setContentHash("rewritten");
+
+    hook()
+        .writeMutation(
+            OperationFingerprint.EMPTY,
+            List.of(semantic(textLive, textPrevious)),
+            retriever(Map.of(DOCUMENT_INFO_ASPECT_NAME, document("body"))))
+        .toList();
+
+    assertFalse(textLive.getEmbeddings().get("documentText").isCurrent());
+  }
+
+  @Test
   public void testALegacyProfileWithAMismatchedHashIsNotCurrent() {
     SemanticContent previous = written(SemanticDocumentProvenance.sha256Hex("old"), true);
     SemanticContent live = written(SemanticDocumentProvenance.sha256Hex("old"), true);
@@ -396,6 +425,12 @@ public class SemanticRefreshMarkerHookTest {
   private static SemanticContent titled(boolean current) {
     EmbeddingModelDataMap embeddings = new EmbeddingModelDataMap();
     embeddings.put("title", profile(current));
+    return new SemanticContent().setEmbeddings(embeddings);
+  }
+
+  private static SemanticContent writtenWithoutDigest(boolean current) {
+    EmbeddingModelDataMap embeddings = new EmbeddingModelDataMap();
+    embeddings.put("documentText", profile(current));
     return new SemanticContent().setEmbeddings(embeddings);
   }
 

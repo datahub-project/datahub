@@ -587,6 +587,72 @@ def test_get_semantic_search_config_retries_without_vertex_provider():
     assert "vertexProviderConfig" not in fallback_query
 
 
+def test_get_semantic_search_config_patch_flag_fallback_keeps_vertex():
+    from datahub.configuration.common import GraphError
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        get_semantic_search_config,
+    )
+
+    fake_graph = MagicMock()
+    fake_graph.execute_graphql.side_effect = [
+        GraphError(
+            "FieldUndefined: Field 'semanticContentPatchSupported' is undefined"
+        ),
+        {
+            "appConfig": {
+                "semanticSearchConfig": {
+                    "enabled": True,
+                    "enabledEntities": ["document"],
+                    "embeddingConfig": {
+                        "provider": "vertex_ai",
+                        "modelId": "gemini-embedding-001",
+                        "modelEmbeddingKey": "gemini_embedding_001",
+                        "vertexProviderConfig": {
+                            "projectId": "my-project",
+                            "location": "us-east1",
+                        },
+                    },
+                },
+                "entityIndexV3": {"enabled": True},
+            }
+        },
+    ]
+    result = get_semantic_search_config(fake_graph)
+    assert result.embedding_config is not None
+    assert result.embedding_config.vertex_project_id == "my-project"
+    assert result.embedding_config.vertex_location == "us-east1"
+    assert result.entity_index_v3_enabled is True
+    assert result.semantic_content_patch_supported is False
+    fallback_query = fake_graph.execute_graphql.call_args_list[1].kwargs["query"]
+    assert "semanticContentPatchSupported" not in fallback_query
+    assert "vertexProviderConfig" in fallback_query
+    assert "entityIndexV3" in fallback_query
+
+
+def test_get_semantic_search_config_patch_flag_then_legacy_schema():
+    from datahub.configuration.common import GraphError
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        get_semantic_search_config,
+    )
+
+    fake_graph = MagicMock()
+    fake_graph.execute_graphql.side_effect = [
+        GraphError(
+            "FieldUndefined: Field 'semanticContentPatchSupported' is undefined"
+        ),
+        GraphError("FieldUndefined: Field 'vertexProviderConfig' is undefined"),
+        {"appConfig": {"semanticSearchConfig": _LEGACY_SEMANTIC_CONFIG}},
+    ]
+    result = get_semantic_search_config(fake_graph)
+    assert result.enabled is True
+    assert result.entity_index_v3_enabled is None
+    assert fake_graph.execute_graphql.call_count == 3
+    oldest_query = fake_graph.execute_graphql.call_args_list[2].kwargs["query"]
+    assert "semanticContentPatchSupported" not in oldest_query
+    assert "vertexProviderConfig" not in oldest_query
+    assert "entityIndexV3" not in oldest_query
+
+
 def test_resolve_embedding_skips_when_v3_on_but_semantic_off():
     from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
     from datahub.ingestion.source.unstructured.chunking_source import (

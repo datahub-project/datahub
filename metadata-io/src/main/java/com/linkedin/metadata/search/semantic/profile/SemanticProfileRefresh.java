@@ -200,18 +200,22 @@ public final class SemanticProfileRefresh {
   }
 
   /**
-   * Legacy current for a profile that has no refresh marker. A document-text binding is current
-   * only when {@code sourceTextSha256} matches the resolved text. Any other non-external binding is
-   * current. An external binding is left as written.
+   * Legacy current for a profile that has no refresh marker. A document-text binding with no source
+   * digest is current only when the resolved text is blank. A digest is current only when it
+   * matches the resolved text. Any other non-external binding is current. An external binding is
+   * left as written.
    */
   public static void markWrittenCurrent(
       @Nonnull EmbeddingModelData profile,
       @Nonnull ContentBinding binding,
       @Nullable String resolvedText) {
     if (isDocumentText(binding)) {
+      if (!profile.hasSourceTextSha256()) {
+        profile.setCurrent(SemanticDocumentProvenance.isBlank(resolvedText));
+        return;
+      }
       profile.setCurrent(
-          profile.hasSourceTextSha256()
-              && resolvedText != null
+          resolvedText != null
               && profile
                   .getSourceTextSha256()
                   .equals(SemanticDocumentProvenance.sha256Hex(resolvedText)));

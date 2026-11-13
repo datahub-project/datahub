@@ -28,6 +28,15 @@ public class SemanticContentProfileWriteValidatorTest {
   }
 
   @Test
+  public void testSourceDigestChangeIsRejectedForAServiceProfile() {
+    EmbeddingModelData before = profile(false);
+    EmbeddingModelData after = profile(false).setSourceTextSha256("abc");
+
+    assertFalse(messages(content("svc", before), content("svc", after), true, false).isEmpty());
+    assertTrue(messages(content("svc", before), content("svc", after), true, true).isEmpty());
+  }
+
+  @Test
   public void testVectorChangeIsRejectedForAServiceProfile() {
     EmbeddingModelData before = profile(false);
     EmbeddingModelData after = profile(true);
