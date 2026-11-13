@@ -371,9 +371,6 @@ module.exports = {
         googleTagManager: {
           containerId: 'GTM-5M8T9HNN',
         },
-        gtag: {
-          trackingID: "G-H5QDNJNMHY",
-        },
       },
     ],
   ],

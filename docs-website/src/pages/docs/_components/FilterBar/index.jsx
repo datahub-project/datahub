@@ -35,7 +35,8 @@ function FilterBar({
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     searchTimerRef.current = setTimeout(() => {
       if (query.trim().length >= 2) {
-        window.gtag?.("event", "integration_search", {
+        window.dataLayer?.push({
+          event: "integration_search",
           search_term: query.trim().toLowerCase(),
         });
       }
@@ -49,7 +50,8 @@ function FilterBar({
   }
 
   function applyFilters() {
-    window.gtag?.("event", "integration_filter_apply", {
+    window.dataLayer?.push({
+      event: "integration_filter_apply",
       filters: selectedFilters.join(", "),
       filter_count: selectedFilters.length,
       match_mode: isSelectedExclusive ? "all" : "any",
@@ -71,7 +73,8 @@ function FilterBar({
 
   function toggleCategoryPill(category) {
     const isRemoving = filterState.includes(category);
-    window.gtag?.("event", "integration_category_click", {
+    window.dataLayer?.push({
+      event: "integration_category_click",
       category_name: category,
       action: isRemoving ? "remove" : "add",
     });
