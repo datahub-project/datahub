@@ -72,9 +72,8 @@ public class GlossaryChildrenSearchResolverTest {
                 any(),
                 eq(null),
                 eq("5m"),
-                eq(Collections.emptyList()),
-                eq(10),
-                eq(Collections.emptyList())))
+                eq(null),
+                eq(10)))
         .thenReturn(mockScrollResult);
 
     // Execute resolver
@@ -115,9 +114,8 @@ public class GlossaryChildrenSearchResolverTest {
                 any(),
                 eq(null),
                 eq("5m"),
-                eq(Collections.emptyList()),
-                eq(10),
-                eq(Collections.emptyList())))
+                eq(null),
+                eq(10)))
         .thenReturn(mockScrollResult);
 
     // Execute resolver

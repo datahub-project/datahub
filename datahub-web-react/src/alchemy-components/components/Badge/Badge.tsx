@@ -1,9 +1,9 @@
-import { Pill } from '@components';
 import React, { useMemo } from 'react';
 
 import { BadgeContainer } from '@components/components/Badge/components';
 import { BadgeProps } from '@components/components/Badge/types';
 import { formatBadgeValue } from '@components/components/Badge/utils';
+import { Pill } from '@components/components/Pills';
 
 export const badgeDefault: BadgeProps = {
     count: 0,

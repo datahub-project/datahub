@@ -1,4 +1,4 @@
-import { Button, PageTitle, Tabs } from '@components';
+import { Button, PageTitle } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import { Tab } from '@components/components/Tabs/Tabs';
 import { ViewsList } from '@app/entityV2/view/ViewsList';
 import { ViewBuilder } from '@app/entityV2/view/builder/ViewBuilder';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
+import { Tabs } from '@app/sharedV2/tabs/Tabs';
 
 import { DataHubViewType } from '@types';
 

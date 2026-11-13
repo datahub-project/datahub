@@ -129,7 +129,8 @@ base_dev_requirements = {
     # SnowflakeConfig's imports need (sqlglot, sqlparse). Tests need the full extra.
     f"acryl-datahub[snowflake]{_self_pin}",
     "coverage>=5.1",
-    "pytest>=6.2.2",
+    # Cap matching metadata-ingestion.
+    "pytest>=6.2.2,<10.0.0",
     "pytest-cov>=2.8.1",
     "pytest-dependency>=0.5.1",
     "pytest-docker>=0.10.3",

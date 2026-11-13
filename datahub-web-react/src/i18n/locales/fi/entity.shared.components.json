@@ -100,5 +100,9 @@
     "searchActions.owners.addTitle": "Lisää omistajia",
     "searchActions.owners.removeTitle": "Poista omistajia",
     "searchActions.tags.addTitle": "Lisää tunnisteita",
-    "searchActions.tags.removeTitle": "Poista tunnisteita"
+    "searchActions.tags.removeTitle": "Poista tunnisteita",
+    "structuredProperty.addMore": "+ Lisää",
+    "structuredProperty.selectPlaceholder": "Valitse",
+    "viewAll.resultsIncomplete": "Tulokset saattavat olla puutteellisia.",
+    "viewAll.searchAllAssets": "Hae kaikkia sisäänluettuja {{platform}}-kohteita"
 }

@@ -6,7 +6,7 @@ import BaseEntityFilter from '@app/searchV2/filtersV2/filters/BaseEntityFilter/B
 import { FilterComponentProps } from '@app/searchV2/filtersV2/types';
 import { Text } from '@src/alchemy-components';
 import EntityIcon from '@src/app/searchV2/autoCompleteV2/components/icon/EntityIcon';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { CorpUser, Entity, EntityType } from '@src/types.generated';
 
 interface PlatformLabelProps {
@@ -49,7 +49,7 @@ const TitleContainer = styled.div`
 `;
 
 function OwnerLabel({ entity }: PlatformLabelProps) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
     const subtitle = entity.type === EntityType.CorpUser ? (entity as CorpUser)?.properties?.email : undefined;

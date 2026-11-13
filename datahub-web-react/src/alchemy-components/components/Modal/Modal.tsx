@@ -1,10 +1,14 @@
-import { Button, ButtonProps, Icon, Text, typography } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Modal as AntModal, ModalProps as AntModalProps } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ModalContext } from '@app/sharedV2/modals/ModalContext';
+import { Button, type ButtonProps } from '@components/components/Button';
+import { Icon } from '@components/components/Icon';
+import { ModalContext } from '@components/components/Modal/ModalContext';
+import { Text } from '@components/components/Text';
+import { Tooltip } from '@components/components/Tooltip';
+import { typography } from '@components/theme';
 
 const StyledModal = styled(AntModal)<{ hasChildren: boolean; hasFooter: boolean }>`
     font-family: ${typography.fonts.body};
@@ -83,6 +87,7 @@ export interface ModalButton extends ButtonProps {
     key?: string;
     onClick: () => void;
     buttonDataTestId?: string;
+    tooltip?: string;
 }
 
 export interface ModalProps {
@@ -115,19 +120,33 @@ export function Modal({
             ? footer
             : !!buttons?.length && (
                   <ButtonsContainer>
-                      {buttons.map(({ text, variant, onClick, key, buttonDataTestId, ...buttonProps }, index) => (
-                          <Button
-                              key={key || text}
-                              data-testid={buttonDataTestId ?? (dataTestId && `${dataTestId}-${variant}-${index}`)}
-                              variant={variant}
-                              onClick={onClick}
-                              {...buttonProps}
-                          >
-                              <Text type="span" weight="bold" lineHeight="none">
-                                  {text}
-                              </Text>
-                          </Button>
-                      ))}
+                      {buttons.map(
+                          ({ text, variant, onClick, key, buttonDataTestId, tooltip, ...buttonProps }, index) => {
+                              const button = (
+                                  <Button
+                                      key={key || text}
+                                      data-testid={
+                                          buttonDataTestId ?? (dataTestId && `${dataTestId}-${variant}-${index}`)
+                                      }
+                                      variant={variant}
+                                      onClick={onClick}
+                                      {...buttonProps}
+                                  >
+                                      <Text type="span" weight="bold" lineHeight="none">
+                                          {text}
+                                      </Text>
+                                  </Button>
+                              );
+                              if (!tooltip) {
+                                  return button;
+                              }
+                              return (
+                                  <Tooltip key={key || text} title={tooltip} showArrow={false}>
+                                      <span>{button}</span>
+                                  </Tooltip>
+                              );
+                          },
+                      )}
                   </ButtonsContainer>
               );
 

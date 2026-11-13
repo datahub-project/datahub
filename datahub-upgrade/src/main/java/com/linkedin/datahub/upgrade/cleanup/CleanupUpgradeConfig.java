@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.cleanup;
 
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.config.OpenTelemetryConfig;
+import com.linkedin.datahub.upgrade.shared.NoOpKafkaEventProducerConfig;
 import com.linkedin.datahub.upgrade.sqlsetup.SqlSetupArgs;
 import com.linkedin.datahub.upgrade.sqlsetup.config.SqlSetupConfig;
 import com.linkedin.datahub.upgrade.sqlsetup.config.SqlSetupEbeanFactory;
@@ -38,7 +39,8 @@ import org.springframework.context.annotation.Import;
   MetricsAutoConfiguration.class,
   OpenTelemetryConfig.class,
   SqlSetupConfig.class,
-  SqlSetupEbeanFactory.class
+  SqlSetupEbeanFactory.class,
+  NoOpKafkaEventProducerConfig.class
 })
 @ComponentScan(
     basePackages = {

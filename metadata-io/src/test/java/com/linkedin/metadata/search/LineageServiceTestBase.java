@@ -67,6 +67,7 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -155,7 +156,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
         IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention mockIndexConvention = mock(IndexConvention.class);
     when(mockIndexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
-    settingsBuilder = new V2LegacySettingsBuilder(indexConfiguration, mockIndexConvention);
+    settingsBuilder = new V2LegacySettingsBuilder(indexConfiguration, mockIndexConvention, false);
     elasticSearchService = buildEntitySearchService();
     elasticSearchService.reindexAll(operationContext, Collections.emptySet());
     cacheManager = new ConcurrentMapCacheManager();
@@ -258,7 +259,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             TEST_ES_SEARCH_CONFIG,
             new V2MappingsBuilder(
                 TEST_ES_SEARCH_CONFIG.getEntityIndex(),
-                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
+                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+                ESUtils.KEYWORD_MAXLENGTH),
             settingsBuilder,
             searchDAO,
             browseDAO,

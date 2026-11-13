@@ -8,14 +8,18 @@
  * - useGetColumnTabCount: undefined while loading, then the structural field count.
  */
 import { MockedProvider, MockedResponse } from '@apollo/client/testing';
-import { waitFor } from '@testing-library/react';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act, waitFor } from '@testing-library/react';
 import { GraphQLError } from 'graphql';
 import React from 'react';
 import { vi } from 'vitest';
 
 import { useGetColumnTabCount } from '@app/entityV2/dataset/profile/useGetColumnTabCount';
-import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import {
+    MAX_SIBLINGS_TO_COMBINE,
+    shouldCombineSiblings,
+    useGetEntityWithSchema,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { GetDatasetSchemaDocument, GetDatasetSchemaStructuralDocument } from '@graphql/dataset.generated';
 
@@ -25,7 +29,7 @@ const OTHER_URN = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,other_ds,PROD)';
 // Mutable so a test can simulate in-tab navigation to another dataset.
 const mockEntity = { urn: TEST_URN };
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: () => ({ urn: mockEntity.urn, entityType: 'DATASET', entityData: null }),
 }));
 
@@ -370,5 +374,20 @@ describe('useGetColumnTabCount', () => {
         });
         expect(result.current).toBeUndefined();
         await waitFor(() => expect(result.current).toEqual(2));
+    });
+});
+
+describe('shouldCombineSiblings', () => {
+    it('never combines when siblings are shown separately', () => {
+        expect(shouldCombineSiblings({ siblingsSearch: { total: 1 } }, true)).toBe(false);
+    });
+
+    it('combines a group that was fetched completely', () => {
+        expect(shouldCombineSiblings({ siblingsSearch: null }, false)).toBe(true);
+        expect(shouldCombineSiblings({ siblingsSearch: { total: MAX_SIBLINGS_TO_COMBINE } }, false)).toBe(true);
+    });
+
+    it('skips a group larger than the siblings fetched', () => {
+        expect(shouldCombineSiblings({ siblingsSearch: { total: MAX_SIBLINGS_TO_COMBINE + 1 } }, false)).toBe(false);
     });
 });

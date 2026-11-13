@@ -13,6 +13,7 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSea
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -48,11 +49,15 @@ public class DelegatingMappingsBuilderTest {
     if (entityIndexConfiguration.getV2().isEnabled()) {
       builders.add(
           new V2MappingsBuilder(
-              entityIndexConfiguration, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG));
+              entityIndexConfiguration,
+              OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+              ESUtils.KEYWORD_MAXLENGTH));
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {
-        builders.add(new MultiEntityMappingsBuilder(entityIndexConfiguration));
+        builders.add(
+            new MultiEntityMappingsBuilder(
+                entityIndexConfiguration, null, ESUtils.KEYWORD_MAXLENGTH, List.of()));
       } catch (IOException e) {
         throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
       }
@@ -114,7 +119,10 @@ public class DelegatingMappingsBuilderTest {
     // Create DelegatingMappingsBuilder with only v2 builder
     List<MappingsBuilder> builders = new ArrayList<>();
     builders.add(
-        new V2MappingsBuilder(v2OnlyConfig, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG));
+        new V2MappingsBuilder(
+            v2OnlyConfig,
+            OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+            ESUtils.KEYWORD_MAXLENGTH));
     DelegatingMappingsBuilder v2OnlyBuilder = new DelegatingMappingsBuilder(builders);
     Collection<IndexMapping> result = v2OnlyBuilder.getIndexMappings(operationContext);
 
@@ -141,7 +149,8 @@ public class DelegatingMappingsBuilderTest {
     // Create DelegatingMappingsBuilder with only v3 builder
     List<MappingsBuilder> builders = new ArrayList<>();
     try {
-      builders.add(new MultiEntityMappingsBuilder(v3OnlyConfig));
+      builders.add(
+          new MultiEntityMappingsBuilder(v3OnlyConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of()));
     } catch (IOException e) {
       throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
     }
@@ -231,7 +240,9 @@ public class DelegatingMappingsBuilderTest {
     // This should throw RuntimeException wrapping IOException
     List<MappingsBuilder> builders = new ArrayList<>();
     try {
-      builders.add(new MultiEntityMappingsBuilder(invalidConfig));
+      builders.add(
+          new MultiEntityMappingsBuilder(
+              invalidConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of()));
     } catch (IOException e) {
       throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
     }
@@ -253,9 +264,12 @@ public class DelegatingMappingsBuilderTest {
 
     // This should throw RuntimeException wrapping IOException from MultiEntityMappingsBuilder
     List<MappingsBuilder> builders = new ArrayList<>();
-    builders.add(new V2MappingsBuilder(config, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG));
+    builders.add(
+        new V2MappingsBuilder(
+            config, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG, ESUtils.KEYWORD_MAXLENGTH));
     try {
-      builders.add(new MultiEntityMappingsBuilder(config));
+      builders.add(
+          new MultiEntityMappingsBuilder(config, null, ESUtils.KEYWORD_MAXLENGTH, List.of()));
     } catch (IOException e) {
       throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
     }
@@ -278,7 +292,8 @@ public class DelegatingMappingsBuilderTest {
     // This should work fine as mappingConfig is null
     List<MappingsBuilder> builders = new ArrayList<>();
     try {
-      builders.add(new MultiEntityMappingsBuilder(config));
+      builders.add(
+          new MultiEntityMappingsBuilder(config, null, ESUtils.KEYWORD_MAXLENGTH, List.of()));
     } catch (IOException e) {
       throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
     }
@@ -1235,8 +1250,12 @@ public class DelegatingMappingsBuilderTest {
     // STRING mapping payloads differ between V2 and V3.
     V2MappingsBuilder v2 =
         new V2MappingsBuilder(
-            entityIndexConfiguration, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG);
-    MultiEntityMappingsBuilder v3 = new MultiEntityMappingsBuilder(entityIndexConfiguration);
+            entityIndexConfiguration,
+            OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+            ESUtils.KEYWORD_MAXLENGTH);
+    MultiEntityMappingsBuilder v3 =
+        new MultiEntityMappingsBuilder(
+            entityIndexConfiguration, null, ESUtils.KEYWORD_MAXLENGTH, List.of());
 
     Urn urnDot = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
     Urn urnUnderscore = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");

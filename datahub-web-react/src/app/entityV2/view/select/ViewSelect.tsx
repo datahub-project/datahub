@@ -206,6 +206,8 @@ export const ViewSelect = () => {
                     overlayClassName="view-select-popover"
                     overlayInnerStyle={getOverlayInnerStyle(isShowNavBarRedesign, theme)}
                     overlayStyle={getOverlayStyle(isShowNavBarRedesign, theme)}
+                    // Keep option-owned modals mounted after the popover closes.
+                    destroyTooltipOnHide={{ keepParent: true }}
                     showArrow={false}
                     data-testid="view-select-popover-trigger"
                 >

@@ -100,7 +100,7 @@ export class IncidentsPage extends BasePage {
    * Navigate to the Kafka incidents page and wait until a specific incident row is visible
    * within a given priority group, AND has at least one linked asset.
    *
-   * Two separate retry loops handle two distinct ES indexing delays:
+   * Two distinct ES indexing delays apply:
    *   1. The incident entity itself must be in ES so it appears in the `getEntityIncidents` query.
    *   2. The `IncidentOn` relationship must be indexed so that `linkedAssets.relationships` is
    *      non-empty.  Without this, the edit form's Linked Assets field is empty, and the
@@ -112,37 +112,17 @@ export class IncidentsPage extends BasePage {
   async navigateToKafkaDatasetIncidentsAndWaitForRow(
     incidentTitle: string,
     groupPriority: string,
-    { maxRetries = 8, retryDelayMs = 4000 }: { maxRetries?: number; retryDelayMs?: number } = {},
+    { timeout = 60000, retryDelayMs = 4000 }: { timeout?: number; retryDelayMs?: number } = {},
   ): Promise<void> {
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const row = this.getIncidentRow(incidentTitle);
+    await expect(async () => {
       await this.navigate(KAFKA_INCIDENTS_DATASET_URL);
-      await this.page.waitForLoadState('networkidle');
       await this.expandGroupIfNeeded(groupPriority);
-
-      const row = this.getIncidentRow(incidentTitle);
-      const isRowVisible = await row.isVisible().catch(() => false);
-      if (!isRowVisible) {
-        // eslint-disable-next-line playwright/no-wait-for-timeout
-        if (attempt < maxRetries) await this.page.waitForTimeout(retryDelayMs);
-        continue;
-      }
-
-      // Also wait for the linked assets cell to show a positive count so that the
-      // edit form's `resourceUrns` field is pre-populated and the submit button is enabled.
-      const assetsCell = row.getByTestId('incident-linked-assets');
-      const assetsCellText = await assetsCell.textContent().catch(() => '0');
-      const assetCount = parseInt(assetsCellText?.trim() || '0', 10);
-      if (assetCount > 0) {
-        return;
-      }
-
-      if (attempt < maxRetries) {
-        // The incident is indexed but relationships are not yet — wait and retry.
-        // eslint-disable-next-line playwright/no-wait-for-timeout
-        await this.page.waitForTimeout(retryDelayMs);
-      }
-    }
-    // Final attempt: let the caller's assertion handle the failure with its own timeout.
+      await expect(row).toBeVisible({ timeout: 5000 });
+      // A positive count means the edit form's `resourceUrns` field is pre-populated and the
+      // submit button is enabled.
+      await expect(row.getByTestId('incident-linked-assets')).toHaveText(/^\s*0*[1-9]/, { timeout: 5000 });
+    }).toPass({ timeout, intervals: [retryDelayMs] });
   }
 
   async navigateToBigQueryDatasetIncidents(params = ''): Promise<void> {
@@ -172,20 +152,19 @@ export class IncidentsPage extends BasePage {
    * the group may not be present at the moment this method is called (e.g. in test 3
    * where Apollo cache is empty and the query must fetch from GMS).  Without the wait,
    * `isVisible()` returns false before the group renders, the expansion click is never
-   * made, and the group stays collapsed once data loads (the `processed` flag in
-   * `useGetExpandedTableGroupsFromEntityUrnInUrl` prevents the auto-expand from re-firing).
+   * made, and a group closed by an `incident_urn` link stays collapsed once data loads.
    */
   async expandGroupIfNeeded(priority: string): Promise<void> {
     const group = this.getIncidentGroup(priority);
     // Wait for the group row to appear in the DOM before checking its state.
     await group.waitFor({ state: 'attached', timeout: 15000 });
-    const collapsedIcon = group.getByTestId('group-header-collapsed-icon');
-    const isCollapsed = await collapsedIcon.isVisible().catch(() => false);
+    // The group header's caret is labelled "Expand group" only while the group is collapsed.
+    const expandButton = group.getByRole('button', { name: 'Expand group' });
+    const isCollapsed = await expandButton.isVisible().catch(() => false);
     if (isCollapsed) {
-      await collapsedIcon.click({ force: true });
-      // Wait for the collapsed icon to disappear so downstream assertions
-      // don't race the expand animation.
-      await collapsedIcon.waitFor({ state: 'hidden', timeout: 10000 });
+      await expandButton.click();
+      // Wait for the label to flip so downstream assertions don't race the re-render.
+      await group.getByRole('button', { name: 'Collapse group' }).waitFor({ state: 'visible', timeout: 10000 });
     }
   }
 
@@ -282,25 +261,19 @@ export class IncidentsPage extends BasePage {
 
   async selectStage(stage: string): Promise<void> {
     const value = STAGE_LABEL_TO_VALUE[stage];
-    // Retry up to 3 times: the stage dropdown can silently fail to register when
+    // Retry: the stage dropdown can silently fail to register when
     // an in-flight React re-render (e.g. linked-asset loading) commits between the
     // trigger click and the option click, causing the dropdown to close prematurely.
     // IncidentStagePill renders <div title="${stage}"> inside the SelectBase; a
     // missing title means the selection did not take effect and we should retry.
-    for (let attempt = 0; attempt < 3; attempt++) {
+    await expect(async () => {
       if (value) {
         await this.selectDropdownOptionByValue(this.stageSelectTrigger, this.stageOptionsList, value);
       } else {
         await this.selectDropdownOption(this.stageSelectTrigger, this.stageOptionsList, stage);
       }
-      const confirmed = await this.stageSelectTrigger
-        .getByTitle(stage)
-        .isVisible()
-        .catch(() => false);
-      if (confirmed) return;
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await this.page.waitForTimeout(300);
-    }
+      await expect(this.stageSelectTrigger.getByTitle(stage)).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 30000 });
   }
 
   async selectStatus(status: string): Promise<void> {

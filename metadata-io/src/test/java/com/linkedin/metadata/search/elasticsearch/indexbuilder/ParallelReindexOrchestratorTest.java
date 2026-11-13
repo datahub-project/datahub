@@ -68,7 +68,9 @@ public class ParallelReindexOrchestratorTest {
         .when(mockIndexBuilder)
         .setIndexSetting(any(OperationContext.class), anyString(), anyString(), anyString());
 
-    doNothing().when(mockIndexBuilder).createIndex(any(OperationContext.class), anyString(), any());
+    doNothing()
+        .when(mockIndexBuilder)
+        .createReindexDestination(any(OperationContext.class), anyString(), any());
 
     when(mockIndexBuilder.getDataNodeCount(any(OperationContext.class))).thenReturn(1);
 
@@ -165,8 +167,9 @@ public class ParallelReindexOrchestratorTest {
         ReindexResult.REINDEXED_SKIPPED_0DOCS,
         "Empty index should be skipped");
 
-    // Verify createIndex and deleteIndex were NOT called (empty index skips reindex)
-    verify(mockIndexBuilder, times(0)).createIndex(any(OperationContext.class), anyString(), any());
+    // Verify no destination was created and no index deleted (empty index skips reindex)
+    verify(mockIndexBuilder, times(0))
+        .createReindexDestination(any(OperationContext.class), anyString(), any());
     verify(mockIndexBuilder, times(0)).deleteIndex(any(OperationContext.class), anyString());
   }
 
@@ -272,6 +275,10 @@ public class ParallelReindexOrchestratorTest {
     assertEquals(
         results.get("test_index"), ReindexResult.REINDEXED, "test_index should be reindexed");
 
+    // The destination is created through createReindexDestination, whose fallback for a
+    // rejected definition target ESIndexBuilderStructuredPropertyMergeTest covers.
+    verify(mockIndexBuilder)
+        .createReindexDestination(any(OperationContext.class), anyString(), eq(config));
     verify(mockIndexBuilder, atLeastOnce())
         .submitReindexInternal(
             any(OperationContext.class), any(), anyString(), any(), eq(Float.POSITIVE_INFINITY));

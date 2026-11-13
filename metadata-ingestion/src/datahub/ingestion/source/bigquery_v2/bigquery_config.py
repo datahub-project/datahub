@@ -15,6 +15,7 @@ from typing import (
 
 from pydantic import (
     Field,
+    NonNegativeInt,
     PositiveInt,
     PrivateAttr,
     ValidationInfo,
@@ -138,6 +139,53 @@ class BigQueryProfilingConfig(ProfilingConfig):
         "discoverable partition. Left unset (no cap) by default because a low ceiling would "
         "spuriously fail discovery on legitimately large tables; `partition_fetch_timeout` "
         "already bounds runaway probes by time.",
+    )
+
+    copy_partition_field_profiles_to_full_table_profile: bool = Field(
+        default=False,
+        description="When profiling a partition, also emit a full-table profile "
+        "(`partitionSpec.partition` of `FULL_TABLE_SNAPSHOT (from partition <id>)`, the "
+        "profile the dataset Stats tab shows first) whose column stats are copied from "
+        "that partition profile. Off by default. The copied column stats still describe "
+        "only the profiled partition, but the UI labels them as full-table stats. For a "
+        "sharded table the partition is the latest shard. `rowCount` on the full-table "
+        "profile stays the table total. Sampled partitions and partition "
+        "profiles without column stats are not copied; the report lists them. Each "
+        "profiling run shows twice in profiling history. Turning this off later does not "
+        "remove copies already emitted: the latest copy keeps taking precedence over "
+        "partition profiles until a newer full-table profile replaces it.",
+    )
+
+    profiling_row_limit: NonNegativeInt = Field(
+        default=1000000,
+        description="Maximum number of rows returned to the profiler for a table (applied as a LIMIT "
+        "on generated profiling SQL); distinct from `sample_size`, which controls row-level "
+        "sampling. A LIMIT does not cap BigQuery bytes scanned. Set to 0 to disable this row "
+        "limit, though a safety LIMIT still applies to unpartitioned tables above ~1M rows.",
+    )
+
+    skip_stale_tables: bool = Field(
+        default=False,
+        description="Opt-in: skip profiling for tables not modified within `staleness_threshold_days` "
+        "(default 365). Uses last_altered (BigQuery's last_modified_time) for both regular and "
+        "external tables. This helps avoid profiling abandoned or archived tables. Disabled by "
+        "default; set to true to enable.",
+    )
+
+    staleness_threshold_days: PositiveInt = Field(
+        default=365,
+        description="Number of days after which a table is considered stale and profiling will be skipped "
+        "if skip_stale_tables is enabled. Must be positive; disable the behavior with "
+        "skip_stale_tables=false rather than setting this to 0.",
+    )
+
+    partition_datetime_window_days: Optional[NonNegativeInt] = Field(
+        default=None,
+        description="Opt-in: limit profiling to partitions within this many days from the selected partition "
+        "date. For example, if set to 30 and the selected partition is '2025-08-15', only partitions from "
+        "'2025-07-16' to '2025-08-15' will be included in profiling. Defaults to None (windowing disabled); "
+        "set to a number of days to enable. This helps focus profiling on recent data patterns and improves "
+        "performance.",
     )
 
     @field_validator("fallback_partition_values", mode="before")

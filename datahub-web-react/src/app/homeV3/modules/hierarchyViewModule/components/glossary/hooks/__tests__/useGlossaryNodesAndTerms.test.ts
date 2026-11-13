@@ -1,8 +1,7 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import useGlossaryNodesAndTerms from '@app/homeV3/modules/hierarchyViewModule/components/glossary/hooks/useGlossaryNodesAndTerms';
 import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 import { ENTITY_INDEX_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { EntityType, SortOrder } from '@types';

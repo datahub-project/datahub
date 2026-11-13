@@ -4,7 +4,7 @@ import base64
 import json
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Iterator, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -26,8 +26,8 @@ from datahub.entrypoints import init
 @pytest.fixture
 def config_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     path = tmp_path / ".datahubenv"
-    monkeypatch.setattr("datahub.entrypoints.DATAHUB_CONFIG_PATH", str(path))
-    monkeypatch.setattr("datahub.cli.config_utils.DATAHUB_CONFIG_PATH", str(path))
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("DATAHUB_PROFILE", raising=False)
     return path
 
 
@@ -211,10 +211,7 @@ class TestRefreshOAuthTokenIfNeeded:
     def test_returns_none_when_no_config_file(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(
-            "datahub.cli.config_utils.DATAHUB_CONFIG_PATH",
-            str(tmp_path / "nonexistent.datahubenv"),
-        )
+        monkeypatch.setenv("HOME", str(tmp_path))
         result = refresh_oauth_token_if_needed()
         assert result is None
 
@@ -317,7 +314,80 @@ class TestRefreshOAuthTokenIfNeeded:
         ) as mock_post:
             refresh_oauth_token_if_needed()
         called_url = mock_post.call_args[0][0]
-        assert called_url == "https://example.datahub.io/gms/auth/oauth2/token"
+        assert called_url == "https://example.datahub.io/auth/oauth2/token"
+
+    def test_refuses_cleartext_token_endpoint(self, config_path: Path) -> None:
+        jwt = _make_jwt(30)
+        data = {
+            "gms": {"server": "https://example.datahub.io/gms", "token": jwt},
+            "oauth": {
+                "client_id": "dcr-client",
+                "refresh_token": "rt-123",
+                "token_endpoint": "http://example.datahub.io/auth/oauth2/token",
+            },
+        }
+        with open(config_path, "w") as f:
+            yaml.dump(data, f)
+        with patch("requests.post") as mock_post:
+            refresh_oauth_token_if_needed()
+        mock_post.assert_not_called()
+        assert yaml.safe_load(config_path.read_text())["gms"]["token"] == jwt
+
+    def test_allows_localhost_http_token_endpoint(self, config_path: Path) -> None:
+        jwt = _make_jwt(30)
+        data = {
+            "gms": {"server": "http://localhost:9002", "token": jwt},
+            "oauth": {
+                "client_id": "dcr-client",
+                "refresh_token": "rt-123",
+                "token_endpoint": "http://127.0.0.1:9002/auth/oauth2/token",
+            },
+        }
+        with open(config_path, "w") as f:
+            yaml.dump(data, f)
+        with patch(
+            "requests.post", return_value=self._mock_token_refresh("at-new")
+        ) as mock_post:
+            refresh_oauth_token_if_needed()
+        assert mock_post.call_args[0][0] == "http://127.0.0.1:9002/auth/oauth2/token"
+        assert mock_post.call_args.kwargs["allow_redirects"] is False
+
+    def test_allows_ipv6_loopback_http_token_endpoint(self, config_path: Path) -> None:
+        jwt = _make_jwt(30)
+        data = {
+            "gms": {"server": "http://[::1]:9002", "token": jwt},
+            "oauth": {
+                "client_id": "dcr-client",
+                "refresh_token": "rt-123",
+                "token_endpoint": "http://[::1]:9002/auth/oauth2/token",
+            },
+        }
+        with open(config_path, "w") as f:
+            yaml.dump(data, f)
+        with patch(
+            "requests.post", return_value=self._mock_token_refresh("at-new")
+        ) as mock_post:
+            refresh_oauth_token_if_needed()
+        assert mock_post.call_args[0][0] == "http://[::1]:9002/auth/oauth2/token"
+
+    def test_malformed_token_endpoint_keeps_the_current_token(
+        self, config_path: Path
+    ) -> None:
+        jwt = _make_jwt(30)
+        data = {
+            "gms": {"server": "https://example.datahub.io/gms", "token": jwt},
+            "oauth": {
+                "client_id": "dcr-client",
+                "refresh_token": "rt-123",
+                "token_endpoint": "https://[broken",
+            },
+        }
+        with open(config_path, "w") as f:
+            yaml.dump(data, f)
+        with patch("requests.post") as mock_post:
+            refresh_oauth_token_if_needed()
+        mock_post.assert_not_called()
+        assert yaml.safe_load(config_path.read_text())["gms"]["token"] == jwt
 
     def test_cleans_up_legacy_token_expiry_field_on_refresh(
         self, config_path: Path
@@ -347,7 +417,7 @@ class TestRefreshOAuthTokenIfNeeded:
 
 class TestInitOAuthFlag:
     @pytest.fixture(autouse=True)
-    def _mock_pkce_login(self) -> Any:
+    def _mock_pkce_login(self) -> Iterator[MagicMock]:
         from datahub.cli.oauth_cli import OAuthResult
 
         result = OAuthResult(

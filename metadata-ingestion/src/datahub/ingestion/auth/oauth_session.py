@@ -10,6 +10,7 @@ import os
 import tempfile
 import time
 from typing import Any, Iterator, Optional, Tuple
+from urllib.parse import urlparse
 
 import requests
 import yaml
@@ -70,14 +71,41 @@ def _locked(config_file: str) -> Iterator[None]:
             fcntl.flock(lock, fcntl.LOCK_UN)
 
 
+def _token_endpoint(oauth: dict, server: str) -> str:
+    """Token URL from discovery, or the origin-root convention.
+
+    GMS is mounted at ``{origin}/gms``. The OAuth token endpoint is on the
+    frontend origin, not under that prefix, so a stored server of
+    ``https://host/gms`` refreshes at ``https://host/auth/oauth2/token``.
+    """
+    endpoint = oauth.get("token_endpoint")
+    if not endpoint:
+        origin = server.rstrip("/")
+        if origin.endswith("/gms"):
+            origin = origin[: -len("/gms")]
+        endpoint = f"{origin}/auth/oauth2/token"
+    try:
+        parsed = urlparse(endpoint)
+    except ValueError as e:
+        raise ConfigurationError(f"Invalid OAuth token endpoint {endpoint}.") from e
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme == "https" or (
+        parsed.scheme == "http" and host in {"localhost", "127.0.0.1", "::1"}
+    ):
+        return endpoint
+    raise ConfigurationError(
+        f"Refusing to send an OAuth refresh token to non-HTTPS endpoint {endpoint}."
+    )
+
+
 def _refresh(raw: dict) -> bool:
     """Exchange the stored refresh token, updating ``raw`` in place on success."""
     oauth, gms = raw["oauth"], raw["gms"]
-    # Prefer the token_endpoint stored from the discovery document; fall back to
-    # the conventional path so configs written before this field was added work.
-    endpoint = (
-        oauth.get("token_endpoint") or f"{gms['server'].rstrip('/')}/auth/oauth2/token"
-    )
+    try:
+        endpoint = _token_endpoint(oauth, gms["server"])
+    except ConfigurationError as e:
+        logger.debug("%s", e)
+        return False
     try:
         resp = requests.post(
             endpoint,
@@ -88,6 +116,10 @@ def _refresh(raw: dict) -> bool:
             },
             headers={"Content-Type": "application/x-www-form-urlencoded"},
             timeout=5,
+            # A 307/308 would resend this body, including the refresh token, to
+            # whatever URL the token server names. The scheme check above only
+            # sees the first URL.
+            allow_redirects=False,
         )
         access_token = (
             resp.json().get("access_token") if resp.status_code == 200 else None
@@ -109,13 +141,16 @@ def _write_atomically(config_file: str, raw: dict) -> None:
     # The server may already have rotated the refresh token, so a truncated file
     # would lose the session. Write a sibling file and rename it into place;
     # readers that skip the lock see either the old file or the new one.
-    directory, name = os.path.split(os.path.abspath(config_file))
+    # Replace the link's target, not the link: config files are often symlinks
+    # into a dotfiles repo, and replacing the link would leave the target stale.
+    target = os.path.realpath(config_file)
+    directory, name = os.path.split(target)
     fd, temporary = tempfile.mkstemp(dir=directory, prefix=f".{name}.tmp.")
     try:
         with os.fdopen(fd, "w") as stream:
             yaml.dump(raw, stream, default_flow_style=False)
-        os.chmod(temporary, os.stat(config_file).st_mode & 0o777)
-        os.replace(temporary, config_file)
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, target)
     except BaseException:
         with contextlib.suppress(OSError):
             os.unlink(temporary)

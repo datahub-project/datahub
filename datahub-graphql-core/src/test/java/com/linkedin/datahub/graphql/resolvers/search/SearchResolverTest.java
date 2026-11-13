@@ -66,7 +66,6 @@ public class SearchResolverTest {
                 .setFulltext(true)
                 .setSkipAggregates(false)
                 .setSkipHighlighting(true) // empty/wildcard
-                .setMaxAggValues(20)
                 .setSkipCache(false)
                 .setIncludeSoftDeleted(false)
                 .setIncludeRestricted(false),
@@ -139,7 +138,6 @@ public class SearchResolverTest {
                 .setFulltext(true)
                 .setSkipAggregates(false)
                 .setSkipHighlighting(false) // empty/wildcard
-                .setMaxAggValues(20)
                 .setSkipCache(false)
                 .setIncludeSoftDeleted(false)
                 .setIncludeRestricted(false),

@@ -1,10 +1,11 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { vi } from 'vitest';
 
 import { useGlobalSettings } from '@app/context/GlobalSettingsContext';
 import { useUserContext } from '@app/context/useUserContext';
-import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import { useTemplateState } from '@app/homeV3/context/hooks/useTemplateState';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { PageTemplateFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, PageTemplateSurfaceType } from '@types';
@@ -18,18 +19,18 @@ vi.mock('@app/context/useUserContext', () => ({
     useUserContext: vi.fn(),
 }));
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityContext: vi.fn(),
 }));
 
-vi.mock('@app/shared/usePrevious', () => ({
+vi.mock('@app/sharedV2/usePrevious', () => ({
     default: vi.fn(),
 }));
 
 const mockUseGlobalSettings = vi.mocked(useGlobalSettings);
 const mockUseUserContext = vi.mocked(useUserContext);
 const mockUseEntityContext = vi.mocked(useEntityContext);
-const mockUsePrevious = vi.mocked(await import('@app/shared/usePrevious')).default;
+const mockUsePrevious = vi.mocked(await import('@app/sharedV2/usePrevious')).default;
 
 // Mock template data
 const mockPersonalTemplate: PageTemplateFragment = {

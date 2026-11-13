@@ -6,8 +6,11 @@ import static org.testng.Assert.assertEquals;
 
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import io.datahubproject.test.wiring.WiringCoverage;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -28,7 +31,14 @@ public class ReliableHardDeleteFactoryTest {
     when(configurationProvider.getFeatureFlags()).thenReturn(featureFlags);
 
     try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+      WiringCoverage.attach(context);
       context.registerBean("entityService", EntityService.class, () -> mock(EntityService.class));
+      context.registerBean(
+          "deleteEntityService", DeleteEntityService.class, () -> mock(DeleteEntityService.class));
+      context.registerBean(
+          "timeseriesAspectService",
+          TimeseriesAspectService.class,
+          () -> mock(TimeseriesAspectService.class));
       context.registerBean(
           "configurationProvider", ConfigurationProvider.class, () -> configurationProvider);
       context.register(ReliableHardDeleteFactory.class);

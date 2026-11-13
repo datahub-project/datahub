@@ -1,17 +1,17 @@
-import { Button, Tooltip } from '@components';
-import { Link as LinkIcon } from '@phosphor-icons/react/dist/csr/Link';
+import { Button, Tooltip, toast } from '@components';
+import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { message } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
+import { useEntityContext, useEntityData } from '@app/entityV2/shared/EntityContext';
 import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
 import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search/SearchSelectModal';
 import { handleBatchError } from '@app/entityV2/shared/utils';
+import useGlossaryCreatePrivileges from '@app/glossaryV2/useGlossaryCreatePrivileges';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
@@ -61,7 +61,7 @@ const ButtonWrapper = styled.div`
     }
 `;
 
-const StyledPlusOutlined = styled(Plus)`
+const StyledPlus = styled(Plus)`
     font-size: 12px;
 `;
 
@@ -78,6 +78,7 @@ function EntityActions(props: Props) {
     const { t } = useTranslation('entity.shared.actions');
     const { t: tc } = useTranslation('common.actions');
     const { t: tcf } = useTranslation('common.feedback');
+    const { t: tdd } = useTranslation('entity.shared.entityDropdown');
     const entityRegistry = useEntityRegistry();
     const { urn, actionItems, refetchForEntity, refetchForTerms, refetchForNodes } = props;
     const { setShouldRefetchEmbeddedListSearch, entityState } = useEntityContext();
@@ -108,12 +109,9 @@ function EntityActions(props: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchAddGlossaryTermModalVisible(false);
-                    message.loading({ content: tcf('updating'), duration: 3 });
+                    toast.loading(tcf('updating'), { duration: 3 });
                     setTimeout(() => {
-                        message.success({
-                            content: t('addedTermSuccess'),
-                            duration: 2,
-                        });
+                        toast.success(t('addedTermSuccess'), { duration: 2 });
                         refetchForEntity?.();
                         setShouldRefetchEmbeddedListSearch?.(true);
                         // Reload modules
@@ -125,13 +123,12 @@ function EntityActions(props: Props) {
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(entityUrns, e, {
-                        content: t('addTermError', { error: e.message || '' }),
-                        duration: 3,
-                    }),
-                );
+                toast.destroy();
+                const { content, duration } = handleBatchError(entityUrns, e, {
+                    content: t('addTermError', { error: e.message || '' }),
+                    duration: 3,
+                });
+                toast.error(content, { duration });
             });
     };
 
@@ -150,12 +147,9 @@ function EntityActions(props: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchSetDomainModalVisible(false);
-                    message.loading({ content: tcf('updating'), duration: 3 });
+                    toast.loading(tcf('updating'), { duration: 3 });
                     setTimeout(() => {
-                        message.success({
-                            content: t('addedDomainSuccess'),
-                            duration: 3,
-                        });
+                        toast.success(t('addedDomainSuccess'), { duration: 3 });
                         refetchForEntity?.();
                         setShouldRefetchEmbeddedListSearch?.(true);
                         entityState?.setShouldRefetchContents(true);
@@ -175,13 +169,12 @@ function EntityActions(props: Props) {
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(entityUrns, e, {
-                        content: t('addDomainError', { error: e.message || '' }),
-                        duration: 3,
-                    }),
-                );
+                toast.destroy();
+                const { content, duration } = handleBatchError(entityUrns, e, {
+                    content: t('addDomainError', { error: e.message || '' }),
+                    duration: 3,
+                });
+                toast.error(content, { duration });
             });
     };
 
@@ -198,12 +191,9 @@ function EntityActions(props: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchSetDataProductModalVisible(false);
-                    message.loading({ content: tcf('updating'), duration: 3 });
+                    toast.loading(tcf('updating'), { duration: 3 });
                     setTimeout(() => {
-                        message.success({
-                            content: t('addedDataProductSuccess'),
-                            duration: 3,
-                        });
+                        toast.success(t('addedDataProductSuccess'), { duration: 3 });
                         refetchForEntity?.();
                         setShouldRefetchEmbeddedListSearch?.(true);
                         // Reload modules
@@ -220,13 +210,12 @@ function EntityActions(props: Props) {
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(entityUrns, e, {
-                        content: t('addDataProductError'),
-                        duration: 3,
-                    }),
-                );
+                toast.destroy();
+                const { content, duration } = handleBatchError(entityUrns, e, {
+                    content: t('addDataProductError'),
+                    duration: 3,
+                });
+                toast.error(content, { duration });
             });
     };
 
@@ -242,30 +231,29 @@ function EntityActions(props: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchSetApplicationModalVisible(false);
-                    message.loading({ content: tcf('updating'), duration: 3 });
+                    toast.loading(tcf('updating'), { duration: 3 });
                     setTimeout(() => {
-                        message.success({
-                            content: t('addedApplicationSuccess'),
-                            duration: 3,
-                        });
+                        toast.success(t('addedApplicationSuccess'), { duration: 3 });
                         refetchForEntity?.();
                         setShouldRefetchEmbeddedListSearch?.(true);
                     }, 3000);
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(entityUrns, e, {
-                        content: t('addApplicationError'),
-                        duration: 3,
-                    }),
-                );
+                toast.destroy();
+                const { content, duration } = handleBatchError(entityUrns, e, {
+                    content: t('addApplicationError'),
+                    duration: 3,
+                });
+                toast.error(content, { duration });
             });
     };
 
     const { entityData } = useEntityData();
-    const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
+    const { canCreate: canCreateGlossaryEntity } = useGlossaryCreatePrivileges(
+        !!entityData?.privileges?.canManageChildren,
+    );
+    const canManageDataProduct = !!entityData?.privileges?.canManageEntity;
 
     return (
         <>
@@ -278,7 +266,7 @@ function EntityActions(props: Props) {
                             data-testid="glossary-batch-add"
                             size="sm"
                         >
-                            <LinkIcon /> {t('addToAssets')}
+                            <LinkSimple size={14} /> {t('addToAssets')}
                         </Button>
                     </Tooltip>
                 )}
@@ -290,50 +278,78 @@ function EntityActions(props: Props) {
                             data-testid="domain-batch-add"
                             size="sm"
                         >
-                            <LinkIcon /> {t('addToAssets')}
+                            <LinkSimple size={14} /> {t('addToAssets')}
                         </Button>
                     </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.BATCH_ADD_DATA_PRODUCT) && (
                     <Tooltip
-                        title={t('addDataProductTooltip')}
+                        title={canManageDataProduct ? t('addDataProductTooltip') : t('addDataProductUnauthorized')}
                         showArrow={false}
                         placement="bottom"
                         data-testid="data-product-batch-add"
                     >
-                        <Button
-                            variant="outline"
-                            onClick={() => setIsBatchSetDataProductModalVisible(true)}
-                            size="sm"
-                            data-testid="data-product-batch-add"
-                        >
-                            <LinkIcon />
-                            {t('addAssets')}
-                        </Button>
+                        <span>
+                            <Button
+                                variant="outline"
+                                onClick={() => setIsBatchSetDataProductModalVisible(true)}
+                                size="sm"
+                                disabled={!canManageDataProduct}
+                                data-testid="data-product-batch-add"
+                            >
+                                <LinkSimple size={14} />
+                                {t('addAssets')}
+                            </Button>
+                        </span>
                     </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_NODE) && (
-                    <Tooltip title={t('createTermGroupTooltip')} showArrow={false} placement="bottom">
+                    <Tooltip
+                        title={
+                            canCreateGlossaryEntity
+                                ? t('createTermGroupTooltip')
+                                : tdd('createGlossary.noCreatePermission', {
+                                      entityName: entityRegistry.getEntityName(EntityType.GlossaryNode),
+                                  })
+                        }
+                        showArrow={false}
+                        placement="bottom"
+                    >
                         <Button
                             data-testid="add-term-group-button-v2"
                             variant="outline"
+                            disabled={!canCreateGlossaryEntity}
                             onClick={() => setIsCreateNodeModalVisible(true)}
                         >
-                            <StyledPlusOutlined /> {t('addTermGroup')}
+                            <StyledPlus size={12} /> {t('addTermGroup')}
                         </Button>
                     </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_TERM) && (
-                    <Tooltip title={t('createTermTooltip')} showArrow={false} placement="bottom">
-                        <Button data-testid="add-term-button" onClick={() => setIsCreateTermModalVisible(true)}>
-                            <StyledPlusOutlined /> {t('addTerm')}
+                    <Tooltip
+                        title={
+                            canCreateGlossaryEntity
+                                ? t('createTermTooltip')
+                                : tdd('createGlossary.noCreatePermission', {
+                                      entityName: entityRegistry.getEntityName(EntityType.GlossaryTerm),
+                                  })
+                        }
+                        showArrow={false}
+                        placement="bottom"
+                    >
+                        <Button
+                            data-testid="add-term-button"
+                            disabled={!canCreateGlossaryEntity}
+                            onClick={() => setIsCreateTermModalVisible(true)}
+                        >
+                            <StyledPlus size={12} /> {t('addTerm')}
                         </Button>
                     </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.BATCH_ADD_APPLICATION) && (
                     <Tooltip title={t('addApplicationTooltip')} showArrow={false} placement="bottom">
                         <Button variant="outline" onClick={() => setIsBatchSetApplicationModalVisible(true)}>
-                            <LinkIcon /> {t('addToAssets')}
+                            <LinkSimple size={14} /> {t('addToAssets')}
                         </Button>
                     </Tooltip>
                 )}

@@ -1,9 +1,9 @@
 import i18next from 'i18next';
 import * as React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity } from '@app/entityV2/Entity';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { DataPlatformInstance, EntityType } from '@types';
 

@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+from typing import Any, Dict, List
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
@@ -12,10 +14,15 @@ from sqlalchemy.dialects.postgresql import (
     base as pg_base,
 )
 from sqlalchemy.dialects.postgresql.base import PGDialect
+from sqlalchemy.exc import OperationalError
 
+from datahub.emitter.mce_builder import make_dataset_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.probe_methods import _provider_class
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
+from datahub.ingestion.source.sql.postgres.query import POSTGRES_SYSTEM_DATABASES
 
 # Importing the placeholder types directly (rather than relying on the
 # module-level registration side effects of importing the source) makes the
@@ -37,11 +44,17 @@ from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BytesTypeClass,
+    DatasetLineageTypeClass,
+    StatusClass,
     StringTypeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 from datahub.utilities.sqlalchemy_type_converter import (
     get_native_data_type_for_sqlalchemy_type,
 )
+from tests.unit.conftest import as_mock, log_contexts, single_aspect
+from tests.unit.sql_test_helpers import FakeConnection, FakeResult
 
 
 def _base_config():
@@ -87,6 +100,51 @@ def tests_get_inspectors_with_database_provided(create_engine_mock):
     _ = list(source.get_inspectors())
     assert create_engine_mock.call_count == 1
     assert create_engine_mock.call_args_list[0][0][0].endswith("custom_db")
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_get_inspectors_single_database_disposes_engine_after_consumer(
+    create_engine_mock: MagicMock,
+) -> None:
+    engine = create_engine_mock.return_value
+    config = PostgresConfig.model_validate({**_base_config(), "database": "custom_db"})
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+
+    inspectors = iter(source.get_inspectors())
+    next(inspectors)
+    # The consumer still holds the inspector: connection and engine stay up.
+    assert not engine.connect.return_value.__exit__.called
+    assert not engine.dispose.called
+
+    assert list(inspectors) == []
+    assert engine.connect.return_value.__exit__.called
+    assert engine.dispose.called
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_get_inspectors_releases_listing_connection_before_first_database(
+    create_engine_mock: MagicMock,
+) -> None:
+    """The connection that lists the databases is only needed for the listing;
+    it must not stay checked out while the consumer works on each database."""
+    listing_conn = MagicMock()
+    listing_conn.__enter__.return_value = FakeConnection(
+        {"pg_database": [{"datname": "db1"}]}
+    )
+    engines = [MagicMock(), MagicMock()]
+    engines[0].connect.return_value = listing_conn
+    create_engine_mock.side_effect = engines
+    config = PostgresConfig.model_validate(
+        {**_base_config(), "initial_database": "db0"}
+    )
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+
+    inspectors = iter(source.get_inspectors())
+    next(inspectors)
+    assert listing_conn.__exit__.called
+
+    assert list(inspectors) == []
+    assert engines[0].dispose.called
 
 
 @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
@@ -352,6 +410,38 @@ def test_view_lineage_empty_returns_iterator(create_engine_mock):
 
 
 @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_view_lineage_workunits_for_views_failed_parsing(
+    create_engine_mock: MagicMock,
+) -> None:
+    config = PostgresConfig.model_validate({**_base_config(), "database": "db1"})
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+    source.views_failed_parsing = {"db1.public.v1"}
+
+    t1 = make_dataset_urn("postgres", "db1.public.t1")
+    t2 = make_dataset_urn("postgres", "db1.public.t2")
+    view_urn = make_dataset_urn("postgres", "db1.public.v1")
+
+    with patch.object(
+        source,
+        "_get_view_lineage_elements",
+        return_value={("v1", "public"): [t1, t2], ("v2", "public"): [t1]},
+    ):
+        workunits = list(source._get_view_lineage_workunits(MagicMock()))
+
+    assert not source.report.failures
+    assert len(workunits) == 1
+    wu = workunits[0]
+    assert wu.id == f"{view_urn}-upstreamLineage"
+    assert wu.get_urn() == view_urn
+    assert wu.get_aspect_of_type(UpstreamLineageClass) == UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=t1, type=DatasetLineageTypeClass.TRANSFORMED),
+            UpstreamClass(dataset=t2, type=DatasetLineageTypeClass.TRANSFORMED),
+        ]
+    )
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
 def test_query_lineage_prerequisites_failure(create_engine_mock):
     """Test that ingestion continues when pg_stat_statements prerequisites fail."""
     config = PostgresConfig.model_validate(
@@ -532,3 +622,354 @@ def test_probe_support_loads_with_core_dependencies():
     # Needs only core dependencies, so the registry-wide probe contract tests
     # are guaranteed at least this provider in any environment.
     assert _provider_class("postgres") is not None
+
+
+# --- RDS IAM transport, probe contract and database listing ---
+
+
+def test_rds_iam_tls_is_upgraded_and_judged_by_sslmode():
+    """IAM tokens are bearer credentials. The listener-level cases (no sslmode,
+    ``prefer``, verified modes) live in test_rds_iam_shared.py; this pins the
+    config helpers themselves: ``disable`` is upgraded too, only a verify-* mode
+    counts as verified, and the hint names the mode to set."""
+    config = PostgresConfig.model_validate(_base_config())
+
+    disabled: Dict[str, Any] = {"sslmode": "disable"}
+    config.apply_rds_iam_ssl(disabled)
+    assert disabled["sslmode"] == "require"
+    assert not config.rds_iam_tls_is_verified(disabled)
+
+    assert config.rds_iam_tls_is_verified({"sslmode": "verify-full"})
+    assert "verify-full" in config.rds_iam_tls_hint()
+
+
+def test_probe_catalog_scope_admits_pg_catalog_relation_by_relation():
+    """pg_catalog is never allowed at schema level: pg_stats carries sampled
+    user values and pg_shadow password hashes."""
+    scope = PostgresConfig.probe_catalog_scope()
+    assert "pg_catalog" not in scope.schemas
+    assert "pg_catalog.pg_class" in scope.relations
+    assert "pg_catalog.pg_attribute" in scope.relations
+    for withheld in ("pg_stats", "pg_statistic", "pg_shadow", "pg_authid"):
+        assert f"pg_catalog.{withheld}" not in scope.relations
+
+
+def test_default_databases_match_the_listing_query_exclusions():
+    """`probe filter` reports these as excluded_by default_database; they must
+    be exactly the names PostgresQuery.list_databases leaves out."""
+    defaults = PostgresConfig.default_databases()
+    assert defaults == frozenset(POSTGRES_SYSTEM_DATABASES)
+    assert {"template0", "template1", "rdsadmin"} <= defaults
+
+
+def test_usage_statistics_require_query_lineage():
+    with pytest.raises(ValidationError, match="include_query_lineage"):
+        PostgresConfig.model_validate(
+            {**_base_config(), "include_usage_statistics": True}
+        )
+
+
+def test_create_builds_source_from_recipe_dict():
+    source = PostgresSource.create(
+        {**_base_config(), "database": "custom_db"}, PipelineContext(run_id="test")
+    )
+    assert isinstance(source, PostgresSource)
+    assert source.config.database == "custom_db"
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_get_inspectors_skips_databases_denied_by_pattern(
+    create_engine_mock: MagicMock,
+) -> None:
+    """Denied databases are never connected to: one engine for the initial
+    database's listing plus one per allowed database."""
+    execute_mock = create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
+    execute_mock.return_value = FakeResult(
+        [{"datname": "keep_me"}, {"datname": "skip_me"}]
+    )
+    config = PostgresConfig.model_validate(
+        {**_base_config(), "database_pattern": {"deny": ["skip_me"]}}
+    )
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+
+    inspectors = list(source.get_inspectors())
+
+    assert len(inspectors) == 1
+    assert create_engine_mock.call_count == 2
+    assert create_engine_mock.call_args_list[1][0][0].endswith("keep_me")
+
+
+def _engines_with_one_unreachable_database(
+    engines: Dict[str, List[MagicMock]],
+    connection_db: Dict[FakeConnection, str],
+) -> Any:
+    """A create_engine stand-in for a server listing my_db_a, my_db_denied and
+    my_db_b, where connecting to my_db_denied fails."""
+
+    def make_engine(url: Any, **kwargs: Any) -> MagicMock:
+        db_name = str(url).rsplit("/", 1)[-1]
+        engine = MagicMock()
+        engines.setdefault(db_name, []).append(engine)
+        if db_name == "my_db_denied":
+            engine.connect.side_effect = OperationalError(
+                "connect", {}, Exception("permission denied")
+            )
+        else:
+            conn = FakeConnection(
+                {
+                    "pg_database": [
+                        {"datname": name}
+                        for name in ["my_db_a", "my_db_denied", "my_db_b"]
+                    ]
+                }
+            )
+            connection_db[conn] = db_name
+            engine.connect.return_value = conn
+        return engine
+
+    return make_engine
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.inspect")
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_get_inspectors_skips_unreachable_database_and_reports_it(
+    create_engine_mock: MagicMock, inspect_mock: MagicMock
+) -> None:
+    engines: Dict[str, List[MagicMock]] = {}
+    connection_db: Dict[FakeConnection, str] = {}
+    create_engine_mock.side_effect = _engines_with_one_unreachable_database(
+        engines, connection_db
+    )
+    inspect_mock.side_effect = lambda conn: connection_db[conn]
+    config = PostgresConfig.model_validate(
+        {**_base_config(), "initial_database": "postgres"}
+    )
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+
+    # The databases around the unreachable one are still ingested.
+    assert list(source.get_inspectors()) == ["my_db_a", "my_db_b"]
+
+    # The skipped database is reported as a failure, which also stops stateful
+    # ingestion from soft-deleting its previously ingested entities.
+    failures = list(source.get_report().failures)
+    assert log_contexts(failures) == {"my_db_denied"}
+    assert len(failures[0].context) == 1
+
+    # Every engine, including the one that listed the databases, is disposed
+    # rather than holding a pooled connection open for the whole run.
+    for db_name in ["postgres", "my_db_a", "my_db_denied", "my_db_b"]:
+        assert all(e.dispose.called for e in engines[db_name])
+
+
+# --- view lineage fallback for views sqlglot could not parse ---
+
+
+def _view_lineage_inspector(rows: List[Dict[str, str]]) -> MagicMock:
+    inspector = MagicMock()
+    inspector.engine.url.database = "db"
+    inspector.engine.connect.return_value = FakeConnection({"": rows})
+    return inspector
+
+
+def _dependency_row(view: str, source: str, schema: str = "public") -> Dict[str, str]:
+    return {
+        "source_table": source,
+        "source_schema": schema,
+        "dependent_view": view,
+        "dependent_schema": schema,
+    }
+
+
+def test_view_lineage_elements_group_sources_and_apply_patterns():
+    """pg_depend rows are grouped per view, and views denied by view_pattern or
+    schema_pattern are dropped (and reported as filtered)."""
+    config = PostgresConfig.model_validate(
+        {
+            **_base_config(),
+            "view_pattern": {"deny": ["denied_view"]},
+            "schema_pattern": {"deny": ["hidden"]},
+        }
+    )
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+    inspector = _view_lineage_inspector(
+        [
+            _dependency_row("orders_v", "orders"),
+            _dependency_row("orders_v", "customers"),
+            _dependency_row("denied_view", "orders"),
+            _dependency_row("secret_v", "orders", schema="hidden"),
+        ]
+    )
+
+    elements = source._get_view_lineage_elements(inspector)
+
+    assert list(elements) == [("orders_v", "public")]
+    assert elements[("orders_v", "public")] == [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db.public.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db.public.customers,PROD)",
+    ]
+    assert set(source.report.filtered) == {"hidden.secret_v", "public.denied_view"}
+
+
+def test_view_lineage_elements_empty_when_query_returns_no_rows():
+    source = PostgresSource(
+        PostgresConfig.model_validate(_base_config()), PipelineContext(run_id="test")
+    )
+
+    assert source._get_view_lineage_elements(_view_lineage_inspector([])) == {}
+
+
+def test_view_lineage_workunits_only_cover_views_that_failed_parsing():
+    """Catalog-derived lineage is the fallback for views whose SQL sqlglot
+    could not parse; views that parsed already have lineage from the aggregator."""
+    source = PostgresSource(
+        PostgresConfig.model_validate(_base_config()), PipelineContext(run_id="test")
+    )
+    source.views_failed_parsing = {"db.public.unparsed_v"}
+    inspector = _view_lineage_inspector(
+        [
+            _dependency_row("unparsed_v", "orders"),
+            _dependency_row("parsed_v", "orders"),
+        ]
+    )
+
+    workunits = list(source._get_view_lineage_workunits(inspector))
+
+    assert [wu.get_urn() for wu in workunits] == [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db.public.unparsed_v,PROD)"
+    ]
+    lineage = single_aspect(workunits, UpstreamLineageClass)
+    assert [u.dataset for u in lineage.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db.public.orders,PROD)"
+    ]
+
+
+def _query_lineage_source() -> PostgresSource:
+    """A source with query lineage on and an autospecced aggregator."""
+    config = PostgresConfig.model_validate(
+        {**_base_config(), "database": "db", "include_query_lineage": True}
+    )
+    with patch(
+        "datahub.ingestion.source.sql.postgres.source.SqlParsingAggregator",
+        autospec=True,
+    ):
+        return PostgresSource(config, PipelineContext(run_id="test"))
+
+
+def _workunit(name: str) -> MagicMock:
+    return MagicMock(spec=MetadataWorkUnit, name=name)
+
+
+def test_workunits_run_view_fallback_only_when_views_failed_parsing() -> None:
+    source = _query_lineage_source()
+    base_wu = _workunit("base")
+    view_wu = _workunit("view")
+    query_wu = _workunit("query")
+    with (
+        patch(
+            "datahub.ingestion.source.sql.sql_common.SQLAlchemySource.get_workunits_internal",
+            side_effect=lambda *_: iter([base_wu]),
+        ),
+        patch.object(source, "get_inspectors", return_value=[MagicMock()]),
+        patch.object(
+            source,
+            "_get_view_lineage_workunits",
+            side_effect=lambda *_: iter([view_wu]),
+        ) as view_lineage,
+        patch.object(
+            source,
+            "_get_query_based_lineage_workunits",
+            side_effect=lambda: iter([query_wu]),
+        ),
+    ):
+        assert list(source.get_workunits_internal()) == [base_wu, query_wu]
+        view_lineage.assert_not_called()
+
+        source.views_failed_parsing = {"db.public.v"}
+        assert list(source.get_workunits_internal()) == [base_wu, view_wu, query_wu]
+
+
+# --- query-based lineage emission ---
+
+
+@patch(
+    "datahub.ingestion.source.sql.postgres.source.PostgresLineageExtractor",
+    autospec=True,
+)
+def test_query_lineage_workunits_come_from_the_aggregator(
+    extractor_class: MagicMock,
+) -> None:
+    source = _query_lineage_source()
+    mcp = MetadataChangeProposalWrapper(
+        entityUrn="urn:li:dataset:(urn:li:dataPlatform:postgres,db.public.t,PROD)",
+        aspect=StatusClass(removed=False),
+    )
+    as_mock(source.sql_aggregator).gen_metadata.return_value = iter([mcp])
+
+    with patch.object(source, "get_inspectors", return_value=[MagicMock()]):
+        workunits = list(source._get_query_based_lineage_workunits())
+
+    extractor_class.return_value.populate_lineage_from_queries.assert_called_once()
+    assert [wu.metadata for wu in workunits] == [mcp]
+    assert not source.report.failures
+
+
+@patch(
+    "datahub.ingestion.source.sql.postgres.source.PostgresLineageExtractor",
+    autospec=True,
+)
+def test_query_lineage_metadata_generation_failure_is_reported(
+    extractor_class: MagicMock,
+) -> None:
+    source = _query_lineage_source()
+    as_mock(source.sql_aggregator).gen_metadata.side_effect = RuntimeError(
+        "schema resolution failed"
+    )
+
+    with patch.object(source, "get_inspectors", return_value=[MagicMock()]):
+        workunits = list(source._get_query_based_lineage_workunits())
+
+    assert workunits == []
+    assert "lineage_metadata_generation_failed" in log_contexts(source.report.failures)
+
+
+def test_close_closes_the_aggregator():
+    source = _query_lineage_source()
+    source.close()
+    as_mock(source.sql_aggregator).close.assert_called_once()
+
+
+# --- profiling metadata ---
+
+
+def test_add_profile_metadata_records_table_sizes_by_identifier():
+    config = PostgresConfig.model_validate({**_base_config(), "database": "db"})
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+    inspector = MagicMock()
+    inspector.engine.connect.return_value = FakeConnection(
+        {
+            "": [
+                SimpleNamespace(
+                    table_schema="public", table_name="orders", table_size=4096
+                )
+            ]
+        }
+    )
+
+    source.add_profile_metadata(inspector)
+
+    assert source.profile_metadata_info.dataset_name_to_storage_bytes == {
+        "db.public.orders": 4096
+    }
+
+
+def test_add_profile_metadata_survives_permission_errors():
+    config = PostgresConfig.model_validate({**_base_config(), "database": "db"})
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+    inspector = MagicMock()
+    inspector.engine.connect.return_value = FakeConnection(
+        {"": RuntimeError("permission denied for pg_table_size")}
+    )
+
+    source.add_profile_metadata(inspector)
+
+    assert source.profile_metadata_info.dataset_name_to_storage_bytes == {}

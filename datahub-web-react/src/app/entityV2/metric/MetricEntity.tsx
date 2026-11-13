@@ -2,12 +2,12 @@ import { Sigma } from '@phosphor-icons/react/dist/csr/Sigma';
 import i18next from 'i18next';
 import React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { buildMetricContextParent } from '@app/entityV2/metric/MetricEntity.utils';
 import MetricPreview from '@app/entityV2/metric/preview/MetricPreview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import {
     EntityProfile,
@@ -22,12 +22,12 @@ import {
     SidebarTagsSection,
     SummaryTab,
 } from '@app/entityV2/shared/profileChunks';
-import { EntityTab } from '@app/entityV2/shared/types';
+import { EntityTab, GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { useGetMetricQuery } from '@graphql/metric.generated';
 import { EntityType, Metric, SearchResult } from '@types';
 
-const headerDropdownItems = new Set([EntityMenuItems.SHARE]);
+const headerDropdownItems = new Set([EntityMenuItems.CHANGE_HISTORY, EntityMenuItems.SHARE]);
 
 export class MetricEntity implements Entity<Metric> {
     type: EntityType = EntityType.Metric;
@@ -99,6 +99,7 @@ export class MetricEntity implements Entity<Metric> {
         return [
             {
                 name: i18next.t('entity.types:tab.summary'),
+                path: EntityTabPath.SUMMARY,
                 component: SummaryTab,
                 properties: {
                     hideEditDescription: true,
@@ -106,10 +107,12 @@ export class MetricEntity implements Entity<Metric> {
             },
             {
                 name: i18next.t('entity.types:tab.lineage'),
+                path: EntityTabPath.LINEAGE,
                 component: LineageTab,
             },
             {
                 name: i18next.t('entity.types:tab.properties', 'Properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
             },
         ];
@@ -158,6 +161,10 @@ export class MetricEntity implements Entity<Metric> {
 
     displayName = (data: Metric) => {
         return data?.info?.name || data?.id || data?.urn;
+    };
+
+    createdTime = (data: Metric) => {
+        return data?.info?.created?.time;
     };
 
     getLineageVizConfig = (entity: Metric) => {

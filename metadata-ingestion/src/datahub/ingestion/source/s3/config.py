@@ -1,18 +1,35 @@
 import logging
-from typing import Any, Dict, Optional, Union
+from collections import Counter
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic.fields import Field
+from typing_extensions import Annotated
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, FiltersByRule
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    Verdict,
+    VerdictContext,
+)
+from datahub.ingestion.source.aws.aws_common import (
+    AwsAssumeRoleConfig,
+    AwsConnectionConfig,
+    account_id_from_role_arn,
+)
+from datahub.ingestion.source.aws.s3_util import get_bucket_name
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.datalake_profiler_config import DataLakeProfilerConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -27,12 +44,57 @@ logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+class S3AccountConfig(ConfigModel):
+    aws_role: AwsAssumeRoleConfig = Field(
+        description="Role to assume in this account, as a role ARN or an object with "
+        "`RoleArn` and optional `ExternalId`. It is assumed after any roles in "
+        "`aws_config.aws_role`. The account ID is read from the ARN."
+    )
+    name: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        description="Display name of the account's container. Defaults to the account ID.",
+    )
+
+    @field_validator("aws_role", mode="before")
+    @classmethod
+    def role_arn_as_role(cls, value: Any) -> Any:
+        return {"RoleArn": value} if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def role_names_an_account(self) -> "S3AccountConfig":
+        if not account_id_from_role_arn(self.aws_role.RoleArn):
+            raise ValueError(
+                f"Cannot read an account ID from role ARN {self.aws_role.RoleArn!r}; "
+                "expected arn:<partition>:iam::<account id>:role/<name>."
+            )
+        return self
+
+    @property
+    def account_id(self) -> str:
+        account_id = account_id_from_role_arn(self.aws_role.RoleArn)
+        assert account_id, "checked by role_names_an_account"
+        return account_id
+
+
 class DataLakeSourceConfig(
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
     PathSpecsConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 ):
+    # Redeclared from PathSpecsConfigMixin to mark it: path_specs, not an
+    # AllowDenyPattern, decide every level this source emits, and the bucket
+    # kind differs per source (ABS shares the mixin).
+    path_specs: Annotated[
+        List[PathSpec],
+        FiltersByRule(DatasetContainerSubTypes.S3_BUCKET),
+        FiltersByRule(DatasetContainerSubTypes.FOLDER),
+        FiltersByRule(DatasetSubTypes.TABLE),
+    ] = Field(
+        description="List of PathSpec. See [below](#path-spec) the details about PathSpec"
+    )
+
     platform: str = Field(
         default="",
         description="The platform that this source connects to (either 's3' or 'file'). "
@@ -40,6 +102,13 @@ class DataLakeSourceConfig(
     )
     aws_config: Optional[AwsConnectionConfig] = Field(
         default=None, description="AWS configuration"
+    )
+    aws_accounts: List[S3AccountConfig] = Field(
+        default_factory=list,
+        description="Assume each account's role and ingest the same path_specs, placing "
+        "each account's buckets under an AWS Account container. Bucket names in "
+        "path_specs must use a wildcard, and credentials must come from the default "
+        "AWS credential chain.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -131,9 +200,49 @@ class DataLakeSourceConfig(
         description="Whether to generate partition aspects for partitioned tables. On older servers for backward compatibility, this should be set to False. This flag will be removed in future versions.",
     )
 
+    def aws_config_for_account(self, account: S3AccountConfig) -> AwsConnectionConfig:
+        base = self.aws_config or AwsConnectionConfig()
+        return base.with_chained_role(account.aws_role)
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
+        )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # lazy: s3_probe imports this module and the S3 listing stack
+        from datahub.ingestion.source.s3.s3_probe import S3MetadataProbe
+
+        return S3MetadataProbe
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """Judge one name with the PathSpec calls S3Source makes; see path_spec_verdict."""
+        # lazy: path_spec_verdict is probe-only, and ingestion never needs it
+        from datahub.ingestion.source.data_lake_common.path_spec_verdict import (
+            judge_path_spec_name,
+        )
+
+        if self.platform != "s3":
+            raise ProbeArgumentError(
+                f"probe filter judges s3:// path_specs; this recipe reads local "
+                f"paths (platform '{self.platform}')"
+            )
+        if self.aws_config is None:
+            ctx.warn(
+                "aws_config is not set, so ingesting this recipe fails before it "
+                "lists anything; the verdict is what path_specs decide once it is set"
+            )
+        # s3a:// and s3n:// are refused too: create_s3_path always writes s3://,
+        # so ingestion never names a dataset or folder with them. ignore_ext
+        # mirrors get_workunits_internal: is_s3_platform() (checked above) and
+        # use_s3_content_type.
+        return judge_path_spec_name(
+            self.path_specs,
+            ctx,
+            scheme="s3://",
+            bucket_kind=str(DatasetContainerSubTypes.S3_BUCKET),
+            ignore_ext=self.use_s3_content_type,
         )
 
     @field_validator("path_specs", mode="before")
@@ -229,4 +338,45 @@ class DataLakeSourceConfig(
                 "because partition columns are part of the inferred schema. Remove one of the two settings."
             )
 
+        return self
+
+    @model_validator(mode="after")
+    def validate_aws_accounts(self) -> "DataLakeSourceConfig":
+        # Runs after validate_platform_and_config_consistency, which infers platform.
+        if not self.aws_accounts:
+            return self
+        if self.platform != "s3":
+            raise ValueError("aws_accounts can only be used with s3:// path_specs.")
+        if self.aws_config and (
+            self.aws_config.aws_access_key_id or self.aws_config.aws_profile
+        ):
+            # AwsConnectionConfig only assumes roles from the default credential
+            # chain. With keys or a profile every account would silently list
+            # the base identity's buckets as its own.
+            raise ValueError(
+                "aws_accounts needs credentials from the default AWS credential "
+                "chain (environment variables, instance or pod role), because "
+                "roles are not assumed from aws_access_key_id or aws_profile. "
+                "Remove them from aws_config."
+            )
+        # A placeholder such as {table} in the bucket segment lists every bucket,
+        # so it counts as a wildcard; glob_include widens placeholders to `*`.
+        fixed_buckets = sorted(
+            spec.include
+            for spec in self.path_specs
+            if "*" not in get_bucket_name(spec.glob_include)
+        )
+        if fixed_buckets:
+            # A named bucket belongs to one account. In every other account it is
+            # either denied, or listed and filed under that other account.
+            raise ValueError(
+                "With aws_accounts every path_spec runs in every account, so the bucket "
+                f"name must be a wildcard such as s3://*/. Named buckets: {fixed_buckets}"
+            )
+        counts = Counter(account.account_id for account in self.aws_accounts)
+        duplicates = sorted(i for i, n in counts.items() if n > 1)
+        if duplicates:
+            raise ValueError(
+                f"aws_accounts lists an account more than once: {duplicates}"
+            )
         return self

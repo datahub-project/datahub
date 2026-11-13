@@ -59,8 +59,24 @@ public class KafkaConfiguration {
     topicsConfiguration = new TopicsConfiguration(topicDefaults, topics);
   }
 
-  public TopicsConfiguration getTopics() {
-    return new TopicsConfiguration(topicDefaults, topics);
+  // Synchronized: TopicsConfiguration's constructor writes defaults into the shared topics
+  // map, so concurrent callers (pgqueue poll workers) caused ConcurrentModificationException.
+  // Built once at startup; rebuilt only if a setter invalidates the cache.
+  public synchronized TopicsConfiguration getTopics() {
+    if (topicsConfiguration == null) {
+      topicsConfiguration = new TopicsConfiguration(topicDefaults, topics);
+    }
+    return topicsConfiguration;
+  }
+
+  public synchronized void setTopics(Map<String, TopicsConfiguration.TopicConfiguration> topics) {
+    this.topics = topics;
+    this.topicsConfiguration = null;
+  }
+
+  public synchronized void setTopicDefaults(TopicsConfiguration.TopicConfiguration topicDefaults) {
+    this.topicDefaults = topicDefaults;
+    this.topicsConfiguration = null;
   }
 
   @Data

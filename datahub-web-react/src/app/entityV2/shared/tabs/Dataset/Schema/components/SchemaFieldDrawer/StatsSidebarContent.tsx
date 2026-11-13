@@ -8,7 +8,7 @@ import styled from 'styled-components';
 import { decimalToPercentStr } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/statsUtil';
 import SampleValueTag from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/SampleValueTag';
 import { extractChartValuesFromFieldProfiles } from '@app/entityV2/shared/utils';
-import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 
 import { DatasetFieldProfile, SchemaField } from '@types';
 

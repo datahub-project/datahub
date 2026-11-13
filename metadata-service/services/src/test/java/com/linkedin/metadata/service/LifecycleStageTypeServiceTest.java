@@ -3,6 +3,7 @@ package com.linkedin.metadata.service;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -28,6 +29,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Map;
 import java.util.Set;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -95,6 +97,20 @@ public class LifecycleStageTypeServiceTest {
 
     Set<String> hidden = service.getHiddenStageUrns(Set.of("document"));
     assertTrue(hidden.isEmpty(), "Empty entityTypes should match no entity types");
+  }
+
+  @Test
+  public void testLoadSkipsTemplateExecution() throws Exception {
+    when(entityClient.search(any(), any(), any(), any(), any(), eq(0), eq(1000)))
+        .thenReturn(makeSearchResult());
+
+    LifecycleStageTypeService service = new LifecycleStageTypeService(entityClient);
+    service.setSystemOperationContext(OP_CTX);
+    service.getHiddenStageUrns(Set.of("document"));
+
+    ArgumentCaptor<OperationContext> context = ArgumentCaptor.forClass(OperationContext.class);
+    verify(entityClient).search(context.capture(), any(), any(), any(), any(), eq(0), eq(1000));
+    assertTrue(context.getValue().getSearchContext().isSkipTemplateExecution());
   }
 
   @Test

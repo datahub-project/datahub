@@ -58,6 +58,44 @@ export const useRowSelection = <T>(
         onChange?.(newSelectedKeys, selectedRows);
     }, [rowSelection, isSelectAll, selectedRowKeys, selectableRowsKeys, data, onChange, rowKey]);
 
+    // Index fallback for `getRowKey` when no `rowKey` is given, matching the keys `handleSelectAll` uses.
+    const rowIndexes = useMemo(() => new Map(data.map((row, index) => [row, index])), [data]);
+
+    const getSelectableKeys = useCallback(
+        (rows: T[]) =>
+            rows
+                .filter((row) => !getCheckboxProps?.(row)?.disabled)
+                .map((row) => getRowKey(row, rowIndexes.get(row) ?? 0, rowKey)),
+        [getCheckboxProps, rowIndexes, rowKey],
+    );
+
+    const getGroupSelectionState = useCallback(
+        (rows: T[]) => {
+            const keys = getSelectableKeys(rows);
+            const selectedCount = keys.filter((key) => selectedRowKeys.includes(key)).length;
+            return {
+                isChecked: keys.length > 0 && selectedCount === keys.length,
+                isIntermediate: selectedCount > 0 && selectedCount < keys.length,
+                isDisabled: keys.length === 0,
+            };
+        },
+        [getSelectableKeys, selectedRowKeys],
+    );
+
+    const handleGroupSelect = useCallback(
+        (rows: T[]) => {
+            if (!rowSelection) return;
+            const keys = getSelectableKeys(rows);
+            const isGroupSelected = keys.length > 0 && keys.every((key) => selectedRowKeys.includes(key));
+            const newSelectedKeys = isGroupSelected
+                ? selectedRowKeys.filter((key) => !keys.includes(key))
+                : [...selectedRowKeys, ...keys.filter((key) => !selectedRowKeys.includes(key))];
+            const selectedRows = data.filter((row, idx) => newSelectedKeys.includes(getRowKey(row, idx, rowKey)));
+            onChange?.(newSelectedKeys, selectedRows);
+        },
+        [rowSelection, getSelectableKeys, selectedRowKeys, data, onChange, rowKey],
+    );
+
     const handleRowSelect = (record: T, index: number) => {
         if (!rowSelection) return;
         if (rowSelection.getCheckboxProps?.(record).disabled) return;
@@ -77,5 +115,7 @@ export const useRowSelection = <T>(
         handleSelectAll,
         handleRowSelect,
         selectedRowKeys,
+        getGroupSelectionState,
+        handleGroupSelect,
     };
 };

@@ -1,0 +1,807 @@
+# Smart Testing — Concept Taxonomy v2
+#
+# Generated from codebase analysis on 2026-09-10; revised with review findings.
+# v3 (2026-10-01): added semantic-models, settings, stats (feature-user).
+# v4 (2026-10-22): added certification, ontology, agent-tasks (feature-user) and
+#   ingestion-agent, job-orchestration (feature-dev) for modules added since v3.
+# v5 (2026-11-11): added the PR-only change-type dimension (ci, build, test-infra,
+#   docs, tooling, pytest-plumbing), so CI, build and test-infra PRs have a tag
+#   that fits instead of borrowing unrelated feature tags or falling back to p0.
+# v6 (2026-11-12): added change-history, analytics (feature-user) for test areas
+#   that were falling back to system-metadata and billing-metrics.
+# See taxonomy-rubric.md for the methodology, criteria, and maintenance process.
+#
+# Common to all test frameworks. Each framework's test_tags.yaml uses a subset.
+# Tags for features only one repository has live in taxonomy.overlay.yaml (same
+# structure, merged in by every consumer); this file only holds shared tags.
+# Regenerate with `/datahub-test-taxonomy taxonomy`, which also regenerates the enums in
+# smoke-test/smart_testing/taxonomy.py (sync enforced by
+# smoke-test/tests/unit/test_smart_testing.py).
+#
+# Total tags: 82  (25 feature-user + 24 feature-dev + 10 technical-layer + 7 entity-scope + 10 compound
+#                  + 6 change-type, which is PR-only)
+#
+# Estimated test surface:
+#   Java unit/integration: ~2400 files
+#   Python smoke tests:    ~300 files (across smoke-test/tests/)
+#   Frontend unit tests:   ~1020 files
+#   Playwright E2E tests:  ~150 spec files
+#   Python ingestion:      ~500+ files (unit + integration)
+
+version: 6
+
+dimensions:
+  # ─────────────────────────────────────────────────────────
+  # Dimension 1: Feature area — user-facing concepts
+  # Things a DataHub user would recognize and talk about.
+  # ─────────────────────────────────────────────────────────
+  feature-user:
+    description: "User-facing product concepts — features, UI surfaces, and documented capabilities."
+    tags:
+      - tag: lineage
+        definition: "Data lineage display, editing, and traversal across entity types."
+        covers:
+          - "Lineage graph rendering, column-level lineage, impact analysis"
+          - "Lineage search and filtering"
+          - "Manual lineage editing"
+
+      - tag: ownership
+        definition: "Ownership assignment, transfer, display, and type management."
+        covers:
+          - "Owner aspect reads and writes"
+          - "Ownership type CRUD"
+          - "Owner-based search and facet filtering"
+
+      - tag: glossary
+        definition: "Glossary terms, glossary nodes, and their hierarchical structure."
+        covers:
+          - "Glossary term and node CRUD"
+          - "Term assignment to entities and schema fields"
+          - "Glossary navigation, children counts, versioning"
+
+      - tag: tags
+        definition: "Tag creation, assignment, and management across entity types."
+        covers:
+          - "Tag CRUD operations"
+          - "Tag assignment to entities and schema fields"
+          - "Tag search and filtering"
+
+      - tag: domains
+        definition: "Domain creation, nesting, entity assignment, and domain-scoped operations."
+        covers:
+          - "Domain CRUD and hierarchy"
+          - "Domain entity batching and scoped views"
+          - "Domain-scoped create-entity authorization"
+          - "Domain entity storage and graph relationships"
+
+      - tag: data-products
+        definition: "Data product creation, membership management, and marketplace."
+        covers:
+          - "Data product CRUD and member assignment"
+          - "Data product lineage bounding box"
+          - "Dataset promotion workflows"
+          - "Data product entity storage and membership aspect"
+
+      - tag: assertions
+        definition: "Data quality assertions — creation, execution, results, and monitors."
+        covers:
+          - "Assertion CRUD (freshness, volume, column, SQL, schema)"
+          - "Assertion run and result evaluation"
+          - "Monitor and assertion assignment rules"
+          - "Smart assertion adjustment and inference rules"
+          - "Assertion, Monitor, and MonitorSuite entity storage"
+
+      - tag: incidents
+        definition: "Data incident creation, resolution, and health status tracking."
+        covers:
+          - "Incident raise and resolve"
+          - "Incidents summary computation"
+          - "Entity health batch checks"
+
+      - tag: ingestion
+        definition: "Managed ingestion sources, execution, scheduling, and secrets."
+        covers:
+          - "Ingestion source CRUD and scheduling"
+          - "Execution request lifecycle"
+          - "Secret management"
+          - "Connection testing"
+
+      - tag: search
+        definition: "Entity search, autocomplete, browse, and search-related UI."
+        covers:
+          - "Keyword and faceted search"
+          - "Browse v2 hierarchical navigation"
+          - "Search projection and extra fields"
+          - "Sibling-aware search and facets"
+
+      - tag: documentation
+        definition: "Entity documentation, institutional memory, and knowledge documents."
+        covers:
+          - "Documentation aspect reads and writes"
+          - "Document CRUD, hierarchy, and search"
+          - "Document proposals and import"
+          - "Institutional memory links"
+
+      - tag: structured-properties
+        definition: "Structured property definitions, assignments, and display."
+        covers:
+          - "Property definition CRUD"
+          - "Property value assignment to entities and schema fields"
+          - "Property badge and display preferences"
+
+      - tag: forms
+        definition: "Forms, form prompts, and form-based data collection."
+        covers:
+          - "Form creation and assignment"
+          - "Form completion tracking"
+          - "Form prompt validation and settings"
+
+      - tag: authorization
+        definition: "Policies, roles, privileges, and access control."
+        covers:
+          - "Policy CRUD and evaluation"
+          - "Role assignment"
+          - "Aspect and entity write authorization"
+          - "Self-entity and container-view auth"
+
+      - tag: schema-metadata
+        definition: "Schema fields, schema evolution, and column-level metadata."
+        covers:
+          - "Schema field CRUD and display"
+          - "Schema evolution tracking"
+          - "Column stats and nested column display"
+
+      - tag: views
+        definition: "Saved views for filtering entity lists."
+        covers:
+          - "View CRUD (create, update, delete)"
+          - "View selection and application"
+          - "View within-operator search"
+
+      - tag: proposals
+        definition: "Metadata change proposals submitted for review and approval."
+        covers:
+          - "Domain, owner, tag, term, and structured-property proposals"
+          - "Proposal reassignment and cleanup"
+          - "Schema-field proposals"
+
+      - tag: deprecation
+        definition: "Entity deprecation marking and lifecycle stages."
+        covers:
+          - "Deprecation aspect writes"
+          - "Lifecycle stage types and transitions"
+          - "Deprecation notification delivery"
+
+      - tag: home-page
+        definition: "Homepage modules, templates, collections, and announcements."
+        covers:
+          - "Home page module layout and rendering"
+          - "Template and collection CRUD"
+          - "Announcement display"
+          - "Homepage personalization and introduce flow"
+
+      - tag: data-contracts
+        definition: "Data contract definitions, enforcement, and display."
+        covers:
+          - "Data contract CRUD"
+          - "Contract assertion mapping"
+          - "Contract status and enforcement display"
+
+      - tag: business-attributes
+        definition: "Business attribute definitions and assignments to schema fields."
+        covers:
+          - "Business attribute CRUD"
+          - "Business attribute assignment to fields"
+          - "Business attribute search and display"
+
+      - tag: settings
+        definition: "Settings pages — personal, group, and platform settings and their toggles."
+        covers:
+          - "Settings navigation and page rendering"
+          - "Personal and platform setting toggles (AI, notifications, maintenance banner)"
+          - "Access token, service account, and group management from settings"
+
+      - tag: stats
+        definition: "Entity Stats tab — profiles, column statistics, charts, and highlights."
+        covers:
+          - "Stats tab rendering and highlights"
+          - "Column and nested-column statistics"
+          - "Usage and profile charts"
+
+      - tag: change-history
+        definition: "Entity change history — the timeline API, Change History tab, and schema blame."
+        covers:
+          - "Timeline API reads of aspect changes and their categories"
+          - "Change History tab rendering and permission checks"
+          - "Schema blame and version-to-version schema diffs"
+
+      - tag: analytics
+        definition: "Product analytics — the Analytics page, highlights, and the usage events that feed them."
+        covers:
+          - "Analytics charts and highlights queries"
+          - "Frontend and backend usage event tracking"
+          - "Analytics page rendering"
+
+  # ─────────────────────────────────────────────────────────
+  # Dimension 2: Feature area — developer-facing concepts
+  # Internal mechanisms and infrastructure subsystems.
+  # ─────────────────────────────────────────────────────────
+  feature-dev:
+    description: "Developer-facing internal mechanisms — architectural subsystems, infrastructure plumbing."
+    tags:
+      - tag: aspect-validation
+        definition: "AspectPayloadValidator pipeline — validates aspect writes across all APIs."
+        covers:
+          - "All registered validators (policy, URL, URN, lifecycle, monitor, etc.)"
+          - "Authorization validators (domain-write, data-product-membership, etc.)"
+          - "Aspect size and field-level validation"
+
+      - tag: mce-mcl-pipeline
+        definition: "Metadata Change Event/Log processing — Kafka consumers, hooks, and event dispatch."
+        covers:
+          - "MCE consumer and MCP processing"
+          - "MCL dispatch and MAE consumer hooks"
+          - "Platform event generation"
+
+      - tag: search-indexing
+        definition: "Elasticsearch index building, document mapping, and reindexing."
+        covers:
+          - "UpdateIndicesService and search index hooks"
+          - "ES document builders and mappings"
+          - "Graph index updates"
+
+      - tag: entity-registry
+        definition: "Entity-aspect relationship definitions, PDL models, and spec builders."
+        covers:
+          - "Entity registry YAML parsing"
+          - "EntitySpec and AspectSpec builders"
+          - "Searchable/relationship field extraction"
+
+      - tag: system-metadata
+        definition: "System metadata tracking, run IDs, and system-level aspect management."
+        covers:
+          - "SystemMetadataService operations"
+          - "Run ID tracking and cleanup"
+          - "System metadata utilities"
+
+      - tag: retention
+        definition: "Aspect and timeseries retention policies and execution."
+        covers:
+          - "Retention service (Ebean, Cassandra)"
+          - "Retention buffer and drainer"
+          - "PgQueue retention predicates"
+
+      - tag: timeseries-aspects
+        definition: "Time-bucketed aspect storage and aggregation (profiles, usage stats)."
+        covers:
+          - "Timeseries aspect service"
+          - "Dataset profiles and dashboard usage stats"
+          - "Stats summary and filter values"
+
+      - tag: entity-versioning
+        definition: "Entity version management, version sets, and effective-latest versioning."
+        covers:
+          - "VersionSet and VersionProperties"
+          - "Effective-latest version resolution"
+          - "Glossary versioning"
+
+      - tag: bootstrap
+        definition: "System bootstrap, datahub-upgrade, and one-time initialization."
+        covers:
+          - "DataHub upgrade blocking and non-blocking steps"
+          - "Executor bootstrap (field preservation, sweeper, retry)"
+          - "System-update job lifecycle"
+
+      - tag: patch-semantics
+        definition: "JSON Patch operations for partial aspect updates."
+        covers:
+          - "Patch builder operations (dataset, datajob, domain)"
+          - "Patch application and merge logic"
+          - "Common patch test utilities"
+
+      - tag: graph-index
+        definition: "Graph service — relationship storage, traversal, and caching."
+        covers:
+          - "ElasticSearch and Neo4j graph services"
+          - "Entity graph cache service"
+          - "Relationship traversal and sibling resolution"
+
+      - tag: siblings
+        definition: "Sibling entity association, resolution, and search merging."
+        covers:
+          - "SiblingAssociationHook"
+          - "Sibling graph service and resolution"
+          - "Sibling-aware search result merging"
+
+      - tag: billing-metrics
+        definition: "Billing events, usage metering, and cost tracking."
+        covers:
+          - "Billing event archive and provider rollup hooks"
+          - "Usage aggregation (admin and traffic)"
+          - "Queue-based usage ingestion"
+
+      - tag: feature-flags
+        definition: "Feature flag configuration, resolution, and app config."
+        covers:
+          - "FeatureFlags and AppConfig resolution"
+          - "Flag-gated feature toggling"
+          - "Flag manifest and sync"
+
+      - tag: semantic-search
+        definition: "Embedding-based semantic search, bridge documents, and kNN."
+        covers:
+          - "Semantic search service and coverage"
+          - "Bridge document indexing"
+          - "Hybrid query embedding and source-type filtering"
+
+      - tag: zero-downtime-upgrade
+        definition: "Rolling upgrade, migration, and ZDU test framework."
+        covers:
+          - "ZDU scenario framework (phases, sweeps, snapshots)"
+          - "Rolling restart and runtime migration"
+          - "Upgrade jar freshness and blocking/non-blocking steps"
+
+      - tag: executor
+        definition: "Remote execution engine — recipe execution, connection testing, and executor bootstrap."
+        covers:
+          - "Executor bootstrap (field preservation, sweeper, retry)"
+          - "Connection test lifecycle"
+          - "Recipe execution and status reporting"
+          - "Executor plugin management"
+
+      - tag: authentication
+        definition: "OAuth, SCIM, token management, SSO, and auth filter pipeline."
+        covers:
+          - "OAuth2 authorization code and token flows"
+          - "SCIM user and group provisioning"
+          - "Token generation, validation, and refresh"
+          - "Auth filter chain and SSO configuration"
+
+      - tag: stateful-ingestion
+        definition: "Ingestion state provider, checkpointing, and soft-delete detection."
+        covers:
+          - "StatefulIngestionSourceBase lifecycle"
+          - "Checkpoint read/write and state comparison"
+          - "Stale entity soft-delete detection"
+
+      - tag: sql-lineage
+        definition: "SQL parsing and column-level lineage extraction via sqlglot."
+        covers:
+          - "sqlglot SQL lineage extraction"
+          - "Column-level lineage resolution"
+          - "SQL query fingerprinting and normalization"
+
+      - tag: classification
+        definition: "Auto-classification framework for PII and sensitive data detection."
+        covers:
+          - "Classification config and rules"
+          - "Classifier plugin interface"
+          - "Column-level classification tagging"
+
+      - tag: profiling
+        definition: "Data profiling framework — row counts, column stats, sample values."
+        covers:
+          - "Profiling config and execution"
+          - "GE-based and native profilers"
+          - "Profile aspect emission"
+
+      - tag: transforms
+        definition: "Ingestion transformation framework — aspect transforms applied in recipes."
+        covers:
+          - "Built-in transforms (add_dataset_ownership, pattern_add_tags, etc.)"
+          - "Transform pipeline execution"
+          - "Custom transform interface"
+
+      - tag: schema-translation
+        definition: "Schema conversion from source formats to DataHub schema metadata."
+        covers:
+          - "Avro schema translation"
+          - "Protobuf schema translation"
+          - "JSON Schema and custom type translation"
+
+  # ─────────────────────────────────────────────────────────
+  # Dimension 3: Technical layer
+  # Infrastructure path a request or operation travels through.
+  # ─────────────────────────────────────────────────────────
+  technical-layer:
+    description: "Infrastructure and protocol boundaries — the 'how' of each operation."
+    tags:
+      - tag: graphql
+        definition: "GraphQL API — resolvers, type mappers, data loaders, and schema."
+        covers:
+          - "GraphQL resolver tests"
+          - "Type mapper and serialization tests"
+          - "Data loader batch tests"
+
+      - tag: openapi
+        definition: "OpenAPI (v1/v2/v3) REST endpoints and controllers."
+        covers:
+          - "OpenAPI entity scroll endpoints"
+          - "Timeseries scroll and lineage scroll"
+
+      - tag: restli
+        definition: "Rest.li (legacy) REST API endpoints."
+        covers:
+          - "RestLI entity operations"
+          - "RestLI batch ingestion"
+          - "Entity controller tests"
+
+      - tag: kafka-events
+        definition: "Kafka producers/consumers, MCE/MCL/PE topics, and event hooks."
+        covers:
+          - "MAE consumer hook execution"
+          - "MCE consumer processing"
+          - "Platform event consumer hooks"
+          - "Kafka default sink"
+
+      - tag: elasticsearch
+        definition: "Elasticsearch indexing, querying, and cluster management."
+        covers:
+          - "ES search service operations"
+          - "ES timeseries aspect service"
+          - "ES system metadata service"
+
+      - tag: ebean-mysql
+        definition: "Ebean ORM and MySQL/PostgreSQL primary storage."
+        covers:
+          - "Entity aspect DAO operations"
+          - "Ebean retention service"
+          - "Database read pool configuration"
+
+      - tag: react-frontend
+        definition: "React/TypeScript frontend — components, hooks, and state management."
+        covers:
+          - "Component unit tests"
+          - "Hook tests (custom hooks, Apollo cache)"
+          - "Utility and formatting tests"
+
+      - tag: cli
+        definition: "DataHub CLI tool — commands, emitters, and client library."
+        covers:
+          - "CLI commands (ingest, delete, search, dataset, user/group)"
+          - "Python SDK and emitter tests"
+          - "Client library examples"
+
+      - tag: spring-config
+        definition: "Spring Boot configuration, bean wiring, and application context."
+        covers:
+          - "Spring configuration tests"
+          - "Application context loading"
+          - "Security configuration (OAuth2, token)"
+
+      - tag: playwright-e2e
+        definition: "Playwright browser-based end-to-end tests."
+        covers:
+          - "UI interaction flows"
+          - "Visual regression and screenshot capture"
+          - "Cross-feature integration scenarios"
+
+  # ─────────────────────────────────────────────────────────
+  # Dimension 4: Entity scope
+  # Which entity types are exercised.
+  # Entities that are also user-facing features (domains,
+  # glossary, data-products, assertions) live in feature-user
+  # only — no duplication here.
+  # ─────────────────────────────────────────────────────────
+  entity-scope:
+    description: "Entity types involved — the 'on what' of each operation. Only entities not already covered by a feature-user tag."
+    tags:
+      - tag: dataset
+        definition: "Dataset entities including schema fields."
+        covers:
+          - "Dataset CRUD, search, and display"
+          - "Schema field metadata and evolution"
+          - "Dataset profiles and usage stats"
+
+      - tag: dashboard-chart
+        definition: "Dashboard and Chart entities (typically tested together)."
+        covers:
+          - "Dashboard and chart display and metadata"
+          - "Dashboard usage statistics"
+          - "Chart lineage"
+
+      - tag: dataflow-datajob
+        definition: "DataFlow and DataJob pipeline entities."
+        covers:
+          - "Pipeline and task metadata"
+          - "DataProcessInstance lifecycle"
+          - "Pipeline lineage edges"
+
+      - tag: container
+        definition: "Container entities (databases, schemas, projects)."
+        covers:
+          - "Container CRUD and entity batching"
+          - "Container hierarchy and browse"
+          - "Container-view authorization"
+
+      - tag: corpuser-corpgroup
+        definition: "User and group identity entities."
+        covers:
+          - "User profile and resolution"
+          - "Group membership lifecycle"
+          - "Service accounts"
+
+      - tag: ml-entities
+        definition: "ML entities — MLModel, MLModelGroup, MLFeatureTable, MLFeature."
+        covers:
+          - "ML model profiles and deployment"
+          - "Feature table and feature metadata"
+          - "Experiment entity display"
+
+      - tag: application-service
+        definition: "Application and Service entities."
+        covers:
+          - "Application entity profile and management"
+          - "Service entity profile and properties"
+          - "Application-service relationship display"
+
+  # ─────────────────────────────────────────────────────────
+  # Compound tags
+  # Used where flat tags would over-select. See rubric
+  # "When to escalate from flat tags to structured relationships."
+  # ─────────────────────────────────────────────────────────
+  compound:
+    description: "Compound tags for concepts with typed relationships that flat tags would over-select."
+    tags:
+      # --- Propagation: by payload ---
+
+      - tag: "propagation:docs"
+        definition: "Propagation of documentation along lineage and sibling edges."
+        covers:
+          - "Doc propagation action (v1 and framework)"
+          - "Generic docs propagation across entity types"
+          - "BigQuery-specific docs propagation"
+
+      - tag: "propagation:tags"
+        definition: "Propagation of tags along lineage edges."
+        covers:
+          - "Tag propagation (dataset, bidirectional, scenarios)"
+          - "Tag propagation v1 action"
+          - "Snowflake tag propagation"
+
+      - tag: "propagation:terms"
+        definition: "Propagation of glossary terms along lineage edges."
+        covers:
+          - "Term propagation v1 action"
+          - "Framework term propagation tests"
+
+      - tag: "propagation:ownership"
+        definition: "Propagation of ownership along lineage and sibling edges."
+        covers:
+          - "Ownership propagation plugin"
+          - "Sibling ownership propagation"
+
+      - tag: "propagation:domains"
+        definition: "Propagation of domain assignments along lineage edges."
+        covers:
+          - "Domain propagation plugin"
+          - "Glossary-domain propagation"
+
+      - tag: "propagation:structured-properties"
+        definition: "Propagation of structured property values along lineage edges."
+        covers:
+          - "Structured property propagation plugin"
+          - "Schema-field-level property propagation"
+
+      # --- Propagation: by path ---
+
+      - tag: "propagation:lineage-path"
+        definition: "Propagation mechanics that travel along lineage graph edges."
+        covers:
+          - "Lineage propagation (unidirectional and bidirectional)"
+          - "Lineage propagation filters"
+          - "Multi-branch propagation"
+
+      - tag: "propagation:sibling-path"
+        definition: "Propagation mechanics that travel along sibling edges."
+        covers:
+          - "Sibling propagation tests"
+          - "Sibling association hook"
+
+      - tag: "propagation:logical-model"
+        definition: "Propagation mechanics for logical models and their physical counterparts."
+        covers:
+          - "Bootstrap logical models propagation"
+          - "Live logical models propagation"
+          - "Schema field propagation for logical models"
+
+      # --- Ingestion: connector isolation ---
+
+      - tag: "ingestion:connector"
+        definition: "Individual ingestion connector source code and tests (not the ingestion framework)."
+        covers:
+          - "Per-connector unit tests (snowflake, bigquery, looker, dbt, etc.)"
+          - "Per-connector integration tests"
+          - "Connector-specific config and report classes"
+
+  # ─────────────────────────────────────────────────────────
+  # Dimension 6: Change type — PR-only, non-product changes
+  # What kind of change a PR makes when it is not product code.
+  # Tests never carry these tags, so they select no tests on
+  # their own; feature tags still decide what runs. classify_pr.py
+  # assigns a tag from `paths` (fnmatch globs, repo-relative) to
+  # every changed file that matches, and skips the classifier
+  # call when every changed file matches one.
+  # ─────────────────────────────────────────────────────────
+  change-type:
+    description: "PR-only: the kind of non-product change a PR makes (CI, build, test infrastructure, docs, tooling). Tests never carry these tags."
+    tags:
+      - tag: ci
+        definition: "CI configuration: GitHub workflows, composite actions, and the scripts and smart-testing code under .github/."
+        covers:
+          - "Workflow jobs and steps, composite actions"
+          - "CI scripts, PR classification and test-selection tooling"
+        paths:
+          - ".github/*"
+
+      - tag: build
+        definition: "Build tooling: Gradle build logic and plugins, and image builds for CI or test-only images. Not version changes of product dependencies or lockfiles, and not product image Dockerfiles: those change what runs, so tag the features they affect."
+        covers:
+          - "Gradle build scripts, plugins and settings that change how code is built, not what it depends on"
+          - "Dockerfiles and build scripts for CI or test-only images"
+
+      - tag: test-infra
+        definition: "Test infrastructure: the smoke-test harness, shared fixtures and helpers, smart-testing code, test weights and batch planning, suites the PR smoke run does not collect (unit, perf, release, zdu, oauth), and the smoke-test image build. Not test modules under smoke-test/tests/e2e: tag the features those tests cover."
+        covers:
+          - "smoke-test conftest files, shared helpers, smart_testing/ and the batch planner"
+          - "smoke-test/tests/unit, perf, release_tests, zdu and oauth, and the smoke-test image under docker/smoke-test"
+        paths:
+          - "smoke-test/tests/unit/*"
+          - "smoke-test/tests/zdu/*"
+          - "smoke-test/tests/oauth/*"
+
+      - tag: docs
+        definition: "Documentation only: docs/, Markdown and images."
+        covers:
+          - "docs/, README, LICENSE, Markdown files"
+          - "Images and diagrams"
+        paths:
+          - "docs/*"
+          - "README*"
+          - "LICENSE*"
+          - "*.md"
+          - "*.mdx"
+          - "*.png"
+          - "*.jpg"
+          - "*.jpeg"
+          - "*.gif"
+          - "*.svg"
+
+      - tag: tooling
+        definition: "Developer tooling that never runs in the product or the smoke tests: agent instructions and skills, editor settings."
+        covers:
+          - "CLAUDE.md, AGENTS.md, .claude/ skills and commands"
+          - "Editor settings such as .cursor/, and .gitignore files"
+        paths:
+          - ".claude/*"
+          - ".cursor/*"
+          - "*/.cursor/*"
+          - "CLAUDE*"
+          - "AGENTS*"
+          - ".gitignore"
+          - "*/.gitignore"
+
+      - tag: pytest-plumbing
+        path-assigned: true
+        definition: "Set from the changed paths, never by the classifier: the PR changes the shared pytest smoke-test harness (root conftests, shared helpers, smart_testing/, batch planning, runner scripts and env, test weights, smoke-test dependencies). Implies test-infra. The pytest selection adds plumbing_sample from smoke-test/smart_testing/test_tags.yaml."
+        covers:
+          - "Root conftests, tests/e2e/utils.py, utilities/ and smart_testing/"
+          - "shard_pack.py, batch_plan_dump.py, smoke.sh, env files, pytest weights, pyproject.toml, requirements.txt"
+        paths:
+          - "smoke-test/conftest.py"
+          - "smoke-test/tests/e2e/conftest.py"
+          - "smoke-test/tests/e2e/utils.py"
+          - "smoke-test/utilities/*"
+          - "smoke-test/smart_testing/*"
+          - "smoke-test/shard_pack.py"
+          - "smoke-test/batch_plan_dump.py"
+          - "smoke-test/smoke.sh"
+          - "smoke-test/run-quickstart.sh"
+          - "smoke-test/set-test-env-vars.sh"
+          - "smoke-test/pytest_*.json"
+          - "smoke-test/pyproject.toml"
+          - "smoke-test/requirements.txt"
+          - "smoke-test/build.gradle"
+
+# ─────────────────────────────────────────────────────────
+# Annotator guidance
+# Disambiguation rules for tag pairs with overlapping boundaries.
+# ─────────────────────────────────────────────────────────
+annotator-guidance:
+  - pair: ["search", "search-indexing"]
+    rule: >
+      If the test explicitly waits for indexing, tests index document state,
+      or verifies index update hooks, tag `search-indexing`. If the test
+      issues a search query and checks the results (regardless of whether
+      indexing happened implicitly), tag `search`. A test may carry both
+      tags if it explicitly tests the write-then-search roundtrip.
+
+  - pair: ["documentation", "propagation:docs"]
+    rule: >
+      If the test triggers or verifies the propagation mechanism (checks
+      that docs flow along lineage/sibling edges), tag `propagation:docs`.
+      If the test only reads or writes documentation aspects directly,
+      tag `documentation`. A test that writes a doc and then verifies it
+      propagated carries both.
+
+  - pair: ["ingestion", "ingestion:connector"]
+    rule: >
+      `ingestion` = the managed ingestion framework (scheduling, execution,
+      secrets, connection testing). `ingestion:connector` = anything specific
+      to an individual connector's source code, config, or behavior. A test
+      for "does the Snowflake connector parse warehouse names" is
+      `ingestion:connector`. A test for "does scheduling trigger execution"
+      is `ingestion`.
+
+  - pair: ["graph-index", "lineage"]
+    rule: >
+      `lineage` = user-facing lineage traversal, display, and editing.
+      `graph-index` = the underlying graph storage layer (relationship
+      storage, traversal service, cache). A test that renders lineage in
+      the UI is `lineage` + `react-frontend`. A test that verifies graph
+      edge insertion or cache invalidation is `graph-index`.
+
+  - pair: ["siblings", "propagation:sibling-path"]
+    rule: >
+      `siblings` = sibling resolution, association logic, and search merging
+      (the mechanism of pairing entities as siblings). `propagation:sibling-path`
+      = specifically propagation that travels along sibling edges to copy
+      metadata. A test for "are these two datasets recognized as siblings" is
+      `siblings`. A test for "does ownership propagate from primary to sibling"
+      is `propagation:sibling-path` + `propagation:ownership`.
+
+  - pair: ["stats", "timeseries-aspects"]
+    rule: >
+      `stats` = the user-facing Stats tab and its charts and highlights.
+      `timeseries-aspects` = storage and querying of timeseries aspects
+      (profiles, usage) underneath. A test that renders the Stats tab is
+      `stats`; one that writes and reads back profile aspects via the API is
+      `timeseries-aspects`. A UI test backed by seeded profile data carries both.
+
+  - pair: ["change-type", "feature-user"]
+    rule: >
+      A PR that changes only CI, build tooling, test infrastructure, docs or
+      developer tooling changes no product behavior. Answer with `change-type`
+      tags and no feature tags, at HIGH confidence: that is a complete answer,
+      not a gap in the taxonomy. Do not pick a feature tag because a file,
+      fixture or script name mentions a feature. A new CI job with its
+      `.github/scripts` helper and a change to `smoke-test/smart_testing/` is
+      `change-type: [ci, test-infra]` and nothing else.
+
+  - pair: ["change-type", "feature-dev"]
+    rule: >
+      When the PR also changes product code, tag that code's features as usual
+      and add `change-type` tags for the rest. `change-type` never replaces
+      feature tags. A lineage resolver fix that also edits a workflow is
+      `feature-user: [lineage]`, `technical-layer: [graphql]`,
+      `change-type: [ci]`.
+
+  - pair: ["build", "feature-dev"]
+    rule: >
+      Version bumps of product dependencies (Gradle, Python or npm), their
+      lockfiles, and Dockerfiles of product images change what runs, so they
+      are not `build` alone: tag the features they affect. If you cannot tell
+      which features, answer LOW confidence so the PR runs the p0 tier.
+
+  - pair: ["test-infra", "feature-user"]
+    rule: >
+      Test modules under `smoke-test/tests/e2e` are not `test-infra`: tag the
+      features the changed tests cover, as for any test. `test-infra` is the
+      harness around them (conftest files, shared helpers, smart-testing code,
+      batch planning, test weights) and suites the PR smoke run does not
+      collect.
+
+  - pair: ["change-history", "system-metadata"]
+    rule: >
+      `change-history` = reading what changed on an entity over time (timeline
+      API, Change History tab, schema blame). `system-metadata` = run IDs and
+      system metadata stored alongside aspects. A test that asserts timeline
+      change events is `change-history`; one that rolls back an ingestion run by
+      run ID is `system-metadata`.
+
+  - pair: ["analytics", "billing-metrics"]
+    rule: >
+      `analytics` = the user-facing Analytics page, highlights, and usage events
+      that feed it. `billing-metrics` = billing events and usage metering for
+      cost. A test that checks analytics charts or telemetry events is
+      `analytics`; one that checks billing event rollup is `billing-metrics`.

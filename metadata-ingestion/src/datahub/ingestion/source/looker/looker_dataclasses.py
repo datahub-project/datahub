@@ -38,6 +38,10 @@ class LookerConstant:
     value: str
 
 
+def _is_dashboard_file(path: str) -> bool:
+    return path.endswith((".dashboard", ".dashboard.lookml", ".dashboard.lkml"))
+
+
 @dataclass
 class LookerModel:
     connection: str
@@ -124,11 +128,7 @@ class LookerModel:
         resolved = []
         for inc in includes:
             # Filter out dashboards - we get those through the looker source.
-            if (
-                inc.endswith(".dashboard")
-                or inc.endswith(".dashboard.lookml")
-                or inc.endswith(".dashboard.lkml")
-            ):
+            if _is_dashboard_file(inc):
                 logger.debug(f"include '{inc}' is a dashboard, skipping it")
                 continue
 
@@ -205,20 +205,15 @@ class LookerModel:
                     message="Did not find anything matching the wildcard include",
                     context=f"Include: {inc}, path: {path}, traversal_path: {traversal_path}",
                 )
-            # only load files that we haven't seen so far
-            included_files = [x for x in included_files if x not in seen_so_far]
+            # Only load files that we haven't seen so far, and drop dashboards a
+            # wildcard matched: those are ingested through the looker source and
+            # must not end up in the resolved includes either.
+            included_files = [
+                x
+                for x in included_files
+                if x not in seen_so_far and not _is_dashboard_file(x)
+            ]
             for included_file in included_files:
-                # Filter out dashboards - we get those through the looker source.
-                if (
-                    included_file.endswith(".dashboard")
-                    or included_file.endswith(".dashboard.lookml")
-                    or included_file.endswith(".dashboard.lkml")
-                ):
-                    logger.debug(
-                        f"include '{included_file}' is a dashboard, skipping it"
-                    )
-                    continue
-
                 logger.debug(
                     f"Will be loading {included_file}, traversed here via {traversal_path}"
                 )

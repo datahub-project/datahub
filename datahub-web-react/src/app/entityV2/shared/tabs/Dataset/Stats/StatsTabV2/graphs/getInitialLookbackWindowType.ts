@@ -6,7 +6,7 @@ import {
     getCalendarStartTimeByTimeRange,
     roundTimeByTimeRange,
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
-import { getFixedLookbackWindow } from '@src/app/shared/time/timeUtils';
+import { getFixedLookbackWindow } from '@src/app/sharedV2/time/timeUtils';
 import { TimeRange } from '@src/types.generated';
 
 const WINDOWS_FROM_MONTH: LookbackWindowType[] = [

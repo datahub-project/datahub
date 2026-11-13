@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { DocumentTreeNode } from '@app/document/DocumentTreeContext';
-import { formatPlatformLabel, partitionRootNodesByLayer } from '@app/document/utils/documentTreeGrouping';
+import {
+    formatPlatformLabel,
+    partitionRootNodesByLayer,
+    positiveFacetAggregationValues,
+    resolveDocumentSourceSection,
+    sourcePlatformsMissingFromRoots,
+} from '@app/document/utils/documentTreeGrouping';
 
 import { DataPlatform } from '@types';
 
@@ -108,6 +114,55 @@ describe('partitionRootNodesByLayer', () => {
 
         expect(result.native).toEqual([node]);
         expect(result.sourcesByPlatform).toEqual([]);
+    });
+});
+
+describe('resolveDocumentSourceSection', () => {
+    it('puts a native GitHub import in the GitHub section', () => {
+        expect(resolveDocumentSourceSection(makeNode({ platform: GITHUB, isExternal: false }))).toMatchObject({
+            kind: 'platform',
+            platformUrn: GITHUB.urn,
+        });
+    });
+
+    it('puts DataHub, missing, and unlabeled platforms in the native section', () => {
+        expect(resolveDocumentSourceSection(makeNode({ platform: DATAHUB })).kind).toBe('native');
+        expect(resolveDocumentSourceSection(makeNode({ platform: null })).kind).toBe('native');
+        expect(
+            resolveDocumentSourceSection(makeNode({ platform: { urn: 'urn:li:dataPlatform:mystery' } as DataPlatform }))
+                .kind,
+        ).toBe('native');
+    });
+});
+
+describe('sourcePlatformsMissingFromRoots', () => {
+    it('requests platforms that are not already represented, including DataHub when native is empty', () => {
+        const roots = [makeNode({ platform: GITHUB })];
+
+        expect(
+            sourcePlatformsMissingFromRoots(
+                [GITHUB.urn, 'urn:li:dataPlatform:confluence', DATAHUB.urn, GITHUB.urn],
+                roots,
+            ),
+        ).toEqual(['urn:li:dataPlatform:confluence', DATAHUB.urn]);
+    });
+
+    it('skips DataHub when any native root is already loaded', () => {
+        expect(sourcePlatformsMissingFromRoots([DATAHUB.urn, GITHUB.urn], [makeNode({ platform: DATAHUB })])).toEqual([
+            GITHUB.urn,
+        ]);
+    });
+});
+
+describe('positiveFacetAggregationValues', () => {
+    it('keeps only positive buckets with values', () => {
+        expect(
+            positiveFacetAggregationValues([
+                { value: GITHUB.urn, count: 2 },
+                { value: 'urn:li:dataPlatform:empty', count: 0 },
+                { value: '', count: 3 },
+            ]),
+        ).toEqual([GITHUB.urn]);
     });
 });
 

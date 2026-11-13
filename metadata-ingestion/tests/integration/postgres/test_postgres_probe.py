@@ -127,6 +127,7 @@ def _recipe(port: int, **extra: object) -> Dict[str, object]:
 
 def _provider_class() -> Type[SqlAlchemyMetadataProbe]:
     provider_cls = PostgresConfig.probe_provider_class()
+    assert isinstance(provider_cls, type)
     assert issubclass(provider_cls, SqlAlchemyMetadataProbe)
     return provider_cls
 

@@ -101,6 +101,44 @@ def test_register_with_params_and_returns_emits_signature(
     assert sigs[0].outputFields is not None and len(sigs[0].outputFields) == 1
 
 
+@patch("datahub.cli.specific.api_cli.get_default_graph")
+def test_register_with_dataset_references_emits_signature_edges(
+    mock_graph_ctx: MagicMock,
+) -> None:
+    mock_graph = MagicMock()
+    mock_graph_ctx.return_value.__enter__.return_value = mock_graph
+    emitted: List[MetadataChangeProposalWrapper] = []
+    mock_graph.emit.side_effect = lambda item, *a, **k: emitted.append(item)
+    request = "urn:li:dataset:(urn:li:dataPlatform:grpc,orders.GetOrderRequest,PROD)"
+    response = "urn:li:dataset:(urn:li:dataPlatform:grpc,orders.Order,PROD)"
+
+    result = CliRunner().invoke(
+        api,
+        [
+            "register",
+            "--id",
+            "orders.OrderService/GetOrder",
+            "--name",
+            "GetOrder",
+            "--subtype",
+            "GRPC_METHOD",
+            "--input-dataset",
+            request,
+            "--output-dataset",
+            response,
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    sigs = [m.aspect for m in emitted if isinstance(m.aspect, ApiSignatureClass)]
+    assert len(sigs) == 1
+    assert sigs[0].inputFields is None
+    assert sigs[0].inputDatasetEdges is not None
+    assert [e.destinationUrn for e in sigs[0].inputDatasetEdges] == [request]
+    assert sigs[0].outputDatasetEdges is not None
+    assert [e.destinationUrn for e in sigs[0].outputDatasetEdges] == [response]
+
+
 def test_upsert_invalid_method_in_file_errors(tmp_path: Path) -> None:
     bad = "id: x\nname: X\nmethod: FETCH\npath: /x\n"
     with patch("datahub.cli.specific.api_cli.get_default_graph") as mock_graph_ctx:

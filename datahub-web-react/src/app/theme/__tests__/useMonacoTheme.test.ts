@@ -1,11 +1,11 @@
 import { useMonaco } from '@monaco-editor/react';
 import type { Monaco } from '@monaco-editor/react';
-import { renderHook } from '@testing-library/react-hooks';
 import { useTheme } from 'styled-components';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useMonacoTheme } from '@app/theme/useMonacoTheme';
 import themes from '@conf/theme/themes';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 vi.mock('@monaco-editor/react', () => ({
     useMonaco: vi.fn(),
@@ -129,8 +129,7 @@ describe('useMonacoTheme – live editors', () => {
     });
 
     it('waits for Monaco rather than throwing when it has not loaded yet', () => {
-        const { result } = renderHook(() => useMonacoTheme());
-        expect(result.error).toBeUndefined();
+        expect(() => renderHook(() => useMonacoTheme())).not.toThrow();
     });
 
     it('re-registers and re-activates the theme when the app theme changes', () => {

@@ -1,4 +1,5 @@
 import logging
+import re
 import threading
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -72,6 +73,15 @@ class AwsServicePrincipal(Enum):
     ECS = "ecs.amazonaws.com"
     ELASTIC_BEANSTALK = "elasticbeanstalk.amazonaws.com"
     EC2 = "ec2.amazonaws.com"
+
+
+# arn:{partition}:iam::{account}:role/{name}
+ROLE_ARN_PATTERN = re.compile(r"^arn:aws[a-z-]*:iam::(\d{12}):role/.+$")
+
+
+def account_id_from_role_arn(role_arn: str) -> Optional[str]:
+    match = ROLE_ARN_PATTERN.match(role_arn.strip())
+    return match.group(1) if match else None
 
 
 class AwsAssumeRoleConfig(PermissiveConfigModel):
@@ -362,6 +372,16 @@ class AwsConnectionConfig(ConfigModel):
                 for role in self.aws_role
             ]
 
+    def with_chained_role(self, role: AwsAssumeRoleConfig) -> "AwsConnectionConfig":
+        """A copy that assumes ``role`` after this config's own roles.
+
+        Built from the set fields rather than with model_copy, which would share
+        the cached credentials and S3 clients of this config.
+        """
+        fields = {name: getattr(self, name) for name in self.model_fields_set}
+        fields["aws_role"] = [*self._normalized_aws_roles(), role]
+        return AwsConnectionConfig.model_validate(fields)
+
     def get_session(self) -> Session:
         if self.aws_access_key_id and self.aws_secret_access_key:
             # Explicit credentials take precedence
@@ -511,6 +531,20 @@ class AwsConnectionConfig(ConfigModel):
                 )
             return self._s3_client_cache[verify_ssl]
 
+    def close_cached_s3_clients(self) -> None:
+        """Close and forget the clients get_s3_client memoized, for a caller that
+        owns this config and is done with it (the probe's __exit__)."""
+        with self._s3_client_lock:
+            clients = list(self._s3_client_cache.values())
+            self._s3_client_cache.clear()
+        # Taken out of the cache first, and each closed on its own: one close
+        # raising leaves no client cached and still closes the rest.
+        for client in clients:
+            try:
+                client.close()
+            except Exception as e:
+                logger.debug(f"Closing a cached S3 client failed: {e}")
+
     def get_s3_resource(
         self, verify_ssl: Optional[Union[bool, str]] = None
     ) -> "S3ServiceResource":
@@ -549,6 +583,19 @@ class AwsConnectionConfig(ConfigModel):
     def get_rds_client(self):
         """Get an RDS client for generating IAM auth tokens."""
         return self.get_session().client("rds", config=self._aws_config())
+
+    def get_sts_client(self) -> "STSClient":
+        """Get an STS client that honors the shared AWS config (proxy, retries, etc.)."""
+        return self.get_session().client("sts", config=self._aws_config())
+
+
+def make_dynamodb_dataset_name(region: str, table_name: str) -> str:
+    """Single definition of the ``{region}.{table}`` DynamoDB dataset name.
+
+    The DynamoDB and Glue sources must build identical names so Glue job lineage joins the
+    DynamoDB tables emitted by the DynamoDB source.
+    """
+    return f"{region}.{table_name}"
 
 
 def generate_rds_iam_token(
@@ -747,3 +794,17 @@ def aws_error_code(e: Union[ClientError, BotoCoreError]) -> str:
     # BotoCoreError subclasses don't carry a structured code; the class name
     # (e.g. "NoCredentialsError") is the next-best stable identifier.
     return type(e).__name__
+
+
+def aws_probe_error_code(exc: BaseException) -> Optional[str]:
+    """The error code of a botocore ClientError (`AccessDenied`,
+    `EntityNotFoundException`), for an AWS probe provider's `probe_error_code`;
+    None for any other exception. Only the code: the message names the calling
+    principal's ARN. S3 answers a HEAD request with the bare HTTP status as its
+    code, which is given as `HTTP 404`."""
+    if not isinstance(exc, ClientError):
+        return None
+    code = aws_error_code(exc)
+    if not isinstance(code, str) or not code:
+        return None
+    return f"HTTP {code}" if code.isdigit() else code

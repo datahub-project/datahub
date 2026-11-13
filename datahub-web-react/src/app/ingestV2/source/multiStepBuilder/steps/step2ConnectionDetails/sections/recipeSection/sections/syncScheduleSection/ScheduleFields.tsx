@@ -6,7 +6,7 @@ import styled from 'styled-components';
 
 import { TimezoneSelect } from '@app/ingestV2/source/builder/TimezoneSelect';
 import CronField from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/CronField';
-import { lowerFirstLetter } from '@app/shared/textUtil';
+import { lowerFirstLetter } from '@app/sharedV2/textUtil';
 import { cronToString } from '@utils/cronstrue';
 
 const FieldsContainer = styled.div`

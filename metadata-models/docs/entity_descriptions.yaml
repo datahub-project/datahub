@@ -62,6 +62,7 @@ post: "Posts represent announcements and pinned links shown in the DataHub home 
 query: "Query entities capture SQL statements run against datasets, ingested from query logs to power lineage, usage stats, and dataset relationships."
 role: "Role entities model external IAM roles from systems like Snowflake or BigQuery, showing which permissions grant access to a given dataset."
 schemaField: "SchemaField entities represent individual dataset columns as first-class assets, enabling field-level tags, terms, docs, and structured properties."
+searchTemplate: "Search templates are URN-addressed Mustache query bodies that rank and match assets. Operators manage them by URN; they are not part of default search."
 structuredProperty: "Structured Properties are typed, governed custom metadata fields that extend the core model and can be attached to any entity in DataHub."
 tag: "Tags are lightweight labels — like pii or deprecated — applied to datasets, columns, and other assets for fast classification and filtering."
 telemetry: "Internal DataHub entity that stores the anonymous client identifier used for opt-in product usage telemetry reported back to the platform."

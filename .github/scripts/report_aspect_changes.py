@@ -259,7 +259,7 @@ def fields(src: str) -> dict[str, dict]:
     body = re.sub(r"(record|enum|typeref)\s+\w+[^{}]*\{[^{}]*\}", "", body)
     if parsed is not None:
         out: dict[str, dict] = {}
-        for name, (typ, opt, ann) in parsed.items():
+        for name, (typ, opt, ann, *_rest) in parsed.items():
             # bsv keeps a leading "optional" keyword inside its type text (so
             # a required<->optional flip also shows up as a type difference
             # there); this module tracks optionality separately from type so

@@ -12,6 +12,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer.CanonicalNow;
 import com.linkedin.timeseries.GenericTable;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -64,8 +65,11 @@ public class DashboardStatsSummaryBatchLoader {
   }
 
   public List<DashboardStatsSummary> batchLoad(final List<Urn> urns, final QueryContext context) {
-    final long now = System.currentTimeMillis();
-    final long start = timeMinusOneMonth(now);
+    // Mirrors DashboardStatsSummaryResolver: one canonical reference drives both ends so the
+    // batched and per-URN paths issue the same query for requests inside the same bucket.
+    final CanonicalNow canonicalNow = context.getOperationContext().canonicalNow();
+    final long now = canonicalNow.upperBound();
+    final long start = timeMinusOneMonth(canonicalNow);
 
     final Filter viewCountFilter = buildSharedUsageFilter(null, null, false);
     final Filter statsFilter = buildSharedUsageFilter(start, now, true);

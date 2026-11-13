@@ -79,7 +79,6 @@ export abstract class SourcesBaseTab extends BaseTab {
   readonly sourceTypeSearchInput: Locator;
   readonly passwordInput: Locator;
   readonly cronHoursSelect: Locator;
-  readonly cancelModalCloseButton: Locator;
   readonly secretDropdown: Locator;
   abstract readonly sourceNameInput: Locator;
   abstract readonly saveButton: Locator;
@@ -127,7 +126,6 @@ export abstract class SourcesBaseTab extends BaseTab {
     this.passwordInput = page.locator('#password');
     // eslint-disable-next-line playwright/no-raw-locators -- cron builder Ant Design select; no data-testid or ARIA role
     this.cronHoursSelect = page.locator('.cron-builder-hours .ant-select');
-    this.cancelModalCloseButton = page.getByTestId('connect-data-source-modal').getByTestId('modal-close-icon');
     // eslint-disable-next-line playwright/no-raw-locators -- Ant Design select dropdown portal; no data-testid or ARIA role
     this.secretDropdown = page.locator('.ant-select-dropdown').and(page.locator(':visible'));
   }
@@ -202,13 +200,16 @@ export abstract class SourcesBaseTab extends BaseTab {
     await modal.confirm();
   }
 
-  async openMoreOptions(sourceName: string): Promise<void> {
-    this.logger?.step('open more options', { sourceName });
-    await this.getMoreOptionsButton(sourceName).click();
-  }
-
-  async clickDropdownItem(label: string): Promise<void> {
-    await this.getDropdownMenuItem(label).click();
+  async selectMoreOption(sourceName: string, label: string): Promise<void> {
+    this.logger?.step('select more option', { sourceName, label });
+    // A list re-render (debounced search, polling) can detach the open menu, so
+    // reopen it and retry the click instead of waiting on a detached item.
+    await expect(async () => {
+      if (!(await this.getDropdownMenuItem(label).isVisible())) {
+        await this.getMoreOptionsButton(sourceName).click();
+      }
+      await this.getDropdownMenuItem(label).click({ timeout: TIMEOUTS.SHORT });
+    }).toPass({ timeout: TIMEOUTS.EXTRA_LONG });
   }
 
   async selectTypeFilter(value: string): Promise<void> {
@@ -224,22 +225,29 @@ export abstract class SourcesBaseTab extends BaseTab {
 
   async clearSearch(): Promise<void> {
     this.logger?.step('clear search');
-    const inputValue = await this.sourcesSearchInput.inputValue();
-    if (inputValue) {
-      const responsePromise = this.graphql.waitForGraphQLResponse('listIngestionSources');
+    if (await this.sourcesSearchInput.inputValue()) {
       await this.sourcesSearchInput.clear();
-      await responsePromise;
-    } else {
-      await this.sourcesSearchInput.clear();
+      await expect(this.sourcesSearchInput).toHaveValue('');
     }
   }
 
   async search(sourceName: string): Promise<void> {
-    this.logger?.step('search', { sourceName });
+    await this.typeSearchQuery(sourceName);
+    // The list query is debounced and may be served from the Apollo cache, so a
+    // network wait for this exact query does not always see a response.
+    await this.expectSourceVisible(sourceName);
+  }
+
+  async typeSearchQuery(query: string): Promise<void> {
+    this.logger?.step('search', { query });
     await expect(this.sourcesSearchInput).toBeVisible();
-    const responsePromise = this.graphql.waitForGraphQLResponse('listIngestionSources');
-    await this.sourcesSearchInput.fill(sourceName);
-    await responsePromise;
+    if ((await this.sourcesSearchInput.inputValue()) !== query) {
+      await this.sourcesSearchInput.fill(query);
+      // The search is debounced and the matching row may already be visible in the
+      // unfiltered list. Wait for the debounce to apply the query (it writes it to
+      // the URL) so the table does not re-render under the next interaction.
+      await expect(this.page).toHaveURL((url) => url.searchParams.get('query') === query);
+    }
   }
 
   async expectSchedule(sourceName: string, scheduleText: string): Promise<void> {
@@ -412,8 +420,7 @@ export abstract class SourcesBaseTab extends BaseTab {
     this.logger?.step('delete ingestion source', { sourceUrn });
     await this.cancelRunningExecution(sourceName);
     await this.searchIfNotVisible(sourceName);
-    await this.openMoreOptions(sourceName);
-    await this.clickDropdownItem('Delete');
+    await this.selectMoreOption(sourceName, 'Delete');
     const modal = new ConfirmationModalComponent(this.page);
     await modal.waitForOpening();
     await modal.confirm();
@@ -437,9 +444,6 @@ export abstract class SourcesBaseTab extends BaseTab {
   }
 
   async expectSourceStatusContains(sourceName: string, status: string): Promise<void> {
-    // Wait briefly for executor to pick up the request
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.SHORT);
     const row = this.getSourceRow(sourceName);
     // Ingestion source execution completion
     await expect(row.getByText(status, { exact: false })).toBeVisible({ timeout: TIMEOUTS.INGESTION_EXECUTION });
@@ -447,11 +451,6 @@ export abstract class SourcesBaseTab extends BaseTab {
 
   async expectSourceStatusPending(sourceName: string): Promise<void> {
     await this.expectSourceStatusContains(sourceName, SOURCE_STATUS_PENDING);
-  }
-
-  async cancelCreateSourceModal(): Promise<void> {
-    this.logger?.step('cancel create source modal');
-    await this.cancelModalCloseButton.click();
   }
 
   async expectCliPillVisible(): Promise<void> {
