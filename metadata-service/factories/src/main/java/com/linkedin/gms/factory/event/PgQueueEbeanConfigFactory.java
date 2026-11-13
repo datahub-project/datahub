@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 
 /**
@@ -40,6 +41,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @KafkaMessagingDisabled
 @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
+@Conditional(PostgresQueueStoreCondition.class)
 public class PgQueueEbeanConfigFactory {
 
   @Value("${postgres.pgQueue.pool.username}")
