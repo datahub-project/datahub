@@ -389,18 +389,23 @@ def test_qvd_no_app_writes_any_more_loses_its_old_writer() -> None:
     "store",
     [
         pytest.param(
-            "STORE Orders INTO [lib://QVD Data/$(vDir)/x.qvd] (qvd);", id="variable"
+            "FOR EACH vT IN 'a', 'b'\nSTORE Orders INTO [lib://QVD Data/$(vT).qvd] (qvd);\nNEXT vT;",
+            id="loop",
         ),
         pytest.param("STORE Orders INTO [lib://Unknown/x.qvd] (qvd);", id="connection"),
     ],
 )
-def test_app_with_an_unresolved_store_keeps_its_qvd_edges(store: str) -> None:
+def test_app_with_an_unresolved_store_adds_its_other_writes(store: str) -> None:
     old_writer = _urn("report-app.orders")
+    staged = _urn("//nas/qvd/staged/orders.qvd")
     source, aspects = _run(
         [
             _app(
                 "report-app",
-                REPORT_SCRIPT + "Orders: LOAD 1 AS id AUTOGENERATE 1;\n" + store,
+                REPORT_SCRIPT
+                + "Orders: LOAD 1 AS id AUTOGENERATE 1;\n"
+                + "STORE Orders INTO [lib://QVD Data/staged/orders.qvd] (qvd);\n"
+                + store,
             )
         ],
         current=UpstreamLineageClass(
@@ -409,11 +414,14 @@ def test_app_with_an_unresolved_store_keeps_its_qvd_edges(store: str) -> None:
             ]
         ),
     )
-    # The STORE may still write the QVD the edge comes from.
+    # The unresolved STORE may still write the QVD the old edge comes from.
     assert source._apps_qvds_unknown == {
         "report-app": "a STORE path could not be resolved"
     }
     assert not _upstreams(aspects, CLEAN, "remove")
+    # The STORE that resolved still gets its edge.
+    assert _upstreams(aspects, staged, "add") == [old_writer]
+    assert source._app_qvds["report-app"].writes_complete is False
 
 
 def test_qvd_written_by_an_unread_app_keeps_its_schema() -> None:

@@ -250,6 +250,10 @@ def _qvd_fields(writes: List[QvdWrite], reads: List[str]) -> Optional[List[str]]
     return reads or None
 
 
+# Why the QVD writes of an app with an unresolved STORE are not all known.
+UNRESOLVED_STORE = "a STORE path could not be resolved"
+
+
 def _qlik_app_id(qri: str) -> Optional[str]:
     match = QLIK_APP_QRI_RE.match(qri)
     return match.group(1) if match else None
@@ -597,6 +601,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
         else:
             self._app_qvds[app_id] = previous.qvds
+            if not previous.qvds.writes_complete:
+                self._apps_qvds_unknown[app_id] = UNRESOLVED_STORE
         if previous.table_urns_by_qri is None:
             # Recorded before table URNs were kept in the state.
             self._apps_tables_unknown.add(app_id)
@@ -1671,7 +1677,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             urn, known = self._resolve_source(source_qri, dataset_urn, own_app_id)
             if not known:
                 resolved.complete = False
-            elif urn and urn not in resolved.urns:
+            if urn and urn not in resolved.urns:
                 resolved.urns.append(urn)
         return resolved
 
@@ -1679,14 +1685,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self, table_qri: str, dataset_urn: str, own_app_id: Optional[str]
     ) -> Tuple[Optional[str], bool]:
         """The URN of a source table node, if this run ingests it, and whether
-        that could be told this run."""
+        every source could be told this run. An unknown source may still have
+        a URN, which is only added."""
         app_id = _qlik_app_id(table_qri)
         if app_id is not None:
             if own_app_id is not None and app_id != own_app_id:
                 return None, True
-            if not self._app_tables_known(app_id):
-                return None, False
             urn = self._app_table_urns_by_qri.get(table_qri)
+            if not self._app_tables_known(app_id):
+                # A table the graph names this run is still added, but the
+                # app's other tables are unknown.
+                return (urn if urn != dataset_urn else None), False
         else:
             # Data files, and files Qlik catalogued on a data connection such
             # as ADLS, are datasets. Other sources, such as database tables,
@@ -1713,7 +1722,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 self.reporter.warning(
                     title="Qlik app loads files from an included script",
                     message="Files loaded in scripts brought in with $(Include) "
-                    "or $(Must_Include) are not read, so a file in the app's "
+                    "or $(Must_Include), or in a SUB the script calls but does "
+                    "not define, are not read, so a file in the app's "
                     "lineage graph that its own script does not load only adds "
                     "to the table's lineage.",
                     context=app_id,
@@ -1801,6 +1811,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # other connection the script reads the same path through could hold it.
         confirmed: Set[str] = set()
         unconfirmed: Set[str] = set()
+        # Unconfirmed URNs whose storage location hashes to the QRI's part.
+        likely: Set[str] = set()
         unknown = False
         for reference in candidates.references:
             storage, detail = self._file_storage(reference.connection, space_id)
@@ -1835,10 +1847,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 lowercase=detail.convert_urns_to_lowercase if detail else False,
             )
             (confirmed if storage.qri_connection_id else unconfirmed).add(urn)
+            if storage.likely_qri_connection_id == candidates.connection_id:
+                likely.add(urn)
         if confirmed:
             urns = confirmed
         elif unknown:
             return None
+        elif len(unconfirmed) > 1 and len(likely & unconfirmed) == 1:
+            # Such as the prod and dev branches of an IF, of which only one ran.
+            urns = likely & unconfirmed
         else:
             urns = unconfirmed
         if len(urns) != 1:
@@ -2500,9 +2517,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # unknown.
             self._apps_qvds_unknown[app.id] = "data connections could not be listed"
         elif parsed.has_unresolved_store or lineage.has_unresolved_store:
-            # Such as a path built from a variable the app's variables, which
-            # may have failed to read, don't hold.
-            self._apps_qvds_unknown[app.id] = "a STORE path could not be resolved"
+            # Such as a loop STORE, or a path built from a variable that failed
+            # to read. The writes that resolved are still added, and the app's
+            # edges into QVDs are kept.
+            lineage.qvds.writes_complete = False
+            self._app_qvds[app.id] = lineage.qvds
+            self._apps_qvds_unknown[app.id] = UNRESOLVED_STORE
         else:
             self._app_qvds[app.id] = lineage.qvds
         return lineage
