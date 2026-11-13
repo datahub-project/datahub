@@ -189,6 +189,8 @@ ENTITY_CHECK_BATCH_SIZE = 100
 # An analytics app is a sense resource in the lineage graph, a script app a
 # dataprep resource.
 QLIK_APP_QRI_RE = re.compile(r"^qri:app:(?:sense|dataprep)://([^#]+)")
+# Qlik Cloud datasets, such as QVDs stored in a space.
+QLIK_DATASET_QRI_PREFIX = "qri:qdf:"
 QVD_EXTENSION = ".qvd"
 
 
@@ -326,6 +328,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._reported_no_graph = False
         # Datasets with a column edge whose source field could not be named.
         self._unnamed_field_lineage: Set[str] = set()
+        # A listed QVD of an allowed space had no secure QRI to match.
+        self._datasets_without_qri = False
         # App tables whose lineage waits for field names read later in the run.
         self._pending_table_lineage: List[PendingTableLineage] = []
         # Table QRI -> dataset URN for the tables of apps read or kept this run.
@@ -1558,12 +1562,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             return None
         # Only datasets of allowed spaces are ingested.
+        allowed = [d for d in datasets if d.space_id in self._allowed_space_ids]
+        # Qlik traces QVDs, so one listed without a QRI may be a source the
+        # graph names; files it doesn't trace, such as text files, never are.
+        self._datasets_without_qri = any(
+            d.secure_qri is None and d.name.lower().endswith(".qvd") for d in allowed
+        )
         return {
             dataset.secure_qri: self._gen_qlik_dataset_urn(
                 self._qlik_dataset_identifier(dataset.space_id, dataset.name)
             )
-            for dataset in datasets
-            if dataset.space_id in self._allowed_space_ids
+            for dataset in allowed
+            if dataset.secure_qri is not None
         }
 
     @staticmethod
@@ -1655,7 +1665,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             datasets = self._dataset_urns_by_secure_qri
             if datasets is None:
                 return None, False
-            urn = datasets.get(table_qri.rpartition("#")[0])
+            urn = datasets.get(table_qri.rpartition("#")[0]) or datasets.get(table_qri)
+            if (
+                urn is None
+                and table_qri.startswith(QLIK_DATASET_QRI_PREFIX)
+                and self._datasets_without_qri
+            ):
+                # It may be an ingested dataset the listing gave no QRI for.
+                return None, False
         return (urn if urn != dataset_urn else None), True
 
     def _learn_field_names(self, names: Iterable[str]) -> None:

@@ -1058,6 +1058,14 @@ class _ScriptParser(BaseModel):
             is_qvd = default_qvd or path.lower().endswith(QVD_EXTENSION)
         if not is_qvd:
             return None
+        if any(
+            reference.group("name").strip() in self.flow.state.unknown
+            for reference in VARIABLE_REFERENCE_RE.finditer(path)
+        ):
+            # Such as a connection prefix that varies in a loop: it is not an
+            # unset prefix that expands to nothing.
+            self.unresolved_qvd_paths.append(path)
+            return None
         lib_path = LIB_PATH_RE.match(path)
         if (
             lib_path
