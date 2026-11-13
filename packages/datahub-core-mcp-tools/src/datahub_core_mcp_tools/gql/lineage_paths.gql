@@ -1,0 +1,34 @@
+# Paths-only lineage, for get_lineage_paths_between.
+#
+# That tool returns just the `paths` array: it uses entity.urn only to find the
+# result holding the target. GetEntityLineage would have GMS build a full
+# entityPreview (ownership, tags, terms, stats, custom properties) for up to 100
+# nodes, all of it discarded.
+query GetEntityLineagePaths($input: SearchAcrossLineageInput!) {
+    searchAcrossLineage(input: $input) {
+        total
+        # Set when GMS stopped the traversal early (timeout or relation limit):
+        # a target missing from a partial result may still be connected.
+        isPartial
+        searchResults {
+            entity {
+                urn
+                type
+            }
+            paths {
+                path {
+                    urn
+                    type
+                    ... on SchemaFieldEntity {
+                        fieldPath
+                        parent {
+                            urn
+                            type
+                        }
+                    }
+                }
+            }
+            degree
+        }
+    }
+}

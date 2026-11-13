@@ -77,6 +77,7 @@ READ_TOOLS = {
     "get_lineage",
     "get_entities",
     "list_schema_fields",
+    "get_lineage_paths_between",
     "search_documents",
     "grep_documents",
     "grep_entities",

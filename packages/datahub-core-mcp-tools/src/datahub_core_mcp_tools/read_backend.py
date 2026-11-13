@@ -70,6 +70,12 @@ class ReadBackend(Protocol):
         and, for column lineage, the column paths."""
         ...
 
+    def lineage_paths(self, variables: JsonObject) -> JsonObject:
+        """``searchAcrossLineage`` for the ``input`` of ``lineage_paths.gql``: each
+        node's urn and type, its paths, and whether GMS cut the traversal short
+        (``isPartial``)."""
+        ...
+
 
 @dataclass(frozen=True)
 class ReadBackendBinding:
@@ -208,6 +214,17 @@ class GraphQLReadBackend:
                 query=graphql_helpers.load_gql_document("entity_details.gql"),
                 variables={"input": variables},
                 operation_name="GetEntityLineage",
+            )["searchAcrossLineage"],
+        )
+
+    def lineage_paths(self, variables: JsonObject) -> JsonObject:
+        return cast(
+            JsonObject,
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document("lineage_paths.gql"),
+                variables={"input": variables},
+                operation_name="GetEntityLineagePaths",
             )["searchAcrossLineage"],
         )
 
