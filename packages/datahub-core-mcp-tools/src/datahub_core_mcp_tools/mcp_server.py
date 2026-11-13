@@ -43,6 +43,7 @@ from .tools.grep_entities import grep_entities
 from .tools.lineage import get_lineage, get_lineage_paths_between
 from .tools.search import search, search_description
 from .tools.tags import add_tags, create_tag, remove_tags
+from .tools.terms import add_glossary_terms, remove_glossary_terms
 from .version_requirements import tool_annotations
 
 _P = ParamSpec("_P")
@@ -254,6 +255,8 @@ def register_tools(
     add("create_tag", create_tag, ToolType.MUTATION)
     add("add_tags", add_tags, ToolType.MUTATION)
     add("remove_tags", remove_tags, ToolType.MUTATION)
+    add("add_terms", add_glossary_terms, ToolType.MUTATION)
+    add("remove_terms", remove_glossary_terms, ToolType.MUTATION)
     if is_entity_versioning_enabled():
         add("get_glossary_term_versions", get_glossary_term_versions, ToolType.SEARCH)
         add(
