@@ -220,8 +220,10 @@ jobs:
         env:
           JRELEASER_MAVENCENTRAL_USERNAME: ${{ secrets.RELEASE_USERNAME }}
           JRELEASER_MAVENCENTRAL_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
+        # JReleaser reads the whole bundle (~535 MB) into memory and buffers the multipart request again,
+        # so the default -Xmx2g daemon heap is not enough for the upload.
         run: |
-          ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} jreleaserDeploy
+          ./gradlew -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=384m" -PreleaseVersion=${{ needs.setup.outputs.tag }} jreleaserDeploy
   publish-java8:
     runs-on: ubuntu-24.04
     permissions:

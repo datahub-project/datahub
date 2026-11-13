@@ -44,9 +44,11 @@ jreleaser {
           // The Central Portal rejects bundles larger than 1 GB; a GA bundle is currently ~535 MB.
           // The upload is a single large request, so allow more than the default 60s for the response.
           readTimeout = 600
-          // JReleaser polls the deployment every retryDelay seconds, up to maxRetries times (defaults
-          // 20s x 100, ~33 min). If validation takes longer, jreleaserDeploy fails even though the
-          // deployment may still go through: check https://central.sonatype.com/publishing/deployments.
+          // Deployment status is polled every 20s, up to 100 times (retryDelay/maxRetries defaults, ~33 min).
+          // If validation takes longer, jreleaserDeploy fails even though the deployment may still go
+          // through: check https://central.sonatype.com/publishing/deployments.
+          retryDelay = 20
+          maxRetries = 100
           stagingRepository(layout.buildDirectory.dir('central-staging').get().asFile.path)
         }
       }
