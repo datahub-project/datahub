@@ -4,7 +4,7 @@ import type { EditorMentionsProviderProps } from '@components/components/Editor/
 
 import { MentionEntitiesContext } from '@app/sharedV2/editor/mentions/MentionEntitiesContext';
 
-import { useGetEntitiesQuery } from '@graphql/entity.generated';
+import { useGetEntityMentionChipsQuery } from '@graphql/search.generated';
 import type { Entity } from '@types';
 
 // Upper bound on the wait for an idle period, so chips still appear on a page that stays busy.
@@ -54,9 +54,9 @@ export function MentionEntitiesContextProvider({ urns, children }: EditorMention
     useEffect(() => () => observer.current?.disconnect(), []);
     useEffect(() => (visible ? whenIdle(() => setReady(true)) : undefined), [visible]);
 
-    const { data, loading, error } = useGetEntitiesQuery({
-        // A chip needs neither lineage nor siblings; the query fetches both unless skipped.
-        variables: { urns: batchUrns, skipLineage: true, skipSiblingsSearch: true },
+    const { data, loading, error } = useGetEntityMentionChipsQuery({
+        // A chip needs no siblings; the query fetches them unless skipped.
+        variables: { urns: batchUrns, skipSiblingsSearch: true },
         skip: !ready || !batchUrns.length,
         fetchPolicy: 'cache-first',
     });
