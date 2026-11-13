@@ -20,8 +20,10 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.metadata.schema_classes import (
+    ChangeAuditStampsClass,
     ContainerClass,
     DashboardInfoClass,
+    EdgeClass,
     MetadataChangeProposalClass,
     SubTypesClass,
 )
@@ -130,6 +132,45 @@ def test_app_is_a_dashboard_of_its_sheets_and_tables(
         c for wu in workunits if (c := wu.get_aspect_of_type(ContainerClass))
     ]
     assert container.container == make_container_urn(source._gen_app_key("app-1"))
+
+
+@pytest.mark.parametrize("sheets_complete", [True, False])
+def test_patched_app_dashboard_drops_sheets_no_longer_ingested(
+    sheets_complete: bool,
+) -> None:
+    removed = make_dashboard_urn("qlik-sense", "removed-sheet")
+    graph = MagicMock()
+    graph.get_aspect.return_value = DashboardInfoClass(
+        title="Sales",
+        description="",
+        lastModified=ChangeAuditStampsClass(),
+        dashboards=[
+            EdgeClass(destinationUrn=make_dashboard_urn("qlik-sense", "sheet-1")),
+            EdgeClass(destinationUrn=removed),
+        ],
+    )
+    with patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI"):
+        source = QlikSenseSource(
+            QlikSourceConfig.model_validate(CLOUD_CONFIG),
+            PipelineContext(run_id="test-app-dashboard", graph=graph),
+        )
+    # The tables are unknown, so the dashboard is patched.
+    app = _app([], sheets_complete=sheets_complete)
+    workunits = list(source._gen_app_dashboard_workunit(app, None, None))
+
+    removed_paths = [
+        op["path"]
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == DashboardInfoClass.ASPECT_NAME
+        and wu.metadata.aspect is not None
+        for op in json.loads(wu.metadata.aspect.value)
+        if op["op"] == "remove"
+    ]
+    # Only when every sheet is known can one be told to be gone.
+    assert removed_paths == (
+        [f"/dashboards/{removed.replace('/', '~1')}"] if sheets_complete else []
+    )
 
 
 TWO_TABLE_SCRIPT = (
