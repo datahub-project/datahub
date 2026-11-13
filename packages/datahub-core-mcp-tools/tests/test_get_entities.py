@@ -89,6 +89,9 @@ class FakeBackend:
     def glossary_terms(self, urns: list[str]) -> list:
         return []
 
+    def tags_named(self, name: str, count: int) -> list:
+        return []
+
     def list_queries(self, variables: JsonObject) -> JsonObject:
         return {}
 

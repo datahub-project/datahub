@@ -2,7 +2,8 @@
 
 ``@min_version`` declares the oldest DataHub a tool works on; the version filter
 that reads it is added with the GMS compatibility work. ``@read_only``,
-``@destructive`` and ``@open_world`` become the tool's MCP annotations.
+``@destructive``, ``@idempotent`` and ``@open_world`` become the tool's MCP
+annotations.
 
 Version schemes:
 - Cloud versions use 4 parts: 0.x.y.z (e.g. "0.3.16" or "0.3.16.1")
@@ -76,6 +77,13 @@ def destructive(fn: Callable) -> Callable:
     return fn
 
 
+def idempotent(fn: Callable) -> Callable:
+    """Declare that calling a write tool again with the same arguments changes
+    nothing more (MCP ``idempotentHint``)."""
+    fn._idempotent_hint = True  # type: ignore[attr-defined]
+    return fn
+
+
 def open_world(fn: Callable) -> Callable:
     """Declare that a tool may reach systems outside DataHub (MCP ``openWorldHint``)."""
     fn._open_world_hint = True  # type: ignore[attr-defined]
@@ -83,12 +91,15 @@ def open_world(fn: Callable) -> Callable:
 
 
 def tool_annotations(fn: Callable, *, read_only: bool | None = None) -> ToolAnnotations:
-    """Build a tool's MCP annotations from its @read_only/@destructive/@open_world markers.
+    """Build a tool's MCP annotations from its markers.
 
     All three hints are always explicit booleans: clients bucket tools without
     hints as unknown, and some client reviews reject tools that omit any of them.
     The MCP spec ignores destructiveHint on read-only tools, so False there is
     harmless. ``read_only`` overrides the @read_only marker.
+
+    A write tool also gets an explicit idempotentHint from @idempotent; the spec
+    gives it no meaning on read-only tools, so they leave it out.
     """
     if read_only is None:
         read_only = bool(getattr(fn, "_read_only_hint", False))
@@ -96,5 +107,8 @@ def tool_annotations(fn: Callable, *, read_only: bool | None = None) -> ToolAnno
         read_only_hint=read_only,
         destructive_hint=not read_only
         and bool(getattr(fn, "_destructive_hint", False)),
+        idempotent_hint=None
+        if read_only
+        else bool(getattr(fn, "_idempotent_hint", False)),
         open_world_hint=bool(getattr(fn, "_open_world_hint", False)),
     )

@@ -161,6 +161,7 @@ async def test_legacy_and_modern_clients(gms: FakeGms, protocol: str) -> None:
         "search_documents",
         "grep_documents",
         "grep_entities",
+        "create_tag",
         "add_tags",
         "remove_tags",
     ]
