@@ -25,6 +25,11 @@ ext {
     loadCommonEnvFile = {
         def envFile = System.getenv("DATAHUB_LOCAL_COMMON_ENV")
         def envVars = [:]
+        // datahub-dev resolves these names in _dev_env() (shell value first, blank skipped, path checked)
+        // and publishes them here. The file must not override them: a saved value would beat a shell
+        // value, and a blank one would reach Compose as an empty string.
+        def decidedKeys = (System.getenv("DATAHUB_DEV_PROMOTED_ENV_KEYS") ?: "")
+            .split(",").collect { it.trim() }.findAll { it }
 
         if (envFile && new File(envFile).exists()) {
             logger.lifecycle("Loading environment variables from: ${envFile}")
@@ -33,7 +38,10 @@ ext {
                 if (line && !line.startsWith("#") && line.contains("=")) {
                     def parts = line.split("=", 2)
                     if (parts.length == 2) {
-                        envVars[parts[0].trim()] = parts[1].trim()
+                        def key = parts[0].trim()
+                        if (!decidedKeys.contains(key)) {
+                            envVars[key] = parts[1].trim()
+                        }
                     }
                 }
             }

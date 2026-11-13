@@ -298,6 +298,10 @@ SEARCH_CONNECTION_PROPERTIES: dict[str, tuple[tuple[str, ...], str]] = {
     "elasticsearch.pathPrefix": (("ELASTICSEARCH_PATH_PREFIX",), ""),
     "elasticsearch.useSSL": (("ELASTICSEARCH_USE_SSL",), "false"),
     "postgres.pgCron.iam.awsRegion": (("AWS_REGION",), ""),
+    "elasticsearch.entityIndex.semanticSearch.embeddingProvider.bedrock.awsRegion": (
+        ("BEDROCK_EMBEDDING_AWS_REGION", "BEDROCK_AWS_REGION", "AWS_REGION"),
+        "",
+    ),
     **{
         f"elasticsearch.clusters.{cluster}.{field}": (
             (
