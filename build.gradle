@@ -987,7 +987,9 @@ subprojects {
       return
     }
     // Wiring ratchet (gradle/wiring/README.md). datahub-frontend is Play/Guice, not Spring.
-    if (project.path != ':wiring-coverage' && project.path != ':datahub-frontend') {
+    // Embedded OpenSearch must keep its classpath independent of DataHub and Spring.
+    if (project.path != ':wiring-coverage' && project.path != ':datahub-frontend'
+        && project.path != ':metadata-service:opensearch-embedded') {
       project.apply from: rootProject.file('gradle/wiring/wiring-coverage.gradle')
     }
     /* TODO: evaluate ignoring jar timestamps for increased caching (compares checksum instead)

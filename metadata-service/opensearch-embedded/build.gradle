@@ -1,0 +1,78 @@
+// Standalone single-node OpenSearch for Docker-free local GMS stacks. Deliberately depends on
+// nothing else in the repo: DataHub's older ANTLR runtime breaks OpenSearch's painless engine.
+plugins {
+    id 'java'
+    id 'application'
+}
+
+application {
+    mainClass = 'com.linkedin.metadata.opensearch.embedded.EmbeddedOpenSearchMain'
+}
+
+// The k-NN plugin artifact is a zip (OpenSearch plugin distribution), not a jar. We extract the
+// jars and add them to the classpath only with OPENSEARCH_KNN_ENABLED=true or -Pknn at build
+// time, so a k-NN-off build carries no plugin dependencies or unversioned plugin jars.
+def knnEnabled = System.getenv('OPENSEARCH_KNN_ENABLED') == 'true' || project.hasProperty('knn')
+
+if (knnEnabled) {
+    configurations { knnZip }
+}
+
+dependencies {
+    implementation 'org.codelibs.opensearch:opensearch-runner:2.19.1.0'
+    // The repo pins io.netty to 4.2.x (CVE alignment in the root build), which split netty-codec;
+    // OpenSearch 2.19's transport needs the full set (MessageToMessageDecoder is in codec-base).
+    implementation "io.netty:netty-all:${rootProject.ext.nettyVersion}"
+
+    if (knnEnabled) {
+        knnZip 'org.opensearch.plugin:opensearch-knn:2.19.1.0'
+    }
+
+    testImplementation 'junit:junit:4.13.2'
+}
+
+if (knnEnabled) {
+    def extractKnnJar = tasks.register('extractKnnJar', Copy) {
+        from(zipTree(configurations.knnZip.singleFile)) {
+            include '*.jar'
+        }
+        into layout.buildDirectory.dir('knn-libs')
+    }
+
+    dependencies {
+        implementation files(extractKnnJar.map {
+            layout.buildDirectory.dir('knn-libs').get().asFileTree.matching { include '*.jar' }
+        })
+    }
+
+    tasks.named('compileJava') { dependsOn extractKnnJar }
+    tasks.named('run') { dependsOn extractKnnJar }
+}
+
+// The root build force-pins org.antlr:antlr4-runtime to 4.9.3 for every subproject. OpenSearch
+// 2.19's painless grammar is generated with ANTLR 4.13.1; with 4.9.3 the script engine throws
+// ExceptionInInitializerError on the search thread and every scripted search times out. This
+// module runs only OpenSearch, so it takes OpenSearch's own versions.
+configurations.all {
+    resolutionStrategy {
+        forcedModules = forcedModules.findAll { !(it.group == 'org.antlr') }
+        force 'org.antlr:antlr4-runtime:4.13.1'
+    }
+}
+
+tasks.named('run') {
+    systemProperties System.properties
+    environment 'OPENSEARCH_KNN_ENABLED', knnEnabled ? 'true' : 'false'
+    // Without a cap the JVM takes a quarter of RAM (16 GB on a 64 GB machine). 4 GB covers
+    // ~2000 small shards from 10 worktree stacks; override with GMS_LITE_OPENSEARCH_HEAP.
+    maxHeapSize = System.getenv('GMS_LITE_OPENSEARCH_HEAP') ?: '4g'
+}
+
+tasks.named('test') {
+    systemProperties System.properties
+    systemProperty 'opensearch.knn.enabled', knnEnabled ? 'true' : 'false'
+    doFirst {
+        // The optional plugin jars must be extracted before the child node's classpath is read.
+        systemProperty 'opensearch.embedded.classpath', sourceSets.main.runtimeClasspath.asPath
+    }
+}
