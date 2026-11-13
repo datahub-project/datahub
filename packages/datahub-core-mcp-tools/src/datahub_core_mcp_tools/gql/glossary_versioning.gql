@@ -107,3 +107,13 @@ query getGlossaryTermsForCompare($urns: [String!]!) {
     }
   }
 }
+
+# createGlossaryTermVersion is new in the same release. __typename keeps the
+# operation valid on older GMS, where the marker drops the real field (and with
+# it $input and its type); the tool's own @min_version stops it running there.
+mutation createGlossaryTermVersion($input: CreateGlossaryTermVersionInput!) {
+  __typename
+  createGlossaryTermVersion(input: $input) { #[since oss=1.10.0 cloud=0.3.16]
+    urn
+  }
+}
