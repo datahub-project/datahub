@@ -35,6 +35,7 @@ from datahub.metadata.schema_classes import (
 from datahub.specific.dataproduct import DataProductPatchBuilder
 from datahub.utilities.registries.data_product_registry import DataProductRegistry
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.urn import Urn
 
 _PARENT_CHAIN_MAX_DEPTH = 20
@@ -125,7 +126,11 @@ class Ownership(ConfigModel):
     @field_validator("type", mode="after")
     @classmethod
     def ownership_type_must_be_mappable_or_custom(cls, v: str) -> str:
-        _, _ = builder.validate_ownership_type(v)
+        try:
+            builder.validate_ownership_type(v)
+        except InvalidUrnError as e:
+            # pydantic only wraps ValueError/TypeError/AssertionError.
+            raise ValueError(str(e)) from e
         return v
 
 
