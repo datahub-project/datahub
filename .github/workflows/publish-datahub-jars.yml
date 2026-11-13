@@ -104,10 +104,6 @@ jobs:
         uses: ./.github/actions/setup-toolchain
         with:
           gradle-home-cache-excludes: ""
-      - name: checkout upstream repo
-        run: |
-          git remote add upstream https://github.com/datahub-project/datahub.git
-          git fetch upstream --tags --force --filter=tree:0
       - name: stage release jars for Central Portal
         env:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
@@ -148,10 +144,6 @@ jobs:
         uses: ./.github/actions/setup-toolchain
         with:
           gradle-home-cache-excludes: ""
-      - name: checkout upstream repo
-        run: |
-          git remote add upstream https://github.com/datahub-project/datahub.git
-          git fetch upstream --tags --force --filter=tree:0
       # Separate job and runner, so its own build/central-staging and its own Central Portal deployment.
       - name: stage release java8 jar for Central Portal
         env:
