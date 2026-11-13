@@ -58,6 +58,8 @@ export type FloatingOverlayProps = {
     destroyTooltipOnHide?: boolean | { keepParent?: boolean };
     /** Clamps the overlay content to this many lines. Values below 1 disable clamping. */
     maxLines?: number;
+    /** Accessible name for the overlay. Dialogs (popovers) need one for screen readers. */
+    ariaLabel?: string;
     // antd Trigger clones its child and passes these. They have to reach the DOM node or a
     // dropdown whose trigger is a Tooltip/Popover never opens and never gets positioned.
     onClick?: React.MouseEventHandler<HTMLElement>;
@@ -189,6 +191,7 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
             getPopupContainer,
             destroyTooltipOnHide = true,
             maxLines,
+            ariaLabel,
             onClick: parentOnClick,
             onMouseDown: parentOnMouseDown,
             onTouchStart: parentOnTouchStart,
@@ -549,6 +552,7 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
                 ref={refs.setFloating}
                 id={overlayId}
                 role={role}
+                aria-label={ariaLabel}
                 className={[overlayClassName, className].filter(Boolean).join(' ') || undefined}
                 style={{
                     ...floatingStyles,

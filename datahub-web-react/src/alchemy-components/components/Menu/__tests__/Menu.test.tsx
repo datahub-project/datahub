@@ -28,7 +28,10 @@ function renderMenu(open: boolean) {
 }
 
 const isSubmenuOpen = () =>
-    screen.getByText('Parent').closest('.ant-dropdown-menu-submenu')?.classList.contains('ant-dropdown-menu-submenu-open');
+    screen
+        .getByText('Parent')
+        .closest('.ant-dropdown-menu-submenu')
+        ?.classList.contains('ant-dropdown-menu-submenu-open');
 
 describe('Menu', () => {
     it('closes an open submenu when the menu closes', async () => {
