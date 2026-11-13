@@ -364,6 +364,9 @@ class FileLoad(BaseModel):
 
     expanded: str
     as_written: str
+    # The path uses a variable the script makes unknown, such as a FOR EACH
+    # variable over a FileList, so the app's last value names only one file.
+    uses_unknown_variable: bool = False
 
 
 class ParsedScript(BaseModel):
@@ -1091,9 +1094,14 @@ class _ScriptParser(BaseModel):
         expanded = _load_path(statement)
         if expanded is None:
             return
+        as_written = _load_path(self.raw_statement) or expanded
         load = FileLoad(
             expanded=expanded,
-            as_written=_load_path(self.raw_statement) or expanded,
+            as_written=as_written,
+            uses_unknown_variable=any(
+                reference.group("name").strip() in self.flow.state.unknown
+                for reference in VARIABLE_REFERENCE_RE.finditer(as_written)
+            ),
         )
         if load not in self.file_loads:
             self.file_loads.append(load)

@@ -476,6 +476,47 @@ def test_branch_loads_are_told_apart_by_the_storage_location(
     )
 
 
+@pytest.mark.parametrize(
+    "script",
+    [
+        pytest.param(
+            "FOR EACH vFile IN FileList('lib://Lake/m/*.csv')\n"
+            "X: LOAD * FROM [$(vFile)] (txt);\nNEXT vFile;",
+            id="loop variable",
+        ),
+        pytest.param(
+            "FOR EACH vFile IN FileList('lib://Lake/m/*.csv')\n"
+            "SET vPath = $(vFile);\nX: LOAD * FROM [$(vPath)] (txt);\nNEXT vFile;",
+            id="copy of a loop variable",
+        ),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_file_list_loop_load_is_not_named_by_the_last_value(
+    mock_api_cls: MagicMock, script: str
+) -> None:
+    source = _source({}, {})
+    app = App.model_validate(
+        {
+            "id": "app-7",
+            "qTitle": "Sales",
+            "createdDate": "2024-01-09T18:05:36.000Z",
+            "modifiedDate": "2024-01-09T18:05:36.000Z",
+            "spaceId": "space-1",
+            "variables": {
+                "vFile": "lib://Lake/m/last.csv",
+                "vPath": "lib://Lake/m/last.csv",
+            },
+        }
+    )
+    parsed = parse_script(script, app.variables)
+    [load] = parsed.file_loads
+    assert load.uses_unknown_variable
+    # Unnamed, so the files the graph names are only added to the lineage.
+    source._file_source_resolver(app, parsed)
+    assert app.id in source._apps_file_paths_unknown
+
+
 RATES_QRI = "qri:qdf:space://AbC#Rates"
 RATES = make_dataset_urn("qlik-sense", "space-1.rates.qvd")
 

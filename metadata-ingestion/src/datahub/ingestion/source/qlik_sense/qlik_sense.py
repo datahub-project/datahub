@@ -1741,6 +1741,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         references = []
         unnamed = []
         for load in parsed.file_loads:
+            if load.uses_unknown_variable:
+                unnamed.append(load.as_written)
+                continue
             # Paths are often built from variables the script sets with LET or
             # in an included script, which the app's variables hold. The graph
             # follows the last reload, so either spelling may be the file's.
