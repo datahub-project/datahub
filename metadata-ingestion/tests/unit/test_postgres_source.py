@@ -710,11 +710,6 @@ def test_get_inspectors_skips_unreachable_database_and_reports_it(
     assert log_contexts(failures) == {"my_db_denied"}
     assert len(failures[0].context) == 1
 
-    # Later passes (profiling, lineage) neither retry nor re-report it.
-    assert list(source.get_inspectors()) == ["my_db_a", "my_db_b"]
-    assert len(engines["my_db_denied"]) == 1
-    assert len(list(source.get_report().failures)[0].context) == 1
-
     # Each per-database engine is disposed once its inspector is consumed,
     # rather than holding a pooled connection for the whole run.
     for db_name in ["my_db_a", "my_db_denied", "my_db_b"]:

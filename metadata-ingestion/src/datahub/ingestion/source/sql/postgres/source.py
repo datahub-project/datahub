@@ -9,7 +9,6 @@ from typing import (
     Iterable,
     List,
     Optional,
-    Set,
     Tuple,
     Type,
     Union,
@@ -578,13 +577,6 @@ class PostgresSource(SQLAlchemySource):
             config.rds_iam_token_manager()
         )
 
-        # Databases get_inspectors() failed to connect to during this run. A
-        # database that fails once is skipped for the rest of the run,
-        # transient failures (e.g. "too many clients") included. That keeps
-        # the passes over get_inspectors() (workunits, profiling, lineage)
-        # consistent: none emits aspects for a database another skipped.
-        self._unreachable_databases: Set[str] = set()
-
         self.sql_aggregator: Optional[SqlParsingAggregator] = None
         if self.config.include_query_lineage:
             # Validate graph connection requirement for usage statistics
@@ -687,9 +679,6 @@ class PostgresSource(SQLAlchemySource):
                 for db_name in databases:
                     if not self.config.database_pattern.allowed(db_name):
                         continue
-                    if db_name in self._unreachable_databases:
-                        # Reported on an earlier pass; don't reconnect or re-report.
-                        continue
 
                     url = self.config.get_sql_alchemy_url(database=db_name)
                     db_engine = create_engine(url, **self._get_engine_options())
@@ -711,7 +700,6 @@ class PostgresSource(SQLAlchemySource):
                                 context=db_name,
                                 exc=e,
                             )
-                            self._unreachable_databases.add(db_name)
                             continue
                         with db_conn:
                             # Invariant: the caller must finish reflection and
