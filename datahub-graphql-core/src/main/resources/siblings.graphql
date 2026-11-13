@@ -14,7 +14,8 @@ Input for siblingGroups
 """
 input SiblingGroupsInput {
   """
-  Dataset urns to resolve, at most 50. Other entity types are rejected.
+  Dataset urns to resolve, at most 30 by default (GRAPHQL_QUERY_MAX_SIBLING_GROUP_URNS). Other
+  entity types are rejected.
   """
   urns: [String!]!
 
@@ -24,7 +25,8 @@ input SiblingGroupsInput {
   start: Int
 
   """
-  Members to return per group, at most 200. Defaults to 5.
+  Members to return per group, at most 200. Defaults to 5. Each urn adds 5 plus this count to the
+  query's complexity, so many urns with a large count can exceed the complexity limit.
   """
   count: Int
 }

@@ -27,12 +27,14 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeClass;
@@ -1295,8 +1297,7 @@ public class SiblingGraphServiceTest {
               return existing;
             });
 
-    SiblingGraphService.SiblingGroupMembers result =
-        fixture.service.siblingGroupMembers(opContext, copyB);
+    SiblingGraphService.SiblingGroupMembers result = members(fixture.service, copyB);
 
     assertFalse(result.truncated());
     assertEquals(
@@ -1326,18 +1327,165 @@ public class SiblingGraphServiceTest {
     store.put(hub, siblings(false, hubList));
     store.put(start, siblings(false, hub));
     store.put(primary, siblings(true, hub));
-    CountFixture fixture = new CountFixture(store);
-    when(fixture.entityService.exists(
-            any(OperationContext.class), any(Collection.class), eq(false)))
-        .thenAnswer(args -> new HashSet<>((Collection<Urn>) args.getArgument(1)));
+    CountFixture fixture = new CountFixture(store, true);
 
-    SiblingGraphService.SiblingGroupMembers result =
-        fixture.service.siblingGroupMembers(opContext, start);
+    SiblingGraphService.SiblingGroupMembers result = members(fixture.service, start);
 
     assertTrue(result.truncated());
     assertEquals(result.members().size(), SiblingGraphService.MAX_GROUP_MEMBERS - 1);
     assertEquals(
         result.members().get(0), new SiblingGraphService.SiblingGroupMember(primary, true));
+  }
+
+  /**
+   * Datasets requested together that are in the same group share their reads: each siblings aspect
+   * and existence is read once. Each gets the group without itself, as if requested alone.
+   */
+  @Test
+  public void testDatasetsInOneGroupShareReads() {
+    Urn original = dataset("glue", "shared.original");
+    Urn copyA = dataset("glue", "shared.copy_a");
+    Urn copyB = dataset("glue", "shared.copy_b");
+    Urn alone = dataset("glue", "shared.alone");
+    Map<Urn, Siblings> store =
+        Map.of(
+            original, siblings(true, copyA, copyB),
+            copyA, siblings(false, original),
+            copyB, siblings(false, original));
+    CountFixture fixture = new CountFixture(store, true);
+
+    Map<Urn, SiblingGraphService.SiblingGroupMembers> result =
+        members(fixture.service, List.of(copyA, alone, copyB));
+
+    assertEquals(List.copyOf(result.keySet()), List.of(copyA, alone, copyB));
+    assertEquals(
+        result.get(copyA).members(),
+        List.of(
+            new SiblingGraphService.SiblingGroupMember(original, true),
+            new SiblingGraphService.SiblingGroupMember(copyB, false)));
+    assertEquals(
+        result.get(copyB).members(),
+        List.of(
+            new SiblingGraphService.SiblingGroupMember(original, true),
+            new SiblingGraphService.SiblingGroupMember(copyA, false)));
+    assertTrue(result.get(alone).members().isEmpty());
+    // One existence check covers both groups; alone has no members to check.
+    verify(fixture.entityService, times(1))
+        .exists(any(OperationContext.class), any(Collection.class), eq(false));
+    // The walks advance together: the first hop reads copy_a, alone and copy_b, the second reads
+    // original, and the third finds everything already read.
+    verify(fixture.entityService, times(2))
+        .getLatestAspects(any(OperationContext.class), any(Set.class), any(Set.class), eq(false));
+
+    for (Urn urn : List.of(copyA, copyB, alone)) {
+      assertEquals(result.get(urn), members(new CountFixture(store, true).service, urn));
+    }
+  }
+
+  /** Walks of separate groups are still read together, one batched read per hop. */
+  @Test
+  public void testWalksOfSeparateGroupsAreBatchedByHop() {
+    Map<Urn, Siblings> store = new HashMap<>();
+    List<Urn> requested = new ArrayList<>();
+    for (int i = 0; i < 3; i++) {
+      Urn table = dataset("glue", "pairs.table_" + i);
+      Urn model = dataset("glue", "pairs.model_" + i);
+      store.put(table, siblings(false, model));
+      store.put(model, siblings(true, table));
+      requested.add(table);
+    }
+    CountFixture fixture = new CountFixture(store, true);
+
+    Map<Urn, SiblingGraphService.SiblingGroupMembers> result = members(fixture.service, requested);
+
+    for (int i = 0; i < 3; i++) {
+      assertEquals(
+          result.get(requested.get(i)).members(),
+          List.of(
+              new SiblingGraphService.SiblingGroupMember(
+                  dataset("glue", "pairs.model_" + i), true)));
+    }
+    verify(fixture.entityService, times(2))
+        .getLatestAspects(any(OperationContext.class), any(Set.class), any(Set.class), eq(false));
+    verify(fixture.entityService, times(1))
+        .exists(any(OperationContext.class), any(Collection.class), eq(false));
+  }
+
+  /**
+   * Sibling lists can be one-way, so a group depends on where its walk starts. Datasets requested
+   * together get the same answers as when each is requested alone, in either order.
+   */
+  @Test
+  public void testOneWaySiblingListsKeepPerDatasetGroups() {
+    Urn table = dataset("glue", "oneway.table");
+    Urn node = dataset("glue", "oneway.node");
+    // node lists table, but table has no siblings aspect pointing back.
+    Map<Urn, Siblings> store = Map.of(node, siblings(false, table));
+
+    for (List<Urn> order : List.of(List.of(node, table), List.of(table, node))) {
+      Map<Urn, SiblingGraphService.SiblingGroupMembers> result =
+          members(new CountFixture(store, true).service, order);
+      for (Urn urn : order) {
+        assertEquals(
+            result.get(urn),
+            members(new CountFixture(store, true).service, urn),
+            urn + " requested in order " + order);
+      }
+      assertEquals(
+          result.get(node).members(),
+          List.of(new SiblingGraphService.SiblingGroupMember(table, false)));
+      assertTrue(result.get(table).members().isEmpty());
+    }
+  }
+
+  /**
+   * A capped walk depends on where it starts, so each requested dataset in a group over the cap is
+   * walked from itself and can see a different part of the group.
+   */
+  @Test
+  public void testCappedGroupIsWalkedFromEachDataset() {
+    Urn hub = dataset("glue", "capshare.hub");
+    Urn first = dataset("glue", "capshare.first");
+    Urn second = dataset("glue", "capshare.second");
+    Urn firstOnly = dataset("glue", "capshare.first_only");
+    int extra = SiblingGraphService.MAX_GROUP_MEMBERS + 5;
+    Urn[] hubList = new Urn[extra + 2];
+    hubList[0] = first;
+    hubList[1] = second;
+    for (int i = 0; i < extra; i++) {
+      hubList[i + 2] = dataset("glue", "capshare.copy_" + i);
+    }
+    Map<Urn, Siblings> store = new HashMap<>();
+    store.put(hub, siblings(false, hubList));
+    // Only a walk from first reads first's own list before the cap is reached.
+    store.put(first, siblings(false, hub, firstOnly));
+    store.put(second, siblings(false, hub));
+
+    Map<Urn, SiblingGraphService.SiblingGroupMembers> result =
+        members(new CountFixture(store, true).service, List.of(first, second));
+
+    assertTrue(result.get(first).truncated());
+    assertTrue(result.get(second).truncated());
+    assertTrue(memberUrns(result.get(first)).contains(firstOnly));
+    assertFalse(memberUrns(result.get(second)).contains(firstOnly));
+    for (Urn urn : List.of(first, second)) {
+      assertEquals(result.get(urn), members(new CountFixture(store, true).service, urn));
+    }
+  }
+
+  private static Set<Urn> memberUrns(SiblingGraphService.SiblingGroupMembers group) {
+    return group.members().stream()
+        .map(SiblingGraphService.SiblingGroupMember::urn)
+        .collect(Collectors.toSet());
+  }
+
+  private SiblingGraphService.SiblingGroupMembers members(SiblingGraphService service, Urn urn) {
+    return members(service, List.of(urn)).get(urn);
+  }
+
+  private Map<Urn, SiblingGraphService.SiblingGroupMembers> members(
+      SiblingGraphService service, List<Urn> urns) {
+    return service.siblingGroupMembers(opContext, urns);
   }
 
   /** A legacy siblings aspect without the required primary field is read as not primary. */
@@ -1357,8 +1505,13 @@ public class SiblingGraphServiceTest {
     final GraphService graphService = Mockito.mock(GraphService.class);
     final SiblingGraphService service;
 
-    @SuppressWarnings("unchecked")
     CountFixture(Map<Urn, Siblings> store) {
+      this(store, false);
+    }
+
+    /** With {@code allExist}, every dataset exists (none is soft-deleted). */
+    @SuppressWarnings("unchecked")
+    CountFixture(Map<Urn, Siblings> store, boolean allExist) {
       when(graphService.getLineageRegistry()).thenReturn(opContext.getLineageRegistry());
       when(graphService.getGraphServiceConfig()).thenReturn(TEST_GRAPH_SERVICE_CONFIG);
       when(entityService.getLatestAspects(
@@ -1373,6 +1526,10 @@ public class SiblingGraphServiceTest {
                 }
                 return result;
               });
+      if (allExist) {
+        when(entityService.exists(any(OperationContext.class), any(Collection.class), eq(false)))
+            .thenAnswer(args -> new HashSet<>((Collection<Urn>) args.getArgument(1)));
+      }
       service = new SiblingGraphService(entityService, graphService);
     }
   }
