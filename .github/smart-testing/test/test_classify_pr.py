@@ -321,6 +321,24 @@ def test_llm_output_is_logged_before_fail_safe(
     assert err.index("LLM output:") < err.index("LOW confidence")
 
 
+def test_product_files_reach_the_model_before_tooling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    sent: list = []
+
+    def _record(changed: list, known: object) -> str:
+        sent.extend(f.path for f in changed)
+        return '{"feature-user": ["glossary"], "confidence": "HIGH"}'
+
+    monkeypatch.setattr(classify_pr, "call_llm", _record)
+    classify_pr.classify_changes(
+        _changes(".github/workflows/x.yml", "docs/a.md", "src/glossary.py"),
+        dry_run=False,
+    )
+    assert sent[0] == "src/glossary.py"
+
+
 def _changes(*paths: str) -> list:
     return [classify_pr.ChangedFile(path=p, status="modified", patch="") for p in paths]
 

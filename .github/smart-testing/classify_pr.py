@@ -424,7 +424,10 @@ def classify_changes(changed: List[ChangedFile], dry_run: bool) -> PRTags:
 
     log("Classifying PR with LLM...")
     known = load_known_tags()
-    text = call_llm(changed, known)
+    # Product files first: the patch budget runs out in file order, and a big
+    # tooling diff would otherwise hide the product patches from the model.
+    product_first = sorted(changed, key=lambda f: bool(change_types_for(f.path, rules)))
+    text = call_llm(product_first, known)
     record_llm_output(text)
     pr = pr_tags_from_llm(text, known)
     # Add the change types the paths imply to the model's answer. This is the
