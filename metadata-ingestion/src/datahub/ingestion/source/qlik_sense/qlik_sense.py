@@ -163,6 +163,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from datahub.specific.chart import ChartPatchBuilder
+from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
@@ -1034,6 +1035,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             patch = convert_dashboard_info_to_patch(dashboard_urn, info, None)
             if patch is not None:
                 yield patch
+            if app.sheets_complete:
+                # The sheets are all known, so sheet edges this run doesn't
+                # have, such as those of sheets no longer ingested, go.
+                yield from self._gen_stale_sheet_edge_removals(
+                    dashboard_urn, sheet_urns
+                )
         yield MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn,
             aspect=SubTypes(typeNames=[BIAssetSubTypes.QLIK_APP_DASHBOARD]),
@@ -1050,6 +1057,38 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             yield dpi_aspect
         if self.config.ingest_owner and owner_username:
             yield self._gen_entity_owner_aspect(dashboard_urn, owner_username)
+
+    def _gen_stale_sheet_edge_removals(
+        self, dashboard_urn: str, sheet_urns: List[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        graph = self.ctx.graph
+        if graph is None:
+            return
+        try:
+            current = graph.get_aspect(dashboard_urn, DashboardInfoClass)
+        except Exception as e:
+            self.reporter.warning(
+                title="Unable to read Qlik app dashboard",
+                message="Sheet edges of the app's dashboard that this run did not "
+                "find are kept.",
+                context=dashboard_urn,
+                exc=e,
+            )
+            return
+        stale = [
+            edge.destinationUrn
+            for edge in (current.dashboards or [] if current else [])
+            if edge.destinationUrn not in sheet_urns
+        ]
+        if not stale:
+            return
+        patch = DashboardPatchBuilder(dashboard_urn)
+        for urn in stale:
+            patch.remove_dashboard(urn)
+        for mcp in patch.build():
+            yield MetadataWorkUnit(
+                id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+            )
 
     def _gen_sheets_workunit(
         self,
