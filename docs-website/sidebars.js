@@ -1395,7 +1395,7 @@ module.exports = {
           type: "category",
           label: "RFCs",
           link: { type: "doc", id: "docs/rfcs/README" },
-          items: [],
+          items: ["docs/rfcs/active/15918-cli-profile-management"],
         },
         "SECURITY",
       ],
