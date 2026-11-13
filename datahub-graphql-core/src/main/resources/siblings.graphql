@@ -5,6 +5,10 @@ extend type Query {
   capped at 1,000 members (Dataset.siblingsSearch follows one link only and has no primary flag).
   Members the caller can't view and soft-deleted members are left out, and a dataset the caller
   can't view gets an empty group.
+
+  Off unless GRAPHQL_QUERY_MAX_SIBLING_GROUP_URNS is above 0 (appConfig.featureFlags
+  .maxSiblingGroupUrns). Each request walks up to 1,000 members per dataset and, with view
+  authorization on, view-checks every member, so test at your scale before enabling.
   """
   siblingGroups(input: SiblingGroupsInput!): [SiblingGroup!]!
 }
@@ -14,8 +18,8 @@ Input for siblingGroups
 """
 input SiblingGroupsInput {
   """
-  Dataset urns to resolve, at most 30 by default (GRAPHQL_QUERY_MAX_SIBLING_GROUP_URNS). Other
-  entity types are rejected.
+  Dataset urns to resolve, at most GRAPHQL_QUERY_MAX_SIBLING_GROUP_URNS (0 by default, which turns
+  the query off). Other entity types are rejected.
   """
   urns: [String!]!
 

@@ -275,6 +275,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
                   .setThemeV2Toggleable(_featureFlags.isThemeV2Toggleable())
                   .setThemeDarkModeEnabled(_featureFlags.isThemeDarkModeEnabled())
                   .setShowSeparateSiblings(_featureFlags.isShowSeparateSiblings())
+                  .setMaxSiblingGroupUrns(context.getMaxSiblingGroupUrns())
                   .setShowManageStructuredProperties(
                       _featureFlags.isShowManageStructuredProperties())
                   .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())

@@ -49,12 +49,11 @@ public interface QueryContext {
 
   /**
    * Max datasets one {@code siblingGroups} request may ask for; 0 turns the query off. GMS reads
-   * {@link
-   * com.linkedin.metadata.config.graphql.GraphQLQueryConfiguration#getMaxSiblingGroupUrns()}; this
-   * default (the largest search page) is for contexts built without that configuration.
+   * graphQL.query.maxSiblingGroupUrns, which defaults to 0; contexts built without that
+   * configuration also leave the query off.
    */
   default int getMaxSiblingGroupUrns() {
-    return 30;
+    return 0;
   }
 
   /**

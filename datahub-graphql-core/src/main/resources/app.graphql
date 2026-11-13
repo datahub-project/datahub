@@ -764,6 +764,12 @@ type FeatureFlagsConfig {
   showSeparateSiblings: Boolean!
 
   """
+  Max datasets one siblingGroups request may ask for (GRAPHQL_QUERY_MAX_SIBLING_GROUP_URNS). 0 means
+  the query is off, so the UI hides features that use it.
+  """
+  maxSiblingGroupUrns: Int!
+
+  """
   If turned on, show the manage structured properties tab in the govern dropdown
   """
   showManageStructuredProperties: Boolean!

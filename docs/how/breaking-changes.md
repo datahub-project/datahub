@@ -318,6 +318,7 @@ Requirements:
 
 ### Other Notable Changes
 
+- [#21116](https://github.com/datahub-project/datahub/pull/21116) **(GMS / Search)** New `siblingGroups` GraphQL query, used by the search "Show siblings" option and the dataset "Composed of" section. It is off by default: set `GRAPHQL_QUERY_MAX_SIBLING_GROUP_URNS` above 0 (the search UI sends up to 30 urns per page) to turn it on. Each request walks up to 1,000 sibling-group members per dataset, and with view authorization on (`VIEW_AUTHORIZATION_ENABLED`) it view-checks every member, so test it on your largest sibling groups before enabling. **Action:** none unless you want the feature.
 - [#21162](https://github.com/datahub-project/datahub/pull/21162) **(GMS / Registry APIs)** All entity and lineage registry OpenAPI routes now allow any authenticated actor to read schema metadata (entity types, aspect names and versions, field and annotation specs), including ordinary ingestion and service tokens. No instance data is exposed, and authentication is still required. **Action:** to require **Manage System Operations** as before, set `REGISTRY_API_AUTHENTICATED_READ_ENABLED=false` on GMS and restart. The setting defaults to `true`.
 - [#21096](https://github.com/datahub-project/datahub/pull/21096) **(GMS / Lineage)** With `LINEAGE_COUNT_ONLY_ENABLED` on, lineage counts on search cards and sidebars stay fast for large sibling groups: the group's members are read in batches, and up to 1,000 of them are counted together (in a larger group, the members beyond that can appear in the group's own counts). When a group's lineage is too large to count exactly, the total is an estimate and can be noticeably higher than the true number. A `lineage` request that doesn't ask for `relationships` is answered from counts: it returns the requested `start`, `count` 0 and the totals. **Action:** none.
 
@@ -465,6 +466,7 @@ Requirements:
 
 ### Environment Variables
 
+- `GRAPHQL_QUERY_MAX_SIBLING_GROUP_URNS` (default `0`) — Max datasets one `siblingGroups` request may ask for; `0` keeps the query off. Raising it enables the search "Show siblings" view and the full "Composed of" list. See Other Notable Changes.
 - `SKIP_LEGACY_USAGE_EVENT_INDEX_MIGRATION` (default `false`) — Skip moving a usage event index that predates its index template onto the template layout during system update. See Other Notable Changes above and [Environment Variables](../deploy/environment-vars.md).
 
 ## v1.8.0

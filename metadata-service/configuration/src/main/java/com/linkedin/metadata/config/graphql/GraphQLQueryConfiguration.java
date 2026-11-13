@@ -22,8 +22,9 @@ public class GraphQLQueryConfiguration {
   private int maxVisitedUrns;
 
   /**
-   * Max datasets one {@code siblingGroups} request may ask for. Each one walks its sibling group,
-   * so this bounds the work of a single request. Default in application.yaml.
+   * Max datasets one {@code siblingGroups} field may ask for. 0, the default, turns the query off.
+   * Each dataset's group walk reads at most 1,000 members, and with view authorization on every
+   * member is view-checked. Default in application.yaml.
    */
   private int maxSiblingGroupUrns;
 
