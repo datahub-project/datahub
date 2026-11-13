@@ -960,7 +960,9 @@ class _ScriptParser(BaseModel):
         self.raw_statement = statement
         # Variables the visible script sets take precedence from where it sets
         # them; others come from the app's last reload or the recipe.
-        statement = _expand_variables(
+        # An app value can hold another variable, such as a table name built
+        # from a schema prefix.
+        statement = _expand_nested_variables(
             statement, {**self._fallback_variables(), **self.flow.state.variables}
         )
         if not statement:

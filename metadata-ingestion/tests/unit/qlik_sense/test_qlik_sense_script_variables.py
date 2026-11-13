@@ -190,3 +190,10 @@ def test_empty_app_value_leaves_the_recipe_value() -> None:
         "vPrefix": "x",
         "vOther": "",
     }
+
+
+def test_nested_fallback_values_are_expanded_in_sql() -> None:
+    assert _sql(
+        "LIB CONNECT TO 'db';\nT: SQL SELECT id FROM $(vTable);",
+        {"vTable": "$(vSchema).orders", "vSchema": "sales"},
+    ) == ["SELECT id FROM sales.orders"]
