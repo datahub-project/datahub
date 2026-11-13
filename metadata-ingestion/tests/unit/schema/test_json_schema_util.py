@@ -108,6 +108,127 @@ def test_json_schema_to_mce_fields_sample_events_with_different_field_types():
     assert_fields_are_valid(fields)
 
 
+def test_json_schema_nullable_map_field_still_resolves_as_map():
+    # Regression: a list-form nullable type (e.g. OpenAPI 3.1's
+    # `type: [object, null]`) used to short-circuit straight to "object"
+    # without ever checking additionalProperties, so a nullable map's
+    # fields were silently dropped instead of producing a MapTypeClass.
+    schema = {
+        "type": "object",
+        "title": "R",
+        "namespace": "some.namespace",
+        "properties": {
+            "a_nullable_map_of_longs_field": {
+                "type": ["object", "null"],
+                "additionalProperties": {"type": "integer"},
+            }
+        },
+    }
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths = [
+        {
+            "path": "[version=2.0].[type=R].[type=map].[type=integer].a_nullable_map_of_longs_field",
+            "type": MapTypeClass,
+        }
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
+
+
+def test_json_schema_nullable_object_with_named_properties_keeps_object_type():
+    # Regression: a nullable object (list-form type) that declares BOTH named
+    # `properties` and a catchall `additionalProperties` must stay an object
+    # so its named fields are still walked -- the map branch only emits a
+    # single value-type field for additionalProperties and never walks
+    # `properties`, so treating this shape as a map would silently drop
+    # `known_field`.
+    schema = {
+        "type": "object",
+        "title": "R",
+        "namespace": "some.namespace",
+        "properties": {
+            "a_nullable_object_with_named_and_catchall_fields": {
+                "type": ["object", "null"],
+                "properties": {"known_field": {"type": "string"}},
+                "additionalProperties": {"type": "integer"},
+            }
+        },
+    }
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths = [
+        {
+            "path": "[version=2.0].[type=R].[type=object].a_nullable_object_with_named_and_catchall_fields",
+            "type": RecordTypeClass,
+        },
+        {
+            "path": "[version=2.0].[type=R].[type=object].a_nullable_object_with_named_and_catchall_fields.[type=string].known_field",
+            "type": StringTypeClass,
+        },
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
+    assert fields[0].nullable
+
+
+def test_json_schema_typeless_map_field_still_resolves_as_map():
+    # Regression: a typeless map (a schema-valued `additionalProperties` with no
+    # declared `type`) is valid JSON Schema / OpenAPI 3.1. Map detection used to
+    # run only inside the `type` branch, so such a field resolved to an empty
+    # object and dropped its value type instead of producing a MapTypeClass.
+    schema = {
+        "type": "object",
+        "title": "R",
+        "namespace": "some.namespace",
+        "properties": {
+            "a_typeless_map_of_longs_field": {
+                "additionalProperties": {"type": "integer"},
+            }
+        },
+    }
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths = [
+        {
+            "path": "[version=2.0].[type=R].[type=map].[type=integer].a_typeless_map_of_longs_field",
+            "type": MapTypeClass,
+        }
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
+
+
+def test_json_schema_string_type_object_with_named_properties_keeps_object_type():
+    # Regression: the plain `type: "object"` branch used to classify any schema
+    # with a dict `additionalProperties` as a map even when named `properties`
+    # were present -- diverging from the list-form (`type: [object, null]`)
+    # branch and silently dropping the named fields. Both branches now require
+    # no named `properties` before treating the schema as a map.
+    schema = {
+        "type": "object",
+        "title": "R",
+        "namespace": "some.namespace",
+        "properties": {
+            "an_object_with_named_and_catchall_fields": {
+                "type": "object",
+                "properties": {"known_field": {"type": "string"}},
+                "additionalProperties": {"type": "integer"},
+            }
+        },
+    }
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths = [
+        {
+            "path": "[version=2.0].[type=R].[type=object].an_object_with_named_and_catchall_fields",
+            "type": RecordTypeClass,
+        },
+        {
+            "path": "[version=2.0].[type=R].[type=object].an_object_with_named_and_catchall_fields.[type=string].known_field",
+            "type": StringTypeClass,
+        },
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
+
+
 def test_json_schema_to_record_with_two_fields():
     schema = {
         "type": "object",
@@ -928,40 +1049,3 @@ def test_json_schema_ref_loop_in_definitions():
     # Both should be RecordType
     assert isinstance(fields[0].type.type, RecordTypeClass)
     assert isinstance(fields[1].type.type, RecordTypeClass)
-
-
-def test_json_schema_typeless_map_field_still_resolves_as_map():
-    # A typeless additionalProperties map (no "type": valid JSON Schema /
-    # OpenAPI 3.1) must resolve as a map and extract its value type, not
-    # collapse to an empty object.
-    schema = {
-        "type": "object",
-        "title": "R",
-        "properties": {
-            "labels": {"additionalProperties": {"type": "string"}},
-        },
-    }
-    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
-    labels = next(f for f in fields if f.fieldPath.endswith("labels"))
-    assert isinstance(labels.type.type, MapTypeClass)
-
-
-def test_json_schema_object_with_named_properties_and_additional_keeps_object_type():
-    # A schema declaring BOTH named properties and dict additionalProperties is
-    # an object with named fields, not a map: the named fields must survive.
-    schema = {
-        "type": "object",
-        "title": "R",
-        "properties": {
-            "config": {
-                "type": "object",
-                "properties": {"id": {"type": "string"}},
-                "additionalProperties": {"type": "string"},
-            },
-        },
-    }
-    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
-    config = next(f for f in fields if f.fieldPath.endswith("config"))
-    assert isinstance(config.type.type, RecordTypeClass)
-    # The named nested field survives (it would be dropped by the map path).
-    assert any(f.fieldPath.endswith(".id") for f in fields)
