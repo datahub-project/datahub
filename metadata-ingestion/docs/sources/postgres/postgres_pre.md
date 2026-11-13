@@ -119,3 +119,23 @@ pg_stat_statements.track = all
 ```
 
 After changing these settings, restart PostgreSQL.
+
+#### 4. Database Access in Multi-Database Mode
+
+When the recipe sets neither `database` nor `sqlalchemy_uri`, the connector lists every database in `pg_database` and connects to each one that `database_pattern` allows. The DataHub user needs `CONNECT` on each of those databases:
+
+```sql
+GRANT CONNECT ON DATABASE my_database TO datahub_user;
+```
+
+Databases the user should not read belong in `database_pattern.deny`. Don't leave them to fail: a database the connector cannot connect to is skipped and reported as a failure. Other databases are still ingested, but the run ends with failures, and stateful ingestion skips stale-entity removal for the whole run until the database is reachable again or denied.
+
+```yaml
+source:
+  type: postgres
+  config:
+    # ...
+    database_pattern:
+      deny:
+        - "my_restricted_database"
+```
