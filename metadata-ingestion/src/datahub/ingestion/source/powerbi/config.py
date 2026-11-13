@@ -323,16 +323,6 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     def report_charts_dropped(self, view: str) -> None:
         self.filtered_charts.append(view)
 
-    def m_query_lineage_incomplete(self) -> bool:
-        return (
-            self.m_query_parse_timeouts
-            + self.m_query_parse_validation_errors
-            + self.m_query_parse_unexpected_character_errors
-            + self.m_query_parse_unknown_errors
-            + self.m_query_resolver_errors
-            > 0
-        )
-
     def report_athena_overrides_matched(self, indexes: Iterable[int]) -> None:
         self._athena_table_platform_overrides_matched.update(indexes)
 

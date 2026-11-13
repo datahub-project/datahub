@@ -273,7 +273,7 @@ source:
 - `platform_instance` (optional): set this when the federated source is ingested under a platform instance, so the URN matches that source's entities. Athena's own platform instance is never carried over.
 - `env` (optional): the env the federated source is ingested under, such as `PROD`. Defaults to the Athena server's env.
 
-An entry that matches no Athena upstream during a run is reported as an `Athena table platform override never matched` warning.
+An entry that matches no Athena upstream during a run is reported as `Athena table platform override never matched` at info level. It is not a warning because a correct entry's table may not be processed in every run, for example with `modified_since` or workspace filters.
 
 **Note:** This override only applies to Athena ODBC connections. For other ODBC platforms, lineage will use the platform determined from the DSN configuration.
 
