@@ -4,6 +4,7 @@ import React from 'react';
 import { useGetOutputPorts } from '@app/entityV2/summary/modules/outputPorts/useGetOutputPorts';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
+import { useReportModuleHidden } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps } from '@app/homeV3/module/types';
 
 import { DataHubPageModuleType, Entity } from '@types';
@@ -12,8 +13,10 @@ const DEFAULT_PAGE_SIZE = 10;
 
 export default function OutputPortsModule(props: ModuleProps) {
     const { loading, fetchOutputPorts, total } = useGetOutputPorts(DEFAULT_PAGE_SIZE);
+    const isHidden = total === 0;
+    useReportModuleHidden(isHidden);
 
-    if (total === 0) {
+    if (isHidden) {
         return null;
     }
 
