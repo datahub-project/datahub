@@ -103,6 +103,51 @@ def tests_get_inspectors_with_database_provided(create_engine_mock):
 
 
 @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_get_inspectors_single_database_disposes_engine_after_consumer(
+    create_engine_mock: MagicMock,
+) -> None:
+    engine = create_engine_mock.return_value
+    config = PostgresConfig.model_validate({**_base_config(), "database": "custom_db"})
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+
+    inspectors = iter(source.get_inspectors())
+    next(inspectors)
+    # The consumer still holds the inspector: connection and engine stay up.
+    assert not engine.connect.return_value.__exit__.called
+    assert not engine.dispose.called
+
+    assert list(inspectors) == []
+    assert engine.connect.return_value.__exit__.called
+    assert engine.dispose.called
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_get_inspectors_releases_listing_connection_before_first_database(
+    create_engine_mock: MagicMock,
+) -> None:
+    """The connection that lists the databases is only needed for the listing;
+    it must not stay checked out while the consumer works on each database."""
+    listing_conn = MagicMock()
+    listing_conn.__enter__.return_value = FakeConnection(
+        {"pg_database": [{"datname": "db1"}]}
+    )
+    engines = [MagicMock(), MagicMock()]
+    engines[0].connect.return_value = listing_conn
+    create_engine_mock.side_effect = engines
+    config = PostgresConfig.model_validate(
+        {**_base_config(), "initial_database": "db0"}
+    )
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+
+    inspectors = iter(source.get_inspectors())
+    next(inspectors)
+    assert listing_conn.__exit__.called
+
+    assert list(inspectors) == []
+    assert engines[0].dispose.called
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
 def tests_get_inspectors_with_sqlalchemy_uri_provided(create_engine_mock):
     execute_mock = create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
     execute_mock.return_value = [{"datname": "db1"}, {"datname": "db2"}]
@@ -710,9 +755,9 @@ def test_get_inspectors_skips_unreachable_database_and_reports_it(
     assert log_contexts(failures) == {"my_db_denied"}
     assert len(failures[0].context) == 1
 
-    # Each per-database engine is disposed once its inspector is consumed,
-    # rather than holding a pooled connection for the whole run.
-    for db_name in ["my_db_a", "my_db_denied", "my_db_b"]:
+    # Every engine, including the one that listed the databases, is disposed
+    # rather than holding a pooled connection open for the whole run.
+    for db_name in ["postgres", "my_db_a", "my_db_denied", "my_db_b"]:
         assert all(e.dispose.called for e in engines[db_name])
 
 
