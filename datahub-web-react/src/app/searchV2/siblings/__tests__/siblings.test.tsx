@@ -13,9 +13,11 @@ import TestPageContainer from '@utils/test-utils/TestPageContainer';
 import { GetSiblingGroupsDocument } from '@graphql/siblings.generated';
 
 let separateSiblings = true;
+let maxSiblingGroupUrns = 30;
 vi.mock('@app/useAppConfig', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@app/useAppConfig')>()),
     useIsShowSeparateSiblingsEnabled: () => separateSiblings,
+    useMaxSiblingGroupUrns: () => maxSiblingGroupUrns,
 }));
 
 const MEMBERS = [member('orders_primary', true), ...Array.from({ length: 6 }, (_, i) => member(`copy_${i}`))];
@@ -34,6 +36,7 @@ function siblingGroupsMock(start: number, count: number, members = MEMBERS): Moc
 
 beforeEach(() => {
     separateSiblings = true;
+    maxSiblingGroupUrns = 30;
 });
 
 describe('useShowSiblings', () => {
@@ -74,6 +77,12 @@ describe('useShowSiblings', () => {
         const { result } = renderToggle(`${search}&${SHOW_SIBLINGS_URL_PARAM}=true`);
         expect(result.current.toggle[0]).toBe(false);
     });
+
+    it('ignores the param while the server has siblingGroups off', () => {
+        maxSiblingGroupUrns = 0;
+        const { result } = renderToggle(`${search}&${SHOW_SIBLINGS_URL_PARAM}=true`);
+        expect(result.current.toggle[0]).toBe(false);
+    });
 });
 
 describe('useSiblingGroups', () => {
@@ -90,6 +99,25 @@ describe('useSiblingGroups', () => {
         await settle();
         expect(fetched).not.toHaveBeenCalled();
         expect(result.current.groups.size).toBe(0);
+    });
+
+    it('asks for no more urns than the server allows', async () => {
+        maxSiblingGroupUrns = 1;
+        const other = 'urn:li:dataset:(urn:li:dataPlatform:hive,other,PROD)';
+        const fetched = vi.fn(() => ({ data: { siblingGroups: [group()] } }));
+        const mocks = [{ ...siblingGroupsMock(0, 5), result: fetched }];
+        const { result } = renderHook(() => useSiblingGroups([RESULT_URN, other], true), {
+            wrapper: ({ children }) => (
+                <MockedProvider mocks={mocks} addTypename>
+                    <TestPageContainer>{children}</TestPageContainer>
+                </MockedProvider>
+            ),
+        });
+        await settle();
+        // Only the first result is sent: siblingGroupsMock matches urns: [RESULT_URN] exactly, so a
+        // request with both urns would get no response.
+        expect(fetched).toHaveBeenCalledTimes(1);
+        expect(result.current.groups.has(RESULT_URN)).toBe(true);
     });
 
     it('fetches the first five members of each group when on', async () => {
