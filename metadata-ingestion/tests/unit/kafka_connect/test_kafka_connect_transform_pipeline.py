@@ -1,12 +1,13 @@
 """Comprehensive tests for transform_plugins module."""
 
-from typing import Dict
+from typing import Dict, List
 from unittest.mock import Mock, patch
 
 import jpype
 import pytest
 
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
+    ByLogicalTableRouterPlugin,
     ComplexTransformPlugin,
     RegexRouterPlugin,
     ReplaceFieldPlugin,
@@ -185,6 +186,59 @@ class TestRegexRouterPlugin:
 
         with pytest.raises(ValueError, match="RegexRouter transform requires JPype"):
             plugin.apply_forward(["test-topic"], config)
+
+
+class TestByLogicalTableRouterPlugin:
+    TYPE = "io.debezium.transforms.ByLogicalTableRouter"
+
+    def _route(self, topics: List[str], regex: str, replacement: str) -> List[str]:
+        config = TransformConfig(
+            name="Reroute",
+            type=self.TYPE,
+            config={"topic.regex": regex, "topic.replacement": replacement},
+        )
+        return ByLogicalTableRouterPlugin().apply_forward(topics, config)
+
+    def test_registered_and_applied_automatically(self) -> None:
+        registry = TransformPluginRegistry()
+        assert isinstance(registry.get_plugin(self.TYPE), ByLogicalTableRouterPlugin)
+        assert registry.should_apply_automatically(self.TYPE)
+
+    def test_merges_shard_tables_into_logical_topic(self) -> None:
+        result = self._route(
+            ["shard1.inventory.orders", "shard2.inventory.orders"],
+            "(shard\\d)\\.(.*)\\.(.*)",
+            "cdc-$3",
+        )
+        assert result == ["cdc-orders", "cdc-orders"]
+
+    def test_requires_full_match(self) -> None:
+        # A partial match leaves the topic as is, unlike a substring replace.
+        assert self._route(["shard1.inventory.orders"], "inventory", "x") == [
+            "shard1.inventory.orders"
+        ]
+
+    def test_empty_result_keeps_original_topic(self) -> None:
+        assert self._route(["shard1.inventory.orders"], ".*", "") == [
+            "shard1.inventory.orders"
+        ]
+
+    def test_noop_reroute_then_regex_router(self) -> None:
+        # Used to keep per-table schema names while RegexRouter renames the topic.
+        config = {
+            "transforms": "Reroute,ToProgram",
+            "transforms.Reroute.type": self.TYPE,
+            "transforms.Reroute.topic.regex": "shard1\\.inventory\\.(.*)",
+            "transforms.Reroute.topic.replacement": "shard1.inventory.$1",
+            "transforms.ToProgram.type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "transforms.ToProgram.regex": "shard1\\.inventory\\.(.*)",
+            "transforms.ToProgram.replacement": "shard1.dml",
+        }
+
+        result = TransformPipeline().apply_forward(["shard1.inventory.orders"], config)
+
+        assert result.topics == ["shard1.dml"]
+        assert result.warnings == []
 
 
 class TestComplexTransformPlugin:

@@ -130,6 +130,11 @@ DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER: Final[set] = {
     "io.debezium.connector.sqlserver.SqlServerConnector",
 }
 
+# Debezium change events nest the row's columns under the envelope's "after" field.
+DEBEZIUM_ENVELOPE_AFTER_PREFIX: Final[str] = "after."
+
+KAFKA_KEY_FIELD_PATH_MARKER: Final[str] = "[key=True]"
+
 
 # Confluent Cloud connector class names
 # References:
@@ -619,6 +624,35 @@ class KafkaConnectLineage:
     job_property_bag: Optional[Dict[str, str]] = None
     source_dataset: Optional[str] = None
     fine_grained_lineages: Optional[List[FineGrainedLineageClass]] = None
+
+
+@dataclass
+class TopicFieldPaths:
+    """A Kafka topic's stored value-schema field paths, looked up by simple path."""
+
+    by_simple_path: Dict[str, str] = field(default_factory=dict)
+    simple_paths_by_lower: Dict[str, Set[str]] = field(default_factory=dict)
+    is_debezium_envelope: bool = False
+
+    def add(self, simple_path: str, stored_path: str) -> None:
+        # A nullable Avro field is stored once per union branch; the first
+        # entry is the union itself, which is the one lineage should target.
+        self.by_simple_path.setdefault(simple_path, stored_path)
+        self.simple_paths_by_lower.setdefault(simple_path.lower(), set()).add(
+            simple_path
+        )
+        if simple_path.startswith(DEBEZIUM_ENVELOPE_AFTER_PREFIX):
+            self.is_debezium_envelope = True
+
+    def find(self, simple_path: str) -> Optional[str]:
+        """Exact-case match first; a case-insensitive match only if it is unique,
+        since Avro names are case-sensitive and e.g. Name and name can coexist."""
+        if simple_path in self.by_simple_path:
+            return self.by_simple_path[simple_path]
+        candidates = self.simple_paths_by_lower.get(simple_path.lower(), set())
+        if len(candidates) == 1:
+            return self.by_simple_path[next(iter(candidates))]
+        return None
 
 
 @dataclass
@@ -1282,8 +1316,13 @@ class BaseConnector:
 
             column_mapping = self._apply_field_transforms(list(source_schema.keys()))
 
+            # When DataHub has the topic's schema, link to its stored field paths;
+            # otherwise fall back to the column name as the field path.
+            topic_field_paths = self._get_topic_field_paths(str(target_urn))
+
             # Create fine-grained lineage for each source column
             fine_grained_lineages: List[FineGrainedLineageClass] = []
+            unmatched_columns: List[str] = []
 
             for source_col in source_schema:
                 target_col = column_mapping.get(source_col)
@@ -1295,13 +1334,42 @@ class BaseConnector:
                     )
                     continue
 
+                target_field_path = target_col
+                if topic_field_paths is not None:
+                    # On an envelope topic the bare name could match envelope
+                    # metadata (op, source, ts_ms), so only "after." is searched.
+                    stored_path = topic_field_paths.find(
+                        f"{DEBEZIUM_ENVELOPE_AFTER_PREFIX}{target_col}"
+                        if topic_field_paths.is_debezium_envelope
+                        else target_col
+                    )
+                    if stored_path is None:
+                        unmatched_columns.append(source_col)
+                        continue
+                    target_field_path = stored_path
+
                 fine_grained_lineage = FineGrainedLineageClass(
                     upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                     downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                     upstreams=[make_schema_field_urn(source_urn_str, source_col)],
-                    downstreams=[make_schema_field_urn(str(target_urn), target_col)],
+                    downstreams=[
+                        make_schema_field_urn(str(target_urn), target_field_path)
+                    ],
                 )
                 fine_grained_lineages.append(fine_grained_lineage)
+
+            # A topic missing most source columns most likely has the wrong schema
+            # registered (e.g. a subject-name mismatch); emitting partial links
+            # would be misleading.
+            if len(unmatched_columns) > len(fine_grained_lineages):
+                self.report.warning(
+                    title="Source columns not found in Kafka topic schema",
+                    message="Most source columns are missing from the topic's schema in DataHub, "
+                    "so column-level lineage was skipped. Check the topic's registered schema.",
+                    context=f"connector={self.connector_manifest.name}, source={source_dataset}, "
+                    f"target={target_dataset}, unmatched={len(unmatched_columns)}",
+                )
+                return None
 
             if fine_grained_lineages:
                 logger.debug(
@@ -1319,6 +1387,26 @@ class BaseConnector:
             )
 
         return None
+
+    def _get_topic_field_paths(self, topic_urn: str) -> Optional[TopicFieldPaths]:
+        """The stored field paths of a topic's value schema, or None if DataHub
+        has no schema for the topic."""
+        if not (self.schema_resolver and self.schema_resolver.graph):
+            return None
+
+        schema = self.schema_resolver.graph.get_aspect(topic_urn, SchemaMetadataClass)
+        if not isinstance(schema, SchemaMetadataClass):
+            return None
+
+        field_paths = TopicFieldPaths()
+        for schema_field in schema.fields:
+            if KAFKA_KEY_FIELD_PATH_MARKER in schema_field.fieldPath:
+                continue
+            field_paths.add(
+                get_simple_field_path_from_v2_field_path(schema_field.fieldPath),
+                schema_field.fieldPath,
+            )
+        return field_paths
 
     def _extract_sink_fine_grained_lineage(
         self,
