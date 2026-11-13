@@ -1,7 +1,6 @@
 import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
-import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
@@ -11,6 +10,7 @@ import NullableLabel, {
     PartitioningKeyLabel,
     PrimaryKeyLabel,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/components/ConstraintLabels';
+import Highlight from '@app/sharedV2/text/Highlight';
 import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
 
 import { SchemaMetadata, SubResourceType } from '@types';
