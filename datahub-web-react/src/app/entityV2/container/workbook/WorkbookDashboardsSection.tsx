@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
@@ -10,14 +11,16 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { EntityType } from '@types';
 
-// The dashboard that stands for the workbook itself, such as a Qlik app's, which
-// sits in the workbook beside its sheets.
-export const WORKBOOK_DASHBOARD_SUBTYPE = 'App';
+const QLIK_SENSE_PLATFORM = 'qlik-sense';
+// A Qlik app's own dashboard sits in the app beside its sheets.
+const QLIK_APP_DASHBOARD_SUBTYPE = 'App';
 
 /** The dashboards in a workbook container, such as a Qlik app's sheets. */
 export default function WorkbookDashboardsSection() {
-    const { urn } = useEntityData();
+    const { urn, entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('entity.types');
+    const isQlik = entityData?.platform?.name === QLIK_SENSE_PLATFORM;
 
     const { data } = useGetSearchResultsForMultipleQuery({
         skip: !urn,
@@ -29,7 +32,15 @@ export default function WorkbookDashboardsSection() {
                     {
                         and: [
                             { field: CONTAINER_FILTER_NAME, values: [urn] },
-                            { field: TYPE_NAMES_FILTER_NAME, values: [WORKBOOK_DASHBOARD_SUBTYPE], negated: true },
+                            ...(isQlik
+                                ? [
+                                      {
+                                          field: TYPE_NAMES_FILTER_NAME,
+                                          values: [QLIK_APP_DASHBOARD_SUBTYPE],
+                                          negated: true,
+                                      },
+                                  ]
+                                : []),
                         ],
                     },
                 ],
@@ -46,7 +57,8 @@ export default function WorkbookDashboardsSection() {
     return (
         <>
             <HeaderTitle>
-                {entityRegistry.getCollectionName(EntityType.Dashboard)} ({dashboards.length})
+                {isQlik ? t('container.workbookSheets') : entityRegistry.getCollectionName(EntityType.Dashboard)} (
+                {dashboards.length})
             </HeaderTitle>
             <HorizontalList>
                 {dashboards.map((dashboard) => (

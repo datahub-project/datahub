@@ -134,7 +134,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     reads_unknown_fields,
     redact_connection,
     select_list_size,
-    strip_set_quotes,
+    unquoted_values,
 )
 from datahub.ingestion.source.state.entity_removal_state import (
     STATEFUL_INGESTION_IGNORED_ENTITY_TYPES,
@@ -1733,14 +1733,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _app_variables(self, app: App) -> Dict[str, str]:
         # The app's own values, as its last reload left them, beat the recipe's.
-        # An expression definition (`=...`) the connector can't evaluate leaves
-        # the recipe's value in place.
+        # An expression definition (`=...`) the connector can't evaluate, or
+        # an empty one such as a variable cleared at the end of the script,
+        # leaves the recipe's value in place.
+        recipe = self.config.script_variables
         return {
-            **self.config.script_variables,
+            **recipe,
             **{
                 name: value
                 for name, value in app.variables.items()
                 if not value.lstrip().startswith("=")
+                and (value.strip() or name not in recipe)
             },
         }
 
@@ -1749,24 +1752,34 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     ) -> FileSourceResolver:
         references = []
         unnamed = []
-        for file_path in parsed.file_loads:
+        for load in parsed.file_loads:
+            if load.uses_unknown_variable:
+                unnamed.append(load.as_written)
+                continue
             # Paths are often built from variables the script sets with LET or
-            # in an included script, which the app's variables hold.
-            path = strip_set_quotes(
-                expand_variables(file_path, self._app_variables(app)).strip()
-            )
-            lib_path = LIB_PATH_RE.match(path)
-            if lib_path and not any(part in path for part in ("$(", "*", "?")):
-                references.append(
-                    FileReference(
-                        connection=lib_path.group("connection"),
-                        path=lib_path.group("path"),
-                    )
+            # in an included script, which the app's variables hold. The graph
+            # follows the last reload, so either spelling may be the file's.
+            candidates = [
+                load.expanded,
+                expand_variables(
+                    load.as_written, unquoted_values(self._app_variables(app))
+                ).strip(),
+            ]
+            named = [
+                FileReference(
+                    connection=lib_path.group("connection"),
+                    path=lib_path.group("path"),
                 )
+                for path in dict.fromkeys(candidates)
+                if (lib_path := LIB_PATH_RE.match(path))
+                and not any(part in path for part in ("$(", "*", "?"))
+            ]
+            if named:
+                references.extend(named)
             else:
                 # A wildcard reads files the graph names one by one, which
                 # this path can't be matched against.
-                unnamed.append(path)
+                unnamed.append(load.expanded)
         if unnamed and self.config.on_prem is None:
             # On-prem apps have no lineage graph files to match.
             self._apps_file_paths_unknown.add(app.id)
@@ -2249,7 +2262,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 # workbook, as it does for Tableau.
                 sub_types=[
                     BIContainerSubTypes.QLIK_APP,
-                    BIContainerSubTypes.TABLEAU_WORKBOOK,
+                    BIContainerSubTypes.WORKBOOK,
                 ],
                 parent_container_key=self._gen_space_key(app.spaceId),
                 extra_properties={
@@ -2508,6 +2521,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # Without the folder connections, the lib:// QVDs it writes are
             # unknown.
             self._apps_qvds_unknown[app.id] = "data connections could not be listed"
+        elif parsed.has_unresolved_store or lineage.has_unresolved_store:
+            # Such as a path built from a variable the app's variables, which
+            # may have failed to read, don't hold.
+            self._apps_qvds_unknown[app.id] = "a STORE path could not be resolved"
         else:
             self._app_qvds[app.id] = lineage.qvds
         return lineage
@@ -2608,9 +2625,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # while other apps are unknown.
         current_lineage = self._current_upstreams_batch(qvd_urns)
         for urn in qvd_urns:
+            # The fields apps read are a subset, so a QVD whose writer is
+            # unknown or not read this run keeps its schema.
             fields = (
                 _qvd_fields(writes.get(urn, []), reads.get(urn, []))
-                if urn in writes or not unknown
+                if urn in writes
+                or not (
+                    unknown or self._has_unread_qvd_writer(current_lineage.get(urn))
+                )
                 else None
             )
             if fields is not None:
@@ -2645,24 +2667,41 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             f"{self._unlabelled_qvd_loads} unlabelled QVD loads",
         )
 
-    def _owned_qvd_writer(self, urn: str) -> bool:
-        """An on-prem app table of an app whose QVD writes are known this run,
-        so its edges into QVDs are this connector's to remove. QVDs are named
-        by their file path, and app tables by their app id."""
+    def _qvd_writer_app_id(self, urn: str) -> Optional[str]:
+        """The app id of an on-prem app table. QVDs are named by their file
+        path, and app tables by their app id."""
         try:
             dataset = DatasetUrn.from_string(urn)
         except Exception:
-            return False
+            return None
         if dataset.platform != builder.make_data_platform_urn(self.platform):
-            return False
+            return None
         name = dataset.name
         instance = self.config.platform_instance
         if instance and name.startswith(f"{instance}."):
             name = name[len(instance) + 1 :]
         if CANONICAL_ABSOLUTE_PATH_RE.match(name):
-            return False
-        app_id = name.split(".", 1)[0]
-        return app_id in self._app_qvds and app_id not in self._apps_qvds_unknown
+            return None
+        return name.split(".", 1)[0]
+
+    def _owned_qvd_writer(self, urn: str) -> bool:
+        """An app table of an app whose QVD writes are known this run, so its
+        edges into QVDs are this connector's to remove."""
+        app_id = self._qvd_writer_app_id(urn)
+        return (
+            app_id is not None
+            and app_id in self._app_qvds
+            and app_id not in self._apps_qvds_unknown
+        )
+
+    def _has_unread_qvd_writer(self, current: Optional[UpstreamLineage]) -> bool:
+        """Whether an app this run did not read, such as one outside the
+        recipe's streams, wrote the QVD, so its schema is that app's."""
+        return current is not None and any(
+            self._qvd_writer_app_id(upstream.dataset) is not None
+            and not self._owned_qvd_writer(upstream.dataset)
+            for upstream in current.upstreams
+        )
 
     def _gen_qvd_upstreams(
         self,

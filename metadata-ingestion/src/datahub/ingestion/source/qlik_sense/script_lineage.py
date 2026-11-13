@@ -352,6 +352,18 @@ class QvdStore(BaseModel):
     fields: Optional[PrecedingLoad] = None
 
 
+class FileLoad(BaseModel):
+    """A file a LOAD reads: its path as the script's own SET and LET
+    variables expand it, and as written, for the app's variables from its last
+    reload to expand instead."""
+
+    expanded: str
+    as_written: str
+    # The path uses a variable the script makes unknown, such as a FOR EACH
+    # variable over a FileList, so the app's last value names only one file.
+    uses_unknown_variable: bool = False
+
+
 class ParsedScript(BaseModel):
     tables: List[ScriptTable] = []
     qvd_loads: List[QvdLoad] = []
@@ -359,12 +371,13 @@ class ParsedScript(BaseModel):
     # QVD paths that name no single file the connector can resolve, such as a
     # wildcard, a variable it could not expand or a relative path.
     unresolved_qvd_paths: List[str] = []
+    # A STORE wrote a QVD whose path can't be resolved, so the QVDs the app
+    # writes are not all known.
+    has_unresolved_store: bool = False
     # QVDs loaded without a label, which Qlik names itself.
     unlabelled_qvd_loads: List[str] = []
-    # The path of every file a LOAD reads, in any format: as the script's own
-    # SET and LET variables expand it, and as written, for the app's variables
-    # from its last reload to expand instead.
-    file_loads: List[str] = []
+    # Every file a LOAD reads, in any format.
+    file_loads: List[FileLoad] = []
     # The script includes other scripts, whose loads are not read.
     has_includes: bool = False
 
@@ -612,9 +625,9 @@ class _ControlFlowTracker(BaseModel):
             self.state.set_variable(match.group("name"), _first_group(literal))
         elif match.group("kind").upper() == "SET":
             self.state.set_variable(match.group("name"), value)
-        elif self.loop_depth or in_sub:
-            # Run more than once, so the value the app's last reload left is
-            # only the last of several.
+        elif self.loop_depth or in_sub or self.blocks:
+            # Run more than once, or in a branch that may not have run, so the
+            # value the app's last reload left need not be this one.
             self.state.forget_variable(match.group("name"))
         else:
             # LET evaluates an expression the parser can't, so the value the
@@ -636,10 +649,26 @@ def _expand_variables(statement: str, variables: Dict[str, str]) -> str:
     )
 
 
-def strip_set_quotes(path: str) -> str:
-    """A variable set with SET keeps its quotes, so a path built from one, such
-    as $(vFolder)orders.qvd, holds them."""
-    return path.replace(path[0], "") if path[:1] in ("'", '"') else path
+def unquoted_values(variables: Dict[str, str]) -> Dict[str, str]:
+    """A variable set with SET keeps the quotes around its value, which a path
+    built from it, such as $(vFolder)orders.qvd, must not hold. A value that
+    starts with `=` is an expression Qlik evaluates, so it is left out."""
+    unquoted = {}
+    for name, value in variables.items():
+        value = value.strip()
+        if value.startswith("="):
+            continue
+        if len(value) > 1 and value[0] in ("'", '"') and value[-1] == value[0]:
+            value = value[1:-1]
+        unquoted[name] = value
+    return unquoted
+
+
+def _load_path(statement: str) -> Optional[str]:
+    masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), statement)
+    keyword = STORE_FROM_RE.search(masked)
+    source = FILE_SOURCE_RE.match(statement, keyword.start()) if keyword else None
+    return _unquote(source.group("path").strip()).strip() if source else None
 
 
 def _unquote(name: str) -> str:
@@ -786,8 +815,9 @@ class _ScriptParser(BaseModel):
     qvd_loads: List[QvdLoad] = []
     qvd_stores: List[QvdStore] = []
     unresolved_qvd_paths: List[str] = []
+    has_unresolved_store: bool = False
     unlabelled_qvd_loads: List[str] = []
-    file_loads: List[str] = []
+    file_loads: List[FileLoad] = []
     has_includes: bool = False
     # The current statement before the script's variables are expanded.
     raw_statement: str = ""
@@ -967,7 +997,6 @@ class _ScriptParser(BaseModel):
                 # Every file a LOAD reads is in Qlik's lineage graph, mapping
                 # loads included.
                 self._record_file_load(statement)
-                self._record_file_load(self.raw_statement)
                 if not (skip or mapping or self.pending_skip or self.pending_mapping):
                     self._qvd_load(label or self.pending_label, statement)
                 # A preceding LOAD's label names the table a later Concatenate
@@ -976,14 +1005,16 @@ class _ScriptParser(BaseModel):
             self._clear_pending()
 
     def _fallback_variables(self) -> Dict[str, str]:
-        # A value starting with `=` is an expression Qlik evaluates, not text
-        # the script would hold.
+        # Unquoted, as the script's own quoted SET values are, and without
+        # expressions (`=...`) Qlik evaluates.
         unknown = self.flow.state.unknown
-        return {
-            name: value
-            for name, value in self.app_variables.items()
-            if name not in unknown and not value.lstrip().startswith("=")
-        }
+        return unquoted_values(
+            {
+                name: value
+                for name, value in self.app_variables.items()
+                if name not in unknown
+            }
+        )
 
     def _expand_app_variables(self, path: str) -> str:
         """A path with the app's variables as its last reload left them, which
@@ -1006,7 +1037,6 @@ class _ScriptParser(BaseModel):
         if "$(" in path:
             # Expanded first, as the variable may hold the `.qvd` name.
             path = self._expand_app_variables(path)
-        path = strip_set_quotes(path)
         format_name = (spec or "").split(",")[0].strip().lower()
         if format_name:
             is_qvd = format_name == "qvd"
@@ -1038,13 +1068,20 @@ class _ScriptParser(BaseModel):
         return None
 
     def _record_file_load(self, statement: str) -> None:
-        masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), statement)
-        keyword = STORE_FROM_RE.search(masked)
-        source = FILE_SOURCE_RE.match(statement, keyword.start()) if keyword else None
-        if source is not None:
-            path = _unquote(source.group("path").strip()).strip()
-            if path not in self.file_loads:
-                self.file_loads.append(path)
+        expanded = _load_path(statement)
+        if expanded is None:
+            return
+        as_written = _load_path(self.raw_statement) or expanded
+        load = FileLoad(
+            expanded=expanded,
+            as_written=as_written,
+            uses_unknown_variable=any(
+                reference.group("name").strip() in self.flow.state.unknown
+                for reference in VARIABLE_REFERENCE_RE.finditer(as_written)
+            ),
+        )
+        if load not in self.file_loads:
+            self.file_loads.append(load)
 
     def _qvd_load(self, label: Optional[str], statement: str) -> None:
         # FROM is found with quoted text masked, so a quoted field or path
@@ -1072,8 +1109,10 @@ class _ScriptParser(BaseModel):
         self.qvd_loads.append(QvdLoad(label=label, file=file, fields=fields))
 
     def _store(self, store: "re.Match[str]") -> None:
+        unresolved = len(self.unresolved_qvd_paths)
         file = self._qvd_file(store.group("path"), store.group("spec"), True)
         if file is None:
+            self.has_unresolved_store |= len(self.unresolved_qvd_paths) > unresolved
             return
         what = store.group("what")
         masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), what)
@@ -1105,6 +1144,7 @@ def parse_script(
         qvd_loads=parser.qvd_loads,
         qvd_stores=parser.qvd_stores,
         unresolved_qvd_paths=parser.unresolved_qvd_paths,
+        has_unresolved_store=parser.has_unresolved_store,
         unlabelled_qvd_loads=parser.unlabelled_qvd_loads,
         file_loads=parser.file_loads,
         has_includes=parser.has_includes,

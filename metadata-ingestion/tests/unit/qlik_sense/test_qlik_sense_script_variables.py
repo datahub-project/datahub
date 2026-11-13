@@ -91,6 +91,18 @@ def test_fallback_values_fill_sql_until_the_script_sets_the_variable() -> None:
             id="LET in a sub",
         ),
         pytest.param(
+            "IF vEnv = 'A' THEN\nLET vTable = Lower('SALES_' & vRegion);\n"
+            "A: SQL SELECT id FROM $(vTable);\nELSE\n"
+            "LET vTable = Lower('HIST_' & vRegion);\n"
+            "B: SQL SELECT id FROM $(vTable);\nEND IF;",
+            id="LET in IF branches",
+        ),
+        pytest.param(
+            "SWITCH vEnv\nCASE 'A'\nLET vTable = Lower('SALES_' & vRegion);\n"
+            "A: SQL SELECT id FROM $(vTable);\nEND SWITCH;",
+            id="LET in a SWITCH case",
+        ),
+        pytest.param(
             "FOR EACH vTable IN 'a', 'b'\n$(Include=lib://Scripts/common.qvs);\n"
             "T: SQL SELECT id FROM $(vTable);\nNEXT vTable;",
             id="loop variable after an include",
@@ -101,9 +113,8 @@ def test_fallback_values_never_fill_a_variable_the_script_made_unknown(
     script: str,
 ) -> None:
     # The app keeps only the last value, so lineage from it would be wrong.
-    assert _sql(f"LIB CONNECT TO 'db';\n{script}", {"vTable": "b"}) == [
-        "SELECT id FROM $(vTable)"
-    ]
+    sql = _sql(f"LIB CONNECT TO 'db';\n{script}", {"vTable": "b"})
+    assert sql and set(sql) == {"SELECT id FROM $(vTable)"}
 
 
 def test_expression_values_are_not_expanded() -> None:
@@ -157,3 +168,28 @@ def test_recipe_value_stands_in_for_an_expression_variable() -> None:
         {"vSchema": "=Lower(vSource)"},
     )
     assert source._app_variables(app) == {"vSchema": "sales"}
+
+
+def test_empty_app_value_leaves_the_recipe_value() -> None:
+    source = _source({"vDir": "2026-10", "vPrefix": "x"})
+    app = _app("", {"vDir": "", "vOther": ""})
+    # An empty value the recipe doesn't cover is kept, as for a prefix.
+    assert source._app_variables(app) == {
+        "vDir": "2026-10",
+        "vPrefix": "x",
+        "vOther": "",
+    }
+
+
+def test_file_list_loop_load_is_not_named_by_the_last_value() -> None:
+    source = _source({})
+    app = _app(
+        "FOR EACH vFile IN FileList('lib://Lake/m/*.csv')\n"
+        "X: LOAD * FROM [$(vFile)] (txt);\nNEXT vFile;",
+        {"vFile": "lib://Lake/m/last.csv"},
+    )
+    parsed = source._parsed_script(app)
+    [load] = parsed.file_loads
+    assert load.uses_unknown_variable
+    # On-prem apps have no graph files, so only the reference list is checked.
+    assert not source._file_source_resolver(app, parsed)._by_path_id

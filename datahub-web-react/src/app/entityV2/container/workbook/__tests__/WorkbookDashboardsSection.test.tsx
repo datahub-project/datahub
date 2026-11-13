@@ -15,21 +15,32 @@ vi.mock('@graphql/search.generated', async (importOriginal) => ({
     useGetSearchResultsForMultipleQuery: vi.fn(),
 }));
 
+function searchFilters(platform: string) {
+    vi.mocked(useEntityData).mockReturnValue({
+        urn: 'urn:li:container:app',
+        entityData: { platform: { name: platform } },
+    } as any);
+    vi.mocked(useGetSearchResultsForMultipleQuery).mockReturnValue({ data: undefined } as any);
+    render(<WorkbookDashboardsSection />);
+    const { variables } = vi.mocked(useGetSearchResultsForMultipleQuery).mock.calls.at(-1)?.[0] as any;
+    return variables.input.orFilters;
+}
+
 describe('WorkbookDashboardsSection', () => {
-    it("lists the workbook's sheets without the dashboard that stands for the workbook", () => {
-        vi.mocked(useEntityData).mockReturnValue({ urn: 'urn:li:container:app' } as any);
-        vi.mocked(useGetSearchResultsForMultipleQuery).mockReturnValue({ data: undefined } as any);
-
-        render(<WorkbookDashboardsSection />);
-
-        const { variables } = vi.mocked(useGetSearchResultsForMultipleQuery).mock.calls[0][0] as any;
-        expect(variables.input.orFilters).toEqual([
+    it("lists a Qlik app's sheets without the app's own dashboard", () => {
+        expect(searchFilters('qlik-sense')).toEqual([
             {
                 and: [
                     { field: CONTAINER_FILTER_NAME, values: ['urn:li:container:app'] },
                     { field: TYPE_NAMES_FILTER_NAME, values: ['App'], negated: true },
                 ],
             },
+        ]);
+    });
+
+    it("lists every dashboard of another platform's workbook", () => {
+        expect(searchFilters('sigma')).toEqual([
+            { and: [{ field: CONTAINER_FILTER_NAME, values: ['urn:li:container:app'] }] },
         ]);
     });
 });
