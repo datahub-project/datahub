@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import AttributeBrowser from '@app/businessAttribute/AttributeBrowser';
-import { handleBatchError } from '@app/entity/shared/utils';
+import { handleBatchError } from '@app/entityV2/shared/utils';
 import ClickOutside from '@app/sharedV2/ClickOutside';
 import { ENTER_KEY_CODE } from '@app/sharedV2/constants';
 import { useGetRecommendations } from '@app/sharedV2/recommendation';

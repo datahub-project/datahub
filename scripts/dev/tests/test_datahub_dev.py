@@ -195,3 +195,95 @@ def test_plugin_loading_bad_ext_does_not_crash(tmp_path, monkeypatch):
     config = datahub_dev._load_config()
     assert "gms" in config.rebuild_module_aliases
     assert any(svc.name == "gms" for svc in config.services)
+
+
+@pytest.mark.parametrize(
+    "changed_files,expected_services,expected_build_modules",
+    [
+        (
+            {"metadata-service/war/src/A.java"},
+            {"datahub-gms"},
+            {":metadata-service:war"},
+        ),
+        (
+            {"datahub-web-react/src/a.tsx", "datahub-frontend/app/B.java"},
+            {"datahub-frontend-react"},
+            {":datahub-frontend"},
+        ),
+        # Shared or unmapped sources keep the full build graph.
+        ({"metadata-io/src/C.java"}, set(), set()),
+        ({"metadata-service/war/src/A.java", "README.md"}, set(), set()),
+    ],
+)
+def test_detect_changed_modules_narrows_only_service_owned_changes(
+    changed_files, expected_services, expected_build_modules
+):
+    modules = datahub_dev._detect_changed_modules(changed_files)
+    assert {container for _, _, container in modules} == expected_services
+    assert {task.rsplit(":", 1)[0] for _, task, _ in modules} == expected_build_modules
+
+
+def test_detect_changed_modules_overlapping_prefixes_keep_full_graph(monkeypatch):
+    monkeypatch.setitem(
+        datahub_dev.CONFIG.module_to_container,
+        "metadata-service/",
+        (":metadata-service:other:bootJar", "datahub-other"),
+    )
+    assert datahub_dev._detect_changed_modules({"metadata-service/war/A.java"}) == []
+
+
+def _rebuild_gradle_cmd(monkeypatch, module=None, changed_files=None):
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return argparse.Namespace(returncode=1)
+
+    monkeypatch.setattr(datahub_dev, "_run", fake_run)
+    monkeypatch.setattr(
+        datahub_dev, "_changed_worktree_files", lambda: changed_files or set()
+    )
+    datahub_dev.cmd_rebuild(argparse.Namespace(module=module, wait=False))
+    return calls[0]
+
+
+def test_rebuild_passes_build_modules_for_service_owned_changes(monkeypatch):
+    cmd = _rebuild_gradle_cmd(
+        monkeypatch, changed_files={"metadata-service/war/src/A.java"}
+    )
+    assert "-PbuildModules=:metadata-service:war" in cmd
+
+
+def test_rebuild_omits_build_modules_for_shared_changes(monkeypatch):
+    cmd = _rebuild_gradle_cmd(monkeypatch, changed_files={"metadata-io/src/C.java"})
+    assert not any(arg.startswith("-PbuildModules") for arg in cmd)
+
+
+def test_rebuild_module_alias_builds_all_service_modules(monkeypatch):
+    cmd = _rebuild_gradle_cmd(monkeypatch, module="frontend")
+    assert "-PbuildModules=:datahub-frontend" in cmd
+
+
+def test_smoke_test_env_drops_inherited_profile(tmp_path, monkeypatch):
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "test.env")
+    monkeypatch.setattr(datahub_dev, "_gms_url", lambda: "http://localhost:9080")
+    monkeypatch.setenv("DATAHUB_PROFILE", "acme")
+    monkeypatch.delenv("DATAHUB_GMS_URL", raising=False)
+
+    env = datahub_dev._smoke_test_env()
+
+    assert "DATAHUB_PROFILE" not in env
+    assert env["DATAHUB_GMS_URL"] == "http://localhost:9080"
+
+
+def test_shell_env_clears_profile_before_exporting_url(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "test.env")
+    monkeypatch.setattr(datahub_dev, "_gms_url", lambda: "http://localhost:9080")
+
+    assert datahub_dev.cmd_shell_env(argparse.Namespace()) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[:2] == [
+        "unset DATAHUB_PROFILE",
+        "export DATAHUB_GMS_URL=http://localhost:9080",
+    ]

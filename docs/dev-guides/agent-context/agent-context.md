@@ -46,6 +46,7 @@ _"Tag all columns containing email addresses with the PII glossary term across o
 | Claude (Code, Desktop & Cowork) | [Guide](./claude.md)                    |
 | ChatGPT & Codex                 | [Guide](./plugins.md#chatgpt-and-codex) |
 | Cursor                          | [Guide](./cursor.md)                    |
+| GitHub Copilot                  | [Guide](./github-copilot.md)            |
 | Google Gemini CLI               | [Guide](./gemini-cli.md)                |
 | Snowflake Cortex Code           | [Guide](./snowflake-cortex-code.md)     |
 

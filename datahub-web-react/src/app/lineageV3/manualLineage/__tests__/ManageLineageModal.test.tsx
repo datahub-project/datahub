@@ -2,9 +2,9 @@ import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { FetchStatus, LineageNodesContext } from '@app/lineageV3/common';
 import ManageLineageModal from '@app/lineageV3/manualLineage/ManageLineageModal';
-import { EntityAndType } from '@src/app/entity/shared/types';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 import { EntityType, LineageDirection } from '@types';
@@ -275,6 +275,33 @@ describe('ManageLineageModal', () => {
 
         // The expandOneLevel function should be called for unfetched status
         expect(mockExpandOneLevel).toHaveBeenCalled();
+    });
+
+    it('auto-expands only once when a failed fetch resets the node to UNFETCHED', () => {
+        const withStatus = (status: FetchStatus) => ({
+            ...mockNode,
+            fetchStatus: { [LineageDirection.Upstream]: status, [LineageDirection.Downstream]: FetchStatus.COMPLETE },
+        });
+        const renderModal = (node: any) => (
+            <MockedProvider>
+                <TestPageContainer>
+                    <LineageNodesContext.Provider value={mockLineageNodesContext as any}>
+                        <ManageLineageModal
+                            node={node}
+                            direction={LineageDirection.Upstream}
+                            closeModal={mockCloseModal}
+                            refetch={mockRefetch}
+                        />
+                    </LineageNodesContext.Provider>
+                </TestPageContainer>
+            </MockedProvider>
+        );
+
+        const { rerender } = render(renderModal(withStatus(FetchStatus.UNFETCHED)));
+        rerender(renderModal(withStatus(FetchStatus.LOADING)));
+        rerender(renderModal(withStatus(FetchStatus.UNFETCHED)));
+
+        expect(mockExpandOneLevel).toHaveBeenCalledTimes(1);
     });
 
     it('does not expand lineage if fetchStatus is already COMPLETE', () => {

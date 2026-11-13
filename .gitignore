@@ -117,6 +117,9 @@ skills-lock.json
 .claude/hooks/*
 !.claude/hooks/deny-git-no-verify.sh
 **/.claude/settings.local.json
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/datahub-test-taxonomy
 
 # Kiro Ignores
 .kiro

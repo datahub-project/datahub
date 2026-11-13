@@ -31,7 +31,7 @@ on:
       - "OAuth Smoke Test"
       - "PR Title Check"
       - "Prefect Plugin"
-      - "Publish Datahub Java Jars (Client, Spark Lineage, Protobuf, Auth API)"
+      - "process boot tests"
       - "Python Build"
       - "Python Tests for github scripts"
       - "Quickstart Test"
@@ -67,6 +67,12 @@ on:
         required: false
         type: boolean
         default: false
+      escape_check:
+        description: "Run the smart selection escape check (run_id must be a
+          post-merge Docker Build, Scan, Test run)"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   actions: read
@@ -91,15 +97,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
+          java: false
+          gradle: false
           python-version: "3.12"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
-        with:
-          enable-cache: true
 
       - name: Install dependencies
         run: uv pip install requests==2.32.5 posthog==7.9.4 --system
@@ -222,3 +225,155 @@ jobs:
       attempt: ${{ github.event.workflow_run.run_attempt }}
       conclusion: success
       channel: ${{ vars.BUILD_STATUS_NOTIFICATION_SLACK_CHANNEL }}
+
+  # Smart selection escape check: did the merged PR's last run run the pytest
+  # tests that fail after merge? Active smart testing runs only planned scopes
+  # on PRs, so a test it skipped that the change breaks first fails here.
+  # Runs on each final outcome of a post-merge run: a pass (sends a clean
+  # result), or a failure after retry-on-failure's rerun. A first-attempt
+  # failure is skipped: that rerun is coming, and flaky tests usually pass in it.
+  smart-selection-escapes:
+    name: Smart selection escape check
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.escape_check == true)
+      || (github.event_name == 'workflow_run'
+          && github.event.workflow_run.name == 'Docker Build, Scan, Test'
+          && github.event.workflow_run.event == 'push'
+          && github.event.workflow_run.head_branch == github.event.repository.default_branch
+          && (github.event.workflow_run.conclusion == 'success'
+              || (github.event.workflow_run.conclusion == 'failure'
+                  && github.event.workflow_run.run_attempt > 1)))
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read # commit -> merged PR lookup
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Resolve merged PR and its last run
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ inputs.run_id || github.event.workflow_run.id }}
+        run: |
+          run=$(gh api "repos/$REPOSITORY/actions/runs/$RUN_ID")
+          sha=$(jq -r .head_sha <<<"$run")
+          {
+            echo "run_id=$RUN_ID"
+            echo "run_attempt=$(jq -r .run_attempt <<<"$run")"
+            echo "head_sha=$sha"
+            echo "head_branch=$(jq -r .head_branch <<<"$run")"
+          } >> "$GITHUB_OUTPUT"
+
+          pr=$(gh api "repos/$REPOSITORY/commits/$sha/pulls" \
+            | jq -c --arg sha "$sha" '[.[] | select(.merge_commit_sha == $sha)][0] // empty')
+          if [[ -z "$pr" ]]; then
+            echo "No PR merged as $sha (direct push or sync merge); nothing to check"
+            exit 0
+          fi
+          pr_head=$(jq -r .head.sha <<<"$pr")
+          pr_run=$(gh run list -R "$REPOSITORY" --workflow docker-unified.yml \
+            --event pull_request --commit "$pr_head" --status completed -L 1 \
+            --json databaseId --jq '.[0].databaseId // empty')
+          if [[ -z "$pr_run" ]]; then
+            echo "No completed PR run for $pr_head; nothing to check"
+            exit 0
+          fi
+          {
+            echo "pr_number=$(jq -r .number <<<"$pr")"
+            echo "pr_head_sha=$pr_head"
+            echo "pr_run_id=$pr_run"
+          } >> "$GITHUB_OUTPUT"
+
+      # The pattern avoids the parentheses in "Test Results (smoke tests)
+      # pytests N"; only the pytest batch artifacts contain "pytests ".
+      - name: Download post-merge pytest results
+        if: steps.resolve.outputs.pr_run_id != ''
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: "*pytests *"
+          path: post-merge-junit
+          run-id: ${{ steps.resolve.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Download PR batch plan
+        if: steps.resolve.outputs.pr_run_id != ''
+        # Absent when smart testing was off or the plan step failed.
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pytest-smoke-plan
+          path: pr-plan
+          run-id: ${{ steps.resolve.outputs.pr_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Download PR pytest results
+        if: steps.resolve.outputs.pr_run_id != ''
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: "*pytests *"
+          path: pr-junit
+          run-id: ${{ steps.resolve.outputs.pr_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Compare post-merge failures with the PR's run
+        if: steps.resolve.outputs.pr_run_id != ''
+        env:
+          SERVER: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ steps.resolve.outputs.run_id }}
+          RUN_ATTEMPT: ${{ steps.resolve.outputs.run_attempt }}
+          PR_NUMBER: ${{ steps.resolve.outputs.pr_number }}
+          PR_RUN_ID: ${{ steps.resolve.outputs.pr_run_id }}
+        run: |
+          (cd smoke-test && python3 -m smart_testing.escape_report \
+            --plan ../pr-plan/pytest-smoke-plan.json \
+            --post-merge-junit-dir ../post-merge-junit \
+            --pr-junit-dir ../pr-junit \
+            --out ../escape-check.json)
+          [[ -f escape-check.json ]] || exit 0
+
+          escapes=$(jq '.escapes | length' escape-check.json)
+          {
+            echo "## Smart selection escape check"
+            echo ""
+            echo "Post-merge run [$RUN_ID]($SERVER/$REPOSITORY/actions/runs/$RUN_ID) (attempt $RUN_ATTEMPT) of #$PR_NUMBER, compared with [its last PR run]($SERVER/$REPOSITORY/actions/runs/$PR_RUN_ID)."
+            echo ""
+            echo "$(jq '.post_merge_failures | length' escape-check.json) post-merge failure(s), $escapes escape(s)."
+            if [[ "$escapes" != 0 ]]; then
+              echo ""
+              echo "These tests failed after merge but did not run on the PR:"
+              echo ""
+              jq -r '.escapes[] | "- `\(.)`"' escape-check.json
+              echo ""
+              echo "Tests that were already failing on the branch before this merge are not filtered out."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$escapes" != 0 ]]; then
+            echo "::warning::Smart selection escapes for #$PR_NUMBER: $(jq -r '.escapes | join(",")' escape-check.json)"
+          fi
+
+      - name: Send escape check to PostHog
+        if: steps.resolve.outputs.pr_run_id != ''
+        continue-on-error: true
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          RESULT_FILE: ${{ github.workspace }}/escape-check.json
+          # The job checks pytest only today; another framework's check sends
+          # its own event with its own value.
+          TEST_FRAMEWORK: pytest
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ steps.resolve.outputs.run_id }}
+          RUN_ATTEMPT: ${{ steps.resolve.outputs.run_attempt }}
+          HEAD_SHA: ${{ steps.resolve.outputs.head_sha }}
+          HEAD_BRANCH: ${{ steps.resolve.outputs.head_branch }}
+          PR_NUMBER: ${{ steps.resolve.outputs.pr_number }}
+          PR_HEAD_SHA: ${{ steps.resolve.outputs.pr_head_sha }}
+          PR_RUN_ID: ${{ steps.resolve.outputs.pr_run_id }}
+        run: python3 .github/scripts/send_smart_selection_escapes_to_posthog.py

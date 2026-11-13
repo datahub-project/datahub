@@ -32,6 +32,11 @@ module.exports = {
         },
         {
           type: "link",
+          label: "Product Tours",
+          href: "https://tours.datahub.com/?utm_source=oss-docs&utm_medium=oss-referral&utm_campaign=oss-product-tours&utm_content=docs-sidebar",
+        },
+        {
+          type: "link",
           label: "Customer Stories",
           href: "https://datahub.com/resources/?2004611554=dh-stories",
         },
@@ -184,6 +189,11 @@ module.exports = {
               label: "Cursor",
               type: "doc",
               id: "docs/dev-guides/agent-context/cursor",
+            },
+            {
+              label: "GitHub Copilot",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/github-copilot",
             },
             {
               label: "Claude",
@@ -597,6 +607,11 @@ module.exports = {
           ],
         },
         {
+          label: "Analytics Dashboards",
+          type: "doc",
+          id: "docs/features/feature-guides/analytics-dashboards",
+        },
+        {
           label: "Asset Summaries",
           type: "doc",
           id: "docs/features/feature-guides/custom-asset-summaries",
@@ -978,6 +993,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_2_4_0",
         "docs/managed-datahub/release-notes/v_2_3_0",
         "docs/managed-datahub/release-notes/v_2_2_0",
         "docs/managed-datahub/release-notes/v_2_1_0",
@@ -1663,6 +1679,7 @@ module.exports = {
         "docs/developers",
         "docs/developers/java-sdk-v2-design",
         "docs/developers/search-v3-design",
+        "gradle/wiring/README",
         "docs/docker/development",
         "metadata-ingestion/developing",
         "docs/api/graphql/graphql-endpoint-development",
@@ -1752,7 +1769,7 @@ module.exports = {
             type: "doc",
             id: "docs/rfcs/README",
           },
-          items: [],
+          items: ["docs/rfcs/active/15918-cli-profile-management"],
         },
         "SECURITY",
       ],

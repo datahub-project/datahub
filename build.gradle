@@ -128,6 +128,7 @@ buildscript {
   // CVE-2026-59902 (netty-transport-sctp): 4.2.17+
   // CVE-2026-100660..100665 (netty-codec-http3 / QUIC): 4.2.18+
   ext.nettyVersion = '4.2.19.Final' // align all io.netty modules (excl. netty-tcnative line)
+  ext.nettyTcnativeVersion = '2.0.84.Final' // CVE-2026-116541; matches tcnative.version in netty-parent 4.2.19.Final; bump together with nettyVersion
   // CVE-2026-45799: wire-runtime skipGroup() negative-length crash (fixed in 6.3.0+);
   // transitive via schema-registry-serde → wire-compiler → wire-runtime-jvm
   ext.wireVersion = '6.3.0'
@@ -193,12 +194,13 @@ buildscript {
 }
 
 plugins {
-  id 'com.gorylenko.gradle-git-properties' version '2.5.3'
+  id 'com.gorylenko.gradle-git-properties' version '4.0.1'
   id 'com.gradleup.shadow' version '9.3.0' apply false
   id 'com.palantir.docker' version '0.35.0' apply false
   id 'com.avast.gradle.docker-compose' version '0.17.21'
   id "com.diffplug.spotless" version "7.0.4"
   id 'com.adarshr.test-logger' version '4.0.0'
+  id 'org.jreleaser' version '1.27.0'
   // https://blog.ltgt.net/javax-jakarta-mess-and-gradle-solution/
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
 }
@@ -337,7 +339,7 @@ project.ext.externalDependency = [
     'jsonPathImpl': 'org.eclipse.parsson:parsson:1.1.6',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
     'jsonSmart': 'net.minidev:json-smart:2.5.2',
-    'json': 'org.json:json:20231013',
+    'json': 'org.json:json:20260814',
     'jsonSchemaValidator': 'com.github.java-json-tools:json-schema-validator:2.2.14',
     'jjwtApi': "io.jsonwebtoken:jjwt-api:$jjwtVersion",
     'jjwtImpl': "io.jsonwebtoken:jjwt-impl:$jjwtVersion",
@@ -476,7 +478,7 @@ project.ext.externalDependency = [
     'fabric8KubernetesClient': 'io.fabric8:kubernetes-client:7.4.0',
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
-    'zookeeper': 'org.apache.zookeeper:zookeeper:3.8.7',
+    'zookeeper': 'org.apache.zookeeper:zookeeper:3.8.8',
     'wire': "com.squareup.wire:wire-compiler:${wireVersion}",
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'jline':'jline:jline:1.4.1',
@@ -493,6 +495,14 @@ project.ext.externalDependency = [
     'djlApi': 'ai.djl:api:0.36.0',
     'djlHuggingFaceTokenizers': 'ai.djl.huggingface:tokenizers:0.36.0'
 ]
+
+// Dead-suite guard opt-outs: Test task path -> reason it legitimately runs no tests. A listed task
+// may discover zero tests or be NO-SOURCE without failing the build (see the dead-suite guard in
+// tasks.withType(Test) below). Every entry is a suite that can go dead unnoticed, so add one only
+// with a reason, e.g.
+//   ':some:module:test': 'only shared test helpers, consumed by other modules\' tests',
+// Empty today: every OSS Test task with test sources runs at least one test.
+project.ext.deadSuiteGuardOptOut = [:]
 
 allprojects {
   // Gradle 9 removed Project.exec/javaexec; route build-script exec/javaexec through the injected
@@ -524,10 +534,74 @@ allprojects {
 
   tasks.withType(Test).configureEach { task ->
     environment "DATAHUB_SYSTEM_CLIENT_SECRET", "TestOnlyNotASecret"
-    // Gradle 9 flips failOnNoDiscoveredTests to true: a test task with sources but zero discovered
-    // tests now fails (Gradle 8 passed silently). Some modules legitimately have only helper/support
-    // test sources, so restore the Gradle-8 behaviour globally.
-    failOnNoDiscoveredTests = false
+    // Dead-suite guard: a Test task that runs nothing must fail, not go green. Failure modes:
+    //  1. NO-SOURCE: no test classes (e.g. a custom Test task that lost its testClassesDirs
+    //     wiring, or an include pattern matching nothing). Gradle skips the task before test
+    //     discovery, so nothing below fires; the onlyIf check runs after test compilation instead.
+    //  2. Executes but discovers no tests (wrong framework). failOnNoDiscoveredTests catches it,
+    //     but only when the task has no filters configured.
+    //  3. Executes zero tests overall: a TestNG suite XML or group selecting nothing, or case 2 on
+    //     a filtered task. Gradle passes this; the doLast count check fails it. The count is per
+    //     task, so one dead <test> block inside a suite XML that otherwise runs is not caught.
+    // Opt a task out only via deadSuiteGuardOptOut (top of this file), with a reason.
+    def deadSuiteOptOutReason = rootProject.ext.deadSuiteGuardOptOut[task.path]
+    failOnNoDiscoveredTests = deadSuiteOptOutReason == null
+    def projectSourceSets = task.project.extensions.findByName('sourceSets')
+    if (deadSuiteOptOutReason == null && projectSourceSets != null) {
+      def deadSuiteHint = "Fix the task's wiring, or add '${task.path}' to deadSuiteGuardOptOut " +
+          "in the root build.gradle with a reason."
+      task.onlyIf('dead-suite guard: test sources must produce test classes') {
+        def classesDirs = task.testClassesDirs.files
+        if (classesDirs.isEmpty()) {
+          // Gradle 9 no longer wires conventions onto custom Test tasks: an unwired one has no
+          // classes dirs at all and can never run anything.
+          def msg = "${task.path} has no testClassesDirs (it would be NO-SOURCE and pass). " +
+              deadSuiteHint
+          // Gradle hides the cause of an onlyIf failure unless run with --stacktrace.
+          task.logger.error(msg)
+          throw new GradleException(msg)
+        }
+        // Mirrors Test#getCandidateClassFiles, the input whose emptiness makes the task NO-SOURCE.
+        def candidates = task.testClassesDirs.asFileTree.matching {
+          include task.includes
+          exclude task.excludes
+        }
+        if (candidates.isEmpty()) {
+          // Check the source sets the task actually runs (e.g. a custom integration-test source
+          // set), falling back to `test` when its dirs don't belong to any source set.
+          def backing = projectSourceSets.findAll { ss ->
+            ss.output.classesDirs.files.any { classesDirs.contains(it) }
+          }
+          if (backing.isEmpty()) {
+            backing = [projectSourceSets.findByName('test')].findAll { it != null }
+          }
+          def withSources = backing.findAll { ss ->
+            !ss.allSource.matching {
+              include '**/*.java', '**/*.kt', '**/*.groovy', '**/*.scala'
+            }.isEmpty()
+          }
+          if (!withSources.isEmpty()) {
+            def msg = "${task.path} has no test classes to run (it would be NO-SOURCE and pass) " +
+                "although source set(s) ${withSources*.name} have test sources. ${deadSuiteHint}"
+            task.logger.error(msg)
+            throw new GradleException(msg)
+          }
+        }
+        true
+      }
+      long executedTests = 0
+      task.afterSuite { desc, result ->
+        if (desc.parent == null) {
+          executedTests += result.testCount
+        }
+      }
+      task.doLast {
+        if (executedTests == 0) {
+          throw new GradleException(
+              "${task.path} ran zero tests (check its suite XML, groups and filters). ${deadSuiteHint}")
+        }
+      }
+    }
     if (task.project.name != "metadata-io") {
       // https://docs.gradle.org/current/userguide/performance.html
       maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
@@ -535,6 +609,20 @@ allprojects {
       if (project.configurations.getByName("testImplementation").getDependencies()
               .any { it.getName().contains("testng") }) {
         useTestNG()
+        // Gradle's TestNG detection ignores method annotations on abstract classes, so a subclass
+        // whose only @Test methods are inherited from one is silently never run. Fail instead.
+        task.doFirst {
+          // Only where Gradle's TestNG class scan decides what runs: not after a module switches the
+          // task to JUnit, and not when suite XML files pick the classes.
+          if (task.scanForTestClasses && task.options instanceof org.gradle.api.tasks.testing.testng.TestNGOptions
+              && task.options.suiteXmlFiles.isEmpty()) {
+            def problems = io.datahubproject.TestNgInheritedTestsCheck.findUndetectedTestClasses(
+                task.candidateClassFiles.files, task.testClassesDirs.files + task.classpath.files)
+            if (!problems.isEmpty()) {
+              throw new GradleException("TestNG test classes Gradle would skip:\n  " + problems.join("\n  "))
+            }
+          }
+        }
         // Configure TestNG to work better with test-logger
         testLogging {
           events "failed", "skipped"
@@ -543,6 +631,9 @@ allprojects {
         }
       }
     }
+
+    // A TestNG run silently skips JUnit test methods; fail instead (see JUnitInTestNGGuard).
+    task.doFirst(new io.datahubproject.JUnitInTestNGGuard())
   }
 
   /**
@@ -683,8 +774,8 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force "io.confluent:kafka-schema-types:${rootProject.ext.confluentSerdeVersion}"
     resolutionStrategy.force "org.jline:jline:${rootProject.ext.jlineVersion}"
     resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
-    resolutionStrategy.force externalDependency.zookeeper  // CVE-2023-44981, CVE-2026-59739; overrides d2's 3.6.3
-    resolutionStrategy.force 'org.apache.zookeeper:zookeeper-jute:3.8.7'
+    resolutionStrategy.force externalDependency.zookeeper  // CVE-2023-44981, CVE-2026-59739, CVE-2026-100235, CVE-2026-100252, CVE-2026-100300, CVE-2026-100302, CVE-2026-115448; overrides d2's 3.6.3
+    resolutionStrategy.force 'org.apache.zookeeper:zookeeper-jute:3.8.8'
     resolutionStrategy.force 'org.apache.thrift:libthrift:0.24.0' // CVE-2026-48586 (TZlibTransport zip-bomb DoS); transitive via jena-arq
     // eachDependency: upgrade vulnerable versions only (do not downgrade newer safe versions)
     resolutionStrategy.eachDependency { details ->
@@ -715,10 +806,14 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
         details.because("Jackson aligned to ${v}")
       }
       // Align all Netty modules to nettyVersion (e.g. from awssdk netty-nio-client).
-      // Exclude netty-tcnative-*: they use a separate 2.x version line and have no 4.1.x release.
+      // netty-tcnative-* use a separate 2.0.x version line, aligned to nettyTcnativeVersion instead.
       if (details.requested.group == 'io.netty' && !details.requested.name.startsWith('netty-tcnative')) {
         details.useVersion(rootProject.ext.nettyVersion)
         details.because("Netty aligned to ${rootProject.ext.nettyVersion} for CVE fixes")
+      }
+      if (details.requested.group == 'io.netty' && details.requested.name.startsWith('netty-tcnative')) {
+        details.useVersion(rootProject.ext.nettyTcnativeVersion)
+        details.because("netty-tcnative aligned to ${rootProject.ext.nettyTcnativeVersion} for CVE-2026-116541")
       }
       if (details.requested.group == 'com.squareup.wire') {
         details.useVersion(rootProject.ext.wireVersion)
@@ -830,12 +925,17 @@ allprojects {
 }
 
 apply plugin: 'com.gorylenko.gradle-git-properties'
+
+def gitDescribe = providers.exec {
+  workingDir rootProject.projectDir
+  commandLine 'git', 'describe', '--tags', '--always', '--abbrev=7'
+}.standardOutput.asText.map { it.trim() }
+
 gitProperties {
   keys = ['git.commit.id','git.commit.id.describe','git.commit.time']
-  // using any tags (not limited to annotated tags) for "git.commit.id.describe" property
-  // see http://ajoberstar.org/grgit/grgit-describe.html for more info about the describe method and available parameters
-  // 'it' is an instance of org.ajoberstar.grgit.Grgit
-  customProperty 'git.commit.id.describe', { it.describe(tags: true) }
+  // Include lightweight tags. The plugin's custom JGit describe path resolves the primary checkout
+  // in linked worktrees, so run Git from this worktree until upstream handles that case correctly.
+  customProperty 'git.commit.id.describe', { gitDescribe.get() }
   gitPropertiesResourceDir = rootProject.buildDir
   failOnNoGitDirectory = false
 }
@@ -843,6 +943,7 @@ gitProperties {
 def gitPropertiesGenerated = false
 
 apply from: 'gradle/versioning/versioning-global.gradle'
+apply from: 'gradle/publishing/jreleaser.gradle'
 
 tasks.register("generateGitPropertiesGlobal", com.gorylenko.GenerateGitPropertiesTask) {
   doFirst {
@@ -886,6 +987,10 @@ subprojects {
     }
     if (project.name == 'datahub-web-react') {
       return
+    }
+    // Wiring ratchet (gradle/wiring/README.md). datahub-frontend is Play/Guice, not Spring.
+    if (project.path != ':wiring-coverage' && project.path != ':datahub-frontend') {
+      project.apply from: rootProject.file('gradle/wiring/wiring-coverage.gradle')
     }
     /* TODO: evaluate ignoring jar timestamps for increased caching (compares checksum instead)
     jar {
@@ -1142,3 +1247,15 @@ tasks.register('verifyVendorJars') {
 // Cross-module aggregated JaCoCo report (recovers coverage of a class produced by tests in
 // another module). See gradle/coverage/java-coverage-aggregation.gradle for details.
 apply from: 'gradle/coverage/java-coverage-aggregation.gradle'
+
+// Process boot tests: start every OSS process's real Spring context (GMS, MAE/MCE consumers,
+// system-update) under the kafka and pgqueue transports. Not part of `test`/`check`; CI runs this
+// on PRs that touch wiring and nightly. See gradle/testing/boot-test.gradle.
+tasks.register('bootTests') {
+  group = 'verification'
+  description = 'Boots every OSS process and checks its required/forbidden bean contract.'
+  dependsOn ':metadata-service:war:bootTest',
+      ':metadata-jobs:mae-consumer-job:bootTest',
+      ':metadata-jobs:mce-consumer-job:bootTest',
+      ':datahub-upgrade:bootTest'
+}

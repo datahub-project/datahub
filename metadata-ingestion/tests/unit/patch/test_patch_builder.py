@@ -256,6 +256,21 @@ def test_basic_dashboard_patch_builder():
     ]
 
 
+def test_dashboard_patch_builder_removes_a_dashboard():
+    sheet = make_dashboard_urn(platform="qlik-sense", name="sheet/1")
+    [mcp] = (
+        DashboardPatchBuilder(make_dashboard_urn(platform="qlik-sense", name="app"))
+        .remove_dashboard(sheet)
+        .build()
+    )
+
+    assert mcp.aspectName == "dashboardInfo"
+    assert mcp.aspect is not None
+    assert json.loads(mcp.aspect.value) == [
+        {"op": "remove", "path": f"/dashboards/{sheet.replace('/', '~1')}", "value": {}}
+    ]
+
+
 @pytest.mark.parametrize(
     "created_on,last_modified,expected_actor",
     [

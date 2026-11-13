@@ -1,4 +1,4 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { EntityPrivileges, EntityType, LifecycleStageType, PlatformPrivileges } from '@types';
 
@@ -58,7 +58,7 @@ export function isDeleteDisabled(
         return !canDeleteGlossaryEntity;
     }
     if (entityType === EntityType.DataProduct) {
-        return false; // TODO: update with permissions
+        return !entityData?.privileges?.canDeleteEntity;
     }
     if (entityType === EntityType.Domain) {
         const entityHasChildren = !!entityData?.children?.total;
@@ -81,6 +81,9 @@ export function isMoveDisabled(
     if (entityType === EntityType.Domain) {
         const canManageDomains = !!platformPrivileges?.manageDomains;
         return !canManageDomains;
+    }
+    if (entityType === EntityType.DataProduct) {
+        return !entityData?.privileges?.canManageEntity;
     }
     return false;
 }

@@ -110,7 +110,18 @@ export default function TreeViewContextProvider({
 
     // Expanding
 
-    const getIsExpandable = useCallback((node: TreeNode) => !!node.children?.length || !!node.hasAsyncChildren, []);
+    // `hasAsyncChildren` is only a hint (it is forced on when related entities are shown, e.g. for every
+    // glossary term), so a node whose children have been loaded and came back empty has nothing to expand.
+    const getIsExpandable = useCallback(
+        (node: TreeNode) => {
+            if (node.children?.length) return true;
+            if (!node.hasAsyncChildren) return false;
+            const loadedEmpty =
+                loadedValues.includes(node.value) && !node.isChildrenLoading && node.totalChildren === 0;
+            return !loadedEmpty;
+        },
+        [loadedValues],
+    );
 
     const getIsExpanded = useCallback(
         (node: TreeNode) => {

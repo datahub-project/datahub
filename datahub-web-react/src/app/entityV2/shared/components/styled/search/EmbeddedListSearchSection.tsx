@@ -16,12 +16,12 @@ import {
     EXTRA_EMBEDDED_LIST_SEARCH_ENTITY_TYPES_TO_SUPPLEMENT_SEARCHABLE_ENTITY_TYPES,
     UnionType,
 } from '@app/search/utils/constants';
+import useFilters from '@app/search/utils/useFilters';
 import {
     DownloadSearchResults,
     DownloadSearchResultsInput,
     DownloadSearchResultsParams,
-} from '@app/search/utils/types';
-import useFilters from '@app/search/utils/useFilters';
+} from '@app/searchV2/utils/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useSelectedSortOption } from '@src/app/search/context/SearchContext';
 import useSortInput from '@src/app/searchV2/sorting/useSortInput';

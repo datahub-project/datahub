@@ -14,7 +14,7 @@ vi.mock('@app/entityV2/shared/components/styled/DeprecationIcon', () => ({
     DeprecationIcon: () => <div data-testid="deprecation-icon" />,
 }));
 
-vi.mock('react-highlighter', () => ({
+vi.mock('@app/sharedV2/text/Highlight', () => ({
     default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 

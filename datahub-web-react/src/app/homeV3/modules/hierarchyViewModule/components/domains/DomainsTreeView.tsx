@@ -10,6 +10,7 @@ import useChildrenDomainsLoader from '@app/homeV3/modules/hierarchyViewModule/ch
 import useDomainRelatedEntitiesLoader from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useDomainRelatedEntitiesLoader';
 import useParentValuesToLoadChildren from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useParentValues';
 import { ChildrenLoaderMetadata } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/types';
+import { getTotalChildren } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/utils';
 import useDomainsTree from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useDomainsTree';
 import TreeView from '@app/homeV3/modules/hierarchyViewModule/treeView/TreeView';
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
@@ -35,7 +36,7 @@ export default function DomainsTreeView({ assetUrns, shouldShowRelatedEntities, 
             tree.update(newNodes, parentDomainUrn);
             tree.updateNode(parentDomainUrn, {
                 isChildrenLoading: false,
-                totalChildren: (metadata.totalNumberOfChildren ?? 0) + (metadata.totalNumberOfRelatedEntities ?? 0),
+                totalChildren: getTotalChildren(metadata),
             });
         },
         [tree, removeParentValue],

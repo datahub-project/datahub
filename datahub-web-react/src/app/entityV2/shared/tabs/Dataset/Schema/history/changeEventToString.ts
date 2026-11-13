@@ -12,6 +12,7 @@ import {
     ChangeOperationType,
     DEPRECATION_STATUS_ACTIVE,
     GLOSSARY_RELATIONSHIP_TYPE_LABELS,
+    PARAM_DECOMMISSION_TIME,
     PARAM_DESCRIPTION,
     PARAM_DOCUMENTATION,
     PARAM_DOMAIN_URN,
@@ -33,7 +34,17 @@ import {
     UNINFORMATIVE_OWNER_TYPES,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
 import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
+import { decommissionTimeToSeconds, toLocalDateString } from '@app/sharedV2/time/timeUtils';
 import { ChangeEvent } from '@src/types.generated';
+
+// The backend forwards the aspect's decommissionTime verbatim, which may be epoch seconds or millis.
+function formatDecommissionDate(decommissionTime?: string): string | undefined {
+    const parsed = Number(decommissionTime);
+    if (!decommissionTime || !Number.isFinite(parsed) || parsed <= 0) {
+        return undefined;
+    }
+    return toLocalDateString(decommissionTimeToSeconds(parsed) * 1000);
+}
 
 function emptyAssetDoc() {
     return i18next.t('entity.profile.schema:changeEventString.assetDocEmpty');
@@ -303,10 +314,18 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
     } else if (category === CATEGORY_DEPRECATION) {
         const status = getParameter(changeEvent.parameters, PARAM_STATUS);
         const note = getParameter(changeEvent.parameters, PARAM_NOTE);
+        const date = formatDecommissionDate(getParameter(changeEvent.parameters, PARAM_DECOMMISSION_TIME));
         if (status === DEPRECATION_STATUS_ACTIVE) {
             displayString = i18next.t('entity.profile.schema:changeEventString.undeprecated');
+        } else if (note && date) {
+            displayString = i18next.t('entity.profile.schema:changeEventString.deprecatedWithNoteAndDecommission', {
+                note,
+                date,
+            });
         } else if (note) {
             displayString = i18next.t('entity.profile.schema:changeEventString.deprecatedWithNote', { note });
+        } else if (date) {
+            displayString = i18next.t('entity.profile.schema:changeEventString.deprecatedWithDecommission', { date });
         } else {
             displayString = i18next.t('entity.profile.schema:changeEventString.deprecated');
         }

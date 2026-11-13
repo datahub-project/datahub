@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - ".github/scripts/**"
+      - ".github/smart-testing/**"
     branches:
       - master
       - releases/**
@@ -11,6 +12,7 @@ on:
   pull_request:
     paths:
       - ".github/scripts/**"
+      - ".github/smart-testing/**"
     branches:
       - "**"
 
@@ -22,17 +24,20 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        uses: ./.github/actions/setup-toolchain
         with:
-          python-version: "3.11"
+          java: false
+          gradle: false
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           # Deps pulled in by the scripts under test: requests/posthog match
-          # post-workflow-actions.yml; defusedxml is used by the XML parsers.
-          pip install pytest requests==2.32.5 posthog==7.9.4 defusedxml
+          # post-workflow-actions.yml; defusedxml is used by the XML parsers;
+          # pyyaml is imported by pre-commit/generate_pre_commit.py.
+          pip install pytest requests==2.32.5 posthog==7.9.4 defusedxml pyyaml
+          pip install -r .github/smart-testing/requirements.txt
 
       - name: Run tests
         run: |
-          pytest .github/scripts/test .github/scripts/release/test
+          pytest .github/scripts/test .github/scripts/release/test .github/smart-testing/test .github/scripts/pre-commit/tests
