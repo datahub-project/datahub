@@ -19,6 +19,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
     AthenaPlatformOverride,
     Constant,
+    DataBricksPlatformDetail,
     DataPlatformPair,
     OraclePlatformDetail,
     PowerBiDashboardSourceConfig,
@@ -1027,6 +1028,38 @@ def test_odbc_databricks_spark_pseudo_catalog(
             f"urn:li:dataset:(urn:li:dataPlatform:databricks,{expected},PROD)"
         ]
         assert titles == []
+
+
+def test_odbc_databricks_nav_prepends_metastore() -> None:
+    """Like Databricks.Catalogs navigation, a metastore configured for the server
+    prefixes the catalog so both paths emit the same URN."""
+    instance = _build_odbc_lineage(
+        platform_detail=DataBricksPlatformDetail(
+            platform_instance="dbx", metastore="my_ms"
+        )
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "main"),
+            ("Schema", "sales"),
+            ("Table", "orders"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Databricks",
+        datahub_data_platform_name="databricks",
+    )
+
+    result = instance.expression_lineage(
+        detail, "databricks", pair, server_name="dsn", dsn="d"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,dbx.my_ms.main.sales.orders,PROD)"
+    ]
 
 
 # Spelled out rather than derived from ODBC_THREE_TIER_PLATFORMS, so dropping a

@@ -2905,6 +2905,13 @@ class OdbcLineage(AbstractLineage):
         if qualified_table_name is None:
             return Lineage.empty()
 
+        if data_platform == DATABRICKS_PLATFORM and isinstance(
+            platform_detail, DataBricksPlatformDetail
+        ):
+            # Same as DatabricksLineage: a configured metastore prefixes the
+            # catalog (legacy include_metastore=true Unity Catalog URNs).
+            qualified_table_name = f"{platform_detail.metastore}.{qualified_table_name}"
+
         logger.debug(
             f"ODBC Platform {data_platform} found qualified table name {qualified_table_name}"
         )
