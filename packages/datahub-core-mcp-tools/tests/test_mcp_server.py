@@ -59,6 +59,7 @@ async def test_registration_is_per_instance() -> None:
         "add_structured_properties",
         "remove_structured_properties",
         "save_document",
+        "update_document",
     }
     assert await _tools(untouched) == {}
 
@@ -100,6 +101,7 @@ async def test_registering_twice_on_separate_instances_is_independent() -> None:
             "add_structured_properties",
             "remove_structured_properties",
             "save_document",
+            "update_document",
         }
     )
 
@@ -155,6 +157,7 @@ async def test_write_tools_are_registered_by_default(
         "add_structured_properties",
         "remove_structured_properties",
         "save_document",
+        "update_document",
     } <= writes
     assert writes <= set(registered)
 
