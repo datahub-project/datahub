@@ -48,6 +48,11 @@ export interface PillProps extends Partial<PillPropsDefaults>, Omit<HTMLAttribut
     customStyle?: React.CSSProperties;
     showLabel?: boolean;
     customIconRenderer?: () => React.ReactNode;
+    /**
+     * Trailing content rendered inside the pill, after the label and before `rightIcon` /
+     * `rightIcons`. Use when the mark is not a Phosphor icon (for example a tooltip-bearing badge).
+     */
+    customRightIconRenderer?: () => React.ReactNode;
     onClickRightIcon?: (e: React.MouseEvent<HTMLElement, MouseEvent>) => void;
     onClickLeftIcon?: (e: React.MouseEvent<HTMLElement, MouseEvent>) => void;
     onPillClick?: (e: React.MouseEvent<HTMLElement, MouseEvent>) => void;

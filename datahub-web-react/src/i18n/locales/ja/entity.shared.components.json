@@ -97,5 +97,9 @@
     "searchActions.owners.addTitle": "Ownerを追加",
     "searchActions.owners.removeTitle": "Ownerの割り当てを解除",
     "searchActions.tags.addTitle": "Tagを追加",
-    "searchActions.tags.removeTitle": "Tagを外す"
+    "searchActions.tags.removeTitle": "Tagを外す",
+    "structuredProperty.addMore": "+ さらに追加",
+    "structuredProperty.selectPlaceholder": "選択",
+    "viewAll.resultsIncomplete": "結果が不完全な場合があります。",
+    "viewAll.searchAllAssets": "取り込まれたすべての{{platform}}Assetを検索"
 }

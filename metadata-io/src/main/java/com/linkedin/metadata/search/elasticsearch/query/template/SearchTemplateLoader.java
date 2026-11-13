@@ -10,6 +10,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.config.search.SearchTemplateSource;
+import com.linkedin.metadata.search.elasticsearch.query.v3.ranking.RankingFormulaCheck;
 import com.linkedin.search.template.EntityTypeBoostArray;
 import com.linkedin.search.template.FieldFactorArray;
 import com.linkedin.search.template.FieldValueScoreArray;
@@ -890,6 +891,13 @@ public class SearchTemplateLoader {
     if (!signals.isEmpty()) {
       applied.setSignals(new RankingSignalArray(signals));
     }
+    if (applied.hasFormula() && applied.getFormula() != null && !applied.getFormula().isBlank()) {
+      Set<String> names = new LinkedHashSet<>();
+      for (RankingSignal signal : signals) {
+        names.add(signal.getName());
+      }
+      RankingFormulaCheck.check(applied.getFormula(), names);
+    }
     return emptyRanking(applied) ? null : applied;
   }
 
@@ -943,17 +951,6 @@ public class SearchTemplateLoader {
     return -1;
   }
 
-  @Nullable
-  private static String rankingReferenceUrn(@Nullable SearchTemplateRanking ranking) {
-    if (ranking == null
-        || !ranking.hasTemplate()
-        || ranking.getTemplate() == null
-        || ranking.getTemplate().isBlank()) {
-      return null;
-    }
-    return ranking.getTemplate();
-  }
-
   private static boolean clearsTemplate(@Nonnull SearchTemplateRanking ranking) {
     return ranking.hasTemplate() && blank(ranking.getTemplate());
   }
@@ -1001,9 +998,6 @@ public class SearchTemplateLoader {
       throw new SearchTemplateException("Search template ranking is a reference or it is inline");
     }
     String target = ranking.getTemplate();
-    if (urn.equals(target) || urns.contains(target)) {
-      throw new SearchTemplateException("Search template ranking reference cycle at " + target);
-    }
     TemplateCopy copy = resolve(operationContext, retriever, target, overrides);
     MergedSearchTemplate targetMerged =
         compose(operationContext, retriever, target, copy, overrides, classpathBridge, false);
@@ -1024,6 +1018,17 @@ public class SearchTemplateLoader {
       }
     }
     return new ResolvedRanking(resolved, targetMerged.getLastModified());
+  }
+
+  @Nullable
+  private static String rankingReferenceUrn(@Nullable SearchTemplateRanking ranking) {
+    if (ranking == null
+        || !ranking.hasTemplate()
+        || ranking.getTemplate() == null
+        || ranking.getTemplate().isBlank()) {
+      return null;
+    }
+    return ranking.getTemplate();
   }
 
   private static boolean inlineRanking(@Nonnull SearchTemplateRanking ranking) {

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { getAssertionsSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { ContractStructuredPropertiesSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/ContractStructuredPropertiesSummary';
 import { DataContractEmptyState } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractEmptyState';

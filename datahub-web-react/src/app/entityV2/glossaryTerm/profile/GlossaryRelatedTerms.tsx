@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import GlossaryRelatedTermsResult from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult';
 import { RelatedTermTypes, getRelatedTermTypeLabel } from '@app/entityV2/glossaryTerm/profile/RelatedTermTypes';
 import {
@@ -14,6 +13,7 @@ import {
     relatedTermsCountVariables,
     relationshipGroup,
 } from '@app/entityV2/glossaryTerm/profile/relatedTermsQuery';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { Button } from '@src/alchemy-components';
 
 import { useGetRelatedTermsQuery } from '@graphql/glossary.generated';

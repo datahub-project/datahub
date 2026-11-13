@@ -3,16 +3,6 @@ Test for validating Kafka Connect configurations end-to-end.
 This test can take any connector config and validate the expected lineage results.
 """
 
-# Initialize JPype with explicit Java 17 path to match command line environment
-try:
-    import jpype
-    import jpype.imports
-
-    if not jpype.isJVMStarted():
-        jpype.startJVM(jpype.getDefaultJVMPath())
-except Exception as e:
-    print(f"JPype initialization failed: {e}")
-
 from typing import Dict, List
 from unittest.mock import Mock
 

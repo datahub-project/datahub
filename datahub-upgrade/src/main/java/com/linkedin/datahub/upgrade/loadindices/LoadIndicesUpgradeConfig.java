@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.loadindices;
 
 import com.linkedin.datahub.upgrade.config.OpenTelemetryConfig;
+import com.linkedin.datahub.upgrade.shared.NoOpKafkaEventProducerConfig;
 import com.linkedin.gms.factory.entity.RetentionBufferFactory;
 import com.linkedin.gms.factory.entity.RetentionBufferSchedulingConfig;
 import org.springframework.boot.micrometer.metrics.autoconfigure.MetricsAutoConfiguration;
@@ -14,7 +15,11 @@ import org.springframework.context.annotation.Import;
  * attempts during index loading.
  */
 @Configuration
-@Import({MetricsAutoConfiguration.class, OpenTelemetryConfig.class})
+@Import({
+  MetricsAutoConfiguration.class,
+  OpenTelemetryConfig.class,
+  NoOpKafkaEventProducerConfig.class
+})
 @ComponentScan(
     basePackages = {
       "com.linkedin.datahub.upgrade.loadindices.config",

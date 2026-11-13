@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.kafka;
 
+import com.linkedin.gms.factory.aws.AwsClientFactory;
 import java.util.Map;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -24,9 +25,21 @@ public final class KafkaMskIamAuth {
       Pattern.compile(
           "(?<!\\S)awsDebugCreds\\s*=\\s*\"?true\"?(?=\\s|;|$)", Pattern.CASE_INSENSITIVE);
 
+  /**
+   * Names what the calling Spring context must load: CI never runs MSK IAM, so this is the signal.
+   */
+  static final String MISSING_SHARED_CREDENTIALS_MESSAGE =
+      "MSK IAM is configured but the shared AWS credentials are not installed yet. The Spring"
+          + " context building this Kafka client must load "
+          + AwsClientFactory.class.getName()
+          + " and create its \"defaultAwsCredentialsProvider\" bean first: annotate the"
+          + " @Configuration that builds the client with @Import(AwsClientFactory.class) and"
+          + " @DependsOn(\"defaultAwsCredentialsProvider\"). If both are present, the bean was"
+          + " skipped because AwsClientFactory detected no AWS or MSK IAM setting in this context.";
+
   private KafkaMskIamAuth() {}
 
-  static void configure(Map<String, Object> kafkaProperties) {
+  public static void configure(Map<String, Object> kafkaProperties) {
     if (kafkaProperties == null || !isMskIam(kafkaProperties)) {
       return;
     }
@@ -45,8 +58,7 @@ public final class KafkaMskIamAuth {
       return;
     }
     if (!DataHubMskIamClientCallbackHandler.isSharedCredentialsInstalled()) {
-      throw new IllegalStateException(
-          "MSK IAM is configured but shared AWS credentials are unavailable");
+      throw new IllegalStateException(MISSING_SHARED_CREDENTIALS_MESSAGE);
     }
 
     kafkaProperties.put(

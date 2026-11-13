@@ -4,6 +4,7 @@ plugins {
 }
 
 apply from: "../gradle/versioning/versioning.gradle"
+apply from: '../gradle/testing/boot-test.gradle'
 apply from: "../gradle/coverage/java-coverage.gradle"
 apply from: "../gradle/docker/docker.gradle"
 
@@ -115,6 +116,7 @@ dependencies {
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
 
+  testImplementation testFixtures(project(':metadata-utils'))
   testImplementation externalDependency.springBootTest
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
@@ -131,6 +133,11 @@ dependencies {
 
   testImplementation externalDependency.h2
   testImplementation testFixtures(project(':metadata-io'))
+
+  // The cluster migration harness signs requests to IAM-authenticated clusters (remote mode) with
+  // the default AWS credentials chain, the way SearchClientShimFactory does in production.
+  testImplementation platform(externalDependency.awsSdk2Bom)
+  testImplementation 'software.amazon.awssdk:auth'
 
   constraints {
     implementation(externalDependency.parquetHadoop) {
@@ -508,6 +515,41 @@ tasks.register('searchV3MigrationTest', Test) {
   environment 'SEARCH_V3_MIGRATION_TEST', 'true'
   filter {
     includeTestsMatching 'com.linkedin.datahub.upgrade.system.elasticsearch.migration.*'
+  }
+  testLogging {
+    events 'passed', 'skipped', 'failed'
+    exceptionFormat = 'full'
+    showStandardStreams = true
+  }
+  outputs.upToDateWhen { false }
+}
+
+/**
+ * Runs the cluster migration scenarios against two existing clusters instead of containers, for
+ * example a staging OpenSearch 2 domain and the OpenSearch 3 domain it migrates to. Both sides are
+ * named through CLUSTER_MIGRATION_TEST_{SOURCE,TARGET}_URI with _USERNAME/_PASSWORD or
+ * _USE_AWS_IAM_AUTH=true/_REGION; CLUSTER_MIGRATION_TEST_PREFIX, _COPY_MODE, _REMOTE_HOST,
+ * _REMOTE_EXTERNAL, _REMOTE_USERNAME and _REMOTE_PASSWORD are optional. _SCALE multiplies the
+ * seeded document counts and _COPY_PARALLELISM / _COPY_BATCH_SIZE tune the copy, so the timing
+ * table the copy scenario prints can compare copiers and settings. Every index the run creates
+ * carries a per-run prefix and is removed at the end. See ClusterMigrationHarness.
+ */
+tasks.register('clusterMigrationRemoteTest', Test) {
+  group = 'verification'
+  description = 'Runs the cluster migration tests against the clusters named in CLUSTER_MIGRATION_TEST_* variables.'
+  useTestNG()
+  testClassesDirs = sourceSets.test.output.classesDirs
+  classpath = sourceSets.test.runtimeClasspath
+  environment 'SEARCH_V3_MIGRATION_TEST', 'true'
+  doFirst {
+    ['CLUSTER_MIGRATION_TEST_SOURCE_URI', 'CLUSTER_MIGRATION_TEST_TARGET_URI'].each { key ->
+      if (!System.getenv(key)) {
+        throw new GradleException("clusterMigrationRemoteTest needs ${key} in the environment")
+      }
+    }
+  }
+  filter {
+    includeTestsMatching 'com.linkedin.datahub.upgrade.system.elasticsearch.migration.ClusterMigrationOpenSearchTest'
   }
   testLogging {
     events 'passed', 'skipped', 'failed'

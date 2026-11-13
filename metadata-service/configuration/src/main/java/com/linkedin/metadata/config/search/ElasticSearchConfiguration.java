@@ -3,6 +3,7 @@ package com.linkedin.metadata.config.search;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -42,6 +43,9 @@ public class ElasticSearchConfiguration {
 
   /** Which cluster serves each subsystem. */
   private ComponentClusterConfiguration componentCluster;
+
+  /** Optional per-family move of a non-entity index family to another named cluster. */
+  private ClusterMigrationConfiguration clusterMigration;
 
   /**
    * Legacy connection inputs, still bound from {@code ELASTICSEARCH_HOST} / {@code PORT} / {@code
@@ -149,7 +153,61 @@ public class ElasticSearchConfiguration {
                 + "' which has no uri configured");
       }
     }
+    validateClusterMigration();
     clustersNormalized = true;
+  }
+
+  /**
+   * A family migration must name a configured cluster other than the one serving the family: the
+   * same cluster would mirror every write onto itself, and an unconfigured one has no client.
+   */
+  private void validateClusterMigration() {
+    for (SearchComponent component : ClusterMigrationConfiguration.MIGRATABLE_FAMILIES) {
+      final FamilyMigrationSettings settings = getClusterMigration().forComponent(component);
+      if (settings == null || !settings.isConfigured()) {
+        continue;
+      }
+      final String targetName = settings.getTargetCluster();
+      final String keyPrefix = "elasticsearch.clusterMigration." + component.getConfigKey();
+      final SearchClusterSettings target = clusters.get(targetName);
+      if (target == null || !target.isConfigured()) {
+        throw new IllegalStateException(
+            keyPrefix
+                + ".targetCluster refers to cluster '"
+                + targetName
+                + "' which has no uri configured");
+      }
+      final String servingName = getComponentCluster().clusterFor(component);
+      if (servingName.equals(targetName)) {
+        throw new IllegalStateException(
+            keyPrefix
+                + ".targetCluster '"
+                + targetName
+                + "' is the cluster already serving "
+                + component.getConfigKey()
+                + " (elasticsearch.componentCluster."
+                + component.getConfigKey()
+                + ")");
+      }
+      // Resolve the mode eagerly so a typo fails startup, not the first non-blocking run.
+      settings.getCopy().copyMode();
+    }
+  }
+
+  @Nonnull
+  public ClusterMigrationConfiguration getClusterMigration() {
+    if (clusterMigration == null) {
+      clusterMigration = ClusterMigrationConfiguration.builder().build();
+    }
+    return clusterMigration;
+  }
+
+  /** The family's migration settings when it names a target cluster, otherwise null. */
+  @Nullable
+  public FamilyMigrationSettings activeMigrationFor(@Nonnull SearchComponent component) {
+    normalizeClusters();
+    final FamilyMigrationSettings settings = getClusterMigration().forComponent(component);
+    return settings != null && settings.isConfigured() ? settings : null;
   }
 
   /**

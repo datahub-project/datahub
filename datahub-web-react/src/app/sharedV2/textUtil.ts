@@ -53,3 +53,9 @@ export function pluralizeIfIrregular(noun: string, suffix = 's'): string {
     }
     return `${noun}${suffix}`;
 }
+
+export const getCapitalizeWord = (word: string) =>
+    word
+        ?.toLowerCase()
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase());

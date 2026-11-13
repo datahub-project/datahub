@@ -1,5 +1,5 @@
 import { toast } from '@components';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { useHistory, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -10,6 +10,7 @@ import {
     useOpenAssertionDetailModal,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/hooks';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useDeleteAssertionMutation } from '@graphql/assertion.generated';
 
