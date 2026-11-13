@@ -159,14 +159,16 @@ def test_patched_app_dashboard_drops_sheets_no_longer_ingested(
     app = _app([], sheets_complete=sheets_complete)
     workunits = list(source._gen_app_dashboard_workunit(app, None, None))
 
-    removed_paths = [
-        op["path"]
+    # One patch, so the edges it adds and removes apply to the same aspect.
+    [patch_mcp] = [
+        wu.metadata
         for wu in workunits
         if isinstance(wu.metadata, MetadataChangeProposalClass)
         and wu.metadata.aspectName == DashboardInfoClass.ASPECT_NAME
-        and wu.metadata.aspect is not None
-        for op in json.loads(wu.metadata.aspect.value)
-        if op["op"] == "remove"
+    ]
+    assert patch_mcp.aspect is not None
+    removed_paths = [
+        op["path"] for op in json.loads(patch_mcp.aspect.value) if op["op"] == "remove"
     ]
     # Only when every sheet is known can one be told to be gone.
     assert removed_paths == (
@@ -206,6 +208,46 @@ def test_app_without_ingested_sheets_links_its_last_known_tables() -> None:
         if op["op"] == "add" and op["path"].startswith("/datasetEdges/")
     ]
     # Without sheets, the app reaches its tables only through these edges.
+    assert added == [f"/datasetEdges/{urn.replace('/', '~1')}" for urn in TABLES]
+
+
+def test_onprem_app_without_ingested_sheets_links_its_last_read_tables() -> None:
+    graph = MagicMock()
+    graph.get_aspect.return_value = None
+    with patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI"):
+        source = QlikSenseSource(
+            QlikSourceConfig.model_validate(
+                {**ONPREM_CONFIG, "include_sheets_and_charts": False}
+            ),
+            PipelineContext(run_id="test-app-dashboard", graph=graph),
+        )
+    app = _app([])
+    app.sheets = []
+    # On-prem script tables have no QRI; the last read recorded their URNs.
+    other_app_table = make_dataset_urn("qlik-sense", "app-10.orders")
+    with patch.object(
+        source,
+        "_usable_checkpoint",
+        return_value=AppCheckpoint(
+            urns=[
+                *TABLES,
+                other_app_table,
+                make_dashboard_urn("qlik-sense", "app-1"),
+            ],
+            table_urns_by_qri={},
+        ),
+    ):
+        workunits = list(source._gen_app_dashboard_workunit(app, None, None))
+
+    added = [
+        op["path"]
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == DashboardInfoClass.ASPECT_NAME
+        and wu.metadata.aspect is not None
+        for op in json.loads(wu.metadata.aspect.value)
+        if op["op"] == "add" and op["path"].startswith("/datasetEdges/")
+    ]
     assert added == [f"/datasetEdges/{urn.replace('/', '~1')}" for urn in TABLES]
 
 
