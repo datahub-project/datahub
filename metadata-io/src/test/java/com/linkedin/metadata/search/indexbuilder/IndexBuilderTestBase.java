@@ -37,9 +37,11 @@ import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.EntityRegistryContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.PartialNgramEntityRegistry;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -84,6 +86,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   protected static final String TEST_V2_INDEX_NAME = TEST_INDEX_NAME;
   protected static final String TEST_V3_INDEX_NAME = "estest_datasetindex_v3";
   private static final String OBJECT_ROUNDTRIP_INDEX = "estest_objectroundtripindex_v2";
+  private static final String PARTIAL_NGRAM_V3_INDEX = "estest_partialngramtestentityindex_v3";
   private ElasticSearchConfiguration testDefaultConfig;
   private ESIndexBuilder testDefaultBuilder;
   private ESIndexBuilder testReplicasBuilder;
@@ -174,7 +177,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
     // Create DelegatingMappingsBuilder using utility method
     delegatingMappingsBuilder =
-        createDelegatingMappingsBuilder(V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION);
+        createDelegatingMappingsBuilder(
+            V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION, getSearchClient());
   }
 
   /** Pattern matching incremental reindex next indices created during tests. */
@@ -205,7 +209,9 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     }
 
     // Clean up all test indices
-    String[] testIndices = {TEST_V2_INDEX_NAME, TEST_V3_INDEX_NAME, OBJECT_ROUNDTRIP_INDEX};
+    String[] testIndices = {
+      TEST_V2_INDEX_NAME, TEST_V3_INDEX_NAME, OBJECT_ROUNDTRIP_INDEX, PARTIAL_NGRAM_V3_INDEX
+    };
 
     for (String indexName : testIndices) {
       try {
@@ -1016,6 +1022,60 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     assertFalse(
         secondPass.requiresReindex(),
         "Second system-update pass must not enter a mapping reindex loop on ES8");
+  }
+
+  /**
+   * Guards against a V3 mapping reindex loop on ES8, which strips {@code doc_values: false} from
+   * {@code search_as_you_type} fields. With mappings built from the cluster's client, as the GMS
+   * factories build them, creating a V3 index with a partial-ngram field and deciding again must
+   * find nothing to change. The default registry declares no V3 {@code TEXT_PARTIAL} field, so the
+   * test uses one that does.
+   */
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testNoV3PartialNgramMappingsReindexLoopOnES8() throws Exception {
+    if (getSearchClient().getEngineType() != SearchClientShim.SearchEngineType.ELASTICSEARCH_8) {
+      throw new SkipException("ES8 V3 partial-ngram mapping round-trip test");
+    }
+    OperationContext partialNgramContext =
+        opContext.toBuilder()
+            .entityRegistryContext(
+                EntityRegistryContext.builder().build(new PartialNgramEntityRegistry()))
+            .build(opContext.getSessionAuthentication(), true);
+    MappingsBuilder.IndexMapping v3Mapping =
+        createDelegatingMappingsBuilder(V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION, getSearchClient())
+            .getIndexMappings(partialNgramContext, List.of())
+            .stream()
+            .filter(mapping -> PARTIAL_NGRAM_V3_INDEX.equals(mapping.getIndexName()))
+            .findFirst()
+            .orElseThrow();
+    String indexName = v3Mapping.getIndexName();
+    Map<String, Object> mappings = v3Mapping.getMappings();
+    Map<String, Object> label =
+        (Map<String, Object>)
+            ((Map<String, Object>) mappings.get("properties")).get("partialNgramTitle");
+    Map<String, Object> ngram =
+        (Map<String, Object>) ((Map<String, Object>) label.get("fields")).get("ngram");
+    assertEquals(ngram.get("type"), "search_as_you_type");
+    Map<String, Object> settings =
+        delegatingSettingsBuilder.getSettings(testDefaultConfig.getIndex(), indexName);
+
+    ReindexConfig createConfig =
+        testDefaultBuilder.buildReindexState(partialNgramContext, indexName, mappings, settings);
+    assertEquals(
+        testDefaultBuilder.buildIndex(partialNgramContext, createConfig),
+        ReindexResult.CREATED_NEW);
+
+    ReindexConfig secondPass =
+        testDefaultBuilder.buildReindexState(partialNgramContext, indexName, mappings, settings);
+
+    assertTrue(secondPass.exists());
+    assertFalse(
+        secondPass.requiresApplyMappings(),
+        "ES8 V3 partial-ngram mapping round-trip must not produce a mapping diff");
+    assertFalse(
+        secondPass.requiresReindex(),
+        "Second system-update pass must not enter a V3 mapping reindex loop on ES8");
   }
 
   @Test

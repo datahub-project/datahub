@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import {
     AZURE_AUTHORITY_URL,
     AZURE_CLIENT_ID,
@@ -186,6 +188,16 @@ import {
     HEX_TOKEN,
     HEX_WORKSPACE_NAME,
 } from '@app/ingestV2/source/builder/RecipeForm/hex';
+import {
+    HIGHTOUCH_API_KEY,
+    HIGHTOUCH_EMIT_MODELS,
+    HIGHTOUCH_INCLUDE_SYNC_RUNS,
+    HIGHTOUCH_MAX_SYNC_RUNS,
+    HIGHTOUCH_MODEL_ALLOW,
+    HIGHTOUCH_MODEL_DENY,
+    HIGHTOUCH_SYNC_ALLOW,
+    HIGHTOUCH_SYNC_DENY,
+} from '@app/ingestV2/source/builder/RecipeForm/hightouch';
 import {
     HIVE_DATABASE,
     HIVE_HOST_PORT,
@@ -388,6 +400,28 @@ import {
     PRESTO_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/presto';
 import {
+    QLIK_API_KEY,
+    QLIK_DATA_CONNECTION_MAP,
+    QLIK_DEPLOYMENT,
+    QLIK_INGEST_OWNER,
+    QLIK_MAX_WORKERS,
+    QLIK_ON_PREM_CLIENT_CERT,
+    QLIK_ON_PREM_CLIENT_KEY,
+    QLIK_ON_PREM_CLIENT_KEY_PASSWORD,
+    QLIK_ON_PREM_ENGINE_PORT,
+    QLIK_ON_PREM_INGEST_UNPUBLISHED_APPS,
+    QLIK_ON_PREM_QRS_PORT,
+    QLIK_ON_PREM_ROOT_CERT,
+    QLIK_ON_PREM_SERVER,
+    QLIK_ON_PREM_SERVER_CERT_HOSTNAME,
+    QLIK_ON_PREM_SKIP_HOSTNAME_CHECK,
+    QLIK_ON_PREM_SKIP_UNCHANGED_APPS,
+    QLIK_SPACE_ALLOW,
+    QLIK_SPACE_DENY,
+    QLIK_TENANT_HOSTNAME,
+    QLIK_TIMEOUT_SECONDS,
+} from '@app/ingestV2/source/builder/RecipeForm/qlik_sense';
+import {
     RDF_DIALECT,
     RDF_ENVIRONMENT,
     RDF_EXTENSIONS,
@@ -506,6 +540,7 @@ import {
     NOTION,
     OKTA,
     POWER_BI,
+    QLIK_SENSE,
     RDF,
     SAC,
     SQLMESH,
@@ -514,6 +549,7 @@ import {
 import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
 import { DATAPLEX } from '@app/ingestV2/source/conf/dataplex/dataplex';
 import { HEX } from '@app/ingestV2/source/conf/hex/hex';
+import { HIGHTOUCH } from '@app/ingestV2/source/conf/hightouch/hightouch';
 import { HIVE } from '@app/ingestV2/source/conf/hive/hive';
 import { KAFKA } from '@app/ingestV2/source/conf/kafka/kafka';
 import { LOOKER } from '@app/ingestV2/source/conf/looker/looker';
@@ -1100,6 +1136,33 @@ export const RECIPE_FIELDS: RecipeFields = {
         filterFields: [GROUP_ALLOW, GROUP_DENY, USER_ALLOW, USER_DENY],
         advancedFields: [AZURE_INGEST_USERS, AZURE_INGEST_GROUPS, STATEFUL_INGESTION_ENABLED, SKIP_USERS_WITHOUT_GROUP],
     },
+    [QLIK_SENSE]: {
+        fields: [
+            QLIK_DEPLOYMENT,
+            QLIK_TENANT_HOSTNAME,
+            QLIK_API_KEY,
+            QLIK_ON_PREM_SERVER,
+            QLIK_ON_PREM_CLIENT_CERT,
+            QLIK_ON_PREM_CLIENT_KEY,
+            QLIK_ON_PREM_CLIENT_KEY_PASSWORD,
+            QLIK_ON_PREM_ROOT_CERT,
+            QLIK_ON_PREM_SERVER_CERT_HOSTNAME,
+            QLIK_ON_PREM_SKIP_HOSTNAME_CHECK,
+            QLIK_ON_PREM_QRS_PORT,
+            QLIK_ON_PREM_ENGINE_PORT,
+        ],
+        filterFields: [QLIK_SPACE_ALLOW, QLIK_SPACE_DENY],
+        advancedFields: [
+            QLIK_INGEST_OWNER,
+            QLIK_ON_PREM_INGEST_UNPUBLISHED_APPS,
+            QLIK_ON_PREM_SKIP_UNCHANGED_APPS,
+            QLIK_MAX_WORKERS,
+            QLIK_TIMEOUT_SECONDS,
+            QLIK_DATA_CONNECTION_MAP,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude Qlik Cloud spaces or Qlik Sense Enterprise streams from ingestion.',
+    },
     [SAC]: {
         fields: [SAC_TENANT_URL, SAC_TOKEN_URL, SAC_CLIENT_ID, SAC_CLIENT_SECRET],
         filterFields: [
@@ -1191,6 +1254,19 @@ export const RECIPE_FIELDS: RecipeFields = {
             REMOVE_STALE_METADATA_ENABLED,
         ],
         hasDynamicFields: true,
+    },
+    [HIGHTOUCH]: {
+        fields: [HIGHTOUCH_API_KEY],
+        filterFields: [HIGHTOUCH_SYNC_ALLOW, HIGHTOUCH_SYNC_DENY, HIGHTOUCH_MODEL_ALLOW, HIGHTOUCH_MODEL_DENY],
+        advancedFields: [
+            HIGHTOUCH_EMIT_MODELS,
+            HIGHTOUCH_INCLUDE_SYNC_RUNS,
+            HIGHTOUCH_MAX_SYNC_RUNS,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        get filterSectionTooltip() {
+            return i18next.t('ingestion.sourceBuilder:hightouch.filterSection.tooltip');
+        },
     },
     [RDF]: {
         fields: [RDF_SOURCE],

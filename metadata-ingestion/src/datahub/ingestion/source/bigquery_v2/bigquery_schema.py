@@ -1,6 +1,7 @@
 import contextlib
 import logging
 import re
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -47,15 +48,73 @@ from datahub.ingestion.source.common.gcp_project_filter import (
     resolve_gcp_projects,
 )
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import RateLimiter
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+# While a caller walks query rows, say how far it has got. The page log already
+# records that BigQuery delivered the page; this one shows local consumption.
+_QUERY_RESULT_PROGRESS_SECONDS = 5
+
+
+def _iter_bigquery_results(
+    rows: RowIterator, job_id: str, total_rows: Optional[int]
+) -> Iterator[bigquery.Row]:
+    """Yield query rows, logging page delivery separately from local consumption.
+
+    ``QueryJob.result()`` only waits until the job is complete. The rows are
+    pulled afterwards, one page per request, as this iterator advances.
+    """
+    read = 0
+    pages = 0
+    completed = False
+    last_progress = time.perf_counter()
+    try:
+        # result() returns _EmptyRowIterator for dry runs and jobs without
+        # totalRows; it has no api_request, so reading .pages would raise.
+        for page in rows.pages if rows.api_request is not None else ():
+            pages += 1
+            logger.debug(
+                "BigQuery job %s returned page %s to DataHub (%s rows on this page, %s rows in the job)",
+                job_id,
+                pages,
+                page.num_items,
+                total_rows if total_rows is not None else "unknown",
+            )
+            for row in page:
+                read += 1
+                yield row
+                now = time.perf_counter()
+                if now - last_progress >= _QUERY_RESULT_PROGRESS_SECONDS:
+                    logger.debug(
+                        "DataHub has read %s of %s rows from BigQuery job %s",
+                        read,
+                        total_rows if total_rows is not None else "unknown",
+                        job_id,
+                    )
+                    last_progress = now
+        completed = True
+    finally:
+        logger.debug(
+            "%s reading BigQuery job %s (%s rows, %s pages)",
+            "Finished" if completed else "Stopped",
+            job_id,
+            read,
+            pages,
+        )
+
+
 # Per-call timeout for materialized view stats fetched via tables.get. The fetch
 # runs with retry=None (see get_materialized_views_metadata), so this bounds
 # the whole call rather than one HTTP attempt of DEFAULT_RETRY's ~600s storm.
 _MV_STATS_TIMEOUT_SEC = 30
+
+# tables.list page size. The API's default page is small, so datasets with many tables
+# (date-sharded tables list every shard) took many round trips. The API may still return
+# fewer per page; pagination continues either way.
+_LIST_TABLES_PAGE_SIZE = 1000
 
 # INFORMATION_SCHEMA.PARTITIONS rejects a query that reads more than 1000 tables.
 _PARTITIONS_MAX_TABLES_PER_QUERY = 1000
@@ -361,7 +420,18 @@ class BigQuerySchemaApi:
 
     def get_query_result(
         self, query: str, location: Optional[str] = None
-    ) -> RowIterator:
+    ) -> Iterator[bigquery.Row]:
+        """Run a query and yield its rows.
+
+        The return value is a plain iterator, not
+        ``google.cloud.bigquery.table.RowIterator``. ``result()`` is consumed
+        here so page downloads can be logged separately from job completion.
+        Callers can only iterate the rows. ``RowIterator`` attributes such as
+        ``total_rows`` and ``schema`` are not available on the return value.
+        The row count is logged when the job completes, before the first page
+        is read.
+        """
+
         def _should_retry(exc: BaseException) -> bool:
             logger.debug(f"Exception occurred for job query. Reason: {exc}")
             # Jobs sometimes fail with transient errors.
@@ -380,7 +450,17 @@ class BigQuerySchemaApi:
                 deadline=bq_retry.DEFAULT_JOB_RETRY._deadline,
             ),
         )
-        return resp.result()
+        # query() returns once the job is submitted. result() blocks until
+        # BigQuery marks it complete; it does not download the rows.
+        logger.debug("Submitted BigQuery job %s; waiting for completion", resp.job_id)
+        rows = resp.result()
+        total_rows = rows.total_rows
+        logger.debug(
+            "BigQuery job %s completed; results are ready to download (%s rows)",
+            resp.job_id,
+            total_rows if total_rows is not None else "unknown",
+        )
+        return _iter_bigquery_results(rows, resp.job_id, total_rows)
 
     @lru_cache(maxsize=1)
     def get_projects(self, max_results_per_page: int = 100) -> List[BigqueryProject]:
@@ -555,7 +635,9 @@ class BigQuerySchemaApi:
         self, dataset_name: str, project_id: str
     ) -> Iterator[TableListItem]:
         with PerfTimer() as current_timer:
-            for table in self.bq_client.list_tables(f"{project_id}.{dataset_name}"):
+            for table in self.bq_client.list_tables(
+                f"{project_id}.{dataset_name}", page_size=_LIST_TABLES_PAGE_SIZE
+            ):
                 with current_timer.pause():
                     yield table
             self.report.num_list_tables_api_requests += 1
@@ -953,8 +1035,50 @@ class BigQuerySchemaApi:
         run_optimized_column_query: bool = False,
         extract_policy_tags_from_catalog: bool = False,
         rate_limiter: Optional[RateLimiter] = None,
-    ) -> Optional[Dict[str, List[BigqueryColumn]]]:
-        columns: Dict[str, List[BigqueryColumn]] = defaultdict(list)
+    ) -> Optional[FileBackedDict[List[BigqueryColumn]]]:
+        # File-backed so a dataset with very many columns - e.g. hundreds of
+        # date shards times hundreds of nested field paths - does not have to
+        # keep every column resident in memory. The query orders rows by
+        # table_name, so each table's columns arrive contiguously: we build one
+        # table at a time and flush it, bounding peak memory to a single table.
+        # cache_max_size=1 keeps at most one prior table in the in-memory LRU;
+        # the default (900) would hold whole datasets resident and defeat the
+        # file-backed spill. Pickled columns compress well, which keeps the temp
+        # file small on pods with little ephemeral storage.
+        columns: FileBackedDict[List[BigqueryColumn]] = FileBackedDict(
+            tablename="bigquery_columns",
+            cache_max_size=1,
+            should_compress_value=True,
+        )
+        # Close the file-backed dict on any failure after allocation (streaming,
+        # policy-tag resolution, etc). The caller only closes it on a successful
+        # return, so without this its temp sqlite file would leak until GC.
+        try:
+            return self._populate_columns_for_dataset(
+                columns=columns,
+                project_id=project_id,
+                dataset_name=dataset_name,
+                column_limit=column_limit,
+                report=report,
+                run_optimized_column_query=run_optimized_column_query,
+                extract_policy_tags_from_catalog=extract_policy_tags_from_catalog,
+                rate_limiter=rate_limiter,
+            )
+        except Exception:
+            columns.close()
+            raise
+
+    def _populate_columns_for_dataset(
+        self,
+        columns: "FileBackedDict[List[BigqueryColumn]]",
+        project_id: str,
+        dataset_name: str,
+        column_limit: int,
+        report: BigQueryV2Report,
+        run_optimized_column_query: bool,
+        extract_policy_tags_from_catalog: bool,
+        rate_limiter: Optional[RateLimiter],
+    ) -> Optional["FileBackedDict[List[BigqueryColumn]]"]:
         with PerfTimer() as timer:
             try:
                 cur = self.get_query_result(
@@ -977,36 +1101,59 @@ class BigQuerySchemaApi:
                     context=f"{project_id}.{dataset_name}",
                     exc=e,
                 )
+                columns.close()
                 return None
 
-            # Collect raw rows first so we can batch-resolve policy tag display names
-            # before constructing BigqueryColumn objects.
-            raw_rows = []
-            last_seen_table: str = ""
-            for column in cur:
-                if (
-                    column_limit
-                    and column.table_name in columns
-                    and len(columns[column.table_name]) >= column_limit
-                ):
-                    if last_seen_table != column.table_name:
-                        logger.warning(
-                            f"{project_id}.{dataset_name}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
-                        )
-                        last_seen_table = column.table_name
-                else:
-                    raw_rows.append(column)
+            # Policy tag display names are resolved in one batch after the stream
+            # (one Data Catalog call per taxonomy). While streaming we keep the
+            # raw resource names on each column and collect the distinct set; a
+            # second bounded pass rewrites them once the mapping is known.
+            all_resource_names: Set[str] = set()
+            # Tables holding any raw policy tags; only these need the second pass.
+            tables_with_policy_tags: Set[str] = set()
+            policy_tags_failed = False
+            written_tables: Set[str] = set()
 
-            # Batch-resolve policy tag display names for the entire dataset in a
-            # small number of Data Catalog API calls (one per unique taxonomy).
-            policy_tag_display_name_map: Dict[str, str] = {}
-            if extract_policy_tags_from_catalog:
-                all_resource_names: Set[str] = set()
-                for column in raw_rows:
-                    policy_tag_column = getattr(column, "policy_tags", None)
-                    if policy_tag_column:
+            current_table: Optional[str] = None
+            current_columns: List[BigqueryColumn] = []
+            truncated_table: str = ""
+
+            for column in cur:
+                table_name = column.table_name
+                if table_name != current_table:
+                    if current_table is not None:
+                        columns[current_table] = current_columns
+                        written_tables.add(current_table)
+                    current_table = table_name
+                    current_columns = []
+                    if table_name in written_tables:
+                        # The query orders by table_name, so this only happens if
+                        # that ordering changes. Append rather than overwrite the
+                        # columns already stored for this table.
+                        report.warning(
+                            title="Column rows for a table were not contiguous",
+                            message="The columns query returned a table's rows out of order. "
+                            "Its columns were merged, but the query's ORDER BY should be checked.",
+                            context=f"{project_id}.{dataset_name}.{table_name}",
+                        )
+                        current_columns = columns[table_name]
+
+                if column_limit and len(current_columns) >= column_limit:
+                    if truncated_table != table_name:
+                        logger.warning(
+                            f"{project_id}.{dataset_name}.{table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
+                        )
+                        truncated_table = table_name
+                    continue
+
+                policy_tags: List[str] = []
+                if extract_policy_tags_from_catalog and not policy_tags_failed:
+                    raw_tags = getattr(column, "policy_tags", None)
+                    if raw_tags:
                         try:
-                            all_resource_names.update(policy_tag_column)
+                            policy_tags = list(raw_tags)
+                            all_resource_names.update(policy_tags)
+                            tables_with_policy_tags.add(table_name)
                         except Exception as e:
                             report.warning(
                                 title="Policy tags column not available in INFORMATION_SCHEMA",
@@ -1014,9 +1161,34 @@ class BigQuerySchemaApi:
                                 context=f"{project_id}.{dataset_name}",
                                 exc=e,
                             )
-                            extract_policy_tags_from_catalog = False
+                            policy_tags_failed = True
+                            policy_tags = []
 
-                if extract_policy_tags_from_catalog and all_resource_names:
+                current_columns.append(
+                    BigqueryColumn(
+                        name=column.column_name,
+                        ordinal_position=column.ordinal_position,
+                        field_path=column.field_path,
+                        is_nullable=column.is_nullable == "YES",
+                        data_type=column.data_type,
+                        comment=column.comment,
+                        is_partition_column=column.is_partitioning_column == "YES",
+                        cluster_column_position=column.clustering_ordinal_position,
+                        policy_tags=policy_tags,
+                    )
+                )
+
+            if current_table is not None:
+                columns[current_table] = current_columns
+
+            # Resolve policy tag display names for the whole dataset at once, then
+            # rewrite only the tables that hold tags (one table resident at a time).
+            # If extraction failed part-way, clear the raw resource names already
+            # stored rather than emit them as tags, matching the all-or-nothing
+            # behaviour for the dataset.
+            if tables_with_policy_tags:
+                policy_tag_display_name_map: Dict[str, str] = {}
+                if not policy_tags_failed:
                     with PerfTimer() as policy_tag_timer:
                         policy_tag_display_name_map = (
                             self.build_policy_tag_display_name_mapping(
@@ -1032,36 +1204,19 @@ class BigQuerySchemaApi:
                     )
                     self.report.list_policy_tags_sec += elapsed
 
-            for column in raw_rows:
-                policy_tags: List[str] = []
-                if extract_policy_tags_from_catalog:
-                    raw_tags = getattr(column, "policy_tags", None)
-                    if raw_tags:
-                        for resource_name in raw_tags:
-                            if resource_name not in policy_tag_display_name_map:
-                                logger.debug(
-                                    f"Policy tag resource name not found in mapping "
-                                    f"(tag may have been deleted): {resource_name}"
-                                )
-                            policy_tags.append(
-                                policy_tag_display_name_map.get(
-                                    resource_name, resource_name
-                                )
+                for table_name in tables_with_policy_tags:
+                    table_columns = columns[table_name]
+                    for col in table_columns:
+                        if col.policy_tags:
+                            col.policy_tags = (
+                                []
+                                if policy_tags_failed
+                                else [
+                                    policy_tag_display_name_map.get(name, name)
+                                    for name in col.policy_tags
+                                ]
                             )
-
-                columns[column.table_name].append(
-                    BigqueryColumn(
-                        name=column.column_name,
-                        ordinal_position=column.ordinal_position,
-                        field_path=column.field_path,
-                        is_nullable=column.is_nullable == "YES",
-                        data_type=column.data_type,
-                        comment=column.comment,
-                        is_partition_column=column.is_partitioning_column == "YES",
-                        cluster_column_position=column.clustering_ordinal_position,
-                        policy_tags=policy_tags,
-                    )
-                )
+                    columns[table_name] = table_columns
 
             self.report.num_get_columns_for_dataset_api_requests += 1
             self.report.get_columns_for_dataset_sec += timer.elapsed_seconds()
