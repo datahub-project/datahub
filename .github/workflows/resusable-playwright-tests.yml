@@ -76,6 +76,13 @@ on:
         required: false
         type: string
         default: "1"
+      tier_plan_artifact:
+        description: >-
+          PR P0 tier only: name of the artifact holding plan_playwright_tier.py's plan. Each
+          shard then runs only its share of the plan's tests (--test-list). Empty runs every spec.
+        required: false
+        type: string
+        default: ""
 jobs:
   playwright_test:
     name: Playwright E2E Tests
@@ -206,6 +213,13 @@ jobs:
           yarn install --frozen-lockfile
           npx playwright install --with-deps chromium
 
+      - name: Download Playwright P0 tier plan
+        if: ${{ inputs.tier_plan_artifact != '' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ${{ inputs.tier_plan_artifact }}
+          path: e2e-test/ui/playwright/tier-plan
+
       - name: Compute this shard's spec files
         # Individual spec-file args bypass Playwright's fullyParallel worker-hash grouping
         # (keyed off featureName, used inconsistently across files, not path) entirely, so
@@ -214,13 +228,21 @@ jobs:
         env:
           SHARD: ${{ inputs.shard }}
           SHARD_COUNT: ${{ inputs.shard_count }}
+          TIER: ${{ inputs.tier_plan_artifact != '' }}
         run: |
+          # PR P0 tier: pack only the plan's specs and write this shard's --test-list.
+          tier_args=()
+          if [ "$TIER" = "true" ]; then
+            tier_args=(--tier-plan e2e-test/ui/playwright/tier-plan/playwright-tier-plan.json
+                       --output-test-list e2e-test/ui/playwright/shard-tests.txt)
+          fi
           python3 .github/scripts/split_playwright_tests.py \
             --split-index "$((SHARD - 1))" --split-total "$SHARD_COUNT" \
             --repo-root . \
             --test-dir e2e-test/ui/playwright/tests \
             --weights e2e-test/ui/playwright/playwright_test_weights.json \
-            --output-args e2e-test/ui/playwright/shard-files.txt
+            --output-args e2e-test/ui/playwright/shard-files.txt \
+            "${tier_args[@]}"
 
       - name: Run Playwright tests
         working-directory: e2e-test/ui/playwright
@@ -235,19 +257,42 @@ jobs:
           # them -- set this explicitly instead.
           PLAYWRIGHT_BLOB_OUTPUT_FILE: blob-report/report-${{ inputs.shard }}.zip
           TEST_RUNNER_TYPE: ${{ inputs.test_runner_type }}
+          SHARD: ${{ inputs.shard }}
+          SHARD_COUNT: ${{ inputs.shard_count }}
+          TIER: ${{ inputs.tier_plan_artifact != '' }}
         run: |
-          mapfile -t ARGS < shard-files.txt
           # *-scale specs assert wall-clock budgets tuned for Depot runners; GitHub-hosted
           # runners (fork PRs without the "depot" label) are ~1.5-2x slower and fail them.
+          skip_scale=false
           if [[ "$TEST_RUNNER_TYPE" != depot-* ]]; then
-            mapfile -t ARGS < <(printf '%s\n' "${ARGS[@]}" | grep -v -- '^[^/]*-scale/')
+            skip_scale=true
             echo "Skipping *-scale specs on non-Depot runner $TEST_RUNNER_TYPE"
           fi
+          if [ "$TIER" = "true" ]; then
+            # PR P0 tier: Playwright loads only the files the test list names. A line is
+            # either a whole spec ("dir/x.spec.ts") or one test ("[project] › dir/x.spec.ts › ...").
+            if [ "$skip_scale" = "true" ]; then
+              grep -vE -- '^(\[[^]]*\] › )?[^/ ]*-scale/' shard-tests.txt > shard-tests.filtered.txt || true
+              mv shard-tests.filtered.txt shard-tests.txt
+            fi
+            if [ ! -s shard-tests.txt ]; then
+              echo "No tests assigned to shard $SHARD/$SHARD_COUNT — skipping."
+              exit 0
+            fi
+            echo "Running P0 tier shard $SHARD/$SHARD_COUNT ($(wc -l < shard-tests.txt | tr -d ' ') test-list entries) at $WORKERS_PER_SHARD worker(s)"
+            cat shard-tests.txt
+            npx playwright test --test-list shard-tests.txt --workers="$WORKERS_PER_SHARD"
+            exit
+          fi
+          mapfile -t ARGS < shard-files.txt
+          if [ "$skip_scale" = "true" ]; then
+            mapfile -t ARGS < <(printf '%s\n' "${ARGS[@]}" | grep -v -- '^[^/]*-scale/')
+          fi
           if [ "${#ARGS[@]}" -eq 0 ]; then
-            echo "No spec files assigned to shard ${{ inputs.shard }}/${{ inputs.shard_count }} — skipping."
+            echo "No spec files assigned to shard $SHARD/$SHARD_COUNT — skipping."
             exit 0
           fi
-          echo "Running Playwright shard ${{ inputs.shard }}/${{ inputs.shard_count }} (${#ARGS[@]} spec files) at $WORKERS_PER_SHARD worker(s)"
+          echo "Running Playwright shard $SHARD/$SHARD_COUNT (${#ARGS[@]} spec files) at $WORKERS_PER_SHARD worker(s)"
           npx playwright test "${ARGS[@]}" --workers="$WORKERS_PER_SHARD"
 
       - name: Upload Playwright blob report
