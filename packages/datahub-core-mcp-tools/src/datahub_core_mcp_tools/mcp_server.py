@@ -32,6 +32,7 @@ from .tools.entities import (
 )
 from .tools.get_me import get_me
 from .tools.grep_entities import grep_entities
+from .tools.lineage import get_lineage
 from .tools.search import search, search_description
 from .version_requirements import tool_annotations
 
@@ -194,6 +195,8 @@ def register_tools(
         ToolType.SEARCH,
         description=search_description(is_oss=is_oss),
     )
+    # A multi-hop walk over a large graph can take a while.
+    add("get_lineage", get_lineage, ToolType.SEARCH, slow=True)
     schema_tools = (
         SchemaFieldsTool(matcher=schema_field_matcher)
         if schema_field_matcher is not None

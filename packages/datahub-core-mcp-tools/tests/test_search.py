@@ -57,6 +57,9 @@ class FakeBackend:
     def document_contents(self, urns: list[str]) -> list[JsonObject | None]:
         return []
 
+    def search_lineage(self, variables: JsonObject) -> JsonObject:
+        return {}
+
     def search_entities(self, variables: JsonObject) -> JsonObject:
         self.sent.append(dict(variables))
         total = self.total_for(variables)

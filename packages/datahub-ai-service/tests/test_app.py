@@ -151,6 +151,7 @@ async def test_legacy_and_modern_clients(gms: FakeGms, protocol: str) -> None:
     assert [tool.name for tool in tools] == [
         "get_me",
         "search",
+        "get_lineage",
         "get_entities",
         "list_schema_fields",
         "search_documents",

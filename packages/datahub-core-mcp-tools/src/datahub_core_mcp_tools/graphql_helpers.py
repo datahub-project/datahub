@@ -15,7 +15,7 @@ import pathlib
 import re
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Callable, Dict, Iterable, Iterator, Optional, TypeVar
 
 import requests
 from datahub.configuration.common import GraphError
@@ -28,6 +28,7 @@ from loguru import logger
 from .gms_server_info import GmsServerInfo
 from .gql_compiler import MARKER_TEXT, compile_gql
 from .search_filter_parser import parse_filter_string
+from .token_estimator import estimate_dict_tokens
 from .tool_context import ToolContext
 
 GQL_DIR = pathlib.Path(__file__).parent / "gql"
@@ -91,6 +92,40 @@ GREP_OUTPUT_CHAR_BUDGET = _env_limit(
 TOOL_RESPONSE_TOKEN_LIMIT = _env_limit("TOOL_RESPONSE_TOKEN_LIMIT", 80000)
 # Schema fields per entity: about five entities share TOOL_RESPONSE_TOKEN_LIMIT.
 ENTITY_SCHEMA_TOKEN_BUDGET = _env_limit("ENTITY_SCHEMA_TOKEN_BUDGET", 16000)
+
+
+_T = TypeVar("_T")
+
+
+def select_results_within_budget(
+    results: Iterable[_T],
+    fetch_entity: Callable[[_T], dict],
+    max_results: int = 10,
+    token_budget: Optional[int] = None,
+) -> Iterator[_T]:
+    """The leading results whose entities fit the token budget, at most ``max_results``.
+
+    ``fetch_entity`` returns the part of a result to measure and may clean it in
+    place first, so the budget counts what is actually returned. The first result
+    is always yielded, even when it alone is over budget. The budget defaults to
+    90% of TOOL_RESPONSE_TOKEN_LIMIT: estimates are approximate and the response
+    wrapper adds to them.
+    """
+    if token_budget is None:
+        token_budget = int(TOOL_RESPONSE_TOKEN_LIMIT * 0.9)
+    total_tokens = 0
+    for index, result in enumerate(results):
+        if index >= max_results:
+            break
+        tokens = estimate_dict_tokens(fetch_entity(result))
+        if index > 0 and total_tokens + tokens > token_budget:
+            logger.info(
+                f"Stopping at {index} results: the next would exceed the "
+                f"{token_budget:,}-token budget"
+            )
+            break
+        total_tokens += tokens
+        yield result
 
 
 def truncate_with_ellipsis(

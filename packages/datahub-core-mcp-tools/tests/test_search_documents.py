@@ -66,6 +66,9 @@ class FakeBackend:
     def document_contents(self, urns: list[str]) -> list[JsonObject | None]:
         return []
 
+    def search_lineage(self, variables: JsonObject) -> JsonObject:
+        return {}
+
     def search_documents(self, variables: JsonObject, *, semantic: bool) -> JsonObject:
         self.sent.append((semantic, dict(variables)))
         if semantic and self.semantic_error is not None:
