@@ -463,6 +463,10 @@ delta_lake = {
 
 powerbi_report_server = {"requests<3.0.0", "requests_ntlm<2.0.0"}
 
+# The shared M-Query lineage engine (common/m_query), used by powerbi and
+# azure-analysis-services.
+m_query_common = {"sqlparse>=0.6.0,<1.0.0", "mini-racer==0.14.1"} | sqlglot_lib
+
 slack = {
     "slack-sdk==3.18.1",
     "tenacity>=8.0.1,<9.0.0",
@@ -908,12 +912,16 @@ plugins: Dict[str, Set[str]] = {
     "starburst-trino-usage": sql_common | usage_common | trino,
     "starrocks": sql_common | {"starrocks>=1.3.3,<2.0", "lark>=1.3.1,<2.0"},
     "nifi": {"requests<3.0.0", "packaging<26.0.0", "requests-gssapi<2.0.0"},
-    "powerbi": (
-        microsoft_common
-        | {"sqlparse>=0.6.0,<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
-        | sqlglot_lib
-    ),
+    "powerbi": microsoft_common | m_query_common | {"more-itertools<11.0.0"},
     "powerbi-report-server": powerbi_report_server,
+    # Shares the Power BI M-query lineage engine, plus azure-identity for
+    # XMLA-over-HTTP auth and defusedxml for safe rowset parsing.
+    "azure-analysis-services": m_query_common
+    | {
+        "azure-identity>=1.21.0,<2.0.0",
+        "requests<3.0.0",
+        "defusedxml>=0.7.1,<0.8.0",
+    },
     "vertica": sql_common | {"sqlalchemy-vertica-python>=0.6.3,<0.7.0"},
     "unity-catalog": databricks_common | databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
@@ -1105,6 +1113,7 @@ base_dev_requirements = {
             "aerospike",
             "airbyte",
             "athena",
+            "azure-analysis-services",
             "bigquery",
             "clickhouse",
             "clickhouse-usage",
@@ -1268,6 +1277,7 @@ entry_points = {
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "airbyte = datahub.ingestion.source.airbyte.source:AirbyteSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
+        "azure-analysis-services = datahub.ingestion.source.azure_analysis_services.source:AzureAnalysisServicesSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "azure-data-factory = datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource",
         "fabric-onelake = datahub.ingestion.source.fabric.onelake.source:FabricOneLakeSource",
