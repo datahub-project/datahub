@@ -24,6 +24,7 @@ from datahub.ingestion.source.qlik_sense.qlik_base_api import UNREAD_DATA_CONNEC
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     DataConnectionInfo,
+    FileLoad,
     parse_script,
 )
 from datahub.metadata.schema_classes import (
@@ -96,10 +97,18 @@ def test_script_lists_every_file_a_load_reads() -> None:
     # Paths as the script's own variables expand them, and as written, for
     # the app's variables from its last reload to expand.
     assert parse_script(SCRIPT).file_loads == [
-        "lib://Sales Space:Lake//landing/orders.csv",
-        "$(vLake)/landing/orders.csv",
-        "lib://Sales Space:Lake/ref/regions.xlsx",
-        "lib://Lake/ref/targets.csv",
+        FileLoad(
+            expanded="lib://Sales Space:Lake//landing/orders.csv",
+            as_written="$(vLake)/landing/orders.csv",
+        ),
+        FileLoad(
+            expanded="lib://Sales Space:Lake/ref/regions.xlsx",
+            as_written="lib://Sales Space:Lake/ref/regions.xlsx",
+        ),
+        FileLoad(
+            expanded="lib://Lake/ref/targets.csv",
+            as_written="lib://Lake/ref/targets.csv",
+        ),
     ]
 
 
@@ -109,7 +118,7 @@ def test_mapping_and_added_loads_list_their_files() -> None:
         "Orders: LOAD * FROM [lib://Lake/orders.csv] (txt);\n"
         "Concatenate (Orders) LOAD * FROM [lib://Lake/more.csv] (txt);\n"
     )
-    assert parsed.file_loads == [
+    assert [load.expanded for load in parsed.file_loads] == [
         "lib://Lake/map.csv",
         "lib://Lake/orders.csv",
         "lib://Lake/more.csv",
@@ -578,6 +587,45 @@ def test_path_from_a_quoted_set_variable_resolves(mock_api_cls: MagicMock) -> No
         source._resolve_file_source("app-5", _file_qri("adls", "unknown", "old/f.csv"))
         == "urn:li:dataset:(urn:li:dataPlatform:abs,lake/old/f.csv,PROD)"
     )
+
+
+@pytest.mark.parametrize(
+    "script",
+    [
+        pytest.param(
+            "SUB L(p)\nX: LOAD * FROM [lib://Lake/$(p)] (txt);\nEND SUB;\n"
+            "CALL L('a.csv');\n",
+            id="sub parameter",
+        ),
+        pytest.param(
+            "SET vDir = 'lib://Lake/d/';\nX: LOAD * FROM [$(vDir)a.csv] (txt);\n"
+            "SET vDir = ;\n",
+            id="variable cleared at the end",
+        ),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_load_named_by_the_script_variables_is_not_unnamed(
+    mock_api_cls: MagicMock, script: str
+) -> None:
+    # The Engine's variables can't name the path as written, but the script's
+    # own expansion does.
+    source = _source({}, {})
+    app = App.model_validate(
+        {
+            "id": "app-6",
+            "qTitle": "Sales",
+            "description": "",
+            "createdDate": "2024-01-09T18:05:36.000Z",
+            "modifiedDate": "2024-01-09T18:05:36.000Z",
+            "spaceId": "space-1",
+            "variables": {"vDir": ""},
+        }
+    )
+    source._file_source_resolver(app, parse_script(script))
+
+    assert app.id not in source._apps_file_paths_unknown
+    assert not [w for w in source.reporter.warnings if "can't name" in str(w.title)]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")

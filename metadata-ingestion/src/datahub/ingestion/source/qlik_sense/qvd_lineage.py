@@ -109,6 +109,8 @@ class AppQvdLineage(BaseModel):
     qvds: AppQvds = AppQvds()
     # Canonical path of each QVD the app touches, by URN.
     paths: Dict[str, str] = {}
+    # A STORE names a data connection the resolver doesn't know.
+    has_unresolved_store: bool = False
 
 
 def _loaded_fields(load: PrecedingLoad) -> Optional[Dict[str, List[str]]]:
@@ -171,8 +173,10 @@ def app_qvd_lineage(
         lineage.tables[identifier].column_upstreams = {}
 
     for store in parsed.qvd_stores:
+        unresolved = len(resolver.unresolved)
         urn = qvd_urn(store.file)
         if urn is None:
+            lineage.has_unresolved_store |= len(resolver.unresolved) > unresolved
             continue
         stored = table(store.label)
         # The data model's fields are complete even when a LOAD * hid them
