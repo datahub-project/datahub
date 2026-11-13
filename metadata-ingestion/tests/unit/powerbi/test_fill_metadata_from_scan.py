@@ -1968,7 +1968,7 @@ def test_get_workunits_internal_reports_each_unmatched_athena_override_as_info()
 def test_get_workunits_internal_skips_unmatched_override_report_without_lineage():
     """With extract_lineage off no override can match, so none is reported."""
     source = _make_source(
-        workspaces_to_return=[_make_workspace("WS-A")],
+        workspaces_to_return=[_make_scanned_workspace("WS-A")],
         excluded_ids=set(),
         extract_lineage=False,
         extract_column_level_lineage=False,

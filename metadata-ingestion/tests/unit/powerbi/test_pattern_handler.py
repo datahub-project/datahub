@@ -1337,10 +1337,7 @@ def test_odbc_teradata_schema_nav_is_database_and_wins_over_dsn_mapping(
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:teradata,other_db.orders,PROD)"
     ]
-    assert not any(
-        (w.title or "") == "Dropped ODBC navigation schema level"
-        for w in instance.reporter.warnings
-    )
+    assert [w.title for w in instance.reporter.warnings] == []
 
 
 @pytest.mark.parametrize("platform", ["mysql", "teradata"])
