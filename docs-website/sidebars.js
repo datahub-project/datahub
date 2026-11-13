@@ -194,8 +194,19 @@ module.exports = {
         },
         {
           label: "Domains",
-          type: "doc",
-          id: "docs/domains",
+          type: "category",
+          collapsed: true,
+          link: {
+            type: "doc",
+            id: "docs/domains",
+          },
+          items: [
+            {
+              label: "Data Products",
+              type: "doc",
+              id: "docs/dataproducts",
+            },
+          ],
         },
         {
           label: "Ownership",
@@ -206,11 +217,6 @@ module.exports = {
           label: "Business Glossary",
           type: "doc",
           id: "docs/glossary/business-glossary",
-        },
-        {
-          label: "Data Products",
-          type: "doc",
-          id: "docs/dataproducts",
         },
         {
           label: "Context",
