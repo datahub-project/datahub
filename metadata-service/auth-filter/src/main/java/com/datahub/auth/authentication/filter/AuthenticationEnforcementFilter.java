@@ -14,7 +14,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -37,6 +39,11 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Component
 @Slf4j
 public class AuthenticationEnforcementFilter extends OncePerRequestFilter {
+  /** Retry-After base and jitter for 503s caused by an unreachable authentication store. */
+  private int unavailableRetryAfterSeconds;
+
+  private int unavailableRetryAfterJitterPercent;
+
   @Autowired private ConfigurationProvider configurationProvider;
 
   private Set<String> excludedPathPatterns;
@@ -44,6 +51,14 @@ public class AuthenticationEnforcementFilter extends OncePerRequestFilter {
   @PostConstruct
   public void init() {
     initializeExcludedPaths();
+    unavailableRetryAfterSeconds =
+        Math.max(1, configurationProvider.getAuthentication().getUnavailableRetryAfterSeconds());
+    unavailableRetryAfterJitterPercent =
+        Math.min(
+            100,
+            Math.max(
+                0,
+                configurationProvider.getAuthentication().getUnavailableRetryAfterJitterPercent()));
     log.info("AuthenticationEnforcementFilter initialized - enforcement only mode.");
   }
 
@@ -73,6 +88,26 @@ public class AuthenticationEnforcementFilter extends OncePerRequestFilter {
         // This path requires authentication
         if (authentication == null || isAnonymousUser(authentication)) {
           String remoteAddr = request.getRemoteAddr();
+          if (Boolean.TRUE.equals(
+              request.getAttribute(
+                  AuthenticationExtractionFilter.AUTHENTICATION_UNAVAILABLE_ATTRIBUTE))) {
+            // The credentials could not be checked, not found invalid: ask the client to retry.
+            log.warn(
+                "Authentication unavailable for protected path: {} from {}; returning 503",
+                request.getServletPath(),
+                remoteAddr != null ? remoteAddr : "unknown");
+            response.setHeader(
+                "Retry-After",
+                String.valueOf(
+                    retryAfterSeconds(
+                        unavailableRetryAfterSeconds,
+                        unavailableRetryAfterJitterPercent,
+                        ThreadLocalRandom.current())));
+            response.sendError(
+                HttpServletResponse.SC_SERVICE_UNAVAILABLE,
+                "Authentication is temporarily unavailable. Please retry the request.");
+            return;
+          }
           log.warn(
               "Rejected unauthenticated request to protected path: {} from {}",
               request.getServletPath(),
@@ -101,6 +136,17 @@ public class AuthenticationEnforcementFilter extends OncePerRequestFilter {
       // in case there are any edge cases or ordering issues
       AuthenticationContext.remove();
     }
+  }
+
+  /**
+   * {@code baseSeconds} plus a random 0..ceil(baseSeconds * jitterPercent / 100) seconds, so that
+   * clients rejected in the same outage spread their retries.
+   */
+  @VisibleForTesting
+  public static int retryAfterSeconds(
+      final int baseSeconds, final int jitterPercent, final Random random) {
+    final int maxJitter = (int) Math.ceil(baseSeconds * jitterPercent / 100.0);
+    return maxJitter <= 0 ? baseSeconds : baseSeconds + random.nextInt(maxJitter + 1);
   }
 
   /**

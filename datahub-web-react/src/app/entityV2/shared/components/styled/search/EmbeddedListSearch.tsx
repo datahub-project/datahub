@@ -5,8 +5,7 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { useEntityContext } from '@app/entity/shared/EntityContext';
-import { EntityAndType } from '@app/entity/shared/types';
+import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import EmbeddedListSearchHeader from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchHeader';
 import { EmbeddedListSearchResults } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchResults';
 import { EntityActionProps } from '@app/entityV2/shared/components/styled/search/EntitySearchResults';
@@ -16,17 +15,18 @@ import {
     SearchResultsInterface,
 } from '@app/entityV2/shared/components/styled/search/types';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { isListSubset } from '@app/entityV2/shared/utils';
 import { DEGREE_FILTER_NAME, FIELD_PATHS_FILTER_NAME, UnionType } from '@app/search/utils/constants';
 import { mergeFilterSets } from '@app/search/utils/filterUtils';
 import { generateOrFilters } from '@app/search/utils/generateOrFilters';
+import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/search/utils/useDownloadScrollAcrossEntitiesSearchResults';
 import {
     DownloadSearchResults,
     DownloadSearchResultsInput,
     DownloadSearchResultsParams,
-} from '@app/search/utils/types';
-import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/search/utils/useDownloadScrollAcrossEntitiesSearchResults';
-import { Message } from '@app/shared/Message';
+} from '@app/searchV2/utils/types';
+import { Message } from '@app/sharedV2/Message';
 import { combineOrFilters } from '@src/app/searchV2/utils/filterUtils';
 import { SearchCfg } from '@src/conf';
 
@@ -134,6 +134,8 @@ type Props = {
     resetShouldRefetch?: () => void;
     applyView?: boolean;
     showFilterBar?: boolean;
+    isViewAllMode?: boolean;
+    handleViewAllClickWarning?: () => void;
     sort?: SortCriterion;
     searchFlags?: SearchFlags;
 };
@@ -168,6 +170,8 @@ export const EmbeddedListSearch = ({
     resetShouldRefetch,
     applyView = false,
     showFilterBar = true,
+    isViewAllMode,
+    handleViewAllClickWarning,
     sort,
     searchFlags,
 }: Props) => {
@@ -445,6 +449,8 @@ export const EmbeddedListSearch = ({
                 selectedViewUrn={selectedViewUrn || ''}
                 setSelectedViewUrn={setSelectedViewUrn}
                 applyView={applyView}
+                isViewAllMode={isViewAllMode}
+                handleViewAllClickWarning={handleViewAllClickWarning}
                 defaultViewUrn={defaultViewUrn}
                 allSearchCount={allSearchCount}
                 defaultViewCount={defaultViewCount}

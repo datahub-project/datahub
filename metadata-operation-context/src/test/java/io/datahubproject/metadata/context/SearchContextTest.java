@@ -154,6 +154,28 @@ public class SearchContextTest {
   }
 
   @Test
+  public void testSearchTemplateRuntimeIsExcludedFromCacheKeyAndEquals() {
+    EntityIndexConfiguration entityIndexConfig = createDefaultEntityIndexConfiguration();
+    IndexConvention convention = IndexConventionImpl.noPrefix("MD5", entityIndexConfig);
+    SearchTemplateRuntime runtimeA = new SearchTemplateRuntime() {};
+    SearchTemplateRuntime runtimeB = new SearchTemplateRuntime() {};
+
+    SearchContext withoutRuntime = SearchContext.builder().indexConvention(convention).build();
+    SearchContext withRuntime =
+        SearchContext.builder().indexConvention(convention).searchTemplateRuntime(runtimeA).build();
+    SearchContext otherRuntime =
+        SearchContext.builder().indexConvention(convention).searchTemplateRuntime(runtimeB).build();
+
+    assertEquals(withoutRuntime.getCacheKeyComponent(), withRuntime.getCacheKeyComponent());
+    assertEquals(withRuntime.getCacheKeyComponent(), otherRuntime.getCacheKeyComponent());
+    assertEquals(withoutRuntime, withRuntime);
+    assertEquals(withRuntime, otherRuntime);
+
+    SearchContext copied = withRuntime.withFlagDefaults(flags -> flags.setSkipCache(true));
+    assertEquals(copied.getSearchTemplateRuntime(), runtimeA);
+  }
+
+  @Test
   public void testResolvedSearchTemplateIsPartOfTheCacheKey() {
     EntityIndexConfiguration entityIndexConfig = createDefaultEntityIndexConfiguration();
     IndexConvention convention = IndexConventionImpl.noPrefix("MD5", entityIndexConfig);

@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_EXACT_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_FULLTEXT_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_IDENTITY_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIGHT_URN;
+import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIST_BY_URN_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIST_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_SEARCH_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_STRUCTURED_EXACT_URN;
@@ -34,6 +35,7 @@ import com.linkedin.metadata.config.search.SearchTemplateSource;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.search.template.SearchTemplateDefaultRoute;
@@ -44,11 +46,11 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.datahubproject.metadata.context.RetrieverContext;
-import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import org.apache.lucene.search.TotalHits;
 import org.opensearch.action.search.SearchResponse;
@@ -73,8 +75,10 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     assertEquals(
         selector.select(opContext, "s3:\\/\\/bucket\\/key", true, null).getUrn(),
         SEARCH_TEMPLATE_IDENTITY_URN);
-    assertEquals(selector.select(opContext, "", true, null).getUrn(), SEARCH_TEMPLATE_LIST_URN);
-    assertEquals(selector.select(opContext, "*", true, null).getUrn(), SEARCH_TEMPLATE_LIST_URN);
+    assertEquals(
+        selector.select(opContext, "", true, null).getUrn(), SEARCH_TEMPLATE_LIST_BY_URN_URN);
+    assertEquals(
+        selector.select(opContext, "*", true, null).getUrn(), SEARCH_TEMPLATE_LIST_BY_URN_URN);
     assertEquals(
         selector.select(opContext, "\\/q \"orders\"", true, null).getUrn(),
         SEARCH_TEMPLATE_STRUCTURED_EXACT_URN);
@@ -136,6 +140,7 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     SearchTemplateLoader classpath = new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH);
     MergedSearchTemplate searchLight =
         classpath.load(opContext, "urn:li:searchTemplate:searchLight");
+    assertEquals(SearchTemplateRoutes.decide(searchLight, "*").target(), SEARCH_TEMPLATE_LIST_URN);
     assertEquals(
         SearchTemplateRoutes.decide(searchLight, "urn:orders").target(), SEARCH_TEMPLATE_LIGHT_URN);
     assertEquals(
@@ -181,6 +186,23 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     assertFalse(
         render(builder, SEARCH_TEMPLATE_FULLTEXT_URN, "orderz_20240101").contains("orderz~"));
     assertTrue(render(builder, SEARCH_TEMPLATE_FULLTEXT_URN, "custmers").contains("custmers~"));
+    RenderedSearchTemplate rendered =
+        builder.render(
+            opContext.withResolvedSearchTemplate(
+                new ResolvedSearchTemplate(SEARCH_TEMPLATE_FULLTEXT_URN, 1L, null, null)),
+            List.of(TestEntitySpecBuilder.getSpec()),
+            "orders",
+            true,
+            null,
+            false);
+    Map<String, List<String>> fullText =
+        com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFieldModel
+            .forSearchableEntities(opContext.getEntityRegistry())
+            .fullTextFields();
+    assertTrue(rendered.queriedFields().containsAll(rendered.queriedFieldSources().keySet()));
+    rendered
+        .queriedFieldSources()
+        .forEach((label, paths) -> assertEquals(paths, fullText.get(label), label));
   }
 
   @Test
@@ -190,14 +212,15 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
         new SearchV3QueryBuilder(classpath, new SearchConfiguration(), null);
     String longQuery = "one two three four";
     String fulltext = render(builder, SEARCH_TEMPLATE_FULLTEXT_URN, longQuery);
-    assertTrue(fulltext.contains("\"boost\" : 100.0"), fulltext);
     assertTrue(fulltext.contains("\"minimum_should_match\" : \"25%\""), fulltext);
     assertTrue(fulltext.contains("\"operator\" : \"OR\""), fulltext);
     assertTrue(fulltext.contains("\"boost\" : 10.0"), fulltext);
 
+    // The exact name term is boost 100 on every query. The partial description clause is the
+    // minimum_should_match and boost 10, and those stay off a short query.
     String shortQuery = render(builder, SEARCH_TEMPLATE_FULLTEXT_URN, "orders");
     assertFalse(shortQuery.contains("\"minimum_should_match\" : \"25%\""), shortQuery);
-    assertFalse(shortQuery.contains("\"boost\" : 100.0"), shortQuery);
+    assertFalse(shortQuery.contains("\"boost\" : 10.0"), shortQuery);
 
     String light = render(builder, SEARCH_TEMPLATE_LIGHT_URN, longQuery);
     assertTrue(light.contains("\"boost\" : 100.0"), light);
@@ -279,10 +302,10 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
   }
 
   @Test
-  public void testCallerTemplateRequiresSystemOperationsPrivilege() {
+  public void testCallerCanSelectSearchTemplate() {
     installShippedRoutes();
     SearchTemplateSelector selector = new SearchTemplateSelector(templates, loader);
-    OperationContext denied =
+    OperationContext caller =
         opContext
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH)
             .withSearchFlags(
@@ -291,7 +314,9 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
                         .setFulltext(true)
                         .setSearchTemplate(UrnUtils.getUrn(SEARCH_TEMPLATE_LIST_URN)));
 
-    assertThrows(ActorAccessException.class, () -> selector.select(denied, "orders", true, null));
+    ResolvedSearchTemplate selected = selector.select(caller, "orders", true, null);
+    assertEquals(selected.getUrn(), SEARCH_TEMPLATE_LIST_URN);
+    assertEquals(selected.getEngineSlot(), SearchTemplateMetrics.SLOT_CALLER);
   }
 
   @Test
@@ -413,6 +438,17 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     withQuery.setDefaultRoute(defaultTo(SEARCH_TEMPLATE_FULLTEXT_URN));
     assertThrows(SearchTemplateException.class, () -> SearchTemplateChecks.check(withQuery, 1024));
 
+    SearchTemplateProperties withComponent = body("Router", null, null);
+    com.linkedin.search.template.SearchTemplateComponent component =
+        new com.linkedin.search.template.SearchTemplateComponent();
+    component.setName("reverse");
+    component.setVersion(1);
+    component.setMode(com.linkedin.search.template.SearchTemplateComponentMode.POST_PROCESS);
+    withComponent.setComponent(component);
+    withComponent.setDefaultRoute(defaultTo(SEARCH_TEMPLATE_FULLTEXT_URN));
+    assertThrows(
+        SearchTemplateException.class, () -> SearchTemplateChecks.check(withComponent, 1024));
+
     SearchTemplateProperties withLadder = body("Router", null, null);
     SearchTemplateLadder ladder = new SearchTemplateLadder();
     ladder.setSelect(new StringArray("scoreSort"));
@@ -436,7 +472,9 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
                 templates.getMaxRoutePatternLength(),
                 null,
                 null,
-                null));
+                null,
+                com.linkedin.metadata.search.elasticsearch.query.template
+                    .SearchTemplateComponentRegistry.empty()));
 
     store(SEARCH_TEMPLATE_FULLTEXT_URN, body("Fulltext", FULLTEXT_QUERY, null));
     SearchTemplateProperties parent = body("Parent", FULLTEXT_QUERY, null);
@@ -613,10 +651,17 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
   @Test
   public void testScrollFollowsARouteAndExplainKeepsTheCacheKey() {
     installShippedRoutes();
-    SearchTemplateCoordinator coordinator = new SearchTemplateCoordinator(v3Config(), null, loader);
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     OperationContext scrolled = coordinator.bind(opContext, "*", true);
     assertEquals(
-        scrolled.getSearchContext().getResolvedSearchTemplate().getUrn(), SEARCH_TEMPLATE_LIST_URN);
+        scrolled.getSearchContext().getResolvedSearchTemplate().getUrn(),
+        SEARCH_TEMPLATE_LIST_BY_URN_URN);
 
     OperationContext routed = coordinator.bind(opContext, "customer orders");
     OperationContext pinned =

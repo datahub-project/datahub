@@ -2,8 +2,6 @@ import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render } from '@testing-library/react';
 import React from 'react';
 
-import { EntityContext } from '@app/entity/shared/EntityContext';
-import SchemaRow from '@app/entityV2/dataset/profile/schema/components/SchemaRow';
 import {
     sampleSchema,
     sampleSchemaWithKeyValueFields,
@@ -11,19 +9,13 @@ import {
     sampleSchemaWithTags,
     sampleSchemaWithoutFields,
 } from '@app/entityV2/dataset/profile/stories/sampleSchema';
+import { EntityContext } from '@app/entityV2/shared/EntityContext';
 import { SchemaTab } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTab';
 import { TabRenderType } from '@app/entityV2/shared/types';
 import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 import { EntityType, SchemaMetadata } from '@types';
-
-vi.mock('virtualizedtableforantd4', async () => {
-    return {
-        ...(await vi.importActual<object>('virtualizedtableforantd4')),
-        useVT: () => [{ body: { row: SchemaRow } }, vi.fn()],
-    };
-});
 
 describe('Schema', () => {
     it('renders', () => {

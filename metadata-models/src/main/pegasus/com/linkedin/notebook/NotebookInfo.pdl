@@ -23,7 +23,9 @@ record NotebookInfo includes CustomProperties, ExternalReference {
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
+      "lowercase": true,
       "mappings": [
         { "type": "KEYWORD" },
         { "subfield": "text", "type": "TEXT" },
@@ -41,6 +43,7 @@ record NotebookInfo includes CustomProperties, ExternalReference {
     "hasValuesFieldName": "hasDescription",
     "sanitizeRichText": true,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },

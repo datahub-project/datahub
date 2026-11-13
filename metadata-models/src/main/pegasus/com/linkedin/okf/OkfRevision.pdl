@@ -1,0 +1,17 @@
+namespace com.linkedin.okf
+
+/**
+ * The revision the concept was read at; the merge base for write-back. The file is
+ * `{conceptId}.md` under `bundle.rootPath` (omitted when ".") in the repository at
+ * `bundle.location`, read at `ref`.
+ */
+record OkfRevision {
+  /** Branch or ref used to read the file. */
+  ref: optional string
+
+  /** Commit SHA for the imported revision, when available. */
+  commit: optional string
+
+  /** Git blob SHA for the imported file, when available. */
+  blobSha: optional string
+}

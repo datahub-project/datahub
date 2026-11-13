@@ -6,12 +6,12 @@ import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
 import SchemaHeader from '@app/entityV2/dataset/profile/schema/components/SchemaHeader';
 import SchemaRawView from '@app/entityV2/dataset/profile/schema/components/SchemaRawView';
 import { SEMANTIC_VERSION_PARAM } from '@app/entityV2/dataset/profile/schema/components/VersionSelector';
 import { KEY_SCHEMA_PREFIX } from '@app/entityV2/dataset/profile/schema/utils/constants';
 import { groupByFieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { useBaseEntity, useEntityData } from '@app/entityV2/shared/EntityContext';
 import { isLogicalModel } from '@app/entityV2/shared/logicalModels/logicalModels.utils';
 import CompactSchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/CompactSchemaTable';
 import SchemaContext from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
@@ -31,7 +31,7 @@ import {
 import useUpdateSchemaFilterQueryString from '@app/entityV2/shared/tabs/Dataset/Schema/utils/updateSchemaFilterQueryString';
 import { TabRenderType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import SchemaEditableContext from '@app/sharedV2/SchemaEditableContext';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -51,6 +51,8 @@ const SchemaTableContainer = styled.div`
     height: 100%;
     box-sizing: border-box;
     overflow: hidden;
+    // Same inset as the schema header above, so the table sits as a card inside the tab.
+    padding: 0 16px 16px 16px;
 `;
 
 const SchemaScrollArea = styled.div`
@@ -159,6 +161,8 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
         skip: !urn || hideSemanticVersions,
     });
 
+    // The edited primary key is not versioned, so older schema versions show only their source key.
+    const editedPrimaryKeys = isLatestVersion ? entityWithSchema?.editablePrimaryKeys?.primaryKeys : undefined;
     let editMode = true;
     if (!isLatestVersion) {
         schemaMetadata = versionedSchema;
@@ -270,6 +274,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                     rows={rows}
                     schemaMetadata={schemaMetadata}
                     editableSchemaMetadata={editableSchemaMetadata}
+                    editedPrimaryKeys={editedPrimaryKeys}
                     expandedDrawerFieldPath={expandedDrawerFieldPath}
                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                     openTimelineDrawer={openTimelineDrawer}
@@ -353,6 +358,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                                     schemaMetadata={schemaMetadata}
                                     rows={rows}
                                     editableSchemaMetadata={editableSchemaMetadata}
+                                    editedPrimaryKeys={editedPrimaryKeys}
                                     usageStats={usageStats}
                                     expandedRowsFromFilter={expandedRowsFromFilter}
                                     filterText={filterText}

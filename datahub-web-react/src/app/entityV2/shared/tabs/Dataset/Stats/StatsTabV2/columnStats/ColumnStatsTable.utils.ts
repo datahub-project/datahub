@@ -7,6 +7,7 @@ interface SchemaField {
     nativeDataType?: string | null;
     schemaFieldEntity?: any;
     nullable: boolean;
+    isPartOfKey?: boolean;
     recursive?: boolean;
     description?: string | null;
     children?: SchemaField[];
@@ -54,6 +55,7 @@ export function mapToSchemaField(field: unknown): SchemaField {
         nativeDataType: fieldObj.nativeDataType || null,
         schemaFieldEntity: fieldObj.schemaFieldEntity || null,
         nullable: fieldObj.nullable ?? false,
+        isPartOfKey: fieldObj.isPartOfKey,
         recursive: fieldObj.recursive || false,
         description: fieldObj.description || null,
         children: fieldObj.children || undefined,

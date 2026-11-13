@@ -2,7 +2,7 @@ import React from 'react';
 
 import { ADDITIONAL_PATHS } from '@app/settingsV2/additionalSettingsPaths';
 import { SettingsPath } from '@app/settingsV2/types';
-import { lazyDefault, lazyNamed } from '@app/shared/lazyPage';
+import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 
 const ManageViews = lazyNamed(() => import('@app/entityV2/view/ManageViews'), 'ManageViews');
 const AccessTokens = lazyNamed(() => import('@app/settingsV2/AccessTokens'), 'AccessTokens');

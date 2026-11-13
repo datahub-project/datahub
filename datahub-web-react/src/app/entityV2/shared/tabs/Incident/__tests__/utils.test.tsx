@@ -9,11 +9,9 @@ import {
     getFormattedDateForResolver,
     getLinkedAssetsCount,
     getLinkedAssetsData,
-    getSortedIncidents,
     useSiblingOptionsForIncidentBuilder,
     validateForm,
 } from '@app/entityV2/shared/tabs/Incident/utils';
-import { SortingState } from '@src/alchemy-components/components/Table/types';
 import { EntityType } from '@src/types.generated';
 
 describe('Utility Functions', () => {
@@ -104,13 +102,6 @@ describe('Utility Functions', () => {
     test('validateForm should return true if no errors exist', () => {
         const form = { getFieldsError: () => [{ errors: [] }] };
         expect(validateForm(form)).toBe(true);
-    });
-
-    test('getSortedIncidents should sort incidents based on column', () => {
-        const incidents = [{ title: 'B' }, { title: 'A' }];
-        const record = { incidents };
-        const sorted = getSortedIncidents(record, { sortColumn: 'name', sortOrder: SortingState.ASCENDING });
-        expect(sorted[0].title).toBe('A');
     });
 
     test('getExistingIncidents should return combined incidents from entity data', () => {

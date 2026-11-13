@@ -37,9 +37,11 @@ import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.EntityRegistryContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.PartialNgramEntityRegistry;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -48,6 +50,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.opensearch.OpenSearchException;
@@ -83,6 +86,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   protected static final String TEST_V2_INDEX_NAME = TEST_INDEX_NAME;
   protected static final String TEST_V3_INDEX_NAME = "estest_datasetindex_v3";
   private static final String OBJECT_ROUNDTRIP_INDEX = "estest_objectroundtripindex_v2";
+  private static final String PARTIAL_NGRAM_V3_INDEX = "estest_partialngramtestentityindex_v3";
   private ElasticSearchConfiguration testDefaultConfig;
   private ESIndexBuilder testDefaultBuilder;
   private ESIndexBuilder testReplicasBuilder;
@@ -173,7 +177,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
     // Create DelegatingMappingsBuilder using utility method
     delegatingMappingsBuilder =
-        createDelegatingMappingsBuilder(V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION);
+        createDelegatingMappingsBuilder(
+            V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION, getSearchClient());
   }
 
   /** Pattern matching incremental reindex next indices created during tests. */
@@ -204,7 +209,9 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     }
 
     // Clean up all test indices
-    String[] testIndices = {TEST_V2_INDEX_NAME, TEST_V3_INDEX_NAME, OBJECT_ROUNDTRIP_INDEX};
+    String[] testIndices = {
+      TEST_V2_INDEX_NAME, TEST_V3_INDEX_NAME, OBJECT_ROUNDTRIP_INDEX, PARTIAL_NGRAM_V3_INDEX
+    };
 
     for (String indexName : testIndices) {
       try {
@@ -1017,6 +1024,60 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
         "Second system-update pass must not enter a mapping reindex loop on ES8");
   }
 
+  /**
+   * Guards against a V3 mapping reindex loop on ES8, which strips {@code doc_values: false} from
+   * {@code search_as_you_type} fields. With mappings built from the cluster's client, as the GMS
+   * factories build them, creating a V3 index with a partial-ngram field and deciding again must
+   * find nothing to change. The default registry declares no V3 {@code TEXT_PARTIAL} field, so the
+   * test uses one that does.
+   */
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testNoV3PartialNgramMappingsReindexLoopOnES8() throws Exception {
+    if (getSearchClient().getEngineType() != SearchClientShim.SearchEngineType.ELASTICSEARCH_8) {
+      throw new SkipException("ES8 V3 partial-ngram mapping round-trip test");
+    }
+    OperationContext partialNgramContext =
+        opContext.toBuilder()
+            .entityRegistryContext(
+                EntityRegistryContext.builder().build(new PartialNgramEntityRegistry()))
+            .build(opContext.getSessionAuthentication(), true);
+    MappingsBuilder.IndexMapping v3Mapping =
+        createDelegatingMappingsBuilder(V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION, getSearchClient())
+            .getIndexMappings(partialNgramContext, List.of())
+            .stream()
+            .filter(mapping -> PARTIAL_NGRAM_V3_INDEX.equals(mapping.getIndexName()))
+            .findFirst()
+            .orElseThrow();
+    String indexName = v3Mapping.getIndexName();
+    Map<String, Object> mappings = v3Mapping.getMappings();
+    Map<String, Object> label =
+        (Map<String, Object>)
+            ((Map<String, Object>) mappings.get("properties")).get("partialNgramTitle");
+    Map<String, Object> ngram =
+        (Map<String, Object>) ((Map<String, Object>) label.get("fields")).get("ngram");
+    assertEquals(ngram.get("type"), "search_as_you_type");
+    Map<String, Object> settings =
+        delegatingSettingsBuilder.getSettings(testDefaultConfig.getIndex(), indexName);
+
+    ReindexConfig createConfig =
+        testDefaultBuilder.buildReindexState(partialNgramContext, indexName, mappings, settings);
+    assertEquals(
+        testDefaultBuilder.buildIndex(partialNgramContext, createConfig),
+        ReindexResult.CREATED_NEW);
+
+    ReindexConfig secondPass =
+        testDefaultBuilder.buildReindexState(partialNgramContext, indexName, mappings, settings);
+
+    assertTrue(secondPass.exists());
+    assertFalse(
+        secondPass.requiresApplyMappings(),
+        "ES8 V3 partial-ngram mapping round-trip must not produce a mapping diff");
+    assertFalse(
+        secondPass.requiresReindex(),
+        "Second system-update pass must not enter a V3 mapping reindex loop on ES8");
+  }
+
   @Test
   public void testV3IndexCreation() throws Exception {
     // Test that v3 indices are created with proper settings using delegating builders
@@ -1387,6 +1448,124 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
         assertOnlyParsedUrnSources(aspectsProperties.get("structuredProperties"));
       }
     }
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testEngineRejectionOfNewStructuredPropertyFields() throws Exception {
+    // The engine's own total-fields rejection: system-update applies the rest of the change and
+    // leaves the new structured property fields out, and a fill into the index fails on it.
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            testDefaultConfig,
+            StructuredPropertiesConfiguration.builder()
+                .enabled(true)
+                .systemUpdateEnabled(false)
+                .build(),
+            Map.of(),
+            new GitVersion("0.0.0-test", "123456", Optional.empty()));
+    // field1 and the structured property container take two of the three fields allowed.
+    Map<String, Object> settings = Map.of("mapping", Map.of("total_fields", Map.of("limit", 3)));
+    buildIndex(builder, TEST_INDEX_NAME, structuredPropertyTestMappings(false, Map.of()), settings);
+    Map<String, Object> target =
+        structuredPropertyTestMappings(
+            true, Map.of("propA", Map.of("type", "keyword"), "propB", Map.of("type", "keyword")));
+
+    ReindexConfig withNewField =
+        builder.buildReindexState(opContext, TEST_INDEX_NAME, target, settings);
+    assertTrue(withNewField.isPureMappingsAddition());
+    builder.buildIndex(opContext, withNewField);
+
+    ReindexConfig onlyStructuredPropertiesMissing =
+        builder.buildReindexState(opContext, TEST_INDEX_NAME, target, settings);
+    Map<String, Object> properties =
+        (Map<String, Object>) onlyStructuredPropertiesMissing.currentMappings().get("properties");
+    assertTrue(properties.containsKey("field2"));
+    assertEquals(structuredPropertyFieldNames(properties), Set.of());
+    assertFalse(onlyStructuredPropertiesMissing.requiresApplyMappings());
+    assertFalse(onlyStructuredPropertiesMissing.requiresApplySettings());
+
+    assertEquals(
+        builder.buildIndex(opContext, onlyStructuredPropertiesMissing),
+        ReindexResult.NOT_REINDEXED_NOTHING_APPLIED);
+    assertThrows(
+        Exception.class,
+        () ->
+            builder.addUnmappedStructuredPropertyFields(
+                opContext, onlyStructuredPropertiesMissing));
+    assertEquals(
+        structuredPropertyFieldNames(
+            (Map<String, Object>)
+                builder
+                    .buildReindexState(opContext, TEST_INDEX_NAME, target, settings)
+                    .currentMappings()
+                    .get("properties")),
+        Set.of());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testReindexFallsBackToLiveStructuredPropertyFieldsOnRejection() throws Exception {
+    // The engine rejects a destination with the definitions' fields; the reindex completes with
+    // the fields the index maps now instead of failing with its writes blocked.
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            testDefaultConfig.toBuilder()
+                .index(testDefaultConfig.getIndex().toBuilder().enableMappingsReindex(true).build())
+                .build(),
+            StructuredPropertiesConfiguration.builder()
+                .enabled(true)
+                .systemUpdateEnabled(false)
+                .build(),
+            Map.of(),
+            new GitVersion("0.0.0-test", "123456", Optional.empty()));
+    // field1, the container and propLive fill the limit.
+    Map<String, Object> settings = Map.of("mapping", Map.of("total_fields", Map.of("limit", 3)));
+    Map<String, Object> keyword = Map.of(ESUtils.TYPE, ESUtils.KEYWORD);
+    buildIndex(
+        builder,
+        TEST_INDEX_NAME,
+        structuredPropertyTestMappings(false, Map.of("propLive", keyword)),
+        settings);
+    // Only a reindex changes field1's type; propA and propB take the destination past the limit.
+    Map<String, Object> target =
+        structuredPropertyTestMappings(
+            false, Map.of("propLive", keyword, "propA", keyword, "propB", keyword));
+    ((Map<String, Object>) target.get("properties")).put("field1", Map.of(ESUtils.TYPE, "text"));
+
+    ReindexConfig config = builder.buildReindexState(opContext, TEST_INDEX_NAME, target, settings);
+    assertTrue(config.requiresReindex());
+    builder.buildIndex(opContext, config);
+
+    Map<String, Object> properties =
+        (Map<String, Object>)
+            builder
+                .buildReindexState(opContext, TEST_INDEX_NAME, target, settings)
+                .currentMappings()
+                .get("properties");
+    assertEquals(((Map<String, Object>) properties.get("field1")).get(ESUtils.TYPE), "text");
+    assertEquals(structuredPropertyFieldNames(properties), Set.of("propLive"));
+  }
+
+  private static Map<String, Object> structuredPropertyTestMappings(
+      boolean withField2, Map<String, Object> structuredPropertyFields) {
+    Map<String, Object> properties = new HashMap<>();
+    properties.put("field1", Map.of(ESUtils.TYPE, ESUtils.KEYWORD));
+    if (withField2) {
+      properties.put("field2", Map.of(ESUtils.TYPE, ESUtils.KEYWORD));
+    }
+    properties.put(
+        STRUCTURED_PROPERTY_MAPPING_FIELD,
+        Map.of("type", "object", "dynamic", false, "properties", structuredPropertyFields));
+    return Map.of("properties", properties);
+  }
+
+  private static Set<?> structuredPropertyFieldNames(Map<String, Object> properties) {
+    Object container = properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+    Object fields = container instanceof Map<?, ?> map ? map.get("properties") : null;
+    return fields instanceof Map<?, ?> fieldMap ? fieldMap.keySet() : Set.of();
   }
 
   // --- Incremental reindex integration tests ---

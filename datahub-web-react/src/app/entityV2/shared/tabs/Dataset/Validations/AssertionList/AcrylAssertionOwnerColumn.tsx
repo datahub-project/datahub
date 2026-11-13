@@ -6,16 +6,15 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { mapEntityTypeToAvatarType } from '@components/components/Avatar/utils';
-import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
-
 import { AssertionListTableRow } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { handleBatchError } from '@app/entityV2/shared/utils';
-import { OwnerLabel } from '@app/shared/OwnerLabel';
-import { useGetRecommendations } from '@app/shared/recommendation';
+import { OwnerLabel } from '@app/sharedV2/OwnerLabel';
+import AvatarStackWithHover from '@app/sharedV2/avatar/AvatarStackWithHover';
+import { mapEntityTypeToAvatarType } from '@app/sharedV2/avatar/avatar.utils';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
-import { SelectItemPopover } from '@src/alchemy-components/components/SelectItemsPopover';
+import { useGetRecommendations } from '@app/sharedV2/recommendation';
+import { SelectItemPopover } from '@app/sharedV2/selectItemsPopover';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@src/graphql/mutations.generated';
 import { CorpUser, Entity, EntityType, OwnerEntityType } from '@src/types.generated';
 
@@ -24,7 +23,7 @@ type OwnerOptionProps = {
 };
 
 function OwnerOption({ option }: OwnerOptionProps) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const { item } = option;
     if (!item) return <>{option.label}</>;
     const avatarUrl =
@@ -63,7 +62,7 @@ export const AcrylAssertionOwnerColumn = ({ record, refetch }: Props) => {
     const { t } = useTranslation('entity.profile.validations');
     const [popoverVisible, setPopoverVisible] = useState(false);
     const isSaving = useRef(false);
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const canEditOwners = !!record.assertion.dataset?.privileges?.canEditAssertionOwners;
 
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();

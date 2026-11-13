@@ -20,6 +20,7 @@ record MLModelDeploymentProperties includes CustomProperties, ExternalReference 
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },
@@ -44,6 +45,9 @@ record MLModelDeploymentProperties includes CustomProperties, ExternalReference 
    * Status of the deployment
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldName": "deploymentStatus"
   }
   status: optional DeploymentStatus

@@ -9,14 +9,8 @@ import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUpdateDomainEntityDataOnChange as useUpdateDomainEntityDataOnChangeV2 } from '@app/domainV2/utils';
-import { EntityContext } from '@app/entity/shared/EntityContext';
-import {
-    DrawerType,
-    EntitySubHeaderSection,
-    GenericEntityProperties,
-    GenericEntityUpdate,
-} from '@app/entity/shared/types';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
+import { EntityContext } from '@app/entityV2/shared/EntityContext';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 import { EntityHeader } from '@app/entityV2/shared/containers/profile/header/EntityHeader';
@@ -34,10 +28,19 @@ import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
-import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
+import {
+    DrawerType,
+    EntitySidebarSection,
+    EntitySidebarTab,
+    EntitySubHeaderSection,
+    EntityTab,
+    GenericEntityProperties,
+    GenericEntityUpdate,
+    TabContextType,
+} from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import VersionsDrawer from '@app/entityV2/shared/versioning/VersionsDrawer';
-import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
+import useIsLineageMode from '@app/lineageV3/utils/useIsLineageMode';
 import { useUpdateMarketplaceEntityDataOnChange } from '@app/marketplace/useUpdateMarketplaceEntityDataOnChange';
 import { useUpdateMetricsEntityDataOnChange } from '@app/metrics/useUpdateMetricsEntityDataOnChange';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
@@ -45,14 +48,15 @@ import {
     LINEAGE_GRAPH_INTRO_ID,
     LINEAGE_GRAPH_TIME_FILTER_ID,
 } from '@app/onboarding/config/LineageGraphOnboardingConfig';
-import CompactContext from '@app/shared/CompactContext';
-import { EntityHead } from '@app/shared/EntityHead';
-import TabFullsizeContext from '@app/shared/TabFullsizedContext';
-import { ErrorSection } from '@app/shared/error/ErrorSection';
+import CompactContext from '@app/sharedV2/CompactContext';
+import { EntityHead } from '@app/sharedV2/EntityHead';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import TabFullsizeContext from '@app/sharedV2/TabFullsizedContext';
+import { ErrorSection } from '@app/sharedV2/error/ErrorSection';
+import { PAGE_GAP_PX } from '@app/sharedV2/layouts/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
-import useEntityState from '@src/app/entity/shared/useEntityState';
+import useEntityState from '@src/app/entityV2/shared/useEntityState';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { useGetFormsForEntityQuery } from '@graphql/form.generated';
@@ -162,7 +166,8 @@ const HeaderContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    padding: ${(props) => (props.$isShowNavBarRedesign ? '8px 0 0 0' : '12px 16px 12px 16px')};
+    /* Redesign: page gap between the header card and the content card below it. */
+    padding: ${(props) => (props.$isShowNavBarRedesign ? `${PAGE_GAP_PX}px 0 0 0` : '12px 16px 12px 16px')};
     height: 100%;
     overflow: hidden;
     display: flex;
@@ -449,7 +454,6 @@ export const EntityProfile = <T, U>({
                                         width={width}
                                         contextType={TabContextType.PROFILE_SIDEBAR}
                                         headerDropdownItems={headerDropdownItems}
-                                        flushOuterMargin={isShowNavBarRedesign}
                                         $isShowNavBarRedesign={isShowNavBarRedesign}
                                     />
                                 )}

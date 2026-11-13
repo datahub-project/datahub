@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import org.testng.annotations.Test;
 
@@ -313,7 +314,13 @@ public class SearchTemplateWriteValidationTest extends SearchTemplateFixture {
     properties.setLadder(ladder);
     store(entry, properties);
     templates.getDefaults().put("fulltext", Map.of("default", entry));
-    SearchTemplateCoordinator coordinator = new SearchTemplateCoordinator(v3Config(), null, loader);
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     assertThrows(
         SearchTemplateException.class, () -> coordinator.bind(opContext, "customer orders"));
     OperationContext scrolled = coordinator.bind(opContext, "customer orders", true);

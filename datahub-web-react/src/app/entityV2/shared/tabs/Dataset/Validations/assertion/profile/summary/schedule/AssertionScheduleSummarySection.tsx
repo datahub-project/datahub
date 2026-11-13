@@ -3,7 +3,7 @@ import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { TruncatedTextWithTooltip } from '@app/shared/TruncatedTextWithTooltip';
+import { TruncatedTextWithTooltip } from '@app/sharedV2/TruncatedTextWithTooltip';
 
 const Container = styled.div`
     display: flex;

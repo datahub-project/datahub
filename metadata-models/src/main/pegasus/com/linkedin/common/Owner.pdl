@@ -23,6 +23,7 @@ record Owner {
     "v3": {
 
       "searchLabel": "owners",
+      "hasValuesFieldName": "hasOwners",
       "mappings": [
         { "type": "URN" }
       ]

@@ -1,4 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { useHistory } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -9,6 +8,7 @@ import useAssetCollectionViewAll, {
 import { ENTITY_SUB_TYPE_FILTER_NAME, UnionType } from '@app/searchV2/utils/constants';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { LogicalOperatorType, LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { DataHubPageModuleType, EntityType, FilterOperator, PageModuleScope } from '@types';
 
@@ -21,7 +21,7 @@ vi.mock('@app/searchV2/utils/navigateToSearchUrl', () => ({
 }));
 
 vi.mock('@app/useEntityRegistry', () => ({
-    useEntityRegistryV2: () => ({
+    useEntityRegistry: () => ({
         getTypeFromGraphName: (name: string) =>
             (({ dataProduct: EntityType.DataProduct }) as Record<string, EntityType>)[name],
     }),

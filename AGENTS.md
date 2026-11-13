@@ -413,7 +413,7 @@ This is a mandatory security guardrail - never disable or skip this test.
 ### Commits
 
 - Follow Conventional Commits format for commit messages
-- Breaking Changes: Always update `docs/how/updating-datahub.md` for breaking changes. Write entries for non-technical audiences, reference the PR number, and focus on what users need to change rather than internal implementation details
+- Breaking Changes: Always update `docs/how/breaking-changes.md` for breaking changes. Write entries for non-technical audiences, reference the PR number, and focus on what users need to change rather than internal implementation details
 - **Never bypass git hook failures with `--no-verify`** (or any equivalent skip flag) on commit or push. A failing hook is a signal that something needs attention — stop, report the failure to the user, and confirm how to proceed. Only use `--no-verify` if the user explicitly tells you to for that specific action.
 
 ### Pull Requests
@@ -436,7 +436,7 @@ Example: `feat(parser): add ability to parse arrays`
 - [ ] Links to related issues (if applicable)
 - [ ] Tests added/updated (if applicable)
 - [ ] Docs added/updated (if applicable)
-- [ ] Breaking changes documented in `docs/how/updating-datahub.md`
+- [ ] Breaking changes documented in `docs/how/breaking-changes.md`
 
 ### Confidentiality in Committed Code
 
@@ -658,16 +658,24 @@ export DATAHUB_GMS_TOKEN=<your-token>         # omit if auth is not required
 
 ### Init (setup authentication)
 
-`datahub init` writes `~/.datahubenv` with the GMS URL and an access token. Run it once before
-using any other CLI commands that require authentication.
+`datahub init --profile local` writes the local connection to
+`~/.datahub/profiles/local/.datahubenv`. Pass `--profile local` on subsequent commands.
 
 ```bash
 # Quickstart: local instance with default credentials
-datahub init --username datahub --password datahub
+datahub init --profile local --username datahub --password datahub
 
 # Full agent best-practices guide (defaults, env vars, all scenarios)
 datahub init --agent-context
 ```
+
+### DataHub CLI connection profiles
+
+- Never run `datahub init` without `--profile <name>`. Name the profile after the instance (`acme`, `acme-staging`).
+- Never run `datahub profile use`; it changes the default for the user's other shells.
+- Pass `--profile <name>` on every command, unless the session already sets `DATAHUB_PROFILE`.
+- Before any write (`put`, `delete`, `ingest`, upserts), run `datahub profile current --format json` and confirm the server is the one the user asked for.
+- If a token has expired, re-run `datahub init --profile <same name>` with the same host. Do not create a new profile.
 
 ### GraphQL
 

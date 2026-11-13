@@ -77,6 +77,7 @@ import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.opensearch.search.sort.SortOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testcontainers.containers.GenericContainer;
 import org.testng.annotations.Test;
@@ -91,6 +92,7 @@ import org.testng.annotations.Test;
   SearchCommonTestConfiguration.class,
   SearchTestContainerConfiguration.class
 })
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNGSpringContextTests {
 
   private static final String TEST_INDEX = "test-shim-index";

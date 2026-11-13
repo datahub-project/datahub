@@ -94,6 +94,31 @@ In order to delete a Term or Term Group, you need to go to the entity page of wh
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/glossary/delete-button.png"/>
 </p>
 
+## Lifecycle Stages
+
+A Term can have a lifecycle stage that tracks where it is in your review process. DataHub comes with these stages for Terms:
+
+| Stage      | Shown in default search |
+| ---------- | ----------------------- |
+| Draft      | No                      |
+| In Review  | No                      |
+| Rejected   | No                      |
+| Published  | Yes                     |
+| Deprecated | Yes                     |
+| Archived   | No                      |
+
+A Term without a stage is active and visible everywhere. To change a Term's stage, go to its entity page, click the menu dots on the top right and select **Change stage**. You need the **Edit Lifecycle Stage** privilege (or **Edit Entity**) on the Term.
+
+Terms in a hidden stage stay out of default search results, but anyone who can manage a Term Group still sees them in that group in the Glossary sidebar. A Term's stage is shown next to its name in the Glossary and in search results, and stage changes appear in the Term's change history.
+
+Each stage can restrict which stages a Term may move from (`allowedPreviousStages`). A change that breaks that rule is refused. Stages are `lifecycleStageType` entities, so you can edit them or add your own, for example with the [Python SDK or OpenAPI](../api/datahub-apis.md).
+
+## Versioning a Term
+
+When entity versioning is enabled (`ENTITY_VERSIONING_ENABLED=true`), a Term can have several versions, for example when a definition changes but the old one must stay available. To create one, go to the latest version of the Term, click the menu dots on the top right and select **New version**. You need the same rights as for editing the Term.
+
+The new version copies the previous version's metadata, such as owners, domain, tags and links, and starts in the **Draft** stage, so the previous version stays the latest one until the new version is published. Once the new version leaves Draft and is the newest visible version, it becomes the latest. If the latest version is later moved into a hidden stage, the newest visible version becomes the latest instead. All versions of a Term are listed in its versions drawer.
+
 ## Adding a Term to an Entity
 
 Once you've defined your Glossary, you can begin attaching terms to data assets. To add a Glossary Term to an asset, go to the entity page of your asset and find the **Add Terms** button on the right sidebar.
@@ -117,6 +142,8 @@ Glossary Terms and Term Groups abide by metadata policies like other entities. H
 
 - **Manage Direct Glossary Children**: If a user has this privilege on a Glossary Term Group, they will be able to create, edit, and delete Terms and Term Groups directly underneath the Term Group they have this privilege on.
 - **Manage All Glossary Children**: If a user has this privilege on a Glossary Term Group, they will be able to create, edit, and delete any Term or Term Group anywhere underneath the Term Group they have this privilege on. This applies to the children of a child Term Group as well (and so on).
+
+Changing a Term's lifecycle stage requires the **Edit Lifecycle Stage** privilege (or **Edit Entity**) on that Term.
 
 ## Shift left and bring your glossary into Git
 
@@ -163,6 +190,8 @@ Check out [our demo site](https://demo.datahub.com/glossary) to see an example G
 - [batchRemoveTerms](../../graphql/mutations.md#batchremoveterms)
 - [createGlossaryTerm](../../graphql/mutations.md#createglossaryterm)
 - [createGlossaryNode](../../graphql/mutations.md#createglossarynode) (Term Group)
+- [setLifecycleStage](../../graphql/mutations.md#setlifecyclestage)
+- [createGlossaryTermVersion](../../graphql/mutations.md#createglossarytermversion)
 
 You can easily fetch the Glossary Terms for an entity with a given its URN using the **glossaryTerms** property. Check out [Working with Metadata Entities](../api/graphql/how-to-set-up-graphql.md#querying-for-glossary-terms-of-an-asset) for an example.
 

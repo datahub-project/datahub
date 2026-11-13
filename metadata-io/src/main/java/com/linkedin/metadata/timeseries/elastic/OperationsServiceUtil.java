@@ -17,6 +17,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer.CanonicalNow;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.operations.OperationsAggregation;
 import com.linkedin.operations.OperationsAggregationArray;
@@ -30,7 +31,6 @@ import com.linkedin.timeseries.GroupingBucketType;
 import com.linkedin.timeseries.TimeWindowSize;
 import com.linkedin.usage.UsageTimeRange;
 import io.datahubproject.metadata.context.OperationContext;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -90,14 +90,15 @@ public class OperationsServiceUtil {
       UsageTimeRange range,
       @Nullable String timeZone) {
 
-    final long now = Instant.now().toEpochMilli();
+    // One canonical reference for both ends of the window; see UsageServiceUtil#queryRange.
+    final CanonicalNow now = opContext.canonicalNow();
     return query(
         opContext,
         timeseriesAspectService,
         resource,
         duration,
         TimeseriesUtils.convertRangeToStartTime(range, now),
-        now,
+        now.upperBound(),
         timeZone);
   }
 

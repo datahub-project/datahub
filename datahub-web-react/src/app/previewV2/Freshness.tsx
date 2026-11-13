@@ -5,8 +5,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { getLastIngestedColor } from '@app/entity/shared/containers/profile/sidebar/LastIngested';
-import { toLocalDateString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { getLastIngestedColor } from '@app/entityV2/shared/containers/profile/sidebar/LastIngested';
+import { toLocalDateString, toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 
 const LastUpdatedContainer = styled.div<{ color: string }>`
     align-items: center;

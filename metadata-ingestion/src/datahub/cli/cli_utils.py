@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import click
 import requests
-from requests.sessions import Session
+from requests.sessions import Session, SessionRedirectMixin
 
 import datahub._version as datahub_version
 from datahub.cli import config_utils
@@ -98,7 +98,7 @@ def parse_run_restli_response(response: requests.Response) -> dict:
 
     if not isinstance(response_json, dict):
         click.echo(
-            f"Received error, please check your {config_utils.CONDENSED_DATAHUB_CONFIG_PATH}"
+            f"Received error, please check your {config_utils.resolve_profile().path}"
         )
         click.echo()
         click.echo(response_json)
@@ -107,7 +107,7 @@ def parse_run_restli_response(response: requests.Response) -> dict:
     summary = response_json.get("value")
     if not isinstance(summary, dict):
         click.echo(
-            f"Received error, please check your {config_utils.CONDENSED_DATAHUB_CONFIG_PATH}"
+            f"Received error, please check your {config_utils.resolve_profile().path}"
         )
         click.echo()
         click.echo(response_json)
@@ -394,6 +394,21 @@ def fixup_gms_url(url: str) -> str:
     return url
 
 
+def is_same_gms_origin(configured_url: str, server: str) -> bool:
+    """Whether credentials meant for ``configured_url`` may be sent to ``server``.
+
+    Uses requests' redirect rule: the same origin, or an http->https upgrade on default
+    ports, matches; any other scheme, host or port does not. The path is ignored.
+
+    A URL without a scheme (the legacy DATAHUB_GMS_HOST-as-URL form) parses with no host,
+    so two such URLs compare equal whatever their port. requests cannot connect to a
+    scheme-less URL, so no request carrying the credentials is made in that case.
+    """
+    return not SessionRedirectMixin().should_strip_auth(
+        fixup_gms_url(configured_url), fixup_gms_url(server)
+    )
+
+
 def guess_frontend_url_from_gms_url(gms_url: str) -> str:
     gms_url = fixup_gms_url(gms_url)
     url = gms_url
@@ -499,6 +514,9 @@ def enable_auto_decorators(main_group: click.Group) -> None:
     def wrap_command_callback(command_obj):
         """Wrap a command's callback function to add decorators"""
         if hasattr(command_obj, "callback") and command_obj.callback:
+            from datahub.cli.profile_cli import announce_profile_target
+
+            announce_profile_target(command_obj)
             original_callback = command_obj.callback
 
             # Import here to avoid circular imports

@@ -1,8 +1,8 @@
 """ADF's probe against real ingestion: both read the same mocked management
 client, and `probe filter` must keep exactly what get_workunits_internal()
-emits -- factories, pipelines (DataFlows) and top-level activities (DataJobs)."""
+emits -- factories, pipelines (DataFlows) and activities (DataJobs), including
+those nested inside control activities."""
 
-import re
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterator, Set
@@ -101,11 +101,6 @@ def _job_ids(factory: str) -> Callable[[EmittedIndex], Set[str]]:
     return jobs
 
 
-# adf_probe.py, `activities`: a note on what ingestion does with the ForEach's
-# inner Copy, not a degraded fetch.
-_NESTED_NOTE = re.compile(r"1 activity is nested inside control activities .*")
-
-
 def _activities(factory: str) -> ParityListing:
     return ParityListing(
         f"activities in {factory}",
@@ -114,7 +109,6 @@ def _activities(factory: str) -> ParityListing:
         kwargs={"factory": factory},
         fan_out=FanOut("pipelines", "pipeline", parent_kwargs={"factory": factory}),
         expect_empty=factory == DENIED,
-        accept_warnings=(_NESTED_NOTE,),
     )
 
 
@@ -140,11 +134,12 @@ def test_factories_pipelines_and_activities_match_ingestion(tmp_path: Path) -> N
             [_FACTORIES, _PIPELINES, _activities(KEPT), _activities(DENIED)],
         )
     assert report.excluded_by("factories") == {DENIED: "factory_pattern"}
-    # The ForEach's inner Copy is not a DataJob, and the probe lists only the
-    # top-level activities ingestion emits.
+    # Ingestion recurses into the ForEach and gives its inner Copy a DataJob
+    # too, so the probe must list it alongside the top-level activities.
     assert report.kinds[f"activities in {KEPT}"].included == {
         f"{KEPT}.ForEachTablePipeline.GetTableList",
         f"{KEPT}.ForEachTablePipeline.IterateOverTables",
+        f"{KEPT}.ForEachTablePipeline.CopyTableToStaging",
     }
 
 

@@ -13,7 +13,7 @@ import {
 import { URL_ATTRIBUTES, isSafeHref, scrubSrcset } from '@components/components/Editor/readOnlyHtml';
 import { FileNode } from '@components/components/FileNode/FileNode';
 
-import { safeUrl } from '@app/shared/urlUtils';
+import { safeUrl } from '@utils/urlUtils';
 
 const VOID_TAGS = new Set([
     'area',

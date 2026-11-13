@@ -371,6 +371,12 @@ public class PoliciesConfig {
           "Edit Status",
           "The ability to edit the status of an entity (soft deleted or not).");
 
+  public static final Privilege EDIT_ENTITY_LIFECYCLE_STAGE_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_LIFECYCLE_STAGE",
+          "Edit Lifecycle Stage",
+          "The ability to edit the lifecycle stage of an entity.");
+
   public static final Privilege EDIT_ENTITY_DOMAINS_PRIVILEGE =
       Privilege.of(
           "EDIT_DOMAINS_PRIVILEGE", "Edit Domain", "The ability to edit the Domain of an entity.");
@@ -460,6 +466,7 @@ public class PoliciesConfig {
           EDIT_ENTITY_DOCS_PRIVILEGE,
           EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
           EDIT_ENTITY_STATUS_PRIVILEGE,
+          EDIT_ENTITY_LIFECYCLE_STAGE_PRIVILEGE,
           EDIT_ENTITY_DOMAINS_PRIVILEGE,
           EDIT_ENTITY_APPLICATIONS_PRIVILEGE,
           EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE,
@@ -880,6 +887,7 @@ public class PoliciesConfig {
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
+              EDIT_ENTITY_LIFECYCLE_STAGE_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
               EDIT_ENTITY_TAGS_PRIVILEGE,
@@ -898,6 +906,7 @@ public class PoliciesConfig {
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
+              EDIT_ENTITY_LIFECYCLE_STAGE_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               MANAGE_GLOSSARY_CHILDREN_PRIVILEGE,
               MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE,
@@ -917,6 +926,7 @@ public class PoliciesConfig {
               EDIT_ENTITY_OWNERS_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
+              EDIT_ENTITY_LIFECYCLE_STAGE_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE,
@@ -976,8 +986,8 @@ public class PoliciesConfig {
   public static final ResourcePrivileges ER_MODEL_RELATIONSHIP_PRIVILEGES =
       ResourcePrivileges.of(
           "erModelRelationship",
-          "ERModelRelationship",
-          "update privileges for ermodelrelations",
+          "ER Model Relationships",
+          "Privileges for ER Model Relationships",
           COMMON_ENTITY_PRIVILEGES);
   public static final ResourcePrivileges BUSINESS_ATTRIBUTE_PRIVILEGES =
       ResourcePrivileges.of(
@@ -1046,6 +1056,23 @@ public class PoliciesConfig {
           "ML Feature Tables indexed by DataHub",
           COMMON_ENTITY_PRIVILEGES);
 
+  // Assertion Privileges. Assertions are usually managed through EDIT_ENTITY_ASSERTIONS on the
+  // asserted entity (e.g. the dataset); these entries cover policies scoped to the assertion
+  // itself.
+  public static final ResourcePrivileges ASSERTION_PRIVILEGES =
+      ResourcePrivileges.of(
+          Constants.ASSERTION_ENTITY_NAME,
+          "Assertions",
+          "Data quality assertions on DataHub",
+          ImmutableList.of(
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EXISTS_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_TAGS_PRIVILEGE,
+              EDIT_ENTITY_OWNERS_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE,
+              CREATE_ENTITY_PRIVILEGE,
+              DELETE_ENTITY_PRIVILEGE));
+
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -1074,7 +1101,8 @@ public class PoliciesConfig {
           DATAHUB_VIEW_PRIVILEGES,
           ML_MODEL_PRIVILEGES,
           ML_FEATURE_PRIVILEGES,
-          ML_FEATURE_TABLE_PRIVILEGES);
+          ML_FEATURE_TABLE_PRIVILEGES,
+          ASSERTION_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =

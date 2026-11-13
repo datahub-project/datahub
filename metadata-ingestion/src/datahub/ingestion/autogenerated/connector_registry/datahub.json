@@ -828,6 +828,12 @@
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
           "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Checks semantic embedding availability",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubDocumentsSource",
@@ -1176,7 +1182,7 @@
         },
         {
           "capability": "DESCRIPTIONS",
-          "description": "Enabled by default",
+          "description": "Table and column comments, read from information_schema",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1390,6 +1396,12 @@
     "dynamodb": {
       "capabilities": [
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Optionally enabled via `include_s3_export_lineage` with `include_s3_export_column_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
@@ -1404,6 +1416,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "By default, platform_instance will use the AWS account id",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Optionally enabled via `include_s3_export_lineage` for DynamoDB Export to S3 destinations",
           "subtype_modifier": null,
           "supported": true
         }
@@ -1736,7 +1754,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Support via the `emit_storage_lineage` config field",
+          "description": "Enabled by default via `include_column_lineage` for Lake Formation resource links; storage column lineage also needs `emit_storage_lineage` in the upstream direction",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2026,6 +2044,68 @@
       "platform_id": "hex",
       "platform_name": "Hex",
       "support_status": "GA"
+    },
+    "hightouch": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default, one per workspace",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default, from parsed model SQL and sync field mappings",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled by default via `extract_owners`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default for models",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default, from warehouse tables through models and syncs to destinations",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.hightouch.hightouch.HightouchSource",
+      "platform_id": "hightouch",
+      "platform_name": "Hightouch",
+      "support_status": "ALPHA"
     },
     "hive": {
       "capabilities": [
@@ -2395,9 +2475,9 @@
       "capabilities": [
         {
           "capability": "LINEAGE_FINE",
-          "description": "Not supported",
+          "description": "Optionally emits column-level lineage from Confluent Cloud Flink SQL statements (`stream_processing_lineage.flink.enabled`, with `stream_processing_lineage.include_column_lineage`).",
           "subtype_modifier": null,
-          "supported": false
+          "supported": true
         },
         {
           "capability": "DATA_PROFILING",
@@ -2443,9 +2523,9 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Not supported. If you use Kafka Connect, the kafka-connect source can generate lineage.",
+          "description": "Optionally emits topic-to-topic lineage from Stream Catalog cluster links / mirror topics via `confluent_catalog.include_lineage`, and from Confluent Cloud Flink SQL via `stream_processing_lineage.flink.enabled`. For source/sink lineage to external systems, use the kafka-connect source.",
           "subtype_modifier": null,
-          "supported": false
+          "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
@@ -2545,6 +2625,32 @@
       "classname": "datahub.ingestion.source.kinesis.kinesis.KinesisSource",
       "platform_id": "kinesis",
       "platform_name": "Amazon Kinesis Data Streams",
+      "support_status": "ALPHA"
+    },
+    "langfuse": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default (Project container)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled for Prompts only (fully enumerated each run). NOT enabled for Traces/Generations, which are retrieved through a rolling time window and are excluded from stale-entity tracking to avoid incorrectly soft-deleting entities that simply aged out of the window.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default: Generation -> Prompt version lineage via DataProcessInstanceInput",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.langfuse.langfuse.LangfuseSource",
+      "platform_id": "langfuse",
+      "platform_name": "Langfuse",
       "support_status": "ALPHA"
     },
     "ldap": {
@@ -2859,7 +2965,7 @@
         },
         {
           "capability": "TAGS",
-          "description": "Metric, attribute, and temporal field tags",
+          "description": "Metric, attribute, temporal, and derived-metric field tags",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4741,6 +4847,80 @@
       "platform_name": "Snowplow",
       "support_status": "BETA"
     },
+    "sns": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Region containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Opt-in: topic to raw-delivery queue, when both have schemas",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "SNS has no description",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "From AWS resource tags, added without removing UI tags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "GLOSSARY_TERMS",
+          "description": "Opt-in, from data protection policy identifiers you map to existing terms",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Defaults to the AWS account id",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Opt-in: AWS Glue Schema Registry schemas listed in `glue_schema_registry.topic_schema_map`, or found by `use_naming_convention`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Subscribed queues and dead-letter queues, Lambda, EventBridge rules and Pipes",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.aws_messaging.sns_source.SnsSource",
+      "platform_id": "sns",
+      "platform_name": "Amazon SNS",
+      "support_status": "ALPHA"
+    },
     "sql-queries": {
       "capabilities": [
         {
@@ -4872,6 +5052,74 @@
       "classname": "datahub.ingestion.source.sqlmesh.sqlmesh_source.SqlmeshSource",
       "platform_id": "sqlmesh",
       "platform_name": "SQLMesh",
+      "support_status": "ALPHA"
+    },
+    "sqs": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Region containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Queue to dead-letter queue, when both have schemas",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "SQS has no description",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "From AWS resource tags, added without removing UI tags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Defaults to the AWS account id",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Opt-in: AWS Glue Schema Registry schemas listed in `glue_schema_registry.queue_schema_map`, or found by `use_naming_convention`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Dead-letter queues, Lambda triggers and destinations, EventBridge rules and Pipes",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.aws_messaging.sqs_source.SqsSource",
+      "platform_id": "sqs",
+      "platform_name": "Amazon SQS",
       "support_status": "ALPHA"
     },
     "starburst-trino-usage": {

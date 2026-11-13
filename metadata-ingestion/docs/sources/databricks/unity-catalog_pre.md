@@ -50,6 +50,7 @@ You can authenticate with Databricks using OAuth, Azure authentication, a Person
   - `READ_METADATA` and `USAGE` privilege on tables and views you want to ingest
   - [Hive Metastore Privileges documentation](https://docs.databricks.com/en/sql/language-manual/sql-ref-privileges-hms.html)
 - To ingest your workspace's notebooks and respective lineage, your service principal must have `CAN_READ` privileges on the folders containing the notebooks you want to ingest: [guide](https://docs.databricks.com/en/security/auth-authz/access-control/workspace-acl.html#folder-permissions).
+- To ingest Genie agents (`include_genie_spaces`, disabled by default), the ingestion identity sees only the spaces it can access. It needs **CAN EDIT** on each space to export that space's configuration. A space it can list but cannot export is reported as a warning and left unchanged.
 - To `include_usage_statistics` (enabled by default), your service principal must have one of the following:
   - When `usage_data_source` is `SYSTEM_TABLES`, or `AUTO` (default) with `warehouse_id` configured: `CAN_USE` on the SQL warehouse and `SELECT` on `system.query.history` and `system.access.table_lineage`.
   - Otherwise (REST API path): `CAN_MANAGE` on the SQL warehouse: [guide](https://docs.databricks.com/security/auth-authz/access-control/sql-endpoint-acl.html).

@@ -11,6 +11,7 @@ import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateProperties;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -28,7 +29,17 @@ public final class SearchTemplateChecks {
 
   /** Checks the parent-merged template, which is the body that will render. */
   public static void checkMerged(@Nonnull MergedSearchTemplate merged, int maxLeafClauses) {
-    checkMerged(merged, maxLeafClauses, Integer.MAX_VALUE, Integer.MAX_VALUE, null, null, null);
+    checkMerged(
+        merged,
+        maxLeafClauses,
+        Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
+        null,
+        null,
+        null,
+        SearchTemplateComponentRegistry.empty());
   }
 
   public static void checkMerged(
@@ -42,9 +53,35 @@ public final class SearchTemplateChecks {
         maxLeafClauses,
         Integer.MAX_VALUE,
         Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
         context,
         retriever,
-        entitySpecs);
+        entitySpecs,
+        SearchTemplateComponentRegistry.empty());
+  }
+
+  public static void checkMerged(
+      @Nonnull MergedSearchTemplate merged,
+      int maxLeafClauses,
+      int maxRoutes,
+      int maxRoutePatternLength,
+      int maxRankingSignals,
+      int maxRankingWindow,
+      @Nullable OperationFingerprint context,
+      @Nullable AspectRetriever retriever,
+      @Nullable Collection<EntitySpec> entitySpecs) {
+    checkMerged(
+        merged,
+        maxLeafClauses,
+        maxRoutes,
+        maxRoutePatternLength,
+        maxRankingSignals,
+        maxRankingWindow,
+        context,
+        retriever,
+        entitySpecs,
+        SearchTemplateComponentRegistry.empty());
   }
 
   public static void checkMerged(
@@ -54,7 +91,32 @@ public final class SearchTemplateChecks {
       int maxRoutePatternLength,
       @Nullable OperationFingerprint context,
       @Nullable AspectRetriever retriever,
-      @Nullable Collection<EntitySpec> entitySpecs) {
+      @Nullable Collection<EntitySpec> entitySpecs,
+      @Nonnull SearchTemplateComponentRegistry registry) {
+    checkMerged(
+        merged,
+        maxLeafClauses,
+        maxRoutes,
+        maxRoutePatternLength,
+        Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
+        context,
+        retriever,
+        entitySpecs,
+        registry);
+  }
+
+  public static void checkMerged(
+      @Nonnull MergedSearchTemplate merged,
+      int maxLeafClauses,
+      int maxRoutes,
+      int maxRoutePatternLength,
+      int maxRankingSignals,
+      int maxRankingWindow,
+      @Nullable OperationFingerprint context,
+      @Nullable AspectRetriever retriever,
+      @Nullable Collection<EntitySpec> entitySpecs,
+      @Nonnull SearchTemplateComponentRegistry registry) {
     SearchTemplateProperties composed = new SearchTemplateProperties();
     composed.setName("merged");
     composed.setDialect(SearchTemplateDialect.valueOf(merged.getDialect()));
@@ -80,6 +142,9 @@ public final class SearchTemplateChecks {
     if (merged.getRanking() != null) {
       composed.setRanking(merged.getRanking());
     }
+    if (merged.getComponent() != null) {
+      composed.setComponent(merged.getComponent());
+    }
     if (merged.getRetrieval() != null) {
       composed.setRetrieval(merged.getRetrieval());
     }
@@ -101,6 +166,27 @@ public final class SearchTemplateChecks {
     if (merged.getStructuredPropertyQuery() != null) {
       composed.setStructuredPropertyQuery(merged.getStructuredPropertyQuery());
     }
+    if (merged.getFieldValueScores() != null) {
+      composed.setFieldValueScores(merged.getFieldValueScores());
+    }
+    if (merged.getScoreMode() != null) {
+      composed.setScoreMode(merged.getScoreMode());
+    }
+    if (merged.getBoostMode() != null) {
+      composed.setBoostMode(merged.getBoostMode());
+    }
+    if (merged.getSearchType() != null) {
+      composed.setSearchType(merged.getSearchType());
+    }
+    if (merged.getFieldFactors() != null) {
+      composed.setFieldFactors(merged.getFieldFactors());
+    }
+    if (merged.getTermWeights() != null) {
+      composed.setTermWeights(merged.getTermWeights());
+    }
+    if (merged.getEntityTypeBoosts() != null) {
+      composed.setEntityTypeBoosts(merged.getEntityTypeBoosts());
+    }
     if (merged.getNormalization() != null) {
       composed.setNormalization(merged.getNormalization());
     }
@@ -116,6 +202,7 @@ public final class SearchTemplateChecks {
         && !SearchTemplateLoader.emptyHighlights(merged.getHighlightFields())) {
       composed.setHighlightFields(merged.getHighlightFields());
     }
+    composed.setMatchedFields(merged.isMatchedFields());
     if (!merged.getParameters().isEmpty()) {
       composed.setParameters(new StringMap(merged.getParameters()));
     }
@@ -124,13 +211,26 @@ public final class SearchTemplateChecks {
         maxLeafClauses,
         maxRoutes,
         maxRoutePatternLength,
+        maxRankingSignals,
+        maxRankingWindow,
         context,
         retriever,
-        entitySpecs);
+        entitySpecs,
+        registry);
   }
 
   public static void check(@Nonnull SearchTemplateProperties properties, int maxLeafClauses) {
-    check(properties, maxLeafClauses, Integer.MAX_VALUE, Integer.MAX_VALUE, null, null, null);
+    check(
+        properties,
+        maxLeafClauses,
+        Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
+        null,
+        null,
+        null,
+        SearchTemplateComponentRegistry.empty());
   }
 
   public static void check(
@@ -144,9 +244,35 @@ public final class SearchTemplateChecks {
         maxLeafClauses,
         Integer.MAX_VALUE,
         Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
         context,
         retriever,
-        entitySpecs);
+        entitySpecs,
+        SearchTemplateComponentRegistry.empty());
+  }
+
+  public static void check(
+      @Nonnull SearchTemplateProperties properties,
+      int maxLeafClauses,
+      int maxRoutes,
+      int maxRoutePatternLength,
+      int maxRankingSignals,
+      int maxRankingWindow,
+      @Nullable OperationFingerprint context,
+      @Nullable AspectRetriever retriever,
+      @Nullable Collection<EntitySpec> entitySpecs) {
+    check(
+        properties,
+        maxLeafClauses,
+        maxRoutes,
+        maxRoutePatternLength,
+        maxRankingSignals,
+        maxRankingWindow,
+        context,
+        retriever,
+        entitySpecs,
+        SearchTemplateComponentRegistry.empty());
   }
 
   public static void check(
@@ -156,16 +282,44 @@ public final class SearchTemplateChecks {
       int maxRoutePatternLength,
       @Nullable OperationFingerprint context,
       @Nullable AspectRetriever retriever,
-      @Nullable Collection<EntitySpec> entitySpecs) {
+      @Nullable Collection<EntitySpec> entitySpecs,
+      @Nonnull SearchTemplateComponentRegistry registry) {
+    check(
+        properties,
+        maxLeafClauses,
+        maxRoutes,
+        maxRoutePatternLength,
+        Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
+        context,
+        retriever,
+        entitySpecs,
+        registry);
+  }
+
+  public static void check(
+      @Nonnull SearchTemplateProperties properties,
+      int maxLeafClauses,
+      int maxRoutes,
+      int maxRoutePatternLength,
+      int maxRankingSignals,
+      int maxRankingWindow,
+      @Nullable OperationFingerprint context,
+      @Nullable AspectRetriever retriever,
+      @Nullable Collection<EntitySpec> entitySpecs,
+      @Nonnull SearchTemplateComponentRegistry registry) {
     try {
       checkProperties(
           properties,
           maxLeafClauses,
           maxRoutes,
           maxRoutePatternLength,
+          maxRankingSignals,
+          maxRankingWindow,
           context,
           retriever,
-          entitySpecs);
+          entitySpecs,
+          registry);
     } catch (SearchTemplateException e) {
       throw e;
     } catch (RuntimeException e) {
@@ -178,11 +332,22 @@ public final class SearchTemplateChecks {
       int maxLeafClauses,
       int maxRoutes,
       int maxRoutePatternLength,
+      int maxRankingSignals,
+      int maxRankingWindow,
       @Nullable OperationFingerprint context,
       @Nullable AspectRetriever retriever,
-      @Nullable Collection<EntitySpec> entitySpecs) {
+      @Nullable Collection<EntitySpec> entitySpecs,
+      @Nonnull SearchTemplateComponentRegistry registry) {
     SearchTemplatePolicyChecks.check(
-        properties, maxRoutes, maxRoutePatternLength, context, retriever, entitySpecs);
+        properties,
+        maxRoutes,
+        maxRoutePatternLength,
+        maxRankingSignals,
+        maxRankingWindow,
+        context,
+        retriever,
+        entitySpecs,
+        registry);
     Map<String, String> fragments = rewriteFragments(properties, context, retriever);
     String query =
         rewrite(section(properties.hasQuery() ? properties.getQuery() : null), context, retriever);
@@ -291,7 +456,9 @@ public final class SearchTemplateChecks {
       built = SearchTemplateJson.mergeClauses(built, clauses);
     }
     if (functionScore != null) {
-      built = SearchTemplateJson.wrapFunctionScore(built, functionScore);
+      built =
+          SearchTemplateJson.wrapFunctionScore(
+              built, functionScore, List.of(), SearchTemplateJson.FunctionScoreTail.none());
     }
     return SearchTemplateJson.countLeaves(built.toString());
   }

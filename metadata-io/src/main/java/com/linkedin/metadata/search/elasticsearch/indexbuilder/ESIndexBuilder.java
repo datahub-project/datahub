@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
@@ -20,6 +21,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.RetryConfigUtils;
 import com.linkedin.metadata.search.utils.SizeUtils;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
+import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
@@ -51,7 +53,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -66,6 +70,7 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
+import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
@@ -91,6 +96,7 @@ import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
@@ -159,6 +165,13 @@ public class ESIndexBuilder {
   private final RequestOptions requestOptionsLong;
 
   private final RetryRegistry retryRegistry;
+
+  /**
+   * Search V3 uses one mapping for every entity index. The rendered form is remembered so that
+   * mapping is logged once per process instead of once per index.
+   */
+  private static final Set<String> LOGGED_V3_MAPPINGS = ConcurrentHashMap.newKeySet();
+
   private static RetryRegistry deletionRetryRegistry;
   private final int initialSecondsDelete = 10;
   private final int deleteMultiplier = 9;
@@ -495,6 +508,8 @@ public class ESIndexBuilder {
             .getSourceAsMap();
     builder.currentMappings(currentMappings);
 
+    // A definition-driven target can declare more fields than the index's total-fields limit
+    // allows; a reindex from it then fails to create its destination until the limit is raised.
     final Map<String, Object> targetMappings =
         shouldPreserveStructuredPropertyMappings(copyStructuredPropertyMappings)
             ? mergeStructuredPropertyMappings(mappings, currentMappings)
@@ -523,18 +538,16 @@ public class ESIndexBuilder {
 
   /**
    * Whether the current index's structured-property field mappings should be carried into the
-   * target mappings. Always true when the caller explicitly asks for it (the definition-driven
-   * mapping-update path). Also true when the structured-property system-update machinery is not
-   * managing SP mappings (disabled, the default): the target then contains an empty
-   * structuredProperties container, and since the container is mapped dynamic:false, a reindex from
-   * such a target would leave every pre-existing SP value unindexed and invisible to search with no
-   * later convergence. When the system-update machinery IS enabled it owns the SP mapping diff
-   * (including removals), so the current mappings must not be merged into the target there.
+   * target mappings. True when the caller explicitly asks for it: a definition upsert adds one
+   * property and keeps the rest. Also true when structured properties are disabled: no definitions
+   * are loaded then, so the target holds an empty dynamic:false structuredProperties container, and
+   * a reindex from it would leave every existing value unindexed. When structured properties are
+   * enabled, system-update builds the target from the active definitions, so a reindex converges
+   * the index to them; systemUpdateEnabled only decides whether a structured-property difference
+   * may trigger that reindex.
    */
-  @VisibleForTesting
-  public boolean shouldPreserveStructuredPropertyMappings(boolean copyStructuredPropertyMappings) {
-    return copyStructuredPropertyMappings
-        || !(structPropConfig.isEnabled() && structPropConfig.isSystemUpdateEnabled());
+  private boolean shouldPreserveStructuredPropertyMappings(boolean copyStructuredPropertyMappings) {
+    return copyStructuredPropertyMappings || !structPropConfig.isEnabled();
   }
 
   private static boolean isKnnEnabled(Map<String, Object> baseSettings) {
@@ -547,8 +560,6 @@ public class ESIndexBuilder {
    * current index has none to merge. The copy (rather than an in-place merge) keeps caller-supplied
    * maps untouched: V2SemanticSearchMappingsBuilder supplies the semantic index target as
    * ImmutableMaps, where an in-place merge throws a message-less UnsupportedOperationException.
-   * Merging from the live index at all — rather than building targets from structured-property
-   * definitions — is a separate issue: https://github.com/datahub-project/datahub/issues/19588.
    */
   @SuppressWarnings("unchecked")
   private Map<String, Object> mergeStructuredPropertyMappings(
@@ -623,13 +634,13 @@ public class ESIndexBuilder {
       result = ReindexResult.CREATED_NEW;
       return result;
     }
-    log.info("Current mappings for index {}", indexState.name());
-    log.info("{}", indexState.currentMappings());
-    log.info("Target mappings for index {}", indexState.name());
-    log.info("{}", indexState.targetMappings());
+    logIndexMappings(indexState);
 
     // If there are no updates to mappings and settings, return
     if (!indexState.requiresApplyMappings() && !indexState.requiresApplySettings()) {
+      if (putUnmappedStructuredPropertyFields(opContext, indexState, true)) {
+        return ReindexResult.NOT_REQUIRED_MAPPINGS_SETTINGS_APPLIED;
+      }
       log.info("No updates to index {}", indexState.name());
       result = ReindexResult.NOT_REINDEXED_NOTHING_APPLIED;
       return result;
@@ -843,7 +854,9 @@ public class ESIndexBuilder {
     if (indexState.isPureMappingsAddition()
         || indexState.isPureStructuredPropertyAddition()
         || indexState.isInPlaceMappingParameterUpdate()) {
-      Map<String, Object> mappingsToPut = indexState.targetMappings();
+      Map<String, Object> mappingsToPut =
+          ReindexConfig.mappingsWithoutMappedStructuredPropertyFields(
+              indexState.targetMappings(), indexState.currentMappings());
       if (indexState.cannotApplyKnnVectorMappingInPlace()) {
         log.error(
             "Index: {} - Skipping knn_vector mapping update because index.knn is false and"
@@ -865,8 +878,52 @@ public class ESIndexBuilder {
       // put-mapping onto an existing index must not relabel it, so the stamp never travels here.
       Map<String, Object> mappings = new HashMap<>(mappingsToPut);
       mappings.remove(V3DocumentIdScheme.META);
-      PutMappingRequest request = new PutMappingRequest(indexState.name()).source(mappings);
-      searchClient.putIndexMapping(opContext, request, requestOptionsLong);
+      Set<String> newFields = new TreeSet<>(ReindexConfig.structuredPropertyFieldIds(mappings));
+      try {
+        searchClient.putIndexMapping(
+            opContext,
+            new PutMappingRequest(indexState.name()).source(mappings),
+            requestOptionsLong);
+        if (!newFields.isEmpty()) {
+          logAddedStructuredPropertyFields(indexState, newFields, suppressError);
+        }
+      } catch (IOException | RuntimeException e) {
+        // System-update sends new structured-property fields along with the index's other mapping
+        // changes, and they can push the index past its total-fields limit. When the engine
+        // rejects the put, the other changes go in without them, and they wait for the next
+        // definition upsert or reindex. Any other failure, and any failure of a definition upsert
+        // (suppressError=false), propagates, so the next run sends the full put again.
+        if (!suppressError || newFields.isEmpty() || !isMappingRejection(e)) {
+          throw e;
+        }
+        log.warn(
+            "Index: {} - Put-mapping rejected, retrying without the new structured property fields"
+                + " {}",
+            indexState.name(),
+            newFields,
+            e);
+        // Against itself every structured-property field counts as mapped, so this drops them all.
+        Map<String, Object> withoutStructuredPropertyFields =
+            ReindexConfig.mappingsWithoutMappedStructuredPropertyFields(mappings, mappings);
+        try {
+          searchClient.putIndexMapping(
+              opContext,
+              new PutMappingRequest(indexState.name()).source(withoutStructuredPropertyFields),
+              requestOptionsLong);
+        } catch (IOException | RuntimeException retryFailure) {
+          if (retryFailure != e) {
+            retryFailure.addSuppressed(e);
+          }
+          throw retryFailure;
+        }
+        log.error(
+            "Index: {} - Applied the mapping changes without the new structured property fields {};"
+                + " a definition upsert or a reindex adds them. If the rejection names the"
+                + " total-fields limit, raise index.mapping.total_fields.limit on the index for an"
+                + " upsert, or in the settings overrides for a reindex.",
+            indexState.name(),
+            newFields);
+      }
       log.info("Updated index {} with new mappings", indexState.name());
     } else {
       // Reached when the mappings differ but put-mapping cannot express the diff: not a pure
@@ -874,13 +931,16 @@ public class ESIndexBuilder {
       // in-place updatable parameter. buildIndex passes suppressError=true, so without this
       // warning the upgrade step reports success while the index mapping is silently left
       // untouched — the operator sees no reindex and no change.
+      boolean addedStructuredPropertyFields =
+          putUnmappedStructuredPropertyFields(opContext, indexState, suppressError);
       log.warn(
-          "Index: {} - Mapping changes were NOT applied: put-mapping cannot express this diff,"
+          "Index: {} - Mapping changes were NOT applied{}: put-mapping cannot express this diff,"
               + " so a reindex is required to pick them up."
               + " requiresReindex={}, enableIndexMappingsReindex={}."
               + " If reindexing is disabled, enable ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX"
               + " or the new mappings will keep being ignored.",
           indexState.name(),
+          addedStructuredPropertyFields ? " beyond the new structured property fields" : "",
           indexState.requiresReindex(),
           indexState.enableIndexMappingsReindex());
       if (v3IndexNeedsRebuild(opContext, indexState)) {
@@ -896,13 +956,134 @@ public class ESIndexBuilder {
                 + " ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true, then RestoreIndices.",
             indexState.name());
       }
-      if (!suppressError) {
-        log.error(
-            "Attempted to apply invalid mappings. Current: {} Target: {}",
-            indexState.currentMappings(),
-            indexState.targetMappings());
+      // A definition upsert (suppressError=false) that added its fields did what it was for; the
+      // warning above already reports the rest of the diff.
+      if (!suppressError && !addedStructuredPropertyFields) {
+        if (EntityIndexVersion.V3.matches(indexState.name())) {
+          log.error(
+              "Attempted to apply invalid mappings for {}.\n{}",
+              indexState.name(),
+              String.join(
+                  "\n",
+                  ReindexConfig.compactMappingDiff(
+                      propertiesOf(indexState.currentMappings()),
+                      propertiesOf(indexState.targetMappings()))));
+        } else {
+          log.error(
+              "Attempted to apply invalid mappings. Current: {} Target: {}",
+              indexState.currentMappings(),
+              indexState.targetMappings());
+        }
       }
     }
+  }
+
+  /**
+   * Adds the structured property fields the index does not map yet, when nothing else on the index
+   * changes or when the rest of the mapping change cannot be applied in place, such as a type or
+   * analyzer change that waits for a reindex. The put carries only the structured property
+   * container with those fields, so a pending change elsewhere cannot fail it; put-mapping merges,
+   * and every other field keeps its live mapping. A definition upsert takes this path too when such
+   * a change is pending on the index.
+   *
+   * @return whether the put added fields
+   */
+  private boolean putUnmappedStructuredPropertyFields(
+      @Nonnull OperationContext opContext, @Nonnull ReindexConfig indexState, boolean suppressError)
+      throws IOException {
+    Map<String, Object> mappings =
+        ReindexConfig.unmappedStructuredPropertyFieldsOnly(
+            indexState.targetMappings(), indexState.currentMappings());
+    if (mappings.isEmpty()) {
+      return false;
+    }
+    Set<String> newFields = new TreeSet<>(ReindexConfig.structuredPropertyFieldIds(mappings));
+    try {
+      searchClient.putIndexMapping(
+          opContext, new PutMappingRequest(indexState.name()).source(mappings), requestOptionsLong);
+    } catch (IOException | RuntimeException e) {
+      // As with the other in-place puts, only a rejection is logged and left for later. Any other
+      // failure, such as a timeout, fails the step, and the next run sends the put again.
+      if (!suppressError || !isMappingRejection(e)) {
+        throw e;
+      }
+      log.error(
+          "Index: {} - Put-mapping rejected the new structured property fields {}; a definition"
+              + " upsert or a reindex adds them. If the rejection names the total-fields limit,"
+              + " raise index.mapping.total_fields.limit on the index for an upsert, or in the"
+              + " settings overrides for a reindex.",
+          indexState.name(),
+          newFields,
+          e);
+      return false;
+    }
+    logAddedStructuredPropertyFields(indexState, newFields, suppressError);
+    return true;
+  }
+
+  /**
+   * Adds the structured property fields the index does not map yet, before a fill writes into it.
+   * Values written without their field would stay unsearchable, so a rejected put fails here
+   * instead of only being logged.
+   */
+  public void addUnmappedStructuredPropertyFields(
+      @Nonnull OperationContext opContext, @Nonnull ReindexConfig indexState) throws IOException {
+    putUnmappedStructuredPropertyFields(opContext, indexState, false);
+  }
+
+  private static void logAddedStructuredPropertyFields(
+      @Nonnull ReindexConfig indexState, @Nonnull Set<String> fields, boolean suppressError) {
+    if (suppressError && !mapsStructuredPropertiesDynamically(indexState.currentMappings())) {
+      // System-update adds fields the index was missing, possibly while values for them were
+      // written; put-mapping does not index what documents already hold. Under a dynamic
+      // container a written value would have mapped its field, so none can be unindexed there.
+      log.warn(
+          "Index: {} - Added structured property fields {}. Values that documents already held"
+              + " for them stay unsearchable until RestoreIndices rewrites those documents.",
+          indexState.name(),
+          fields);
+    } else {
+      log.info("Index: {} - Added structured property fields {}", indexState.name(), fields);
+    }
+  }
+
+  /** Whether the live structured property container maps new values dynamically. */
+  private static boolean mapsStructuredPropertiesDynamically(
+      @Nullable Map<String, Object> currentMappings) {
+    if (currentMappings == null
+        || !(currentMappings.get(PROPERTIES) instanceof Map<?, ?> properties)
+        || !(properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD) instanceof Map<?, ?> container)) {
+      return false;
+    }
+    // A container without its own setting inherits the root's, which defaults to true.
+    Object dynamic =
+        container.containsKey("dynamic")
+            ? container.get("dynamic")
+            : currentMappings.getOrDefault("dynamic", true);
+    return Boolean.TRUE.equals(dynamic) || "true".equals(dynamic);
+  }
+
+  /**
+   * Error types an engine reports when it rejects a put-mapping body: a field past the total-fields
+   * limit or a mapping the index cannot take. Both are a 400, but so is a closed index.
+   */
+  private static final Set<String> MAPPING_REJECTION_TYPES =
+      Set.of("illegal_argument_exception", "mapper_parsing_exception", "mapper_exception");
+
+  /**
+   * Whether the engine rejected a put-mapping body. Anything else, such as a closed index, a
+   * timeout, throttling, or a server or connection failure, may succeed on the next run.
+   */
+  private static boolean isMappingRejection(@Nonnull Exception e) {
+    if (e instanceof ElasticsearchException elasticsearchException) {
+      return elasticsearchException.status() == RestStatus.BAD_REQUEST.getStatus()
+          && MAPPING_REJECTION_TYPES.contains(elasticsearchException.error().type());
+    }
+    // The OpenSearch client carries the error type only in the message.
+    return e instanceof OpenSearchStatusException openSearchException
+        && openSearchException.status() == RestStatus.BAD_REQUEST
+        && openSearchException.getMessage() != null
+        && MAPPING_REJECTION_TYPES.stream().anyMatch(openSearchException.getMessage()::contains);
   }
 
   /**
@@ -1064,7 +1245,7 @@ public class ESIndexBuilder {
         getIncrementalNextIndexName(indexState.name(), upgradeVersion, startTime);
     int targetShards = extractTargetShards(indexState);
 
-    createIndex(opContext, nextIndexName, indexState);
+    createReindexDestination(opContext, nextIndexName, indexState);
 
     long sourceDocCount = getSourceDocCount(opContext, indexState.name());
     if (sourceDocCount == 0) {
@@ -1115,18 +1296,33 @@ public class ESIndexBuilder {
     setReindexOptimalSettingsUndo(opContext, indexName, targetReplicas, targetRefresh, reindexInfo);
   }
 
-  /** Result of polling a reindex to completion. */
+  /**
+   * Result of polling a reindex to completion. {@code initialSourceDocCount} is the source count
+   * sampled once before the equality retries. Callers that do not track a separate floor can omit
+   * it; it then matches the live expected count. {@code taskLookup} is the last observed task
+   * state, or null when the caller did not look one up.
+   */
   public record PollReindexResult(
       boolean completed,
       Map<String, Object> latestReindexInfo,
-      Pair<Long, Long> finalDocumentCounts) {}
+      Pair<Long, Long> finalDocumentCounts,
+      long initialSourceDocCount,
+      ReindexTaskLookup taskLookup) {
+
+    public PollReindexResult(
+        boolean completed,
+        Map<String, Object> latestReindexInfo,
+        Pair<Long, Long> finalDocumentCounts) {
+      this(completed, latestReindexInfo, finalDocumentCounts, finalDocumentCounts.getFirst(), null);
+    }
+  }
 
   /**
    * Outcome of looking up an ES {@code _reindex} task. Distinguishes blank ids and confirmed
    * not-found (safe for count-based completion) from transient lookup failures (must not complete
    * on counts alone — that reopens the mid-copy false-complete hole).
    */
-  enum ReindexTaskLookup {
+  public enum ReindexTaskLookup {
     /** No usable task id (blank / malformed) — typical on some resume paths. */
     BLANK_TASK_ID,
     /** Task exists and is still running. */
@@ -1154,6 +1350,12 @@ public class ESIndexBuilder {
    * lookup failures also do not complete on counts alone. Destination overshoot ({@code dest >
    * expected}) after the task finishes is accepted — writes between the launch-time snapshot and
    * scroll open are copied into the destination and are expected on busy indices.
+   *
+   * <p>When {@code allowDocCountMismatch} and {@code cloneIndices} are both enabled, the poll may
+   * also finish once {@code dest} reaches the source count sampled once before {@code
+   * getDocumentCounts} retries, and the task is {@code COMPLETED} or confirmed not-found. A blank
+   * task id, a running task, or a failed status lookup does not take that exit. A poll that does
+   * not finish is a hard failure for the caller: the alias is not swapped.
    *
    * @param sourceIndex the source index name (for logging and stall-retry resubmission)
    * @param destIndex the destination index name
@@ -1193,6 +1395,14 @@ public class ESIndexBuilder {
       // The active ES task id changes each time we re-submit on stall; track it so status lookups
       // and diagnostics always reference the reindex that is currently running.
       String activeTaskId = taskId;
+      // One successful sample, before getDocumentCounts re-reads the live supplier on every retry
+      // and keeps the last value. That last read is tens of seconds after the scroll opened, so a
+      // finished copy sits just under it and completedButShort resubmits. Transport failures use
+      // the same count retry as the helper; a successful read is not repeated.
+      final long initialSourceDocCount = sampleInitialSourceDocCount(expectedCountSupplier);
+      final boolean allowDocCountMismatch =
+          config.getBuildIndices().isAllowDocCountMismatch()
+              && config.getBuildIndices().isCloneIndices();
       Pair<Long, Long> documentCounts =
           getDocumentCounts(opContext, expectedCountSupplier, destIndex);
       long documentCountsLastUpdated = System.currentTimeMillis();
@@ -1207,6 +1417,9 @@ public class ESIndexBuilder {
             sourceIndex,
             destIndex);
 
+        // Look up the task before counting: once it reports COMPLETED, every write is
+        // acknowledged, so the (refreshed) count read afterwards is final.
+        final ReindexTaskLookup taskLookup = lookupReindexTask(opContext, activeTaskId);
         Pair<Long, Long> latestCounts =
             getDocumentCounts(opContext, expectedCountSupplier, destIndex);
         long currentTime = System.currentTimeMillis();
@@ -1223,7 +1436,6 @@ public class ESIndexBuilder {
                 currentTime - pollStartTimeMillis,
                 latestCounts.getFirst() - latestCounts.getSecond());
 
-        final ReindexTaskLookup taskLookup = lookupReindexTask(opContext, activeTaskId);
         final long expectedCount = documentCounts.getFirst();
         final long destCount = documentCounts.getSecond();
 
@@ -1242,7 +1454,8 @@ public class ESIndexBuilder {
           // Volume for this family is destination documents (not entity URNs / aspect rows).
           recordReindexDocuments(metrics, destCount);
           metrics.recordPage();
-          return new PollReindexResult(true, latestReindexInfo, documentCounts);
+          return new PollReindexResult(
+              true, latestReindexInfo, documentCounts, initialSourceDocCount, taskLookup);
         }
 
         if (destCount >= expectedCount && taskLookup == ReindexTaskLookup.RUNNING) {
@@ -1276,6 +1489,28 @@ public class ESIndexBuilder {
               estimatedMinutesRemaining,
               activeTaskId,
               taskLookup);
+        }
+
+        // Live expected count never settles while GMS is still writing. Measure those copies
+        // against the pre-loop sample instead. Stricter than allowsCountBasedCompletion: a blank
+        // task id is not evidence the copy finished, so a resumed reindex cannot swap early.
+        if (allowDocCountMismatch
+            && allowsSnapshotFloorCompletion(taskLookup)
+            && destCount >= initialSourceDocCount) {
+          log.info(
+              "Reindex complete (initial-count match): {} -> {} dest={} initialSource={} expected={}"
+                  + " taskLookup={} taskId={}",
+              sourceIndex,
+              destIndex,
+              destCount,
+              initialSourceDocCount,
+              expectedCount,
+              taskLookup,
+              activeTaskId);
+          recordReindexDocuments(metrics, destCount);
+          metrics.recordPage();
+          return new PollReindexResult(
+              true, latestReindexInfo, documentCounts, initialSourceDocCount, taskLookup);
         }
 
         // A completed task whose destination is still short of the source dropped documents.
@@ -1346,17 +1581,32 @@ public class ESIndexBuilder {
       // multi-hour reindex this over-reports relative to chunks of work processed; acceptable as a
       // liveness signal (poll is making progress) but not a throughput counter.
 
-      log.error(
-          "Reindex {} -> {} timed out or exhausted retries at {}/{} docs. Last reindex task [{}]: {}",
-          sourceIndex,
-          destIndex,
-          documentCounts.getSecond(),
-          documentCounts.getFirst(),
-          activeTaskId,
-          lookupReindexTask(opContext, activeTaskId));
+      final ReindexTaskLookup finalLookup = lookupReindexTask(opContext, activeTaskId);
+      if (allowDocCountMismatch) {
+        log.error(
+            "Reindex {} -> {} failed. {} Last reindex task [{}].",
+            sourceIndex,
+            destIndex,
+            snapshotFloorFailureDetail(
+                documentCounts.getSecond(),
+                initialSourceDocCount,
+                documentCounts.getFirst(),
+                finalLookup),
+            activeTaskId);
+      } else {
+        log.error(
+            "Reindex {} -> {} timed out or exhausted retries at {}/{} docs. Last reindex task [{}]: {}",
+            sourceIndex,
+            destIndex,
+            documentCounts.getSecond(),
+            documentCounts.getFirst(),
+            activeTaskId,
+            finalLookup);
+      }
       metrics.failed("timeout");
       recordReindexDocuments(metrics, documentCounts.getSecond());
-      return new PollReindexResult(false, latestReindexInfo, documentCounts);
+      return new PollReindexResult(
+          false, latestReindexInfo, documentCounts, initialSourceDocCount, finalLookup);
     } catch (Throwable t) {
       metrics.failed("unexpected");
       throw t;
@@ -1382,6 +1632,41 @@ public class ESIndexBuilder {
     return lookup == ReindexTaskLookup.BLANK_TASK_ID
         || lookup == ReindexTaskLookup.COMPLETED
         || lookup == ReindexTaskLookup.NOT_FOUND;
+  }
+
+  /**
+   * Whether the {@code allowDocCountMismatch} exit may complete for this task-lookup outcome.
+   * Stricter than {@link #allowsCountBasedCompletion}: {@code BLANK_TASK_ID} is excluded.
+   *
+   * <p>That exit measures against the source count captured before the poll loop, so on a live
+   * source it clears a lower bar and needs evidence the copy finished. {@code NOT_FOUND} supplies
+   * it — a usable task id was resolved and ES reports no such task. {@code BLANK_TASK_ID} supplies
+   * the opposite: no usable id was available. The legacy resume path used to pass a parent task id
+   * that renders as {@code unset} and lands here.
+   */
+  static boolean allowsSnapshotFloorCompletion(@Nonnull final ReindexTaskLookup lookup) {
+    return lookup == ReindexTaskLookup.COMPLETED || lookup == ReindexTaskLookup.NOT_FOUND;
+  }
+
+  /**
+   * Failure text for a poll that ends with both mismatch flags on. A destination under the floor is
+   * a short copy. A destination already at the floor ended because the task was not observed
+   * finished ({@code RUNNING}, {@code LOOKUP_ERROR}, or {@code BLANK_TASK_ID}).
+   */
+  static String snapshotFloorFailureDetail(
+      long destCount, long floor, long liveSourceCount, @Nullable ReindexTaskLookup taskLookup) {
+    String lookup = taskLookup == null ? "unknown" : taskLookup.name();
+    if (destCount < floor) {
+      return String.format(
+          "Destination %s is short of the source count sampled at poll start (%s). Live source"
+              + " count %s. Task lookup: %s. The alias was not swapped.",
+          destCount, floor, liveSourceCount, lookup);
+    }
+    return String.format(
+        "Destination %s reached the source count sampled at poll start (%s), but the reindex task"
+            + " was not observed finished. Live source count %s. Task lookup: %s. The alias was"
+            + " not swapped.",
+        destCount, floor, liveSourceCount, lookup);
   }
 
   /** Task is still in flight, or status could not be read — not safe to stack another _reindex. */
@@ -1541,24 +1826,27 @@ public class ESIndexBuilder {
     String tempIndexName = getNextIndexName(indexState.name(), startTime);
     Map<String, Object> reinfo = new HashMap<>();
     try {
-      Optional<TaskInfo> previousTaskInfo = getTaskInfoByHeader(opContext, indexState.name());
+      Optional<TaskInfo> previousTaskInfo =
+          getTaskInfoByHeader(opContext, indexState.name(), false);
 
       int targetShards = extractTargetShards(indexState);
-      String parentTaskId = "";
+      String reindexTaskId = "";
       boolean reindexTaskCompleted = false;
       if (previousTaskInfo.isPresent()) {
         log.info(
             "Reindex task {} in progress with description {}. Attempting to continue task from breakpoint.",
             previousTaskInfo.get().getTaskId(),
             previousTaskInfo.get().getDescription());
-        parentTaskId = previousTaskInfo.get().getParentTaskId().toString();
+        // Parent id stringifies as "unset" and the poll treats that as a blank task id. The floor
+        // exit rejects a blank id, so resume must follow the task that is actually running.
+        reindexTaskId = previousTaskInfo.get().getTaskId().toString();
         tempIndexName =
             ESUtils.extractTargetIndex(
                 previousTaskInfo.get().getHeaders().get(ESUtils.OPAQUE_ID_HEADER));
         result = ReindexResult.REINDEXING_ALREADY;
       } else {
         // Create new index
-        createIndex(opContext, tempIndexName, indexState);
+        createReindexDestination(opContext, tempIndexName, indexState);
         long curDocCount = getSourceDocCount(opContext, indexState.name());
         if (curDocCount == 0) {
           reindexTaskCompleted = true;
@@ -1575,7 +1863,7 @@ public class ESIndexBuilder {
                   null,
                   null,
                   targetShards);
-          parentTaskId = (String) reinfo.get("taskId");
+          reindexTaskId = (String) reinfo.get("taskId");
           result = ReindexResult.REINDEXING;
         }
       }
@@ -1589,39 +1877,40 @@ public class ESIndexBuilder {
                 () -> getCount(opContext, indexState.name()),
                 targetShards,
                 reinfo,
-                parentTaskId);
+                reindexTaskId);
         reindexTaskCompleted = pollResult.completed();
         reinfo = pollResult.latestReindexInfo();
         Pair<Long, Long> documentCounts = pollResult.finalDocumentCounts();
 
+        // completed=true is the only success, including a snapshot-floor match. completed=false
+        // means the task was not observed finished or the destination is short of that floor.
+        // Swapping here would promote a partial index.
         if (!reindexTaskCompleted) {
+          long liveExpected = documentCounts.getFirst();
+          long destCount = documentCounts.getSecond();
+          diff(opContext, indexState.name(), tempIndexName, Math.max(liveExpected, destCount));
           if (config.getBuildIndices().isAllowDocCountMismatch()
               && config.getBuildIndices().isCloneIndices()) {
-            log.warn(
-                "Index: {} - Post-reindex document count is different, source_doc_count: {} reindex_doc_count: {}\n"
-                    + "This condition is explicitly ALLOWED, please refer to latest clone if original index is required.",
-                indexState.name(),
-                documentCounts.getFirst(),
-                documentCounts.getSecond());
-          } else {
-            log.error(
-                "Index: {} - Post-reindex document count is different, source_doc_count: {} reindex_doc_count: {}",
-                indexState.name(),
-                documentCounts.getFirst(),
-                documentCounts.getSecond());
-            diff(
-                opContext,
-                indexState.name(),
-                tempIndexName,
-                Math.max(documentCounts.getFirst(), documentCounts.getSecond()));
+            String detail =
+                snapshotFloorFailureDetail(
+                    destCount,
+                    pollResult.initialSourceDocCount(),
+                    liveExpected,
+                    pollResult.taskLookup());
+            log.error("Index: {} - {}", indexState.name(), detail);
             throw new RuntimeException(
                 String.format(
-                    "Reindex from %s to %s failed. Document count %s != %s",
-                    indexState.name(),
-                    tempIndexName,
-                    documentCounts.getFirst(),
-                    documentCounts.getSecond()));
+                    "Reindex from %s to %s failed. %s", indexState.name(), tempIndexName, detail));
           }
+          log.error(
+              "Index: {} - Post-reindex document count is different, source_doc_count: {} reindex_doc_count: {}",
+              indexState.name(),
+              liveExpected,
+              destCount);
+          throw new RuntimeException(
+              String.format(
+                  "Reindex from %s to %s failed. Document count %s != %s",
+                  indexState.name(), tempIndexName, liveExpected, destCount));
         }
       }
     } catch (Throwable e) {
@@ -1653,6 +1942,71 @@ public class ESIndexBuilder {
         requestOptionsLong);
     log.info("Finished setting up {}", indexState.name());
     return result;
+  }
+
+  /**
+   * Creates the destination of a reindex, which copies the documents of an index that still serves.
+   * A target built from the definitions can declare more structured property fields than the
+   * index's total-fields limit allows, and the engine then rejects the destination. Values for
+   * fields the index does not map are already unsearchable there, so instead of failing, perhaps
+   * with the index's writes blocked, the destination takes the structured property fields that
+   * index maps now, as a reindex did before targets came from the definitions. That holds only
+   * while the live fields' differences from the definitions cannot start a reindex: otherwise the
+   * same reindex would start on every run, so the rejection fails it, as it did before. Any other
+   * failure propagates.
+   */
+  void createReindexDestination(
+      @Nonnull OperationContext opContext, String destination, ReindexConfig indexState)
+      throws IOException {
+    try {
+      createIndex(opContext, destination, indexState);
+    } catch (IOException | RuntimeException e) {
+      // The destination would keep the index's differences from the definitions; these are the
+      // ones ReindexConfig starts a reindex for.
+      boolean liveFieldsStartAReindex =
+          indexState.enableIndexMappingsReindex()
+              && ((indexState.hasRemovedStructuredProperty()
+                      && indexState.enableStructuredPropertiesReindex())
+                  || (indexState.hasStructuredPropertyTypeMismatch()
+                      && indexState.enableStructuredPropertyTypeMismatchReindex())
+                  || (indexState.hasStructuredPropertyCopyToMismatch()
+                      && indexState.enableStructuredPropertyCopyToMismatchReindex()));
+      if (liveFieldsStartAReindex || !isMappingRejection(e)) {
+        throw e;
+      }
+      // Against itself every structured property field counts as mapped, so this empties the
+      // container before the live fields go in.
+      Map<String, Object> liveStructuredPropertyMappings =
+          mergeStructuredPropertyMappings(
+              ReindexConfig.mappingsWithoutMappedStructuredPropertyFields(
+                  indexState.targetMappings(), indexState.targetMappings()),
+              indexState.currentMappings());
+      Set<String> leftOut =
+          new TreeSet<>(ReindexConfig.structuredPropertyFieldIds(indexState.targetMappings()));
+      leftOut.removeAll(ReindexConfig.structuredPropertyFieldIds(liveStructuredPropertyMappings));
+      if (leftOut.isEmpty()) {
+        throw e;
+      }
+      log.error(
+          "Index: {} - The engine rejected reindex destination {}; creating it with the structured"
+              + " property fields the index maps now, leaving out {}. If the rejection names the"
+              + " total-fields limit, raise index.mapping.total_fields.limit on the index so the"
+              + " next system-update adds them in place, and in the settings overrides so later"
+              + " reindexes keep them.",
+          indexState.name(),
+          destination,
+          leftOut,
+          e);
+      try {
+        createIndex(
+            opContext, destination, liveStructuredPropertyMappings, indexState.targetSettings());
+      } catch (IOException | RuntimeException retryFailure) {
+        if (retryFailure != e) {
+          retryFailure.addSuppressed(e);
+        }
+        throw retryFailure;
+      }
+    }
   }
 
   public void deleteActionWithRetry(@Nonnull OperationContext opContext, String tempIndexName)
@@ -2736,6 +3090,17 @@ public class ESIndexBuilder {
     return reindexInfo;
   }
 
+  /**
+   * First successful source count for the mismatch floor. Retries transport errors the same way
+   * {@link #getDocumentCounts} does, and keeps that successful read. Repeating it after a sleep
+   * would record writes that opened after the scroll.
+   */
+  private long sampleInitialSourceDocCount(Callable<Long> expectedCountSupplier) throws Throwable {
+    return retryRegistry
+        .retry("retryInitialSourceDocCount", "countRetry")
+        .executeCheckedSupplier(expectedCountSupplier::call);
+  }
+
   @VisibleForTesting
   protected Pair<Long, Long> getDocumentCounts(
       @Nonnull OperationContext opContext,
@@ -2757,7 +3122,9 @@ public class ESIndexBuilder {
           retryRegistry
               .retry("retryDestinationIndexCount", "countRetry")
               .executeCheckedSupplier(() -> getCount(opContext, destinationIndex));
-      if (expectedCount == reindexedCount) {
+      if (expectedCount == reindexedCount || i == indexConfig.getNumRetries()) {
+        // The last attempt has no following read, so the post-mismatch sleep only delays the
+        // caller.
         break;
       }
       try {
@@ -2776,14 +3143,26 @@ public class ESIndexBuilder {
   }
 
   public Optional<TaskInfo> getTaskInfoByHeader(
-      @Nonnull OperationContext opContext, String indexName) throws Throwable {
+      @Nonnull OperationContext opContext, String indexName, boolean requireCompleteList)
+      throws Throwable {
     Retry retryWithDefaultConfig = retryRegistry.retry("getTaskInfoByHeader");
 
     return retryWithDefaultConfig.executeCheckedSupplier(
         () -> {
           ListTasksRequest listTasksRequest = new ListTasksRequest().setDetailed(true);
-          List<TaskInfo> taskInfos =
-              searchClient.listTasks(listTasksRequest, requestOptionsLong).getTasks();
+          ListTasksResponse response = searchClient.listTasks(listTasksRequest, requestOptionsLong);
+          if (requireCompleteList
+              && (!response.getNodeFailures().isEmpty() || !response.getTaskFailures().isEmpty())) {
+            throw new IllegalStateException(
+                "Task list for "
+                    + indexName
+                    + " is incomplete: "
+                    + response.getNodeFailures().size()
+                    + " node failure(s), "
+                    + response.getTaskFailures().size()
+                    + " task failure(s). Cannot rule out a live reindex.");
+          }
+          List<TaskInfo> taskInfos = response.getTasks();
           return taskInfos.stream()
               .filter(
                   info ->
@@ -3265,13 +3644,61 @@ public class ESIndexBuilder {
     log.info("Index {}: migration marked {}", indexName, state);
   }
 
+  /**
+   * V2 logs the live and target mapping on every index. V3 indexes share one mapping, so that
+   * mapping is logged once; a difference is logged separately as a leaf diff.
+   */
+  private void logIndexMappings(@Nonnull ReindexConfig indexState) {
+    if (EntityIndexVersion.V3.matches(indexState.name())) {
+      logV3MappingsOnce(indexState.targetMappings());
+      return;
+    }
+    log.info("Current mappings for index {}", indexState.name());
+    log.info("{}", indexState.currentMappings());
+    log.info("Target mappings for index {}", indexState.name());
+    log.info("{}", indexState.targetMappings());
+  }
+
+  private static void logV3MappingsOnce(@Nullable Map<String, Object> targetMappings) {
+    String rendered =
+        ReindexConfig.ReindexConfigBuilder.normalizeMapForComparison(
+                targetMappings == null ? Map.of() : targetMappings)
+            .toString();
+    if (LOGGED_V3_MAPPINGS.add(rendered)) {
+      log.info("Search V3 mappings: {}", rendered);
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> propertiesOf(@Nullable Map<String, Object> mappings) {
+    if (mappings == null) {
+      return Map.of();
+    }
+    Object properties = mappings.get(PROPERTIES);
+    if (properties instanceof Map) {
+      return (Map<String, Object>) properties;
+    }
+    return Map.of();
+  }
+
   public void createIndex(
       @Nonnull OperationContext opContext, String indexName, ReindexConfig state)
       throws IOException {
+    createIndex(opContext, indexName, state.targetMappings(), state.targetSettings());
+  }
+
+  private void createIndex(
+      @Nonnull OperationContext opContext,
+      String indexName,
+      Map<String, Object> mappings,
+      Map<String, Object> settings)
+      throws IOException {
     log.info("Index {} does not exist. Creating", indexName);
-    Map<String, Object> mappings = state.targetMappings();
-    Map<String, Object> settings = state.targetSettings();
-    log.info("Creating index {} with targetMappings: {}", indexName, mappings);
+    if (EntityIndexVersion.V3.matches(indexName)) {
+      logV3MappingsOnce(mappings);
+    } else {
+      log.info("Creating index {} with targetMappings: {}", indexName, mappings);
+    }
     log.info("Creating index {} with targetSettings: {}", indexName, settings);
 
     CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);

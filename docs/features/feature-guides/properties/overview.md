@@ -63,6 +63,8 @@ Set `STRUCTURED_PROPERTIES_DROP_OVERSIZED_KEYWORD_VALUES_FROM_INDEX` / `structur
 
 Number properties are not subject to this keyword limit.
 
+A numeric property can change search rank when a Search V3 template names it in `fieldValueScores`. The shipped templates do not. Omitted range values come from the definition's `score`. See [Numeric property scores](../../../developers/search-v3-design.md#numeric-property-scores).
+
 ## Next Steps
 
 Now that you understand Structured Properties, you’re ready to [Create a Structured Property](create-a-property.md).

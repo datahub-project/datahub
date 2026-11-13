@@ -183,6 +183,58 @@ test('reader cannot edit', async ({ page }) => {
 });
 ```
 
+### Tags and owning domains
+
+Tags live in [`utils/test-tags.ts`](utils/test-tags.ts):
+
+| Tag              | Meaning                                                            |
+| ---------------- | ------------------------------------------------------------------ |
+| `@p0`            | Critical path; the tests to run first, e.g. on every PR            |
+| `@domain:<name>` | Owning product domain (`DomainTag`), written into the JUnit report |
+
+Add tags as a plain array:
+
+```typescript
+import { DomainTag, TestTag } from '../../utils/test-tags';
+
+test('create a secret', { tag: [TestTag.P0, DomainTag.Ingestion] }, async () => {
+  /* ... */
+});
+```
+
+The domain fixture (`fixtures/domain.fixture.ts`) writes each test's `@domain:*` tags into the JUnit report as a `domains` property.
+
+In a `test.describe.configure({ mode: 'serial' })` block, tag the `test.describe`, not a single test, so `--grep @p0` never runs one step of a chain without the steps before it. `.github/scripts/check_playwright_p0.py` (lint and pre-commit) enforces this.
+
+```bash
+npx playwright test --grep @p0               # all P0 tests
+npx playwright test --grep @domain:observe   # one domain
+```
+
+### Catalog matrix specs
+
+`tests/catalog-matrix/` holds one spec per catalog edit flow. Each spec loops over `CORE_ENTITIES` in
+`tests/catalog-matrix/entity-matrix.ts`, so the flow runs on every core entity type against a real
+GMS, one test per type. Every entry is its own seeded entity (`tests/catalog-matrix/fixtures/data.json`),
+so the per-type tests can run in parallel without racing when more than one worker is configured, and
+a test rewrites the aspect it mutates before it starts. To cover another entity type, add its key to
+`CoreEntityKey`, a row to the table and its MCPs to the seed file; to cover another flow, add a spec
+that loops the table. Page objects for these specs locate by test id wherever the app renders one.
+
+### What runs on a PR (P0 tier)
+
+The `Plan Playwright P0 tier` job in `docker-unified.yml` works out which tests a PR needs (`.github/scripts/plan_playwright_tier.py`):
+
+- every `@p0` test;
+- every test Playwright's `--only-changed` says the PR affects: a spec it adds or edits, or one that loads anything it edits (page objects, helpers, utils, through imports, aliases or `require`);
+- every spec that seeds from a `tests/<feature>/fixtures/data.json` the PR edits: the specs in `tests/<feature>/`, plus any spec listed for that feature in `SEED_BORROWERS` in `.github/scripts/plan_playwright_tier.py`.
+
+Seed data is read from disk, so `--only-changed` can't see it. A spec's `featureName` must therefore be a literal naming its own directory, or the spec must be listed in `SEED_BORROWERS`; `check_playwright_p0.py` (pre-commit and lint CI) fails otherwise.
+
+The full suite runs instead when a change can't be mapped to tests: the Playwright config, package files, global seed data (`test-data/`), any other JSON under `tests/`, seed data no listed spec uses, or the tier's own CI wiring. It also runs when Playwright can't list the tests, for example because a spec imports a helper the PR deleted. Files no test loads, such as docs or types-only modules, select no extra tests.
+
+The tier is on when the `PLAYWRIGHT_P0_SMOKE` repo variable is `true` and the PR has neither `run-all-tests` nor `run-all-tests:playwright`. Each shard then runs its share of the selection as a Playwright `--test-list`, on as many shards as the full suite uses (fewer only when the selection has fewer spec files), and the plan job's summary lists each selected spec and why. Otherwise the full suite runs (shadow mode) and the report job's summary lists any failing test the tier would have skipped. Pushes to `master` always run the full suite.
+
 ## Page Objects
 
 Page objects live in `pages/` and extend `BasePage`. All constructors accept

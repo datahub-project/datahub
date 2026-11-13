@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -9,6 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
+import yaml
 from sqlalchemy import exc
 
 from datahub.ingestion.source.sql.oracle import (
@@ -32,6 +34,12 @@ VOLATILE_STAGING_TABLES = {
     "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD)",
 }
 
+# In these recipes a DML query entity can only come from V$SQL: view and
+# materialized view definitions are SELECTs.
+_DML_STATEMENT_PATTERN = re.compile(
+    r"^\s*(INSERT|UPDATE|DELETE|MERGE)\b", re.IGNORECASE
+)
+
 
 def filter_volatile_vsql_queries(metadata_json: List[dict]) -> List[dict]:
     """
@@ -42,20 +50,25 @@ def filter_volatile_vsql_queries(metadata_json: List[dict]) -> List[dict]:
     - Oracle cache flush timing
     - Memory pressure
     - Query execution timing
+    - The max_queries_to_extract cut: the connector keeps the newest
+      statements by FIRST_LOAD_TIME, which has one-second resolution, and
+      setup loads about that many, so runner speed decides which make it in
 
-    This function removes entities related to staging tables that are populated
-    by volatile INSERT queries, making tests deterministic regardless of cache state.
+    This function removes every DML query (for example the UPDATE inside
+    sales_schema.process_order, which setup calls), its lineage, and the
+    staging tables that only exist to receive setup INSERTs, making tests
+    deterministic regardless of cache state.
     """
     filtered = []
     volatile_query_urns = set()
 
-    # First pass: collect query URNs that reference volatile staging tables
+    # First pass: collect URNs of DML queries and of queries on staging tables
     for entity in metadata_json:
         if entity.get("entityType") == "query":
-            # Check if query references any volatile staging tables
             aspect_json = entity.get("aspect", {}).get("json", {})
             query_subjects = aspect_json.get("subjects", [])
-            if any(
+            statement = aspect_json.get("statement", {}).get("value", "")
+            if _DML_STATEMENT_PATTERN.match(statement) or any(
                 subject.get("entity") in VOLATILE_STAGING_TABLES
                 for subject in query_subjects
             ):
@@ -202,7 +215,7 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
     output_path = tmp_path / "oracle_mces.json"
     golden_path = (
         test_resources_dir
-        / f"golden_files/golden_mces_{config_file.replace('.yml', '.json')}"
+        / f"golden_files/golden_{config_file.replace('.yml', '.json')}"
     )
 
     # auditStamp.time comes from V$SQL LAST_ACTIVE_TIME, not Python's clock
@@ -219,7 +232,7 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
         output_filtered = filter_volatile_vsql_queries(output_data)
         golden_filtered = filter_volatile_vsql_queries(golden_data)
 
-        filtered_output_path = tmp_path / "oracle_mces_filtered.json"
+        filtered_output_path = tmp_path / "oracle_filtered.json"
         with open(filtered_output_path, "w") as f:
             json.dump(output_filtered, f, indent=4)
 
@@ -229,6 +242,7 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
 
         mce_helpers.check_golden_file(
             pytestconfig,
+            fail_on_output_mces=True,
             output_path=filtered_output_path,
             golden_path=filtered_golden_path,
             ignore_paths=ignore_paths,
@@ -236,6 +250,7 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
     else:
         mce_helpers.check_golden_file(
             pytestconfig,
+            fail_on_output_mces=True,
             output_path=output_path,
             golden_path=golden_path,
             ignore_paths=ignore_paths,
@@ -257,6 +272,39 @@ def test_oracle_test_connection(oracle_runner):
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable
     assert report.basic_connectivity.failure_reason is None
+
+
+@pytest.mark.integration
+def test_oracle_connect_args_dsn_failover(oracle_runner):
+    """The documented HA pattern: a multi-address descriptor in
+    options.connect_args.dsn overrides host_port and fails over past an
+    unreachable first address."""
+    tls_args = _oracle_tls_connect_args(oracle_runner)
+    recipe = yaml.safe_load(
+        Path(SOURCE_FILES_PATH, "oracle_to_file_with_all_tables.yml").read_text()
+    )["source"]["config"]
+    config_dict = {
+        "username": recipe["username"],
+        "password": recipe["password"],
+        # Required by the config but unused: connect_args.dsn takes precedence.
+        "host_port": "unused:1521",
+        "options": {
+            "connect_args": {
+                **tls_args,
+                "dsn": (
+                    "(DESCRIPTION=(FAILOVER=on)(LOAD_BALANCE=off)(ADDRESS_LIST="
+                    # Nothing listens on port 1, so the driver must move on.
+                    "(ADDRESS=(PROTOCOL=TCPS)(HOST=localhost)(PORT=1))"
+                    f"(ADDRESS=(PROTOCOL=TCPS)(HOST=localhost)(PORT={oracle_runner})))"
+                    "(CONNECT_DATA=(SERVICE_NAME=XEPDB1)))"
+                ),
+            }
+        },
+    }
+
+    report = OracleSource.test_connection(config_dict)
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable, report.basic_connectivity.failure_reason
 
 
 class OracleErrorHandlingMockData(OracleSourceMockDataBase):

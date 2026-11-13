@@ -14,6 +14,8 @@ public class Constants {
   // Use on specific MCP to request an synchronous index update avoid the kafka lag.
   public static final String SYNC_INDEX_UPDATE_HEADER_NAME = "X-DataHub-Sync-Index-Update";
   public static final String DATAHUB_LOGIN_SOURCE_HEADER_NAME = "X-DataHubLoginSource";
+  // MCP header carrying the caller of a queued write; only trusted from system writers.
+  public static final String ATTRIBUTED_ACTOR_HEADER_NAME = "X-DataHub-Attributed-Actor";
 
   public static final String URN_LI_PREFIX = "urn:li:";
 
@@ -191,6 +193,10 @@ public class Constants {
   public static final String GLOBAL_TAGS_ASPECT_NAME = "globalTags";
   public static final String GLOSSARY_TERMS_ASPECT_NAME = "glossaryTerms";
   public static final String STATUS_ASPECT_NAME = "status";
+  // Lifecycle stage urns. Stages are defined in
+  // metadata-service/configuration/src/main/resources/bootstrap_mcps/lifecycle-stages.yaml.
+  public static final String LIFECYCLE_STAGE_TYPE_URN_PREFIX = "urn:li:lifecycleStageType:";
+  public static final String DRAFT_LIFECYCLE_STAGE_URN = LIFECYCLE_STAGE_TYPE_URN_PREFIX + "DRAFT";
   public static final String SUB_TYPES_ASPECT_NAME = "subTypes";
   public static final String DEPRECATION_ASPECT_NAME = "deprecation";
   public static final String OPERATION_ASPECT_NAME = "operation";
@@ -235,6 +241,7 @@ public class Constants {
   public static final String UPSTREAM_LINEAGE_ASPECT_NAME = "upstreamLineage";
   public static final String SCHEMA_METADATA_ASPECT_NAME = "schemaMetadata";
   public static final String EDITABLE_SCHEMA_METADATA_ASPECT_NAME = "editableSchemaMetadata";
+  public static final String EDITABLE_PRIMARY_KEYS_ASPECT_NAME = "editablePrimaryKeys";
   public static final String VIEW_PROPERTIES_ASPECT_NAME = "viewProperties";
   public static final String DATASET_PROFILE_ASPECT_NAME = "datasetProfile";
   public static final String DATASET_USAGE_STATISTICS_ASPECT_NAME = "datasetUsageStatistics";
@@ -542,13 +549,13 @@ public class Constants {
   // Business Attribute
   public static final String BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME = "businessAttributeKey";
   public static final String BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME = "businessAttributeInfo";
-  public static final String BUSINESS_ATTRIBUTE_ASSOCIATION = "businessAttributeAssociation";
   public static final String BUSINESS_ATTRIBUTE_ASPECT = "businessAttributes";
 
   // Knowledge Article
   public static final String DOCUMENT_KEY_ASPECT_NAME = "documentKey";
   public static final String DOCUMENT_INFO_ASPECT_NAME = "documentInfo";
   public static final String DOCUMENT_SETTINGS_ASPECT_NAME = "documentSettings";
+  public static final String OKF_PROPERTIES_ASPECT_NAME = "okfProperties";
   // Curated embedding-source text. A common aspect so any entity type can register it.
   public static final String SEMANTIC_TEXT_ASPECT_NAME = "semanticText";
 
@@ -577,23 +584,28 @@ public class Constants {
   public static final String SEARCH_TEMPLATE_FULLTEXT_URN = "urn:li:searchTemplate:fulltext";
   public static final String SEARCH_TEMPLATE_LIGHT_URN = "urn:li:searchTemplate:light";
   public static final String SEARCH_TEMPLATE_LIST_URN = "urn:li:searchTemplate:list";
+  public static final String SEARCH_TEMPLATE_LIST_BY_URN_URN = "urn:li:searchTemplate:listUrn";
   public static final String SEARCH_TEMPLATE_STRUCTURED_URN = "urn:li:searchTemplate:structured";
   public static final String SEARCH_TEMPLATE_EXACT_URN = "urn:li:searchTemplate:exact";
   public static final String SEARCH_TEMPLATE_STRUCTURED_EXACT_URN =
       "urn:li:searchTemplate:structuredExact";
   public static final String SEARCH_TEMPLATE_IDENTITY_URN = "urn:li:searchTemplate:identity";
   public static final String SEARCH_TEMPLATE_SEARCH_URN = "urn:li:searchTemplate:search";
+  public static final String SEARCH_TEMPLATE_AUTOCOMPLETE_URN =
+      "urn:li:searchTemplate:autocomplete";
   public static final Set<String> SEARCH_TEMPLATE_SYSTEM_IDS =
       Set.of(
           "fulltext",
           "light",
           "list",
+          "listUrn",
           "structured",
           "exact",
           "structuredExact",
           "identity",
           "search",
-          "searchLight");
+          "searchLight",
+          "autocomplete");
 
   // Module
   public static final String DATAHUB_PAGE_MODULE_ENTITY_NAME = "dataHubPageModule";

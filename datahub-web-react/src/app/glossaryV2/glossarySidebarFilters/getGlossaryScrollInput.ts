@@ -32,6 +32,8 @@ export type GetGlossaryScrollInputArgs = {
      * single name sort applies across both types.
      */
     sortTypeBeforeName?: boolean;
+    /** Include terms in hidden lifecycle stages (e.g. drafts) — for viewers who can edit them. */
+    includeHiddenLifecycleStages?: boolean;
 };
 
 export function getGlossaryScrollInput({
@@ -44,6 +46,7 @@ export function getGlossaryScrollInput({
     ignoreParentScope = false,
     count = GLOSSARY_SCROLL_COUNT,
     sortTypeBeforeName = true,
+    includeHiddenLifecycleStages = false,
 }: GetGlossaryScrollInputArgs): ScrollAcrossEntitiesQueryVariables {
     const filters: FacetFilterInput[] = [];
 
@@ -81,7 +84,7 @@ export function getGlossaryScrollInput({
             orFilters: [{ and: filters }],
             count,
             sortInput: { sortCriteria },
-            searchFlags: { skipCache: true },
+            searchFlags: { skipCache: true, ...(includeHiddenLifecycleStages ? { includeHiddenLifecycleStages } : {}) },
         },
     };
 }
