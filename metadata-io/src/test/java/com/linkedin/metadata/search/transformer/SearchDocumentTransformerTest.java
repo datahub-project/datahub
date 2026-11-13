@@ -15,11 +15,17 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionRunEvent;
+import com.linkedin.assertion.AssertionRunStatus;
+import com.linkedin.assertion.AssertionType;
+import com.linkedin.assertion.BatchSpec;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.DataMapBuilder;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.entity.Aspect;
@@ -1538,5 +1544,67 @@ public class SearchDocumentTransformerTest {
         .filter(spec -> fieldName.equals(spec.getSearchableAnnotation().getFieldName()))
         .findFirst()
         .orElseThrow();
+  }
+
+  @Test
+  public void testTimeseriesAspectDoesNotOverwriteEntityAspectSearchFields() throws Exception {
+    // The entity search document is written with partial updates, one aspect at a time. A
+    // timeseries aspect that declares a search field also owned by a versioned aspect of the same
+    // entity would replace that field: assertionRunEvent.batchSpec includes CustomProperties, so
+    // every reported run used to clear the assertion's customProperties.
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:test");
+    Urn datasetUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_table,PROD)");
+    EntitySpec assertionSpec = ENTITY_REGISTRY.getEntitySpec(ASSERTION_ENTITY_NAME);
+
+    AssertionInfo info =
+        new AssertionInfo()
+            .setType(AssertionType.DATASET)
+            .setCustomProperties(new StringMap(Map.of("team", "core")));
+    ObjectNode entityDocument =
+        transformer
+            .transformAspect(
+                opContext,
+                assertionUrn,
+                info,
+                assertionSpec.getAspectSpec(ASSERTION_INFO_ASPECT_NAME),
+                false,
+                AuditStampUtils.createDefaultAuditStamp())
+            .orElseThrow();
+
+    AssertionRunEvent withoutBatchSpec =
+        new AssertionRunEvent()
+            .setTimestampMillis(1L)
+            .setRunId("run-1")
+            .setAsserteeUrn(datasetUrn)
+            .setAssertionUrn(assertionUrn)
+            .setStatus(AssertionRunStatus.COMPLETE);
+    AssertionRunEvent withBatchSpec =
+        withoutBatchSpec
+            .copy()
+            .setBatchSpec(
+                new BatchSpec().setCustomProperties(new StringMap(Map.of("batch", "b1"))));
+
+    for (AssertionRunEvent runEvent : List.of(withoutBatchSpec, withBatchSpec)) {
+      ObjectNode runEventDocument =
+          transformer
+              .transformAspect(
+                  opContext,
+                  assertionUrn,
+                  runEvent,
+                  assertionSpec.getAspectSpec(ASSERTION_RUN_EVENT_ASPECT_NAME),
+                  false,
+                  AuditStampUtils.createDefaultAuditStamp())
+              .orElseThrow();
+      assertTrue(runEventDocument.has("lastCompletedTime"));
+
+      // Same top-level merge as the doc_as_upsert partial update.
+      ObjectNode merged = entityDocument.deepCopy();
+      merged.setAll(runEventDocument);
+      assertEquals(merged.get("customProperties"), entityDocument.get("customProperties"));
+    }
   }
 }
