@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import org.apache.avro.Schema;
 
 /**
@@ -32,6 +33,14 @@ public class SchemaRegistryServiceImpl implements SchemaRegistryService {
     this._eventSchemaData = eventSchemaData;
     this._convention = convention;
     this._topicToSchemaNameMap = buildTopicToSchemaNameMap();
+  }
+
+  /**
+   * Maps an extra topic to a known event schema, for topics that are not part of the {@link
+   * TopicConvention} (for example the optional policy change topic, which carries change logs).
+   */
+  public void registerTopicSchema(@Nonnull String topicName, @Nonnull String schemaName) {
+    _topicToSchemaNameMap.put(topicName, schemaName);
   }
 
   private String getSchemaNameFromTopic(String topicName) {

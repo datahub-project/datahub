@@ -119,6 +119,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -201,6 +202,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   // Set by the authorizer when its policy cache loads from SQL. Volatile: set once at startup and
   // read on every write thread.
   @Nullable @Setter private volatile PolicyChangeObserver policyChangeObserver;
+
+  // POLICY_CACHE_BROADCAST_ENABLED: write dataHubPolicy proposals synchronously even when the
+  // caller asks for async, so the policy exists (and caches are refreshed) when the request
+  // returns.
+  @Setter private volatile boolean syncPolicyWrites;
   private final PreProcessHooks preProcessHooks;
   protected static final int MAX_KEYS_PER_QUERY = 500;
   protected static final int MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE = 500;
@@ -2516,6 +2522,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   public List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
+    if (async && syncPolicyWrites) {
+      final List<MCPItem> items = aspectsBatch.getMCPItems();
+      if (items.stream().anyMatch(item -> isPolicy(item.getUrn()))) {
+        return ingestPolicyItemsSynchronously(opContext, aspectsBatch, items);
+      }
+    }
     // Apply MCP observers (pre-transaction metrics collection, external actions).
     // Only on sync path — async MCPs come back via MCE consumer with async=false.
     if (!async) {
@@ -2550,6 +2562,55 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     return Stream.concat(nonTimeseriesIngestResults, timeseriesIngestResults)
         .collect(Collectors.toList());
+  }
+
+  /**
+   * Splits an async batch: dataHubPolicy items are written now, the rest stays async. Results are
+   * returned in the input order, because API callers can match results to requests by position.
+   */
+  private List<IngestResult> ingestPolicyItemsSynchronously(
+      @Nonnull OperationContext opContext,
+      @Nonnull AspectsBatch aspectsBatch,
+      @Nonnull List<MCPItem> items) {
+    final List<MCPItem> policyItems =
+        items.stream().filter(item -> isPolicy(item.getUrn())).collect(Collectors.toList());
+    final List<MCPItem> otherItems =
+        items.stream().filter(item -> !isPolicy(item.getUrn())).collect(Collectors.toList());
+
+    final List<IngestResult> results =
+        new ArrayList<>(
+            ingestProposal(opContext, subBatch(opContext, aspectsBatch, policyItems), false));
+    if (otherItems.isEmpty()) {
+      return results;
+    }
+    results.addAll(ingestProposal(opContext, subBatch(opContext, aspectsBatch, otherItems), true));
+
+    final Map<String, Integer> inputOrder = new HashMap<>();
+    for (int i = 0; i < items.size(); i++) {
+      inputOrder.putIfAbsent(orderKey(items.get(i).getUrn(), items.get(i).getAspectName()), i);
+    }
+    results.sort(
+        Comparator.comparingInt(
+            r ->
+                inputOrder.getOrDefault(
+                    orderKey(
+                        r.getUrn(), r.getRequest() == null ? null : r.getRequest().getAspectName()),
+                    Integer.MAX_VALUE)));
+    return results;
+  }
+
+  private static AspectsBatch subBatch(
+      @Nonnull OperationContext opContext,
+      @Nonnull AspectsBatch source,
+      @Nonnull List<MCPItem> items) {
+    return AspectsBatchImpl.builder()
+        .retrieverContext(source.getRetrieverContext())
+        .items(items)
+        .build(opContext);
+  }
+
+  private static String orderKey(@Nullable Urn urn, @Nullable String aspectName) {
+    return urn + "|" + aspectName;
   }
 
   /**

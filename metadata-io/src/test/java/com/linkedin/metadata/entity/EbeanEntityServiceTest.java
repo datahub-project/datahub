@@ -16,11 +16,13 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.util.RecordUtils;
@@ -37,12 +39,14 @@ import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
@@ -61,6 +65,7 @@ import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.service.UpdateIndicesService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
@@ -1157,5 +1162,86 @@ public class EbeanEntityServiceTest
             _entityServiceImpl.getLatestAspect(
                 opContext, policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME);
     assertEquals(stored.getDescription(), "kept");
+  }
+
+  private static MetadataChangeProposal upsertProposal(
+      Urn urn, String aspectName, RecordTemplate aspect) {
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(urn);
+    mcp.setEntityType(urn.getEntityType());
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setAspectName(aspectName);
+    mcp.setAspect(GenericRecordUtils.serializeAspect(aspect));
+    mcp.setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata());
+    return mcp;
+  }
+
+  private AspectsBatch proposalBatch(MetadataChangeProposal... mcps) {
+    return AspectsBatchImpl.builder()
+        .mcps(List.of(mcps), TEST_AUDIT_STAMP, opContext.getRetrieverContext())
+        .build(opContext);
+  }
+
+  @Test
+  public void testAsyncPolicyProposalsAreWrittenSynchronouslyWhenEnabled() {
+    _entityServiceImpl.setSyncPolicyWrites(true);
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:sync-policy-test");
+    Urn policyUrn = UrnUtils.getUrn("urn:li:dataHubPolicy:sync-policy-test");
+    DataHubPolicyInfo policy =
+        new DataHubPolicyInfo()
+            .setDisplayName("sync policy test")
+            .setDescription("written synchronously")
+            .setType("METADATA")
+            .setState("ACTIVE")
+            .setPrivileges(new StringArray(List.of("EDIT_ENTITY")))
+            .setActors(new DataHubActorFilter().setAllUsers(true));
+
+    List<IngestResult> results =
+        _entityServiceImpl.ingestProposal(
+            opContext,
+            proposalBatch(
+                upsertProposal(
+                    userUrn,
+                    "corpUserInfo",
+                    AspectGenerationUtils.createCorpUserInfo("sync@test.com")),
+                upsertProposal(policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME, policy)),
+            true);
+
+    // The policy is committed before ingestProposal returns, even though the request was async.
+    assertNotNull(
+        _entityServiceImpl.getLatestAspect(opContext, policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME));
+    // The other item stays async: it is queued, not written.
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, userUrn, "corpUserInfo"));
+    verify(_mockProducer, times(1))
+        .produceMetadataChangeProposal(
+            any(OperationContext.class),
+            eq(userUrn),
+            any(com.linkedin.metadata.aspect.batch.MCPItem.class));
+    // Results keep the input order. A new policy can add a result for its key aspect, so compare
+    // the order of the entities, not the exact list.
+    assertEquals(
+        results.stream().map(IngestResult::getUrn).distinct().collect(Collectors.toList()),
+        List.of(userUrn, policyUrn));
+  }
+
+  @Test
+  public void testAsyncPolicyProposalsStayAsyncByDefault() {
+    Urn policyUrn = UrnUtils.getUrn("urn:li:dataHubPolicy:async-policy-test");
+    DataHubPolicyInfo policy =
+        new DataHubPolicyInfo()
+            .setDisplayName("async policy test")
+            .setDescription("stays async")
+            .setType("METADATA")
+            .setState("ACTIVE")
+            .setPrivileges(new StringArray(List.of("EDIT_ENTITY")))
+            .setActors(new DataHubActorFilter().setAllUsers(true));
+
+    _entityServiceImpl.ingestProposal(
+        opContext,
+        proposalBatch(upsertProposal(policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME, policy)),
+        true);
+
+    assertNull(
+        _entityServiceImpl.getLatestAspect(opContext, policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME));
   }
 }

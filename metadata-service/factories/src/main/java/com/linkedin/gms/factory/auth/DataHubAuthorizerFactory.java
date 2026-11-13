@@ -41,6 +41,12 @@ public class DataHubAuthorizerFactory {
   @Value("${authorization.defaultAuthorizer.sqlSource.policyChangeWaitMillis:5000}")
   private Long policyChangeWaitMillis;
 
+  @Value("${authorization.defaultAuthorizer.changeBroadcast.enabled:false}")
+  private Boolean changeBroadcastEnabled;
+
+  @Value("${datahub.messaging.transport:kafka}")
+  private String messagingTransport;
+
   @Bean(name = "dataHubAuthorizer")
   @Scope("singleton")
   @Nonnull
@@ -56,8 +62,22 @@ public class DataHubAuthorizerFactory {
             ? DataHubAuthorizer.AuthorizationMode.DEFAULT
             : DataHubAuthorizer.AuthorizationMode.ALLOW_ALL;
 
-    final AspectDao dao = Boolean.TRUE.equals(sqlSourceEnabled) ? aspectDao.getIfAvailable() : null;
-    if (Boolean.TRUE.equals(sqlSourceEnabled) && dao == null) {
+    final boolean broadcast = Boolean.TRUE.equals(changeBroadcastEnabled);
+    // The broadcast relies on the SQL source (ordered full reloads), so it turns it on.
+    final boolean sqlSource = Boolean.TRUE.equals(sqlSourceEnabled) || broadcast;
+    if (broadcast && !Boolean.TRUE.equals(sqlSourceEnabled)) {
+      log.info(
+          "POLICY_CACHE_BROADCAST_ENABLED=true turns on the SQL policy source"
+              + " (POLICY_CACHE_SQL_SOURCE_ENABLED).");
+    }
+    if (broadcast && !"kafka".equalsIgnoreCase(messagingTransport)) {
+      log.warn(
+          "POLICY_CACHE_BROADCAST_ENABLED=true is not supported with messaging transport {} yet;"
+              + " other processes refresh policies on their timer.",
+          messagingTransport);
+    }
+    final AspectDao dao = sqlSource ? aspectDao.getIfAvailable() : null;
+    if (sqlSource && dao == null) {
       log.error(
           "POLICY_CACHE_SQL_SOURCE_ENABLED is true, but this process has no entity store."
               + " Falling back to the search-based policy cache.");
@@ -81,6 +101,7 @@ public class DataHubAuthorizerFactory {
       final EntityService<?> service = entityService.getIfAvailable();
       if (service instanceof EntityServiceImpl impl) {
         impl.setPolicyChangeObserver(authorizer::onPolicyChange);
+        impl.setSyncPolicyWrites(broadcast);
       } else {
         log.warn(
             "Policy cache: no EntityServiceImpl in this process, so policy writes here will not"

@@ -4,6 +4,7 @@ import static org.mockito.Mockito.when;
 
 import com.linkedin.metadata.EventSchemaConstants;
 import com.linkedin.metadata.EventSchemaData;
+import com.linkedin.metadata.EventUtils;
 import com.linkedin.mxe.TopicConvention;
 import java.util.List;
 import java.util.Optional;
@@ -1149,5 +1150,18 @@ public class SchemaRegistryServiceTest {
       Assert.assertTrue(
           schemaCompatibility, "BACKWARD compatibility should return true for same schema");
     }
+  }
+
+  @Test
+  public void testRegisteredTopicResolvesToTheChangeLogSchema() {
+    SchemaRegistryServiceImpl service =
+        new SchemaRegistryServiceImpl(mockTopicConvention, new EventSchemaData());
+    Assert.assertTrue(service.getSchemaForTopic("PolicyChange_v1").isEmpty());
+
+    service.registerTopicSchema("PolicyChange_v1", EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME);
+
+    Assert.assertEquals(
+        service.getSchemaForTopic("PolicyChange_v1"), service.getSchemaForTopic(MCL_TOPIC));
+    Assert.assertTrue(service.getSchemaForTopic("PolicyChange_v1").isPresent());
   }
 }

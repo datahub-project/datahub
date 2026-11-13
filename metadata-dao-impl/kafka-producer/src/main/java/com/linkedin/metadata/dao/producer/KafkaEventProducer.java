@@ -109,6 +109,44 @@ public class KafkaEventProducer extends EventProducer {
         producerRecord, _kafkaHealthChecker.getKafkaCallBack(metricUtils, "MCL", urn.toString()));
   }
 
+  private void countPolicyChange(@Nonnull String metricName) {
+    if (metricUtils != null) {
+      metricUtils.increment(KafkaEventProducer.class, metricName, 1);
+    }
+  }
+
+  @Override
+  protected void producePolicyChange(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull MetadataChangeLog metadataChangeLog,
+      @Nonnull String topicName) {
+    if (!canWrite) {
+      return;
+    }
+    final GenericRecord record;
+    try {
+      record = EventUtils.pegasusToAvroMCL(metadataChangeLog);
+    } catch (IOException e) {
+      countPolicyChange("policyChange.produce_failed");
+      log.warn("Failed to convert the policy change log for {} to Avro.", urn, e);
+      return;
+    }
+    final ProducerRecord<String, GenericRecord> producerRecord =
+        new ProducerRecord<>(topicName, urn.toString(), record);
+    outboundContextResolver.apply(producerRecord, opContext);
+    sendProducerRecord(
+        producerRecord,
+        (metadata, exception) -> {
+          if (exception == null) {
+            countPolicyChange("policyChange.produced");
+          } else {
+            countPolicyChange("policyChange.produce_failed");
+            log.warn("Failed to send the policy change for {} to {}.", urn, topicName, exception);
+          }
+        });
+  }
+
   @Override
   public String getMetadataChangeLogTopicName(@Nonnull AspectSpec aspectSpec) {
     String topic = _topicConvention.getMetadataChangeLogVersionedTopicName();
