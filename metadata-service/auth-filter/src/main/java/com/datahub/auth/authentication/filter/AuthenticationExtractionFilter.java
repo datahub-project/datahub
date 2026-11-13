@@ -10,6 +10,7 @@ import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.authentication.AuthenticationRequest;
+import com.datahub.authentication.AuthenticationUnavailableException;
 import com.datahub.authentication.AuthenticatorConfiguration;
 import com.datahub.authentication.AuthenticatorContext;
 import com.datahub.authentication.authenticator.*;
@@ -74,6 +75,14 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
 
   // Constants for anonymous authentication
   private static final String ANONYMOUS_CREDENTIALS = "";
+
+  /**
+   * Request attribute set to {@code Boolean.TRUE} when authentication could not be decided because
+   * a backing store failed. {@link AuthenticationEnforcementFilter} answers such requests with 503
+   * instead of 401 on protected paths.
+   */
+  public static final String AUTHENTICATION_UNAVAILABLE_ATTRIBUTE =
+      "com.datahub.auth.authenticationUnavailable";
 
   @Autowired private ConfigurationProvider configurationProvider;
 
@@ -168,6 +177,13 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
     } catch (AuthenticationExpiredException e) {
       // Authentication token expired - log as info and handle gracefully
       log.info("Authentication token expired, will set anonymous context: {}", e.getMessage());
+    } catch (AuthenticationUnavailableException e) {
+      // Credentials could not be checked (e.g. the token store is unreachable). They may be valid,
+      // so flag the request for a retryable error rather than letting it look unauthenticated.
+      request.setAttribute(AUTHENTICATION_UNAVAILABLE_ATTRIBUTE, Boolean.TRUE);
+      log.warn(
+          "Authentication unavailable, will set anonymous context: {}",
+          e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
     } catch (Exception e) {
       // Authentication failed - this is expected and handled gracefully
       log.debug("Authentication extraction failed, will set anonymous context: {}", e.getMessage());
