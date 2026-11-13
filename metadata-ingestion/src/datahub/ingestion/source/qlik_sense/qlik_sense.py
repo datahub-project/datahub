@@ -2027,7 +2027,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 # workbook, as it does for Tableau.
                 sub_types=[
                     BIContainerSubTypes.QLIK_APP,
-                    BIContainerSubTypes.TABLEAU_WORKBOOK,
+                    BIContainerSubTypes.WORKBOOK,
                 ],
                 parent_container_key=self._gen_space_key(app.spaceId),
                 extra_properties={
