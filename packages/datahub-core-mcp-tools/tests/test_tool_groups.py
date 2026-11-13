@@ -78,6 +78,7 @@ READ_TOOLS = {
     "list_schema_fields",
     "search_documents",
     "grep_documents",
+    "grep_entities",
 }
 
 
