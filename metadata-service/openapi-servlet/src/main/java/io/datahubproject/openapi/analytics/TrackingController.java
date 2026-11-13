@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/openapi/v1/tracking")
 public class TrackingController {
 
+  private static final String ACTOR_URN_FIELD = "actorUrn";
   private static final String LANGUAGE_FIELD = "language";
   private static final String ACCEPT_LANGUAGE_HEADER = "Accept-Language";
   private static final String UNDETERMINED_LANGUAGE_TAG = "und";
@@ -57,6 +58,7 @@ public class TrackingController {
 
   @PostMapping("/track")
   public ResponseEntity<Void> trackEvent(HttpServletRequest request, @RequestBody JsonNode event) {
+    // Only an object can have a "type", so past this check the event is an ObjectNode.
     if (event == null || !event.has("type")) {
       log.warn("Invalid tracking request: missing event type");
       return ResponseEntity.badRequest().build();
@@ -82,9 +84,19 @@ public class TrackingController {
             authentication,
             true);
 
+    // The event is attributed to whoever authenticated the request, never to an actor named in the
+    // body: any caller may post here, so a supplied actorUrn would let them record activity as
+    // someone else. Requests GMS could not authenticate carry the anonymous actor.
+    final String actorUrn = authentication.getActor().toUrnStr();
+    final JsonNode suppliedActor = event.get(ACTOR_URN_FIELD);
+    if (suppliedActor != null && !actorUrn.equals(suppliedActor.asText())) {
+      log.debug("Replacing a tracking event's actorUrn with the authenticated actor");
+    }
+    ((ObjectNode) event).put(ACTOR_URN_FIELD, actorUrn);
+
     // Older frontends don't send `language`. Fall back to the browser's Accept-Language header so
     // the field is populated across version skew; a value posted by the client always wins.
-    if (event.isObject() && !event.hasNonNull(LANGUAGE_FIELD)) {
+    if (!event.hasNonNull(LANGUAGE_FIELD)) {
       final String language = parsePreferredLanguage(request.getHeader(ACCEPT_LANGUAGE_HEADER));
       if (language != null) {
         ((ObjectNode) event).put(LANGUAGE_FIELD, language);

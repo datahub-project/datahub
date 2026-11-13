@@ -14,11 +14,13 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.telemetry.TrackingService;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.servlet.http.HttpServletRequest;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.ResponseEntity;
@@ -98,6 +100,44 @@ public class TrackingControllerTest {
 
     // Verify response is still successful even with telemetry disabled
     assertEquals(response.getStatusCode().value(), 200);
+  }
+
+  private JsonNode trackedEvent(ObjectNode event) {
+    AuthenticationContext.setAuthentication(authentication);
+    ResponseEntity<Void> response = controller.trackEvent(request, event);
+    assertEquals(response.getStatusCode().value(), 200);
+    ArgumentCaptor<JsonNode> tracked = ArgumentCaptor.forClass(JsonNode.class);
+    verify(trackingService)
+        .track(
+            any(String.class), any(OperationContext.class), eq(null), eq(null), tracked.capture());
+    return tracked.getValue();
+  }
+
+  @Test
+  public void testTrackEventRecordsTheAuthenticatedActorNotTheSuppliedOne() {
+    ObjectNode event = objectMapper.createObjectNode();
+    event.put("type", "ToolInvocation");
+    event.put("actorUrn", "urn:li:corpuser:admin");
+
+    assertEquals(trackedEvent(event).get("actorUrn").asText(), "urn:li:corpuser:test_user");
+  }
+
+  @Test
+  public void testTrackEventStampsTheActorWhenNoneIsSupplied() {
+    ObjectNode event = objectMapper.createObjectNode();
+    event.put("type", "PageViewEvent");
+
+    assertEquals(trackedEvent(event).get("actorUrn").asText(), "urn:li:corpuser:test_user");
+  }
+
+  @Test
+  public void testUnauthenticatedEventsCannotClaimAnActor() {
+    when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "__anonymous"));
+    ObjectNode event = objectMapper.createObjectNode();
+    event.put("type", "PageViewEvent");
+    event.put("actorUrn", "urn:li:corpuser:admin");
+
+    assertEquals(trackedEvent(event).get("actorUrn").asText(), "urn:li:corpuser:__anonymous");
   }
 
   @Test
