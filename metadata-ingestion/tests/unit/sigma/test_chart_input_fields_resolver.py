@@ -11,6 +11,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from datahub.emitter.mce_builder import make_chart_urn, make_dashboard_urn
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sigma.config import SigmaSourceConfig
 from datahub.ingestion.source.sigma.data_classes import (
     DataModelElementUpstream,
@@ -1775,3 +1777,243 @@ class TestSiblingInheritance:
         assert urns == ["urn:li:schemaField:(urn:li:chart:(sigma,chart-1),Loose)"]
         assert self.src.reporter.chart_input_fields_skipped_sibling == 1
         assert self.src.reporter.chart_input_fields_sibling_inherited == 0
+
+
+def _chart_urn(element_id: str) -> str:
+    return make_chart_urn(platform="sigma", name=element_id)
+
+
+class TestSchemaRecovery:
+    """A column no ref resolves by name is read from /schema by id."""
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter.chart_input_fields_recovered_from_schema = 0
+        self.src.reporter.workbook_schema_incomplete = 0
+        self.src.dataset_upstream_urn_mapping = {}
+        self.src._get_element_input_details = MagicMock(  # type: ignore[method-assign]
+            return_value=({}, [])
+        )
+        self.src._build_workbook_warehouse_table_index = MagicMock(  # type: ignore[method-assign]
+            return_value=None
+        )
+        self.get_schema = MagicMock(return_value={})
+        self.src.sigma_api.get_workbook_schema = self.get_schema  # type: ignore[method-assign]
+        self.orders = _make_element_with_formula(
+            "orders", "Orders", {"Revenue": None, "Cost": None}
+        )
+        self.orders.column_id_by_name = {"Revenue": "col-rev", "Cost": "col-cost"}
+
+    def _chart(
+        self, formula: Optional[str], extra: Optional[Dict[str, Optional[str]]] = None
+    ) -> Element:
+        chart = _make_element_with_formula(
+            "chart", "Chart", {"Total": formula, **(extra or {})}
+        )
+        chart.column_id_by_name = {"Total": "col-total"}
+        return chart
+
+    def _schema(
+        self, *paths: List[str], owners: Optional[Dict[str, str]] = None
+    ) -> Dict[str, object]:
+        # The refs sit under a binOp, so the walk has to descend.
+        formula = {
+            "type": "binOp",
+            "op": "-",
+            "args": [{"type": "nameRef", "path": path} for path in paths],
+        }
+        return {
+            "sheets": {
+                "sheet-chart": {"columns": {"col-total": {"formula": formula}}},
+                "sheet-orders": {"columns": {"col-rev": {"formula": None}}},
+            },
+            "elements": {
+                eid: {"viz": {"sheetId": sheet}}
+                for eid, sheet in (
+                    owners or {"chart": "sheet-chart", "orders": "sheet-orders"}
+                ).items()
+            },
+        }
+
+    def _run(
+        self,
+        chart: Element,
+        schema: Optional[Dict[str, object]],
+        *others: Element,
+    ) -> List[MetadataWorkUnit]:
+        self.get_schema.return_value = schema
+        # Different pages: /schema refs cross pages like any other.
+        workbook = _make_workbook_with_elements([[chart], [self.orders, *others]])
+        return list(self.src._gen_pages_workunit(workbook, paths=[]))
+
+    @staticmethod
+    def _fields(workunits: List[MetadataWorkUnit], urn: str) -> List[str]:
+        fields: List[str] = []
+        for wu in workunits:
+            aspect = wu.get_aspect_of_type(InputFieldsClass)
+            if wu.get_urn() == urn and aspect is not None:
+                fields.extend(field.schemaFieldUrn for field in aspect.fields)
+        return fields
+
+    @staticmethod
+    def _self_ref(column: str = "Total") -> str:
+        return f"urn:li:schemaField:({_chart_urn('chart')},{column})"
+
+    def test_an_unresolved_column_reads_the_chart_schema_names(self) -> None:
+        workunits = self._run(
+            self._chart("[Unknown/Revenue]"), self._schema(["sheet-orders", "col-rev"])
+        )
+
+        upstream = f"urn:li:schemaField:({_chart_urn('orders')},Revenue)"
+        assert self._fields(workunits, _chart_urn("chart")) == [upstream]
+        assert self._fields(workunits, make_dashboard_urn("sigma", "page0")) == [
+            upstream
+        ]
+        edges: List[str] = []
+        for wu in workunits:
+            info = wu.get_aspect_of_type(ChartInfoClass)
+            if wu.get_urn() == _chart_urn("chart") and info is not None:
+                edges.extend(edge.destinationUrn for edge in info.inputEdges or [])
+        assert edges == [_chart_urn("orders")]
+        assert self.src.reporter.chart_input_fields_recovered_from_schema == 1
+        assert self.src.reporter.chart_input_fields_resolved == 1
+        # orders' two columns
+        assert self.src.reporter.chart_input_fields_self_ref_fallback == 2
+        assert self.src.reporter.workbook_schema_incomplete == 0
+
+    def test_upstreams_keep_formula_order(self) -> None:
+        workunits = self._run(
+            self._chart("[Unknown/Revenue] - [Unknown/Cost]"),
+            self._schema(["sheet-orders", "col-rev"], ["sheet-orders", "col-cost"]),
+        )
+
+        assert self._fields(workunits, _chart_urn("chart")) == [
+            f"urn:li:schemaField:({_chart_urn('orders')},Revenue)",
+            f"urn:li:schemaField:({_chart_urn('orders')},Cost)",
+        ]
+        assert self.src.reporter.chart_input_fields_multi_ref_extra == 1
+
+    def test_a_sibling_inherits_a_recovered_column(self) -> None:
+        workunits = self._run(
+            self._chart("[Unknown/Revenue]", {"Double": "[Total] * 2"}),
+            self._schema(["sheet-orders", "col-rev"]),
+        )
+
+        upstream = f"urn:li:schemaField:({_chart_urn('orders')},Revenue)"
+        assert self._fields(workunits, _chart_urn("chart")) == [upstream, upstream]
+        assert self.src.reporter.chart_input_fields_sibling_inherited == 1
+
+    def test_a_column_with_no_formula_is_recovered_too(self) -> None:
+        workunits = self._run(
+            self._chart(None), self._schema(["sheet-orders", "col-rev"])
+        )
+
+        assert self._fields(workunits, _chart_urn("chart")) == [
+            f"urn:li:schemaField:({_chart_urn('orders')},Revenue)"
+        ]
+
+    def test_an_element_schema_does_not_list_refuses_the_whole_payload(
+        self,
+    ) -> None:
+        # "other" may render sheet-orders too, so orders is not known sole.
+        other = _make_element_with_formula("other", "Other", {"Revenue": None})
+        other.column_id_by_name = {"Revenue": "col-rev"}
+
+        workunits = self._run(
+            self._chart("[Unknown/Revenue]"),
+            self._schema(["sheet-orders", "col-rev"]),
+            other,
+        )
+
+        assert self._fields(workunits, _chart_urn("chart")) == [self._self_ref()]
+        assert self.src.reporter.workbook_schema_incomplete == 1
+
+    def test_an_element_only_schema_lists_is_not_a_gap(self) -> None:
+        # e.g. a control, which this run does not ingest as a chart.
+        owners = {"chart": "sheet-chart", "orders": "sheet-orders", "control": ""}
+
+        workunits = self._run(
+            self._chart("[Unknown/Revenue]"),
+            self._schema(["sheet-orders", "col-rev"], owners=owners),
+        )
+
+        assert self._fields(workunits, _chart_urn("chart")) == [
+            f"urn:li:schemaField:({_chart_urn('orders')},Revenue)"
+        ]
+        assert self.src.reporter.workbook_schema_incomplete == 0
+
+    def test_a_column_id_two_names_share_is_refused(self) -> None:
+        self.orders.column_id_by_name = {"Revenue": "col-rev", "Sales": "col-rev"}
+
+        workunits = self._run(
+            self._chart("[Unknown/Revenue]"), self._schema(["sheet-orders", "col-rev"])
+        )
+
+        assert self._fields(workunits, _chart_urn("chart")) == [self._self_ref()]
+
+    @pytest.mark.parametrize(
+        "config",
+        [
+            {"extract_lineage": False},
+            {"resolve_chart_refs_from_workbook_schema": False},
+        ],
+    )
+    def test_config_turns_it_off(self, config: Dict[str, bool]) -> None:
+        self.src.config = SigmaSourceConfig.model_validate(
+            {"client_id": "test", "client_secret": "test", **config}
+        )
+
+        workunits = self._run(
+            self._chart("[Unknown/Revenue]"), self._schema(["sheet-orders", "col-rev"])
+        )
+
+        assert self._fields(workunits, _chart_urn("chart")) == [self._self_ref()]
+        self.get_schema.assert_not_called()
+
+    def test_a_workbook_with_no_self_reference_never_fetches_it(self) -> None:
+        self.orders.columns = []
+        list(self._run(self._chart("[P_Rate]"), {}))
+
+        assert self.src.reporter.chart_input_fields_skipped_parameter == 1
+        self.get_schema.assert_not_called()
+
+    def test_a_one_chart_workbook_never_fetches_it(self) -> None:
+        workbook = _make_workbook_with_elements([[self._chart("[Unknown/Revenue]")]])
+        list(self.src._gen_pages_workunit(workbook, paths=[]))
+
+        assert self.src.reporter.chart_input_fields_self_ref_fallback == 1
+        self.get_schema.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "path, owners",
+        [
+            # The column's own element: no upstream, not an edge to itself.
+            (["sheet-chart", "col-total"], None),
+            # Two elements render the sheet, so neither is the upstream.
+            (
+                ["sheet-orders", "col-rev"],
+                {"chart": "sheet-chart", "orders": "sheet-orders", "x": "sheet-orders"},
+            ),
+            # A columnId the upstream element does not list.
+            (["sheet-orders", "col-other"], None),
+            # Warehouse refs are not read here.
+            (["inode-abc", "REVENUE"], None),
+            # A longer path (a join chain) is not a column of that sheet.
+            (["sheet-orders", "col-rev", "col-key"], None),
+        ],
+    )
+    def test_an_inexact_ref_keeps_the_self_reference(
+        self, path: List[str], owners: Optional[Dict[str, str]]
+    ) -> None:
+        workunits = self._run(
+            self._chart("[Unknown/Revenue]"), self._schema(path, owners=owners)
+        )
+
+        assert self._fields(workunits, _chart_urn("chart")) == [self._self_ref()]
+        assert self.src.reporter.chart_input_fields_recovered_from_schema == 0
+
+    def test_no_schema_keeps_the_self_reference(self) -> None:
+        workunits = self._run(self._chart("[Unknown/Revenue]"), None)
+
+        assert self._fields(workunits, _chart_urn("chart")) == [self._self_ref()]
+        self.get_schema.assert_called_once()
