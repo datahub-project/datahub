@@ -73,6 +73,9 @@ grant role sysadmin to role datahub_role;
 grant usage on all streamlits in database "<your-database>" to role datahub_role;
 grant usage on future streamlits in database "<your-database>" to role datahub_role;
 
+// Optional - required for the storage location and external lineage of Iceberg tables
+grant usage on external volume "<your-external-volume>" to role datahub_role;
+
 // Optional - required if extracting Stages, Tasks, or Pipes
 grant usage on all stages in database "<your-database>" to role datahub_role;
 grant usage on future stages in database "<your-database>" to role datahub_role;
@@ -105,6 +108,7 @@ grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 - `monitor` on `tasks` is required to list tasks via `SHOW TASKS`. Only needed if `include_tasks: true`.
 - `monitor` on `pipes` is required to list pipes via `SHOW PIPES`. Only needed if `include_pipes: true`. Snowflake does not support bulk grants on pipes, so existing pipes need a per-pipe `grant monitor on pipe ...` (future grants are fine) or the account-level `MONITOR EXECUTION` privilege (which exposes every pipe and task in the account). Pipes without one of these are missing from `SHOW PIPES` and therefore not ingested.
 - `monitor` on `dynamic tables` is required for DataHub to extract their lineage, both table-level and column-level.
+- `usage` on `external volume` is required to resolve an Iceberg table's storage location (`DESC EXTERNAL VOLUME`), which the Iceberg custom properties and external lineage depend on. `SHOW ICEBERG TABLES` itself needs no extra grant. Only relevant with `include_iceberg_metadata: true` and Iceberg tables in scope.
 
 This represents the bare minimum privileges required to extract databases, schemas, views, and tables from Snowflake.
 

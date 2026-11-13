@@ -422,6 +422,7 @@ class SqlAggregatorReport(Report):
     num_known_query_lineage: int = 0
     num_preparsed_queries: int = 0
     num_known_mapping_lineage: int = 0
+    num_known_mapping_columns_recased: int = 0
     num_table_renames: int = 0
     num_table_swaps: int = 0
 
@@ -950,17 +951,54 @@ class SqlParsingAggregator(Closeable):
         if self._schema_resolver.has_urn(downstream_urn):
             schema = self._schema_resolver._resolve_schema_info(downstream_urn)
             if schema:
+                upstream_column = self._upstream_column_matcher(upstream_urn)
                 column_lineage = [
                     ColumnLineageInfo(
                         downstream=DownstreamColumnRef(
                             table=downstream_urn, column=field_path
                         ),
-                        upstreams=[ColumnRef(table=upstream_urn, column=field_path)],
+                        upstreams=[
+                            ColumnRef(
+                                table=upstream_urn, column=upstream_column(field_path)
+                            )
+                        ],
                     )
                     for field_path in schema
                 ]
 
         return column_lineage
+
+    def _upstream_column_matcher(self, upstream_urn: UrnStr) -> Callable[[str], str]:
+        """Spell a downstream column the way the upstream's registered schema does.
+
+        A known mapping often crosses engines that case identifiers differently: a
+        Snowflake table reports `EVENT_ID` for the column Databricks records as
+        `event_id`. Without a registered upstream schema (the common case, and never
+        fetched here) the downstream spelling is kept, as is any column the upstream
+        does not have.
+        """
+        upstream_schema = (
+            self._schema_resolver._resolve_schema_info(upstream_urn)
+            if self._schema_resolver.has_urn(upstream_urn)
+            else None
+        )
+        if not upstream_schema:
+            return lambda field_path: field_path
+
+        by_lower: Dict[str, str] = {
+            field_path.lower(): field_path for field_path in upstream_schema
+        }
+
+        def match(field_path: str) -> str:
+            if field_path in upstream_schema:
+                return field_path
+            matched = by_lower.get(field_path.lower())
+            if matched is None:
+                return field_path
+            self.report.num_known_mapping_columns_recased += 1
+            return matched
+
+        return match
 
     def add_view_definition(
         self,

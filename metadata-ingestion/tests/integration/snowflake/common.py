@@ -1178,6 +1178,61 @@ def default_query_results(  # noqa: C901
         ]
     elif query == SnowflakeQuery.show_pipes_for_schema("TEST2_SCHEMA", "TEST_DB"):
         return []
+    elif query == SnowflakeQuery.show_objects_for_schema(
+        SnowflakeShowKind.ICEBERG_TABLES, "TEST_DB", "TEST_SCHEMA"
+    ):
+        # TABLE_1 is flagged IS_ICEBERG above; make it externally managed so the
+        # storage-location lineage fallback is exercised (no graph in these tests).
+        # Only test_snowflake_basic enables include_iceberg_metadata, so only it
+        # reaches these two branches.
+        return [
+            {
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "name": "TABLE_1",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "owner": "ACCOUNTADMIN",
+                "external_volume_name": "TEST_VOLUME",
+                "catalog_name": "TEST_OBJSTORE_CATALOG",
+                "iceberg_table_type": "UNMANAGED",
+                "catalog_table_name": None,
+                "catalog_namespace": None,
+                "base_location": "table_1/",
+                "comment": "Comment for Table",
+                "owner_role_type": "ROLE",
+            }
+        ]
+    elif query == SnowflakeQuery.describe_external_volume("TEST_VOLUME"):
+        return [
+            {
+                "parent_property": "",
+                "property": "ALLOW_WRITES",
+                "property_type": "Boolean",
+                "property_value": "false",
+                "property_default": "true",
+            },
+            {
+                "parent_property": "STORAGE_LOCATIONS",
+                "property": "STORAGE_LOCATION_1",
+                "property_type": "String",
+                "property_value": json.dumps(
+                    {
+                        "NAME": "test-location",
+                        "STORAGE_PROVIDER": "S3",
+                        "STORAGE_BASE_URL": "s3://test-bucket/iceberg/",
+                        "STORAGE_ALLOWED_LOCATIONS": ["s3://test-bucket/iceberg/*"],
+                    }
+                ),
+                "property_default": "",
+            },
+            {
+                "parent_property": "STORAGE_LOCATIONS",
+                "property": "ACTIVE",
+                "property_type": "String",
+                "property_value": "test-location",
+                "property_default": "",
+            },
+        ]
     elif query == SnowflakeQuery.show_objects_for_database(
         SnowflakeShowKind.DYNAMIC_TABLES, "TEST_DB"
     ):
