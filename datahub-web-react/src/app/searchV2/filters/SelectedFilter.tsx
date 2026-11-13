@@ -2,6 +2,7 @@
 import { Button, DatePicker } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import OperatorSelector from '@app/searchV2/filters/OperatorSelector';
@@ -61,6 +62,15 @@ const RemoveButton = styled(Button)`
     margin: 0px;
 `;
 
+// The values open a popover on click; Enter and Space do the same from the keyboard.
+const clickOnEnterOrSpace = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        e.currentTarget.click();
+    }
+};
+
 interface SelectedFilterProps {
     predicate: FilterPredicate;
     onChangeOperator: (operator: FilterOperatorType) => void;
@@ -76,6 +86,7 @@ export default function SelectedFilter({
     onRemoveFilter,
     isCompact,
 }: SelectedFilterProps) {
+    const { t: tc } = useTranslation('common.actions');
     const { field, operator, values } = predicate;
     const showValueSelector = operatorRequiresValues(predicate.operator) || false;
     const displayName = useFilterDisplayName(predicate.field);
@@ -118,7 +129,7 @@ export default function SelectedFilter({
                     defaultOptions={aggregatedOptions}
                     onChangeValues={onChangeValues}
                 >
-                    <Values>
+                    <Values role="button" tabIndex={0} onKeyDown={clickOnEnterOrSpace}>
                         {values.map((value, index) => (
                             <Value data-testid={`active-filter-value-${field.field}-${value.value}`}>
                                 <ValueName field={field} value={value} />
@@ -135,6 +146,7 @@ export default function SelectedFilter({
                 icon={{ icon: X, size: 'sm' }}
                 isCircle
                 onClick={onRemoveFilter}
+                aria-label={tc('remove')}
                 data-testid={`remove-filter-${field.field}`}
             />
         </Container>

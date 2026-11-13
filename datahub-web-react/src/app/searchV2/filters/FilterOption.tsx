@@ -172,6 +172,7 @@ export default function FilterOption({
                     isIntermediate={isIndeterminate}
                     onCheckboxChange={() => updateFilterValues()}
                     dataTestId={`filter-option-${label}`}
+                    aria-label={typeof label === 'string' ? label : filterOption.displayName || value}
                     size="xs"
                 />
             </FilterOptionWrapper>

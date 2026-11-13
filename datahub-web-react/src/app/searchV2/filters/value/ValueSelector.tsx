@@ -93,6 +93,7 @@ export default function ValueSelector({
             overlayInnerStyle={OVERLAY_INNER_STYLE}
             // ValueMenu applies its staged selection when it becomes hidden, so it must stay mounted.
             destroyTooltipOnHide={false}
+            ariaLabel={field.displayName}
             content={
                 <ValueMenu
                     field={field}

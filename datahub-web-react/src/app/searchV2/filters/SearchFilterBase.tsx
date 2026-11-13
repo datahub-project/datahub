@@ -1,6 +1,7 @@
 import { Icon } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/ssr/CaretDown';
 import React, { HTMLAttributes, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ClearButton } from '@components/components/Select/components';
@@ -21,6 +22,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 // Forwards its ref so overlays (e.g. the filter value Popover) anchor directly on the pill.
 export const SearchFilterBase = React.forwardRef<HTMLDivElement, React.PropsWithChildren<Props>>(
     ({ children, isOpen, isActive, onClear, showClear, onKeyDown, ...props }, ref) => {
+        const { t: tc } = useTranslation('common.actions');
         const onClearHandler = useCallback(
             (e: React.MouseEvent) => {
                 e.stopPropagation();
@@ -30,7 +32,8 @@ export const SearchFilterBase = React.forwardRef<HTMLDivElement, React.PropsWith
         );
 
         // The pill can't be a <button>: it holds the clear button. Enter and Space click it instead,
-        // which opens the menu or popover it triggers.
+        // which opens the menu or popover it triggers. The clear button stays out of the tab order, so
+        // the pill doesn't nest a second control; Delete or Backspace clears from the keyboard.
         const onKeyDownHandler = useCallback(
             (e: React.KeyboardEvent<HTMLDivElement>) => {
                 onKeyDown?.(e);
@@ -38,9 +41,12 @@ export const SearchFilterBase = React.forwardRef<HTMLDivElement, React.PropsWith
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
                     e.currentTarget.click();
+                } else if (showClear && onClear && (e.key === 'Delete' || e.key === 'Backspace')) {
+                    e.preventDefault();
+                    onClear();
                 }
             },
-            [onKeyDown],
+            [onKeyDown, showClear, onClear],
         );
 
         return (
@@ -55,7 +61,7 @@ export const SearchFilterBase = React.forwardRef<HTMLDivElement, React.PropsWith
                 {...props}
             >
                 {children}
-                {showClear ? <ClearButton onClick={onClearHandler} /> : null}
+                {showClear ? <ClearButton onClick={onClearHandler} tabIndex={-1} aria-label={tc('remove')} /> : null}
                 <StyledIcon icon={CaretDown} size="md" rotate={isOpen ? '180' : '0'} />
             </SearchFilterLabel>
         );

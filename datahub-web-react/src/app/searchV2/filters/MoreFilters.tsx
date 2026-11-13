@@ -7,14 +7,14 @@ import { ItemType } from '@components/components/Menu/types';
 import { renderFilterMenuItem } from '@app/searchV2/filters/FilterMenuItem';
 import MoreFilterOption from '@app/searchV2/filters/MoreFilterOption';
 import { SearchFilterBase } from '@app/searchV2/filters/SearchFilterBase';
+import { mergeFilterChanges } from '@app/searchV2/filters/mergeFilterChanges';
 import { FilterScenarioType } from '@app/searchV2/filters/render/types';
 import { useFilterRendererRegistry } from '@app/searchV2/filters/render/useFilterRenderer';
-import { mergeFilterChanges } from '@app/searchV2/filters/mergeFilterChanges';
 import { FilterPredicate } from '@app/searchV2/filters/types';
 import { useFilterMenuOverlay } from '@app/searchV2/filters/useFilterMenuOverlay';
 import useSearchFilterAnalytics from '@app/searchV2/filters/useSearchFilterAnalytics';
-import { FilterMenuProvider, useFilterMenuCommits } from '@app/searchV2/filters/value/FilterMenuContext';
 import { getNumActiveFiltersForGroupOfFilters, useGetFilterDisplayName } from '@app/searchV2/filters/utils';
+import { FilterMenuProvider, useFilterMenuCommits } from '@app/searchV2/filters/value/FilterMenuContext';
 import { useAppConfig } from '@src/app/useAppConfig';
 
 import { FacetFilterInput, FacetMetadata } from '@types';

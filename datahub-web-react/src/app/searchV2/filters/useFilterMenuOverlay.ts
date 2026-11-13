@@ -22,9 +22,7 @@ export function useFilterMenuOverlay<T extends HTMLElement>(isOpen: boolean) {
         setMaxHeight(Math.max(window.innerHeight - bottom - VIEWPORT_MARGIN, MIN_MENU_HEIGHT));
     }, [isOpen]);
 
-    const overlayStyle = maxHeight
-        ? ({ '--filter-menu-max-height': `${maxHeight}px` } as CSSProperties)
-        : undefined;
+    const overlayStyle = maxHeight ? ({ '--filter-menu-max-height': `${maxHeight}px` } as CSSProperties) : undefined;
 
     return { triggerRef, overlayClassName: FILTER_MENU_OVERLAY_CLASS_NAME, overlayStyle };
 }
