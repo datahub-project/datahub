@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { TableLoadingSkeleton } from '@app/entityV2/shared/TableLoadingSkeleton';
 import { extractAssertionsFromQuery } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { DataContractAssertionGroupSelect } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/DataContractAssertionGroupSelect';
