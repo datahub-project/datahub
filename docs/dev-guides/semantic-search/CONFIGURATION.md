@@ -83,7 +83,7 @@ elasticsearch:
         type: ${EMBEDDING_PROVIDER_TYPE:openai}
         maxCharacterLength: ${EMBEDDING_PROVIDER_MAX_CHAR_LENGTH:2048}
         bedrock:
-          awsRegion: ${BEDROCK_EMBEDDING_AWS_REGION:us-west-2}
+          awsRegion: ${BEDROCK_EMBEDDING_AWS_REGION:${BEDROCK_AWS_REGION:${AWS_REGION:us-west-2}}}
           model: ${BEDROCK_EMBEDDING_MODEL:cohere.embed-english-v3}
 
         # OpenAI configuration (used when type is "openai")
@@ -461,12 +461,15 @@ When using multiple models, the configured provider model (`BEDROCK_EMBEDDING_MO
 GMS needs credentials to generate query embeddings at search time:
 
 ```bash
-# Mount AWS credentials in Docker
+# The config is read-only. The SSO cache is a separate writable mount so a refresh can
+# write a token without making the rest of ~/.aws writable.
 volumes:
   - ${HOME}/.aws:/home/datahub/.aws:ro
+  - ${HOME}/.aws/sso/cache:/home/datahub/.aws/sso/cache:rw
 
-# Set profile
+# Embeddings use BEDROCK_EMBEDDING_AWS_REGION, then BEDROCK_AWS_REGION, then AWS_REGION.
 AWS_PROFILE=your-profile
+AWS_REGION=us-west-2
 ```
 
 ### Query Parameters

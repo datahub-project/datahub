@@ -1136,8 +1136,9 @@ elasticsearch:
 
         # AWS Bedrock configuration (used when type is "aws-bedrock")
         bedrock:
-          # AWS region where Bedrock is available (e.g., us-west-2, us-east-1)
-          awsRegion: ${BEDROCK_EMBEDDING_AWS_REGION:us-west-2}
+          # AWS region where Bedrock is available (e.g., us-west-2, us-east-1).
+          # BEDROCK_EMBEDDING_AWS_REGION, then BEDROCK_AWS_REGION, then AWS_REGION.
+          awsRegion: ${BEDROCK_EMBEDDING_AWS_REGION:${BEDROCK_AWS_REGION:${AWS_REGION:us-west-2}}}
           # Bedrock model ID for embeddings (Cohere Embed v3: 1024 dimensions)
           model: ${BEDROCK_EMBEDDING_MODEL:cohere.embed-english-v3}
 

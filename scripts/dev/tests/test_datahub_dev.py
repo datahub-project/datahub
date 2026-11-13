@@ -44,7 +44,7 @@ def test_env_set_accepts_valid_key(tmp_path, monkeypatch):
     assert "MY_VAR_123=somevalue" in env_file.read_text()
 
 
-def test_dev_env_promotes_configured_aws_profile(tmp_path, monkeypatch):
+def test_dev_env_promotes_configured_aws_profile(tmp_path, monkeypatch, isolated_home):
     env_file = tmp_path / "test.env"
     env_file.write_text("AWS_PROFILE=developer\n")
     monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", env_file)
@@ -53,13 +53,190 @@ def test_dev_env_promotes_configured_aws_profile(tmp_path, monkeypatch):
     assert datahub_dev._dev_env()["AWS_PROFILE"] == "developer"
 
 
-def test_dev_env_omits_blank_aws_profile(tmp_path, monkeypatch):
+def test_dev_env_omits_blank_aws_profile(tmp_path, monkeypatch, isolated_home):
     env_file = tmp_path / "test.env"
     env_file.write_text("AWS_PROFILE=\n")
     monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", env_file)
     monkeypatch.delenv("AWS_PROFILE", raising=False)
 
     assert "AWS_PROFILE" not in datahub_dev._dev_env()
+
+
+@pytest.fixture
+def isolated_home(tmp_path, monkeypatch):
+    # _dev_env() prepares ~/.aws/sso/cache and placeholders under ~/.datahub/dev.
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr(datahub_dev, "DATAHUB_DEV_DIR", tmp_path / "dev")
+    monkeypatch.delenv("DATAHUB_DEV_AWS_DIR", raising=False)
+    monkeypatch.delenv("DATAHUB_DEV_GCLOUD_DIR", raising=False)
+    return home
+
+
+def test_dev_env_promotes_cloud_session_settings(tmp_path, monkeypatch, isolated_home):
+    env_file = tmp_path / "test.env"
+    env_file.write_text(
+        "AWS_REGION=eu-central-2\n"
+        "BEDROCK_EMBEDDING_AWS_REGION=eu-central-1\n"
+        "BEDROCK_AWS_REGION=eu-central-2\n"
+        "GOOGLE_CLOUD_PROJECT=my-project\n"
+        "UNRELATED_SETTING=ignored\n"
+    )
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", env_file)
+    for key in (
+        "AWS_REGION",
+        "BEDROCK_EMBEDDING_AWS_REGION",
+        "BEDROCK_AWS_REGION",
+        "GOOGLE_CLOUD_PROJECT",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.delenv("UNRELATED_SETTING", raising=False)
+
+    env = datahub_dev._dev_env()
+
+    assert env["AWS_REGION"] == "eu-central-2"
+    assert env["BEDROCK_EMBEDDING_AWS_REGION"] == "eu-central-1"
+    assert env["BEDROCK_AWS_REGION"] == "eu-central-2"
+    assert env["GOOGLE_CLOUD_PROJECT"] == "my-project"
+    assert "UNRELATED_SETTING" not in env
+
+
+def test_dev_env_shell_value_wins_over_saved_value(tmp_path, monkeypatch, isolated_home):
+    env_file = tmp_path / "test.env"
+    env_file.write_text("AWS_REGION=eu-central-2\n")
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", env_file)
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+
+    assert datahub_dev._dev_env()["AWS_REGION"] == "us-east-1"
+
+
+def test_dev_env_uses_placeholders_for_missing_cloud_config_dirs(
+    tmp_path, monkeypatch, isolated_home
+):
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "test.env")
+
+    env = datahub_dev._dev_env()
+
+    assert (Path(env["DATAHUB_DEV_AWS_DIR"]) / "sso" / "cache").is_dir()
+    assert Path(env["DATAHUB_DEV_GCLOUD_DIR"]).is_dir()
+    assert not (isolated_home / ".aws").exists()
+
+
+def test_dev_env_uses_placeholder_for_unwritable_empty_aws_dir(
+    tmp_path, monkeypatch, isolated_home
+):
+    aws_dir = isolated_home / ".aws"
+    aws_dir.mkdir(parents=True)
+    aws_dir.chmod(0o555)
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "test.env")
+
+    try:
+        env = datahub_dev._dev_env()
+    finally:
+        aws_dir.chmod(0o755)
+
+    assert (Path(env["DATAHUB_DEV_AWS_DIR"]) / "sso" / "cache").is_dir()
+    assert env["DATAHUB_DEV_AWS_DIR"] != str(aws_dir)
+
+
+def test_dev_env_uses_placeholder_for_unwritable_aws_dir_that_already_has_sso_cache(
+    tmp_path, monkeypatch, isolated_home
+):
+    aws_dir = isolated_home / ".aws"
+    (aws_dir / "sso" / "cache").mkdir(parents=True)
+    aws_dir.chmod(0o555)
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "test.env")
+    monkeypatch.setattr(datahub_dev, "DATAHUB_DEV_DIR", tmp_path / "dev")
+
+    try:
+        env = datahub_dev._dev_env()
+    finally:
+        aws_dir.chmod(0o755)
+
+    assert (Path(env["DATAHUB_DEV_AWS_DIR"]) / "sso" / "cache").is_dir()
+    assert env["DATAHUB_DEV_AWS_DIR"] != str(aws_dir)
+
+
+def test_dev_env_keeps_unwritable_aws_dir_that_has_credentials(
+    tmp_path, monkeypatch, isolated_home
+):
+    aws_dir = isolated_home / ".aws"
+    aws_dir.mkdir(parents=True)
+    (aws_dir / "credentials").write_text("[default]\n")
+    aws_dir.chmod(0o555)
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "test.env")
+
+    try:
+        env = datahub_dev._dev_env()
+    finally:
+        aws_dir.chmod(0o755)
+
+    assert "DATAHUB_DEV_AWS_DIR" not in env
+
+
+def test_dev_env_uses_placeholder_for_unwritable_empty_gcloud_dir(
+    tmp_path, monkeypatch, isolated_home
+):
+    gcloud_dir = isolated_home / ".config" / "gcloud"
+    gcloud_dir.mkdir(parents=True)
+    gcloud_dir.chmod(0o555)
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "test.env")
+    monkeypatch.setattr(datahub_dev, "DATAHUB_DEV_DIR", tmp_path / "dev")
+
+    try:
+        env = datahub_dev._dev_env()
+    finally:
+        gcloud_dir.chmod(0o755)
+
+    assert env["DATAHUB_DEV_GCLOUD_DIR"] != str(gcloud_dir)
+    assert Path(env["DATAHUB_DEV_GCLOUD_DIR"]).is_dir()
+
+
+def test_dev_env_keeps_unwritable_gcloud_dir_that_has_content(
+    tmp_path, monkeypatch, isolated_home
+):
+    gcloud_dir = isolated_home / ".config" / "gcloud"
+    gcloud_dir.mkdir(parents=True)
+    (gcloud_dir / "application_default_credentials.json").write_text("{}")
+    gcloud_dir.chmod(0o555)
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "test.env")
+
+    try:
+        env = datahub_dev._dev_env()
+    finally:
+        gcloud_dir.chmod(0o755)
+
+    assert "DATAHUB_DEV_GCLOUD_DIR" not in env
+
+
+def test_dev_env_mounts_existing_cloud_config_dirs(tmp_path, monkeypatch, isolated_home):
+    (isolated_home / ".aws").mkdir(parents=True)
+    (isolated_home / ".config" / "gcloud").mkdir(parents=True)
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "test.env")
+
+    env = datahub_dev._dev_env()
+
+    assert "DATAHUB_DEV_AWS_DIR" not in env
+    assert "DATAHUB_DEV_GCLOUD_DIR" not in env
+    # Pre-created so Docker does not create the SSO cache sub-mount source as root.
+    assert (isolated_home / ".aws" / "sso" / "cache").is_dir()
+
+
+def test_dev_env_makes_gcp_credentials_path_absolute(tmp_path, monkeypatch, isolated_home):
+    key_file = tmp_path / "key.json"
+    key_file.write_text("{}")
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "test.env")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", "key.json")
+
+    assert datahub_dev._dev_env()["GOOGLE_APPLICATION_CREDENTIALS"] == str(key_file)
+
+
+def test_dev_env_drops_missing_gcp_credentials_file(tmp_path, monkeypatch, isolated_home):
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "test.env")
+    monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", str(tmp_path / "missing.json"))
+
+    assert "GOOGLE_APPLICATION_CREDENTIALS" not in datahub_dev._dev_env()
 
 
 def test_load_flag_classification_handles_corrupt_json(tmp_path, monkeypatch):

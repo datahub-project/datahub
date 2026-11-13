@@ -85,6 +85,7 @@ Requirements:
 
 ### Breaking Changes
 
+- **(GMS / Semantic search / AWS Bedrock)** When `BEDROCK_EMBEDDING_AWS_REGION` is not set, GMS now calls Bedrock for embeddings in `BEDROCK_AWS_REGION` if that is set, otherwise in `AWS_REGION`, instead of always `us-west-2`. `us-west-2` remains the default when none of the three is set. This only affects deployments that use the `aws-bedrock` embedding provider. **Action:** if Bedrock must stay in `us-west-2` while `BEDROCK_AWS_REGION` or `AWS_REGION` points elsewhere, set `BEDROCK_EMBEDDING_AWS_REGION=us-west-2`.
 - [#21219](https://github.com/datahub-project/datahub/pull/21219) **(Ingestion / Qlik Sense)** On Qlik Sense Enterprise, QVD datasets are now placed in `Folder` containers that follow their file path (server or share, then each folder), and are browsed under those folders instead of the path split at its dots. Their URNs, schemas and lineage are unchanged. **Action:** update any bookmark or saved browse path that pointed at the old QVD hierarchy.
 
 - [#21186](https://github.com/datahub-project/datahub/pull/21186) **(Ingestion / Qlik Sense)** A few Qlik datasets get new identities or details, so the first run after upgrading soft-deletes their old versions when stale metadata removal is on:
