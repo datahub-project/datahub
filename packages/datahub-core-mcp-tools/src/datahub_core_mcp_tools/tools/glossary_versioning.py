@@ -2,8 +2,9 @@
 
 A versioned glossary term is one GlossaryTerm entity per version, linked into a
 VersionSet. These tools read that history; they are registered only when
-ENTITY_VERSIONING_ENABLED is true. The write tools for the same feature
-(create_glossary_term_version, add_related_terms) belong in this module too.
+ENTITY_VERSIONING_ENABLED is true. The write tool for the same feature
+(create_glossary_term_version) belongs in this module too; the glossary writes
+that need no versioning are in glossary.py.
 """
 
 from typing import Annotated, Dict

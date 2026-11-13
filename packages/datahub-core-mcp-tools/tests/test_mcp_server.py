@@ -47,6 +47,8 @@ async def test_registration_is_per_instance() -> None:
         "remove_tags",
         "add_terms",
         "remove_terms",
+        "create_glossary_term",
+        "add_related_terms",
     }
     assert await _tools(untouched) == {}
 
@@ -77,6 +79,8 @@ async def test_registering_twice_on_separate_instances_is_independent() -> None:
             "remove_tags",
             "add_terms",
             "remove_terms",
+            "create_glossary_term",
+            "add_related_terms",
         }
     )
 
@@ -121,6 +125,8 @@ async def test_write_tools_are_registered_by_default(
         "remove_tags",
         "add_terms",
         "remove_terms",
+        "create_glossary_term",
+        "add_related_terms",
     } <= writes
     assert writes <= set(registered)
 
