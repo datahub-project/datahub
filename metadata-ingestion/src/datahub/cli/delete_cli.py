@@ -27,7 +27,11 @@ logger = logging.getLogger(__name__)
 _RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
 _UNKNOWN_NUM_RECORDS = -1
 
-_DELETE_WITH_REFERENCES_TYPES = {
+# Types whose references are safe to strip on a hard delete: each reference is a list
+# entry or an optional field. For other types, reference cleanup deletes whole aspects of
+# entities that still exist, e.g. a dataFlow's jobs lose their key aspect (which
+# hard-deletes them) and a container's children lose their parent link.
+DELETE_WITH_REFERENCES_TYPES = {
     "tag",
     "corpuser",
     "corpGroup",
@@ -770,7 +774,7 @@ def _delete_one_urn(
 
         # Clean up references before the hard delete: the server finds them through
         # incoming graph edges, which the hard delete's MCL removes asynchronously.
-        if guess_entity_type(urn) in _DELETE_WITH_REFERENCES_TYPES:
+        if guess_entity_type(urn) in DELETE_WITH_REFERENCES_TYPES:
             referenced_entities_affected, _ = graph.delete_references_to_urn(
                 urn=urn,
                 dry_run=dry_run,
