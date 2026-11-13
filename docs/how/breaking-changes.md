@@ -27,7 +27,8 @@ server continues to work. Existing connection files and environment variables ke
 ### Databricks metric views as Semantic Models and Metrics
 
 If you ingest Databricks Unity Catalog metric views (`include_metric_views: true`), they
-can now be ingested as Semantic Models and Metrics instead of `Metric View` datasets. The new
+can now be ingested as Semantic Models and Metrics instead of `Metric View` datasets
+([PR #21252](https://github.com/datahub-project/datahub/pull/21252)). The new
 `emit_semantic_model_entities` setting works the same way as the Snowflake setting for semantic
 views. Left unset, it turns on against DataHub Cloud 2.1.0 or later with Metrics enabled, and
 stays off on DataHub Core and on runs with no server connection. When it is on, each metric

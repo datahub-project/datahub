@@ -13,7 +13,6 @@ from datahub.ingestion.source.unity.genie_client import GenieSpace, GenieSpaceCl
 from datahub.ingestion.source.unity.proxy_types import (
     Catalog,
     Column,
-    Metastore,
     Schema,
     Table,
     TableReference,
@@ -68,18 +67,9 @@ def _source(**config: object) -> Iterable[UnityCatalogSource]:
 def _metric_view(yaml_body: str, columns: Tuple[str, ...] = ()) -> Tuple[Table, Schema]:
     from databricks.sdk.service.catalog import TableType
 
-    metastore = Metastore(
-        id=None,
-        name="metastore",
-        comment=None,
-        global_metastore_id=None,
-        metastore_id=None,
-        owner=None,
-        region=None,
-        cloud=None,
-    )
+    # No metastore keeps the URNs to catalog.schema.table.
     catalog = Catalog(
-        id="c", name="c", metastore=metastore, comment=None, owner=None, type=None
+        id="c", name="c", metastore=None, comment=None, owner=None, type=None
     )
     schema = Schema(id="c.s", name="s", catalog=catalog, comment=None, owner=None)
     table = Table(
@@ -191,6 +181,17 @@ def test_metric_view_replaces_dataset_with_semantic_model(
     # Usage and profiling would otherwise recreate the dataset this mode drops.
     assert not source.table_refs
     assert source.report.metric_views.processed_entities
+
+
+def test_metric_view_is_not_profiled_in_semantic_model_mode() -> None:
+    for instance in _source(
+        emit_semantic_model_entities=True,
+        warehouse_id="w",
+        profiling={"enabled": True, "method": "sqlalchemy", "warehouse_id": "w"},
+    ):
+        assert instance.config.uses_table_level_profiler()
+        _emit(instance, STAR_SCHEMA)
+        assert VIEW not in instance.tables
 
 
 def test_dimensions_land_on_the_table_they_read(source: UnityCatalogSource) -> None:

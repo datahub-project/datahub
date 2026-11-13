@@ -946,16 +946,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     self.report.metric_views.dropped(table.id)
                 continue
 
-            if (
-                self.config.is_profiling_enabled()
-                and self.config.uses_table_level_profiler()
-                and self.config.profiling.pattern.allowed(
-                    table.ref.qualified_table_name
-                )
-                and not table.is_view
-            ):
-                self.tables[table.ref.qualified_table_name] = table
-
             metric_view_spec: Optional[Dict[str, Any]] = None
             if table.is_metric_view and self.config.include_metric_views:
                 metric_view_spec = self._load_metric_view_spec(table)
@@ -963,9 +953,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     metric_view_spec is not None
                     and self._metric_view_semantic_model_mapper is not None
                 ):
-                    # Not added to table_refs: usage and profiling would write
-                    # aspects to the metric view's dataset URN, which this mode
-                    # does not emit.
+                    # Not added to table_refs or the profiler's tables: usage and
+                    # profiling would write aspects to the metric view's dataset
+                    # URN, which this mode does not emit.
                     yield from self._process_metric_view_as_semantic_model(
                         table, schema, metric_view_spec
                     )
@@ -983,6 +973,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         context=table.ref.qualified_table_name,
                         log=False,
                     )
+
+            # After the semantic-model branch: the profiler writes to the dataset
+            # URN, which that mode does not emit for a metric view.
+            if (
+                self.config.is_profiling_enabled()
+                and self.config.uses_table_level_profiler()
+                and self.config.profiling.pattern.allowed(
+                    table.ref.qualified_table_name
+                )
+                and not table.is_view
+            ):
+                self.tables[table.ref.qualified_table_name] = table
 
             if table.is_view:
                 self.view_refs.add(table.ref)
