@@ -93,6 +93,10 @@ enum DataHubPageModuleType {
    */
   RELATED_METRICS
   /**
+   * Module showing how to connect AI tools such as Claude and Cursor to DataHub via MCP
+   */
+  MCP
+  /**
    * Unknown module type - this can occur with corrupted data or rolling back to versions without new modules
    */
   UNKNOWN

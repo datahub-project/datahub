@@ -133,3 +133,15 @@
     params: {}
     created: {{&auditStamp}}
     lastModified: {{&auditStamp}}
+- entityUrn: urn:li:dataHubPageModule:mcp
+  entityType: dataHubPageModule
+  aspectName: dataHubPageModuleProperties
+  changeType: UPSERT
+  aspect:
+    name: "Connect AI Tools"
+    type: MCP
+    visibility:
+      scope: GLOBAL
+    params: {}
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}

@@ -53,7 +53,8 @@ public class PageModuleService {
           "urn:li:dataHubPageModule:semantic_model_dimensions",
           "urn:li:dataHubPageModule:ai_context",
           "urn:li:dataHubPageModule:sql",
-          "urn:li:dataHubPageModule:related_metrics");
+          "urn:li:dataHubPageModule:related_metrics",
+          "urn:li:dataHubPageModule:mcp");
 
   public PageModuleService(@Nonnull EntityClient entityClient) {
     this.entityClient = entityClient;
