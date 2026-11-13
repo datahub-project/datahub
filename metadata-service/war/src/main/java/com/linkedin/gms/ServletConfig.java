@@ -18,6 +18,9 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.linkedin.gms.factory.clientwrite.ClientWriteRecorder;
+import com.linkedin.gms.factory.clientwrite.ClientWriteTrackingFilter;
+import com.linkedin.metadata.config.ClientWriteTrackingConfiguration;
 import com.linkedin.metadata.config.GMSConfiguration;
 import com.linkedin.metadata.ratelimit.RateLimitFilter;
 import com.linkedin.metadata.utils.BasePathUtils;
@@ -25,6 +28,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.r2.transport.http.server.RAPJakartaServlet;
 import com.linkedin.restli.server.RestliHandlerServlet;
 import io.datahubproject.iceberg.catalog.rest.common.IcebergJsonConverter;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.openapi.converter.StringToChangeCategoryConverter;
 import java.util.Arrays;
@@ -119,6 +123,27 @@ public class ServletConfig implements WebMvcConfigurer {
     FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>();
     registration.setFilter(filter);
     registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 3);
+    registration.setAsyncSupported(true);
+    registration.addUrlPatterns("/*");
+    return registration;
+  }
+
+  @Bean
+  public FilterRegistrationBean<ClientWriteTrackingFilter> clientWriteTrackingFilterRegistration(
+      ClientWriteRecorder clientWriteRecorder,
+      ClientWriteTrackingConfiguration clientWriteTrackingConfiguration,
+      @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
+    FilterRegistrationBean<ClientWriteTrackingFilter> registration = new FilterRegistrationBean<>();
+    registration.setFilter(
+        new ClientWriteTrackingFilter(
+            clientWriteRecorder,
+            BasePathUtils.resolveBasePath(
+                gmsConfiguration.getBasePathEnabled(), gmsConfiguration.getBasePath()),
+            systemOperationContext.getAuthentication().getActor().toUrnStr()));
+    registration.setEnabled(clientWriteTrackingConfiguration.isEnabled());
+    // After authentication (so the actor is known) and rate limiting (so rejected requests are
+    // not counted as writes).
+    registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 4);
     registration.setAsyncSupported(true);
     registration.addUrlPatterns("/*");
     return registration;

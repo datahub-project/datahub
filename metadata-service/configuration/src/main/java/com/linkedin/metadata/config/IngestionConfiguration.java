@@ -28,4 +28,7 @@ public class IngestionConfiguration {
    * _default} from the matrix applies.
    */
   private String deploymentId;
+
+  /** Counting of GMS writes by client type, version and actor. */
+  private ClientWriteTrackingConfiguration clientWriteTracking;
 }
