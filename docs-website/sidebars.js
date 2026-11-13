@@ -623,7 +623,7 @@ module.exports = {
           ],
         },
         {
-          label: "Subscriptions & Notifications",
+          label: "Notifications",
           type: "category",
           className: "saasOnly",
           link: {
