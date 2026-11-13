@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 from pydantic import Field, model_validator
 
@@ -141,6 +141,12 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     script_tables_found: int = 0
     script_tables_with_lineage: int = 0
     apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
+    qvds_found: int = 0
+    # QVD paths a load script names that resolve to no single file, such as a
+    # wildcard, a variable, a relative path or an unknown data connection.
+    unresolved_qvd_paths: LossyList[str] = field(default_factory=LossyList)
+    # QVDs loaded without a table label, which Qlik names itself.
+    unlabelled_qvd_loads: LossyList[str] = field(default_factory=LossyList)
     # Apps Qlik Cloud has no lineage graph for, read as having no tables.
     apps_without_lineage_graph: LossyList[str] = field(default_factory=LossyList)
     unresolved_data_connections: LossyList[str] = field(default_factory=LossyList)
@@ -243,6 +249,33 @@ class QlikOnPremConfig(ConfigModel):
         "lineage should resolve against.",
     )
 
+    read_data_model: bool = Field(
+        default=False,
+        description="Open each app with its data to read its data model, which "
+        "gives every table its fields and types, including tables loaded with "
+        "`LOAD *` and from QVDs, and lets charts link to exactly the tables and "
+        "fields they use. Off by default: apps are then opened without their "
+        "data, which is much faster, and table fields come only from the load "
+        "script. Opening an app with its data loads it into Engine memory until "
+        "the app cache time set in the QMC has passed since its last session, "
+        "reads one app at a time unless `max_workers` is set, and fails for apps "
+        "whose section access denies the service user their data.",
+    )
+    qvd_folder_aliases: Dict[str, str] = Field(
+        default={},
+        description="Folder paths to treat as the same folder when matching QVD "
+        "files across apps, as the path one app names -> the path to use. For "
+        "example `{'//qlik-sense/qvd': '//qlik-sense.corp.local/qvd'}`, when apps "
+        "reach one share by different host names or drive letters. A QVD is "
+        "identified by its file path, so files under these paths join into one "
+        "dataset.",
+    )
+    qvd_ignored_connections: List[str] = Field(
+        default=["ServerLogFolder", "ArchivedLogsFolder"],
+        description="Folder data connections whose QVDs are not ingested. By "
+        "default the connections the monitoring apps read their logs through.",
+    )
+
     @model_validator(mode="after")
     def warn_unused_server_cert_hostname(self) -> "QlikOnPremConfig":
         if self.server_cert_hostname and not self.verify_server_hostname:
@@ -293,9 +326,10 @@ class QlikSourceConfig(
         default=None,
         ge=1,
         description="Number of apps and datasets read at the same time, across "
-        "all spaces and streams. Each app read holds one Engine session open. Defaults to 4 on-prem, where apps "
-        "are opened without their data, and to 1 on Qlik Cloud, where every open "
-        "app's data is loaded.",
+        "all spaces and streams. Each app read holds one Engine session open. "
+        "Defaults to 1, as every app opened with its data is loaded into Engine "
+        "memory, and to 4 on-prem when `on_prem.read_data_model` is false and apps "
+        "are opened without their data.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
@@ -352,7 +386,7 @@ class QlikSourceConfig(
     def resolved_max_workers(self) -> int:
         if self.max_workers is not None:
             return self.max_workers
-        return 4 if self.on_prem is not None else 1
+        return 4 if self.on_prem is not None and not self.on_prem.read_data_model else 1
 
     def skips_unchanged_apps(self) -> bool:
         return self.on_prem is not None and self.on_prem.skip_unchanged_apps

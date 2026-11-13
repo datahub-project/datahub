@@ -1,5 +1,6 @@
 import re
-from typing import AbstractSet, Dict, List, Optional
+from collections import Counter
+from typing import AbstractSet, Dict, List, Optional, Set
 
 from pydantic import BaseModel, Field
 
@@ -24,7 +25,7 @@ CONTROL_RE = re.compile(
     r"|(?P<endswitch>END\s*SWITCH\b)|(?P<default>DEFAULT\b)"
     r"|(?P<switch>SWITCH\b[^\n]*)|(?P<case>CASE\b[^\n]*)"
     r"|(?P<endsub>END\s*SUB\b)|(?P<sub>SUB\b[^\n]*)|(?P<forloop>FOR\b[^\n]*)"
-    r"|(?:NEXT|DO|LOOP)\b[^\n]*)\s*",
+    r"|(?P<doloop>DO\b[^\n]*)|(?P<loopend>(?:NEXT|LOOP)\b[^\n]*))\s*",
     re.IGNORECASE,
 )
 SUB_NAME_RE = re.compile(
@@ -51,6 +52,7 @@ VARIABLE_RE = re.compile(
     r"^(?P<kind>SET|LET)\s+(?P<name>[^\s=]+)\s*=(?P<value>.*)$",
     re.IGNORECASE | re.DOTALL,
 )
+EXPRESSION_NAME_RE = re.compile(r"[^\W\d]\w*")
 STRING_LITERAL_RE = re.compile(r"'(?P<single>[^']*)'|\"(?P<double>[^\"]*)\"")
 VARIABLE_REFERENCE_RE = re.compile(r"\$\((?P<name>[^()=]+)\)")
 LABEL_RE = re.compile(
@@ -99,6 +101,22 @@ LOAD_SOURCE_RE = re.compile(
     re.IGNORECASE,
 )
 QUOTED_RE = re.compile(r"'[^']*'|\"[^\"]*\"|\[[^\]]*\]")
+_FILE_PATH = r"(?P<path>\[[^\]]*\]|'[^']*'|\"[^\"]*\"|[^\s;(]+)"
+_FORMAT_SPEC = r"(?:\s*\((?P<spec>[^)]*)\))?"
+# FROM followed by whitespace, so FROM_FIELD is not a file.
+FILE_SOURCE_RE = re.compile(rf"\bFROM\s+{_FILE_PATH}{_FORMAT_SPEC}", re.IGNORECASE)
+STORE_RE = re.compile(
+    rf"^STORE\s+(?P<what>.+?)\s+INTO\s+{_FILE_PATH}{_FORMAT_SPEC}\s*$",
+    re.IGNORECASE | re.DOTALL,
+)
+STORE_FROM_RE = re.compile(r"\bFROM\s+", re.IGNORECASE)
+# Scripts separate the connection from the path with / or, on Windows, a backslash.
+LIB_PATH_RE = re.compile(
+    r"^lib://(?P<connection>[^/\\]+)[/\\](?P<path>.+)$", re.IGNORECASE
+)
+# A file system path, which only legacy mode allows: C:\..., \\server\... or //server/...
+ABSOLUTE_PATH_RE = re.compile(r"^(?:[A-Za-z]:[\\/]|\\\\|//)")
+QVD_EXTENSION = ".qvd"
 LOAD_FIELDS_RE = re.compile(
     r"^LOAD\s+(?:DISTINCT\s+)?(?P<fields>.*)$", re.IGNORECASE | re.DOTALL
 )
@@ -313,6 +331,42 @@ class ScriptTable(BaseModel):
     crosstable: Optional[CrossTable] = None
 
 
+class QvdReference(BaseModel):
+    """A QVD file a script names: a path in a folder data connection, as in
+    `lib://<connection>/<path>`, or, in legacy mode, a file system path."""
+
+    connection: Optional[str] = None
+    path: str
+
+
+class QvdLoad(BaseModel):
+    label: str
+    file: QvdReference
+    # The fields of the topmost LOAD, which names the table.
+    fields: PrecedingLoad
+
+
+class QvdStore(BaseModel):
+    label: str
+    file: QvdReference
+    # The fields of `STORE <fields> FROM <table>`; None stores all the table's.
+    fields: Optional[PrecedingLoad] = None
+
+
+class ParsedScript(BaseModel):
+    tables: List[ScriptTable] = []
+    qvd_loads: List[QvdLoad] = []
+    qvd_stores: List[QvdStore] = []
+    # QVD paths that name no single file the connector can resolve, such as a
+    # wildcard, a variable it could not expand or a relative path.
+    unresolved_qvd_paths: List[str] = []
+    # A STORE wrote a QVD whose path can't be resolved, so the QVDs the app
+    # writes are not all known.
+    has_unresolved_store: bool = False
+    # QVDs loaded without a label, which Qlik names itself.
+    unlabelled_qvd_loads: List[str] = []
+
+
 class ScriptTableLineage(BaseModel):
     label: str
     identifier: str
@@ -328,6 +382,8 @@ class DataConnectionInfo(BaseModel):
     name: str
     platform: Optional[str] = None
     database: Optional[str] = None
+    # The folder of a folder data connection, for QVD paths in it.
+    folder_path: Optional[str] = None
 
 
 class ResolvedConnection(BaseModel):
@@ -443,6 +499,20 @@ def _first_group(match: "re.Match[str]") -> str:
 class _BranchState(BaseModel):
     connection: Optional[str] = None
     variables: Dict[str, str] = {}
+    # Variables the visible script gives values it can't know here, such as a
+    # loop variable, so the app's or recipe's single value would be wrong.
+    unknown: Set[str] = set()
+
+    def set_variable(self, name: str, value: Optional[str]) -> None:
+        self.unknown.discard(name)
+        if value is None:
+            self.variables.pop(name, None)
+        else:
+            self.variables[name] = value
+
+    def forget_variable(self, name: str) -> None:
+        self.variables.pop(name, None)
+        self.unknown.add(name)
 
 
 class _Block(BaseModel):
@@ -460,6 +530,15 @@ class _ControlFlowTracker(BaseModel):
 
     state: _BranchState = Field(default_factory=_BranchState)
     blocks: List[_Block] = []
+    # The variables each FOR or DO loop the current statement runs in made
+    # unknown, innermost last. After the loop they hold their last value,
+    # which is the app's.
+    loops: List[Set[str]] = []
+    # How often the script assigns each variable, as it runs, and in all. The
+    # app keeps a variable's value from its last assignment, which is also
+    # its value before the first, as variables persist between reloads.
+    assignments: Counter = Field(default_factory=Counter)
+    total_assignments: Counter = Field(default_factory=Counter)
 
     def apply_control(self, control: "re.Match[str]") -> None:
         if control.group("if") or control.group("switch"):
@@ -482,13 +561,34 @@ class _ControlFlowTracker(BaseModel):
         elif self.blocks and (control.group("endif") or control.group("endswitch")):
             self._end_block(self.blocks.pop())
         elif control.group("forloop"):
+            self.loops.append(set())
             # The loop variable takes values that are not known here.
             variable = FOR_VARIABLE_RE.match(control.group("forloop"))
             if variable:
-                self.state.variables.pop(variable.group("name"), None)
+                self._forget_variable(variable.group("name"))
+        elif control.group("doloop"):
+            self.loops.append(set())
+        elif control.group("loopend") and self.loops:
+            varied = self.loops.pop()
+            if self.loops:
+                self.loops[-1].update(varied)
+            else:
+                self.state.unknown.difference_update(
+                    name for name in varied if self._assigned_for_the_last_time(name)
+                )
+
+    def _assigned_for_the_last_time(self, name: str) -> bool:
+        return self.assignments[name] >= self.total_assignments[name]
+
+    def _forget_variable(self, name: str) -> None:
+        self.state.forget_variable(name)
+        if self.loops:
+            self.loops[-1].add(name)
 
     def forget_state(self) -> None:
-        self.state = _BranchState()
+        # An included script can't make a loop variable or a disagreeing
+        # branch value known again.
+        self.state = _BranchState(unknown=self.state.unknown)
 
     def _next_branch(self, block: _Block, is_default: bool) -> None:
         if block.in_case:
@@ -502,31 +602,70 @@ class _ControlFlowTracker(BaseModel):
         if not block.has_default:
             outcomes.append(block.before)
         first, *rest = outcomes
+        variables = {
+            name: value
+            for name, value in first.variables.items()
+            if all(other.variables.get(name) == value for other in rest)
+        }
+        set_anywhere = {name for outcome in outcomes for name in outcome.variables}
+        if self.loops:
+            # Like a variable set in the loop, it holds the app's value after.
+            self.loops[-1].update(set_anywhere - variables.keys())
         self.state = _BranchState(
             connection=first.connection
             if all(other.connection == first.connection for other in rest)
             else None,
-            variables={
-                name: value
-                for name, value in first.variables.items()
-                if all(other.variables.get(name) == value for other in rest)
-            },
+            variables=variables,
+            unknown=set().union(*(outcome.unknown for outcome in outcomes))
+            | (set_anywhere - variables.keys()),
         )
 
-    def record_variable(self, statement: str) -> bool:
+    def record_variable(self, statement: str, in_sub: bool = False) -> bool:
         match = VARIABLE_RE.match(statement)
         if not match:
             return False
         value = match.group("value").strip()
         literal = STRING_LITERAL_RE.fullmatch(value)
-        if literal:
-            self.state.variables[match.group("name")] = _first_group(literal)
+        name = match.group("name")
+        is_let = match.group("kind").upper() == "LET"
+        self.assignments[name] += 1
+        if self._reads_unknown(value, is_let and literal is None):
+            # Such as SET vPath = $(vFile) in a loop over files: a copy of an
+            # unknown value is unknown too.
+            self._forget_variable(name)
+        elif literal:
+            self.state.set_variable(match.group("name"), _first_group(literal))
         elif match.group("kind").upper() == "SET":
-            self.state.variables[match.group("name")] = value
+            self.state.set_variable(match.group("name"), value)
+        elif (
+            self.loops
+            or in_sub
+            or self.blocks
+            or not self._assigned_for_the_last_time(name)
+        ):
+            # Run more than once, in a branch that may not have run, or set
+            # again later, so the value the app's last reload left need not be
+            # this one.
+            self._forget_variable(name)
         else:
-            # LET evaluates an expression, so its value is unknown here.
-            self.state.variables.pop(match.group("name"), None)
+            # LET evaluates an expression the parser can't, so the value the
+            # app's last reload left, if any, stands in for it.
+            self.state.set_variable(match.group("name"), None)
         return True
+
+    def _reads_unknown(self, value: str, is_expression: bool) -> bool:
+        names = {
+            reference.group("name").strip()
+            for reference in VARIABLE_REFERENCE_RE.finditer(value)
+        }
+        if is_expression:
+            # A LET expression can read a variable by its bare name.
+            names.update(EXPRESSION_NAME_RE.findall(STRING_LITERAL_RE.sub("", value)))
+        return not names.isdisjoint(self.state.unknown)
+
+
+# How many levels of variables inside variables a path is expanded through.
+_MAX_VARIABLE_DEPTH = 5
 
 
 def _expand_variables(statement: str, variables: Dict[str, str]) -> str:
@@ -536,6 +675,31 @@ def _expand_variables(statement: str, variables: Dict[str, str]) -> str:
         ),
         statement,
     )
+
+
+def unquoted_values(variables: Dict[str, str]) -> Dict[str, str]:
+    """A variable set with SET keeps the quotes around its value, which a path
+    built from it, such as $(vFolder)orders.qvd, must not hold. A value that
+    starts with `=` is an expression Qlik evaluates, so it is left out."""
+    unquoted = {}
+    for name, value in variables.items():
+        value = value.strip()
+        if value.startswith("="):
+            continue
+        if len(value) > 1 and value[0] in ("'", '"') and value[-1] == value[0]:
+            value = value[1:-1]
+        unquoted[name] = value
+    return unquoted
+
+
+def _expand_nested_variables(text: str, variables: Dict[str, str]) -> str:
+    """Expands variables whose values hold other variables, up to a depth."""
+    for _ in range(_MAX_VARIABLE_DEPTH):
+        expanded = _expand_variables(text, variables)
+        if expanded == text:
+            break
+        text = expanded
+    return text
 
 
 def _unquote(name: str) -> str:
@@ -675,7 +839,15 @@ def _script_pieces(script: str) -> _Script:
 
 class _ScriptParser(BaseModel):
     subs: Dict[str, _Sub]
+    # The app's variables from the Engine, for paths the script builds from
+    # variables it can't evaluate.
+    app_variables: Dict[str, str] = {}
     tables: List[ScriptTable] = []
+    qvd_loads: List[QvdLoad] = []
+    qvd_stores: List[QvdStore] = []
+    unresolved_qvd_paths: List[str] = []
+    has_unresolved_store: bool = False
+    unlabelled_qvd_loads: List[str] = []
     flow: _ControlFlowTracker = Field(default_factory=_ControlFlowTracker)
     pending_label: Optional[str] = None
     pending_loads: List[PrecedingLoad] = []
@@ -724,24 +896,27 @@ class _ScriptParser(BaseModel):
             return
         # The body runs with the connection and variables in effect here, and
         # its parameters hold the arguments only for the call.
-        variables = self.flow.state.variables
-        saved = {param: variables.get(param) for param in sub.params}
+        state = self.flow.state
+        saved = {
+            param: (state.variables.get(param), param in state.unknown)
+            for param in sub.params
+        }
         values = _split_top_level(args) if args else []
         for index, param in enumerate(sub.params):
             value = _literal_value(values[index]) if index < len(values) else None
             if value is None:
-                variables.pop(param, None)
+                state.forget_variable(param)
             else:
-                variables[param] = value
+                state.set_variable(param, value)
         self.calling.append(name.lower())
         self.run(sub.body)
         self.calling.pop()
-        variables = self.flow.state.variables
-        for param, value in saved.items():
-            if value is None:
-                variables.pop(param, None)
+        state = self.flow.state
+        for param, (value, unknown) in saved.items():
+            if unknown:
+                state.forget_variable(param)
             else:
-                variables[param] = value
+                state.set_variable(param, value)
 
     def _statement(self, statement: str) -> None:
         statement, includes = INCLUDE_RE.subn("", statement)
@@ -755,7 +930,7 @@ class _ScriptParser(BaseModel):
         if EXIT_SCRIPT_RE.match(statement) and not self.flow.blocks:
             self.exited = True
             return
-        if self.flow.record_variable(statement):
+        if self.flow.record_variable(statement, in_sub=bool(self.calling)):
             self._clear_pending()
             return
         call = CALL_RE.match(statement)
@@ -770,6 +945,11 @@ class _ScriptParser(BaseModel):
             return
         if DISCONNECT_RE.match(statement):
             self.flow.state.connection = None
+            self._clear_pending()
+            return
+        store = STORE_RE.match(statement)
+        if store:
+            self._store(store)
             self._clear_pending()
             return
 
@@ -835,15 +1015,152 @@ class _ScriptParser(BaseModel):
             self.pending_loads.append(_parse_load_fields(statement))
         else:
             if LOAD_RE.match(statement):
-                self.last_label = label
+                if not (skip or mapping or self.pending_skip or self.pending_mapping):
+                    self._qvd_load(label or self.pending_label, statement)
+                # A preceding LOAD's label names the table a later Concatenate
+                # or Join without a target adds to.
+                self.last_label = label or self.pending_label
             self._clear_pending()
+
+    def _fallback_variables(self) -> Dict[str, str]:
+        # Unquoted, as the script's own quoted SET values are, and without
+        # expressions (`=...`) Qlik evaluates.
+        unknown = self.flow.state.unknown
+        return unquoted_values(
+            {
+                name: value
+                for name, value in self.app_variables.items()
+                if name not in unknown
+            }
+        )
+
+    def _expand_app_variables(self, path: str) -> str:
+        """A path with the app's variables as its last reload left them, which
+        include those set with LET or in an included script that the parser
+        can't evaluate. A variable can hold another, such as a folder built
+        from a connection prefix."""
+        return _expand_nested_variables(path, self._fallback_variables())
+
+    def _qvd_file(
+        self, path: str, spec: Optional[str], default_qvd: bool
+    ) -> Optional[QvdReference]:
+        """The QVD file a LOAD or STORE names, or None when it names another
+        format or no single resolvable file."""
+        path = _unquote(path.strip()).strip()
+        if "$(" in path:
+            # Expanded first, as the variable may hold the `.qvd` name.
+            path = self._expand_app_variables(path)
+        format_name = (spec or "").split(",")[0].strip().lower()
+        if format_name:
+            is_qvd = format_name == "qvd"
+        else:
+            # LOAD assumes txt and STORE assumes qvd when the format is omitted.
+            is_qvd = default_qvd or path.lower().endswith(QVD_EXTENSION)
+        if not is_qvd:
+            return None
+        if any(
+            reference.group("name").strip() in self.flow.state.unknown
+            for reference in VARIABLE_REFERENCE_RE.finditer(path)
+        ):
+            # Such as a connection prefix that varies in a loop: it is not an
+            # unset prefix that expands to nothing.
+            self.unresolved_qvd_paths.append(path)
+            return None
+        lib_path = LIB_PATH_RE.match(path)
+        if (
+            lib_path
+            and "$(" not in lib_path.group("path")
+            and "*" not in path
+            and "?" not in path
+        ):
+            # A variable left in the connection name is resolved against the
+            # folder connections, as one Qlik expands to nothing.
+            return QvdReference(
+                connection=lib_path.group("connection"),
+                path=lib_path.group("path"),
+            )
+        if "$(" in path or "*" in path or "?" in path:
+            self.unresolved_qvd_paths.append(path)
+            return None
+        if ABSOLUTE_PATH_RE.match(path):
+            return QvdReference(path=path)
+        # Relative to the Directory statement or the working directory.
+        self.unresolved_qvd_paths.append(path)
+        return None
+
+    def _qvd_load(self, label: Optional[str], statement: str) -> None:
+        # FROM is found with quoted text masked, so a quoted field or path
+        # can't hold it; the path itself is then read from the statement.
+        masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), statement)
+        keyword = STORE_FROM_RE.search(masked)
+        source = FILE_SOURCE_RE.match(statement, keyword.start()) if keyword else None
+        if source is None:
+            return
+        file = self._qvd_file(source.group("path"), source.group("spec"), False)
+        # Without a label the table is named by Qlik, which a STORE can't be
+        # matched against reliably.
+        if file is None:
+            return
+        if not label:
+            self.unlabelled_qvd_loads.append(
+                f"lib://{file.connection}/{file.path}" if file.connection else file.path
+            )
+            return
+        # The file's columns go through the statement's own field list and
+        # then every preceding load above it.
+        fields = _parse_load_fields(statement[: source.start()])
+        for load in reversed(self.pending_loads):
+            fields = _stack_load(load, fields)
+        self.qvd_loads.append(QvdLoad(label=label, file=file, fields=fields))
+
+    def _store(self, store: "re.Match[str]") -> None:
+        unresolved = len(self.unresolved_qvd_paths)
+        file = self._qvd_file(store.group("path"), store.group("spec"), True)
+        if file is None:
+            self.has_unresolved_store |= len(self.unresolved_qvd_paths) > unresolved
+            return
+        what = store.group("what")
+        masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), what)
+        # The last FROM, as a field list may itself hold one in an expression.
+        from_table = next(reversed(list(STORE_FROM_RE.finditer(masked))), None)
+        table = what[from_table.end() :] if from_table else what
+        fields = (
+            _parse_load_fields(f"LOAD {what[: from_table.start()]}")
+            if from_table
+            else None
+        )
+        self.qvd_stores.append(
+            QvdStore(
+                label=_unquote(table.strip()),
+                file=file,
+                fields=None if fields is not None and fields.keeps_all else fields,
+            )
+        )
+
+
+def parse_script(
+    script: str, app_variables: Optional[Dict[str, str]] = None
+) -> ParsedScript:
+    parsed = _script_pieces(script)
+    # A first pass counts the assignments the script runs, leaving out
+    # comments, SUBs it never calls and anything after EXIT SCRIPT.
+    first = _ScriptParser(subs=parsed.subs, app_variables=app_variables or {})
+    first.run(parsed.pieces)
+    parser = _ScriptParser(subs=parsed.subs, app_variables=app_variables or {})
+    parser.flow.total_assignments = first.flow.assignments
+    parser.run(parsed.pieces)
+    return ParsedScript(
+        tables=parser.tables,
+        qvd_loads=parser.qvd_loads,
+        qvd_stores=parser.qvd_stores,
+        unresolved_qvd_paths=parser.unresolved_qvd_paths,
+        has_unresolved_store=parser.has_unresolved_store,
+        unlabelled_qvd_loads=parser.unlabelled_qvd_loads,
+    )
 
 
 def parse_load_script(script: str) -> List[ScriptTable]:
-    parsed = _script_pieces(script)
-    parser = _ScriptParser(subs=parsed.subs)
-    parser.run(parsed.pieces)
-    return parser.tables
+    return parse_script(script).tables
 
 
 def _block_end(text: str, position: int, opening: str, closing: str) -> int:
@@ -876,6 +1193,37 @@ def strip_set_values(expression: str) -> str:
             match = SET_VALUES_NEXT_RE.match(expression, position)
     kept.append(expression[position:])
     return "".join(kept)
+
+
+def _stack_load(upper: PrecedingLoad, lower: PrecedingLoad) -> PrecedingLoad:
+    """One load equivalent to `upper` reading the fields `lower` produces, so
+    each field's sources are names the lower load reads."""
+    if upper.unreadable or lower.unreadable:
+        return PrecedingLoad(unreadable=True)
+    lower_sources = {field.name: field.sources for field in lower.fields}
+
+    def sources(name: str) -> List[str]:
+        if name in lower_sources:
+            return lower_sources[name]
+        # LOAD * passes the names below it through unchanged.
+        return [name] if lower.keeps_all else []
+
+    fields = [
+        LoadField(
+            name=field.name,
+            named=field.named,
+            sources=list(
+                dict.fromkeys(
+                    source for name in field.sources for source in sources(name)
+                )
+            ),
+        )
+        for field in upper.fields
+    ]
+    if upper.keeps_all:
+        own = {field.name for field in fields}
+        fields = [field for field in lower.fields if field.name not in own] + fields
+    return PrecedingLoad(keeps_all=upper.keeps_all and lower.keeps_all, fields=fields)
 
 
 def _parse_load_fields(statement: str) -> PrecedingLoad:
