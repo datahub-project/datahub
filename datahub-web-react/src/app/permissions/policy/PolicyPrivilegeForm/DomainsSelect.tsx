@@ -69,6 +69,7 @@ export default function DomainsSelect({
                         label=""
                         isMultiSelect
                         selectChildrenWithParent={false}
+                        includeSubdomains
                     />
                 )}
             </SelectContainer>
