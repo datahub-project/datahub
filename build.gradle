@@ -608,6 +608,20 @@ allprojects {
       if (project.configurations.getByName("testImplementation").getDependencies()
               .any { it.getName().contains("testng") }) {
         useTestNG()
+        // Gradle's TestNG detection ignores method annotations on abstract classes, so a subclass
+        // whose only @Test methods are inherited from one is silently never run. Fail instead.
+        task.doFirst {
+          // Only where Gradle's TestNG class scan decides what runs: not after a module switches the
+          // task to JUnit, and not when suite XML files pick the classes.
+          if (task.scanForTestClasses && task.options instanceof org.gradle.api.tasks.testing.testng.TestNGOptions
+              && task.options.suiteXmlFiles.isEmpty()) {
+            def problems = io.datahubproject.TestNgInheritedTestsCheck.findUndetectedTestClasses(
+                task.candidateClassFiles.files, task.testClassesDirs.files + task.classpath.files)
+            if (!problems.isEmpty()) {
+              throw new GradleException("TestNG test classes Gradle would skip:\n  " + problems.join("\n  "))
+            }
+          }
+        }
         // Configure TestNG to work better with test-logger
         testLogging {
           events "failed", "skipped"

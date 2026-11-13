@@ -1,1 +1,1 @@
-export { IncidentPriorityLabel } from './IncidentPriorityLabel';
+export { IncidentPriorityIcon, IncidentPriorityLabel } from './IncidentPriorityLabel';

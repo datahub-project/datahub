@@ -1,9 +1,10 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { MultiStepFormProvider, useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 import { MultiStepFormProviderProps, Step } from '@app/sharedV2/forms/multiStepForm/types';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // Define a test state type
 interface TestState {

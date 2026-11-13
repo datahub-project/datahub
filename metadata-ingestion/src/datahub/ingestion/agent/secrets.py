@@ -2,6 +2,7 @@ import copy
 import os
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import (
     Dict,
     Iterator,
@@ -55,26 +56,71 @@ _DATAHUB_ENV_ALIASES = {
 }
 
 
+class ReferenceUnset(Exception):
+    """Raised by a resolver that owns a reference but has no value for it, so
+    later resolvers must not answer it either."""
+
+
+def _read_profile_value(config_path: Path, ref: str) -> Optional[str]:
+    if not config_path.is_file():
+        return None
+    import yaml
+
+    try:
+        with config_path.open() as stream:
+            data = yaml.safe_load(stream) or {}
+    except (OSError, yaml.YAMLError):
+        # Declining, not failing: the next resolver tries, and an
+        # unresolvable ref fails by name.
+        return None
+    # Not get_url_and_token(): it raises on a missing config and warns on
+    # an expired token, and this command writes JSON.
+    value = _lookup_path(data, _DATAHUB_ENV_ALIASES.get(ref, ref))
+    return str(value) if value is not None else None
+
+
+class SelectedProfileResolver:
+    """DATAHUB_GMS_URL and DATAHUB_GMS_TOKEN from a profile selected by name
+    (--profile, DATAHUB_PROFILE, current-profile), ahead of the environment.
+
+    A profile pairs a server with its credential. Letting an exported variable
+    answer one of the two would send one instance's token to another, so a
+    field the profile lacks is unset rather than taken from the environment.
+    """
+
+    def resolve(self, ref: str) -> Optional[str]:
+        if ref not in _DATAHUB_ENV_ALIASES:
+            return None
+        import click
+
+        from datahub.cli.config_utils import MissingConfigError, selected_named_profile
+
+        try:
+            resolved = selected_named_profile()
+        except (MissingConfigError, click.UsageError):
+            return None
+        if resolved is None:
+            return None
+        value = _read_profile_value(resolved.path, ref)
+        if value is None:
+            raise ReferenceUnset(ref)
+        return value
+
+
 class DatahubEnvResolver:
     def resolve(self, ref: str) -> Optional[str]:
         # Lazy: the CLI config is read only when this resolver is used.
-        from datahub.cli.config_utils import DATAHUB_CONFIG_PATH
+        import click
 
-        if not os.path.exists(DATAHUB_CONFIG_PATH):
-            return None
-        import yaml
+        from datahub.cli.config_utils import MissingConfigError, resolve_profile
 
+        # The selected profile (--profile, DATAHUB_PROFILE, current-profile),
+        # not always ~/.datahubenv, so refs match the instance being targeted.
         try:
-            with open(DATAHUB_CONFIG_PATH) as stream:
-                data = yaml.safe_load(stream) or {}
-        except (OSError, yaml.YAMLError):
-            # Declining, not failing: the next resolver tries, and an
-            # unresolvable ref fails by name.
+            config_path = resolve_profile().path
+        except (MissingConfigError, click.UsageError):
             return None
-        # Not get_url_and_token(): it raises on a missing config and warns on
-        # an expired token, and this command writes JSON.
-        value = _lookup_path(data, _DATAHUB_ENV_ALIASES.get(ref, ref))
-        return str(value) if value is not None else None
+        return _read_profile_value(config_path, ref)
 
 
 def _lookup_path(data: object, path: str) -> Optional[object]:
@@ -88,7 +134,7 @@ def _lookup_path(data: object, path: str) -> Optional[object]:
 
 
 def default_resolvers() -> List[SecretResolver]:
-    return [EnvVarResolver(), DatahubEnvResolver()]
+    return [SelectedProfileResolver(), EnvVarResolver(), DatahubEnvResolver()]
 
 
 # The setting expandvars reads from the same environ after a miss.
@@ -118,7 +164,10 @@ class _ResolverEnviron(MutableMapping[str, str]):
         if name in self._assigned:
             return self._assigned[name]
         for resolver in self._resolvers:
-            value = resolver.resolve(name)
+            try:
+                value = resolver.resolve(name)
+            except ReferenceUnset:
+                break
             if value is not None:
                 # Every resolved value is masked, a non-secret one (a host) too.
                 if value:

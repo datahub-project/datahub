@@ -1,9 +1,9 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useDomainOwnerAggregations from '@app/domainV2/nestedDomains/domainSidebarFilters/useDomainOwnerAggregations';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType } from '@types';
 

@@ -1,9 +1,9 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { useCanUpdateGlossaryEntity } from '@app/entityV2/summary/shared/useCanUpdateGlossaryEntity';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType } from '@types';
 

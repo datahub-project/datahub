@@ -1,10 +1,10 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { Mock, vi } from 'vitest';
 
 import useStructuredProp from '@app/govern/structuredProperties/useStructuredProp';
 import { StructuredProp } from '@app/govern/structuredProperties/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 vi.mock('@app/govern/structuredProperties/utils', () => ({
     getEntityTypeUrn: vi.fn((_, entityType) => `urn:li:entityType:${entityType}`),

@@ -297,6 +297,9 @@ class PrecedingLoad(BaseModel):
 
 class ScriptTable(BaseModel):
     label: str
+    # True when the parser made the label up, as the table's name in Qlik
+    # could not be read from the statement.
+    label_unknown: bool = False
     connection: Optional[str] = None
     sql: str
     # The LOAD statements stacked on the SQL, top first.
@@ -313,6 +316,7 @@ class ScriptTable(BaseModel):
 class ScriptTableLineage(BaseModel):
     label: str
     identifier: str
+    label_unknown: bool = False
     connection: Optional[str] = None
     upstream_urns: List[str] = []
     # Downstream column name to upstream schema field URNs.
@@ -796,15 +800,14 @@ class _ScriptParser(BaseModel):
                 else:
                     # A reshaping under the preceding loads hides the fields.
                     crosstable = None if reshaped else self.pending_crosstable
-                table_label = (
-                    label
-                    or self.pending_label
-                    or _from_table_name(sql.group("sql"))
-                    or f"table_{len(self.tables) + 1}"
+                known_label = (
+                    label or self.pending_label or _from_table_name(sql.group("sql"))
                 )
+                table_label = known_label or f"table_{len(self.tables) + 1}"
                 self.tables.append(
                     ScriptTable(
                         label=table_label,
+                        label_unknown=known_label is None,
                         connection=self.flow.state.connection,
                         sql=sql.group("sql"),
                         preceding_loads=self.pending_loads,
@@ -1061,6 +1064,30 @@ def _strip_expansions(expression: str) -> str:
     return "".join(kept)
 
 
+_VARIABLE_EXPANSION_RE = re.compile(r"\$\(([^()=$]+)\)")
+
+
+def expand_variables(expression: str, variables: Dict[str, str]) -> str:
+    """Expands $(name) with the variable's definition, as Qlik does when the
+    definition is plain text. A definition starting with = expands to its
+    calculated value, and an unknown or parameterised variable is left as is."""
+    for _ in range(10):  # Bounded, as a variable can expand to itself.
+
+        def definition(match: "re.Match[str]") -> str:
+            value = variables.get(match.group(1).strip())
+            return (
+                match.group(0)
+                if value is None or value.lstrip().startswith("=")
+                else value
+            )
+
+        expanded = _VARIABLE_EXPANSION_RE.sub(definition, expression)
+        if expanded == expression:
+            break
+        expression = expanded
+    return expression
+
+
 def reads_unknown_fields(expression: str) -> bool:
     """Whether a $(variable) expansion outside comments and set modifier values
     may stand for fields the expression reads."""
@@ -1179,6 +1206,12 @@ def has_qualified_name(
     if platform_instance and name.lower().startswith(f"{platform_instance.lower()}."):
         name = name[len(platform_instance) + 1 :]
     return len(name.split(".")) >= required
+
+
+def app_table_identifier(app_id: str, table_name: str) -> str:
+    """The dataset name of an app's table, however the table was found: its
+    URN must not change between a script, data model and lineage graph read."""
+    return f"{app_id}.{table_name}".lower()
 
 
 def connection_lookup_names(name: str) -> List[str]:

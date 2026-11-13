@@ -1,7 +1,8 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useRoleSelector } from '@app/identity/user/useRoleSelector';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useListRolesQuery } from '@graphql/role.generated';
 import { DataHubRole } from '@types';

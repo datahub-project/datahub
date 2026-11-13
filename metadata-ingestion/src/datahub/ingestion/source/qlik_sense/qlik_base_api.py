@@ -21,6 +21,7 @@ import requests
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     Item,
+    ListedDataset,
     Sheet,
     Space,
     UnchangedApp,
@@ -80,10 +81,16 @@ class QlikBaseAPI(ABC):
         self.unread_items: List[UnreadItem] = []
         # Apps read again because checking whether they changed failed.
         self.change_check_failures: List[str] = []
+        # Datasets whose lineage graph could not be read.
+        self.lineage_read_failures: List[str] = []
+        self.field_lineage_failures: List[str] = []
 
     def _record_failed_user_lookup(self, user_id: str, e: Exception) -> None:
         log_read_error(f"Unable to fetch user with id {user_id}. Exception: {e}")
         self.failed_user_lookups[user_id] = str(e)
+
+    # Why the datasets of every space could not be listed, if they couldn't.
+    dataset_listing_error: Optional[str] = None
 
     def _record_unread(self, name: str, message: str, e: Exception) -> None:
         log_read_error(message)
@@ -97,6 +104,11 @@ class QlikBaseAPI(ABC):
 
     @abstractmethod
     def get_data_connections(self) -> Dict[str, DataConnectionInfo]: ...
+
+    def list_datasets(self) -> Optional[List[ListedDataset]]:
+        """Datasets of every space, or None when they could not be listed."""
+        # Enterprise on Windows has no Qlik datasets.
+        return []
 
     @abstractmethod
     def _list_items(self, space_id: str) -> Iterable[Dict]:
@@ -193,6 +205,18 @@ class QlikBaseAPI(ABC):
         except Exception as e:
             on_error(f"Unable to fetch load script of app {app_id}. Exception: {e}")
         return None
+
+    @staticmethod
+    def _read_variables(
+        websocket_connection: WebsocketConnection, app_id: str
+    ) -> Dict[str, str]:
+        # Without the variables, charts that expand one link to every table of
+        # the app, as before, so a failed read leaves the app complete.
+        try:
+            return websocket_connection.get_variables()
+        except Exception as e:
+            log_read_error(f"Unable to read the variables of app {app_id}: {e}")
+        return {}
 
     def _get_sheet(
         self,
