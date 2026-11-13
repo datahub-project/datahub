@@ -220,6 +220,10 @@ def _qvd_fields(writes: List[QvdWrite], reads: List[str]) -> Optional[List[str]]
     return reads or None
 
 
+# Why the QVD writes of an app with an unresolved STORE are not all known.
+UNRESOLVED_STORE = "a STORE path could not be resolved"
+
+
 def _qlik_app_id(qri: str) -> Optional[str]:
     match = QLIK_APP_QRI_RE.match(qri)
     return match.group(1) if match else None
@@ -556,6 +560,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
         else:
             self._app_qvds[app_id] = previous.qvds
+            if not previous.qvds.writes_complete:
+                self._apps_qvds_unknown[app_id] = UNRESOLVED_STORE
         if previous.table_urns_by_qri is None:
             # Recorded before table URNs were kept in the state.
             self._apps_tables_unknown.add(app_id)
@@ -2172,9 +2178,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # unknown.
             self._apps_qvds_unknown[app.id] = "data connections could not be listed"
         elif parsed.has_unresolved_store or lineage.has_unresolved_store:
-            # Such as a path built from a variable the app's variables, which
-            # may have failed to read, don't hold.
-            self._apps_qvds_unknown[app.id] = "a STORE path could not be resolved"
+            # Such as a loop STORE, or a path built from a variable that failed
+            # to read. The writes that resolved are still added, and the app's
+            # edges into QVDs are kept.
+            lineage.qvds.writes_complete = False
+            self._app_qvds[app.id] = lineage.qvds
+            self._apps_qvds_unknown[app.id] = UNRESOLVED_STORE
         else:
             self._app_qvds[app.id] = lineage.qvds
         return lineage
